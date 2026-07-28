@@ -20,17 +20,26 @@ export default async function AvaliacoesPage({
   if (statusFilter === 'RESPONDED') whereClause.status = 'RESPONDED';
   if (ratingFilter) whereClause.rating = ratingFilter;
 
-  const reviews = await prisma.review.findMany({
-    where: whereClause,
-    include: {
-      response: true
-    },
-    orderBy: { publishedAt: 'desc' },
-  });
+  let reviews: any[] = [];
+  let totalCount = 0;
+  let pendingCount = 0;
+  let respondedCount = 0;
 
-  const totalCount = await prisma.review.count({ where: { tenantId } });
-  const pendingCount = await prisma.review.count({ where: { tenantId, status: 'PENDING' } });
-  const respondedCount = await prisma.review.count({ where: { tenantId, status: 'RESPONDED' } });
+  try {
+    reviews = await prisma.review.findMany({
+      where: whereClause,
+      include: {
+        response: true
+      },
+      orderBy: { publishedAt: 'desc' },
+    });
+
+    totalCount = await prisma.review.count({ where: { tenantId } });
+    pendingCount = await prisma.review.count({ where: { tenantId, status: 'PENDING' } });
+    respondedCount = await prisma.review.count({ where: { tenantId, status: 'RESPONDED' } });
+  } catch (err) {
+    console.error('Error fetching reviews:', err);
+  }
 
   return (
     <div className="layout" style={{ gridTemplateColumns: '1fr' }}>
