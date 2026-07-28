@@ -15,7 +15,7 @@ export default async function EstatisticasPage() {
   const twoStars = await prisma.review.count({ where: { tenantId, rating: 2 } });
   const oneStar = await prisma.review.count({ where: { tenantId, rating: 1 } });
 
-  const getPercent = (count: number) => (totalReviews > 0 ? Math.round((count / totalReviews) * 100) : 0);
+  const getPercent = (count: number) => (totalReviews > 0 ? ((count / totalReviews) * 100).toFixed(1) : '0.0');
 
   return (
     <div className="layout" style={{ gridTemplateColumns: '1fr 1fr' }}>
@@ -36,12 +36,12 @@ export default async function EstatisticasPage() {
             { label: '2 Estrelas', count: twoStars, color: '#fb923c' },
             { label: '1 Estrela', count: oneStar, color: '#ef4444' },
           ].map((item, idx) => (
-            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '90px 1fr 50px', alignItems: 'center', gap: '12px' }}>
+            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '85px 1fr 100px', alignItems: 'center', gap: '12px' }}>
               <span style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>{item.label}</span>
               <div style={{ background: '#f1f5f9', borderRadius: '6px', height: '10px', overflow: 'hidden' }}>
                 <div style={{ background: item.color, height: '100%', width: `${getPercent(item.count)}%`, transition: 'width 0.3s' }} />
               </div>
-              <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b', textAlign: 'right' }}>
+              <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b', textAlign: 'right', whiteSpace: 'nowrap' }}>
                 {item.count} ({getPercent(item.count)}%)
               </span>
             </div>
