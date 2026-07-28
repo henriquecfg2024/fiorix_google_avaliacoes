@@ -47,7 +47,7 @@ export default async function ConfiguracoesPage({
               </div>
             )}
             
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               <div style={{ 
                 padding: '8px 12px', 
                 borderRadius: '8px', 
@@ -59,13 +59,27 @@ export default async function ConfiguracoesPage({
                 Status: {isConnected ? '✅ Conectado' : '❌ Não conectado'}
               </div>
 
-              {!isConnected ? (
+              {isConnected ? (
+                <>
+                  <a href="/api/sync-reviews" style={{ 
+                    background: '#2563eb', color: 'white', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px'
+                  }}>
+                    🔄 Sincronizar Avaliações Agora
+                  </a>
+
+                  <Link href="/api/auth/google" style={{ 
+                    background: '#f1f5f9', color: '#475569', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', border: '1px solid #cbd5e1'
+                  }}>
+                    Reconectar Conta Google
+                  </Link>
+                </>
+              ) : (
                 <Link href="/api/auth/google" style={{ 
                   background: '#3b82f6', color: 'white', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', textDecoration: 'none'
                 }}>
                   Conectar Conta Google
                 </Link>
-              ) : null}
+              )}
             </div>
           </div>
 

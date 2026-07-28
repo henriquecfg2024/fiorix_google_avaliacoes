@@ -67,11 +67,44 @@ export default async function Dashboard({
           🎉 <strong>Sincronização Concluída:</strong> {syncedCount} novas avaliações importadas!
         </div>
       )}
-      {isDemo && (
+      {isConnected && (
         <div style={{ 
           gridColumn: '1 / -1', 
-          background: isConnected ? '#f0fdf4' : '#eff6ff', 
-          color: isConnected ? '#166534' : '#1e3a8a', 
+          background: '#f0fdf4', 
+          color: '#166534', 
+          padding: '12px 20px', 
+          borderRadius: '12px', 
+          fontSize: '14px', 
+          fontWeight: '500', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          border: '1px solid #bbf7d0', 
+          marginBottom: '10px' 
+        }}>
+          <div>
+            ✅ <strong>Google Conectado:</strong> Cartório 7º RI de São Paulo vinculado à API do Google Meu Negócio.
+          </div>
+          
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <a href="/api/sync-reviews" style={{ background: '#16a34a', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              🔄 Sincronizar Google Real
+            </a>
+
+            <form action="/api/seed-reviews" method="POST">
+              <button type="submit" style={{ background: '#475569', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+                🧪 Importar Avaliações de Teste
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {!isConnected && isDemo && (
+        <div style={{ 
+          gridColumn: '1 / -1', 
+          background: '#eff6ff', 
+          color: '#1e3a8a', 
           padding: '14px 20px', 
           borderRadius: '12px', 
           fontSize: '14px', 
@@ -79,36 +112,16 @@ export default async function Dashboard({
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'space-between', 
-          border: `1px solid ${isConnected ? '#bbf7d0' : '#bfdbfe'}`, 
+          border: '1px solid #bfdbfe', 
           marginBottom: '10px' 
         }}>
           <div>
-            {isConnected ? (
-              <>✅ <strong>Google Conectado:</strong> Sua conta está vinculada, mas você ainda não possui avaliações importadas no banco de dados. Exibindo dados de exemplo.</>
-            ) : (
-              <>👋 <strong>Modo Demonstração:</strong> Como você ainda não conectou o Google Meu Negócio, estamos exibindo dados fictícios para você conhecer o painel.</>
-            )}
+            👋 <strong>Modo Demonstração:</strong> Como você ainda não conectou o Google Meu Negócio, estamos exibindo dados fictícios para você conhecer o painel.
           </div>
           
-          {isConnected ? (
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <form action="/api/sync-reviews" method="POST">
-                <button type="submit" style={{ background: '#16a34a', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
-                  🔄 Sincronizar Google Real
-                </button>
-              </form>
-
-              <form action="/api/seed-reviews" method="POST">
-                <button type="submit" style={{ background: '#475569', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
-                  🧪 Importar Avaliações de Teste
-                </button>
-              </form>
-            </div>
-          ) : (
-            <a href="/configuracoes" style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'none' }}>
-              Conectar Google
-            </a>
-          )}
+          <a href="/configuracoes" style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'none' }}>
+            Conectar Google
+          </a>
         </div>
       )}
 

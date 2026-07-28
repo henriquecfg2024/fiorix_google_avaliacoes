@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { syncReviews } from '@/lib/google';
 
-export async function POST(request: Request) {
+async function handleSync(request: Request) {
   const session = await auth();
   
   if (!session?.user?.tenantId) {
@@ -18,4 +18,12 @@ export async function POST(request: Request) {
     console.error('Sync Error:', error);
     return NextResponse.redirect(new URL(`/dashboard?syncError=${encodeURIComponent(error.message)}`, request.url));
   }
+}
+
+export async function POST(request: Request) {
+  return handleSync(request);
+}
+
+export async function GET(request: Request) {
+  return handleSync(request);
 }
