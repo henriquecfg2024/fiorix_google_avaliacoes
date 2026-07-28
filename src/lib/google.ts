@@ -1,13 +1,18 @@
 import { google } from 'googleapis';
 import { prisma } from './prisma';
 
-const REDIRECT_URI = 'http://localhost:3000/api/auth/callback/google';
+function getRedirectUri() {
+  if (process.env.NEXTAUTH_URL) {
+    return `${process.env.NEXTAUTH_URL}/api/auth/callback/google`;
+  }
+  return 'http://localhost:3000/api/auth/callback/google';
+}
 
 export function getGoogleOAuth2Client() {
   return new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    REDIRECT_URI
+    getRedirectUri()
   );
 }
 
