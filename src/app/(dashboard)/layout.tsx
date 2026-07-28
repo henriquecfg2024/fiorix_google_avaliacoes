@@ -36,20 +36,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <>
       <header>
-        <div className="logo">
-          <div className="logo-icon">F</div>
-          <span className="logo-text">FIORIX</span>
-        </div>
+        <div className="header-inner">
+          <div className="header-left">
+            <div className="logo">
+              <div className="logo-icon">F</div>
+              <span className="logo-text">FIORIX</span>
+            </div>
 
-        <nav>
-          <Link className={isActive('/dashboard')} href="/dashboard">Home</Link>
-          <Link className={isActive('/avaliacoes')} href="/avaliacoes">Avaliações</Link>
-          <Link className={isActive('/estatisticas')} href="/estatisticas">Estatísticas</Link>
-          <Link className={isActive('/relatorios')} href="/relatorios">Relatórios</Link>
-          <Link className={isActive('/configuracoes')} href="/configuracoes">Configurações</Link>
-        </nav>
+            <nav>
+              <Link className={isActive('/dashboard')} href="/dashboard">Home</Link>
+              <Link className={isActive('/avaliacoes')} href="/avaliacoes">Avaliações</Link>
+              <Link className={isActive('/estatisticas')} href="/estatisticas">Estatísticas</Link>
+              <Link className={isActive('/relatorios')} href="/relatorios">Relatórios</Link>
+              <Link className={isActive('/configuracoes')} href="/configuracoes">Configurações</Link>
+            </nav>
+          </div>
 
-        <div className="header-right">
+          <div className="header-right">
           {/* THEME SWITCHER */}
           <div className="theme-switcher">
             <span className="theme-switcher-label">Tema</span>
@@ -128,6 +131,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </form>
               </div>
             )}
+          </div>
           </div>
         </div>
       </header>
