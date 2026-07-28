@@ -51,8 +51,11 @@ export default async function Dashboard({
       })
     : undefined;
 
-  const syncError = searchParams?.syncError;
-  const syncedCount = searchParams?.synced;
+  const rawSyncError = searchParams?.syncError;
+  const syncError = Array.isArray(rawSyncError) ? rawSyncError[0] : rawSyncError;
+
+  const rawSynced = searchParams?.synced;
+  const syncedCount = Array.isArray(rawSynced) ? rawSynced[0] : rawSynced;
 
   return (
     <div className="layout">

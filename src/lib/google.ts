@@ -143,6 +143,10 @@ export async function syncReviews(tenantId: string) {
         throw new Error('Nenhum local do Google Meu Negócio foi encontrado vinculado a esta conta do Google.');
       }
     } catch (err: any) {
+      if (err.message?.includes('deleted_client') || err.message?.includes('invalid_grant')) {
+        await prisma.googleConnection.deleteMany({ where: { tenantId } });
+        throw new Error('Sua credencial do Google expirou ou foi alterada. Por favor, clique em "Conectar Conta Google" em Configurações para reconectar.');
+      }
       throw new Error(`Não foi possível obter o local do Google: ${err.message}`);
     }
   }
@@ -193,6 +197,10 @@ export async function syncReviews(tenantId: string) {
     return { success: true, count: newReviewsCount };
   } catch (error: any) {
     console.error('Error syncing reviews:', error);
+    if (error.message?.includes('deleted_client') || error.message?.includes('invalid_grant')) {
+      await prisma.googleConnection.deleteMany({ where: { tenantId } });
+      throw new Error('Sua credencial do Google expirou ou foi alterada. Por favor, clique em "Conectar Conta Google" em Configurações para reconectar.');
+    }
     throw new Error(error.message || 'Falha ao buscar avaliações do Google');
   }
 }
