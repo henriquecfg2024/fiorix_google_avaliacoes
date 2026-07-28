@@ -49,7 +49,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Link className={isActive('/configuracoes')} href="/configuracoes">Configurações</Link>
         </nav>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <div className="header-right">
           {/* THEME SWITCHER */}
           <div className="theme-switcher">
             <span className="theme-switcher-label">Tema</span>
