@@ -1,10 +1,14 @@
 import React from 'react';
-import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 
 export default async function ImprimirColaboradoresPage() {
-  const session = await auth();
-  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
+  let tenantId = 'cartorio-7ri-sp';
+  try {
+    const session = await auth();
+    tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
+  } catch (e) {
+    console.error('Error in ImprimirColaboradoresPage session:', e);
+  }
 
   const colaboradores = [
     { nome: 'Lucas Escrevente', elogios: 142, mencoes: 156, notaMedia: 4.9 },
