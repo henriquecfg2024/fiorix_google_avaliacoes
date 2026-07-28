@@ -2,6 +2,8 @@ import React from 'react';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 
+export const dynamic = 'force-dynamic';
+
 export default async function EstatisticasPage() {
   const session = await auth();
   const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';

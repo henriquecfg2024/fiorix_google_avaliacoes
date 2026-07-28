@@ -4,6 +4,8 @@ import { auth } from '@/auth';
 import Link from 'next/link';
 import { ReviewItemCard } from '@/components/avaliacoes/ReviewItemCard';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AvaliacoesPage({
   searchParams,
 }: {

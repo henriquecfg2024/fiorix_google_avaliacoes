@@ -1,6 +1,8 @@
 import React from 'react';
 import { auth } from '@/auth';
 
+export const dynamic = 'force-dynamic';
+
 export default async function ImprimirColaboradoresPage() {
   let tenantId = 'cartorio-7ri-sp';
   try {
