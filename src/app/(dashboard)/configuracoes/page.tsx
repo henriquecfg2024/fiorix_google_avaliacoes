@@ -9,16 +9,26 @@ export default async function ConfiguracoesPage({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   const session = await auth();
-  const tenantId = session?.user?.tenantId as string;
-  const userRole = session?.user?.role as string;
+  const tenantId = session?.user?.tenantId as string | undefined;
+  const userRole = session?.user?.role as string | undefined;
 
-  const connection = await prisma.googleConnection.findFirst({
-    where: { tenantId }
-  });
+  let connection = null;
+  if (tenantId) {
+    try {
+      connection = await prisma.googleConnection.findFirst({
+        where: { tenantId }
+      });
+    } catch (e) {
+      console.error('Error fetching google connection:', e);
+    }
+  }
 
   const isConnected = !!connection;
-  const errorMsg = searchParams.error;
-  const errorDetails = searchParams.details;
+  const rawErrorMsg = searchParams?.error;
+  const errorMsg = Array.isArray(rawErrorMsg) ? rawErrorMsg[0] : rawErrorMsg;
+
+  const rawDetails = searchParams?.details;
+  const errorDetails = Array.isArray(rawDetails) ? rawDetails[0] : rawDetails;
 
   return (
     <div className="layout" style={{ gridTemplateColumns: '1fr' }}>
