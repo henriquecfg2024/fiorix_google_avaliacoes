@@ -6,14 +6,23 @@ export default async function EstatisticasPage() {
   const session = await auth();
   const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
 
-  const totalReviews = await prisma.review.count({ where: { tenantId } });
-  
-  // Rating breakdown
-  const fiveStars = await prisma.review.count({ where: { tenantId, rating: 5 } });
-  const fourStars = await prisma.review.count({ where: { tenantId, rating: 4 } });
-  const threeStars = await prisma.review.count({ where: { tenantId, rating: 3 } });
-  const twoStars = await prisma.review.count({ where: { tenantId, rating: 2 } });
-  const oneStar = await prisma.review.count({ where: { tenantId, rating: 1 } });
+  let totalReviews = 0;
+  let fiveStars = 0;
+  let fourStars = 0;
+  let threeStars = 0;
+  let twoStars = 0;
+  let oneStar = 0;
+
+  try {
+    totalReviews = await prisma.review.count({ where: { tenantId } });
+    fiveStars = await prisma.review.count({ where: { tenantId, rating: 5 } });
+    fourStars = await prisma.review.count({ where: { tenantId, rating: 4 } });
+    threeStars = await prisma.review.count({ where: { tenantId, rating: 3 } });
+    twoStars = await prisma.review.count({ where: { tenantId, rating: 2 } });
+    oneStar = await prisma.review.count({ where: { tenantId, rating: 1 } });
+  } catch (err) {
+    console.error('Error loading estatisticas:', err);
+  }
 
   const getPercent = (count: number) => (totalReviews > 0 ? ((count / totalReviews) * 100).toFixed(1) : '0.0');
 

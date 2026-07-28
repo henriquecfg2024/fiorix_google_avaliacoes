@@ -12,8 +12,12 @@ export default async function AvaliacoesPage({
   const session = await auth();
   const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
 
-  const statusFilter = typeof searchParams?.status === 'string' ? searchParams.status : undefined;
-  const ratingFilter = typeof searchParams?.rating === 'string' ? parseInt(searchParams.rating, 10) : undefined;
+  const rawStatus = Array.isArray(searchParams?.status) ? searchParams.status[0] : searchParams?.status;
+  const statusFilter = typeof rawStatus === 'string' ? rawStatus : undefined;
+
+  const rawRating = Array.isArray(searchParams?.rating) ? searchParams.rating[0] : searchParams?.rating;
+  const parsedRating = typeof rawRating === 'string' ? parseInt(rawRating, 10) : undefined;
+  const ratingFilter = (parsedRating && !isNaN(parsedRating)) ? parsedRating : undefined;
 
   const whereClause: any = { tenantId };
   if (statusFilter === 'PENDING') whereClause.status = 'PENDING';
