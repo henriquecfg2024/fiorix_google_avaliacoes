@@ -10,7 +10,7 @@ export default async function AvaliacoesPage({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   const session = await auth();
-  const tenantId = session?.user?.tenantId as string;
+  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
 
   const statusFilter = typeof searchParams?.status === 'string' ? searchParams.status : undefined;
   const ratingFilter = typeof searchParams?.rating === 'string' ? parseInt(searchParams.rating, 10) : undefined;

@@ -4,7 +4,7 @@ import { auth } from '@/auth';
 
 export default async function EstatisticasPage() {
   const session = await auth();
-  const tenantId = session?.user?.tenantId as string;
+  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
 
   const totalReviews = await prisma.review.count({ where: { tenantId } });
   

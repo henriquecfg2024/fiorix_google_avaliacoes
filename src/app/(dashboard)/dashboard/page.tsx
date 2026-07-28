@@ -16,7 +16,7 @@ export default async function Dashboard({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   const session = await auth();
-  const tenantId = session?.user?.tenantId as string;
+  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
 
   // Fetch real data from Prisma
   const totalReviews = await prisma.review.count({ where: { tenantId } });
