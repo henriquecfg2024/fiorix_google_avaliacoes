@@ -425,16 +425,59 @@
     .kpi-card:nth-child(3){animation-delay:.15s}
     .kpi-card:nth-child(4){animation-delay:.20s}
 
-    .five  { color: var(--gold); }
-    .footer-strip { text-align:center; padding:12px 0 20px; font-size:11px; color:var(--muted); opacity:.5; }
+    /* ── RESPONSIVE MEDIA QUERIES FOR MOBILE & TABLETS ── */
+    @media (max-width: 1024px) {
+      .layout {
+        grid-template-columns: 1fr;
+        padding: 16px;
+      }
+      .kpi-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
 
-    /* ── 3D CHART SECTION ── */
-    .chart-3d-wrap {
-      padding: 0 28px 28px;
-      max-width: 1600px;
-      margin: 0 auto;
+    @media (max-width: 640px) {
+      header {
+        padding: 10px 14px;
+        height: auto;
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+      }
+      .header-right {
+        justify-content: space-between;
+        width: 100%;
+      }
+      nav {
+        overflow-x: auto;
+        white-space: nowrap;
+        padding-bottom: 4px;
+        justify-content: flex-start;
+        width: 100%;
+        -webkit-overflow-scrolling: touch;
+      }
+      nav a {
+        padding: 6px 12px;
+        font-size: 12px;
+      }
+      .kpi-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .kpi-value {
+        font-size: 22px;
+      }
+      .kpi-card {
+        padding: 12px;
+      }
+      .layout {
+        padding: 12px;
+        gap: 14px;
+      }
+      .chart-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
     }
-    .chart-3d-card {
-      padding: 24px;
-      border-radius: 20px;
-    }
+
