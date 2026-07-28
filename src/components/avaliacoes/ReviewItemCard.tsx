@@ -67,8 +67,8 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
         background: 'white',
         boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <div style={{
               width: '40px',
               height: '40px',
@@ -79,7 +79,8 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 'bold',
-              fontSize: '16px'
+              fontSize: '16px',
+              flexShrink: 0
             }}>
               {review.reviewerName ? review.reviewerName[0].toUpperCase() : 'A'}
             </div>
@@ -91,7 +92,7 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <span style={{
               color: review.rating >= 4 ? '#16a34a' : review.rating === 3 ? '#d97706' : '#dc2626',
               fontSize: '16px',
@@ -112,19 +113,19 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
           </div>
         </div>
 
-        <p style={{ fontSize: '14px', color: '#334155', lineHeight: '1.5', margin: '12px 0 16px 0', background: '#f8fafc', padding: '12px 16px', borderRadius: '8px' }}>
+        <p style={{ fontSize: '14px', color: '#334155', lineHeight: '1.5', margin: '12px 0 16px 0', background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
           "{review.comment || 'Sem comentário por extenso.'}"
         </p>
 
         {review.status === 'RESPONDED' && review.response?.content && (
-          <div style={{ margin: '12px 0', padding: '12px 16px', background: '#f0fdf4', borderRadius: '8px', borderLeft: '4px solid #16a34a', fontSize: '13px', color: '#166534' }}>
+          <div style={{ margin: '12px 0', padding: '12px 16px', background: '#f0fdf4', borderRadius: '8px', borderLeft: '4px solid #16a34a', fontSize: '13px', color: '#166534', wordBreak: 'break-word' }}>
             <strong>Resposta Enviada:</strong> {review.response.content}
           </div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #f1f5f9', paddingTop: '12px' }}>
-          <div style={{ fontSize: '12px', color: '#64748b' }}>
-            ID Google: <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>{review.googleId || review.id}</code>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #f1f5f9', paddingTop: '12px', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ fontSize: '12px', color: '#64748b', wordBreak: 'break-all', maxWidth: '100%' }}>
+            ID Google: <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', wordBreak: 'break-all', display: 'inline-block', maxWidth: '100%' }}>{review.googleId || review.id}</code>
           </div>
 
           <button 

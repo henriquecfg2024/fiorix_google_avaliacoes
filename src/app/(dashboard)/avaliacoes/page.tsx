@@ -41,7 +41,7 @@ export default async function AvaliacoesPage({
               <div className="chart-title">Avaliações do Google Meu Negócio</div>
               <div className="chart-sub">Gerencie e responda às avaliações recebidas pelo cartório.</div>
             </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <Link href="/avaliacoes" className={`period-tab ${!statusFilter ? 'active' : ''}`}>
                 Todas ({totalCount})
               </Link>
