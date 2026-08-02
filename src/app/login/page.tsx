@@ -1,19 +1,34 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('fiorix_remember_email');
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+
+    if (rememberMe) {
+      localStorage.setItem('fiorix_remember_email', email);
+    } else {
+      localStorage.removeItem('fiorix_remember_email');
+    }
 
     const formData = new FormData();
     formData.append('email', email);
@@ -74,6 +89,28 @@ export default function LoginPage() {
               required
               disabled={isLoading}
             />
+          </div>
+
+          <div className="form-options">
+            <label className="remember-me">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                disabled={isLoading}
+              />
+              <span>Lembrar-me</span>
+            </label>
+            <a
+              href="#"
+              className="forgot-password"
+              onClick={(e) => {
+                e.preventDefault();
+                alert('Entre em contato com o administrador do cartório para redefinir sua senha.');
+              }}
+            >
+              Esqueceu a senha?
+            </a>
           </div>
 
           <button type="submit" className="login-button" disabled={isLoading}>
@@ -185,8 +222,43 @@ export default function LoginPage() {
           box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
+        .form-options {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: 13px;
+        }
+
+        .remember-me {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: #475569;
+          cursor: pointer;
+          user-select: none;
+        }
+
+        .remember-me input {
+          width: 16px;
+          height: 16px;
+          accent-color: #3b82f6;
+          cursor: pointer;
+        }
+
+        .forgot-password {
+          color: #3b82f6;
+          text-decoration: none;
+          font-weight: 500;
+          transition: color 0.2s;
+        }
+
+        .forgot-password:hover {
+          text-decoration: underline;
+          color: #2563eb;
+        }
+
         .login-button {
-          margin-top: 10px;
+          margin-top: 5px;
           background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
           color: white;
           border: none;
@@ -223,3 +295,4 @@ export default function LoginPage() {
     </div>
   );
 }
+
