@@ -2,7 +2,11 @@
 import React from 'react';
 import ReactECharts from 'echarts-for-react';
 
-export function GaugeChart() {
+interface GaugeChartProps {
+  score?: number;
+}
+
+export function GaugeChart({ score = 85 }: GaugeChartProps) {
   const option = {
     series: [
       {
@@ -34,7 +38,7 @@ export function GaugeChart() {
         axisLabel: { show: false },
         title: { show: false },
         detail: { show: false },
-        data: [{ value: 82 }]
+        data: [{ value: score }]
       }
     ]
   };
