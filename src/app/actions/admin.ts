@@ -105,3 +105,92 @@ export async function createTenant(formData: FormData) {
 
   revalidatePath('/configuracoes');
 }
+
+export async function resetUserPassword(userId: string, newPassword: string) {
+  const session = await auth();
+  if (!session?.user?.tenantId) return { error: 'Não autorizado' };
+  if (!session?.user?.role || !['ADMIN', 'MASTER'].includes(session.user.role)) {
+    return { error: 'Apenas administradores podem resetar senhas.' };
+  }
+
+  if (!userId || !newPassword || newPassword.trim().length < 6) {
+    return { error: 'A nova senha deve ter no mínimo 6 caracteres.' };
+  }
+
+  const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+  if (!targetUser) return { error: 'Usuário não encontrado.' };
+
+  if (targetUser.role === 'MASTER' && session.user.role !== 'MASTER') {
+    return { error: 'Apenas usuários MASTER podem resetar a senha de contas MASTER.' };
+  }
+
+  if (session.user.role !== 'MASTER' && targetUser.tenantId !== session.user.tenantId) {
+    return { error: 'Não autorizado a alterar este usuário.' };
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash }
+  });
+
+  revalidatePath('/configuracoes/usuarios');
+  return { success: true };
+}
+
+export async function updateUserRole(userId: string, newRole: 'ADMIN' | 'USER') {
+  const session = await auth();
+  if (!session?.user?.tenantId) return { error: 'Não autorizado' };
+  if (!session?.user?.role || !['ADMIN', 'MASTER'].includes(session.user.role)) {
+    return { error: 'Apenas administradores podem alterar funções.' };
+  }
+
+  const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+  if (!targetUser) return { error: 'Usuário não encontrado.' };
+
+  if (targetUser.role === 'MASTER' && session.user.role !== 'MASTER') {
+    return { error: 'Não é possível alterar a função de um usuário MASTER.' };
+  }
+
+  if (session.user.role !== 'MASTER' && targetUser.tenantId !== session.user.tenantId) {
+    return { error: 'Não autorizado a alterar este usuário.' };
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { role: newRole }
+  });
+
+  revalidatePath('/configuracoes/usuarios');
+  return { success: true };
+}
+
+export async function updateUserName(userId: string, newName: string) {
+  const session = await auth();
+  if (!session?.user?.tenantId) return { error: 'Não autorizado' };
+  if (!session?.user?.role || !['ADMIN', 'MASTER'].includes(session.user.role)) {
+    return { error: 'Apenas administradores podem alterar nomes.' };
+  }
+
+  const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+  if (!targetUser) return { error: 'Usuário não encontrado.' };
+
+  if (targetUser.role === 'MASTER' && session.user.role !== 'MASTER') {
+    return { error: 'Apenas usuários MASTER podem alterar o nome de uma conta MASTER.' };
+  }
+
+  if (session.user.role !== 'MASTER' && targetUser.tenantId !== session.user.tenantId) {
+    return { error: 'Não autorizado a alterar este usuário.' };
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { name: newName.trim() }
+  });
+
+  revalidatePath('/configuracoes/usuarios');
+  return { success: true };
+}
+
+
+

@@ -14,8 +14,14 @@ export const authConfig = {
                             nextUrl.pathname.startsWith('/configuracoes');
                             
       if (isOnDashboard) {
-        if (isLoggedIn) return true;
-        return false; // Redirect unauthenticated users to login page
+        if (!isLoggedIn) return false;
+        if (nextUrl.pathname.startsWith('/configuracoes/cartorios') && auth.user.role !== 'MASTER') {
+          return Response.redirect(new URL('/dashboard', nextUrl));
+        }
+        if (nextUrl.pathname.startsWith('/configuracoes') && auth.user.role === 'USER') {
+          return Response.redirect(new URL('/dashboard', nextUrl));
+        }
+        return true;
       } else if (isLoggedIn && nextUrl.pathname === '/login') {
         return Response.redirect(new URL('/dashboard', nextUrl));
       }

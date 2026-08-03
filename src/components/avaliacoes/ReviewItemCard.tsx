@@ -119,7 +119,7 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
               background: review.status === 'RESPONDED' ? '#dcfce7' : '#fef3c7',
               color: review.status === 'RESPONDED' ? '#166534' : '#92400e',
             }}>
-              {review.status === 'RESPONDED' ? '✓ Respondida' : '⏳ Pendente'}
+              {review.status === 'RESPONDED' ? '✓ Respondida' : '⏳ Aguardando resposta'}
             </span>
           </div>
         </div>

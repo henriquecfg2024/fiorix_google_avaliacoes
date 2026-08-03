@@ -1,8 +1,12 @@
 import React from 'react';
 import { getUsers, createUser } from '@/app/actions/admin';
 import Link from 'next/link';
+import { UserListTable } from '@/components/configuracoes/UserListTable';
+import { auth } from '@/auth';
 
 export default async function UsuariosConfigPage() {
+  const session = await auth();
+  const currentUserRole = session?.user?.role || 'USER';
   const usuarios = await getUsers();
 
   return (
@@ -26,7 +30,7 @@ export default async function UsuariosConfigPage() {
             <h4 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '14px', color: '#1e293b' }}>
               👤 Cadastrar Novo Usuário
             </h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 150px auto', gap: '12px', alignItems: 'end' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#475569' }}>
                   Nome *
@@ -66,6 +70,20 @@ export default async function UsuariosConfigPage() {
                 />
               </div>
 
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#475569' }}>
+                  Função *
+                </label>
+                <select
+                  name="role"
+                  defaultValue="USER"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', background: 'white' }}
+                >
+                  <option value="USER">Usuário (USER)</option>
+                  <option value="ADMIN">Admin (ADMIN)</option>
+                </select>
+              </div>
+
               <button 
                 type="submit"
                 style={{
@@ -91,36 +109,10 @@ export default async function UsuariosConfigPage() {
             <div className="chart-title">Usuários Ativos ({usuarios.length})</div>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'left' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#64748b', fontSize: '12px', textTransform: 'uppercase' }}>
-                  <th style={{ padding: '12px 16px' }}>Nome</th>
-                  <th style={{ padding: '12px 16px' }}>E-mail</th>
-                  <th style={{ padding: '12px 16px' }}>Função</th>
-                  <th style={{ padding: '12px 16px' }}>Data de Cadastro</th>
-                </tr>
-              </thead>
-              <tbody>
-                {usuarios.map((u) => (
-                  <tr key={u.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '14px 16px', fontWeight: '600', color: '#1e293b' }}>{u.name || 'Sem nome'}</td>
-                    <td style={{ padding: '14px 16px', color: '#64748b' }}>{u.email}</td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <span style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', background: '#f1f5f9', color: '#334155' }}>
-                        {u.role}
-                      </span>
-                    </td>
-                    <td style={{ padding: '14px 16px', color: '#64748b' }}>
-                      {new Date(u.createdAt).toLocaleDateString('pt-BR')}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <UserListTable usuarios={usuarios} currentUserRole={currentUserRole} />
         </div>
       </div>
     </div>
   );
 }
+

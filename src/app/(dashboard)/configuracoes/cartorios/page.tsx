@@ -1,8 +1,15 @@
 import React from 'react';
 import { getTenants, createTenant } from '@/app/actions/admin';
 import Link from 'next/link';
+import { auth } from '@/auth';
+import { redirect } from 'next/navigation';
 
 export default async function CartoriosConfigPage() {
+  const session = await auth();
+  if (!session?.user?.role || session.user.role !== 'MASTER') {
+    redirect('/dashboard');
+  }
+
   const cartorios = await getTenants();
 
   return (

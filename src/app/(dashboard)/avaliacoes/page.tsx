@@ -61,7 +61,7 @@ export default async function AvaliacoesPage({
                 Todas ({totalCount})
               </Link>
               <Link href="/avaliacoes?status=PENDING" className={`period-tab ${statusFilter === 'PENDING' ? 'active' : ''}`}>
-                ⏳ Pendentes ({pendingCount})
+                ⏳ Aguardando resposta ({pendingCount})
               </Link>
               <Link href="/avaliacoes?status=RESPONDED" className={`period-tab ${statusFilter === 'RESPONDED' ? 'active' : ''}`}>
                 ✅ Respondidas ({respondedCount})

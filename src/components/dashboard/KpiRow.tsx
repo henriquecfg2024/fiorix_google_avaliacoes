@@ -22,7 +22,7 @@ export function KpiRow({ notaMedia, totalAvaliacoes, pendentes, respondidasHoje,
         <div className="kpi-delta up">↑ +23 este mês</div>
       </div>
       <div className="kpi-card purple">
-        <div className="kpi-label">Pendentes de Resposta</div>
+        <div className="kpi-label">Aguardando Resposta</div>
         <div className="kpi-value purple">{pendentes}</div>
         <div className="kpi-delta down">↓ 3 vs ontem</div>
       </div>
