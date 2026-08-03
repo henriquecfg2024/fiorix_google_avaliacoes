@@ -302,9 +302,9 @@
       align-items: stretch;
     }
     .left-col, .center-col, .right-col { display: flex; flex-direction: column; gap: 16px; }
-    .left-col   > .insight-card         { flex: 1; }
-    .center-col > .chart-card:last-child { flex: 1; }
-    .right-col  > .op-card              { flex: 1; }
+    .left-col   > .health-card          { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+    .center-col > .chart-card:last-child { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+    .right-col  > .insight-card         { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
 
     /* ── CARDS (universal) ── */
     .health-card, .kpi-card, .chart-card, .review-card, .op-card {

@@ -29,7 +29,7 @@ export function ColaboradoresChart({ data }: ColaboradoresChartProps) {
   const option = {
     tooltip: {
       show: true,
-      formatter: (params: any) => `${params.value[0]}: ${params.value[2]} elogios`
+      formatter: (params: any) => `<strong style="font-size:14px;">${params.value[0]}</strong><br/>👏 ${params.value[2]} elogios diretos`
     },
     visualMap: {
       max: maxScore,
@@ -46,39 +46,45 @@ export function ColaboradoresChart({ data }: ColaboradoresChartProps) {
       type: 'category',
       name: '',
       data: categories,
-      axisLabel: { color: '#94a3b8', fontSize: 11 },
-      axisLine: { lineStyle: { color: 'rgba(148,163,184,0.2)' } }
+      axisLabel: { 
+        color: '#334155', 
+        fontSize: 13, 
+        fontWeight: 'bold',
+        interval: 0
+      },
+      axisLine: { lineStyle: { color: 'rgba(148,163,184,0.3)', width: 2 } }
     },
     yAxis3D: {
       type: 'category',
       name: '',
       data: ['Elogios'],
       axisLabel: { show: false },
-      axisLine: { lineStyle: { color: 'rgba(148,163,184,0.2)' } }
+      axisLine: { lineStyle: { color: 'rgba(148,163,184,0.3)' } }
     },
     zAxis3D: {
       type: 'value',
       name: '',
-      axisLabel: { color: '#94a3b8' },
-      axisLine: { lineStyle: { color: 'rgba(148,163,184,0.2)' } }
+      axisLabel: { color: '#64748b', fontSize: 12, fontWeight: 'bold' },
+      axisLine: { lineStyle: { color: 'rgba(148,163,184,0.3)', width: 2 } }
     },
     grid3D: {
-      boxWidth: 200,
-      boxDepth: 40,
+      boxWidth: 280,
+      boxHeight: 140,
+      boxDepth: 60,
       viewControl: {
-        alpha: 20,
-        beta: 30,
-        distance: 250,
+        alpha: 22,
+        beta: 32,
+        distance: 180,
         autoRotate: true,
-        autoRotateSpeed: 5
+        autoRotateSpeed: 4
       },
       light: {
         main: {
-          intensity: 1.2,
+          intensity: 1.3,
           shadow: true
         },
         ambient: {
-          intensity: 0.3
+          intensity: 0.4
         }
       }
     },
@@ -93,14 +99,14 @@ export function ColaboradoresChart({ data }: ColaboradoresChartProps) {
         label: {
           show: true,
           formatter: (params: any) => params.value[2].toString(),
-          textStyle: { fontSize: 12, borderWidth: 1 }
+          textStyle: { fontSize: 14, fontWeight: 'bold', color: '#10b981', borderWidth: 1 }
         },
         itemStyle: {
-          opacity: 0.9
+          opacity: 0.95
         },
         emphasis: {
           label: {
-            textStyle: { fontSize: 16, color: '#fff' }
+            textStyle: { fontSize: 18, color: '#fff', fontWeight: 'bold' }
           },
           itemStyle: {
             color: '#f59e0b'
@@ -110,5 +116,5 @@ export function ColaboradoresChart({ data }: ColaboradoresChartProps) {
     ]
   };
 
-  return <ReactECharts option={option} style={{ height: 250, width: '100%' }} />;
+  return <ReactECharts option={option} style={{ height: 440, width: '100%' }} />;
 }
