@@ -20,11 +20,19 @@ export default async function AvaliacoesPage({
   const rawRating = Array.isArray(searchParams?.rating) ? searchParams.rating[0] : searchParams?.rating;
   const parsedRating = typeof rawRating === 'string' ? parseInt(rawRating, 10) : undefined;
   const ratingFilter = (parsedRating && !isNaN(parsedRating)) ? parsedRating : undefined;
+  const rawSearch = Array.isArray(searchParams?.search) ? searchParams.search[0] : searchParams?.search;
+  const searchQuery = typeof rawSearch === 'string' ? rawSearch.trim() : undefined;
 
   const whereClause: any = { tenantId };
   if (statusFilter === 'PENDING') whereClause.status = 'PENDING';
   if (statusFilter === 'RESPONDED') whereClause.status = 'RESPONDED';
   if (ratingFilter) whereClause.rating = ratingFilter;
+  if (searchQuery) {
+    whereClause.OR = [
+      { comment: { contains: searchQuery, mode: 'insensitive' } },
+      { reviewerName: { contains: searchQuery, mode: 'insensitive' } }
+    ];
+  }
 
   let reviews: any[] = [];
   let totalCount = 0;
@@ -56,8 +64,8 @@ export default async function AvaliacoesPage({
               <div className="chart-title">Avaliações do Google Meu Negócio</div>
               <div className="chart-sub">Gerencie e responda às avaliações recebidas pelo cartório.</div>
             </div>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <Link href="/avaliacoes" className={`period-tab ${!statusFilter ? 'active' : ''}`}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <Link href="/avaliacoes" className={`period-tab ${!statusFilter && !searchQuery ? 'active' : ''}`}>
                 Todas ({totalCount})
               </Link>
               <Link href="/avaliacoes?status=PENDING" className={`period-tab ${statusFilter === 'PENDING' ? 'active' : ''}`}>
@@ -68,6 +76,17 @@ export default async function AvaliacoesPage({
               </Link>
             </div>
           </div>
+
+          {searchQuery && (
+            <div style={{ marginTop: '16px', padding: '10px 16px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '13px', color: '#1d4ed8', fontWeight: '600' }}>
+                🔍 Filtrando avaliações mencionando: "{searchQuery}" ({reviews.length} resultado{reviews.length !== 1 ? 's' : ''})
+              </span>
+              <Link href="/avaliacoes" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none', fontWeight: '700' }}>
+                ✕ Limpar filtro
+              </Link>
+            </div>
+          )}
 
           {reviews.length === 0 ? (
             <div style={{ marginTop: '20px', padding: '40px', textAlign: 'center', background: '#f8fafc', borderRadius: '12px', color: '#64748b' }}>
