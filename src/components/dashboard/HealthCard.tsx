@@ -5,16 +5,16 @@ import { GaugeChart } from './GaugeChart';
 export function HealthCard() {
   // Os 10 Indicadores da Saúde da Reputação (ordenados por pontuação)
   const indicadores = [
-    { icon: '🕘', nome: 'Horário de Atendimento', pct: 96, color: 'var(--green)', gradient: 'linear-gradient(90deg,var(--green),var(--blue))' },
-    { icon: '💳', nome: 'Pagamento', pct: 93, color: 'var(--green)' },
-    { icon: '🤝', nome: 'Qualidade de Atendimento', pct: 91, color: 'var(--green)' },
-    { icon: '💡', nome: 'Clareza de Informações', pct: 88, color: 'var(--green)' },
-    { icon: '🌟', nome: 'Índice de Recomendação', pct: 85, color: 'var(--blue)' },
-    { icon: '🎯', nome: 'Resolução no 1º Contato', pct: 82, color: 'var(--blue)' },
-    { icon: '📄', nome: 'Documentação', pct: 59, color: 'var(--blue)' },
-    { icon: '🌐', nome: 'Site / Agendamento', pct: 42, color: 'var(--amber)' },
-    { icon: '⏱️', nome: 'Prazo de Entrega', pct: 22, color: 'var(--red)' },
-    { icon: '🕐', nome: 'Fila / Espera', pct: 18, color: 'var(--red)' },
+    { icon: '🕘', nome: 'Horário de Atendimento', pct: 96, color: '#10b981', gradient: 'linear-gradient(90deg,#10b981,#3b82f6)' },
+    { icon: '💳', nome: 'Pagamento', pct: 93, color: '#10b981' },
+    { icon: '🤝', nome: 'Qualidade de Atendimento', pct: 91, color: '#10b981' },
+    { icon: '💡', nome: 'Clareza de Informações', pct: 88, color: '#10b981' },
+    { icon: '🌟', nome: 'Índice de Recomendação', pct: 85, color: '#2563eb' },
+    { icon: '🎯', nome: 'Resolução no 1º Contato', pct: 82, color: '#2563eb' },
+    { icon: '📄', nome: 'Documentação', pct: 59, color: '#2563eb' },
+    { icon: '🌐', nome: 'Site / Agendamento', pct: 42, color: '#d97706' },
+    { icon: '⏱️', nome: 'Prazo de Entrega', pct: 22, color: '#dc2626' },
+    { icon: '🕐', nome: 'Fila / Espera', pct: 18, color: '#dc2626' },
   ];
 
   const soma = indicadores.reduce((acc, curr) => acc + curr.pct, 0);
@@ -32,7 +32,7 @@ export function HealthCard() {
     <div className="health-card" style={{ padding: '24px 20px' }}>
       <div className="health-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span>Saúde da Reputação</span>
-        <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500' }}>10 Indicadores</span>
+        <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600', background: '#f1f5f9', padding: '2px 8px', borderRadius: '12px' }}>10 Indicadores</span>
       </div>
       
       <GaugeChart score={saudeReputacao} />
@@ -59,28 +59,51 @@ export function HealthCard() {
         </Link>
       </div>
 
-      {/* ═══ LISTA EXPANDIDA DOS 10 INDICADORES NA HOME ═══ */}
-      <div className="mini-metrics" style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      {/* ═══ LISTA PERFEITAMENTE ALINHADA DOS 10 INDICADORES ═══ */}
+      <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {indicadores.map((ind, idx) => (
-          <div className="mini-metric" key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>{ind.icon}</span> {ind.nome}
+          <div 
+            key={idx} 
+            style={{ 
+              background: '#f8fafc', 
+              border: '1px solid #e2e8f0', 
+              borderRadius: '10px', 
+              padding: '10px 14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            {/* Linha de Texto: Nome do Indicador na esquerda ... % com destaque na direita */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>{ind.icon}</span>
+                <span>{ind.nome}</span>
               </span>
-              <span style={{ fontSize: '12.5px', fontWeight: '700', color: ind.color }}>
+              <span style={{ 
+                fontSize: '12.5px', 
+                fontWeight: '800', 
+                color: ind.color,
+                background: `${ind.color}15`,
+                padding: '2px 8px',
+                borderRadius: '6px',
+                whiteSpace: 'nowrap'
+              }}>
                 {ind.pct}%
               </span>
             </div>
-            <div className="progress-bar-bg" style={{ height: '7px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
+
+            {/* Barra de Progresso */}
+            <div style={{ height: '6px', background: '#e2e8f0', borderRadius: '99px', overflow: 'hidden', width: '100%' }}>
               <div 
-                className="progress-bar-fill" 
                 style={{ 
                   width: `${ind.pct}%`, 
                   background: ind.gradient || ind.color,
                   height: '100%',
-                  borderRadius: '4px'
+                  borderRadius: '99px'
                 }}
-              ></div>
+              />
             </div>
           </div>
         ))}

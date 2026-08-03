@@ -50,6 +50,43 @@ export default async function Dashboard({
       })
     : undefined;
 
+  // Real Collaborator Rankings from DB
+  const dbColaboradores = await prisma.colaborador.findMany({
+    where: { tenantId, active: true },
+    include: {
+      mentions: {
+        include: { review: true }
+      }
+    }
+  });
+
+  const allReviews = await prisma.review.findMany({
+    where: { tenantId }
+  });
+
+  const topColaboradoresData = dbColaboradores.map((colab) => {
+    const namesToSearch = [colab.name, ...(colab.aliases || [])].map(n => n.trim().toLowerCase()).filter(Boolean);
+    const matchedReviews = allReviews.filter(rev => {
+      if (!rev.comment) return false;
+      const commentLower = rev.comment.toLowerCase();
+      return namesToSearch.some(term => commentLower.includes(term));
+    });
+
+    const relationalReviews = colab.mentions.map(m => m.review).filter(Boolean);
+    const combinedReviewsMap = new Map();
+    [...relationalReviews, ...matchedReviews].forEach(rev => {
+      if (rev && rev.id) combinedReviewsMap.set(rev.id, rev);
+    });
+    
+    const uniqueReviews = Array.from(combinedReviewsMap.values());
+    const elogios = uniqueReviews.filter(rev => rev.rating >= 4 || rev.aiSentiment === 'POSITIVE').length;
+
+    return {
+      nome: colab.name,
+      elogios: uniqueReviews.length > 0 ? elogios : 0
+    };
+  }).sort((a, b) => b.elogios - a.elogios).slice(0, 5);
+
   const rawSyncError = searchParams?.syncError;
   const syncError = Array.isArray(rawSyncError) ? rawSyncError[0] : rawSyncError;
 
@@ -139,7 +176,7 @@ export default async function Dashboard({
               <button className="period-tab">Trimestre</button>
             </div>
           </div>
-          <ColaboradoresChart />
+          <ColaboradoresChart data={topColaboradoresData} />
         </div>
       </div>
 

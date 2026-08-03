@@ -3,22 +3,36 @@ import React from 'react';
 import ReactECharts from 'echarts-for-react';
 import 'echarts-gl';
 
-export function ColaboradoresChart() {
-  const data = [
-    ['Lucas', 0, 47],
-    ['Ana', 0, 32],
-    ['Pedro', 0, 28],
-    ['Maria', 0, 21],
-    ['João', 0, 15]
-  ];
+export interface ColaboradorRankData {
+  nome: string;
+  elogios: number;
+}
+
+interface ColaboradoresChartProps {
+  data?: ColaboradorRankData[];
+}
+
+export function ColaboradoresChart({ data }: ColaboradoresChartProps) {
+  const chartData = (data && data.length > 0)
+    ? data.map(item => [item.nome, 0, item.elogios])
+    : [
+        ['Ricardo Marçal', 0, 77],
+        ['Ana', 0, 19],
+        ['Jonatan', 0, 5],
+        ['Anne', 0, 4],
+        ['Lucas', 0, 4]
+      ];
+
+  const categories = chartData.map(item => item[0] as string);
+  const maxScore = Math.max(...chartData.map(item => Number(item[2]) || 10), 10);
 
   const option = {
     tooltip: {
       show: true,
-      formatter: (params: any) => `${params.value[0]}: ${params.value[2]} menções`
+      formatter: (params: any) => `${params.value[0]}: ${params.value[2]} elogios`
     },
     visualMap: {
-      max: 50,
+      max: maxScore,
       inRange: {
         color: [
           '#3b82f6', // blue
@@ -31,14 +45,14 @@ export function ColaboradoresChart() {
     xAxis3D: {
       type: 'category',
       name: '',
-      data: ['Lucas', 'Ana', 'Pedro', 'Maria', 'João'],
-      axisLabel: { color: '#94a3b8' },
+      data: categories,
+      axisLabel: { color: '#94a3b8', fontSize: 11 },
       axisLine: { lineStyle: { color: 'rgba(148,163,184,0.2)' } }
     },
     yAxis3D: {
       type: 'category',
       name: '',
-      data: ['Mentions'],
+      data: ['Elogios'],
       axisLabel: { show: false },
       axisLine: { lineStyle: { color: 'rgba(148,163,184,0.2)' } }
     },
@@ -71,7 +85,7 @@ export function ColaboradoresChart() {
     series: [
       {
         type: 'bar3D',
-        data: data.map(item => ({
+        data: chartData.map(item => ({
           name: item[0],
           value: [item[0], item[1], item[2]]
         })),
