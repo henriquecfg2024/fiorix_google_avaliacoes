@@ -92,7 +92,7 @@ export default async function RelatoriosPage() {
         mencoes,
         notaMedia
       };
-    } else {
+    } else if (allReviews.length === 0) {
       const fallback = getDemoMetric(colab.name, colab.aliases || []);
       return {
         id: colab.id,
@@ -100,6 +100,14 @@ export default async function RelatoriosPage() {
         elogios: fallback.elogios,
         mencoes: fallback.mencoes,
         notaMedia: fallback.notaMedia
+      };
+    } else {
+      return {
+        id: colab.id,
+        nome: colab.name,
+        elogios: 0,
+        mencoes: 0,
+        notaMedia: '5.0'
       };
     }
   }).sort((a, b) => b.mencoes - a.mencoes);

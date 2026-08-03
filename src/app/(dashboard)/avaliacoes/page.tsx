@@ -28,10 +28,7 @@ export default async function AvaliacoesPage({
   if (statusFilter === 'RESPONDED') whereClause.status = 'RESPONDED';
   if (ratingFilter) whereClause.rating = ratingFilter;
   if (searchQuery) {
-    whereClause.OR = [
-      { comment: { contains: searchQuery, mode: 'insensitive' } },
-      { reviewerName: { contains: searchQuery, mode: 'insensitive' } }
-    ];
+    whereClause.comment = { contains: searchQuery, mode: 'insensitive' };
   }
 
   let reviews: any[] = [];
