@@ -93,7 +93,7 @@ export default async function Dashboard({
       })
     : demoReviewsSample;
 
-  // Real Collaborator Rankings from DB
+  // Real Collaborator Rankings from DB filtered by time periods
   const dbColaboradores = await prisma.colaborador.findMany({
     where: { tenantId, active: true },
     include: {
@@ -107,28 +107,42 @@ export default async function Dashboard({
     where: { tenantId }
   });
 
-  const topColaboradoresData = dbColaboradores.map((colab) => {
-    const namesToSearch = [colab.name, ...(colab.aliases || [])].map(n => n.trim().toLowerCase()).filter(Boolean);
-    const matchedReviews = allReviews.filter(rev => {
-      if (!rev.comment) return false;
-      const commentLower = rev.comment.toLowerCase();
-      return namesToSearch.some(term => commentLower.includes(term));
-    });
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfQuarter = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
-    const relationalReviews = colab.mentions.map(m => m.review).filter(Boolean);
-    const combinedReviewsMap = new Map();
-    [...relationalReviews, ...matchedReviews].forEach(rev => {
-      if (rev && rev.id) combinedReviewsMap.set(rev.id, rev);
-    });
-    
-    const uniqueReviews = Array.from(combinedReviewsMap.values());
-    const elogios = uniqueReviews.filter(rev => rev.rating >= 4 || rev.aiSentiment === 'POSITIVE').length;
+  const getColabRank = (fromDate?: Date) => {
+    return dbColaboradores.map((colab) => {
+      const namesToSearch = [colab.name, ...(colab.aliases || [])].map(n => n.trim().toLowerCase()).filter(Boolean);
+      const matchedReviews = allReviews.filter(rev => {
+        if (!rev.comment) return false;
+        if (fromDate && new Date(rev.publishedAt) < fromDate) return false;
+        const commentLower = rev.comment.toLowerCase();
+        return namesToSearch.some(term => commentLower.includes(term));
+      });
 
-    return {
-      nome: colab.name,
-      elogios: uniqueReviews.length > 0 ? elogios : 0
-    };
-  }).sort((a, b) => b.elogios - a.elogios).slice(0, 5);
+      const relationalReviews = colab.mentions
+        .map(m => m.review)
+        .filter(rev => rev && (!fromDate || new Date(rev.publishedAt) >= fromDate));
+
+      const combinedReviewsMap = new Map();
+      [...relationalReviews, ...matchedReviews].forEach(rev => {
+        if (rev && rev.id) combinedReviewsMap.set(rev.id, rev);
+      });
+      
+      const uniqueReviews = Array.from(combinedReviewsMap.values());
+      const elogios = uniqueReviews.filter(rev => rev.rating >= 4 || rev.aiSentiment === 'POSITIVE').length;
+
+      return {
+        nome: colab.name,
+        elogios: uniqueReviews.length > 0 ? elogios : 0
+      };
+    }).sort((a, b) => b.elogios - a.elogios).slice(0, 5);
+  };
+
+  const monthColaboradores = getColabRank(startOfMonth);
+  const quarterColaboradores = getColabRank(startOfQuarter);
+  const totalColaboradores = getColabRank(undefined);
 
   const rawSyncError = searchParams?.syncError;
   const syncError = Array.isArray(rawSyncError) ? rawSyncError[0] : rawSyncError;
@@ -209,17 +223,11 @@ export default async function Dashboard({
 
         {/* COLABORADORES CHART */}
         <div className="chart-card">
-          <div className="chart-header">
-            <div>
-              <div className="chart-title">Ranking dos Colaboradores</div>
-              <div className="chart-sub">Menções positivas extraídas por IA das avaliações</div>
-            </div>
-            <div className="period-tabs">
-              <button className="period-tab active">Este mês</button>
-              <button className="period-tab">Trimestre</button>
-            </div>
-          </div>
-          <ColaboradoresChart data={topColaboradoresData} />
+          <ColaboradoresChart 
+            monthData={monthColaboradores} 
+            quarterData={quarterColaboradores} 
+            totalData={totalColaboradores} 
+          />
         </div>
       </div>
 

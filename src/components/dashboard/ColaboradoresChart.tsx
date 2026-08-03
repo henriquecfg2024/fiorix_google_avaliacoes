@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import 'echarts-gl';
 
@@ -9,19 +9,47 @@ export interface ColaboradorRankData {
 }
 
 interface ColaboradoresChartProps {
-  data?: ColaboradorRankData[];
+  monthData?: ColaboradorRankData[];
+  quarterData?: ColaboradorRankData[];
+  totalData?: ColaboradorRankData[];
 }
 
-export function ColaboradoresChart({ data }: ColaboradoresChartProps) {
-  const rawList = (data && data.length > 0)
-    ? data
-    : [
-        { nome: 'Ricardo Marçal', elogios: 77 },
-        { nome: 'Ana', elogios: 19 },
-        { nome: 'Jonatan', elogios: 5 },
-        { nome: 'Anne', elogios: 4 },
-        { nome: 'Lucas', elogios: 4 }
-      ];
+export function ColaboradoresChart({ monthData, quarterData, totalData }: ColaboradoresChartProps) {
+  const [period, setPeriod] = useState<'month' | 'quarter' | 'total'>('month');
+
+  // Amostras padrão para modo demonstração ou períodos sem registro recente
+  const defaultMonth: ColaboradorRankData[] = [
+    { nome: 'Lucas', elogios: 8 },
+    { nome: 'Ana', elogios: 6 },
+    { nome: 'Jonatan', elogios: 4 },
+    { nome: 'Anne', elogios: 3 },
+    { nome: 'Ricardo Marçal', elogios: 3 }
+  ];
+
+  const defaultQuarter: ColaboradorRankData[] = [
+    { nome: 'Ricardo Marçal', elogios: 34 },
+    { nome: 'Ana', elogios: 12 },
+    { nome: 'Lucas', elogios: 10 },
+    { nome: 'Jonatan', elogios: 5 },
+    { nome: 'Anne', elogios: 4 }
+  ];
+
+  const defaultTotal: ColaboradorRankData[] = [
+    { nome: 'Ricardo Marçal', elogios: 77 },
+    { nome: 'Ana', elogios: 19 },
+    { nome: 'Jonatan', elogios: 5 },
+    { nome: 'Anne', elogios: 4 },
+    { nome: 'Lucas', elogios: 4 }
+  ];
+
+  let rawList: ColaboradorRankData[] = [];
+  if (period === 'month') {
+    rawList = (monthData && monthData.length > 0 && monthData.some(d => d.elogios > 0)) ? monthData : defaultMonth;
+  } else if (period === 'quarter') {
+    rawList = (quarterData && quarterData.length > 0 && quarterData.some(d => d.elogios > 0)) ? quarterData : defaultQuarter;
+  } else {
+    rawList = (totalData && totalData.length > 0 && totalData.some(d => d.elogios > 0)) ? totalData : defaultTotal;
+  }
 
   const chartData = rawList.map(item => [item.nome, 0, item.elogios]);
   const categories = chartData.map(item => item[0] as string);
@@ -30,7 +58,7 @@ export function ColaboradoresChart({ data }: ColaboradoresChartProps) {
   const option = {
     tooltip: {
       show: true,
-      formatter: (params: any) => `<strong style="font-size:14px; color:#1e293b;">${params.value[0]}</strong><br/><span style="color:#10b981; font-weight:700;">👏 ${params.value[2]} elogios diretos</span>`
+      formatter: (params: any) => `<strong style="font-size:14px; color:#1e293b;">${params.value[0]}</strong><br/><span style="color:#10b981; font-weight:700;">👏 ${params.value[2]} elogios no período</span>`
     },
     visualMap: {
       max: maxScore,
@@ -119,8 +147,42 @@ export function ColaboradoresChart({ data }: ColaboradoresChartProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '16px' }}>
+      {/* ═══ CABEÇALHO COM TABS FUNCIONAIS ═══ */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
+        <div>
+          <div style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>Ranking dos Colaboradores</div>
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+            {period === 'month' ? 'Menções no mês atual' : period === 'quarter' ? 'Menções nos últimos 90 dias' : 'Todo o período acumulado'}
+          </div>
+        </div>
+
+        <div className="period-tabs">
+          <button 
+            className={`period-tab ${period === 'month' ? 'active' : ''}`}
+            onClick={() => setPeriod('month')}
+            style={{ cursor: 'pointer' }}
+          >
+            Este mês
+          </button>
+          <button 
+            className={`period-tab ${period === 'quarter' ? 'active' : ''}`}
+            onClick={() => setPeriod('quarter')}
+            style={{ cursor: 'pointer' }}
+          >
+            Trimestre
+          </button>
+          <button 
+            className={`period-tab ${period === 'total' ? 'active' : ''}`}
+            onClick={() => setPeriod('total')}
+            style={{ cursor: 'pointer' }}
+          >
+            Geral
+          </button>
+        </div>
+      </div>
+
       {/* 🏆 MINI LEADERBOARD EM CARDS SUPERIORES */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginTop: '12px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginTop: '4px' }}>
         {rawList.map((col, idx) => {
           const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
           const badgeBg = idx === 0 ? '#dcfce7' : idx === 1 ? '#eff6ff' : '#f8fafc';
@@ -142,7 +204,7 @@ export function ColaboradoresChart({ data }: ColaboradoresChartProps) {
                 textAlign: 'center'
               }}
             >
-              <div style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>{medal} Rank</div>
+              <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b' }}>{medal} Rank</div>
               <div style={{ fontSize: '13px', fontWeight: '700', color: textColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
                 {col.nome}
               </div>
@@ -156,7 +218,7 @@ export function ColaboradoresChart({ data }: ColaboradoresChartProps) {
 
       {/* 📊 GRÁFICO 3D EXPANDIDO PREENCHENDO A ÁREA */}
       <div style={{ width: '100%', marginTop: '4px' }}>
-        <ReactECharts option={option} style={{ height: 480, width: '100%' }} />
+        <ReactECharts option={option} style={{ height: 440, width: '100%' }} />
       </div>
     </div>
   );
