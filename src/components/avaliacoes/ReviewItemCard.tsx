@@ -16,6 +16,13 @@ interface ReviewItemProps {
   };
 }
 
+function cleanReviewComment(comment: string | null | undefined): string {
+  if (!comment) return '';
+  return comment
+    .replace(/\s*\((?:Translated by Google|Traduzido pelo Google|Translated by tripadvisor|Traduzido pelo Tripadvisor)[\s\S]*/i, '')
+    .trim();
+}
+
 export function ReviewItemCard({ review }: ReviewItemProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [responseText, setResponseText] = useState('');
@@ -35,7 +42,8 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
     } else {
       setIsGenerating(true);
       try {
-        const aiDraft = await generateAiResponse(review.reviewerName, review.rating, review.comment);
+        const cleanedComment = cleanReviewComment(review.comment);
+        const aiDraft = await generateAiResponse(review.reviewerName, review.rating, cleanedComment);
         setResponseText(aiDraft);
       } catch (err) {
         setResponseText(`Prezado(a) ${review.reviewerName}, agradecemos sua avaliação!`);
@@ -125,7 +133,7 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
         </div>
 
         <p style={{ fontSize: '14px', color: '#334155', lineHeight: '1.5', margin: '12px 0 16px 0', background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-          "{review.comment || 'Sem comentário por extenso.'}"
+          "{cleanReviewComment(review.comment) || 'Sem comentário por extenso.'}"
         </p>
 
         {review.status === 'RESPONDED' && review.response?.content && (

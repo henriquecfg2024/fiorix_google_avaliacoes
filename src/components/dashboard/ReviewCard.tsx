@@ -13,6 +13,13 @@ interface ReviewCardProps {
   reviews?: ReviewItem[];
 }
 
+function cleanReviewComment(comment: string | null | undefined): string {
+  if (!comment) return '';
+  return comment
+    .replace(/\s*\((?:Translated by Google|Traduzido pelo Google|Translated by tripadvisor|Traduzido pelo Tripadvisor)[\s\S]*/i, '')
+    .trim();
+}
+
 export function ReviewCard({ reviews }: ReviewCardProps) {
   if (!reviews || reviews.length === 0) {
     return (
@@ -58,7 +65,7 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
               {renderStars(rev.rating)}
             </div>
           </div>
-          <div className="review-text">"{rev.comment || 'Sem comentário'}"</div>
+          <div className="review-text">"{cleanReviewComment(rev.comment) || 'Sem comentário'}"</div>
           <div className="review-bottom">
             {rev.status === 'RESPONDED' ? (
               <span className="review-badge badge-auto">✓ Respondida</span>
