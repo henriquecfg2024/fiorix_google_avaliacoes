@@ -6,7 +6,6 @@ import { HealthCard } from '@/components/dashboard/HealthCard';
 import { InsightCard } from '@/components/dashboard/InsightCard';
 import { KpiRow } from '@/components/dashboard/KpiRow';
 import { ReviewCard } from '@/components/dashboard/ReviewCard';
-import { OpHealthCard } from '@/components/dashboard/OpHealthCard';
 import { TrendChart } from '@/components/dashboard/TrendChart';
 import { ColaboradoresChart } from '@/components/dashboard/ColaboradoresChart';
 
@@ -71,7 +70,6 @@ export default async function Dashboard({
         </div>
       )}
 
-
       {!isConnected && isDemo && (
         <div style={{ 
           gridColumn: '1 / -1', 
@@ -100,7 +98,6 @@ export default async function Dashboard({
       {/* ═══ LEFT ═══ */}
       <div className="left-col">
         <HealthCard />
-        <InsightCard />
       </div>
 
       {/* ═══ CENTER ═══ */}
@@ -149,7 +146,7 @@ export default async function Dashboard({
       {/* ═══ RIGHT ═══ */}
       <div className="right-col">
         <ReviewCard reviews={latestReviews} />
-        <OpHealthCard />
+        <InsightCard />
       </div>
     </div>
   );
