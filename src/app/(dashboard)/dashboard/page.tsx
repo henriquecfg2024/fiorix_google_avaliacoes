@@ -42,13 +42,56 @@ export default async function Dashboard({
     }
   });
 
+  const demoReviewsSample = [
+    {
+      id: 'demo-1',
+      reviewerName: 'Raquel Pereira Nascimento',
+      rating: 5,
+      comment: 'Atendimento muito cortês e ágil pela equipe do cartório.',
+      status: 'RESPONDED',
+      publishedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+    },
+    {
+      id: 'demo-2',
+      reviewerName: 'Walquiron Alves',
+      rating: 5,
+      comment: 'Excelente atendimento, Sr. Lucas esclareceu as dúvidas, só tenho a agradecer!!!',
+      status: 'RESPONDED',
+      publishedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
+    },
+    {
+      id: 'demo-3',
+      reviewerName: 'Glória Gomes',
+      rating: 5,
+      comment: 'Gostaria de registrar meu agradecimento pelo excelente atendimento prestado pela Ana.',
+      status: 'RESPONDED',
+      publishedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+    },
+    {
+      id: 'demo-4',
+      reviewerName: 'Carlos Mendonça',
+      rating: 4,
+      comment: 'Muito rápido e eficiente. Atendimento nota 10!',
+      status: 'RESPONDED',
+      publishedAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
+    },
+    {
+      id: 'demo-5',
+      reviewerName: 'Maria Santos',
+      rating: 3,
+      comment: 'Atendimento bom, mas o tempo de espera na fila poderia ser menor.',
+      status: 'PENDING',
+      publishedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+    },
+  ];
+
   const latestReviews = !isDemo
     ? await prisma.review.findMany({
         where: { tenantId },
         orderBy: { publishedAt: 'desc' },
-        take: 3,
+        take: 5,
       })
-    : undefined;
+    : demoReviewsSample;
 
   // Real Collaborator Rankings from DB
   const dbColaboradores = await prisma.colaborador.findMany({
