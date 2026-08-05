@@ -126,8 +126,8 @@ export async function syncReviews(tenantId: string) {
     try {
       const locations = await fetchLocations(oauth2Client);
       if (locations && locations.length > 0) {
-        const realAccount = locations[0].accountId;
-        const realLocation = locations[0].locationId;
+        const realAccount = locations[0].accountId ?? '';
+        const realLocation = locations[0].locationId ?? '';
 
         await prisma.googleConnection.update({
           where: { id: connection.id },
