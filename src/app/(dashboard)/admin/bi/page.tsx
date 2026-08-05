@@ -28,6 +28,9 @@ import {
   Building2,
   RefreshCw,
   Info,
+  XCircle,
+  Calendar,
+  FileText,
 } from 'lucide-react';
 import {
   createBiImport,
@@ -38,12 +41,50 @@ import {
   BiRowInput,
 } from '@/app/actions/bi';
 
+const COLUNAS_OBRIGATORIAS = [
+  'Protocolo',
+  'FlagRecepcao',
+  'TipoSolicitacao',
+  'IdAndamento',
+  'DtProtocolo',
+  'DtPrevisaoEntrega',
+  'DtAndamento',
+  'CodProcessamento',
+  'DescAndamento',
+  'Natureza',
+  'TipoPrenotacao',
+  'DiasPrometidos',
+  'DiasCorridos',
+  'DiasAtraso',
+  'SituacaoPrazo',
+  'IsDevolucao',
+  'IsRegistrado',
+  'TextoNotaDevolucao',
+];
+
+export interface PreviewStats {
+  fileName: string;
+  totalLinhas: number;
+  protocolosUnicos: number;
+  devolucoes: number;
+  atrasados: number;
+  noPrazo: number;
+  emAndamento: number;
+  percAtraso: string;
+  periodoIni: string;
+  periodoFim: string;
+  naturezas: string[];
+}
+
 export default function FiorixBiPage() {
-  // State for CSV Upload & Preview
+  // State for CSV Upload & Preview Stats
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [parsedRows, setParsedRows] = useState<BiRowInput[]>([]);
   const [previewRows, setPreviewRows] = useState<BiRowInput[]>([]);
+  const [previewStats, setPreviewStats] = useState<PreviewStats | null>(null);
   const [ignoredRowsCount, setIgnoredRowsCount] = useState<number>(0);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  
   const [isParsing, setIsParsing] = useState<boolean>(false);
   const [isImporting, setIsImporting] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
@@ -101,27 +142,78 @@ export default function FiorixBiPage() {
     return foundKey ? row[foundKey] : undefined;
   };
 
-  // Handle File Selection and PapaParse Processing
+  // Reset upload form
+  const handleCancelUpload = () => {
+    setCsvFile(null);
+    setParsedRows([]);
+    setPreviewRows([]);
+    setPreviewStats(null);
+    setValidationError(null);
+    setImportStatusMsg('');
+  };
+
+  // Handle File Selection with Validations and Preview Stats Calculation
   const handleFileChange = (file: File) => {
     if (!file) return;
     setCsvFile(file);
     setIsParsing(true);
+    setValidationError(null);
     setImportStatusMsg('');
+    setPreviewStats(null);
 
     Papa.parse(file, {
       header: true,
       skipEmptyLines: 'greedy',
       transformHeader: (h) => h.trim().replace(/^[\uFEFF\xFF\xFE"'\s]+|["'\s]+$/g, ''),
       complete: (results) => {
-        const rawData = (results.data || []) as Record<string, any>[];
+        const rows = (results.data || []) as Record<string, any>[];
+        const headers = (results.meta.fields || []).map((h) =>
+          h.trim().replace(/^[\uFEFF\xFF\xFE"'\s]+|["'\s]+$/g, '')
+        );
+
+        // 1. Quantidade mínima de linhas
+        if (rows.length < 10) {
+          setValidationError(
+            `Arquivo com apenas ${rows.length} linhas. Exporte novamente o resultado completo da procedure dbo.pr_Fiorix_BI.`
+          );
+          setIsParsing(false);
+          return;
+        }
+
+        // 2. Colunas obrigatórias
+        const faltantes = COLUNAS_OBRIGATORIAS.filter(
+          (reqCol) =>
+            !headers.some(
+              (h) => h.toLowerCase().replace(/[^a-z0-9]/g, '') === reqCol.toLowerCase().replace(/[^a-z0-9]/g, '')
+            )
+        );
+        if (faltantes.length > 0) {
+          setValidationError(`Colunas obrigatórias faltando no CSV: ${faltantes.join(', ')}`);
+          setIsParsing(false);
+          return;
+        }
+
+        // 3. Validação de SituacaoPrazo
+        const temSituacao = rows.some((r) => {
+          const sit = String(getRowValue(r, 'SituacaoPrazo') || '').trim();
+          return ['noprazo', 'atrasado', 'devolucao', 'emandamento'].includes(sit.toLowerCase());
+        });
+        if (!temSituacao) {
+          setValidationError(
+            `Coluna SituacaoPrazo sem valores válidos (NoPrazo/Atrasado/Devolucao). Verifique se o CSV é da pr_Fiorix_BI.`
+          );
+          setIsParsing(false);
+          return;
+        }
+
+        // Process rows into typed BiRowInput
         let ignored = 0;
         const validRows: BiRowInput[] = [];
 
-        rawData.forEach((row) => {
+        rows.forEach((row) => {
           const rawProto = getRowValue(row, 'Protocolo');
           const proto = rawProto ? String(rawProto).trim() : '';
-          
-          // Filter out rows with Protocolo = 0, empty, or header re-prints
+
           if (!proto || proto === '0' || proto.toLowerCase() === 'protocolo') {
             ignored++;
             return;
@@ -162,6 +254,47 @@ export default function FiorixBiPage() {
           });
         });
 
+        // 4. PREVIEW INTELIGENTE & METRICAS
+        const protocolosSet = new Set(validRows.map((r) => r.Protocolo));
+        const devolucoes = validRows.filter(
+          (r) => r.IsDevolucao || (r.SituacaoPrazo || '').toLowerCase().includes('devolucao')
+        ).length;
+        const atrasados = validRows.filter(
+          (r) => (r.DiasAtraso && r.DiasAtraso > 0) || (r.SituacaoPrazo || '').toLowerCase().includes('atrasad')
+        ).length;
+        const noPrazo = validRows.filter(
+          (r) => (r.SituacaoPrazo || '').toLowerCase() === 'noprazo'
+        ).length;
+        const emAndamento = validRows.filter(
+          (r) => (r.SituacaoPrazo || '').toLowerCase().includes('andamento')
+        ).length;
+
+        const datas = validRows
+          .map((r) => r.DtAndamento)
+          .filter(Boolean)
+          .sort();
+
+        const natSet = new Set<string>();
+        validRows.forEach((r) => {
+          if (r.Natureza) natSet.add(r.Natureza.trim());
+        });
+
+        const percAtrasoVal = (noPrazo + atrasados) > 0 ? (atrasados / (noPrazo + atrasados)) * 100 : 0;
+
+        setPreviewStats({
+          fileName: file.name,
+          totalLinhas: rows.length,
+          protocolosUnicos: protocolosSet.size,
+          devolucoes,
+          atrasados,
+          noPrazo,
+          emAndamento,
+          percAtraso: percAtrasoVal.toFixed(1),
+          periodoIni: datas[0] ? String(datas[0]).split('T')[0] : 'N/I',
+          periodoFim: datas.length > 0 ? String(datas[datas.length - 1]).split('T')[0] : 'N/I',
+          naturezas: Array.from(natSet).slice(0, 3),
+        });
+
         setIgnoredRowsCount(ignored);
         setParsedRows(validRows);
         setPreviewRows(validRows.slice(0, 20));
@@ -169,7 +302,7 @@ export default function FiorixBiPage() {
       },
       error: (error) => {
         console.error('PapaParse error:', error);
-        setImportStatusMsg('Erro ao ler arquivo CSV. Verifique a codificação.');
+        setValidationError('Erro ao ler o arquivo CSV. Verifique se o formato está correto.');
         setIsParsing(false);
       },
     });
@@ -195,7 +328,6 @@ export default function FiorixBiPage() {
     setUploadProgress(0);
     setImportStatusMsg('Criando registro de importação no Supabase...');
 
-    // 1. Create import record
     const createRes = await createBiImport(csvFile.name, parsedRows.length, 'Manual SSMS');
     if (!createRes.success || !createRes.importId) {
       setImportStatusMsg(`Falha na importação: ${createRes.error}`);
@@ -228,12 +360,8 @@ export default function FiorixBiPage() {
     setImportStatusMsg(`🎉 Importação concluída com sucesso! ${parsedRows.length} registros inseridos.`);
     setIsImporting(false);
 
-    // Reset upload form & refresh dashboard
     setTimeout(() => {
-      setCsvFile(null);
-      setParsedRows([]);
-      setPreviewRows([]);
-      setUploadProgress(0);
+      handleCancelUpload();
       fetchDashboard();
     }, 1500);
   };
@@ -301,7 +429,7 @@ export default function FiorixBiPage() {
         </button>
       </div>
 
-      {/* ── SECTION 1: MANUAL CSV UPLOAD (SSMS) ── */}
+      {/* ── SECTION 1: MANUAL CSV UPLOAD & INTEL PREVIEW ── */}
       <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', marginBottom: '32px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
           <FileSpreadsheet style={{ color: '#002B49' }} size={22} />
@@ -317,7 +445,7 @@ export default function FiorixBiPage() {
           style={{
             border: '2px dashed #cbd5e1',
             borderRadius: '12px',
-            padding: '36px 24px',
+            padding: '32px 24px',
             textAlign: 'center',
             backgroundColor: '#f8fafc',
             cursor: 'pointer',
@@ -355,52 +483,74 @@ export default function FiorixBiPage() {
           </label>
         </div>
 
-        {/* File Preview & Validation Stats */}
-        {isParsing && (
-          <div style={{ marginTop: '16px', color: '#0284c7', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <RefreshCw size={16} className="animate-spin" /> Analisando e validando linhas do CSV...
+        {/* Validation Error Banner */}
+        {validationError && (
+          <div style={{ marginTop: '20px', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '12px', padding: '16px', color: '#991b1b', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+            <XCircle size={24} style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <h4 style={{ fontWeight: 700, margin: '0 0 4px', fontSize: '14px' }}>Erro na Validação do CSV</h4>
+              <p style={{ margin: 0, fontSize: '13px', color: '#b91c1c' }}>{validationError}</p>
+            </div>
           </div>
         )}
 
-        {csvFile && !isParsing && parsedRows.length > 0 && (
-          <div style={{ marginTop: '24px' }}>
-            {/* Validation Banner */}
-            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div>
-                <span style={{ fontWeight: 700, color: '#166534', fontSize: '14px' }}>
-                  ✓ Arquivo Validado: {csvFile.name}
-                </span>
-                <div style={{ fontSize: '12px', color: '#15803d', marginTop: '2px' }}>
-                  {parsedRows.length.toLocaleString('pt-BR')} linhas prontas para importação · {ignoredRowsCount} linhas descartadas (Protocolo vazio/zerado).
+        {/* File Parsing Loading */}
+        {isParsing && (
+          <div style={{ marginTop: '16px', color: '#0284c7', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <RefreshCw size={16} className="animate-spin" /> Analisando e validando colunas do CSV...
+          </div>
+        )}
+
+        {/* INTEL PREVIEW CARD */}
+        {previewStats && !isParsing && (
+          <div style={{ marginTop: '24px', background: '#f8fafc', border: '2px dashed #cbd5e1', borderRadius: '16px', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📊 Preview: {previewStats.fileName}
+              </h3>
+              <span style={{ background: '#dcfce7', color: '#166534', fontWeight: 700, padding: '4px 12px', borderRadius: '20px', fontSize: '12px' }}>
+                ✓ Validação Aprovada
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+              <div style={{ background: '#ffffff', padding: '14px 18px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Total de Linhas</div>
+                <div style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>{previewStats.totalLinhas.toLocaleString('pt-BR')}</div>
+              </div>
+
+              <div style={{ background: '#ffffff', padding: '14px 18px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Protocolos Únicos</div>
+                <div style={{ fontSize: '20px', fontWeight: 800, color: '#002B49', marginTop: '2px' }}>{previewStats.protocolosUnicos.toLocaleString('pt-BR')}</div>
+              </div>
+
+              <div style={{ background: '#ffffff', padding: '14px 18px', borderRadius: '10px', border: '1px solid #fee2e2' }}>
+                <div style={{ fontSize: '11px', color: '#991b1b', fontWeight: 700, textTransform: 'uppercase' }}>🔴 Atrasados (Atraso {previewStats.percAtraso}%)</div>
+                <div style={{ fontSize: '20px', fontWeight: 800, color: '#ef4444', marginTop: '2px' }}>
+                  {previewStats.atrasados} <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>({previewStats.percAtraso}% de queixa)</span>
                 </div>
               </div>
 
-              <button
-                onClick={handleStartImport}
-                disabled={isImporting}
-                style={{
-                  background: isImporting ? '#94a3b8' : '#10b981',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  cursor: isImporting ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)',
-                }}
-              >
-                {isImporting ? <RefreshCw size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                {isImporting ? 'Importando...' : 'Importar para Supabase'}
-              </button>
+              <div style={{ background: '#ffffff', padding: '14px 18px', borderRadius: '10px', border: '1px solid #dcfce7' }}>
+                <div style={{ fontSize: '11px', color: '#166534', fontWeight: 700, textTransform: 'uppercase' }}>🟢 No Prazo</div>
+                <div style={{ fontSize: '20px', fontWeight: 800, color: '#10b981', marginTop: '2px' }}>{previewStats.noPrazo}</div>
+              </div>
             </div>
 
-            {/* Progress Bar */}
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', fontSize: '13px', color: '#475569', marginBottom: '20px', background: '#ffffff', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Calendar size={16} style={{ color: '#002B49' }} />
+                <span>Período: <b>{previewStats.periodoIni}</b> até <b>{previewStats.periodoFim}</b></span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <FileText size={16} style={{ color: '#002B49' }} />
+                <span>Principais Naturezas: <b>{previewStats.naturezas.join(', ') || 'N/A'}</b></span>
+              </div>
+            </div>
+
+            {/* Progress Bar during upload */}
             {isImporting && (
-              <div style={{ marginBottom: '16px' }}>
+              <div style={{ marginBottom: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
                   <span>{importStatusMsg}</span>
                   <span>{uploadProgress}%</span>
@@ -411,50 +561,46 @@ export default function FiorixBiPage() {
               </div>
             )}
 
-            {/* Preview Table */}
-            <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#334155', marginBottom: '10px' }}>
-              Preview das Primeiras 20 Linhas Válidas:
-            </h4>
-            <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #e2e8f0', maxHeight: '280px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textIndent: 0 }}>
-                <thead>
-                  <tr style={{ background: '#f1f5f9', textAlign: 'left', color: '#475569' }}>
-                    <th style={{ padding: '8px 12px' }}>Protocolo</th>
-                    <th style={{ padding: '8px 12px' }}>Natureza</th>
-                    <th style={{ padding: '8px 12px' }}>Tipo Prenotação</th>
-                    <th style={{ padding: '8px 12px' }}>Processamento</th>
-                    <th style={{ padding: '8px 12px' }}>Dt Protocolo</th>
-                    <th style={{ padding: '8px 12px' }}>Previsão</th>
-                    <th style={{ padding: '8px 12px' }}>Dias Corridos</th>
-                    <th style={{ padding: '8px 12px' }}>Situação</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {previewRows.map((r, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#ffffff' : '#fafafa' }}>
-                      <td style={{ padding: '8px 12px', fontWeight: 600, color: '#0f172a' }}>{r.Protocolo}</td>
-                      <td style={{ padding: '8px 12px', color: '#334155' }}>{r.Natureza || '-'}</td>
-                      <td style={{ padding: '8px 12px', color: '#334155' }}>{r.TipoPrenotacao || '-'}</td>
-                      <td style={{ padding: '8px 12px', color: '#334155' }}>{r.CodProcessamento} ({r.DescAndamento || ''})</td>
-                      <td style={{ padding: '8px 12px', color: '#64748b' }}>{r.DtProtocolo ? String(r.DtProtocolo).split('T')[0] : '-'}</td>
-                      <td style={{ padding: '8px 12px', color: '#64748b' }}>{r.DtPrevisaoEntrega ? String(r.DtPrevisaoEntrega).split('T')[0] : '-'}</td>
-                      <td style={{ padding: '8px 12px', fontWeight: 600 }}>{r.DiasCorridos ?? 0}d</td>
-                      <td style={{ padding: '8px 12px' }}>
-                        <span style={{
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          background: (r.SituacaoPrazo || '').toLowerCase().includes('atrasad') ? '#fee2e2' : '#dcfce7',
-                          color: (r.SituacaoPrazo || '').toLowerCase().includes('atrasad') ? '#991b1b' : '#166534',
-                        }}>
-                          {r.SituacaoPrazo || 'OK'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button
+                onClick={handleCancelUpload}
+                disabled={isImporting}
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  color: '#475569',
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  cursor: isImporting ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Cancelar
+              </button>
+
+              <button
+                onClick={handleStartImport}
+                disabled={isImporting}
+                style={{
+                  background: isImporting ? '#94a3b8' : '#002B49',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '10px 24px',
+                  borderRadius: '8px',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: isImporting ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(0, 43, 73, 0.25)',
+                }}
+              >
+                {isImporting ? <RefreshCw size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                {isImporting ? 'Importando Lotes...' : 'Confirmar e Importar para Supabase'}
+              </button>
             </div>
           </div>
         )}
