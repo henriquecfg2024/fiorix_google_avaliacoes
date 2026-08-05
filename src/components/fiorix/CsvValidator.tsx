@@ -1,6 +1,6 @@
 import Papa from 'papaparse';
 
-export const COLUNAS_OBRIGATORIAS = [
+export const HEADER_FIORIX = [
   'Protocolo',
   'FlagRecepcao',
   'TipoSolicitacao',
@@ -8,6 +8,7 @@ export const COLUNAS_OBRIGATORIAS = [
   'DtProtocolo',
   'DtPrevisaoEntrega',
   'DtAndamento',
+  'DataProtocolo',
   'CodProcessamento',
   'DescAndamento',
   'Natureza',
@@ -20,6 +21,8 @@ export const COLUNAS_OBRIGATORIAS = [
   'IsRegistrado',
   'TextoNotaDevolucao',
 ];
+
+export const COLUNAS_OBRIGATORIAS = HEADER_FIORIX;
 
 export interface CsvStats {
   fileName: string;
@@ -41,141 +44,179 @@ export function validarCSV(
   onError: (msg: string) => void
 ) {
   Papa.parse(file, {
-    header: true,
-    skipEmptyLines: true,
+    header: false,
+    delimiter: ';', // SSMS Save Results As CSV delimiter
+    skipEmptyLines: false, // Preserva TextoNotaDevolucao com quebras de linha
     encoding: 'UTF-8',
-    delimiter: '', // auto-detect
-    transformHeader: (h: string) => h.replace(/^\uFEFF/, '').trim().replace(/"/g, ''),
+    quoteChar: '"',
+    escapeChar: '"',
+    transform: (val: string) => (val ? val.replace(/^\uFEFF/, '').trim() : ''),
     complete: (results) => {
-      let rows = results.data as any[];
-      let headers = results.meta.fields || [];
+      let rawRows = (results.data as string[][]) || [];
 
-      // 3. Suporte para ; : se headers.length === 1 e o primeiro header contém ";"
-      if (headers.length === 1 && headers[0].includes(';')) {
-        const rawDelimiter = ';';
-        // Re-parse with semicolon delimiter
-        Papa.parse(file, {
-          header: true,
-          skipEmptyLines: true,
-          encoding: 'UTF-8',
-          delimiter: rawDelimiter,
-          transformHeader: (h: string) => h.replace(/^\uFEFF/, '').trim().replace(/"/g, ''),
-          complete: (reResults) => {
-            processParsedResults(reResults.data as any[], reResults.meta.fields || []);
-          },
-          error: (err) => {
-            onError(`Erro ao processar CSV com separador ponto e vírgula (;): ${err.message}`);
-          },
-        });
+      // Filtrar linhas completamente vazias
+      rawRows = rawRows.filter(
+        (r) => Array.isArray(r) && r.some((cell) => cell !== undefined && cell !== null && cell !== '')
+      );
+
+      if (rawRows.length === 0) {
+        onError('O arquivo CSV está vazio. Exporte novamente o resultado da pr_Fiorix_BI.');
         return;
       }
 
-      processParsedResults(rows, headers);
+      console.log('Headers/Primeira linha detectada:', rawRows[0]);
 
-      function processParsedResults(parsedRows: any[], parsedHeaders: string[]) {
-        // 4. Log no console
-        console.log('Headers detectados:', parsedHeaders);
+      // 1. Detectar se a primeira linha é Cabeçalho ou Dado
+      const firstCell = String(rawRows[0][0] || '').trim();
+      const isHeader =
+        firstCell.toLowerCase().includes('protocolo') ||
+        !/^\d+$/.test(firstCell.replace(/\D/g, ''));
 
-        // 1. Quantidade de linhas
-        if (parsedRows.length < 10) {
-          onError(`Arquivo com ${parsedRows.length} linhas. Exporte novamente o resultado completo da pr_Fiorix_BI.`);
-          return;
-        }
+      let dataRows = rawRows;
+      let detectedHeaders = HEADER_FIORIX;
 
-        // 2. Colunas obrigatórias com normalização BOM e case-insensitive
-        const headersNorm = parsedHeaders.map((h) => h.trim().replace(/^\uFEFF/, ''));
-        const headersLower = headersNorm.map((h) => h.toLowerCase());
-        const obrigatoriasLower = COLUNAS_OBRIGATORIAS.map((c) => c.toLowerCase());
-        
-        const faltantes = COLUNAS_OBRIGATORIAS.filter(
-          (_, i) => !headersLower.includes(obrigatoriasLower[i])
-        );
-
-        if (faltantes.length > 0) {
-          onError(`Colunas faltando: ${faltantes.join(', ')}`);
-          return;
-        }
-
-        // Helper to retrieve column value case-insensitively
-        const getVal = (r: any, col: string) => {
-          if (!r) return undefined;
-          if (r[col] !== undefined) return r[col];
-          const key = Object.keys(r).find(
-            (k) => k.trim().replace(/^\uFEFF/, '').toLowerCase() === col.toLowerCase()
-          );
-          return key ? r[key] : undefined;
-        };
-
-        // 3. Tem SituacaoPrazo?
-        const temSituacao = parsedRows.some((r) => {
-          const val = String(getVal(r, 'SituacaoPrazo') || '').trim();
-          return ['noprazo', 'atrasado', 'devolucao', 'emandamento'].includes(val.toLowerCase());
-        });
-
-        if (!temSituacao) {
-          onError(`Coluna SituacaoPrazo sem valores NoPrazo/Atrasado/Devolucao. Verifique se o CSV é da pr_Fiorix_BI corrigida.`);
-          return;
-        }
-
-        // 4. PREVIEW INTELIGENTE
-        const validRows = parsedRows.filter((r) => {
-          const p = String(getVal(r, 'Protocolo') || '').trim();
-          return p && p !== '0' && p.toLowerCase() !== 'protocolo';
-        });
-
-        const protocolosUnicos = new Set(validRows.map((r) => String(getVal(r, 'Protocolo') || '').trim())).size;
-
-        const devolucoes = validRows.filter((r) => {
-          const isDev = getVal(r, 'IsDevolucao');
-          const sit = String(getVal(r, 'SituacaoPrazo') || '').toLowerCase();
-          return isDev === '1' || isDev === 'true' || isDev === true || sit.includes('devolucao');
-        }).length;
-
-        const atrasados = validRows.filter((r) => {
-          const sit = String(getVal(r, 'SituacaoPrazo') || '').toLowerCase();
-          const diasAtraso = parseInt(String(getVal(r, 'DiasAtraso') || '0'), 10);
-          return sit === 'atrasado' || diasAtraso > 0;
-        }).length;
-
-        const noPrazo = validRows.filter((r) => {
-          const sit = String(getVal(r, 'SituacaoPrazo') || '').toLowerCase();
-          return sit === 'noprazo';
-        }).length;
-
-        const emAndamento = validRows.filter((r) => {
-          const sit = String(getVal(r, 'SituacaoPrazo') || '').toLowerCase();
-          return sit === 'emandamento';
-        }).length;
-
-        const datas = validRows
-          .map((r) => getVal(r, 'DtAndamento'))
-          .filter(Boolean)
-          .sort();
-
-        const natSet = new Set<string>();
-        validRows.forEach((r) => {
-          const nat = getVal(r, 'Natureza');
-          if (nat) natSet.add(String(nat).trim());
-        });
-
-        const percAtrasoVal = (noPrazo + atrasados) > 0 ? (atrasados / (noPrazo + atrasados)) * 100 : 0;
-
-        const stats: CsvStats = {
-          fileName: file.name,
-          totalLinhas: parsedRows.length,
-          protocolosUnicos,
-          devolucoes,
-          atrasados,
-          noPrazo,
-          emAndamento,
-          percAtraso: percAtrasoVal.toFixed(1),
-          periodoIni: datas[0] ? String(datas[0]).split('T')[0] : 'N/I',
-          periodoFim: datas.length > 0 ? String(datas[datas.length - 1]).split('T')[0] : 'N/I',
-          naturezas: Array.from(natSet).slice(0, 3),
-        };
-
-        onPreview(stats, validRows);
+      if (isHeader && !/^\d+$/.test(firstCell)) {
+        detectedHeaders = rawRows[0].map((h) => h.replace(/^\uFEFF/, '').trim());
+        dataRows = rawRows.slice(1);
       }
+
+      console.log('Quantidade de linhas de dados:', dataRows.length);
+
+      if (dataRows.length < 10) {
+        onError(
+          `Arquivo com apenas ${dataRows.length} linhas. Exporte novamente o resultado completo da pr_Fiorix_BI.`
+        );
+        return;
+      }
+
+      // Mapear cada linha para a ordem do HEADER_FIORIX
+      const mappedRows = dataRows.map((r) => {
+        const rowObj: Record<string, any> = {};
+        if (!isHeader || detectedHeaders.length < 10) {
+          HEADER_FIORIX.forEach((colName, idx) => {
+            rowObj[colName] = r[idx] !== undefined ? r[idx] : '';
+          });
+        } else {
+          detectedHeaders.forEach((colName, idx) => {
+            rowObj[colName] = r[idx] !== undefined ? r[idx] : '';
+          });
+          HEADER_FIORIX.forEach((h) => {
+            if (rowObj[h] === undefined) {
+              const matchKey = Object.keys(rowObj).find(
+                (k) => k.toLowerCase().replace(/[^a-z0-9]/g, '') === h.toLowerCase().replace(/[^a-z0-9]/g, '')
+              );
+              if (matchKey) rowObj[h] = rowObj[matchKey];
+            }
+          });
+        }
+        return rowObj;
+      });
+
+      const getVal = (r: any, col: string) => {
+        if (!r) return undefined;
+        if (r[col] !== undefined && r[col] !== '') return r[col];
+        const key = Object.keys(r).find(
+          (k) => k.trim().replace(/^\uFEFF/, '').toLowerCase() === col.toLowerCase()
+        );
+        return key ? r[key] : undefined;
+      };
+
+      // Filter valid rows with a valid protocol
+      const validRows = mappedRows.filter((r) => {
+        const p = String(getVal(r, 'Protocolo') || '').trim();
+        return p && p !== '0' && p.toLowerCase() !== 'protocolo';
+      });
+
+      // Tratar tipos para envio ao Supabase
+      const formattedRows = validRows.map((row) => {
+        const getInt = (val: any) => {
+          if (val === undefined || val === null || val === '') return null;
+          const parsed = parseInt(String(val).replace(/\D/g, ''), 10);
+          return isNaN(parsed) ? null : parsed;
+        };
+
+        const getBool = (val: any) => {
+          if (val === undefined || val === null) return false;
+          if (typeof val === 'boolean') return val;
+          const s = String(val).trim().toLowerCase();
+          return s === '1' || s === 'true' || s === 'sim';
+        };
+
+        return {
+          Protocolo: String(getVal(row, 'Protocolo') || '').trim(),
+          FlagRecepcao: getInt(getVal(row, 'FlagRecepcao')),
+          TipoSolicitacao: getVal(row, 'TipoSolicitacao') || null,
+          IdAndamento: getVal(row, 'IdAndamento') || null,
+          DtProtocolo: getVal(row, 'DtProtocolo') || getVal(row, 'DataProtocolo') || null,
+          DtPrevisaoEntrega: getVal(row, 'DtPrevisaoEntrega') || null,
+          DtAndamento: getVal(row, 'DtAndamento') || null,
+          CodProcessamento: getInt(getVal(row, 'CodProcessamento')),
+          DescAndamento: getVal(row, 'DescAndamento') || null,
+          Natureza: getVal(row, 'Natureza') || null,
+          TipoPrenotacao: getVal(row, 'TipoPrenotacao') || null,
+          DiasPrometidos: getInt(getVal(row, 'DiasPrometidos')),
+          DiasCorridos: getInt(getVal(row, 'DiasCorridos')),
+          DiasAtraso: getInt(getVal(row, 'DiasAtraso')),
+          SituacaoPrazo: getVal(row, 'SituacaoPrazo') || null,
+          IsDevolucao: getBool(getVal(row, 'IsDevolucao')),
+          IsRegistrado: getBool(getVal(row, 'IsRegistrado')),
+          TextoNotaDevolucao: getVal(row, 'TextoNotaDevolucao') || null,
+        };
+      });
+
+      // Cálculo do Preview Inteligente
+      const protocolosUnicos = new Set(
+        formattedRows.map((r) => r.Protocolo)
+      ).size;
+
+      const devolucoes = formattedRows.filter((r) => {
+        const sit = String(r.SituacaoPrazo || '').toLowerCase();
+        return r.IsDevolucao || sit.includes('devolucao');
+      }).length;
+
+      const atrasados = formattedRows.filter((r) => {
+        const sit = String(r.SituacaoPrazo || '').toLowerCase();
+        return sit.includes('atrasad') || (r.DiasAtraso && r.DiasAtraso > 0);
+      }).length;
+
+      const noPrazo = formattedRows.filter((r) => {
+        const sit = String(r.SituacaoPrazo || '').toLowerCase();
+        return sit === 'noprazo';
+      }).length;
+
+      const emAndamento = formattedRows.filter((r) => {
+        const sit = String(r.SituacaoPrazo || '').toLowerCase();
+        return sit.includes('andamento');
+      }).length;
+
+      const datas = formattedRows
+        .map((r) => r.DtAndamento || r.DtProtocolo)
+        .filter(Boolean)
+        .sort();
+
+      const natSet = new Set<string>();
+      formattedRows.forEach((r) => {
+        if (r.Natureza) natSet.add(r.Natureza.trim());
+      });
+
+      const percAtrasoVal =
+        noPrazo + atrasados > 0 ? (atrasados / (noPrazo + atrasados)) * 100 : 0;
+
+      const stats: CsvStats = {
+        fileName: file.name,
+        totalLinhas: dataRows.length,
+        protocolosUnicos,
+        devolucoes,
+        atrasados,
+        noPrazo,
+        emAndamento,
+        percAtraso: percAtrasoVal.toFixed(1),
+        periodoIni: datas[0] ? String(datas[0]).split('T')[0] : 'N/I',
+        periodoFim: datas.length > 0 ? String(datas[datas.length - 1]).split('T')[0] : 'N/I',
+        naturezas: Array.from(natSet).slice(0, 3),
+      };
+
+      onPreview(stats, formattedRows);
     },
     error: (err) => {
       onError(`Erro ao ler o arquivo CSV: ${err.message}`);
@@ -221,10 +262,10 @@ export function PreviewCard({
         📄 Protocolos únicos: <b>{stats.protocolosUnicos.toLocaleString('pt-BR')}</b>
       </p>
       <p style={{ margin: '4px 0', fontSize: '14px', color: '#334155' }}>
-        ⚠️ Devoluções: <b>{stats.devolucoes}</b>
+        ⚠️ Devoluções: <b>{stats.devolucoes.toLocaleString('pt-BR')}</b>
       </p>
       <p style={{ margin: '4px 0', fontSize: '14px', color: '#334155' }}>
-        🟢 No Prazo: <b>{stats.noPrazo}</b> | 🔴 Atrasados: <b>{stats.atrasados} ({stats.percAtraso}%)</b>{' '}
+        🟢 No Prazo: <b>{stats.noPrazo.toLocaleString('pt-BR')}</b> | 🔴 Atrasados: <b>{stats.atrasados.toLocaleString('pt-BR')} ({stats.percAtraso}%)</b>{' '}
         <span style={{ color: '#dc2626', fontWeight: 600 }}>(explica os 22% de reclamações no Google)</span>
       </p>
       <p style={{ margin: '4px 0', fontSize: '14px', color: '#334155' }}>
