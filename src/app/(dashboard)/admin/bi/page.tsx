@@ -86,6 +86,21 @@ export default function FiorixBiPage() {
     fetchDashboard();
   }, [fetchDashboard]);
 
+  // Helper to extract value from row regardless of BOM, quotes or casing
+  const getRowValue = (row: Record<string, any>, targetKey: string) => {
+    if (!row) return undefined;
+    if (row[targetKey] !== undefined && row[targetKey] !== null) return row[targetKey];
+    
+    // Case and BOM insensitive key search
+    const cleanTarget = targetKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const foundKey = Object.keys(row).find((k) => {
+      const cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+      return cleanK === cleanTarget;
+    });
+
+    return foundKey ? row[foundKey] : undefined;
+  };
+
   // Handle File Selection and PapaParse Processing
   const handleFileChange = (file: File) => {
     if (!file) return;
@@ -96,39 +111,54 @@ export default function FiorixBiPage() {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: 'greedy',
-      encoding: 'UTF-8',
+      transformHeader: (h) => h.trim().replace(/^[\uFEFF\xFF\xFE"'\s]+|["'\s]+$/g, ''),
       complete: (results) => {
-        const rawData = results.data as Record<string, any>[];
+        const rawData = (results.data || []) as Record<string, any>[];
         let ignored = 0;
         const validRows: BiRowInput[] = [];
 
         rawData.forEach((row) => {
-          const proto = String(row['Protocolo'] || row['protocolo'] || '').trim();
+          const rawProto = getRowValue(row, 'Protocolo');
+          const proto = rawProto ? String(rawProto).trim() : '';
+          
           // Filter out rows with Protocolo = 0, empty, or header re-prints
           if (!proto || proto === '0' || proto.toLowerCase() === 'protocolo') {
             ignored++;
             return;
           }
 
+          const getInt = (val: any) => {
+            if (val === undefined || val === null || val === '') return null;
+            const parsed = parseInt(String(val).replace(/\D/g, ''), 10);
+            return isNaN(parsed) ? null : parsed;
+          };
+
+          const getBool = (val: any) => {
+            if (val === undefined || val === null) return false;
+            if (typeof val === 'boolean') return val;
+            const s = String(val).trim().toLowerCase();
+            return s === '1' || s === 'true' || s === 'sim';
+          };
+
           validRows.push({
             Protocolo: proto,
-            FlagRecepcao: row['FlagRecepcao'] ? parseInt(row['FlagRecepcao'], 10) : null,
-            TipoSolicitacao: row['TipoSolicitacao'] || null,
-            IdAndamento: row['IdAndamento'] || null,
-            DtProtocolo: row['DtProtocolo'] || row['DataProtocolo'] || null,
-            DtPrevisaoEntrega: row['DtPrevisaoEntrega'] || null,
-            DtAndamento: row['DtAndamento'] || null,
-            CodProcessamento: row['CodProcessamento'] ? parseInt(row['CodProcessamento'], 10) : null,
-            DescAndamento: row['DescAndamento'] || null,
-            Natureza: row['Natureza'] || null,
-            TipoPrenotacao: row['TipoPrenotacao'] || null,
-            DiasPrometidos: row['DiasPrometidos'] ? parseInt(row['DiasPrometidos'], 10) : null,
-            DiasCorridos: row['DiasCorridos'] ? parseInt(row['DiasCorridos'], 10) : null,
-            DiasAtraso: row['DiasAtraso'] ? parseInt(row['DiasAtraso'], 10) : null,
-            SituacaoPrazo: row['SituacaoPrazo'] || null,
-            IsDevolucao: row['IsDevolucao'] === '1' || row['IsDevolucao'] === 'true' || row['IsDevolucao'] === true,
-            IsRegistrado: row['IsRegistrado'] === '1' || row['IsRegistrado'] === 'true' || row['IsRegistrado'] === true,
-            TextoNotaDevolucao: row['TextoNotaDevolucao'] || null,
+            FlagRecepcao: getInt(getRowValue(row, 'FlagRecepcao')),
+            TipoSolicitacao: getRowValue(row, 'TipoSolicitacao') || null,
+            IdAndamento: getRowValue(row, 'IdAndamento') || null,
+            DtProtocolo: getRowValue(row, 'DtProtocolo') || getRowValue(row, 'DataProtocolo') || null,
+            DtPrevisaoEntrega: getRowValue(row, 'DtPrevisaoEntrega') || null,
+            DtAndamento: getRowValue(row, 'DtAndamento') || null,
+            CodProcessamento: getInt(getRowValue(row, 'CodProcessamento')),
+            DescAndamento: getRowValue(row, 'DescAndamento') || null,
+            Natureza: getRowValue(row, 'Natureza') || null,
+            TipoPrenotacao: getRowValue(row, 'TipoPrenotacao') || null,
+            DiasPrometidos: getInt(getRowValue(row, 'DiasPrometidos')),
+            DiasCorridos: getInt(getRowValue(row, 'DiasCorridos')),
+            DiasAtraso: getInt(getRowValue(row, 'DiasAtraso')),
+            SituacaoPrazo: getRowValue(row, 'SituacaoPrazo') || null,
+            IsDevolucao: getBool(getRowValue(row, 'IsDevolucao')),
+            IsRegistrado: getBool(getRowValue(row, 'IsRegistrado')),
+            TextoNotaDevolucao: getRowValue(row, 'TextoNotaDevolucao') || null,
           });
         });
 
@@ -317,9 +347,10 @@ export default function FiorixBiPage() {
             Selecionar Arquivo CSV
             <input
               type="file"
-              accept=".csv"
+              accept=".csv,text/csv,application/vnd.ms-excel,text/plain"
               style={{ display: 'none' }}
-              onChange={(e) => e.target.files && handleFileChange(e.target.files[0])}
+              onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+              onChange={(e) => e.target.files && e.target.files[0] && handleFileChange(e.target.files[0])}
             />
           </label>
         </div>
