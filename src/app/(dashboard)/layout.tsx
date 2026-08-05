@@ -70,7 +70,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Link className={isActive('/avaliacoes')} href="/avaliacoes">Avaliações</Link>
               <Link className={isActive('/estatisticas')} href="/estatisticas">Estatísticas</Link>
               <Link className={isActive('/relatorios')} href="/relatorios">Relatórios</Link>
-              <Link className={isActive('/admin/bi')} href="/admin/bi">Módulo BI</Link>
+              <Link className={isActive('/bi')} href="/bi">Módulo BI</Link>
               {currentUser?.role && currentUser.role !== 'USER' && (
                 <Link className={isActive('/configuracoes')} href="/configuracoes">Configurações</Link>
               )}

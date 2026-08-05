@@ -113,7 +113,7 @@ export function HealthCard() {
 
           if (isBiLink) {
             return (
-              <Link key={idx} href="/admin/bi" style={{ textDecoration: 'none' }}>
+              <Link key={idx} href="/bi" style={{ textDecoration: 'none' }}>
                 {cardContent}
               </Link>
             );
