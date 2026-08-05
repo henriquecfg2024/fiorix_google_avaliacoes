@@ -10,13 +10,25 @@ async function handleSync(request: Request) {
   }
 
   const tenantId = session.user.tenantId as string;
+  const acceptHeader = request.headers.get('accept') || '';
+  const isJson = acceptHeader.includes('application/json');
 
   try {
     const result = await syncReviews(tenantId);
-    return NextResponse.redirect(new URL(`/dashboard?synced=${result.count}`, request.url));
+
+    if (isJson) {
+      return NextResponse.json({ success: true, count: result.count });
+    }
+
+    return NextResponse.redirect(new URL(`/configuracoes?synced=${result.count}`, request.url));
   } catch (error: any) {
     console.error('Sync Error:', error);
-    return NextResponse.redirect(new URL(`/dashboard?syncError=${encodeURIComponent(error.message)}`, request.url));
+
+    if (isJson) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.redirect(new URL(`/configuracoes?syncError=${encodeURIComponent(error.message)}`, request.url));
   }
 }
 

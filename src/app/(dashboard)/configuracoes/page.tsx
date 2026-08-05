@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SyncButton } from '@/components/configuracoes/SyncButton';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import { PasswordForm } from '@/components/configuracoes/PasswordForm';
@@ -76,11 +77,7 @@ export default async function ConfiguracoesPage({
 
               {isConnected ? (
                 <>
-                  <a href="/api/sync-reviews" style={{ 
-                    background: '#2563eb', color: 'white', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px'
-                  }}>
-                    🔄 Sincronizar Avaliações Agora
-                  </a>
+                  <SyncButton />
 
                   {userRole === 'MASTER' ? (
                     <Link href="/api/auth/google" style={{ 
