@@ -76,13 +76,13 @@ export interface PreviewStats {
   naturezas: string[];
 }
 
+import { validarCSV, PreviewCard, CsvStats } from '@/components/fiorix/CsvValidator';
+
 export default function FiorixBiPage() {
   // State for CSV Upload & Preview Stats
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [parsedRows, setParsedRows] = useState<BiRowInput[]>([]);
-  const [previewRows, setPreviewRows] = useState<BiRowInput[]>([]);
-  const [previewStats, setPreviewStats] = useState<PreviewStats | null>(null);
-  const [ignoredRowsCount, setIgnoredRowsCount] = useState<number>(0);
+  const [previewStats, setPreviewStats] = useState<CsvStats | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   
   const [isParsing, setIsParsing] = useState<boolean>(false);
@@ -127,32 +127,16 @@ export default function FiorixBiPage() {
     fetchDashboard();
   }, [fetchDashboard]);
 
-  // Helper to extract value from row regardless of BOM, quotes or casing
-  const getRowValue = (row: Record<string, any>, targetKey: string) => {
-    if (!row) return undefined;
-    if (row[targetKey] !== undefined && row[targetKey] !== null) return row[targetKey];
-    
-    // Case and BOM insensitive key search
-    const cleanTarget = targetKey.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const foundKey = Object.keys(row).find((k) => {
-      const cleanK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-      return cleanK === cleanTarget;
-    });
-
-    return foundKey ? row[foundKey] : undefined;
-  };
-
   // Reset upload form
   const handleCancelUpload = () => {
     setCsvFile(null);
     setParsedRows([]);
-    setPreviewRows([]);
     setPreviewStats(null);
     setValidationError(null);
     setImportStatusMsg('');
   };
 
-  // Handle File Selection with Validations and Preview Stats Calculation
+  // Handle File Selection with CsvValidator
   const handleFileChange = (file: File) => {
     if (!file) return;
     setCsvFile(file);
@@ -161,151 +145,18 @@ export default function FiorixBiPage() {
     setImportStatusMsg('');
     setPreviewStats(null);
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: 'greedy',
-      transformHeader: (h) => h.trim().replace(/^[\uFEFF\xFF\xFE"'\s]+|["'\s]+$/g, ''),
-      complete: (results) => {
-        const rows = (results.data || []) as Record<string, any>[];
-        const headers = (results.meta.fields || []).map((h) =>
-          h.trim().replace(/^[\uFEFF\xFF\xFE"'\s]+|["'\s]+$/g, '')
-        );
-
-        // 1. Quantidade mínima de linhas
-        if (rows.length < 10) {
-          setValidationError(
-            `Arquivo com apenas ${rows.length} linhas. Exporte novamente o resultado completo da procedure dbo.pr_Fiorix_BI.`
-          );
-          setIsParsing(false);
-          return;
-        }
-
-        // 2. Colunas obrigatórias
-        const faltantes = COLUNAS_OBRIGATORIAS.filter(
-          (reqCol) =>
-            !headers.some(
-              (h) => h.toLowerCase().replace(/[^a-z0-9]/g, '') === reqCol.toLowerCase().replace(/[^a-z0-9]/g, '')
-            )
-        );
-        if (faltantes.length > 0) {
-          setValidationError(`Colunas obrigatórias faltando no CSV: ${faltantes.join(', ')}`);
-          setIsParsing(false);
-          return;
-        }
-
-        // 3. Validação de SituacaoPrazo
-        const temSituacao = rows.some((r) => {
-          const sit = String(getRowValue(r, 'SituacaoPrazo') || '').trim();
-          return ['noprazo', 'atrasado', 'devolucao', 'emandamento'].includes(sit.toLowerCase());
-        });
-        if (!temSituacao) {
-          setValidationError(
-            `Coluna SituacaoPrazo sem valores válidos (NoPrazo/Atrasado/Devolucao). Verifique se o CSV é da pr_Fiorix_BI.`
-          );
-          setIsParsing(false);
-          return;
-        }
-
-        // Process rows into typed BiRowInput
-        let ignored = 0;
-        const validRows: BiRowInput[] = [];
-
-        rows.forEach((row) => {
-          const rawProto = getRowValue(row, 'Protocolo');
-          const proto = rawProto ? String(rawProto).trim() : '';
-
-          if (!proto || proto === '0' || proto.toLowerCase() === 'protocolo') {
-            ignored++;
-            return;
-          }
-
-          const getInt = (val: any) => {
-            if (val === undefined || val === null || val === '') return null;
-            const parsed = parseInt(String(val).replace(/\D/g, ''), 10);
-            return isNaN(parsed) ? null : parsed;
-          };
-
-          const getBool = (val: any) => {
-            if (val === undefined || val === null) return false;
-            if (typeof val === 'boolean') return val;
-            const s = String(val).trim().toLowerCase();
-            return s === '1' || s === 'true' || s === 'sim';
-          };
-
-          validRows.push({
-            Protocolo: proto,
-            FlagRecepcao: getInt(getRowValue(row, 'FlagRecepcao')),
-            TipoSolicitacao: getRowValue(row, 'TipoSolicitacao') || null,
-            IdAndamento: getRowValue(row, 'IdAndamento') || null,
-            DtProtocolo: getRowValue(row, 'DtProtocolo') || getRowValue(row, 'DataProtocolo') || null,
-            DtPrevisaoEntrega: getRowValue(row, 'DtPrevisaoEntrega') || null,
-            DtAndamento: getRowValue(row, 'DtAndamento') || null,
-            CodProcessamento: getInt(getRowValue(row, 'CodProcessamento')),
-            DescAndamento: getRowValue(row, 'DescAndamento') || null,
-            Natureza: getRowValue(row, 'Natureza') || null,
-            TipoPrenotacao: getRowValue(row, 'TipoPrenotacao') || null,
-            DiasPrometidos: getInt(getRowValue(row, 'DiasPrometidos')),
-            DiasCorridos: getInt(getRowValue(row, 'DiasCorridos')),
-            DiasAtraso: getInt(getRowValue(row, 'DiasAtraso')),
-            SituacaoPrazo: getRowValue(row, 'SituacaoPrazo') || null,
-            IsDevolucao: getBool(getRowValue(row, 'IsDevolucao')),
-            IsRegistrado: getBool(getRowValue(row, 'IsRegistrado')),
-            TextoNotaDevolucao: getRowValue(row, 'TextoNotaDevolucao') || null,
-          });
-        });
-
-        // 4. PREVIEW INTELIGENTE & METRICAS
-        const protocolosSet = new Set(validRows.map((r) => r.Protocolo));
-        const devolucoes = validRows.filter(
-          (r) => r.IsDevolucao || (r.SituacaoPrazo || '').toLowerCase().includes('devolucao')
-        ).length;
-        const atrasados = validRows.filter(
-          (r) => (r.DiasAtraso && r.DiasAtraso > 0) || (r.SituacaoPrazo || '').toLowerCase().includes('atrasad')
-        ).length;
-        const noPrazo = validRows.filter(
-          (r) => (r.SituacaoPrazo || '').toLowerCase() === 'noprazo'
-        ).length;
-        const emAndamento = validRows.filter(
-          (r) => (r.SituacaoPrazo || '').toLowerCase().includes('andamento')
-        ).length;
-
-        const datas = validRows
-          .map((r) => r.DtAndamento)
-          .filter(Boolean)
-          .sort();
-
-        const natSet = new Set<string>();
-        validRows.forEach((r) => {
-          if (r.Natureza) natSet.add(r.Natureza.trim());
-        });
-
-        const percAtrasoVal = (noPrazo + atrasados) > 0 ? (atrasados / (noPrazo + atrasados)) * 100 : 0;
-
-        setPreviewStats({
-          fileName: file.name,
-          totalLinhas: rows.length,
-          protocolosUnicos: protocolosSet.size,
-          devolucoes,
-          atrasados,
-          noPrazo,
-          emAndamento,
-          percAtraso: percAtrasoVal.toFixed(1),
-          periodoIni: datas[0] ? String(datas[0]).split('T')[0] : 'N/I',
-          periodoFim: datas.length > 0 ? String(datas[datas.length - 1]).split('T')[0] : 'N/I',
-          naturezas: Array.from(natSet).slice(0, 3),
-        });
-
-        setIgnoredRowsCount(ignored);
+    validarCSV(
+      file,
+      (stats, validRows) => {
+        setPreviewStats(stats);
         setParsedRows(validRows);
-        setPreviewRows(validRows.slice(0, 20));
         setIsParsing(false);
       },
-      error: (error) => {
-        console.error('PapaParse error:', error);
-        setValidationError('Erro ao ler o arquivo CSV. Verifique se o formato está correto.');
+      (errorMsg) => {
+        setValidationError(errorMsg);
         setIsParsing(false);
-      },
-    });
+      }
+    );
   };
 
   // Drag and Drop handlers
@@ -503,106 +354,14 @@ export default function FiorixBiPage() {
 
         {/* INTEL PREVIEW CARD */}
         {previewStats && !isParsing && (
-          <div style={{ marginTop: '24px', background: '#f8fafc', border: '2px dashed #cbd5e1', borderRadius: '16px', padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                📊 Preview: {previewStats.fileName}
-              </h3>
-              <span style={{ background: '#dcfce7', color: '#166534', fontWeight: 700, padding: '4px 12px', borderRadius: '20px', fontSize: '12px' }}>
-                ✓ Validação Aprovada
-              </span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '20px' }}>
-              <div style={{ background: '#ffffff', padding: '14px 18px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Total de Linhas</div>
-                <div style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>{previewStats.totalLinhas.toLocaleString('pt-BR')}</div>
-              </div>
-
-              <div style={{ background: '#ffffff', padding: '14px 18px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>Protocolos Únicos</div>
-                <div style={{ fontSize: '20px', fontWeight: 800, color: '#002B49', marginTop: '2px' }}>{previewStats.protocolosUnicos.toLocaleString('pt-BR')}</div>
-              </div>
-
-              <div style={{ background: '#ffffff', padding: '14px 18px', borderRadius: '10px', border: '1px solid #fee2e2' }}>
-                <div style={{ fontSize: '11px', color: '#991b1b', fontWeight: 700, textTransform: 'uppercase' }}>🔴 Atrasados (Atraso {previewStats.percAtraso}%)</div>
-                <div style={{ fontSize: '20px', fontWeight: 800, color: '#ef4444', marginTop: '2px' }}>
-                  {previewStats.atrasados} <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>({previewStats.percAtraso}% de queixa)</span>
-                </div>
-              </div>
-
-              <div style={{ background: '#ffffff', padding: '14px 18px', borderRadius: '10px', border: '1px solid #dcfce7' }}>
-                <div style={{ fontSize: '11px', color: '#166534', fontWeight: 700, textTransform: 'uppercase' }}>🟢 No Prazo</div>
-                <div style={{ fontSize: '20px', fontWeight: 800, color: '#10b981', marginTop: '2px' }}>{previewStats.noPrazo}</div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', fontSize: '13px', color: '#475569', marginBottom: '20px', background: '#ffffff', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Calendar size={16} style={{ color: '#002B49' }} />
-                <span>Período: <b>{previewStats.periodoIni}</b> até <b>{previewStats.periodoFim}</b></span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <FileText size={16} style={{ color: '#002B49' }} />
-                <span>Principais Naturezas: <b>{previewStats.naturezas.join(', ') || 'N/A'}</b></span>
-              </div>
-            </div>
-
-            {/* Progress Bar during upload */}
-            {isImporting && (
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
-                  <span>{importStatusMsg}</span>
-                  <span>{uploadProgress}%</span>
-                </div>
-                <div style={{ width: '100%', height: '10px', background: '#e2e8f0', borderRadius: '5px', overflow: 'hidden' }}>
-                  <div style={{ width: `${uploadProgress}%`, height: '100%', background: '#10b981', transition: 'width 0.3s' }} />
-                </div>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-              <button
-                onClick={handleCancelUpload}
-                disabled={isImporting}
-                style={{
-                  background: '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  color: '#475569',
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  fontWeight: 600,
-                  fontSize: '13px',
-                  cursor: isImporting ? 'not-allowed' : 'pointer',
-                }}
-              >
-                Cancelar
-              </button>
-
-              <button
-                onClick={handleStartImport}
-                disabled={isImporting}
-                style={{
-                  background: isImporting ? '#94a3b8' : '#002B49',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '10px 24px',
-                  borderRadius: '8px',
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  cursor: isImporting ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  boxShadow: '0 4px 12px rgba(0, 43, 73, 0.25)',
-                }}
-              >
-                {isImporting ? <RefreshCw size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                {isImporting ? 'Importando Lotes...' : 'Confirmar e Importar para Supabase'}
-              </button>
-            </div>
-          </div>
+          <PreviewCard
+            stats={previewStats}
+            onConfirm={handleStartImport}
+            onCancel={handleCancelUpload}
+            isImporting={isImporting}
+            uploadProgress={uploadProgress}
+            importStatusMsg={importStatusMsg}
+          />
         )}
       </div>
 
