@@ -110,13 +110,20 @@ export async function fetchLocations(oauth2Client: any) {
   }
 }
 
+function cleanReviewComment(comment: string | null | undefined): string {
+  if (!comment) return '';
+  return comment
+    .replace(/\s*\((?:Translated by Google|Traduzido pelo Google|Translated by tripadvisor|Traduzido pelo Tripadvisor)[\s\S]*/i, '')
+    .trim();
+}
+
 export async function syncReviews(tenantId: string) {
   const connection = await prisma.googleConnection.findFirst({
     where: { tenantId }
   });
 
   if (!connection) {
-    throw new Error('Tenant não conectado ao Google');
+    throw new Error('Nenhuma conta do Google vinculada a este cartório.');
   }
 
   const oauth2Client = await getAuthenticatedGoogleClient(tenantId);
@@ -184,7 +191,7 @@ export async function syncReviews(tenantId: string) {
               tenantId,
               reviewerName: item.reviewer?.displayName || 'Anônimo',
               rating: ratingMap[item.starRating] || 5,
-              comment: item.comment || '',
+              comment: cleanReviewComment(item.comment),
               publishedAt: new Date(item.createTime),
               status: item.reviewReply ? 'RESPONDED' : 'PENDING'
             }

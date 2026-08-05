@@ -202,7 +202,7 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
             </div>
 
             <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', color: '#475569' }}>
-              <strong>Avaliação de {review.reviewerName} ({review.rating}★):</strong> "{review.comment || 'Sem comentário'}"
+              <strong>Avaliação de {review.reviewerName} ({review.rating}★):</strong> "{cleanReviewComment(review.comment) || 'Sem comentário'}"
             </div>
 
             <form onSubmit={handleSubmitResponse}>
