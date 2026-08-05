@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation';
 import { handleSignOut, getCurrentUser } from '@/app/actions/auth';
 import { getPendingCount } from '@/app/actions/reviews';
 
+import { PwaInstallBanner } from '@/components/pwa/PwaInstallBanner';
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState('5');
   const [showMenu, setShowMenu] = useState(false);
@@ -48,6 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <>
+      <PwaInstallBanner />
       <header>
         <div className="header-inner">
           <div className="header-left">
