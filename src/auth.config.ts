@@ -11,6 +11,7 @@ export const authConfig = {
                             nextUrl.pathname.startsWith('/avaliacoes') || 
                             nextUrl.pathname.startsWith('/estatisticas') ||
                             nextUrl.pathname.startsWith('/relatorios') ||
+                            nextUrl.pathname.startsWith('/admin') ||
                             nextUrl.pathname.startsWith('/configuracoes');
                             
       if (isOnDashboard) {
