@@ -38,8 +38,6 @@ import {
 import {
   createBiImport,
   insertBiBatch,
-  getBiDashboardData,
-  getBiImportsList,
   deleteBiImport,
   BiRowInput,
 } from '@/app/actions/bi';
@@ -97,6 +95,7 @@ export default function FiorixBiPage() {
   // State for Dashboard Analytics
   const [loadingDashboard, setLoadingDashboard] = useState<boolean>(true);
   const [dashboardData, setDashboardData] = useState<any>(null);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [importsList, setImportsList] = useState<any[]>([]);
 
   // State for Dashboard Filters
@@ -108,23 +107,37 @@ export default function FiorixBiPage() {
   // Load Dashboard & Imports History
   const fetchDashboard = useCallback(async () => {
     setLoadingDashboard(true);
-    const [dashRes, importsRes] = await Promise.all([
-      getBiDashboardData({
-        importId: selectedImportId,
-        startDate: startDate || undefined,
-        endDate: endDate || undefined,
-        tipoPrenotacao: selectedTipoPrenotacao || undefined,
-      }),
-      getBiImportsList(),
-    ]);
+    setDashboardError(null);
 
-    if (dashRes.success) {
-      setDashboardData(dashRes);
+    try {
+      const params = new URLSearchParams();
+      if (selectedImportId && selectedImportId !== 'ALL') params.set('importId', selectedImportId);
+      if (startDate) params.set('startDate', startDate);
+      if (endDate) params.set('endDate', endDate);
+      if (selectedTipoPrenotacao && selectedTipoPrenotacao !== 'ALL') {
+        params.set('tipoPrenotacao', selectedTipoPrenotacao);
+      }
+
+      const response = await fetch(`/api/bi/dashboard?${params.toString()}`, {
+        method: 'GET',
+        cache: 'no-store',
+        credentials: 'same-origin',
+      });
+
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'Erro ao carregar dashboard BI');
+      }
+
+      setDashboardData(payload.dashboard || null);
+      setImportsList(payload.imports || []);
+    } catch (error: any) {
+      console.error('Erro ao buscar dashboard BI no cliente:', error);
+      setDashboardData(null);
+      setDashboardError(error?.message || 'Nao foi possivel carregar os graficos do BI.');
+    } finally {
+      setLoadingDashboard(false);
     }
-    if (importsRes.success) {
-      setImportsList(importsRes.imports || []);
-    }
-    setLoadingDashboard(false);
   }, [selectedImportId, startDate, endDate, selectedTipoPrenotacao]);
 
   useEffect(() => {
@@ -567,6 +580,20 @@ export default function FiorixBiPage() {
           <RefreshCw size={32} className="animate-spin" style={{ margin: '0 auto 12px' }} />
           Carregando indicadores do Supabase...
         </div>
+      ) : dashboardError ? (
+        <div style={{ background: '#fff7ed', border: '1px solid #fdba74', borderRadius: '16px', padding: '24px', color: '#9a3412', marginBottom: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+            <AlertTriangle size={22} style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '6px' }}>
+                Nao foi possivel carregar os graficos do BI
+              </div>
+              <div style={{ fontSize: '13px', lineHeight: 1.5 }}>
+                {dashboardError}
+              </div>
+            </div>
+          </div>
+        </div>
       ) : dashboardData?.charts ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px', marginBottom: '32px' }}>
           
@@ -770,7 +797,11 @@ export default function FiorixBiPage() {
           </div>
 
         </div>
-      ) : null}
+      ) : (
+        <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '32px', textAlign: 'center', color: '#64748b' }}>
+          Nenhum dado encontrado para os filtros selecionados.
+        </div>
+      )}
 
     </div>
   );

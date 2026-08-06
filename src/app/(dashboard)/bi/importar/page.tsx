@@ -36,7 +36,6 @@ import {
 import {
   createBiImport,
   insertBiBatch,
-  getBiDashboardData,
   getBiImportsList,
   deleteBiImport,
   BiRowInput,
@@ -92,9 +91,6 @@ export default function FiorixBiPage() {
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [importStatusMsg, setImportStatusMsg] = useState<string>('');
 
-  // State for Dashboard Analytics
-  const [loadingDashboard, setLoadingDashboard] = useState<boolean>(true);
-  const [dashboardData, setDashboardData] = useState<any>(null);
   const [importsList, setImportsList] = useState<any[]>([]);
 
   // State for Dashboard Filters
@@ -103,27 +99,13 @@ export default function FiorixBiPage() {
   const [endDate, setEndDate] = useState<string>('');
   const [selectedTipoPrenotacao, setSelectedTipoPrenotacao] = useState<string>('ALL');
 
-  // Load Dashboard & Imports History
+  // Load only imports history here. The dashboard itself lives on /bi.
   const fetchDashboard = useCallback(async () => {
-    setLoadingDashboard(true);
-    const [dashRes, importsRes] = await Promise.all([
-      getBiDashboardData({
-        importId: selectedImportId,
-        startDate: startDate || undefined,
-        endDate: endDate || undefined,
-        tipoPrenotacao: selectedTipoPrenotacao || undefined,
-      }),
-      getBiImportsList(),
-    ]);
-
-    if (dashRes.success) {
-      setDashboardData(dashRes);
-    }
+    const importsRes = await getBiImportsList();
     if (importsRes.success) {
       setImportsList(importsRes.imports || []);
     }
-    setLoadingDashboard(false);
-  }, [selectedImportId, startDate, endDate, selectedTipoPrenotacao]);
+  }, []);
 
   useEffect(() => {
     fetchDashboard();
