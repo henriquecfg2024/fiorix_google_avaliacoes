@@ -193,6 +193,44 @@ export default function FiorixBiPage() {
     let totalProcessed = 0;
     let rowBuffer: any[] = [];
 
+    // validarCSV já normaliza o arquivo (inclusive CSVs exportados pelo SSMS
+    // sem linha de cabeçalho). Reprocessar o arquivo com header:true fazia a
+    // primeira linha virar o cabeçalho e resultava em zero linhas inseridas.
+    try {
+      const batchSize = 1000;
+      const rows = parsedRows as BiRowInput[];
+      if (rows.length === 0) throw new Error('Nenhum registro válido encontrado no CSV.');
+
+      for (let offset = 0; offset < rows.length; offset += batchSize) {
+        const batch = rows.slice(offset, offset + batchSize);
+        const { success, error } = await insertBiBatch(importId, batch);
+        if (!success) throw new Error(error || 'Falha ao inserir lote de dados.');
+
+        totalProcessed += batch.length;
+        const pct = Math.min(99, Math.round((totalProcessed / rows.length) * 100));
+        setUploadProgress(pct);
+        setImportStatusMsg(
+          `Importando ${totalProcessed.toLocaleString('pt-BR')} / ${rows.length.toLocaleString('pt-BR')} linhas (${pct}%)`
+        );
+      }
+
+      setUploadProgress(100);
+      setImportStatusMsg(`Importação concluída! ${totalProcessed.toLocaleString('pt-BR')} registros inseridos.`);
+      setIsImporting(false);
+      setTimeout(() => {
+        handleCancelUpload();
+        fetchDashboard();
+      }, 800);
+      return;
+    } catch (e: any) {
+      console.error('Erro ao inserir importação BI:', e);
+      await deleteBiImport(importId);
+      alert(`Erro na importação: ${e.message || e}`);
+      setImportStatusMsg(`Erro na importação: ${e.message || e}`);
+      setIsImporting(false);
+      return;
+    }
+
     Papa.parse(csvFile, {
       header: true,
       delimiter: ';',
