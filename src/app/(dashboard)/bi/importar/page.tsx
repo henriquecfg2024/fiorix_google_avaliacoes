@@ -277,11 +277,9 @@ export default function FiorixBiPage() {
           const batchSize = 1000;
           while (rowBuffer.length >= batchSize) {
             const batch = rowBuffer.splice(0, batchSize);
-            const { error } = await supabase
-              .from('fiorix_bi_data')
-              .upsert(batch, { onConflict: 'IdAndamento' });
+            const { success, error } = await insertBiBatch(importId, batch as BiRowInput[]);
 
-            if (error) throw error;
+            if (!success) throw new Error(error);
 
             totalProcessed += batch.length;
             const pct = Math.min(99, Math.round((totalProcessed / estimatedTotal) * 100));
@@ -304,11 +302,9 @@ export default function FiorixBiPage() {
       complete: async () => {
         try {
           if (rowBuffer.length > 0) {
-            const { error } = await supabase
-              .from('fiorix_bi_data')
-              .upsert(rowBuffer, { onConflict: 'IdAndamento' });
+            const { success, error } = await insertBiBatch(importId, rowBuffer as BiRowInput[]);
 
-            if (error) throw error;
+            if (!success) throw new Error(error);
             totalProcessed += rowBuffer.length;
             rowBuffer = [];
           }
