@@ -126,6 +126,16 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
     { name: 'Devolução', count: devolucaoCount, percentage: Number(((devolucaoCount / totalRegistered) * 100).toFixed(1)), fill: '#f59e0b' },
   ];
 
+  const devolucaoSummaryRaw = await prisma.$queryRaw<Array<{ cnt: bigint }>>`
+    SELECT COUNT(*)::bigint as cnt
+    FROM fiorix_bi_data
+    WHERE ${generalCondition}
+      AND (
+        "IsDevolucao" = true
+        OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%devolucao%'
+      )
+  `;
+
   const devolucoesRaw = await prisma.$queryRaw<Array<{ texto: string }>>`
     SELECT "TextoNotaDevolucao" as texto
     FROM fiorix_bi_data
@@ -356,6 +366,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
   `;
 
   const totalRecords = Number(totalRecordsRaw[0]?.cnt || 0);
+  const devolucaoGeneralCount = Number(devolucaoSummaryRaw[0]?.cnt || 0);
   const exceptionSummary = exceptionSummaryRaw[0];
   const exceptionRecordsExcluded = Number(exceptionSummary?.total || 0);
   const exceptionProtocolsExcluded = Number(exceptionSummary?.protocolos || 0);
@@ -370,10 +381,10 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
       totalRegistered,
       noPrazoCount,
       atrasadoCount,
-      devolucaoCount,
+      devolucaoCount: devolucaoGeneralCount,
       percentNoPrazo: Number(((noPrazoCount / totalRegistered) * 100).toFixed(1)),
       percentAtrasado: Number(((atrasadoCount / totalRegistered) * 100).toFixed(1)),
-      percentDevolucao: Number(((devolucaoCount / totalRegistered) * 100).toFixed(1)),
+      percentDevolucao: Number(((devolucaoGeneralCount / (totalRecords || 1)) * 100).toFixed(1)),
       exceptionRecordsExcluded,
       exceptionProtocolsExcluded,
     },

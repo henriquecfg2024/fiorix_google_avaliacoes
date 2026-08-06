@@ -568,7 +568,7 @@ export default function FiorixBiPage() {
               {dashboardData.summary.percentDevolucao}%
             </div>
             <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-              {dashboardData.summary.devolucaoCount} títulos com nota devolutiva
+              {dashboardData.summary.devolucaoCount} títulos com nota devolutiva na régua geral
             </div>
           </div>
         </div>
