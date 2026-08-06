@@ -580,13 +580,13 @@ export default function FiorixBiPage() {
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginBottom: '20px' }}>
             <div>
               <div style={{ fontSize: '12px', fontWeight: 800, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                Controle separado · Naturezas sem prazo fixo
+                Controle separado · Naturezas sem prazo legal
               </div>
               <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#78350f', margin: '6px 0 6px' }}>
-                Usucapião Extrajudicial, Retificação de Área e Intimação
+                Naturezas com previsão legal zero
               </h3>
               <p style={{ fontSize: '13px', color: '#92400e', margin: 0, maxWidth: '920px', lineHeight: 1.55 }}>
-                Estas naturezas foram retiradas das avaliações gerais de prazo por não possuírem prazo legal fixo. O acompanhamento delas permanece abaixo, em bloco próprio.
+                Quando a tabela legal informa previsão igual a 0, o título fica fora da régua geral de prazo. O acompanhamento dessas naturezas permanece abaixo, em bloco próprio.
               </p>
             </div>
 
@@ -723,7 +723,7 @@ export default function FiorixBiPage() {
 
       {dashboardData?.summary?.exceptionRecordsExcluded > 0 && (
         <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '14px', padding: '16px 18px', marginBottom: '24px', color: '#1d4ed8' }}>
-          Os indicadores gerais abaixo já desconsideram {dashboardData.summary.exceptionRecordsExcluded.toLocaleString('pt-BR')} registros de Usucapião Extrajudicial, Retificação de Área e Intimação.
+          Os indicadores gerais abaixo já desconsideram {dashboardData.summary.exceptionRecordsExcluded.toLocaleString('pt-BR')} registros de naturezas com previsão legal igual a 0.
         </div>
       )}
 
