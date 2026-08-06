@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ── ENUMS ─────────────────────────────────────────────────────────────
@@ -42,7 +41,7 @@ model Tenant {
   updatedAt DateTime @updatedAt
 
   users             User[]
-  colaboradores     Colaborador[]
+  escreventes       Escrevente[]
   categories        Category[]
   templates         Template[]
   reviews           Review[]
@@ -65,7 +64,7 @@ model User {
 
 // ── CARTÓRIO DATA (DYNAMIC) ───────────────────────────────────────────
 
-model Colaborador {
+model Escrevente {
   id        String   @id @default(cuid())
   name      String
   aliases   String[] // Aliases for fuzzy matching (e.g. ["Fernandinho"])
@@ -132,8 +131,8 @@ model ReviewMention {
   reviewId      String
   review        Review       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   
-  colaboradorId String?
-  colaborador   Colaborador? @relation(fields: [colaboradorId], references: [id], onDelete: SetNull)
+  escreventeId  String?
+  escrevente    Escrevente?  @relation(fields: [escreventeId], references: [id], onDelete: SetNull)
   
   categoryId    String?
   category      Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
@@ -171,50 +170,4 @@ model GoogleConnection {
   
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-}
-
-// ── FIORIX BI MODULE ──────────────────────────────────────────────────
-
-model FiorixBiImport {
-  id          String   @id @default(uuid())
-  fileName    String   @map("file_name")
-  importedAt  DateTime @default(now()) @map("imported_at")
-  rowsCount   Int      @map("rows_count")
-  importedBy  String?  @default("Manual SSMS") @map("imported_by")
-
-  data        FiorixBiData[]
-
-  @@map("fiorix_bi_imports")
-}
-
-model FiorixBiData {
-  id                 String   @id @default(uuid())
-  importId           String   @map("import_id")
-  import             FiorixBiImport @relation(fields: [importId], references: [id], onDelete: Cascade)
-  
-  protocolo          String   @map("Protocolo")
-  flagRecepcao       Int?     @map("FlagRecepcao")
-  tipoSolicitacao    String?  @map("TipoSolicitacao")
-  idAndamento        BigInt?  @unique @map("IdAndamento")
-  dtProtocolo        DateTime? @map("DtProtocolo")
-  dtPrevisaoEntrega  DateTime? @map("DtPrevisaoEntrega")
-  dtAndamento        DateTime? @map("DtAndamento")
-  codProcessamento   Int?     @map("CodProcessamento")
-  descAndamento      String?  @map("DescAndamento")
-  natureza           String?  @map("Natureza")
-  tipoPrenotacao     String?  @map("TipoPrenotacao")
-  diasPrometidos     Int?     @map("DiasPrometidos")
-  diasCorridos       Int?     @map("DiasCorridos")
-  diasAtraso         Int?     @map("DiasAtraso")
-  situacaoPrazo      String?  @map("SituacaoPrazo")
-  isDevolucao        Boolean? @default(false) @map("IsDevolucao")
-  isRegistrado       Boolean? @default(false) @map("IsRegistrado")
-  textoNotaDevolucao String?  @map("TextoNotaDevolucao")
-
-  @@index([importId], name: "idx_fiorix_bi_data_import_id")
-  @@index([dtAndamento], name: "idx_fiorix_bi_data_dt_andamento")
-  @@index([codProcessamento], name: "idx_fiorix_bi_data_cod_proc")
-  @@index([tipoPrenotacao], name: "idx_fiorix_bi_data_tipo_prenotacao")
-
-  @@map("fiorix_bi_data")
 }

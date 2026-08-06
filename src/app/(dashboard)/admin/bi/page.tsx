@@ -40,6 +40,8 @@ import {
   deleteBiImport,
   BiRowInput,
 } from '@/app/actions/bi';
+import { supabase } from '@/lib/supabase';
+
 
 const COLUNAS_OBRIGATORIAS = [
   'Protocolo',
@@ -171,7 +173,7 @@ export default function FiorixBiPage() {
     e.preventDefault();
   };
 
-  // Perform High-Performance Streaming Batch Import (Handles 1.5M+ rows without memory overflow)
+  // Perform High-Performance Client-Side Streaming Batch Upsert (Handles 1.5M+ rows without memory overflow)
   const handleStartImport = async () => {
     if (!csvFile || !previewStats) return;
 
@@ -189,7 +191,7 @@ export default function FiorixBiPage() {
 
     const importId = createRes.importId;
     let totalProcessed = 0;
-    let rowBuffer: BiRowInput[] = [];
+    let rowBuffer: any[] = [];
 
     Papa.parse(csvFile, {
       header: false,
@@ -198,66 +200,89 @@ export default function FiorixBiPage() {
       encoding: 'UTF-8',
       quoteChar: '"',
       escapeChar: '"',
+      worker: true, // Offloads parsing to worker thread to prevent UI freezing
       chunkSize: 1024 * 1024 * 5, // 5MB streaming chunks
       chunk: async (results, parser) => {
         parser.pause();
 
-        const rawRows = (results.data as string[][]) || [];
-        const isFirstChunk = totalProcessed === 0 && rowBuffer.length === 0;
+        try {
+          const rawRows = (results.data as string[][]) || [];
+          const isFirstChunk = totalProcessed === 0 && rowBuffer.length === 0;
 
-        let dataRows = rawRows;
-        if (isFirstChunk && rawRows.length > 0) {
-          const firstCell = String(rawRows[0][0] || '').trim();
-          if (firstCell.toLowerCase().includes('protocolo') || !/^\d+$/.test(firstCell.replace(/\D/g, ''))) {
-            dataRows = rawRows.slice(1);
+          let dataRows = rawRows;
+          if (isFirstChunk && rawRows.length > 0) {
+            const firstCell = String(rawRows[0][0] || '').trim();
+            if (firstCell.toLowerCase().includes('protocolo') || !/^\d+$/.test(firstCell.replace(/\D/g, ''))) {
+              dataRows = rawRows.slice(1);
+            }
           }
-        }
 
-        const formatted: BiRowInput[] = dataRows
-          .filter((r) => Array.isArray(r) && r.some((c) => c !== undefined && c !== null && c !== ''))
-          .map((r) => {
-            const getVal = (idx: number) => (r[idx] !== undefined ? String(r[idx]).trim() : '');
-            const getInt = (val: string) => {
-              if (!val) return null;
-              const p = parseInt(val.replace(/\D/g, ''), 10);
-              return isNaN(p) ? null : p;
-            };
-            const getBool = (val: string) => {
-              const lower = val.toLowerCase();
-              return lower === '1' || lower === 'true' || lower === 'sim';
-            };
+          const dbRows = dataRows
+            .filter((r) => Array.isArray(r) && r.some((c) => c !== undefined && c !== null && c !== ''))
+            .map((r) => {
+              const getVal = (idx: number) => (r[idx] !== undefined ? String(r[idx]).trim() : '');
+              const getInt = (val: string) => {
+                if (!val) return null;
+                const p = parseInt(val.replace(/\D/g, ''), 10);
+                return isNaN(p) ? null : p;
+              };
+              const getBool = (val: string) => {
+                const lower = val.toLowerCase();
+                return lower === '1' || lower === 'true' || lower === 'sim';
+              };
+              const parseDate = (val: string | null) => {
+                if (!val) return null;
+                let d = new Date(val);
+                if (isNaN(d.getTime())) {
+                  const parts = val.split('/');
+                  if (parts.length === 3) {
+                    const day = parts[0];
+                    const month = parts[1];
+                    const yearTime = parts[2].split(' ');
+                    const year = yearTime[0];
+                    const time = yearTime[1] || '00:00:00';
+                    d = new Date(`${year}-${month}-${day}T${time}`);
+                  }
+                }
+                return isNaN(d.getTime()) ? null : d.toISOString();
+              };
 
-            return {
-              Protocolo: getVal(0),
-              FlagRecepcao: getInt(getVal(1)),
-              TipoSolicitacao: getVal(2) || null,
-              IdAndamento: getVal(3) || null,
-              DtProtocolo: getVal(4) || getVal(7) || null,
-              DtPrevisaoEntrega: getVal(5) || null,
-              DtAndamento: getVal(6) || null,
-              CodProcessamento: getInt(getVal(8)),
-              DescAndamento: getVal(9) || null,
-              Natureza: getVal(10) || null,
-              TipoPrenotacao: getVal(11) || null,
-              DiasPrometidos: getInt(getVal(12)),
-              DiasCorridos: getInt(getVal(13)),
-              DiasAtraso: getInt(getVal(14)),
-              SituacaoPrazo: getVal(15) || null,
-              IsDevolucao: getBool(getVal(16)),
-              IsRegistrado: getBool(getVal(17)),
-              TextoNotaDevolucao: getVal(18) || null,
-            };
-          })
-          .filter((r) => r.Protocolo && r.Protocolo !== '0' && r.Protocolo.toLowerCase() !== 'protocolo');
+              return {
+                import_id: importId,
+                Protocolo: getVal(0),
+                FlagRecepcao: getInt(getVal(1)),
+                TipoSolicitacao: getVal(2) || null,
+                IdAndamento: getVal(3) ? String(getVal(3)).replace(/\D/g, '') : null,
+                DtProtocolo: parseDate(getVal(4) || getVal(7)),
+                DtPrevisaoEntrega: parseDate(getVal(5)),
+                DtAndamento: parseDate(getVal(6)),
+                CodProcessamento: getInt(getVal(8)),
+                DescAndamento: getVal(9) || null,
+                Natureza: getVal(10) || null,
+                TipoPrenotacao: getVal(11) || null,
+                DiasPrometidos: getInt(getVal(12)),
+                DiasCorridos: getInt(getVal(13)),
+                DiasAtraso: getInt(getVal(14)),
+                SituacaoPrazo: getVal(15) || null,
+                IsDevolucao: getBool(getVal(16)),
+                IsRegistrado: getBool(getVal(17)),
+                TextoNotaDevolucao: getVal(18) || null,
+              };
+            })
+            .filter((r) => r.Protocolo && r.Protocolo !== '0' && r.Protocolo.toLowerCase() !== 'protocolo');
 
-        rowBuffer.push(...formatted);
+          rowBuffer.push(...dbRows);
 
-        // Send to Supabase in batches of 5,000
-        const batchSize = 5000;
-        while (rowBuffer.length >= batchSize) {
-          const batch = rowBuffer.splice(0, batchSize);
-          const res = await insertBiBatch(importId, batch);
-          if (res.success) {
+          // Direct client-side upsert to Supabase in batches of 1,000 lines
+          const batchSize = 1000;
+          while (rowBuffer.length >= batchSize) {
+            const batch = rowBuffer.splice(0, batchSize);
+            const { error } = await supabase
+              .from('fiorix_bi_data')
+              .upsert(batch, { onConflict: 'IdAndamento' });
+
+            if (error) throw error;
+
             totalProcessed += batch.length;
             const pct = Math.min(99, Math.round((totalProcessed / estimatedTotal) * 100));
             setUploadProgress(pct);
@@ -265,27 +290,43 @@ export default function FiorixBiPage() {
               `Importando ${totalProcessed.toLocaleString('pt-BR')} / ${estimatedTotal.toLocaleString('pt-BR')} linhas (${pct}%)`
             );
           }
+        } catch (e: any) {
+          console.error(e);
+          alert(`Erro na importação: ${e.message || e}`);
+          setImportStatusMsg(`Erro na importação: ${e.message || e}`);
+          parser.abort();
+          setIsImporting(false);
+          return;
         }
 
         parser.resume();
       },
       complete: async () => {
-        if (rowBuffer.length > 0) {
-          const res = await insertBiBatch(importId, rowBuffer);
-          if (res.success) {
+        try {
+          if (rowBuffer.length > 0) {
+            const { error } = await supabase
+              .from('fiorix_bi_data')
+              .upsert(rowBuffer, { onConflict: 'IdAndamento' });
+
+            if (error) throw error;
             totalProcessed += rowBuffer.length;
+            rowBuffer = [];
           }
-          rowBuffer = [];
+
+          setUploadProgress(100);
+          setImportStatusMsg(`🎉 Importação concluída! ${totalProcessed.toLocaleString('pt-BR')} registros inseridos.`);
+          setIsImporting(false);
+
+          setTimeout(() => {
+            handleCancelUpload();
+            fetchDashboard();
+          }, 1800);
+        } catch (e: any) {
+          console.error(e);
+          alert(`Erro no encerramento da importação: ${e.message || e}`);
+          setImportStatusMsg(`Erro no encerramento da importação: ${e.message || e}`);
+          setIsImporting(false);
         }
-
-        setUploadProgress(100);
-        setImportStatusMsg(`🎉 Importação concluída! ${totalProcessed.toLocaleString('pt-BR')} registros inseridos.`);
-        setIsImporting(false);
-
-        setTimeout(() => {
-          handleCancelUpload();
-          fetchDashboard();
-        }, 1800);
       },
       error: (err) => {
         console.error('Streaming PapaParse error:', err);
