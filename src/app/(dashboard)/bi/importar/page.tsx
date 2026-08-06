@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import Papa from 'papaparse';
 import {
   PieChart,
@@ -376,8 +377,8 @@ export default function FiorixBiPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => fetchDashboard()}
+        <Link
+          href="/bi"
           style={{
             background: 'rgba(255, 255, 255, 0.1)',
             border: '1px solid rgba(255, 255, 255, 0.25)',
@@ -391,11 +392,11 @@ export default function FiorixBiPage() {
             gap: '8px',
             cursor: 'pointer',
             transition: 'all 0.2s',
+            textDecoration: 'none'
           }}
         >
-          <RefreshCw size={16} className={loadingDashboard ? 'animate-spin' : ''} />
-          Atualizar Dados
-        </button>
+          ← Voltar para o Dashboard
+        </Link>
       </div>
 
       {/* ── SECTION 1: MANUAL CSV UPLOAD & INTEL PREVIEW ── */}
@@ -482,208 +483,6 @@ export default function FiorixBiPage() {
           />
         )}
       </div>
-
-      {/* ── SECTION 2: FILTERS BAR ── */}
-      <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '16px 24px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: '#002B49', fontSize: '14px' }}>
-          <Filter size={18} /> Filtros de Análise:
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          {/* Import Lote Selector */}
-          <div>
-            <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>LOTE IMPORTADO</label>
-            <select
-              value={selectedImportId}
-              onChange={(e) => setSelectedImportId(e.target.value)}
-              style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#ffffff', color: '#0f172a' }}
-            >
-              <option value="ALL">Todas as Importações</option>
-              {importsList.map((imp) => (
-                <option key={imp.id} value={imp.id}>
-                  {imp.fileName} ({new Date(imp.importedAt).toLocaleDateString('pt-BR')}) - {imp.rowsCount} rows
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Date Start */}
-          <div>
-            <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>DATA INICIAL (DtAndamento)</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', color: '#0f172a' }}
-            />
-          </div>
-
-          {/* Date End */}
-          <div>
-            <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>DATA FINAL (DtAndamento)</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', color: '#0f172a' }}
-            />
-          </div>
-
-          {/* TipoPrenotacao Selector */}
-          <div>
-            <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>TIPO PRENOTAÇÃO</label>
-            <select
-              value={selectedTipoPrenotacao}
-              onChange={(e) => setSelectedTipoPrenotacao(e.target.value)}
-              style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#ffffff', color: '#0f172a' }}
-            >
-              <option value="ALL">Todos os Tipos</option>
-              {(dashboardData?.tiposPrenotacao || []).map((tp: string) => (
-                <option key={tp} value={tp}>{tp}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* ── SECTION 3: KPI SUMMARY CARDS ── */}
-      {dashboardData?.summary && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '28px' }}>
-          <div style={{ background: '#ffffff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Total de Títulos Analisados</div>
-            <div style={{ fontSize: '28px', fontWeight: 800, color: '#002B49', marginTop: '6px' }}>
-              {dashboardData.summary.totalRecords.toLocaleString('pt-BR')}
-            </div>
-            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-              {dashboardData.summary.totalRegistered} com Registrado (Cod 6)
-            </div>
-          </div>
-
-          <div style={{ background: '#ffffff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: '#166534', textTransform: 'uppercase' }}>✓ Entregues No Prazo</div>
-            <div style={{ fontSize: '28px', fontWeight: 800, color: '#10b981', marginTop: '6px' }}>
-              {dashboardData.summary.percentNoPrazo}%
-            </div>
-            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-              {dashboardData.summary.noPrazoCount} títulos dentro do limite legal
-            </div>
-          </div>
-
-          <div style={{ background: '#ffffff', padding: '20px', borderRadius: '12px', border: '1px solid #fee2e2', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: '#991b1b', textTransform: 'uppercase' }}>⚠️ Entregues em Atraso</div>
-            <div style={{ fontSize: '28px', fontWeight: 800, color: '#ef4444', marginTop: '6px' }}>
-              {dashboardData.summary.percentAtrasado}%
-            </div>
-            <div style={{ fontSize: '11px', color: '#b91c1c', marginTop: '4px', fontWeight: 600 }}>
-              Causa das queixas no Google (22%)
-            </div>
-          </div>
-
-          <div style={{ background: '#ffffff', padding: '20px', borderRadius: '12px', border: '1px solid #fef3c7', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: '#92400e', textTransform: 'uppercase' }}>📋 Devoluções / Exigências</div>
-            <div style={{ fontSize: '28px', fontWeight: 800, color: '#f59e0b', marginTop: '6px' }}>
-              {dashboardData.summary.percentDevolucao}%
-            </div>
-            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-              {dashboardData.summary.devolucaoCount} títulos com nota devolutiva
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── SECTION 4: RECHARTS DASHBOARD ── */}
-      {loadingDashboard ? (
-        <div style={{ background: '#ffffff', borderRadius: '16px', padding: '48px', textAlign: 'center', color: '#64748b' }}>
-          <RefreshCw size={32} className="animate-spin" style={{ margin: '0 auto 12px' }} />
-          Carregando indicadores do Supabase...
-        </div>
-      ) : dashboardData?.charts ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px', marginBottom: '32px' }}>
-          
-          {/* Chart 1: Pie Chart - Delivery Deadlines for CodProcessamento = 6 */}
-          <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
-              Gráfico 1: Prazo de Entrega (Registrados - Cod 6)
-            </h3>
-            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>
-              % No Prazo vs Atrasado vs Devolução. Diagnóstico direto dos 22% do Google.
-            </p>
-
-            <div style={{ width: '100%', height: 260 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={dashboardData.charts.pieChartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={95}
-                    paddingAngle={4}
-                    dataKey="count"
-                  >
-                    {dashboardData.charts.pieChartData.map((entry: any, index: number) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value: any, name: any) => [`${value} títulos`, String(name)]} />
-                  <Legend verticalAlign="bottom" height={36} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Chart 2: Top 10 Return Reasons */}
-          <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
-              Gráfico 2: Top 10 Motivos de Devolução
-            </h3>
-            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>
-              Extraídos de <code style={{ background: '#f1f5f9', padding: '2px 4px' }}>TextoNotaDevolucao</code>.
-            </p>
-
-            <div style={{ width: '100%', height: 260 }}>
-              {dashboardData.charts.topDevolucoes.length === 0 ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', fontSize: '13px' }}>
-                  Nenhum motivo de devolução encontrado para os filtros selecionados.
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dashboardData.charts.topDevolucoes} layout="vertical" margin={{ left: 20, right: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" />
-                    <YAxis dataKey="motivo" type="category" width={120} tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#002B49" radius={[0, 6, 6, 0]} name="Ocorrências" />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
-
-          {/* Chart 3: Average Processing Days by Natureza */}
-          <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', gridColumn: '1 / -1' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
-              Gráfico 3: Tempo Média (Dias Corridos) por Natureza do Título
-            </h3>
-            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>
-              Comparativo de duração média desde o protocolo até a entrega por tipo de ato (Escritura, Formal de Partilha, etc.).
-            </p>
-
-            <div style={{ width: '100%', height: 280 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dashboardData.charts.avgDiasPorNatureza} margin={{ top: 10, right: 30, left: 0, bottom: 25 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="natureza" tick={{ fontSize: 11 }} angle={-15} textAnchor="end" />
-                  <YAxis label={{ value: 'Média de Dias', angle: -90, position: 'insideLeft' }} />
-                  <Tooltip formatter={(value: any) => [`${value} dias corridos em média`, 'Média de Dias']} />
-                  <Bar dataKey="mediaDias" fill="#1e3a8a" radius={[6, 6, 0, 0]} name="Média Dias Corridos" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-        </div>
-      ) : null}
 
       {/* ── SECTION 5: HISTÓRICO DE IMPORTAÇÕES ── */}
       <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
