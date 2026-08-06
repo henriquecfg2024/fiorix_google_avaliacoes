@@ -153,8 +153,7 @@ export async function getBiDashboardData(filters?: {
           ELSE 'No Prazo'
         END as situacao,
         COUNT(*) as cnt
-      FROM fiorix_bi_data
-      WHERE ("CodProcessamento" = 6 OR "IsRegistrado" = true)
+      WHERE ("CodProcessamento" = 6 OR "CodProcessamento" = 5 OR "IsRegistrado" = true)
         AND ${importCondition}
         AND ${tipoCondition}
         AND ${dateCondition}
