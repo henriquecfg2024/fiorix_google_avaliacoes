@@ -194,9 +194,9 @@ export default function FiorixBiPage() {
     let rowBuffer: any[] = [];
 
     Papa.parse(csvFile, {
-      header: false,
+      header: true,
       delimiter: ';',
-      skipEmptyLines: false,
+      skipEmptyLines: true,
       encoding: 'UTF-8',
       quoteChar: '"',
       escapeChar: '"',
