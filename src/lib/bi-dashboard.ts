@@ -9,6 +9,35 @@ export interface BiDashboardFilters {
   importId?: string;
 }
 
+const NATUREZA_NORMALIZADA_SQL = Prisma.sql`
+  TRANSLATE(
+    UPPER(COALESCE(TRIM("Natureza"), '')),
+    'ÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ',
+    'AAAAAEEEEIIIIOOOOOUUUUC'
+  )
+`;
+
+const EXCEPTION_NATURE_CONDITION_SQL = Prisma.sql`
+  (
+    ${NATUREZA_NORMALIZADA_SQL} LIKE '%USUCAPI%'
+    OR (${NATUREZA_NORMALIZADA_SQL} LIKE '%RETIFICACAO%' AND ${NATUREZA_NORMALIZADA_SQL} LIKE '%AREA%')
+    OR ${NATUREZA_NORMALIZADA_SQL} LIKE '%INTIMACAO%'
+  )
+`;
+
+const GENERAL_NATURE_CONDITION_SQL = Prisma.sql`
+  NOT (${EXCEPTION_NATURE_CONDITION_SQL})
+`;
+
+const EXCEPTION_NATURE_GROUP_SQL = Prisma.sql`
+  CASE
+    WHEN ${NATUREZA_NORMALIZADA_SQL} LIKE '%USUCAPI%' THEN 'Usucapião Extrajudicial'
+    WHEN ${NATUREZA_NORMALIZADA_SQL} LIKE '%RETIFICACAO%' AND ${NATUREZA_NORMALIZADA_SQL} LIKE '%AREA%' THEN 'Retificação de Área'
+    WHEN ${NATUREZA_NORMALIZADA_SQL} LIKE '%INTIMACAO%' THEN 'Intimação'
+    ELSE 'Outras Exceções Legais'
+  END
+`;
+
 function formatDateKey(value: string | Date) {
   if (value instanceof Date) {
     return value.toISOString().slice(0, 10);
@@ -43,19 +72,21 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
     }
   }
 
+  const baseCondition = Prisma.sql`${importCondition} AND ${tipoCondition} AND ${dateCondition}`;
+  const generalCondition = Prisma.sql`${baseCondition} AND ${GENERAL_NATURE_CONDITION_SQL}`;
+  const exceptionCondition = Prisma.sql`${baseCondition} AND ${EXCEPTION_NATURE_CONDITION_SQL}`;
+
   const pieRaw = await prisma.$queryRaw<Array<{ situacao: string; cnt: bigint }>>`
-    SELECT 
-      CASE 
+    SELECT
+      CASE
         WHEN "IsDevolucao" = true OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%devolucao%' THEN 'Devolução'
         WHEN "DiasAtraso" > 0 OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%atrasad%' THEN 'Atrasado'
         ELSE 'No Prazo'
       END as situacao,
-      COUNT(*) as cnt
+      COUNT(*)::bigint as cnt
     FROM fiorix_bi_data
     WHERE ("CodProcessamento" = 6 OR "CodProcessamento" = 5 OR "IsRegistrado" = true)
-      AND ${importCondition}
-      AND ${tipoCondition}
-      AND ${dateCondition}
+      AND ${generalCondition}
     GROUP BY 1
   `;
 
@@ -83,9 +114,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
     WHERE ("IsDevolucao" = true OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%devolucao%')
       AND "TextoNotaDevolucao" IS NOT NULL
       AND LENGTH(TRIM("TextoNotaDevolucao")) > 5
-      AND ${importCondition}
-      AND ${tipoCondition}
-      AND ${dateCondition}
+      AND ${generalCondition}
     LIMIT 1500
   `;
 
@@ -135,14 +164,12 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
     .slice(0, 10);
 
   const avgNaturezaRaw = await prisma.$queryRaw<Array<{ natureza: string; media_dias: number; total: bigint }>>`
-    SELECT 
+    SELECT
       COALESCE(TRIM("Natureza"), 'Outros') as natureza,
       ROUND(AVG(COALESCE("DiasCorridos", 0))::numeric, 1)::float as media_dias,
       COUNT(*)::bigint as total
     FROM fiorix_bi_data
-    WHERE ${importCondition}
-      AND ${tipoCondition}
-      AND ${dateCondition}
+    WHERE ${generalCondition}
     GROUP BY COALESCE(TRIM("Natureza"), 'Outros')
     ORDER BY media_dias DESC
     LIMIT 10
@@ -167,9 +194,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
         ELSE 'Sem atraso'
       END as bucket
       FROM fiorix_bi_data
-      WHERE ${importCondition}
-        AND ${tipoCondition}
-        AND ${dateCondition}
+      WHERE ${generalCondition}
         AND (
           COALESCE("DiasAtraso", 0) > 0
           OR "IsDevolucao" = true
@@ -199,9 +224,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
       ROUND(AVG(COALESCE("DiasCorridos", 0))::numeric, 1)::float as corridos,
       COUNT(*)::bigint as total
     FROM fiorix_bi_data
-    WHERE ${importCondition}
-      AND ${tipoCondition}
-      AND ${dateCondition}
+    WHERE ${generalCondition}
     GROUP BY COALESCE(TRIM("Natureza"), 'Outros')
     ORDER BY corridos DESC, prometidos DESC
     LIMIT 8
@@ -222,9 +245,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
       SUM(CASE WHEN COALESCE("IsDevolucao", false) = true THEN 1 ELSE 0 END) as devolucao
     FROM fiorix_bi_data
     WHERE "DtAndamento" IS NOT NULL
-      AND ${importCondition}
-      AND ${tipoCondition}
-      AND ${dateCondition}
+      AND ${generalCondition}
     GROUP BY DATE("DtAndamento")
     ORDER BY DATE("DtAndamento")
   `;
@@ -242,9 +263,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
       COUNT(*)::bigint as cnt,
       ROUND(AVG(COALESCE("DiasAtraso", 0))::numeric, 1)::float as media_atraso
     FROM fiorix_bi_data
-    WHERE ${importCondition}
-      AND ${tipoCondition}
-      AND ${dateCondition}
+    WHERE ${generalCondition}
       AND TRIM(COALESCE("DescAndamento", '')) != ''
     GROUP BY COALESCE(TRIM("DescAndamento"), 'Sem andamento')
     ORDER BY cnt DESC, media_atraso DESC
@@ -257,6 +276,60 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
     mediaAtraso: Number(row.media_atraso || 0),
   }));
 
+  const totalRecordsRaw = await prisma.$queryRaw<Array<{ cnt: bigint }>>`
+    SELECT COUNT(*) as cnt
+    FROM fiorix_bi_data
+    WHERE ${generalCondition}
+  `;
+
+  const exceptionSummaryRaw = await prisma.$queryRaw<Array<{
+    total: bigint;
+    protocolos: bigint;
+    em_acompanhamento: bigint;
+    finalizados: bigint;
+    media_dias: number | null;
+    maior_dias: number | null;
+  }>>`
+    SELECT
+      COUNT(*)::bigint as total,
+      COUNT(DISTINCT "Protocolo")::bigint as protocolos,
+      SUM(CASE WHEN ("CodProcessamento" = 6 OR "CodProcessamento" = 5 OR "IsRegistrado" = true) THEN 0 ELSE 1 END)::bigint as em_acompanhamento,
+      SUM(CASE WHEN ("CodProcessamento" = 6 OR "CodProcessamento" = 5 OR "IsRegistrado" = true) THEN 1 ELSE 0 END)::bigint as finalizados,
+      ROUND(AVG(COALESCE("DiasCorridos", 0))::numeric, 1)::float as media_dias,
+      MAX(COALESCE("DiasCorridos", 0))::int as maior_dias
+    FROM fiorix_bi_data
+    WHERE ${exceptionCondition}
+  `;
+
+  const exceptionByNaturezaRaw = await prisma.$queryRaw<Array<{
+    natureza: string;
+    total: bigint;
+    protocolos: bigint;
+    media_dias: number | null;
+  }>>`
+    SELECT
+      ${EXCEPTION_NATURE_GROUP_SQL} as natureza,
+      COUNT(*)::bigint as total,
+      COUNT(DISTINCT "Protocolo")::bigint as protocolos,
+      ROUND(AVG(COALESCE("DiasCorridos", 0))::numeric, 1)::float as media_dias
+    FROM fiorix_bi_data
+    WHERE ${exceptionCondition}
+    GROUP BY 1
+    ORDER BY total DESC, natureza
+  `;
+
+  const exceptionAndamentosRaw = await prisma.$queryRaw<Array<{ andamento: string; cnt: bigint }>>`
+    SELECT
+      COALESCE(TRIM("DescAndamento"), 'Sem andamento') as andamento,
+      COUNT(*)::bigint as cnt
+    FROM fiorix_bi_data
+    WHERE ${exceptionCondition}
+      AND TRIM(COALESCE("DescAndamento", '')) != ''
+    GROUP BY COALESCE(TRIM("DescAndamento"), 'Sem andamento')
+    ORDER BY cnt DESC
+    LIMIT 8
+  `;
+
   const tiposRaw = await prisma.$queryRaw<Array<{ tipo: string }>>`
     SELECT DISTINCT "TipoPrenotacao" as tipo
     FROM fiorix_bi_data
@@ -264,15 +337,14 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
     LIMIT 30
   `;
 
-  const totalRecordsRaw = await prisma.$queryRaw<Array<{ cnt: bigint }>>`
-    SELECT COUNT(*) as cnt
-    FROM fiorix_bi_data
-    WHERE ${importCondition}
-      AND ${tipoCondition}
-      AND ${dateCondition}
-  `;
-
   const totalRecords = Number(totalRecordsRaw[0]?.cnt || 0);
+  const exceptionSummary = exceptionSummaryRaw[0];
+  const exceptionRecordsExcluded = Number(exceptionSummary?.total || 0);
+  const exceptionProtocolsExcluded = Number(exceptionSummary?.protocolos || 0);
+  const exceptionEmAcompanhamento = Number(exceptionSummary?.em_acompanhamento || 0);
+  const exceptionFinalizados = Number(exceptionSummary?.finalizados || 0);
+  const exceptionAvgDias = Number(exceptionSummary?.media_dias || 0);
+  const exceptionMaxDias = Number(exceptionSummary?.maior_dias || 0);
 
   return {
     summary: {
@@ -284,6 +356,34 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
       percentNoPrazo: Number(((noPrazoCount / totalRegistered) * 100).toFixed(1)),
       percentAtrasado: Number(((atrasadoCount / totalRegistered) * 100).toFixed(1)),
       percentDevolucao: Number(((devolucaoCount / totalRegistered) * 100).toFixed(1)),
+      exceptionRecordsExcluded,
+      exceptionProtocolsExcluded,
+    },
+    legalExceptions: {
+      summary: {
+        totalRecords: exceptionRecordsExcluded,
+        totalProtocols: exceptionProtocolsExcluded,
+        emAcompanhamento: exceptionEmAcompanhamento,
+        finalizados: exceptionFinalizados,
+        avgDiasCorridos: exceptionAvgDias,
+        maxDiasCorridos: exceptionMaxDias,
+      },
+      charts: {
+        statusPieData: [
+          { name: 'Em acompanhamento', count: exceptionEmAcompanhamento, fill: '#f59e0b' },
+          { name: 'Finalizados', count: exceptionFinalizados, fill: '#2563eb' },
+        ],
+        porNatureza: exceptionByNaturezaRaw.map((row) => ({
+          natureza: row.natureza,
+          total: Number(row.total || 0),
+          protocolos: Number(row.protocolos || 0),
+          mediaDias: Number(row.media_dias || 0),
+        })),
+        topAndamentos: exceptionAndamentosRaw.map((row) => ({
+          andamento: row.andamento,
+          count: Number(row.cnt || 0),
+        })),
+      },
     },
     charts: {
       pieChartData,

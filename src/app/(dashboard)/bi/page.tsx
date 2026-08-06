@@ -538,7 +538,7 @@ export default function FiorixBiPage() {
               {dashboardData.summary.totalRecords.toLocaleString('pt-BR')}
             </div>
             <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-              {dashboardData.summary.totalRegistered} com Registrado (Cod 6)
+              {dashboardData.summary.totalRegistered} com Registrado (Cod 6) · {dashboardData.summary.exceptionRecordsExcluded || 0} fora da régua geral
             </div>
           </div>
 
@@ -575,6 +575,158 @@ export default function FiorixBiPage() {
       )}
 
       {/* ── SECTION 4: RECHARTS DASHBOARD ── */}
+      {dashboardData?.legalExceptions?.summary?.totalRecords > 0 && (
+        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '16px', padding: '24px', marginBottom: '28px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginBottom: '20px' }}>
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 800, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                Controle separado · Naturezas sem prazo fixo
+              </div>
+              <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#78350f', margin: '6px 0 6px' }}>
+                Usucapião Extrajudicial, Retificação de Área e Intimação
+              </h3>
+              <p style={{ fontSize: '13px', color: '#92400e', margin: 0, maxWidth: '920px', lineHeight: 1.55 }}>
+                Estas naturezas foram retiradas das avaliações gerais de prazo por não possuírem prazo legal fixo. O acompanhamento delas permanece abaixo, em bloco próprio.
+              </p>
+            </div>
+
+            <div style={{ background: '#ffffff', border: '1px solid #fde68a', borderRadius: '12px', padding: '12px 14px', minWidth: '230px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#a16207', textTransform: 'uppercase' }}>Protocolos fora da régua</div>
+              <div style={{ fontSize: '30px', fontWeight: 800, color: '#92400e', marginTop: '4px' }}>
+                {dashboardData.legalExceptions.summary.totalProtocols.toLocaleString('pt-BR')}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+            <div style={{ background: '#ffffff', padding: '18px', borderRadius: '12px', border: '1px solid #fde68a' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#a16207', textTransform: 'uppercase' }}>Registros excepcionados</div>
+              <div style={{ fontSize: '28px', fontWeight: 800, color: '#78350f', marginTop: '6px' }}>
+                {dashboardData.legalExceptions.summary.totalRecords.toLocaleString('pt-BR')}
+              </div>
+            </div>
+
+            <div style={{ background: '#ffffff', padding: '18px', borderRadius: '12px', border: '1px solid #fde68a' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#a16207', textTransform: 'uppercase' }}>Protocolos únicos</div>
+              <div style={{ fontSize: '28px', fontWeight: 800, color: '#78350f', marginTop: '6px' }}>
+                {dashboardData.legalExceptions.summary.totalProtocols.toLocaleString('pt-BR')}
+              </div>
+            </div>
+
+            <div style={{ background: '#ffffff', padding: '18px', borderRadius: '12px', border: '1px solid #fde68a' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#a16207', textTransform: 'uppercase' }}>Em acompanhamento</div>
+              <div style={{ fontSize: '28px', fontWeight: 800, color: '#d97706', marginTop: '6px' }}>
+                {dashboardData.legalExceptions.summary.emAcompanhamento.toLocaleString('pt-BR')}
+              </div>
+            </div>
+
+            <div style={{ background: '#ffffff', padding: '18px', borderRadius: '12px', border: '1px solid #fde68a' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#a16207', textTransform: 'uppercase' }}>Finalizados</div>
+              <div style={{ fontSize: '28px', fontWeight: 800, color: '#1d4ed8', marginTop: '6px' }}>
+                {dashboardData.legalExceptions.summary.finalizados.toLocaleString('pt-BR')}
+              </div>
+            </div>
+
+            <div style={{ background: '#ffffff', padding: '18px', borderRadius: '12px', border: '1px solid #fde68a' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#a16207', textTransform: 'uppercase' }}>Média de dias corridos</div>
+              <div style={{ fontSize: '28px', fontWeight: 800, color: '#78350f', marginTop: '6px' }}>
+                {dashboardData.legalExceptions.summary.avgDiasCorridos.toLocaleString('pt-BR')}
+              </div>
+              <div style={{ fontSize: '11px', color: '#a16207', marginTop: '4px' }}>
+                pico de {dashboardData.legalExceptions.summary.maxDiasCorridos.toLocaleString('pt-BR')} dias
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
+            <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #fde68a', padding: '20px' }}>
+              <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#78350f', marginBottom: '4px' }}>
+                Situação das exceções legais
+              </h4>
+              <p style={{ fontSize: '12px', color: '#92400e', marginBottom: '18px' }}>
+                Acompanhamento separado entre itens ainda em curso e itens já finalizados.
+              </p>
+
+              <div style={{ width: '100%', height: 250 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={dashboardData.legalExceptions.charts.statusPieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={88}
+                      paddingAngle={4}
+                      dataKey="count"
+                    >
+                      {dashboardData.legalExceptions.charts.statusPieData.map((entry: any, index: number) => (
+                        <Cell key={`legal-status-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value: any, name: any) => [`${value} registros`, String(name)]} />
+                    <Legend verticalAlign="bottom" height={36} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #fde68a', padding: '20px' }}>
+              <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#78350f', marginBottom: '4px' }}>
+                Volume por natureza excepcionada
+              </h4>
+              <p style={{ fontSize: '12px', color: '#92400e', marginBottom: '18px' }}>
+                Quantidade de registros retirados da régua geral e mantidos em controle próprio.
+              </p>
+
+              <div style={{ width: '100%', height: 250 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dashboardData.legalExceptions.charts.porNatureza} margin={{ top: 10, right: 20, left: 0, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="natureza" tick={{ fontSize: 11 }} angle={-10} textAnchor="end" />
+                    <YAxis />
+                    <Tooltip formatter={(value: any, name: any) => [name === 'total' ? `${value} registros` : `${value} dias`, name === 'total' ? 'Quantidade' : 'Média de dias']} />
+                    <Bar dataKey="total" fill="#d97706" radius={[6, 6, 0, 0]} name="Quantidade" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #fde68a', padding: '20px', gridColumn: '1 / -1' }}>
+              <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#78350f', marginBottom: '4px' }}>
+                Andamentos mais frequentes nas exceções
+              </h4>
+              <p style={{ fontSize: '12px', color: '#92400e', marginBottom: '18px' }}>
+                Visão operacional dos principais movimentos dentro das naturezas sem prazo legal fixo.
+              </p>
+
+              <div style={{ width: '100%', height: 260 }}>
+                {dashboardData.legalExceptions.charts.topAndamentos.length === 0 ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#a16207', fontSize: '13px' }}>
+                    Nenhum andamento encontrado para as exceções legais selecionadas.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dashboardData.legalExceptions.charts.topAndamentos} layout="vertical" margin={{ left: 20, right: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <XAxis type="number" />
+                      <YAxis dataKey="andamento" type="category" width={180} tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(value: any) => [`${value} registros`, 'Quantidade']} />
+                      <Bar dataKey="count" fill="#92400e" radius={[0, 6, 6, 0]} name="Quantidade" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {dashboardData?.summary?.exceptionRecordsExcluded > 0 && (
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '14px', padding: '16px 18px', marginBottom: '24px', color: '#1d4ed8' }}>
+          Os indicadores gerais abaixo já desconsideram {dashboardData.summary.exceptionRecordsExcluded.toLocaleString('pt-BR')} registros de Usucapião Extrajudicial, Retificação de Área e Intimação.
+        </div>
+      )}
+
       {loadingDashboard ? (
         <div style={{ background: '#ffffff', borderRadius: '16px', padding: '48px', textAlign: 'center', color: '#64748b' }}>
           <RefreshCw size={32} className="animate-spin" style={{ margin: '0 auto 12px' }} />
