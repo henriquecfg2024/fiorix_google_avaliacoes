@@ -206,30 +206,29 @@ export default function FiorixBiPage() {
         parser.pause();
 
         try {
-          const rawRows = (results.data as string[][]) || [];
-          const isFirstChunk = totalProcessed === 0 && rowBuffer.length === 0;
+          const rawRows = (results.data as any[]) || [];
+          const dbRows = rawRows
+            .filter((row) => row && (row.Protocolo || row[Object.keys(row)[0]]))
+            .map((row) => {
+              const getVal = (col: string) => {
+                if (row[col] !== undefined && row[col] !== null) return String(row[col]).trim();
+                const key = Object.keys(row).find(
+                  (k) => k.toLowerCase().replace(/[^a-z0-9]/g, '') === col.toLowerCase().replace(/[^a-z0-9]/g, '')
+                );
+                return key ? String(row[key]).trim() : '';
+              };
 
-          let dataRows = rawRows;
-          if (isFirstChunk && rawRows.length > 0) {
-            const firstCell = String(rawRows[0][0] || '').trim();
-            if (firstCell.toLowerCase().includes('protocolo') || !/^\d+$/.test(firstCell.replace(/\D/g, ''))) {
-              dataRows = rawRows.slice(1);
-            }
-          }
-
-          const dbRows = dataRows
-            .filter((r) => Array.isArray(r) && r.some((c) => c !== undefined && c !== null && c !== ''))
-            .map((r) => {
-              const getVal = (idx: number) => (r[idx] !== undefined ? String(r[idx]).trim() : '');
               const getInt = (val: string) => {
                 if (!val) return null;
                 const p = parseInt(val.replace(/\D/g, ''), 10);
                 return isNaN(p) ? null : p;
               };
+
               const getBool = (val: string) => {
                 const lower = val.toLowerCase();
                 return lower === '1' || lower === 'true' || lower === 'sim';
               };
+
               const parseDate = (val: string | null) => {
                 if (!val) return null;
                 let d = new Date(val);
@@ -249,24 +248,24 @@ export default function FiorixBiPage() {
 
               return {
                 import_id: importId,
-                Protocolo: getVal(0),
-                FlagRecepcao: getInt(getVal(1)),
-                TipoSolicitacao: getVal(2) || null,
-                IdAndamento: getVal(3) ? String(getVal(3)).replace(/\D/g, '') : null,
-                DtProtocolo: parseDate(getVal(4) || getVal(7)),
-                DtPrevisaoEntrega: parseDate(getVal(5)),
-                DtAndamento: parseDate(getVal(6)),
-                CodProcessamento: getInt(getVal(8)),
-                DescAndamento: getVal(9) || null,
-                Natureza: getVal(10) || null,
-                TipoPrenotacao: getVal(11) || null,
-                DiasPrometidos: getInt(getVal(12)),
-                DiasCorridos: getInt(getVal(13)),
-                DiasAtraso: getInt(getVal(14)),
-                SituacaoPrazo: getVal(15) || null,
-                IsDevolucao: getBool(getVal(16)),
-                IsRegistrado: getBool(getVal(17)),
-                TextoNotaDevolucao: getVal(18) || null,
+                Protocolo: getVal('Protocolo'),
+                FlagRecepcao: getInt(getVal('FlagRecepcao')),
+                TipoSolicitacao: getVal('TipoSolicitacao') || null,
+                IdAndamento: getVal('IdAndamento') ? String(getVal('IdAndamento')).replace(/\D/g, '') : null,
+                DtProtocolo: parseDate(getVal('DtProtocolo') || getVal('DataProtocolo')),
+                DtPrevisaoEntrega: parseDate(getVal('DtPrevisaoEntrega')),
+                DtAndamento: parseDate(getVal('DtAndamento')),
+                CodProcessamento: getInt(getVal('CodProcessamento')),
+                DescAndamento: getVal('DescAndamento') || null,
+                Natureza: getVal('Natureza') || null,
+                TipoPrenotacao: getVal('TipoPrenotacao') || null,
+                DiasPrometidos: getInt(getVal('DiasPrometidos')),
+                DiasCorridos: getInt(getVal('DiasCorridos')),
+                DiasAtraso: getInt(getVal('DiasAtraso')),
+                SituacaoPrazo: getVal('SituacaoPrazo') || null,
+                IsDevolucao: getBool(getVal('IsDevolucao')),
+                IsRegistrado: getBool(getVal('IsRegistrado')),
+                TextoNotaDevolucao: getVal('TextoNotaDevolucao') || null,
               };
             })
             .filter((r) => r.Protocolo && r.Protocolo !== '0' && r.Protocolo.toLowerCase() !== 'protocolo');
