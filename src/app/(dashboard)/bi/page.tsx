@@ -9,6 +9,8 @@ import {
   Cell,
   BarChart,
   Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -41,7 +43,6 @@ import {
   deleteBiImport,
   BiRowInput,
 } from '@/app/actions/bi';
-import { supabase } from '@/lib/supabase';
 
 
 const COLUNAS_OBRIGATORIAS = [
@@ -201,7 +202,7 @@ export default function FiorixBiPage() {
       encoding: 'UTF-8',
       quoteChar: '"',
       escapeChar: '"',
-      worker: true, // Offloads parsing to worker thread to prevent UI freezing
+      worker: false,
       chunkSize: 1024 * 1024 * 5, // 5MB streaming chunks
       chunk: async (results, parser) => {
         parser.pause();
@@ -277,11 +278,8 @@ export default function FiorixBiPage() {
           const batchSize = 1000;
           while (rowBuffer.length >= batchSize) {
             const batch = rowBuffer.splice(0, batchSize);
-            const { error } = await supabase
-              .from('fiorix_bi_data')
-              .upsert(batch, { onConflict: 'IdAndamento' });
-
-            if (error) throw error;
+            const { success, error } = await insertBiBatch(importId, batch as BiRowInput[]);
+            if (!success) throw new Error(error);
 
             totalProcessed += batch.length;
             const pct = Math.min(99, Math.round((totalProcessed / estimatedTotal) * 100));
@@ -304,11 +302,8 @@ export default function FiorixBiPage() {
       complete: async () => {
         try {
           if (rowBuffer.length > 0) {
-            const { error } = await supabase
-              .from('fiorix_bi_data')
-              .upsert(rowBuffer, { onConflict: 'IdAndamento' });
-
-            if (error) throw error;
+            const { success, error } = await insertBiBatch(importId, rowBuffer as BiRowInput[]);
+            if (!success) throw new Error(error);
             totalProcessed += rowBuffer.length;
             rowBuffer = [];
           }
@@ -569,10 +564,127 @@ export default function FiorixBiPage() {
             </div>
           </div>
 
-          {/* Chart 2: Top 10 Return Reasons */}
+          {/* Chart 2: Delay Severity */}
           <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
-              Gráfico 2: Top 10 Motivos de Devolução
+              Gráfico 2: Severidade do Atraso
+            </h3>
+            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>
+              Distribuição dos títulos com atraso por faixas de dias em atraso.
+            </p>
+
+            <div style={{ width: '100%', height: 260 }}>
+              {dashboardData.charts.delaySeverity.length === 0 ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', fontSize: '13px' }}>
+                  Nenhuma ocorrência de atraso encontrada para os filtros selecionados.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dashboardData.charts.delaySeverity} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="bucket" tick={{ fontSize: 11 }} />
+                    <YAxis />
+                    <Tooltip formatter={(value: any) => [`${value} títulos`, 'Quantidade']} />
+                    <Bar dataKey="count" fill="#ef4444" radius={[6, 6, 0, 0]} name="Títulos em atraso" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {/* Chart 3: Promised vs Actual Days by Natureza */}
+          <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+              Gráfico 3: Prazo Prometido x Dias Corridos por Natureza
+            </h3>
+            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>
+              Identifica quais tipos de títulos normalmente extrapolam o tempo previsto.
+            </p>
+
+            <div style={{ width: '100%', height: 260 }}>
+              {dashboardData.charts.prazoPrometidoVsCorridosPorNatureza.length === 0 ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', fontSize: '13px' }}>
+                  Nenhum dado de prazo disponível para os filtros selecionados.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dashboardData.charts.prazoPrometidoVsCorridosPorNatureza} margin={{ top: 10, right: 20, left: 0, bottom: 25 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="natureza" tick={{ fontSize: 11 }} angle={-12} textAnchor="end" />
+                    <YAxis />
+                    <Tooltip formatter={(value: any) => [`${value} dias`, 'Média']} />
+                    <Legend />
+                    <Bar dataKey="prometidos" fill="#3b82f6" radius={[6, 6, 0, 0]} name="Dias prometidos" />
+                    <Bar dataKey="corridos" fill="#ef4444" radius={[6, 6, 0, 0]} name="Dias corridos" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {/* Chart 4: Daily trend */}
+          <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', gridColumn: '1 / -1' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+              Gráfico 4: Evolução Diária do Prazo de Entrega
+            </h3>
+            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>
+              Mostra como o volume de entregas no prazo, em atraso e devoluções se comporta ao longo do período analisado.
+            </p>
+
+            <div style={{ width: '100%', height: 300 }}>
+              {dashboardData.charts.evolucaoPrazoPorDia.length === 0 ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', fontSize: '13px' }}>
+                  Sem evolução diária para os filtros selecionados.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={dashboardData.charts.evolucaoPrazoPorDia} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="data" tick={{ fontSize: 11 }} />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="noPrazo" stroke="#10b981" strokeWidth={2} name="No prazo" />
+                    <Line type="monotone" dataKey="atrasado" stroke="#ef4444" strokeWidth={2} name="Atrasado" />
+                    <Line type="monotone" dataKey="devolucao" stroke="#f59e0b" strokeWidth={2} name="Devolução" />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {/* Chart 5: Top Andamentos */}
+          <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+              Gráfico 5: Andamentos com Maiores Impactos no Prazo
+            </h3>
+            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>
+              Avalia os andamentos mais recorrentes e sua média de atraso associada.
+            </p>
+
+            <div style={{ width: '100%', height: 260 }}>
+              {dashboardData.charts.topAndamentosComAtraso.length === 0 ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', fontSize: '13px' }}>
+                  Nenhum andamento com impacto de prazo encontrado.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dashboardData.charts.topAndamentosComAtraso} layout="vertical" margin={{ left: 20, right: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" />
+                    <YAxis dataKey="andamento" type="category" width={140} tick={{ fontSize: 11 }} />
+                    <Tooltip formatter={(value: any, name: any) => [name === 'mediaAtraso' ? `${value} dias` : `${value} títulos`, name === 'mediaAtraso' ? 'Média de atraso' : 'Quantidade']} />
+                    <Bar dataKey="count" fill="#002B49" radius={[0, 6, 6, 0]} name="Quantidade" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {/* Chart 6: Top 10 Return Reasons */}
+          <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+              Gráfico 6: Top 10 Motivos de Devolução
             </h3>
             <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>
               Extraídos de <code style={{ background: '#f1f5f9', padding: '2px 4px' }}>TextoNotaDevolucao</code>.
@@ -597,10 +709,10 @@ export default function FiorixBiPage() {
             </div>
           </div>
 
-          {/* Chart 3: Average Processing Days by Natureza */}
+          {/* Chart 7: Average Processing Days by Natureza */}
           <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', gridColumn: '1 / -1' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
-              Gráfico 3: Tempo Média (Dias Corridos) por Natureza do Título
+              Gráfico 7: Tempo Média (Dias Corridos) por Natureza do Título
             </h3>
             <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>
               Comparativo de duração média desde o protocolo até a entrega por tipo de ato (Escritura, Formal de Partilha, etc.).

@@ -41,7 +41,6 @@ import {
   deleteBiImport,
   BiRowInput,
 } from '@/app/actions/bi';
-import { supabase } from '@/lib/supabase';
 
 
 const COLUNAS_OBRIGATORIAS = [
@@ -201,7 +200,7 @@ export default function FiorixBiPage() {
       encoding: 'UTF-8',
       quoteChar: '"',
       escapeChar: '"',
-      worker: true, // Offloads parsing to worker thread to prevent UI freezing
+      worker: false,
       chunkSize: 1024 * 1024 * 5, // 5MB streaming chunks
       chunk: async (results, parser) => {
         parser.pause();

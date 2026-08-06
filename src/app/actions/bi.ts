@@ -99,7 +99,9 @@ export async function insertBiBatch(importId: string, rows: BiRowInput[]) {
 
     await prisma.fiorixBiData.createMany({
       data: dataToInsert,
-      skipDuplicates: false,
+      // Um CSV pode conter o mesmo andamento mais de uma vez no mesmo lote.
+      // O lote deve continuar sendo importado, sem abortar os 999 registros válidos.
+      skipDuplicates: true,
     });
 
     return { success: true, count: dataToInsert.length };
@@ -153,6 +155,7 @@ export async function getBiDashboardData(filters?: {
           ELSE 'No Prazo'
         END as situacao,
         COUNT(*) as cnt
+      FROM fiorix_bi_data
       WHERE ("CodProcessamento" = 6 OR "CodProcessamento" = 5 OR "IsRegistrado" = true)
         AND ${importCondition}
         AND ${tipoCondition}
@@ -253,7 +256,110 @@ export async function getBiDashboardData(filters?: {
       totalTitulos: Number(r.total || 0),
     }));
 
-    // 4. Dropdown options for tipoPrenotacao filter
+    // 4. Chart 4: Delay severity buckets for late titles
+    const delayBucketsRaw = await prisma.$queryRaw<Array<{ bucket: string; cnt: bigint }>>`
+      SELECT CASE
+        WHEN COALESCE("DiasAtraso", 0) BETWEEN 1 AND 3 THEN '1-3 dias'
+        WHEN COALESCE("DiasAtraso", 0) BETWEEN 4 AND 7 THEN '4-7 dias'
+        WHEN COALESCE("DiasAtraso", 0) BETWEEN 8 AND 15 THEN '8-15 dias'
+        WHEN COALESCE("DiasAtraso", 0) >= 16 THEN '16+ dias'
+        ELSE 'Sem atraso'
+      END as bucket,
+      COUNT(*)::bigint as cnt
+      FROM fiorix_bi_data
+      WHERE (${importCondition})
+        AND ${tipoCondition}
+        AND ${dateCondition}
+        AND (
+          COALESCE("DiasAtraso", 0) > 0
+          OR "IsDevolucao" = true
+          OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%atrasad%'
+          OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%devolucao%'
+        )
+      GROUP BY 1
+      ORDER BY CASE
+        WHEN COALESCE("DiasAtraso", 0) BETWEEN 1 AND 3 THEN 1
+        WHEN COALESCE("DiasAtraso", 0) BETWEEN 4 AND 7 THEN 2
+        WHEN COALESCE("DiasAtraso", 0) BETWEEN 8 AND 15 THEN 3
+        WHEN COALESCE("DiasAtraso", 0) >= 16 THEN 4
+        ELSE 5
+      END
+    `;
+
+    const delaySeverity = delayBucketsRaw.map((row) => ({
+      bucket: row.bucket,
+      count: Number(row.cnt || 0),
+    }));
+
+    // 5. Chart 5: Promised vs actual elapsed days by Natureza
+    const prazoVsRealRaw = await prisma.$queryRaw<Array<{ natureza: string; prometidos: number; corridos: number; total: bigint }>>`
+      SELECT
+        COALESCE(TRIM("Natureza"), 'Outros') as natureza,
+        ROUND(AVG(COALESCE("DiasPrometidos", 0))::numeric, 1)::float as prometidos,
+        ROUND(AVG(COALESCE("DiasCorridos", 0))::numeric, 1)::float as corridos,
+        COUNT(*)::bigint as total
+      FROM fiorix_bi_data
+      WHERE ${importCondition}
+        AND ${tipoCondition}
+        AND ${dateCondition}
+      GROUP BY COALESCE(TRIM("Natureza"), 'Outros')
+      ORDER BY corridos DESC, prometidos DESC
+      LIMIT 8
+    `;
+
+    const prazoPrometidoVsCorridosPorNatureza = prazoVsRealRaw.map((r) => ({
+      natureza: r.natureza,
+      prometidos: Number(r.prometidos || 0),
+      corridos: Number(r.corridos || 0),
+      totalTitulos: Number(r.total || 0),
+    }));
+
+    // 6. Chart 6: Daily trend of on-time vs late vs returned titles
+    const trendRaw = await prisma.$queryRaw<Array<{ data: string; no_prazo: bigint; atrasado: bigint; devolucao: bigint }>>`
+      SELECT
+        DATE("DtAndamento") as data,
+        SUM(CASE WHEN COALESCE("DiasAtraso", 0) <= 0 AND COALESCE("IsDevolucao", false) = false THEN 1 ELSE 0 END) as no_prazo,
+        SUM(CASE WHEN COALESCE("DiasAtraso", 0) > 0 AND COALESCE("IsDevolucao", false) = false THEN 1 ELSE 0 END) as atrasado,
+        SUM(CASE WHEN COALESCE("IsDevolucao", false) = true THEN 1 ELSE 0 END) as devolucao
+      FROM fiorix_bi_data
+      WHERE "DtAndamento" IS NOT NULL
+        AND ${importCondition}
+        AND ${tipoCondition}
+        AND ${dateCondition}
+      GROUP BY DATE("DtAndamento")
+      ORDER BY DATE("DtAndamento")
+    `;
+
+    const evolucaoPrazoPorDia = trendRaw.map((row) => ({
+      data: row.data,
+      noPrazo: Number(row.no_prazo || 0),
+      atrasado: Number(row.atrasado || 0),
+      devolucao: Number(row.devolucao || 0),
+    }));
+
+    // 7. Chart 7: Top andamentos linked to issues
+    const topAndamentosRaw = await prisma.$queryRaw<Array<{ andamento: string; cnt: bigint; media_atraso: number }>>`
+      SELECT
+        COALESCE(TRIM("DescAndamento"), 'Sem andamento') as andamento,
+        COUNT(*)::bigint as cnt,
+        ROUND(AVG(COALESCE("DiasAtraso", 0))::numeric, 1)::float as media_atraso
+      FROM fiorix_bi_data
+      WHERE ${importCondition}
+        AND ${tipoCondition}
+        AND ${dateCondition}
+        AND TRIM(COALESCE("DescAndamento", '')) != ''
+      GROUP BY COALESCE(TRIM("DescAndamento"), 'Sem andamento')
+      ORDER BY cnt DESC, media_atraso DESC
+      LIMIT 8
+    `;
+
+    const topAndamentosComAtraso = topAndamentosRaw.map((row) => ({
+      andamento: row.andamento,
+      count: Number(row.cnt || 0),
+      mediaAtraso: Number(row.media_atraso || 0),
+    }));
+
+    // 8. Dropdown options for tipoPrenotacao filter
     const tiposRaw = await prisma.$queryRaw<Array<{ tipo: string }>>`
       SELECT DISTINCT "TipoPrenotacao" as tipo
       FROM fiorix_bi_data
@@ -286,6 +392,10 @@ export async function getBiDashboardData(filters?: {
         pieChartData,
         topDevolucoes,
         avgDiasPorNatureza,
+        delaySeverity,
+        prazoPrometidoVsCorridosPorNatureza,
+        evolucaoPrazoPorDia,
+        topAndamentosComAtraso,
       },
       tiposPrenotacao: tiposRaw.map((t) => t.tipo).filter(Boolean).sort(),
     };

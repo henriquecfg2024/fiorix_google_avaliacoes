@@ -195,7 +195,7 @@ model FiorixBiData {
   protocolo          String   @map("Protocolo")
   flagRecepcao       Int?     @map("FlagRecepcao")
   tipoSolicitacao    String?  @map("TipoSolicitacao")
-  idAndamento        BigInt?  @unique @map("IdAndamento")
+    idAndamento        BigInt?  @map("IdAndamento")
   dtProtocolo        DateTime? @map("DtProtocolo")
   dtPrevisaoEntrega  DateTime? @map("DtPrevisaoEntrega")
   dtAndamento        DateTime? @map("DtAndamento")
@@ -214,7 +214,8 @@ model FiorixBiData {
   @@index([importId], name: "idx_fiorix_bi_data_import_id")
   @@index([dtAndamento], name: "idx_fiorix_bi_data_dt_andamento")
   @@index([codProcessamento], name: "idx_fiorix_bi_data_cod_proc")
-  @@index([tipoPrenotacao], name: "idx_fiorix_bi_data_tipo_prenotacao")
+    @@index([tipoPrenotacao], name: "idx_fiorix_bi_data_tipo_prenotacao")
+    @@unique([importId, idAndamento], name: "fiorix_bi_data_import_id_andamento_key")
 
   @@map("fiorix_bi_data")
 }
