@@ -23,7 +23,9 @@ const SCOPES = [
   'https://www.googleapis.com/auth/business.manage', // Required to manage Google Business Profile
 ];
 
-const GOOGLE_REQUEST_TIMEOUT_MS = 25_000;
+// Vercel Hobby can terminate a function around 10s. Return a controlled error
+// before that happens instead of allowing the browser to receive a 504 HTML page.
+const GOOGLE_REQUEST_TIMEOUT_MS = 7_000;
 
 async function withTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -188,7 +190,7 @@ export async function syncReviews(tenantId: string) {
     // Fetch only the most recent batch (10 items) to prevent 504 Timeouts
     const response = await withTimeout(
       oauth2Client.request({ url: pageUrl }),
-      'O Google demorou mais de 25 segundos para responder. Verifique a conexão e tente novamente.'
+      'O Google demorou mais de 7 segundos para responder. Verifique a conexão e tente novamente.'
     );
     const data = response.data as any;
     const reviews = data.reviews || [];

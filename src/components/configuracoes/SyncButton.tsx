@@ -13,7 +13,7 @@ export function SyncButton() {
 
     try {
       const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), 45_000);
+      const timeoutId = window.setTimeout(() => controller.abort(), 12_000);
 
       const res = await fetch('/api/sync-reviews', {
         method: 'POST',
@@ -53,7 +53,7 @@ export function SyncButton() {
     } catch (err: any) {
       console.error('Sync error caught in button:', err);
       const errMsg = err?.name === 'AbortError'
-        ? 'A sincronização excedeu 45 segundos. O Google não respondeu a tempo; tente novamente.'
+        ? 'A sincronização excedeu 12 segundos. O Google não respondeu a tempo; tente novamente.'
         : err?.message || err;
       let finalMsg = 'Erro de conexão ao sincronizar avaliações.';
       if (typeof errMsg === 'string') {
