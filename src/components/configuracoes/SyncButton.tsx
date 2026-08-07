@@ -34,16 +34,29 @@ export function SyncButton() {
         });
       } else {
         const errMsg = data?.error;
+        let finalMsg = 'Erro ao comunicar com a API do Google.';
+        if (typeof errMsg === 'string') {
+          finalMsg = errMsg;
+        } else if (errMsg && typeof errMsg === 'object') {
+          finalMsg = errMsg.message || JSON.stringify(errMsg);
+        }
         setSyncResult({
           success: false,
-          message: typeof errMsg === 'string' ? errMsg : 'Erro ao comunicar com a API do Google.',
+          message: finalMsg,
         });
       }
     } catch (err: any) {
+      console.error('Sync error caught in button:', err);
       const errMsg = err?.message || err;
+      let finalMsg = 'Erro de conexão ao sincronizar avaliações.';
+      if (typeof errMsg === 'string') {
+        finalMsg = errMsg;
+      } else if (errMsg && typeof errMsg === 'object') {
+        finalMsg = errMsg.message || JSON.stringify(errMsg);
+      }
       setSyncResult({
         success: false,
-        message: typeof errMsg === 'string' ? errMsg : 'Erro de conexão ao sincronizar avaliações.',
+        message: finalMsg,
       });
     } finally {
       setIsSyncing(false);
