@@ -7,6 +7,7 @@ export interface BiDashboardFilters {
   endDate?: string;
   tipoPrenotacao?: string;
   importId?: string;
+  enabledCharts?: string[];
 }
 
 const NATUREZA_NORMALIZADA_SQL = Prisma.sql`
@@ -65,6 +66,8 @@ function formatDateKey(value: string | Date) {
 }
 
 export async function queryBiDashboardData(filters?: BiDashboardFilters) {
+  const selectedCharts = filters?.enabledCharts?.length ? new Set(filters.enabledCharts) : null;
+  const chartEnabled = (id: string) => !selectedCharts || selectedCharts.has(id);
   let importCondition = Prisma.sql`1=1`;
   if (filters?.importId && filters.importId !== 'ALL') {
     importCondition = Prisma.sql`"import_id" = ${filters.importId}`;
@@ -136,7 +139,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
       )
   `;
 
-  const devolucoesRaw = await prisma.$queryRaw<Array<{ texto: string }>>`
+  const devolucoesRaw = chartEnabled('6') ? await prisma.$queryRaw<Array<{ texto: string }>>`
     SELECT "TextoNotaDevolucao" as texto
     FROM fiorix_bi_data
     WHERE ("IsDevolucao" = true OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%devolucao%')
@@ -144,7 +147,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
       AND LENGTH(TRIM("TextoNotaDevolucao")) > 5
       AND ${generalCondition}
     LIMIT 1500
-  `;
+  ` : [];
 
   const stopWords = new Set([
     'de', 'a', 'o', 'que', 'e', 'do', 'da', 'em', 'um', 'para', 'com', 'não', 'uma', 'os', 'no',
@@ -191,7 +194,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  const avgNaturezaRaw = await prisma.$queryRaw<Array<{ natureza: string; media_dias: number; total: bigint }>>`
+  const avgNaturezaRaw = chartEnabled('7') ? await prisma.$queryRaw<Array<{ natureza: string; media_dias: number; total: bigint }>>`
     SELECT
       COALESCE(TRIM("Natureza"), 'Outros') as natureza,
       ROUND(AVG(COALESCE("DiasCorridos", 0))::numeric, 1)::float as media_dias,
@@ -201,7 +204,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
     GROUP BY COALESCE(TRIM("Natureza"), 'Outros')
     ORDER BY media_dias DESC
     LIMIT 10
-  `;
+  ` : [];
 
   const avgDiasPorNatureza = avgNaturezaRaw.map((row) => ({
     natureza: row.natureza,
@@ -209,7 +212,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
     totalTitulos: Number(row.total || 0),
   }));
 
-  const delayBucketsRaw = await prisma.$queryRaw<Array<{ bucket: string; cnt: bigint }>>`
+  const delayBucketsRaw = chartEnabled('2') ? await prisma.$queryRaw<Array<{ bucket: string; cnt: bigint }>>`
     SELECT
       bucket,
       COUNT(*)::bigint as cnt
@@ -238,14 +241,14 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
       WHEN '16+ dias' THEN 4
       ELSE 5
     END
-  `;
+  ` : [];
 
   const delaySeverity = delayBucketsRaw.map((row) => ({
     bucket: row.bucket,
     count: Number(row.cnt || 0),
   }));
 
-  const prazoVsRealRaw = await prisma.$queryRaw<Array<{ natureza: string; prometidos: number; corridos: number; total: bigint }>>`
+  const prazoVsRealRaw = chartEnabled('3') ? await prisma.$queryRaw<Array<{ natureza: string; prometidos: number; corridos: number; total: bigint }>>`
     SELECT
       COALESCE(TRIM("Natureza"), 'Outros') as natureza,
       ROUND(AVG(COALESCE("DiasPrometidos", 0))::numeric, 1)::float as prometidos,
@@ -256,7 +259,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
     GROUP BY COALESCE(TRIM("Natureza"), 'Outros')
     ORDER BY corridos DESC, prometidos DESC
     LIMIT 8
-  `;
+  ` : [];
 
   const prazoPrometidoVsCorridosPorNatureza = prazoVsRealRaw.map((row) => ({
     natureza: row.natureza,
@@ -265,7 +268,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
     totalTitulos: Number(row.total || 0),
   }));
 
-  const trendRaw = await prisma.$queryRaw<Array<{ data: Date | string; no_prazo: bigint; atrasado: bigint; devolucao: bigint }>>`
+  const trendRaw = chartEnabled('4') ? await prisma.$queryRaw<Array<{ data: Date | string; no_prazo: bigint; atrasado: bigint; devolucao: bigint }>>`
     SELECT
       DATE("DtAndamento") as data,
       SUM(CASE WHEN COALESCE("DiasAtraso", 0) <= 0 AND COALESCE("IsDevolucao", false) = false THEN 1 ELSE 0 END) as no_prazo,
@@ -276,7 +279,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
       AND ${generalCondition}
     GROUP BY DATE("DtAndamento")
     ORDER BY DATE("DtAndamento")
-  `;
+  ` : [];
 
   const evolucaoPrazoPorDia = trendRaw.map((row) => ({
     data: formatDateKey(row.data),
@@ -285,7 +288,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
     devolucao: Number(row.devolucao || 0),
   }));
 
-  const topAndamentosRaw = await prisma.$queryRaw<Array<{ andamento: string; cnt: bigint; media_atraso: number }>>`
+  const topAndamentosRaw = chartEnabled('5') ? await prisma.$queryRaw<Array<{ andamento: string; cnt: bigint; media_atraso: number }>>`
     SELECT
       COALESCE(TRIM("DescAndamento"), 'Sem andamento') as andamento,
       COUNT(*)::bigint as cnt,
@@ -296,7 +299,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
     GROUP BY COALESCE(TRIM("DescAndamento"), 'Sem andamento')
     ORDER BY cnt DESC, media_atraso DESC
     LIMIT 8
-  `;
+  ` : [];
 
   const topAndamentosComAtraso = topAndamentosRaw.map((row) => ({
     andamento: row.andamento,
@@ -310,7 +313,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
     WHERE ${generalCondition}
   `;
 
-  const exceptionSummaryRaw = await prisma.$queryRaw<Array<{
+  const exceptionSummaryRaw = (chartEnabled('8') || chartEnabled('9') || chartEnabled('10')) ? await prisma.$queryRaw<Array<{
     total: bigint;
     protocolos: bigint;
     em_acompanhamento: bigint;
@@ -327,9 +330,9 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
       MAX(COALESCE("DiasCorridos", 0))::int as maior_dias
     FROM fiorix_bi_data
     WHERE ${exceptionCondition}
-  `;
+  ` : [];
 
-  const exceptionByNaturezaRaw = await prisma.$queryRaw<Array<{
+  const exceptionByNaturezaRaw = chartEnabled('9') ? await prisma.$queryRaw<Array<{
     natureza: string;
     total: bigint;
     protocolos: bigint;
@@ -344,9 +347,9 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
     WHERE ${exceptionCondition}
     GROUP BY 1
     ORDER BY total DESC, natureza
-  `;
+  ` : [];
 
-  const exceptionAndamentosRaw = await prisma.$queryRaw<Array<{ andamento: string; cnt: bigint }>>`
+  const exceptionAndamentosRaw = chartEnabled('10') ? await prisma.$queryRaw<Array<{ andamento: string; cnt: bigint }>>`
     SELECT
       COALESCE(TRIM("DescAndamento"), 'Sem andamento') as andamento,
       COUNT(*)::bigint as cnt
@@ -356,7 +359,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
     GROUP BY COALESCE(TRIM("DescAndamento"), 'Sem andamento')
     ORDER BY cnt DESC
     LIMIT 8
-  `;
+  ` : [];
 
   const tiposRaw = await prisma.$queryRaw<Array<{ tipo: string }>>`
     SELECT DISTINCT "TipoPrenotacao" as tipo

@@ -18,6 +18,7 @@ export async function GET(request: Request) {
       startDate: searchParams.get('startDate') || undefined,
       endDate: searchParams.get('endDate') || undefined,
       tipoPrenotacao: searchParams.get('tipoPrenotacao') || undefined,
+      enabledCharts: searchParams.get('charts')?.split(',').filter(Boolean),
     };
 
     const [dashboard, imports] = await Promise.all([

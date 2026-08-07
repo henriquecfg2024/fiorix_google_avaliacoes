@@ -81,6 +81,13 @@ export interface PreviewStats {
 import { validarCSV, PreviewCard, CsvStats } from '@/components/fiorix/CsvValidator';
 
 export default function FiorixBiPage() {
+  const chartDefinitions = [
+    ['1', 'Prazo de entrega'], ['2', 'Severidade do atraso'], ['3', 'Prazo prometido x corrido'],
+    ['4', 'Evolução diária'], ['5', 'Andamentos com impacto'], ['6', 'Motivos de devolução'],
+    ['7', 'Média por natureza'], ['8', 'Exceções legais - situação'], ['9', 'Exceções por natureza'],
+    ['10', 'Exceções - andamentos'],
+  ];
+  const defaultCharts = ['1', '2', '3', '4', '6'];
   // State for CSV Upload & Preview Stats
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [parsedRows, setParsedRows] = useState<BiRowInput[]>([]);
@@ -103,6 +110,29 @@ export default function FiorixBiPage() {
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [selectedTipoPrenotacao, setSelectedTipoPrenotacao] = useState<string>('ALL');
+  const [enabledCharts, setEnabledCharts] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return defaultCharts;
+    try {
+      const saved = JSON.parse(window.localStorage.getItem('fiorix-bi-enabled-charts') || 'null');
+      return Array.isArray(saved) && saved.length > 0 ? saved : defaultCharts;
+    } catch {
+      return defaultCharts;
+    }
+  });
+  const [showChartSettings, setShowChartSettings] = useState(false);
+
+  useEffect(() => {
+    window.localStorage.setItem('fiorix-bi-enabled-charts', JSON.stringify(enabledCharts));
+  }, [enabledCharts]);
+
+  const toggleChart = (id: string) => {
+    setEnabledCharts((current) => {
+      if (current.includes(id)) {
+        return current.length === 1 ? current : current.filter((chartId) => chartId !== id);
+      }
+      return [...current, id];
+    });
+  };
 
   // Load Dashboard & Imports History
   const fetchDashboard = useCallback(async () => {
@@ -117,6 +147,7 @@ export default function FiorixBiPage() {
       if (selectedTipoPrenotacao && selectedTipoPrenotacao !== 'ALL') {
         params.set('tipoPrenotacao', selectedTipoPrenotacao);
       }
+      params.set('charts', enabledCharts.join(','));
 
       const response = await fetch(`/api/bi/dashboard?${params.toString()}`, {
         method: 'GET',
@@ -138,7 +169,7 @@ export default function FiorixBiPage() {
     } finally {
       setLoadingDashboard(false);
     }
-  }, [selectedImportId, startDate, endDate, selectedTipoPrenotacao]);
+  }, [selectedImportId, startDate, endDate, selectedTipoPrenotacao, enabledCharts]);
 
   useEffect(() => {
     fetchDashboard();
@@ -467,6 +498,42 @@ export default function FiorixBiPage() {
       </div>
 
       {/* ── SECTION 2: FILTERS BAR ── */}
+      <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #dbeafe', padding: '16px 24px', marginBottom: '24px', boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ color: '#002B49', fontSize: '14px', fontWeight: 800 }}>Gráficos exibidos</div>
+            <div style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>
+              {enabledCharts.length} de {chartDefinitions.length} gráficos ativos. Desative o que não utiliza para reduzir o tempo de carregamento.
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setEnabledCharts(defaultCharts)}
+              style={{ background: '#f8fafc', border: '1px solid #cbd5e1', color: '#334155', padding: '9px 14px', borderRadius: '8px', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}
+            >
+              Restaurar padrão
+            </button>
+            <button
+              onClick={() => setShowChartSettings((current) => !current)}
+              style={{ background: showChartSettings ? '#dbeafe' : '#2563eb', border: '1px solid #2563eb', color: showChartSettings ? '#1d4ed8' : '#ffffff', padding: '9px 14px', borderRadius: '8px', fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}
+            >
+              {showChartSettings ? 'Fechar seleção' : 'Escolher gráficos'}
+            </button>
+          </div>
+        </div>
+
+        {showChartSettings && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
+            {chartDefinitions.map(([id, label]) => (
+              <label key={id} style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', color: '#334155', fontSize: '12px', cursor: 'pointer', background: enabledCharts.includes(id) ? '#eff6ff' : '#f8fafc' }}>
+                <input type="checkbox" checked={enabledCharts.includes(id)} onChange={() => toggleChart(id)} />
+                <span><strong>Gráfico {id}</strong> · {label}</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '16px 24px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, color: '#002B49', fontSize: '14px' }}>
           <Filter size={18} /> Filtros de Análise:
@@ -639,7 +706,7 @@ export default function FiorixBiPage() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
-            <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #fde68a', padding: '20px' }}>
+            <div style={{ display: enabledCharts.includes('8') ? undefined : 'none', background: '#ffffff', borderRadius: '14px', border: '1px solid #fde68a', padding: '20px' }}>
               <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#78350f', marginBottom: '4px' }}>
                 Situação das exceções legais
               </h4>
@@ -670,7 +737,7 @@ export default function FiorixBiPage() {
               </div>
             </div>
 
-            <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #fde68a', padding: '20px' }}>
+            <div style={{ display: enabledCharts.includes('9') ? undefined : 'none', background: '#ffffff', borderRadius: '14px', border: '1px solid #fde68a', padding: '20px' }}>
               <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#78350f', marginBottom: '4px' }}>
                 Volume por natureza excepcionada
               </h4>
@@ -691,7 +758,7 @@ export default function FiorixBiPage() {
               </div>
             </div>
 
-            <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #fde68a', padding: '20px', gridColumn: '1 / -1' }}>
+            <div style={{ display: enabledCharts.includes('10') ? undefined : 'none', background: '#ffffff', borderRadius: '14px', border: '1px solid #fde68a', padding: '20px', gridColumn: '1 / -1' }}>
               <h4 style={{ fontSize: '15px', fontWeight: 700, color: '#78350f', marginBottom: '4px' }}>
                 Andamentos mais frequentes nas exceções
               </h4>
@@ -750,7 +817,7 @@ export default function FiorixBiPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px', marginBottom: '32px' }}>
           
           {/* Chart 1: Pie Chart - Delivery Deadlines for CodProcessamento = 6 */}
-          <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: enabledCharts.includes('1') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
               Gráfico 1: Prazo de Entrega (Registrados - Cod 6)
             </h3>
@@ -782,7 +849,7 @@ export default function FiorixBiPage() {
           </div>
 
           {/* Chart 2: Delay Severity */}
-          <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: enabledCharts.includes('2') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
               Gráfico 2: Severidade do Atraso
             </h3>
@@ -810,7 +877,7 @@ export default function FiorixBiPage() {
           </div>
 
           {/* Chart 3: Promised vs Actual Days by Natureza */}
-          <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: enabledCharts.includes('3') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
               Gráfico 3: Prazo Prometido x Dias Corridos por Natureza
             </h3>
@@ -840,7 +907,7 @@ export default function FiorixBiPage() {
           </div>
 
           {/* Chart 4: Daily trend */}
-          <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', gridColumn: '1 / -1' }}>
+          <div style={{ display: enabledCharts.includes('4') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', gridColumn: '1 / -1' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
               Gráfico 4: Evolução Diária do Prazo de Entrega
             </h3>
@@ -871,7 +938,7 @@ export default function FiorixBiPage() {
           </div>
 
           {/* Chart 5: Top Andamentos */}
-          <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: enabledCharts.includes('5') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
               Gráfico 5: Andamentos com Maiores Impactos no Prazo
             </h3>
@@ -899,7 +966,7 @@ export default function FiorixBiPage() {
           </div>
 
           {/* Chart 6: Top 10 Return Reasons */}
-          <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: enabledCharts.includes('6') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
               Gráfico 6: Top 10 Motivos de Devolução
             </h3>
@@ -927,7 +994,7 @@ export default function FiorixBiPage() {
           </div>
 
           {/* Chart 7: Average Processing Days by Natureza */}
-          <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', gridColumn: '1 / -1' }}>
+          <div style={{ display: enabledCharts.includes('7') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', gridColumn: '1 / -1' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
               Gráfico 7: Tempo Média (Dias Corridos) por Natureza do Título
             </h3>
