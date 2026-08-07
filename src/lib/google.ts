@@ -23,6 +23,21 @@ const SCOPES = [
   'https://www.googleapis.com/auth/business.manage', // Required to manage Google Business Profile
 ];
 
+const GOOGLE_REQUEST_TIMEOUT_MS = 25_000;
+
+async function withTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), GOOGLE_REQUEST_TIMEOUT_MS);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
 export function getGoogleAuthUrl(tenantId: string) {
   const oauth2Client = getGoogleOAuth2Client();
   return oauth2Client.generateAuthUrl({
@@ -88,7 +103,10 @@ export async function fetchLocations(oauth2Client: any) {
 
   try {
     // 1. Get Accounts
-    const accountsRes = await accountsAPI.accounts.list();
+    const accountsRes = await withTimeout(
+      accountsAPI.accounts.list(),
+      'O Google demorou para responder ao buscar as contas. Tente novamente.'
+    );
     const accounts = accountsRes.data.accounts || [];
 
     if (accounts.length === 0) {
@@ -97,10 +115,13 @@ export async function fetchLocations(oauth2Client: any) {
 
     // 2. Get Locations for the first account
     const accountName = accounts[0].name!; // 'accounts/123456789'
-    const locationsRes = await mybusiness.accounts.locations.list({
-      parent: accountName,
-      readMask: 'name,title,storeCode'
-    });
+    const locationsRes = await withTimeout(
+      mybusiness.accounts.locations.list({
+        parent: accountName,
+        readMask: 'name,title,storeCode'
+      }),
+      'O Google demorou para responder ao buscar os locais. Tente novamente.'
+    );
 
     return locationsRes.data.locations?.map(loc => ({
       accountId: accountName,
@@ -161,16 +182,17 @@ export async function syncReviews(tenantId: string) {
     }
   }
 
-  let pageToken: string | undefined = undefined;
-  let newReviewsCount = 0;
-
   try {
     let pageUrl = `https://mybusiness.googleapis.com/v4/${connection.accountId}/${connection.locationId}/reviews?pageSize=10`;
     
     // Fetch only the most recent batch (10 items) to prevent 504 Timeouts
-    const response = await oauth2Client.request({ url: pageUrl });
+    const response = await withTimeout(
+      oauth2Client.request({ url: pageUrl }),
+      'O Google demorou mais de 25 segundos para responder. Verifique a conexão e tente novamente.'
+    );
     const data = response.data as any;
     const reviews = data.reviews || [];
+    let newReviewsCount = 0;
 
     for (const item of reviews) {
       const googleId = item.reviewId;
