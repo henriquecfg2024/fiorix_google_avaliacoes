@@ -412,6 +412,7 @@ export default function FiorixBiImportPage() {
                   <th style={{ padding: '10px 16px' }}>Nome do Arquivo CSV</th>
                   <th style={{ padding: '10px 16px' }}>Registros Inseridos</th>
                   <th style={{ padding: '10px 16px' }}>Importado Por</th>
+                  <th style={{ padding: '10px 16px', textAlign: 'center' }}>Status</th>
                   <th style={{ padding: '10px 16px', textAlign: 'center' }}>Ação</th>
                 </tr>
               </thead>
@@ -426,6 +427,19 @@ export default function FiorixBiImportPage() {
                       {Number(item.rowsCount || 0).toLocaleString('pt-BR')} linhas
                     </td>
                     <td style={{ padding: '12px 16px', color: '#64748b' }}>{item.importedBy}</td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                      <span style={{
+                        background: '#dcfce7',
+                        color: '#15803d',
+                        padding: '4px 8px',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        border: '1px solid #bbf7d0'
+                      }}>
+                        ✅ Concluído
+                      </span>
+                    </td>
                     <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                       <button
                         onClick={() => handleDeleteImport(item.id)}
