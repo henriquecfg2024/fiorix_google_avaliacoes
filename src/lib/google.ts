@@ -208,43 +208,48 @@ export async function syncReviews(tenantId: string, triggeredBy?: string) {
   }
 
   try {
-    let pageUrl = `https://mybusiness.googleapis.com/v4/${connection.accountId}/${connection.locationId}/reviews?pageSize=10`;
+    let pageUrl = `https://mybusiness.googleapis.com/v4/${connection.accountId}/${connection.locationId}/reviews?pageSize=50`;
     
-    // Fetch only the most recent batch (10 items) to prevent 504 Timeouts
+    // Fetch the largest supported batch so the sync completes within Vercel's limit.
     const response = await withTimeout(
       oauth2Client.request({ url: pageUrl }),
       'O Google demorou mais de 7 segundos para responder. Verifique a conexão e tente novamente.'
     );
     const data = response.data as any;
-    const reviews = data.reviews || [];
-    let newReviewsCount = 0;
+    const reviews = (data.reviews || []).filter((item: any) => item.reviewId);
+    const ratingMap: Record<string, number> = {
+      'ONE': 1, 'TWO': 2, 'THREE': 3, 'FOUR': 4, 'FIVE': 5
+    };
+    const googleIds = reviews.map((item: any) => item.reviewId);
+    const existingReviews = googleIds.length > 0
+      ? await prisma.review.findMany({ where: { googleId: { in: googleIds } }, select: { googleId: true } })
+      : [];
+    const existingIds = new Set(existingReviews.map((review) => review.googleId));
+    const newReviews = reviews.filter((item: any) => !existingIds.has(item.reviewId));
 
-    for (const item of reviews) {
-      const googleId = item.reviewId;
-      
-      const existing = await prisma.review.findUnique({
-        where: { googleId }
+    if (newReviews.length > 0) {
+      await prisma.review.createMany({
+        skipDuplicates: true,
+        data: newReviews.map((item: any) => ({
+          googleId: item.reviewId,
+          tenantId,
+          reviewerName: item.reviewer?.displayName || 'Anônimo',
+          rating: ratingMap[item.starRating] || 5,
+          comment: cleanReviewComment(item.comment),
+          publishedAt: new Date(item.createTime),
+          status: item.reviewReply ? 'RESPONDED' as const : 'PENDING' as const
+        }))
       });
-
-      if (!existing) {
-        const ratingMap: Record<string, number> = {
-          'ONE': 1, 'TWO': 2, 'THREE': 3, 'FOUR': 4, 'FIVE': 5
-        };
-        
-        await prisma.review.create({
-          data: {
-            googleId,
-            tenantId,
-            reviewerName: item.reviewer?.displayName || 'Anônimo',
-            rating: ratingMap[item.starRating] || 5,
-            comment: cleanReviewComment(item.comment),
-            publishedAt: new Date(item.createTime),
-            status: item.reviewReply ? 'RESPONDED' : 'PENDING'
-          }
-        });
-        newReviewsCount++;
-      }
     }
+
+    const respondedIds = reviews.filter((item: any) => item.reviewReply).map((item: any) => item.reviewId);
+    if (respondedIds.length > 0) {
+      await prisma.review.updateMany({
+        where: { googleId: { in: respondedIds }, tenantId },
+        data: { status: 'RESPONDED' }
+      });
+    }
+    const newReviewsCount = newReviews.length;
 
     await finishLog({
       status: 'COMPLETED',
