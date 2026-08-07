@@ -65,6 +65,8 @@ function formatDateKey(value: string | Date) {
   return String(value);
 }
 
+const MONTH_NAMES_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
 export async function queryBiDashboardData(filters?: BiDashboardFilters) {
   const selectedCharts = filters?.enabledCharts?.length ? new Set(filters.enabledCharts) : null;
   const chartEnabled = (id: string) => !selectedCharts || selectedCharts.has(id);
@@ -96,6 +98,33 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
   const baseCondition = Prisma.sql`${importCondition} AND ${tipoCondition} AND ${dateCondition}`;
   const generalCondition = Prisma.sql`${baseCondition} AND ${GENERAL_NATURE_CONDITION_SQL}`;
   const exceptionCondition = Prisma.sql`${baseCondition} AND ${EXCEPTION_NATURE_CONDITION_SQL}`;
+
+  const historicalPerformanceRaw = (chartEnabled('11') || chartEnabled('12')) ? await prisma.$queryRaw<Array<{
+    ano: number;
+    mes: number;
+    no_prazo: bigint;
+    atrasados: bigint;
+  }>>`
+    SELECT
+      EXTRACT(YEAR FROM "DtAndamento")::int as ano,
+      EXTRACT(MONTH FROM "DtAndamento")::int as mes,
+      SUM(CASE
+        WHEN COALESCE("DiasAtraso", 0) > 0 OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%atrasad%' THEN 0
+        ELSE 1
+      END)::bigint as no_prazo,
+      SUM(CASE
+        WHEN COALESCE("DiasAtraso", 0) > 0 OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%atrasad%' THEN 1
+        ELSE 0
+      END)::bigint as atrasados
+    FROM fiorix_bi_data
+    WHERE "DtAndamento" IS NOT NULL
+      AND ("CodProcessamento" = 6 OR "CodProcessamento" = 5 OR "IsRegistrado" = true)
+      AND COALESCE("IsDevolucao", false) = false
+      AND LOWER(COALESCE("SituacaoPrazo", '')) NOT LIKE '%devolucao%'
+      AND ${generalCondition}
+    GROUP BY 1, 2
+    ORDER BY 1, 2
+  ` : [];
 
   const pieRaw = await prisma.$queryRaw<Array<{ situacao: string; cnt: bigint }>>`
     SELECT
@@ -378,6 +407,55 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
   const exceptionAvgDias = Number(exceptionSummary?.media_dias || 0);
   const exceptionMaxDias = Number(exceptionSummary?.maior_dias || 0);
 
+  const historicalBase = historicalPerformanceRaw.map((row) => {
+    const noPrazo = Number(row.no_prazo || 0);
+    const atrasados = Number(row.atrasados || 0);
+    const total = noPrazo + atrasados;
+    return {
+      ano: Number(row.ano),
+      mes: Number(row.mes),
+      label: `${MONTH_NAMES_PT[Number(row.mes) - 1] || row.mes}/${row.ano}`,
+      noPrazo,
+      atrasados,
+      total,
+      percentNoPrazo: Number(((noPrazo / (total || 1)) * 100).toFixed(1)),
+      percentAtrasados: Number(((atrasados / (total || 1)) * 100).toFixed(1)),
+    };
+  });
+
+  const historicalYears = Array.from(new Set(historicalBase.map((row) => row.ano))).sort((a, b) => a - b);
+  const historicalTotal = historicalBase.reduce((sum, row) => sum + row.total, 0);
+  const historicalNoPrazo = historicalBase.reduce((sum, row) => sum + row.noPrazo, 0);
+  const historicalOverallPercent = Number(((historicalNoPrazo / (historicalTotal || 1)) * 100).toFixed(1));
+  const recentRows = historicalBase.slice(-12);
+  const recentTotal = recentRows.reduce((sum, row) => sum + row.total, 0);
+  const recentNoPrazo = recentRows.reduce((sum, row) => sum + row.noPrazo, 0);
+  const recentPercent = Number(((recentNoPrazo / (recentTotal || 1)) * 100).toFixed(1));
+  const annualPerformance = historicalYears.map((ano) => {
+    const rows = historicalBase.filter((row) => row.ano === ano);
+    const total = rows.reduce((sum, row) => sum + row.total, 0);
+    const noPrazo = rows.reduce((sum, row) => sum + row.noPrazo, 0);
+    return { ano, total, percentNoPrazo: Number(((noPrazo / (total || 1)) * 100).toFixed(1)) };
+  });
+  const bestYear = annualPerformance.reduce((best, current) => current.percentNoPrazo > best.percentNoPrazo ? current : best, { ano: 0, total: 0, percentNoPrazo: 0 });
+  const targetPercent = historicalBase.length === 0 ? 0 : Number(Math.min(
+    95,
+    Math.max(
+      historicalOverallPercent + 3,
+      recentPercent + 2,
+      historicalOverallPercent + ((bestYear.percentNoPrazo - historicalOverallPercent) / 2),
+    ),
+  ).toFixed(1));
+  const historicalMonthly = historicalBase.map((row) => ({ ...row, metaPercent: targetPercent }));
+  const historicalComparison = MONTH_NAMES_PT.map((nome, index) => {
+    const result: Record<string, number | string | null> = { mes: index + 1, nome };
+    historicalYears.forEach((ano) => {
+      const row = historicalBase.find((item) => item.ano === ano && item.mes === index + 1);
+      result[String(ano)] = row ? row.percentNoPrazo : null;
+    });
+    return result;
+  });
+
   return {
     summary: {
       totalRecords,
@@ -415,6 +493,19 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
           andamento: row.andamento,
           count: Number(row.cnt || 0),
         })),
+      },
+    },
+    historical: {
+      monthly: historicalMonthly,
+      comparison: historicalComparison,
+      years: historicalYears,
+      annualPerformance,
+      summary: {
+        overallPercent: historicalOverallPercent,
+        recentPercent,
+        targetPercent,
+        bestYear: bestYear.ano,
+        bestYearPercent: bestYear.percentNoPrazo,
       },
     },
     charts: {

@@ -85,9 +85,10 @@ export default function FiorixBiPage() {
     ['1', 'Prazo de entrega'], ['2', 'Severidade do atraso'], ['3', 'Prazo prometido x corrido'],
     ['4', 'Evolução diária'], ['5', 'Andamentos com impacto'], ['6', 'Motivos de devolução'],
     ['7', 'Média por natureza'], ['8', 'Exceções legais - situação'], ['9', 'Exceções por natureza'],
-    ['10', 'Exceções - andamentos'],
+    ['10', 'Exceções - andamentos'], ['11', 'Desempenho mensal'], ['12', 'Comparativo entre anos'],
   ];
-  const defaultCharts = ['1', '2', '3', '4', '6'];
+  const defaultCharts = ['1', '2', '3', '4', '6', '11', '12'];
+  const chartSettingsKey = 'fiorix-bi-enabled-charts-v2';
   // State for CSV Upload & Preview Stats
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [parsedRows, setParsedRows] = useState<BiRowInput[]>([]);
@@ -113,7 +114,7 @@ export default function FiorixBiPage() {
   const [enabledCharts, setEnabledCharts] = useState<string[]>(() => {
     if (typeof window === 'undefined') return defaultCharts;
     try {
-      const saved = JSON.parse(window.localStorage.getItem('fiorix-bi-enabled-charts') || 'null');
+      const saved = JSON.parse(window.localStorage.getItem(chartSettingsKey) || 'null');
       return Array.isArray(saved) && saved.length > 0 ? saved : defaultCharts;
     } catch {
       return defaultCharts;
@@ -122,7 +123,7 @@ export default function FiorixBiPage() {
   const [showChartSettings, setShowChartSettings] = useState(false);
 
   useEffect(() => {
-    window.localStorage.setItem('fiorix-bi-enabled-charts', JSON.stringify(enabledCharts));
+    window.localStorage.setItem(chartSettingsKey, JSON.stringify(enabledCharts));
   }, [enabledCharts]);
 
   const toggleChart = (id: string) => {
@@ -1012,6 +1013,110 @@ export default function FiorixBiPage() {
                   <Bar dataKey="mediaDias" fill="#1e3a8a" radius={[6, 6, 0, 0]} name="Média Dias Corridos" />
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Chart 11: Historical monthly performance */}
+          <div style={{ display: enabledCharts.includes('11') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #bfdbfe', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', gridColumn: '1 / -1' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+              Gráfico 11: Percentual mensal de títulos no prazo e atrasados
+            </h3>
+            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px' }}>
+              Acompanha a evolução mensal dos títulos prontos dentro do prazo de previsão, excluindo devoluções.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '18px' }}>
+              <div style={{ background: '#eff6ff', borderRadius: '10px', padding: '12px' }}>
+                <div style={{ color: '#1d4ed8', fontSize: '11px', fontWeight: 700 }}>Média histórica</div>
+                <div style={{ color: '#1e3a8a', fontSize: '22px', fontWeight: 800 }}>{dashboardData.historical.summary.overallPercent}%</div>
+              </div>
+              <div style={{ background: '#f0fdf4', borderRadius: '10px', padding: '12px' }}>
+                <div style={{ color: '#166534', fontSize: '11px', fontWeight: 700 }}>Últimos 12 meses</div>
+                <div style={{ color: '#15803d', fontSize: '22px', fontWeight: 800 }}>{dashboardData.historical.summary.recentPercent}%</div>
+              </div>
+              <div style={{ background: '#fff7ed', borderRadius: '10px', padding: '12px' }}>
+                <div style={{ color: '#9a3412', fontSize: '11px', fontWeight: 700 }}>Meta sugerida</div>
+                <div style={{ color: '#c2410c', fontSize: '22px', fontWeight: 800 }}>{dashboardData.historical.summary.targetPercent}%</div>
+              </div>
+              <div style={{ background: '#fefce8', borderRadius: '10px', padding: '12px' }}>
+                <div style={{ color: '#854d0e', fontSize: '11px', fontWeight: 700 }}>Melhor ano</div>
+                <div style={{ color: '#a16207', fontSize: '22px', fontWeight: 800 }}>{dashboardData.historical.summary.bestYear || '—'}</div>
+              </div>
+            </div>
+
+            <div style={{ width: '100%', height: 330 }}>
+              {dashboardData.historical.monthly.length === 0 ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', fontSize: '13px' }}>
+                  Nenhum histórico mensal encontrado para os filtros selecionados.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={dashboardData.historical.monthly} margin={{ top: 10, right: 20, left: 0, bottom: 30 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                    <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                    <Tooltip formatter={(value: any) => [`${value}%`, 'Percentual']} />
+                    <Legend />
+                    <Line type="monotone" dataKey="percentNoPrazo" stroke="#10b981" strokeWidth={3} dot={false} name="No prazo" />
+                    <Line type="monotone" dataKey="percentAtrasados" stroke="#ef4444" strokeWidth={2} dot={false} name="Atrasados" />
+                    <Line type="monotone" dataKey="metaPercent" stroke="#f59e0b" strokeWidth={2} strokeDasharray="6 6" dot={false} name="Meta sugerida" />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          {/* Chart 12: Same month comparison across years */}
+          <div style={{ display: enabledCharts.includes('12') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #c7d2fe', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', gridColumn: '1 / -1' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+              Gráfico 12: Comparação do mesmo mês entre os anos
+            </h3>
+            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px' }}>
+              Compare Janeiro/2020 com Janeiro/2021, Janeiro/2022 e os demais anos disponíveis para identificar o melhor desempenho.
+            </p>
+
+            <div style={{ width: '100%', height: 320 }}>
+              {dashboardData.historical.years.length === 0 ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', fontSize: '13px' }}>
+                  Nenhum ano disponível para comparação.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={dashboardData.historical.comparison} margin={{ top: 10, right: 20, left: 0, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="nome" />
+                    <YAxis domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                    <Tooltip formatter={(value: any, name: any) => [value == null ? 'Sem dados' : `${value}%`, `Ano ${name}`]} />
+                    <Legend />
+                    {dashboardData.historical.years.map((year: number, index: number) => (
+                      <Line key={year} type="monotone" dataKey={String(year)} stroke={['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#059669', '#0891b2'][index % 6]} strokeWidth={2} connectNulls dot={{ r: 3 }} name={String(year)} />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            <div style={{ overflowX: 'auto', marginTop: '16px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', minWidth: '560px' }}>
+                <thead>
+                  <tr style={{ background: '#eef2ff', color: '#3730a3' }}>
+                    <th style={{ textAlign: 'left', padding: '9px' }}>Mês</th>
+                    {dashboardData.historical.years.map((year: number) => <th key={year} style={{ textAlign: 'right', padding: '9px' }}>{year}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {dashboardData.historical.comparison.map((row: any) => (
+                    <tr key={row.mes} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '8px', fontWeight: 700, color: '#334155' }}>{row.nome}</td>
+                      {dashboardData.historical.years.map((year: number) => (
+                        <td key={year} style={{ padding: '8px', textAlign: 'right', color: row[String(year)] == null ? '#94a3b8' : '#0f172a' }}>
+                          {row[String(year)] == null ? '—' : `${row[String(year)]}%`}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 
