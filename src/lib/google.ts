@@ -28,10 +28,10 @@ const SCOPES = [
 // before that happens instead of allowing the browser to receive a 504 HTML page.
 const GOOGLE_REQUEST_TIMEOUT_MS = 7_000;
 
-async function withTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
+async function withTimeout<T>(promise: Promise<T>, message: string, timeoutMs = GOOGLE_REQUEST_TIMEOUT_MS): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error(message)), GOOGLE_REQUEST_TIMEOUT_MS);
+    timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
   });
 
   try {
@@ -208,15 +208,25 @@ export async function syncReviews(tenantId: string, triggeredBy?: string) {
   }
 
   try {
-    let pageUrl = `https://mybusiness.googleapis.com/v4/${connection.accountId}/${connection.locationId}/reviews?pageSize=50`;
-    
-    // Fetch the largest supported batch so the sync completes within Vercel's limit.
-    const response = await withTimeout(
-      oauth2Client.request({ url: pageUrl }),
-      'O Google demorou mais de 7 segundos para responder. Verifique a conexão e tente novamente.'
-    );
-    const data = response.data as any;
-    const reviews = (data.reviews || []).filter((item: any) => item.reviewId);
+    // The Google API paginates results. Fetch several pages, but stop before
+    // the serverless function limit so partial progress can still be saved.
+    const reviews: any[] = [];
+    let pageToken: string | undefined;
+    const syncDeadline = Date.now() + 8_500;
+    for (let page = 0; page < 10; page++) {
+      const remainingMs = Math.min(GOOGLE_REQUEST_TIMEOUT_MS, syncDeadline - Date.now());
+      if (remainingMs < 500) break;
+      const pageUrl = `https://mybusiness.googleapis.com/v4/${connection.accountId}/${connection.locationId}/reviews?pageSize=50${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`;
+      const response = await withTimeout(
+        oauth2Client.request({ url: pageUrl }),
+        'O Google demorou para responder. Verifique a conexão e tente novamente.',
+        remainingMs
+      );
+      const data = response.data as any;
+      reviews.push(...(data.reviews || []).filter((item: any) => item.reviewId));
+      pageToken = data.nextPageToken || undefined;
+      if (!pageToken) break;
+    }
     const ratingMap: Record<string, number> = {
       'ONE': 1, 'TWO': 2, 'THREE': 3, 'FOUR': 4, 'FIVE': 5
     };
