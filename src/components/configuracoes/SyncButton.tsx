@@ -74,6 +74,7 @@ export function SyncButton() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <button
+          type="button"
           onClick={handleSync}
           disabled={isSyncing}
           style={{
