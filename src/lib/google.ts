@@ -26,7 +26,7 @@ const SCOPES = [
 
 // Vercel Hobby can terminate a function around 10s. Return a controlled error
 // before that happens instead of allowing the browser to receive a 504 HTML page.
-const GOOGLE_REQUEST_TIMEOUT_MS = 7_000;
+const GOOGLE_REQUEST_TIMEOUT_MS = 15_000;
 
 async function withTimeout<T>(promise: Promise<T>, message: string, timeoutMs = GOOGLE_REQUEST_TIMEOUT_MS): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -212,7 +212,7 @@ export async function syncReviews(tenantId: string, triggeredBy?: string) {
     // the serverless function limit so partial progress can still be saved.
     const reviews: any[] = [];
     let pageToken: string | undefined;
-    const syncDeadline = Date.now() + 8_500;
+    const syncDeadline = Date.now() + 45_000;
     for (let page = 0; page < 10; page++) {
       const remainingMs = Math.min(GOOGLE_REQUEST_TIMEOUT_MS, syncDeadline - Date.now());
       if (remainingMs < 500) break;
