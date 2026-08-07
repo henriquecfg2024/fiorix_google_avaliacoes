@@ -9,6 +9,7 @@ import {
   deleteBiImport,
   getBiImportsList,
   insertBiBatch,
+  updateBiImportStatus,
 } from '@/app/actions/bi';
 import {
   CsvStats,
@@ -123,6 +124,8 @@ export default function FiorixBiImportPage() {
         throw new Error('Nenhum registro válido foi encontrado no CSV.');
       }
 
+      await updateBiImportStatus(importId, 'SUCCESS');
+
       setUploadProgress(100);
       setImportStatusMsg(
         `Importação concluída! ${totalProcessed.toLocaleString('pt-BR')} registros inseridos.`
@@ -135,10 +138,12 @@ export default function FiorixBiImportPage() {
       }, 1000);
     } catch (error: any) {
       console.error('Erro ao inserir importação BI:', error);
-      await deleteBiImport(importId);
-      alert(`Erro na importação: ${error?.message || error}`);
-      setImportStatusMsg(`Erro na importação: ${error?.message || error}`);
+      const errMsg = error?.message || String(error);
+      await updateBiImportStatus(importId, 'FAILED', errMsg);
+      alert(`Erro na importação: ${errMsg}`);
+      setImportStatusMsg(`Erro na importação: ${errMsg}`);
       setIsImporting(false);
+      fetchImports();
     }
   };
 
@@ -428,17 +433,49 @@ export default function FiorixBiImportPage() {
                     </td>
                     <td style={{ padding: '12px 16px', color: '#64748b' }}>{item.importedBy}</td>
                     <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                      <span style={{
-                        background: '#dcfce7',
-                        color: '#15803d',
-                        padding: '4px 8px',
-                        borderRadius: '12px',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        border: '1px solid #bbf7d0'
-                      }}>
-                        ✅ Concluído
-                      </span>
+                      {item.status === 'SUCCESS' && (
+                        <span style={{
+                          background: '#dcfce7',
+                          color: '#15803d',
+                          padding: '4px 8px',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          border: '1px solid #bbf7d0'
+                        }}>
+                          ✅ Concluído
+                        </span>
+                      )}
+                      {item.status === 'PROCESSING' && (
+                        <span style={{
+                          background: '#eff6ff',
+                          color: '#1d4ed8',
+                          padding: '4px 8px',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          border: '1px solid #bfdbfe'
+                        }}>
+                          ⏳ Processando
+                        </span>
+                      )}
+                      {item.status === 'FAILED' && (
+                        <span 
+                          title={item.errorMessage || 'Erro desconhecido'}
+                          style={{
+                            background: '#fee2e2',
+                            color: '#991b1b',
+                            padding: '4px 8px',
+                            borderRadius: '12px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            border: '1px solid #fca5a5',
+                            cursor: 'help'
+                          }}
+                        >
+                          ❌ Falhou ({item.errorMessage ? (item.errorMessage.length > 20 ? item.errorMessage.substring(0,20) + '...' : item.errorMessage) : 'Erro'})
+                        </span>
+                      )}
                     </td>
                     <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                       <button

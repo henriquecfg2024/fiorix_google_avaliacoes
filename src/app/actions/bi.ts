@@ -33,6 +33,7 @@ export async function createBiImport(fileName: string, totalRows: number, import
         fileName,
         rowsCount: totalRows,
         importedBy,
+        status: 'PROCESSING',
       },
     });
 
@@ -40,6 +41,22 @@ export async function createBiImport(fileName: string, totalRows: number, import
   } catch (error: any) {
     console.error('Error creating BI import:', error);
     return { success: false, error: error.message || 'Erro ao criar registro de importacao' };
+  }
+}
+
+export async function updateBiImportStatus(importId: string, status: 'SUCCESS' | 'FAILED', errorMessage?: string) {
+  try {
+    await prisma.fiorixBiImport.update({
+      where: { id: importId },
+      data: {
+        status,
+        errorMessage,
+      },
+    });
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error updating import status:', error);
+    return { success: false, error: error.message || 'Erro ao atualizar status da importacao' };
   }
 }
 
