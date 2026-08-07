@@ -107,7 +107,9 @@ export default function FiorixBiImportPage() {
       const { totalProcessed } = await importarCSVEmLotes({
         file: csvFile,
         estimatedTotal,
-        batchSize: 1000,
+        // Lotes menores evitam exceder o limite de tempo/tamanho do Server Action
+        // quando o CSV possui textos longos em TextoNotaDevolucao.
+        batchSize: 250,
         insertBatch: (rows) => insertBiBatch(importId, rows),
         onProgress: (processed, total) => {
           const safeTotal = Math.max(total, processed, 1);

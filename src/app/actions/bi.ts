@@ -46,13 +46,20 @@ export async function createBiImport(fileName: string, totalRows: number, import
 
 export async function updateBiImportStatus(importId: string, status: 'SUCCESS' | 'FAILED', errorMessage?: string) {
   try {
-    await prisma.fiorixBiImport.update({
-      where: { id: importId },
-      data: {
-        status,
-        errorMessage,
-      },
-    });
+    if (status === 'FAILED') {
+      await prisma.$transaction([
+        prisma.fiorixBiData.deleteMany({ where: { importId } }),
+        prisma.fiorixBiImport.update({
+          where: { id: importId },
+          data: { status, errorMessage },
+        }),
+      ]);
+    } else {
+      await prisma.fiorixBiImport.update({
+        where: { id: importId },
+        data: { status, errorMessage },
+      });
+    }
     return { success: true };
   } catch (error: any) {
     console.error('Error updating import status:', error);

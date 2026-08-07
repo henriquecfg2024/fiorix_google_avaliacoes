@@ -375,7 +375,9 @@ export async function importarCSVEmLotes({
       if (rowBuffer.length === 0) return;
 
       const batch = rowBuffer.splice(0, rowBuffer.length);
-      const { success, error } = await insertBatch(batch);
+      const result = await insertBatch(batch);
+      const success = result?.success;
+      const error = result?.error;
 
       if (!success) {
         throw new Error(error || 'Falha ao inserir lote de dados.');
