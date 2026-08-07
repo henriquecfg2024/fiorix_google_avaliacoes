@@ -306,3 +306,15 @@ export async function syncReviews(tenantId: string, triggeredBy?: string) {
     throw new Error(errorMessage);
   }
 }
+
+export async function replyToGoogleReview(tenantId: string, reviewId: string, content: string) {
+  const connection = await prisma.googleConnection.findFirst({ where: { tenantId } });
+  if (!connection) throw new Error('Nenhuma conta do Google vinculada a este cartório.');
+
+  const oauth2Client = await getAuthenticatedGoogleClient(tenantId);
+  const url = `https://mybusiness.googleapis.com/v4/${connection.accountId}/${connection.locationId}/reviews/${encodeURIComponent(reviewId)}/reply`;
+  await withTimeout(
+    oauth2Client.request({ url, method: 'PUT', data: { comment: content } }),
+    'O Google demorou para publicar a resposta. Tente novamente.'
+  );
+}

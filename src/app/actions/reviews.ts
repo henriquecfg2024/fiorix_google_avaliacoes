@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import { revalidatePath } from 'next/cache';
+import { replyToGoogleReview } from '@/lib/google';
 
 export async function generateAiResponse(reviewerName: string, rating: number, comment?: string | null) {
   // Formal cartório response templates tailored by rating
@@ -19,6 +20,15 @@ export async function sendReviewResponse(reviewId: string, content: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error('Não autorizado');
 
+  const review = await prisma.review.findFirst({
+    where: { id: reviewId, tenantId: session.user.tenantId },
+    select: { googleId: true },
+  });
+  if (!review?.googleId) throw new Error('Avaliação sem identificação do Google.');
+
+  // Only mark it locally after Google accepts the reply.
+  await replyToGoogleReview(session.user.tenantId, review.googleId, content);
+
   await prisma.$transaction(async (tx) => {
     // 1. Create or update Response record
     await tx.response.upsert({
@@ -28,7 +38,7 @@ export async function sendReviewResponse(reviewId: string, content: string) {
         reviewId,
         content,
         sentAt: new Date(),
-        isAiDraft: true
+        isAiDraft: false
       }
     });
 
