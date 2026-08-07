@@ -33,6 +33,13 @@ enum ReviewStatus {
   IGNORED
 }
 
+enum SyncStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  TIMEOUT
+}
+
 // ── MULTI-TENANT ──────────────────────────────────────────────────────
 
 model Tenant {
@@ -47,6 +54,7 @@ model Tenant {
   templates         Template[]
   reviews           Review[]
   googleConnections GoogleConnection[]
+  syncLogs          SyncLog[]
 }
 
 // ── USERS ─────────────────────────────────────────────────────────────
@@ -173,6 +181,24 @@ model GoogleConnection {
   updatedAt    DateTime @updatedAt
 
   @@index([tenantId], name: "idx_google_connection_tenant_id")
+}
+
+model SyncLog {
+  id              String     @id @default(cuid())
+  tenantId        String
+  tenant          Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  status          SyncStatus @default(RUNNING)
+  trigger         String     @default("MANUAL")
+  triggeredBy     String?
+  startedAt       DateTime   @default(now())
+  finishedAt      DateTime?
+  durationMs      Int?
+  reviewsFetched  Int        @default(0)
+  reviewsImported Int        @default(0)
+  errorMessage    String?
+  createdAt       DateTime   @default(now())
+
+  @@index([tenantId, createdAt(sort: Desc)], name: "idx_sync_log_tenant_created")
 }
 
 // ── FIORIX BI MODULE ──────────────────────────────────────────────────

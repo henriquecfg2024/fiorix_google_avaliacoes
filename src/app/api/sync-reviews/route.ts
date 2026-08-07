@@ -17,7 +17,7 @@ async function handleSync(request: Request) {
   const isJson = acceptHeader.includes('application/json');
 
   try {
-    const result = await syncReviews(tenantId);
+    const result = await syncReviews(tenantId, session.user.email || session.user.name || undefined);
 
     if (isJson) {
       return NextResponse.json({ success: true, count: result.count });

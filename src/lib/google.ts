@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { prisma } from './prisma';
+import { ensureSyncLogTable } from './sync-log-db';
 
 function getRedirectUri() {
   if (process.env.GOOGLE_REDIRECT_URI) {
@@ -143,7 +144,29 @@ function cleanReviewComment(comment: string | null | undefined): string {
     .trim();
 }
 
-export async function syncReviews(tenantId: string) {
+export async function syncReviews(tenantId: string, triggeredBy?: string) {
+  await ensureSyncLogTable();
+  const startedAt = Date.now();
+  const syncLog = await prisma.syncLog.create({
+    data: { tenantId, triggeredBy, status: 'RUNNING' }
+  });
+
+  const finishLog = async (data: {
+    status: 'COMPLETED' | 'FAILED' | 'TIMEOUT';
+    reviewsFetched?: number;
+    reviewsImported?: number;
+    errorMessage?: string;
+  }) => {
+    await prisma.syncLog.update({
+      where: { id: syncLog.id },
+      data: {
+        ...data,
+        finishedAt: new Date(),
+        durationMs: Date.now() - startedAt,
+      }
+    });
+  };
+
   const connection = await prisma.googleConnection.findFirst({
     where: { tenantId }
   });
@@ -223,13 +246,24 @@ export async function syncReviews(tenantId: string) {
       }
     }
 
+    await finishLog({
+      status: 'COMPLETED',
+      reviewsFetched: reviews.length,
+      reviewsImported: newReviewsCount,
+    });
+
     return { success: true, count: newReviewsCount };
   } catch (error: any) {
     console.error('Error syncing reviews:', error);
+    const errorMessage = error.message || 'Falha ao buscar avaliações do Google';
+    await finishLog({
+      status: /demorou|timeout/i.test(errorMessage) ? 'TIMEOUT' : 'FAILED',
+      errorMessage: errorMessage.slice(0, 1000),
+    }).catch((logError) => console.error('Error saving sync log:', logError));
     if (error.message?.includes('deleted_client') || error.message?.includes('invalid_grant')) {
       await prisma.googleConnection.deleteMany({ where: { tenantId } });
       throw new Error('Sua credencial do Google expirou ou foi alterada. Por favor, clique em "Conectar Conta Google" em Configurações para reconectar.');
     }
-    throw new Error(error.message || 'Falha ao buscar avaliações do Google');
+    throw new Error(errorMessage);
   }
 }
