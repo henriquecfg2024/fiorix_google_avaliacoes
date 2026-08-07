@@ -217,11 +217,28 @@ export async function syncReviews(tenantId: string, triggeredBy?: string) {
       const remainingMs = Math.min(GOOGLE_REQUEST_TIMEOUT_MS, syncDeadline - Date.now());
       if (remainingMs < 500) break;
       const pageUrl = `https://mybusiness.googleapis.com/v4/${connection.accountId}/${connection.locationId}/reviews?pageSize=50${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`;
-      const response = await withTimeout(
-        oauth2Client.request({ url: pageUrl }),
-        'O Google demorou para responder. Verifique a conexão e tente novamente.',
-        remainingMs
-      );
+      let response: any = null;
+      let pageError: any = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          response = await withTimeout(
+            oauth2Client.request({ url: pageUrl }),
+            'O Google demorou para responder. Verifique a conexão e tente novamente.',
+            remainingMs
+          );
+          break;
+        } catch (error: any) {
+          pageError = error;
+          const isTemporaryGoogleError = error?.status === 503 || error?.code === 503 || /temporarily|unavailable/i.test(error?.message || '');
+          if (!isTemporaryGoogleError || attempt === 2) break;
+          await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+        }
+      }
+      // Keep pages already downloaded if a later Google page is temporarily unavailable.
+      if (!response) {
+        if (reviews.length > 0) break;
+        throw pageError;
+      }
       const data = response.data as any;
       reviews.push(...(data.reviews || []).filter((item: any) => item.reviewId));
       pageToken = data.nextPageToken || undefined;
