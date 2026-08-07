@@ -99,7 +99,7 @@ export function SyncButton() {
               animation: isSyncing ? 'spin 1s linear infinite' : 'none',
             }}
           />
-          {isSyncing ? 'Sincronizando com o Google...' : 'Sincronizar Avaliações Agora'}
+          {isSyncing ? 'SINCRONIZANDO COM AVALIAÇÕES DO GOOGLE' : 'Sincronizar Avaliações Agora'}
         </button>
       </div>
 
