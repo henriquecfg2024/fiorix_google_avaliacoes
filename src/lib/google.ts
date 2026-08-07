@@ -165,44 +165,39 @@ export async function syncReviews(tenantId: string) {
   let newReviewsCount = 0;
 
   try {
-    do {
-      let pageUrl = `https://mybusiness.googleapis.com/v4/${connection.accountId}/${connection.locationId}/reviews?pageSize=50`;
-      if (pageToken) {
-        pageUrl += `&pageToken=${pageToken}`;
-      }
+    let pageUrl = `https://mybusiness.googleapis.com/v4/${connection.accountId}/${connection.locationId}/reviews?pageSize=10`;
+    
+    // Fetch only the most recent batch (10 items) to prevent 504 Timeouts
+    const response = await oauth2Client.request({ url: pageUrl });
+    const data = response.data as any;
+    const reviews = data.reviews || [];
 
-      const response = await oauth2Client.request({ url: pageUrl });
-      const data = response.data as any;
-      const reviews = data.reviews || [];
-      pageToken = data.nextPageToken;
+    for (const item of reviews) {
+      const googleId = item.reviewId;
+      
+      const existing = await prisma.review.findUnique({
+        where: { googleId }
+      });
 
-      for (const item of reviews) {
-        const googleId = item.reviewId;
+      if (!existing) {
+        const ratingMap: Record<string, number> = {
+          'ONE': 1, 'TWO': 2, 'THREE': 3, 'FOUR': 4, 'FIVE': 5
+        };
         
-        const existing = await prisma.review.findUnique({
-          where: { googleId }
+        await prisma.review.create({
+          data: {
+            googleId,
+            tenantId,
+            reviewerName: item.reviewer?.displayName || 'Anônimo',
+            rating: ratingMap[item.starRating] || 5,
+            comment: cleanReviewComment(item.comment),
+            publishedAt: new Date(item.createTime),
+            status: item.reviewReply ? 'RESPONDED' : 'PENDING'
+          }
         });
-
-        if (!existing) {
-          const ratingMap: Record<string, number> = {
-            'ONE': 1, 'TWO': 2, 'THREE': 3, 'FOUR': 4, 'FIVE': 5
-          };
-          
-          await prisma.review.create({
-            data: {
-              googleId,
-              tenantId,
-              reviewerName: item.reviewer?.displayName || 'Anônimo',
-              rating: ratingMap[item.starRating] || 5,
-              comment: cleanReviewComment(item.comment),
-              publishedAt: new Date(item.createTime),
-              status: item.reviewReply ? 'RESPONDED' : 'PENDING'
-            }
-          });
-          newReviewsCount++;
-        }
+        newReviewsCount++;
       }
-    } while (pageToken);
+    }
 
     return { success: true, count: newReviewsCount };
   } catch (error: any) {

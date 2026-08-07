@@ -85,16 +85,16 @@ export default async function AvaliacoesPage({
             </div>
           )}
 
-          {!reviews?.length ? (
+          {!Array.isArray(reviews) || !reviews.length ? (
             <div style={{ marginTop: '20px', padding: '40px', textAlign: 'center', background: '#f8fafc', borderRadius: '12px', color: '#64748b' }}>
               <p style={{ fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>Nenhuma avaliação encontrada com estes filtros.</p>
               <p style={{ fontSize: '13px' }}>Acesse o Dashboard para sincronizar ou importar novas avaliações.</p>
             </div>
           ) : (
             <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {reviews.map((rev) => (
+              {reviews?.map ? reviews.map((rev) => (
                 <ReviewItemCard key={rev.id} review={rev} />
-              ))}
+              )) : null}
             </div>
           )}
         </div>

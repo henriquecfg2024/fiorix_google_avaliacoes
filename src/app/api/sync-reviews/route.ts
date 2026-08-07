@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { syncReviews } from '@/lib/google';
 
+export const maxDuration = 60; // Increase timeout on Vercel Pro
+
+
 async function handleSync(request: Request) {
   const session = await auth();
   
@@ -24,11 +27,13 @@ async function handleSync(request: Request) {
   } catch (error: any) {
     console.error('Sync Error:', error);
 
+    const errorMessage = error?.message || 'Erro desconhecido ao tentar sincronizar as avaliações.';
+
     if (isJson) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
     }
 
-    return NextResponse.redirect(new URL(`/configuracoes?syncError=${encodeURIComponent(error.message)}`, request.url));
+    return NextResponse.redirect(new URL(`/configuracoes?syncError=${encodeURIComponent(errorMessage)}`, request.url));
   }
 }
 

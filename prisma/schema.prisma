@@ -171,6 +171,8 @@ model GoogleConnection {
   
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  @@index([tenantId], name: "idx_google_connection_tenant_id")
 }
 
 // ── FIORIX BI MODULE ──────────────────────────────────────────────────

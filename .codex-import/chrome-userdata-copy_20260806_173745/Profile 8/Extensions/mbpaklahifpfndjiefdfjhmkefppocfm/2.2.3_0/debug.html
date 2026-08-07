@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+<head>
+    <!--<link rel="stylesheet" href="mui.min.css">-->
+    <link rel="stylesheet" href="bry.css">
+</head>
+<body>
+    <div style="padding: 15px">
+        <button id="turn-debug-mode" class="mui-btn mui-btn--primary mui-btn--raised">Ligar modo de debug</button><button id="clear-debug" class="mui-btn mui-btn--primary mui-btn--raised">Limpar log</button><button id="export-log" class="mui-btn mui-btn--primary mui-btn--raised">Exportar</button><br>
+        <div class="mui-container-fluid">
+            <div class="mui-row">
+                <div class="mui-md-6" style="max-height: 300px; overflow: auto;">
+                    <table class="mui-table">
+                        <thead>
+                        <th>Emissor</th>
+                        <th>Tipo de mensagem</th>
+                        <th>Momento</th>
+                        </thead>
+                        <tbody id="debug-area">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mui-md-6">
+                    <h3>Detalhes da mensagem</h3>
+                    <div id="message-info">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<script type="text/javascript" src="debug_script.bundle.js"></script></body>
+</html>

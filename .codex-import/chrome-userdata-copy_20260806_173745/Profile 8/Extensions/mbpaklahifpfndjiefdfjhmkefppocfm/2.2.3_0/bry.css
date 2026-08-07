@@ -1,0 +1,93 @@
+
+/* Remove o auto focus dos botões do sweetalert2 */
+.swal2-modal .swal2-styled:focus {
+	-webkit-box-shadow: none !important;
+	box-shadow: none !important;
+} 
+/* FIM Remove o auto focus dos botões do sweetalert2 */
+
+ .bry-btn-padding {
+    margin-right: 20px !important;
+}
+
+
+.bry-table tr:nth-child(even) {
+    background-color: rgb(248, 248, 248);
+}  
+
+.bry-container {
+    padding: 10px 30px 35px 30px;
+}
+
+.bry-link-btn {
+    padding: 7px 45px 7px 45px;
+    background-color: #2b83e2;
+    border-radius: 7px;
+    display: inline;
+}
+
+.bry-link-btn[disabled] {
+    pointer-events: none;
+    opacity: 0.65;
+}
+
+.bry-step-counter {
+    color: #AAA;
+    padding-bottom: 15px;
+}
+
+.bry-row {
+    display: block;
+    padding: 35px 0 0 0;
+}
+
+.bry-link-btn:hover {
+    box-shadow: 0px 0px 3px #2b83e2;
+    text-decoration: none;
+    background-color: #2b83e2;
+}
+
+.bry-link-btn:focus {
+    background-color: #2b83e2;
+}
+
+.bry-extension-header {
+    color: #AAA;
+    text-transform: uppercase;
+}
+
+.bry-extension-header span {
+    display: inline;
+    padding-top: 5px;
+}
+
+.bry-trash-can-button {
+    transition: filter 100ms linear;
+    filter: opacity(100%);
+}
+
+.bry-trash-can-button:hover {
+    filter: opacity(70%);
+}
+
+.bry-extension-header img {
+    height: 35px;
+    padding-right: 15px;
+    vertical-align: middle;
+}
+
+.bry-image {
+    display: inline;
+}
+
+@keyframes BryMoveUpDown {
+    0% {
+      bottom: 10px;
+    }
+    50% {
+      bottom: 100px;
+    }
+    100% {
+      bottom: 10px;
+    }
+  } 

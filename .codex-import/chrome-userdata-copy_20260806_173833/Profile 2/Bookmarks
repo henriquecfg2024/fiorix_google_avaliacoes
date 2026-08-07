@@ -1,0 +1,80 @@
+{
+   "checksum": "a20becd65941a7c29f82f589137129e8",
+   "roots": {
+      "bookmark_bar": {
+         "children": [ {
+            "date_added": "13427940458035562",
+            "date_last_used": "13430348221409442",
+            "guid": "db0e2706-32cf-4b33-a865-44beed4a6300",
+            "id": "10",
+            "meta_info": {
+               "power_bookmark_meta": ""
+            },
+            "name": "Fábrica de Reels v7.0 - @curiosidadesnainternet",
+            "type": "url",
+            "url": "https://fabrica-reels-curiosidades-gu4q4e9n1-curiobrain.vercel.app/"
+         }, {
+            "date_added": "13430001135858011",
+            "date_last_used": "13430429119482924",
+            "guid": "a8f82272-857a-484a-8418-24c28ce5ddcf",
+            "id": "12",
+            "meta_info": {
+               "power_bookmark_meta": ""
+            },
+            "name": "🛒 Agenda do Carrinho de Publicações",
+            "type": "url",
+            "url": "https://henriquecfg2024.github.io/carrinhos-boturussu/"
+         }, {
+            "date_added": "13430321589529129",
+            "date_last_used": "13430356255796589",
+            "guid": "fb556b9f-340a-4a0a-bc2f-0a7ce94b3d99",
+            "id": "14",
+            "meta_info": {
+               "power_bookmark_meta": ""
+            },
+            "name": "ATELIÊ / Acervo de Henrique",
+            "type": "url",
+            "url": "https://atelie-henrique-gama.vercel.app/atelie"
+         } ],
+         "date_added": "13427821678139412",
+         "date_last_used": "0",
+         "date_modified": "13430321589529129",
+         "guid": "0bc5d13f-2cba-5d74-951f-3f233fe6c908",
+         "id": "1",
+         "name": "Barra de favoritos",
+         "type": "folder"
+      },
+      "other": {
+         "children": [ {
+            "date_added": "13427821770802087",
+            "date_last_used": "13427829360518133",
+            "guid": "2648e5fb-97d2-4c37-b3ae-f4cfb78b7085",
+            "id": "5",
+            "meta_info": {
+               "power_bookmark_meta": ""
+            },
+            "name": "Login | FIORIX",
+            "type": "url",
+            "url": "http://127.0.0.1:3000/login"
+         } ],
+         "date_added": "13427821678139412",
+         "date_last_used": "0",
+         "date_modified": "13427830868171783",
+         "guid": "82b081ec-3dd3-529c-8475-ab6c344590dd",
+         "id": "2",
+         "name": "Outros favoritos",
+         "type": "folder"
+      },
+      "synced": {
+         "children": [  ],
+         "date_added": "13427821678139412",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "4cf2e351-0e85-532b-bb37-df045d8f8d0f",
+         "id": "3",
+         "name": "Dispositivos móveis",
+         "type": "folder"
+      }
+   },
+   "version": 1
+}

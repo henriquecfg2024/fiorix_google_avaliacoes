@@ -1,0 +1,7 @@
+2026/07/10-17:02:52.803 b414 Reusing MANIFEST C:\Users\henrique\AppData\Local\Google\Chrome\User Data\Profile 2\IndexedDB\https_fabrica-reels-curiosidades.vercel.app_0.indexeddb.leveldb/MANIFEST-000001
+2026/07/10-17:02:52.819 b414 Recovering log #58
+2026/07/10-17:02:52.833 b414 Reusing old log C:\Users\henrique\AppData\Local\Google\Chrome\User Data\Profile 2\IndexedDB\https_fabrica-reels-curiosidades.vercel.app_0.indexeddb.leveldb/000058.log 
+2026/07/10-17:03:56.374 9ba8 Compacting 1@1 + 1@2 files
+2026/07/10-17:03:56.381 9ba8 Generated table #61@1: 859 keys, 59231 bytes
+2026/07/10-17:03:56.381 9ba8 Compacted 1@1 + 1@2 files => 59231 bytes
+2026/07/10-17:03:56.382 9ba8 compacted to: files[ 0 0 1 0 0 0 0 ]

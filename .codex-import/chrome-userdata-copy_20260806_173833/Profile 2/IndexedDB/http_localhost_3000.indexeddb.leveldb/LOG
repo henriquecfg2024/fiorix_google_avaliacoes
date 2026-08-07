@@ -1,0 +1,10 @@
+2026/08/04-07:51:57.803 7620 Creating DB C:\Users\henrique\AppData\Local\Google\Chrome\User Data\Profile 2\IndexedDB\http_localhost_3000.indexeddb.leveldb since it was missing.
+2026/08/04-07:51:57.806 7620 Reusing MANIFEST C:\Users\henrique\AppData\Local\Google\Chrome\User Data\Profile 2\IndexedDB\http_localhost_3000.indexeddb.leveldb/MANIFEST-000001
+2026/08/04-07:51:57.827 15d4 Level-0 table #5: started
+2026/08/04-07:51:57.828 15d4 Level-0 table #5: 1280 bytes OK
+2026/08/04-07:51:57.829 15d4 Delete type=0 #3
+2026/08/04-07:51:57.829 7620 Manual compaction at level-0 from '\x00\x01\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x02\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/08/04-07:51:57.837 15d4 Level-0 table #7: started
+2026/08/04-07:51:57.838 15d4 Level-0 table #7: 1315 bytes OK
+2026/08/04-07:51:57.840 15d4 Delete type=0 #4
+2026/08/04-07:51:57.840 7620 Manual compaction at level-0 from '\x00\x04\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x05\x00\x00\x00' @ 0 : 0; will stop at (end)

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { SyncButton } from '@/components/configuracoes/SyncButton';
+import { GoogleAuthButton } from '@/components/configuracoes/GoogleAuthButton';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import { PasswordForm } from '@/components/configuracoes/PasswordForm';
@@ -58,8 +59,8 @@ export default async function ConfiguracoesPage({
 
             {errorMsg && (
               <div style={{ marginBottom: '15px', padding: '10px', background: '#fee2e2', color: '#991b1b', borderRadius: '8px', fontSize: '14px' }}>
-                <strong>Erro na Autenticação:</strong> {errorMsg}
-                {errorDetails && <div style={{ marginTop: '5px', fontSize: '12px', opacity: 0.8 }}>{errorDetails}</div>}
+                <strong>Erro na Autenticação:</strong> {typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)}
+                {errorDetails && <div style={{ marginTop: '5px', fontSize: '12px', opacity: 0.8 }}>{typeof errorDetails === 'string' ? errorDetails : JSON.stringify(errorDetails)}</div>}
               </div>
             )}
             
@@ -80,11 +81,7 @@ export default async function ConfiguracoesPage({
                   <SyncButton />
 
                   {userRole === 'MASTER' ? (
-                    <a href="/api/auth/google" style={{ 
-                      background: '#f1f5f9', color: '#475569', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', border: '1px solid #cbd5e1'
-                    }}>
-                      Reconectar Conta Google
-                    </a>
+                    <GoogleAuthButton label="Reconectar Conta Google" />
                   ) : (
                     <span style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic', background: '#e2e8f0', padding: '6px 12px', borderRadius: '8px' }}>
                       🔒 Conexão gerenciada pelo MASTER
@@ -93,11 +90,7 @@ export default async function ConfiguracoesPage({
                 </>
               ) : (
                 userRole === 'MASTER' ? (
-                  <a href="/api/auth/google" style={{ 
-                    background: '#3b82f6', color: 'white', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', textDecoration: 'none'
-                  }}>
-                    Conectar Conta Google
-                  </a>
+                  <GoogleAuthButton label="Conectar Conta Google" />
                 ) : (
                   <span style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic', background: '#e2e8f0', padding: '6px 12px', borderRadius: '8px' }}>
                     🔒 Conexão gerenciada pelo MASTER
