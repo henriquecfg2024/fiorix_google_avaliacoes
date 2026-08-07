@@ -19,7 +19,12 @@ export function SyncButton() {
         },
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        throw new Error(`Servidor retornou erro ${res.status}: ${res.statusText}`);
+      }
 
       if (res.ok && data.success !== false) {
         const count = data.count ?? 0;
@@ -28,15 +33,17 @@ export function SyncButton() {
           message: `Sincronização concluída com sucesso! ${count} avaliações obtidas do Google.`,
         });
       } else {
+        const errMsg = data?.error;
         setSyncResult({
           success: false,
-          message: data.error || 'Erro ao comunicar com a API do Google.',
+          message: typeof errMsg === 'string' ? errMsg : 'Erro ao comunicar com a API do Google.',
         });
       }
     } catch (err: any) {
+      const errMsg = err?.message || err;
       setSyncResult({
         success: false,
-        message: err.message || 'Erro de conexão ao sincronizar avaliações.',
+        message: typeof errMsg === 'string' ? errMsg : 'Erro de conexão ao sincronizar avaliações.',
       });
     } finally {
       setIsSyncing(false);

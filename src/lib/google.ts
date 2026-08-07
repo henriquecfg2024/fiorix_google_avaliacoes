@@ -2,6 +2,9 @@ import { google } from 'googleapis';
 import { prisma } from './prisma';
 
 function getRedirectUri() {
+  if (process.env.GOOGLE_REDIRECT_URI) {
+    return process.env.GOOGLE_REDIRECT_URI;
+  }
   if (process.env.NEXTAUTH_URL) {
     return `${process.env.NEXTAUTH_URL}/api/auth/callback/google`;
   }

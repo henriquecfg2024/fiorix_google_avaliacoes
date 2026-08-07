@@ -80,11 +80,11 @@ export default async function ConfiguracoesPage({
                   <SyncButton />
 
                   {userRole === 'MASTER' ? (
-                    <Link href="/api/auth/google" style={{ 
+                    <a href="/api/auth/google" style={{ 
                       background: '#f1f5f9', color: '#475569', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', border: '1px solid #cbd5e1'
                     }}>
                       Reconectar Conta Google
-                    </Link>
+                    </a>
                   ) : (
                     <span style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic', background: '#e2e8f0', padding: '6px 12px', borderRadius: '8px' }}>
                       🔒 Conexão gerenciada pelo MASTER
@@ -93,11 +93,11 @@ export default async function ConfiguracoesPage({
                 </>
               ) : (
                 userRole === 'MASTER' ? (
-                  <Link href="/api/auth/google" style={{ 
+                  <a href="/api/auth/google" style={{ 
                     background: '#3b82f6', color: 'white', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', textDecoration: 'none'
                   }}>
                     Conectar Conta Google
-                  </Link>
+                  </a>
                 ) : (
                   <span style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic', background: '#e2e8f0', padding: '6px 12px', borderRadius: '8px' }}>
                     🔒 Conexão gerenciada pelo MASTER
