@@ -213,7 +213,7 @@ export async function syncReviews(tenantId: string, triggeredBy?: string) {
     const reviews: any[] = [];
     let pageToken: string | undefined;
     const syncDeadline = Date.now() + 45_000;
-    for (let page = 0; page < 10; page++) {
+    for (let page = 0; page < 20; page++) {
       const remainingMs = Math.min(GOOGLE_REQUEST_TIMEOUT_MS, syncDeadline - Date.now());
       if (remainingMs < 500) break;
       const pageUrl = `https://mybusiness.googleapis.com/v4/${connection.accountId}/${connection.locationId}/reviews?pageSize=50${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`;
@@ -253,10 +253,17 @@ export async function syncReviews(tenantId: string, triggeredBy?: string) {
     }
 
     const respondedIds = reviews.filter((item: any) => item.reviewReply).map((item: any) => item.reviewId);
+    const pendingIds = reviews.filter((item: any) => !item.reviewReply).map((item: any) => item.reviewId);
     if (respondedIds.length > 0) {
       await prisma.review.updateMany({
         where: { googleId: { in: respondedIds }, tenantId },
         data: { status: 'RESPONDED' }
+      });
+    }
+    if (pendingIds.length > 0) {
+      await prisma.review.updateMany({
+        where: { googleId: { in: pendingIds }, tenantId },
+        data: { status: 'PENDING' }
       });
     }
     const newReviewsCount = newReviews.length;
