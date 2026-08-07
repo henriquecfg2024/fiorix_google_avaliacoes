@@ -283,6 +283,30 @@ export async function syncReviews(tenantId: string, triggeredBy?: string) {
         data: { status: 'PENDING' }
       });
     }
+
+    // Re-publish replies that were saved locally before Google publishing was wired up.
+    const localReplies = pendingIds.length > 0
+      ? await prisma.response.findMany({
+          where: { review: { tenantId, googleId: { in: pendingIds } } },
+          select: { content: true, review: { select: { googleId: true } } },
+        })
+      : [];
+    const republishedIds: string[] = [];
+    for (const localReply of localReplies) {
+      if (!localReply.review.googleId) continue;
+      try {
+        await replyToGoogleReview(tenantId, localReply.review.googleId, localReply.content);
+        republishedIds.push(localReply.review.googleId);
+      } catch (replyError) {
+        console.error('Error re-publishing local Google reply:', replyError);
+      }
+    }
+    if (republishedIds.length > 0) {
+      await prisma.review.updateMany({
+        where: { googleId: { in: republishedIds }, tenantId },
+        data: { status: 'RESPONDED' }
+      });
+    }
     const newReviewsCount = newReviews.length;
 
     await finishLog({
