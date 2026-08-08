@@ -104,6 +104,7 @@ export default function FiorixBiPage() {
 
   // State for Dashboard Analytics
   const [loadingDashboard, setLoadingDashboard] = useState<boolean>(true);
+  const [dashboardBusy, setDashboardBusy] = useState<boolean>(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [importsList, setImportsList] = useState<any[]>([]);
@@ -147,6 +148,7 @@ export default function FiorixBiPage() {
     dashboardRequestRef.current = controller;
     const requestId = ++dashboardRequestIdRef.current;
     setLoadingDashboard(true);
+    setDashboardBusy(true);
     setDashboardError(null);
 
     try {
@@ -163,35 +165,84 @@ export default function FiorixBiPage() {
       if (selectedTipoPrenotacao && selectedTipoPrenotacao !== 'ALL') {
         params.set('tipoPrenotacao', selectedTipoPrenotacao);
       }
-      params.set('charts', enabledCharts.join(','));
-
-      const response = await fetch(`/api/bi/dashboard?${params.toString()}`, {
-        method: 'GET',
-        cache: 'no-store',
-        credentials: 'same-origin',
-        signal: controller.signal,
+      const chartGroups: string[][] = [];
+      let historicalAdded = false;
+      enabledCharts.forEach((chartId) => {
+        if (chartId === '11' || chartId === '12') {
+          if (!historicalAdded) {
+            chartGroups.push(enabledCharts.filter((id) => id === '11' || id === '12'));
+            historicalAdded = true;
+          }
+          return;
+        }
+        chartGroups.push([chartId]);
       });
 
-      const responseText = await response.text();
-      let payload: any;
-      try {
-        payload = JSON.parse(responseText);
-      } catch {
-        throw new Error(
-          response.ok
-            ? 'A resposta do servidor não está em formato JSON.'
-            : `O servidor retornou erro HTTP ${response.status}.`
-        );
-      }
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || 'Erro ao carregar dashboard BI');
-      }
+      let combinedDashboard: any = null;
 
-      if (requestId !== dashboardRequestIdRef.current) return;
-      setDashboardData(payload.dashboard || null);
-      setImportsList(payload.imports || []);
-      if (selectedImportId === 'ALL' && !hasHistoricalChart && !manualImportSelectionRef.current && payload.imports?.[0]?.id) {
-        setSelectedImportId(payload.imports[0].id);
+      for (let index = 0; index < chartGroups.length; index += 1) {
+        const group = chartGroups[index];
+        const requestParams = new URLSearchParams(params);
+        requestParams.set('charts', group.join(','));
+        requestParams.set('includeSummary', index === 0 ? '1' : '0');
+
+        const response = await fetch(`/api/bi/dashboard?${requestParams.toString()}`, {
+          method: 'GET',
+          cache: 'no-store',
+          credentials: 'same-origin',
+          signal: controller.signal,
+        });
+
+        const responseText = await response.text();
+        let payload: any;
+        try {
+          payload = JSON.parse(responseText);
+        } catch {
+          throw new Error(
+            response.ok
+              ? 'A resposta do servidor não está em formato JSON.'
+              : `O servidor retornou erro HTTP ${response.status}.`
+          );
+        }
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.error || 'Erro ao carregar dashboard BI');
+        }
+        if (requestId !== dashboardRequestIdRef.current) return;
+
+        const nextDashboard = payload.dashboard || null;
+        if (!combinedDashboard) {
+          combinedDashboard = nextDashboard;
+          setImportsList(payload.imports || []);
+          if (params.get('importId') === 'LATEST' && payload.imports?.[0]?.id) {
+            params.set('importId', payload.imports[0].id);
+          }
+          if (selectedImportId === 'ALL' && !hasHistoricalChart && !manualImportSelectionRef.current && payload.imports?.[0]?.id) {
+            setSelectedImportId(payload.imports[0].id);
+          }
+        } else if (nextDashboard) {
+          const mergedCharts = { ...combinedDashboard.charts };
+          if (group.includes('1')) mergedCharts.pieChartData = nextDashboard.charts.pieChartData;
+          if (group.includes('2')) mergedCharts.delaySeverity = nextDashboard.charts.delaySeverity;
+          if (group.includes('3')) mergedCharts.prazoPrometidoVsCorridosPorNatureza = nextDashboard.charts.prazoPrometidoVsCorridosPorNatureza;
+          if (group.includes('4')) mergedCharts.evolucaoPrazoPorDia = nextDashboard.charts.evolucaoPrazoPorDia;
+          if (group.includes('5')) mergedCharts.topAndamentosComAtraso = nextDashboard.charts.topAndamentosComAtraso;
+          if (group.includes('6')) mergedCharts.topDevolucoes = nextDashboard.charts.topDevolucoes;
+          if (group.includes('7')) mergedCharts.avgDiasPorNatureza = nextDashboard.charts.avgDiasPorNatureza;
+
+          combinedDashboard = {
+            ...combinedDashboard,
+            charts: mergedCharts,
+            historical: group.some((id) => id === '11' || id === '12')
+              ? nextDashboard.historical
+              : combinedDashboard.historical,
+            legalExceptions: group.some((id) => id === '8' || id === '9' || id === '10')
+              ? nextDashboard.legalExceptions
+              : combinedDashboard.legalExceptions,
+          };
+        }
+
+        setDashboardData(combinedDashboard);
+        if (index === 0) setLoadingDashboard(false);
       }
     } catch (error: any) {
       if (error?.name === 'AbortError') return;
@@ -202,6 +253,7 @@ export default function FiorixBiPage() {
     } finally {
       if (requestId === dashboardRequestIdRef.current) {
         setLoadingDashboard(false);
+        setDashboardBusy(false);
       }
     }
   }, [selectedImportId, startDate, endDate, selectedTipoPrenotacao, enabledCharts]);
@@ -215,7 +267,10 @@ export default function FiorixBiPage() {
       window.clearTimeout(timer);
       dashboardRequestRef.current?.abort();
     };
-  }, [fetchDashboard]);
+    // O dashboard carrega uma vez. Alterações de filtros são aplicadas
+    // somente pelo botão "Atualizar Dados", evitando consultas sobrepostas.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Reset upload form
   const handleCancelUpload = () => {
@@ -507,7 +562,10 @@ export default function FiorixBiPage() {
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <button
-            onClick={() => fetchDashboard()}
+            onClick={() => {
+              if (!dashboardBusy) void fetchDashboard();
+            }}
+            disabled={dashboardBusy}
             style={{
               background: 'rgba(255, 255, 255, 0.1)',
               border: '1px solid rgba(255, 255, 255, 0.25)',
@@ -519,12 +577,13 @@ export default function FiorixBiPage() {
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              cursor: 'pointer',
+              cursor: dashboardBusy ? 'not-allowed' : 'pointer',
+              opacity: dashboardBusy ? 0.7 : 1,
               transition: 'all 0.2s',
             }}
           >
-            <RefreshCw size={16} className={loadingDashboard ? 'animate-spin' : ''} />
-            Atualizar Dados
+            <RefreshCw size={16} className={dashboardBusy ? 'animate-spin' : ''} />
+            {dashboardBusy ? 'Carregando...' : 'Atualizar Dados'}
           </button>
           <Link
             href="/bi/importar"

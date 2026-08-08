@@ -8,6 +8,7 @@ export interface BiDashboardFilters {
   tipoPrenotacao?: string;
   importId?: string;
   enabledCharts?: string[];
+  includeSummary?: boolean;
 }
 
 const NATUREZA_NORMALIZADA_SQL = Prisma.sql`
@@ -113,6 +114,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
 async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
   const selectedCharts = filters?.enabledCharts?.length ? new Set(filters.enabledCharts) : null;
   const chartEnabled = (id: string) => !selectedCharts || selectedCharts.has(id);
+  const includeSummary = filters?.includeSummary !== false;
   let importCondition = Prisma.sql`1=1`;
   if (filters?.importId && filters.importId !== 'ALL') {
     importCondition = Prisma.sql`"import_id" = ${filters.importId}`;
@@ -169,7 +171,7 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
     ORDER BY 1, 2
   ` : [];
 
-  const pieRaw = await prisma.$queryRaw<Array<{ situacao: string; cnt: bigint }>>`
+  const pieRaw = (includeSummary || chartEnabled('1')) ? await prisma.$queryRaw<Array<{ situacao: string; cnt: bigint }>>`
     SELECT
       CASE
         WHEN "IsDevolucao" = true OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%devolucao%' THEN 'Devolução'
@@ -181,7 +183,7 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
     WHERE ("CodProcessamento" = 6 OR "CodProcessamento" = 5 OR "IsRegistrado" = true)
       AND ${generalCondition}
     GROUP BY 1
-  `;
+  ` : [];
 
   let noPrazoCount = 0;
   let atrasadoCount = 0;
@@ -201,7 +203,7 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
     { name: 'Devolução', count: devolucaoCount, percentage: Number(((devolucaoCount / totalRegistered) * 100).toFixed(1)), fill: '#f59e0b' },
   ];
 
-  const devolucaoSummaryRaw = await prisma.$queryRaw<Array<{ cnt: bigint }>>`
+  const devolucaoSummaryRaw = includeSummary ? await prisma.$queryRaw<Array<{ cnt: bigint }>>`
     SELECT COUNT(*)::bigint as cnt
     FROM fiorix_bi_data
     WHERE ${generalCondition}
@@ -209,7 +211,7 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
         "IsDevolucao" = true
         OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%devolucao%'
       )
-  `;
+  ` : [];
 
   const devolucoesRaw = chartEnabled('6') ? await prisma.$queryRaw<Array<{ texto: string }>>`
     SELECT "TextoNotaDevolucao" as texto
@@ -381,11 +383,11 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
     mediaAtraso: Number(row.media_atraso || 0),
   }));
 
-  const totalRecordsRaw = await prisma.$queryRaw<Array<{ cnt: bigint }>>`
+  const totalRecordsRaw = includeSummary ? await prisma.$queryRaw<Array<{ cnt: bigint }>>`
     SELECT COUNT(*) as cnt
     FROM fiorix_bi_data
     WHERE ${generalCondition}
-  `;
+  ` : [];
 
   const exceptionSummaryRaw = (chartEnabled('8') || chartEnabled('9') || chartEnabled('10')) ? await prisma.$queryRaw<Array<{
     total: bigint;
@@ -435,12 +437,12 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
     LIMIT 8
   ` : [];
 
-  const tiposRaw = await prisma.$queryRaw<Array<{ tipo: string }>>`
+  const tiposRaw = includeSummary ? await prisma.$queryRaw<Array<{ tipo: string }>>`
     SELECT DISTINCT "TipoPrenotacao" as tipo
     FROM fiorix_bi_data
     WHERE "TipoPrenotacao" IS NOT NULL AND TRIM("TipoPrenotacao") != ''
     LIMIT 30
-  `;
+  ` : [];
 
   const totalRecords = Number(totalRecordsRaw[0]?.cnt || 0);
   const devolucaoGeneralCount = Number(devolucaoSummaryRaw[0]?.cnt || 0);
