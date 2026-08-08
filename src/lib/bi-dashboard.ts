@@ -272,7 +272,7 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
     LIMIT 8
   ` : [];
 
-  const trendRaw = chartEnabled('4') ? await prisma.$queryRaw<Array<{ data: Date | string; no_prazo: bigint; atrasado: bigint; devolucao: bigint }>>`
+  const trendRaw = chartEnabled('3') ? await prisma.$queryRaw<Array<{ data: Date | string; no_prazo: bigint; atrasado: bigint; devolucao: bigint }>>`
     SELECT
       a.day as data,
       SUM(a.daily_no_prazo)::bigint as no_prazo,

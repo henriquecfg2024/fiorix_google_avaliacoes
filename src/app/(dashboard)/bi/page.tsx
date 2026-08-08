@@ -85,9 +85,9 @@ import { validarCSV, PreviewCard, CsvStats } from '@/components/fiorix/CsvValida
 export default function FiorixBiPage() {
   const chartDefinitions = [
     ['1', 'Prazo de entrega'], ['2', 'Severidade do atraso'],
-    ['4', 'Evolução diária']
+    ['3', 'Evolução diária']
   ];
-  const defaultCharts = ['1', '2', '4'];
+  const defaultCharts = ['1', '2', '3'];
   const chartSettingsKey = 'fiorix-bi-enabled-charts-v2';
   // State for CSV Upload & Preview Stats
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -871,10 +871,10 @@ export default function FiorixBiPage() {
           </div>
 
 
-          {/* Chart 4: Daily trend */}
-          <div style={{ display: enabledCharts.includes('4') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', gridColumn: '1 / -1' }}>
+          {/* Chart 3: Daily trend */}
+          <div style={{ display: enabledCharts.includes('3') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', gridColumn: '1 / -1' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
-              Gráfico 4: Evolução Diária do Prazo de Entrega
+              Gráfico 3: Evolução Diária do Prazo de Entrega
             </h3>
             <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>
               Mostra como o volume de entregas no prazo, em atraso e devoluções se comporta ao longo do período analisado.
