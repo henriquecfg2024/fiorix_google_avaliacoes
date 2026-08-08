@@ -720,7 +720,7 @@ export default function FiorixBiPage() {
       )}
 
       {/* ── SECTION 4: RECHARTS DASHBOARD ── */}
-      {dashboardData?.legalExceptions?.summary?.totalRecords > 0 && (
+      {false && dashboardData?.legalExceptions?.summary?.totalRecords > 0 && (
         <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '16px', padding: '24px', marginBottom: '28px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', marginBottom: '20px' }}>
             <div>
