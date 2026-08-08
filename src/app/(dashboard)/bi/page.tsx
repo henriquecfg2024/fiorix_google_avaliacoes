@@ -85,10 +85,10 @@ import { validarCSV, PreviewCard, CsvStats } from '@/components/fiorix/CsvValida
 export default function FiorixBiPage() {
   const chartDefinitions = [
     ['1', 'Prazo de entrega'], ['2', 'Severidade do atraso'], ['3', 'Prazo prometido x corrido'],
-    ['4', 'Evolução diária'], ['6', 'Motivos de devolução'],
+    ['4', 'Evolução diária'],
     ['7', 'Média por natureza'], ['11', 'Desempenho mensal'], ['12', 'Comparativo entre anos'],
   ];
-  const defaultCharts = ['1', '2', '3', '4', '6', '11', '12'];
+  const defaultCharts = ['1', '2', '3', '4', '7', '11', '12'];
   const chartSettingsKey = 'fiorix-bi-enabled-charts-v2';
   // State for CSV Upload & Preview Stats
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -929,35 +929,6 @@ export default function FiorixBiPage() {
             </div>
           </div>
 
-
-
-          {/* Chart 6: Top 10 Return Reasons */}
-          <div style={{ display: enabledCharts.includes('6') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
-              Gráfico 6: Top 10 Motivos de Devolução
-            </h3>
-            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>
-              Extraídos de <code style={{ background: '#f1f5f9', padding: '2px 4px' }}>TextoNotaDevolucao</code>.
-            </p>
-
-            <div style={{ width: '100%', height: 260 }}>
-              {dashboardData.charts.topDevolucoes.length === 0 ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', fontSize: '13px' }}>
-                  Nenhum motivo de devolução encontrado para os filtros selecionados.
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dashboardData.charts.topDevolucoes} layout="vertical" margin={{ left: 20, right: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" />
-                    <YAxis dataKey="motivo" type="category" width={120} tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#002B49" radius={[0, 6, 6, 0]} name="Ocorrências" />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
 
           {/* Chart 7: Average Processing Days by Natureza */}
           <div style={{ display: enabledCharts.includes('7') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', gridColumn: '1 / -1' }}>
