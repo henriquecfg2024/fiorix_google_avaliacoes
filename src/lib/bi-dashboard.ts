@@ -175,24 +175,6 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
   `;
   const aggregateGeneralCondition = Prisma.sql`${aggregateBaseCondition} AND a.is_exception = false`;
 
-  const historicalPerformanceRaw = (chartEnabled('11') || chartEnabled('12')) ? await prisma.$queryRaw<Array<{
-    ano: number;
-    mes: number;
-    no_prazo: bigint;
-    atrasados: bigint;
-  }>>`
-    SELECT
-      EXTRACT(YEAR FROM a.day)::int as ano,
-      EXTRACT(MONTH FROM a.day)::int as mes,
-      COALESCE(SUM(a.registered_no_prazo), 0)::bigint as no_prazo,
-      COALESCE(SUM(a.registered_atrasado), 0)::bigint as atrasados
-    FROM fiorix_bi_daily_agg a
-    WHERE a.day <> DATE '1900-01-01'
-      AND ${aggregateGeneralCondition}
-    GROUP BY 1, 2
-    ORDER BY 1, 2
-  ` : [];
-
   const pieRaw = (includeSummary || chartEnabled('1')) ? await prisma.$queryRaw<Array<{ situacao: string; cnt: bigint }>>`
     WITH totals AS (
       SELECT
@@ -385,55 +367,6 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
   const exceptionAvgDias = Number(exceptionSummary?.media_dias || 0);
   const exceptionMaxDias = Number(exceptionSummary?.maior_dias || 0);
 
-  const historicalBase = historicalPerformanceRaw.map((row) => {
-    const noPrazo = Number(row.no_prazo || 0);
-    const atrasados = Number(row.atrasados || 0);
-    const total = noPrazo + atrasados;
-    return {
-      ano: Number(row.ano),
-      mes: Number(row.mes),
-      label: `${MONTH_NAMES_PT[Number(row.mes) - 1] || row.mes}/${row.ano}`,
-      noPrazo,
-      atrasados,
-      total,
-      percentNoPrazo: Number(((noPrazo / (total || 1)) * 100).toFixed(1)),
-      percentAtrasados: Number(((atrasados / (total || 1)) * 100).toFixed(1)),
-    };
-  });
-
-  const historicalYears = Array.from(new Set(historicalBase.map((row) => row.ano))).sort((a, b) => a - b);
-  const historicalTotal = historicalBase.reduce((sum, row) => sum + row.total, 0);
-  const historicalNoPrazo = historicalBase.reduce((sum, row) => sum + row.noPrazo, 0);
-  const historicalOverallPercent = Number(((historicalNoPrazo / (historicalTotal || 1)) * 100).toFixed(1));
-  const recentRows = historicalBase.slice(-12);
-  const recentTotal = recentRows.reduce((sum, row) => sum + row.total, 0);
-  const recentNoPrazo = recentRows.reduce((sum, row) => sum + row.noPrazo, 0);
-  const recentPercent = Number(((recentNoPrazo / (recentTotal || 1)) * 100).toFixed(1));
-  const annualPerformance = historicalYears.map((ano) => {
-    const rows = historicalBase.filter((row) => row.ano === ano);
-    const total = rows.reduce((sum, row) => sum + row.total, 0);
-    const noPrazo = rows.reduce((sum, row) => sum + row.noPrazo, 0);
-    return { ano, total, percentNoPrazo: Number(((noPrazo / (total || 1)) * 100).toFixed(1)) };
-  });
-  const bestYear = annualPerformance.reduce((best, current) => current.percentNoPrazo > best.percentNoPrazo ? current : best, { ano: 0, total: 0, percentNoPrazo: 0 });
-  const targetPercent = historicalBase.length === 0 ? 0 : Number(Math.min(
-    95,
-    Math.max(
-      historicalOverallPercent + 3,
-      recentPercent + 2,
-      historicalOverallPercent + ((bestYear.percentNoPrazo - historicalOverallPercent) / 2),
-    ),
-  ).toFixed(1));
-  const historicalMonthly = historicalBase.map((row) => ({ ...row, metaPercent: targetPercent }));
-  const historicalComparison = MONTH_NAMES_PT.map((nome, index) => {
-    const result: Record<string, number | string | null> = { mes: index + 1, nome };
-    historicalYears.forEach((ano) => {
-      const row = historicalBase.find((item) => item.ano === ano && item.mes === index + 1);
-      result[String(ano)] = row ? row.percentNoPrazo : null;
-    });
-    return result;
-  });
-
   return {
     summary: {
       totalRecords,
@@ -467,19 +400,6 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
           protocolos: Number(row.protocolos || 0),
           mediaDias: Number(row.media_dias || 0),
         })),
-      },
-    },
-    historical: {
-      monthly: historicalMonthly,
-      comparison: historicalComparison,
-      years: historicalYears,
-      annualPerformance,
-      summary: {
-        overallPercent: historicalOverallPercent,
-        recentPercent,
-        targetPercent,
-        bestYear: bestYear.ano,
-        bestYearPercent: bestYear.percentNoPrazo,
       },
     },
     charts: {
