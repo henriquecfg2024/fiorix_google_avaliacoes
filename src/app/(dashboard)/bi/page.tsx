@@ -701,7 +701,6 @@ export default function FiorixBiPage() {
             <div style={{ fontSize: '28px', fontWeight: 800, color: '#ef4444', marginTop: '6px' }}>
               {dashboardData.summary.percentAtrasado}%
             </div>
-            </div>
           </div>
 
           <div style={{ background: '#ffffff', padding: '20px', borderRadius: '12px', border: '1px solid #fef3c7', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
