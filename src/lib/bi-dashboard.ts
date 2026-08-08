@@ -67,7 +67,50 @@ function formatDateKey(value: string | Date) {
 
 const MONTH_NAMES_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
+type DashboardCacheEntry = { expiresAt: number; value: any };
+const dashboardCache = new Map<string, DashboardCacheEntry>();
+const dashboardInFlight = new Map<string, Promise<any>>();
+const DASHBOARD_CACHE_TTL_MS = 30_000;
+
+function dashboardCacheKey(filters?: BiDashboardFilters) {
+  return JSON.stringify({
+    ...filters,
+    enabledCharts: filters?.enabledCharts ? [...filters.enabledCharts].sort() : undefined,
+  });
+}
+
 export async function queryBiDashboardData(filters?: BiDashboardFilters) {
+  const key = dashboardCacheKey(filters);
+  const now = Date.now();
+  const cached = dashboardCache.get(key);
+  if (cached && cached.expiresAt > now) {
+    return cached.value;
+  }
+  if (cached) dashboardCache.delete(key);
+
+  const running = dashboardInFlight.get(key);
+  if (running) return running;
+
+  const request = (async () => {
+    const value = await queryBiDashboardDataUncached(filters);
+    dashboardCache.set(key, { value, expiresAt: Date.now() + DASHBOARD_CACHE_TTL_MS });
+    while (dashboardCache.size > 8) {
+      const oldestKey = dashboardCache.keys().next().value;
+      if (!oldestKey) break;
+      dashboardCache.delete(oldestKey);
+    }
+    return value;
+  })();
+
+  dashboardInFlight.set(key, request);
+  try {
+    return await request;
+  } finally {
+    dashboardInFlight.delete(key);
+  }
+}
+
+async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
   const selectedCharts = filters?.enabledCharts?.length ? new Set(filters.enabledCharts) : null;
   const chartEnabled = (id: string) => !selectedCharts || selectedCharts.has(id);
   let importCondition = Prisma.sql`1=1`;
@@ -277,7 +320,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
     count: Number(row.cnt || 0),
   }));
 
-  const prazoVsRealRaw = chartEnabled('3') ? await prisma.$queryRaw<Array<{ natureza: string; prometidos: number; corridos: number; total: bigint }>>`
+  const prazoVsRealPromise = chartEnabled('3') ? prisma.$queryRaw<Array<{ natureza: string; prometidos: number; corridos: number; total: bigint }>>`
     SELECT
       COALESCE(TRIM("Natureza"), 'Outros') as natureza,
       ROUND(AVG(COALESCE("DiasPrometidos", 0))::numeric, 1)::float as prometidos,
@@ -288,16 +331,9 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
     GROUP BY COALESCE(TRIM("Natureza"), 'Outros')
     ORDER BY corridos DESC, prometidos DESC
     LIMIT 8
-  ` : [];
+  ` : Promise.resolve([] as Array<{ natureza: string; prometidos: number; corridos: number; total: bigint }>);
 
-  const prazoPrometidoVsCorridosPorNatureza = prazoVsRealRaw.map((row) => ({
-    natureza: row.natureza,
-    prometidos: Number(row.prometidos || 0),
-    corridos: Number(row.corridos || 0),
-    totalTitulos: Number(row.total || 0),
-  }));
-
-  const trendRaw = chartEnabled('4') ? await prisma.$queryRaw<Array<{ data: Date | string; no_prazo: bigint; atrasado: bigint; devolucao: bigint }>>`
+  const trendPromise = chartEnabled('4') ? prisma.$queryRaw<Array<{ data: Date | string; no_prazo: bigint; atrasado: bigint; devolucao: bigint }>>`
     SELECT
       DATE("DtAndamento") as data,
       SUM(CASE WHEN COALESCE("DiasAtraso", 0) <= 0 AND COALESCE("IsDevolucao", false) = false THEN 1 ELSE 0 END) as no_prazo,
@@ -308,7 +344,16 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
       AND ${generalCondition}
     GROUP BY DATE("DtAndamento")
     ORDER BY DATE("DtAndamento")
-  ` : [];
+  ` : Promise.resolve([] as Array<{ data: Date | string; no_prazo: bigint; atrasado: bigint; devolucao: bigint }>);
+
+  const [prazoVsRealRaw, trendRaw] = await Promise.all([prazoVsRealPromise, trendPromise]);
+
+  const prazoPrometidoVsCorridosPorNatureza = prazoVsRealRaw.map((row) => ({
+    natureza: row.natureza,
+    prometidos: Number(row.prometidos || 0),
+    corridos: Number(row.corridos || 0),
+    totalTitulos: Number(row.total || 0),
+  }));
 
   const evolucaoPrazoPorDia = trendRaw.map((row) => ({
     data: formatDateKey(row.data),
