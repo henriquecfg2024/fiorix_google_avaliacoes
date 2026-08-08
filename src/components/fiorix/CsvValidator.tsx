@@ -558,10 +558,7 @@ export function PreviewCard({
         🟢 No Prazo: <b>{stats.noPrazo.toLocaleString('pt-BR')}</b> | 🔴 Atrasados:{' '}
         <b>
           {stats.atrasados.toLocaleString('pt-BR')} ({stats.percAtraso}%)
-        </b>{' '}
-        <span style={{ color: '#dc2626', fontWeight: 600 }}>
-          (explica os 22% de reclamações no Google)
-        </span>
+        </b>
       </p>
       <p style={{ margin: '4px 0', fontSize: '14px', color: '#334155' }}>
         📅 Período: <b>{stats.periodoIni}</b> até <b>{stats.periodoFim}</b>
