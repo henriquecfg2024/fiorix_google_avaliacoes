@@ -11,6 +11,8 @@ import {
   Bar,
   LineChart,
   Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -811,59 +813,75 @@ export default function FiorixBiPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '24px', marginBottom: '32px' }}>
           
           {/* Chart 1: Pie Chart - Delivery Deadlines for CodProcessamento = 6 */}
-          <div style={{ display: enabledCharts.includes('1') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+          <div style={{ display: enabledCharts.includes('1') ? undefined : 'none', background: '#ffffff', borderRadius: '24px', padding: '32px', boxShadow: '0 10px 40px -10px rgba(0,0,0,0.08)' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', marginBottom: '6px', letterSpacing: '-0.5px' }}>
               Gráfico 1: Prazo de Entrega (Registrados - Cod 6)
             </h3>
-            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>
-              % No Prazo vs Atrasado vs Devolução.
+            <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '32px', fontWeight: 500 }}>
+              Visão geral da pontualidade: no prazo, em atraso e devoluções.
             </p>
 
-            <div style={{ width: '100%', height: 260 }}>
+            <div style={{ width: '100%', height: 350 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={dashboardData.charts.pieChartData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={95}
-                    paddingAngle={4}
+                    innerRadius={90}
+                    outerRadius={135}
+                    paddingAngle={6}
                     dataKey="count"
+                    stroke="none"
                   >
                     {dashboardData.charts.pieChartData.map((entry: any, index: number) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                      <Cell key={`cell-${index}`} fill={entry.fill} stroke="none" />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value: any, name: any) => [`${value} títulos`, String(name)]} />
-                  <Legend verticalAlign="bottom" height={36} />
+                  <Tooltip 
+                    formatter={(value: any, name: any) => [`${value} títulos`, String(name)]}
+                    contentStyle={{ borderRadius: '16px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', border: 'none', fontWeight: 700, padding: '12px 20px' }}
+                    itemStyle={{ color: '#334155', fontSize: '14px' }}
+                  />
+                  <Legend verticalAlign="bottom" height={40} iconType="circle" wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: '#475569' }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
           </div>
 
           {/* Chart 2: Delay Severity */}
-          <div style={{ display: enabledCharts.includes('2') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+          <div style={{ display: enabledCharts.includes('2') ? undefined : 'none', background: '#ffffff', borderRadius: '24px', padding: '32px', boxShadow: '0 10px 40px -10px rgba(0,0,0,0.08)' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', marginBottom: '6px', letterSpacing: '-0.5px' }}>
               Gráfico 2: Severidade do Atraso
             </h3>
-            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>
-              Distribuição dos títulos com atraso por faixas de dias em atraso.
+            <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '32px', fontWeight: 500 }}>
+              Distribuição dos títulos fora do prazo por faixas de dias em atraso.
             </p>
 
-            <div style={{ width: '100%', height: 260 }}>
+            <div style={{ width: '100%', height: 350 }}>
               {dashboardData.charts.delaySeverity.length === 0 ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', fontSize: '13px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', fontSize: '14px', fontWeight: 600 }}>
                   Nenhuma ocorrência de atraso encontrada para os filtros selecionados.
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dashboardData.charts.delaySeverity} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="bucket" tick={{ fontSize: 11 }} />
-                    <YAxis />
-                    <Tooltip formatter={(value: any) => [`${value} títulos`, 'Quantidade']} />
-                    <Bar dataKey="count" fill="#ef4444" radius={[6, 6, 0, 0]} name="Títulos em atraso" />
+                  <BarChart data={dashboardData.charts.delaySeverity} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
+                    <defs>
+                      <linearGradient id="colorDelay" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={1}/>
+                        <stop offset="95%" stopColor="#f87171" stopOpacity={0.8}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false} />
+                    <XAxis dataKey="bucket" tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }} axisLine={false} tickLine={false} dy={10} />
+                    <YAxis tick={{ fill: '#64748b', fontSize: 12, fontWeight: 700 }} axisLine={false} tickLine={false} dx={-10} />
+                    <Tooltip 
+                      formatter={(value: any) => [`${value} títulos`, 'Quantidade']}
+                      contentStyle={{ borderRadius: '16px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', border: 'none', fontWeight: 700, padding: '12px 20px' }}
+                      itemStyle={{ color: '#ef4444', fontSize: '15px' }}
+                      cursor={{ fill: '#f8fafc' }}
+                    />
+                    <Bar dataKey="count" fill="url(#colorDelay)" radius={[12, 12, 0, 0]} name="Títulos em atraso" barSize={40} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -872,31 +890,49 @@ export default function FiorixBiPage() {
 
 
           {/* Chart 3: Daily trend */}
-          <div style={{ display: enabledCharts.includes('3') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', gridColumn: '1 / -1' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+          <div style={{ display: enabledCharts.includes('3') ? undefined : 'none', background: '#ffffff', borderRadius: '24px', padding: '36px', boxShadow: '0 10px 40px -10px rgba(0,0,0,0.08)', gridColumn: '1 / -1' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', marginBottom: '6px', letterSpacing: '-0.5px' }}>
               Gráfico 3: Evolução Diária do Prazo de Entrega
             </h3>
-            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>
-              Mostra como o volume de entregas no prazo, em atraso e devoluções se comporta ao longo do período analisado.
+            <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '40px', fontWeight: 500 }}>
+              Acompanhamento contínuo do volume de entregas no prazo, em atraso e com devolução ao longo do período selecionado.
             </p>
 
-            <div style={{ width: '100%', height: 300 }}>
+            <div style={{ width: '100%', height: 480 }}>
               {dashboardData.charts.evolucaoPrazoPorDia.length === 0 ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', fontSize: '13px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', fontSize: '14px', fontWeight: 600 }}>
                   Sem evolução diária para os filtros selecionados.
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={dashboardData.charts.evolucaoPrazoPorDia} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="data" tick={{ fontSize: 11 }} />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="noPrazo" stroke="#10b981" strokeWidth={2} name="No prazo" />
-                    <Line type="monotone" dataKey="atrasado" stroke="#ef4444" strokeWidth={2} name="Atrasado" />
-                    <Line type="monotone" dataKey="devolucao" stroke="#f59e0b" strokeWidth={2} name="Devolução" />
-                  </LineChart>
+                  <AreaChart data={dashboardData.charts.evolucaoPrazoPorDia} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
+                    <defs>
+                      <linearGradient id="colorNoPrazo" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorAtrasado" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorDevolucao" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false} />
+                    <XAxis dataKey="data" tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} axisLine={false} tickLine={false} dy={12} />
+                    <YAxis tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} axisLine={false} tickLine={false} dx={-12} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '16px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', border: 'none', padding: '16px 24px' }}
+                      itemStyle={{ fontWeight: 700, fontSize: '14px', paddingBottom: '4px' }}
+                      labelStyle={{ fontWeight: 800, color: '#0f172a', marginBottom: '8px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}
+                    />
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: '14px', fontWeight: 600, color: '#475569', paddingTop: '20px' }} />
+                    <Area type="monotone" dataKey="noPrazo" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorNoPrazo)" name="No prazo" activeDot={{ r: 6, strokeWidth: 0, fill: '#10b981' }} />
+                    <Area type="monotone" dataKey="atrasado" stroke="#ef4444" strokeWidth={4} fillOpacity={1} fill="url(#colorAtrasado)" name="Atrasado" activeDot={{ r: 6, strokeWidth: 0, fill: '#ef4444' }} />
+                    <Area type="monotone" dataKey="devolucao" stroke="#f59e0b" strokeWidth={4} fillOpacity={1} fill="url(#colorDevolucao)" name="Devolução" activeDot={{ r: 6, strokeWidth: 0, fill: '#f59e0b' }} />
+                  </AreaChart>
                 </ResponsiveContainer>
               )}
             </div>
