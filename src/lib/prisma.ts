@@ -10,7 +10,7 @@ function getDatabaseUrl() {
     const url = new URL(value);
     // Vercel pode iniciar várias funções ao mesmo tempo. Uma conexão por
     // instância evita esgotar o pool do Supabase durante o carregamento do BI.
-    url.searchParams.set('connection_limit', '1');
+    url.searchParams.set('connection_limit', '3');
     url.searchParams.set('pool_timeout', '20');
     return url.toString();
   } catch {
