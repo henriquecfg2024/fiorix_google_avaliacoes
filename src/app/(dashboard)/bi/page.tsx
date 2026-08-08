@@ -84,11 +84,10 @@ import { validarCSV, PreviewCard, CsvStats } from '@/components/fiorix/CsvValida
 
 export default function FiorixBiPage() {
   const chartDefinitions = [
-    ['1', 'Prazo de entrega'], ['2', 'Severidade do atraso'], ['3', 'Prazo prometido x corrido'],
-    ['4', 'Evolução diária'],
-    ['7', 'Média por natureza']
+    ['1', 'Prazo de entrega'], ['2', 'Severidade do atraso'],
+    ['4', 'Evolução diária']
   ];
-  const defaultCharts = ['1', '2', '3', '4', '7'];
+  const defaultCharts = ['1', '2', '4'];
   const chartSettingsKey = 'fiorix-bi-enabled-charts-v2';
   // State for CSV Upload & Preview Stats
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -868,35 +867,6 @@ export default function FiorixBiPage() {
             </div>
           </div>
 
-          {/* Chart 3: Promised vs Actual Days by Natureza */}
-          <div style={{ display: enabledCharts.includes('3') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
-              Gráfico 3: Prazo Prometido x Dias Corridos por Natureza
-            </h3>
-            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>
-              Identifica quais tipos de títulos normalmente extrapolam o tempo previsto.
-            </p>
-
-            <div style={{ width: '100%', height: 260 }}>
-              {dashboardData.charts.prazoPrometidoVsCorridosPorNatureza.length === 0 ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', fontSize: '13px' }}>
-                  Nenhum dado de prazo disponível para os filtros selecionados.
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dashboardData.charts.prazoPrometidoVsCorridosPorNatureza} margin={{ top: 10, right: 20, left: 0, bottom: 25 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="natureza" tick={{ fontSize: 11 }} angle={-12} textAnchor="end" />
-                    <YAxis />
-                    <Tooltip formatter={(value: any) => [`${value} dias`, 'Média']} />
-                    <Legend />
-                    <Bar dataKey="prometidos" fill="#3b82f6" radius={[6, 6, 0, 0]} name="Dias prometidos" />
-                    <Bar dataKey="corridos" fill="#ef4444" radius={[6, 6, 0, 0]} name="Dias corridos" />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
 
           {/* Chart 4: Daily trend */}
           <div style={{ display: enabledCharts.includes('4') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', gridColumn: '1 / -1' }}>
@@ -930,27 +900,6 @@ export default function FiorixBiPage() {
           </div>
 
 
-          {/* Chart 7: Average Processing Days by Natureza */}
-          <div style={{ display: enabledCharts.includes('7') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', gridColumn: '1 / -1' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
-              Gráfico 7: Tempo Média (Dias Corridos) por Natureza do Título
-            </h3>
-            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>
-              Comparativo de duração média desde o protocolo até a entrega por tipo de ato (Escritura, Formal de Partilha, etc.).
-            </p>
-
-            <div style={{ width: '100%', height: 280 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dashboardData.charts.avgDiasPorNatureza} margin={{ top: 10, right: 30, left: 0, bottom: 25 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="natureza" tick={{ fontSize: 11 }} angle={-15} textAnchor="end" />
-                  <YAxis label={{ value: 'Média de Dias', angle: -90, position: 'insideLeft' }} />
-                  <Tooltip formatter={(value: any) => [`${value} dias corridos em média`, 'Média de Dias']} />
-                  <Bar dataKey="mediaDias" fill="#1e3a8a" radius={[6, 6, 0, 0]} name="Média Dias Corridos" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
 
 
 

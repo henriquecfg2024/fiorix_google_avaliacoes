@@ -404,9 +404,7 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
     },
     charts: {
       pieChartData,
-      avgDiasPorNatureza,
       delaySeverity,
-      prazoPrometidoVsCorridosPorNatureza,
       evolucaoPrazoPorDia,
     },
     tiposPrenotacao: tiposRaw.map((row) => row.tipo).filter(Boolean).sort(),
