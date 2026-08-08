@@ -21,10 +21,8 @@ export async function GET(request: Request) {
       enabledCharts: searchParams.get('charts')?.split(',').filter(Boolean),
     };
 
-    const [dashboard, imports] = await Promise.all([
-      queryBiDashboardData(filters),
-      queryBiImportsList(),
-    ]);
+    const dashboard = await queryBiDashboardData(filters);
+    const imports = await queryBiImportsList();
 
     return NextResponse.json(
       {

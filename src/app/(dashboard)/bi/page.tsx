@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import Papa from 'papaparse';
 import {
@@ -107,6 +107,8 @@ export default function FiorixBiPage() {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [importsList, setImportsList] = useState<any[]>([]);
+  const dashboardRequestRef = useRef<AbortController | null>(null);
+  const dashboardRequestIdRef = useRef(0);
 
   // State for Dashboard Filters
   const [selectedImportId, setSelectedImportId] = useState<string>('ALL');
@@ -139,6 +141,10 @@ export default function FiorixBiPage() {
 
   // Load Dashboard & Imports History
   const fetchDashboard = useCallback(async () => {
+    dashboardRequestRef.current?.abort();
+    const controller = new AbortController();
+    dashboardRequestRef.current = controller;
+    const requestId = ++dashboardRequestIdRef.current;
     setLoadingDashboard(true);
     setDashboardError(null);
 
@@ -156,26 +162,49 @@ export default function FiorixBiPage() {
         method: 'GET',
         cache: 'no-store',
         credentials: 'same-origin',
+        signal: controller.signal,
       });
 
-      const payload = await response.json();
+      const responseText = await response.text();
+      let payload: any;
+      try {
+        payload = JSON.parse(responseText);
+      } catch {
+        throw new Error(
+          response.ok
+            ? 'A resposta do servidor não está em formato JSON.'
+            : `O servidor retornou erro HTTP ${response.status}.`
+        );
+      }
       if (!response.ok || !payload.success) {
         throw new Error(payload.error || 'Erro ao carregar dashboard BI');
       }
 
+      if (requestId !== dashboardRequestIdRef.current) return;
       setDashboardData(payload.dashboard || null);
       setImportsList(payload.imports || []);
     } catch (error: any) {
+      if (error?.name === 'AbortError') return;
       console.error('Erro ao buscar dashboard BI no cliente:', error);
+      if (requestId !== dashboardRequestIdRef.current) return;
       setDashboardData(null);
       setDashboardError(error?.message || 'Nao foi possivel carregar os graficos do BI.');
     } finally {
-      setLoadingDashboard(false);
+      if (requestId === dashboardRequestIdRef.current) {
+        setLoadingDashboard(false);
+      }
     }
   }, [selectedImportId, startDate, endDate, selectedTipoPrenotacao, enabledCharts]);
 
   useEffect(() => {
-    fetchDashboard();
+    const timer = window.setTimeout(() => {
+      void fetchDashboard();
+    }, 150);
+
+    return () => {
+      window.clearTimeout(timer);
+      dashboardRequestRef.current?.abort();
+    };
   }, [fetchDashboard]);
 
   // Reset upload form
