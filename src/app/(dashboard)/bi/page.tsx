@@ -701,8 +701,6 @@ export default function FiorixBiPage() {
             <div style={{ fontSize: '28px', fontWeight: 800, color: '#ef4444', marginTop: '6px' }}>
               {dashboardData.summary.percentAtrasado}%
             </div>
-            <div style={{ fontSize: '11px', color: '#b91c1c', marginTop: '4px', fontWeight: 600 }}>
-              Causa das queixas no Google (22%)
             </div>
           </div>
 
@@ -817,7 +815,7 @@ export default function FiorixBiPage() {
               Gráfico 1: Prazo de Entrega (Registrados - Cod 6)
             </h3>
             <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>
-              % No Prazo vs Atrasado vs Devolução. Diagnóstico direto dos 22% do Google.
+              % No Prazo vs Atrasado vs Devolução.
             </p>
 
             <div style={{ width: '100%', height: 260 }}>

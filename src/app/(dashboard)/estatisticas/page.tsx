@@ -95,7 +95,7 @@ export default async function EstatisticasPage() {
               { topic: 'Horário de Atendimento e Cortesia', score: '96%', sentiment: 'Excelente', color: '#22c55e' },
               { topic: 'Formas de Pagamento e PIX', score: '93%', sentiment: 'Excelente', color: '#22c55e' },
               { topic: 'Tempo de Espera na Fila', score: '18%', sentiment: 'Crítico', color: '#ef4444' },
-              { topic: 'Prazo de Entrega de Certidões', score: '22%', sentiment: 'Crítico', color: '#ef4444' },
+
             ].map((topic, idx) => (
               <div key={idx} style={{ padding: '12px 16px', background: '#f8fafc', borderRadius: '8px', borderLeft: `4px solid ${topic.color}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
