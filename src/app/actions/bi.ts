@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 
 import { queryBiDashboardData, queryBiImportsList } from '@/lib/bi-dashboard';
+import { refreshBiAggregatesForImport } from '@/lib/bi-aggregates';
 import { prisma } from '@/lib/prisma';
 
 export interface BiRowInput {
@@ -55,6 +56,9 @@ export async function updateBiImportStatus(importId: string, status: 'SUCCESS' |
         }),
       ]);
     } else {
+      // Calcula uma vez os resumos do BI. Os graficos passam a consultar
+      // milhares de linhas agregadas, em vez de reler todo o CSV importado.
+      await refreshBiAggregatesForImport(importId);
       await prisma.fiorixBiImport.update({
         where: { id: importId },
         data: { status, errorMessage },

@@ -147,6 +147,11 @@ export default function FiorixBiPage() {
     const controller = new AbortController();
     dashboardRequestRef.current = controller;
     const requestId = ++dashboardRequestIdRef.current;
+    let timedOut = false;
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 30_000);
     setLoadingDashboard(true);
     setDashboardBusy(true);
     setDashboardError(null);
@@ -165,92 +170,52 @@ export default function FiorixBiPage() {
       if (selectedTipoPrenotacao && selectedTipoPrenotacao !== 'ALL') {
         params.set('tipoPrenotacao', selectedTipoPrenotacao);
       }
-      const chartGroups: string[][] = [];
-      let historicalAdded = false;
-      enabledCharts.forEach((chartId) => {
-        if (chartId === '11' || chartId === '12') {
-          if (!historicalAdded) {
-            chartGroups.push(enabledCharts.filter((id) => id === '11' || id === '12'));
-            historicalAdded = true;
-          }
-          return;
-        }
-        chartGroups.push([chartId]);
+      params.set('charts', enabledCharts.join(','));
+      params.set('includeSummary', '1');
+
+      // Um unico pedido impede que varias funcoes serverless disputem as
+      // poucas conexoes disponiveis no Supabase. As consultas agora usam os
+      // resumos persistentes, portanto retornam juntas sem varrer o CSV bruto.
+      const response = await fetch(`/api/bi/dashboard?${params.toString()}`, {
+        method: 'GET',
+        cache: 'no-store',
+        credentials: 'same-origin',
+        signal: controller.signal,
       });
 
-      let combinedDashboard: any = null;
+      const responseText = await response.text();
+      let payload: any;
+      try {
+        payload = JSON.parse(responseText);
+      } catch {
+        throw new Error(
+          response.ok
+            ? 'A resposta do servidor não está em formato JSON.'
+            : `O servidor retornou erro HTTP ${response.status}.`
+        );
+      }
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'Erro ao carregar dashboard BI');
+      }
+      if (requestId !== dashboardRequestIdRef.current) return;
 
-      for (let index = 0; index < chartGroups.length; index += 1) {
-        const group = chartGroups[index];
-        const requestParams = new URLSearchParams(params);
-        requestParams.set('charts', group.join(','));
-        requestParams.set('includeSummary', index === 0 ? '1' : '0');
-
-        const response = await fetch(`/api/bi/dashboard?${requestParams.toString()}`, {
-          method: 'GET',
-          cache: 'no-store',
-          credentials: 'same-origin',
-          signal: controller.signal,
-        });
-
-        const responseText = await response.text();
-        let payload: any;
-        try {
-          payload = JSON.parse(responseText);
-        } catch {
-          throw new Error(
-            response.ok
-              ? 'A resposta do servidor não está em formato JSON.'
-              : `O servidor retornou erro HTTP ${response.status}.`
-          );
-        }
-        if (!response.ok || !payload.success) {
-          throw new Error(payload.error || 'Erro ao carregar dashboard BI');
-        }
-        if (requestId !== dashboardRequestIdRef.current) return;
-
-        const nextDashboard = payload.dashboard || null;
-        if (!combinedDashboard) {
-          combinedDashboard = nextDashboard;
-          setImportsList(payload.imports || []);
-          if (params.get('importId') === 'LATEST' && payload.imports?.[0]?.id) {
-            params.set('importId', payload.imports[0].id);
-          }
-          if (selectedImportId === 'ALL' && !hasHistoricalChart && !manualImportSelectionRef.current && payload.imports?.[0]?.id) {
-            setSelectedImportId(payload.imports[0].id);
-          }
-        } else if (nextDashboard) {
-          const mergedCharts = { ...combinedDashboard.charts };
-          if (group.includes('1')) mergedCharts.pieChartData = nextDashboard.charts.pieChartData;
-          if (group.includes('2')) mergedCharts.delaySeverity = nextDashboard.charts.delaySeverity;
-          if (group.includes('3')) mergedCharts.prazoPrometidoVsCorridosPorNatureza = nextDashboard.charts.prazoPrometidoVsCorridosPorNatureza;
-          if (group.includes('4')) mergedCharts.evolucaoPrazoPorDia = nextDashboard.charts.evolucaoPrazoPorDia;
-          if (group.includes('5')) mergedCharts.topAndamentosComAtraso = nextDashboard.charts.topAndamentosComAtraso;
-          if (group.includes('6')) mergedCharts.topDevolucoes = nextDashboard.charts.topDevolucoes;
-          if (group.includes('7')) mergedCharts.avgDiasPorNatureza = nextDashboard.charts.avgDiasPorNatureza;
-
-          combinedDashboard = {
-            ...combinedDashboard,
-            charts: mergedCharts,
-            historical: group.some((id) => id === '11' || id === '12')
-              ? nextDashboard.historical
-              : combinedDashboard.historical,
-            legalExceptions: group.some((id) => id === '8' || id === '9' || id === '10')
-              ? nextDashboard.legalExceptions
-              : combinedDashboard.legalExceptions,
-          };
-        }
-
-        setDashboardData(combinedDashboard);
-        if (index === 0) setLoadingDashboard(false);
+      setImportsList(payload.imports || []);
+      setDashboardData(payload.dashboard || null);
+      if (selectedImportId === 'ALL' && !hasHistoricalChart && !manualImportSelectionRef.current && payload.imports?.[0]?.id) {
+        setSelectedImportId(payload.imports[0].id);
       }
     } catch (error: any) {
-      if (error?.name === 'AbortError') return;
+      if (error?.name === 'AbortError' && !timedOut) return;
       console.error('Erro ao buscar dashboard BI no cliente:', error);
       if (requestId !== dashboardRequestIdRef.current) return;
       setDashboardData(null);
-      setDashboardError(error?.message || 'Nao foi possivel carregar os graficos do BI.');
+      setDashboardError(
+        timedOut
+          ? 'O Supabase demorou mais de 30 segundos para responder. A consulta foi interrompida; tente novamente em instantes.'
+          : (error?.message || 'Nao foi possivel carregar os graficos do BI.')
+      );
     } finally {
+      window.clearTimeout(timeoutId);
       if (requestId === dashboardRequestIdRef.current) {
         setLoadingDashboard(false);
         setDashboardBusy(false);

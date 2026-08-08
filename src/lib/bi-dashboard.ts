@@ -144,6 +144,37 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
   const generalCondition = Prisma.sql`${baseCondition} AND ${GENERAL_NATURE_CONDITION_SQL}`;
   const exceptionCondition = Prisma.sql`${baseCondition} AND ${EXCEPTION_NATURE_CONDITION_SQL}`;
 
+  let aggregateImportCondition = Prisma.sql`1=1`;
+  if (filters?.importId && filters.importId !== 'ALL') {
+    aggregateImportCondition = Prisma.sql`a.import_id = ${filters.importId}`;
+  }
+
+  let aggregateTipoCondition = Prisma.sql`1=1`;
+  if (filters?.tipoPrenotacao && filters.tipoPrenotacao !== 'ALL') {
+    aggregateTipoCondition = Prisma.sql`a.tipo_prenotacao = ${filters.tipoPrenotacao}`;
+  }
+
+  let aggregateDateCondition = Prisma.sql`1=1`;
+  if (filters?.startDate || filters?.endDate) {
+    if (filters.startDate && filters.endDate) {
+      aggregateDateCondition = Prisma.sql`
+        a.day >= CAST(${filters.startDate} AS date)
+        AND a.day <= CAST(${filters.endDate} AS date)
+      `;
+    } else if (filters.startDate) {
+      aggregateDateCondition = Prisma.sql`a.day >= CAST(${filters.startDate} AS date)`;
+    } else if (filters.endDate) {
+      aggregateDateCondition = Prisma.sql`a.day <= CAST(${filters.endDate} AS date)`;
+    }
+  }
+
+  const aggregateBaseCondition = Prisma.sql`
+    ${aggregateImportCondition}
+    AND ${aggregateTipoCondition}
+    AND ${aggregateDateCondition}
+  `;
+  const aggregateGeneralCondition = Prisma.sql`${aggregateBaseCondition} AND a.is_exception = false`;
+
   const historicalPerformanceRaw = (chartEnabled('11') || chartEnabled('12')) ? await prisma.$queryRaw<Array<{
     ano: number;
     mes: number;
@@ -151,38 +182,29 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
     atrasados: bigint;
   }>>`
     SELECT
-      EXTRACT(YEAR FROM "DtAndamento")::int as ano,
-      EXTRACT(MONTH FROM "DtAndamento")::int as mes,
-      SUM(CASE
-        WHEN COALESCE("DiasAtraso", 0) > 0 OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%atrasad%' THEN 0
-        ELSE 1
-      END)::bigint as no_prazo,
-      SUM(CASE
-        WHEN COALESCE("DiasAtraso", 0) > 0 OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%atrasad%' THEN 1
-        ELSE 0
-      END)::bigint as atrasados
-    FROM fiorix_bi_data
-    WHERE "DtAndamento" IS NOT NULL
-      AND ("CodProcessamento" = 6 OR "CodProcessamento" = 5 OR "IsRegistrado" = true)
-      AND COALESCE("IsDevolucao", false) = false
-      AND LOWER(COALESCE("SituacaoPrazo", '')) NOT LIKE '%devolucao%'
-      AND ${generalCondition}
+      EXTRACT(YEAR FROM a.day)::int as ano,
+      EXTRACT(MONTH FROM a.day)::int as mes,
+      COALESCE(SUM(a.registered_no_prazo), 0)::bigint as no_prazo,
+      COALESCE(SUM(a.registered_atrasado), 0)::bigint as atrasados
+    FROM fiorix_bi_daily_agg a
+    WHERE a.day <> DATE '1900-01-01'
+      AND ${aggregateGeneralCondition}
     GROUP BY 1, 2
     ORDER BY 1, 2
   ` : [];
 
   const pieRaw = (includeSummary || chartEnabled('1')) ? await prisma.$queryRaw<Array<{ situacao: string; cnt: bigint }>>`
-    SELECT
-      CASE
-        WHEN "IsDevolucao" = true OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%devolucao%' THEN 'Devolução'
-        WHEN "DiasAtraso" > 0 OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%atrasad%' THEN 'Atrasado'
-        ELSE 'No Prazo'
-      END as situacao,
-      COUNT(*)::bigint as cnt
-    FROM fiorix_bi_data
-    WHERE ("CodProcessamento" = 6 OR "CodProcessamento" = 5 OR "IsRegistrado" = true)
-      AND ${generalCondition}
-    GROUP BY 1
+    WITH totals AS (
+      SELECT
+        COALESCE(SUM(a.registered_no_prazo), 0)::bigint AS no_prazo,
+        COALESCE(SUM(a.registered_atrasado), 0)::bigint AS atrasado,
+        COALESCE(SUM(a.registered_devolucao), 0)::bigint AS devolucao
+      FROM fiorix_bi_daily_agg a
+      WHERE ${aggregateGeneralCondition}
+    )
+    SELECT 'No Prazo' AS situacao, no_prazo AS cnt FROM totals
+    UNION ALL SELECT 'Atrasado', atrasado FROM totals
+    UNION ALL SELECT 'Devolução', devolucao FROM totals
   ` : [];
 
   let noPrazoCount = 0;
@@ -204,22 +226,19 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
   ];
 
   const devolucaoSummaryRaw = includeSummary ? await prisma.$queryRaw<Array<{ cnt: bigint }>>`
-    SELECT COUNT(*)::bigint as cnt
-    FROM fiorix_bi_data
-    WHERE ${generalCondition}
-      AND (
-        "IsDevolucao" = true
-        OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%devolucao%'
-      )
+    SELECT COALESCE(SUM(a.devolucao_all), 0)::bigint as cnt
+    FROM fiorix_bi_daily_agg a
+    WHERE ${aggregateGeneralCondition}
   ` : [];
 
-  const devolucoesRaw = chartEnabled('6') ? await prisma.$queryRaw<Array<{ texto: string }>>`
-    SELECT "TextoNotaDevolucao" as texto
-    FROM fiorix_bi_data
-    WHERE ("IsDevolucao" = true OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%devolucao%')
-      AND "TextoNotaDevolucao" IS NOT NULL
-      AND LENGTH(TRIM("TextoNotaDevolucao")) > 5
-      AND ${generalCondition}
+  const devolucoesRaw = chartEnabled('6') ? await prisma.$queryRaw<Array<{ texto: string; occurrences: bigint }>>`
+    SELECT n.texto, n.occurrences
+    FROM fiorix_bi_return_note_agg n
+    WHERE ${filters?.importId && filters.importId !== 'ALL' ? Prisma.sql`n.import_id = ${filters.importId}` : Prisma.sql`1=1`}
+      AND ${filters?.tipoPrenotacao && filters.tipoPrenotacao !== 'ALL' ? Prisma.sql`n.tipo_prenotacao = ${filters.tipoPrenotacao}` : Prisma.sql`1=1`}
+      AND ${filters?.startDate ? Prisma.sql`n.day >= CAST(${filters.startDate} AS date)` : Prisma.sql`1=1`}
+      AND ${filters?.endDate ? Prisma.sql`n.day <= CAST(${filters.endDate} AS date)` : Prisma.sql`1=1`}
+    ORDER BY n.occurrences DESC
     LIMIT 1500
   ` : [];
 
@@ -237,6 +256,7 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
   const reasonFrequency: Record<string, number> = {};
   devolucoesRaw.forEach((row) => {
     const note = row.texto || '';
+    const weight = Math.max(1, Number(row.occurrences || 1));
     const clauses = note
       .split(/(?:\r\n|\n|\.\s+|;\s+|\d+[\)\.\-\s])/g)
       .map((entry) => entry.trim())
@@ -259,7 +279,7 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
       }
 
       const capitalized = keyTerm.charAt(0).toUpperCase() + keyTerm.slice(1);
-      reasonFrequency[capitalized] = (reasonFrequency[capitalized] || 0) + 1;
+      reasonFrequency[capitalized] = (reasonFrequency[capitalized] || 0) + weight;
     });
   });
 
@@ -270,12 +290,12 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
 
   const avgNaturezaRaw = chartEnabled('7') ? await prisma.$queryRaw<Array<{ natureza: string; media_dias: number; total: bigint }>>`
     SELECT
-      COALESCE(TRIM("Natureza"), 'Outros') as natureza,
-      ROUND(AVG(COALESCE("DiasCorridos", 0))::numeric, 1)::float as media_dias,
-      COUNT(*)::bigint as total
-    FROM fiorix_bi_data
-    WHERE ${generalCondition}
-    GROUP BY COALESCE(TRIM("Natureza"), 'Outros')
+      a.natureza,
+      ROUND((SUM(a.sum_dias_corridos)::numeric / NULLIF(SUM(a.metric_count), 0)), 1)::float as media_dias,
+      SUM(a.metric_count)::bigint as total
+    FROM fiorix_bi_daily_agg a
+    WHERE ${aggregateGeneralCondition}
+    GROUP BY a.natureza
     ORDER BY media_dias DESC
     LIMIT 10
   ` : [];
@@ -287,34 +307,28 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
   }));
 
   const delayBucketsRaw = chartEnabled('2') ? await prisma.$queryRaw<Array<{ bucket: string; cnt: bigint }>>`
-    SELECT
-      bucket,
-      COUNT(*)::bigint as cnt
-    FROM (
-      SELECT CASE
-        WHEN COALESCE("DiasAtraso", 0) BETWEEN 1 AND 3 THEN '1-3 dias'
-        WHEN COALESCE("DiasAtraso", 0) BETWEEN 4 AND 7 THEN '4-7 dias'
-        WHEN COALESCE("DiasAtraso", 0) BETWEEN 8 AND 15 THEN '8-15 dias'
-        WHEN COALESCE("DiasAtraso", 0) >= 16 THEN '16+ dias'
-        ELSE 'Sem atraso'
-      END as bucket
-      FROM fiorix_bi_data
-      WHERE ${generalCondition}
-        AND (
-          COALESCE("DiasAtraso", 0) > 0
-          OR "IsDevolucao" = true
-          OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%atrasad%'
-          OR LOWER(COALESCE("SituacaoPrazo", '')) LIKE '%devolucao%'
-        )
-    ) buckets
-    GROUP BY bucket
-    ORDER BY CASE bucket
-      WHEN '1-3 dias' THEN 1
-      WHEN '4-7 dias' THEN 2
-      WHEN '8-15 dias' THEN 3
-      WHEN '16+ dias' THEN 4
-      ELSE 5
-    END
+    WITH totals AS (
+      SELECT
+        COALESCE(SUM(a.delay_1_3), 0)::bigint AS d1,
+        COALESCE(SUM(a.delay_4_7), 0)::bigint AS d2,
+        COALESCE(SUM(a.delay_8_15), 0)::bigint AS d3,
+        COALESCE(SUM(a.delay_16_plus), 0)::bigint AS d4,
+        COALESCE(SUM(a.delay_sem_atraso), 0)::bigint AS d5
+      FROM fiorix_bi_daily_agg a
+      WHERE ${aggregateGeneralCondition}
+    )
+    SELECT buckets.bucket, buckets.cnt
+    FROM totals
+    CROSS JOIN LATERAL (
+      VALUES
+        ('1-3 dias', totals.d1, 1),
+        ('4-7 dias', totals.d2, 2),
+        ('8-15 dias', totals.d3, 3),
+        ('16+ dias', totals.d4, 4),
+        ('Sem atraso', totals.d5, 5)
+    ) AS buckets(bucket, cnt, sort_order)
+    WHERE buckets.cnt > 0
+    ORDER BY buckets.sort_order
   ` : [];
 
   const delaySeverity = delayBucketsRaw.map((row) => ({
@@ -322,33 +336,31 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
     count: Number(row.cnt || 0),
   }));
 
-  const prazoVsRealPromise = chartEnabled('3') ? prisma.$queryRaw<Array<{ natureza: string; prometidos: number; corridos: number; total: bigint }>>`
+  const prazoVsRealRaw = chartEnabled('3') ? await prisma.$queryRaw<Array<{ natureza: string; prometidos: number; corridos: number; total: bigint }>>`
     SELECT
-      COALESCE(TRIM("Natureza"), 'Outros') as natureza,
-      ROUND(AVG(COALESCE("DiasPrometidos", 0))::numeric, 1)::float as prometidos,
-      ROUND(AVG(COALESCE("DiasCorridos", 0))::numeric, 1)::float as corridos,
-      COUNT(*)::bigint as total
-    FROM fiorix_bi_data
-    WHERE ${generalCondition}
-    GROUP BY COALESCE(TRIM("Natureza"), 'Outros')
+      a.natureza,
+      ROUND((SUM(a.sum_dias_prometidos)::numeric / NULLIF(SUM(a.metric_count), 0)), 1)::float as prometidos,
+      ROUND((SUM(a.sum_dias_corridos)::numeric / NULLIF(SUM(a.metric_count), 0)), 1)::float as corridos,
+      SUM(a.metric_count)::bigint as total
+    FROM fiorix_bi_daily_agg a
+    WHERE ${aggregateGeneralCondition}
+    GROUP BY a.natureza
     ORDER BY corridos DESC, prometidos DESC
     LIMIT 8
-  ` : Promise.resolve([] as Array<{ natureza: string; prometidos: number; corridos: number; total: bigint }>);
+  ` : [];
 
-  const trendPromise = chartEnabled('4') ? prisma.$queryRaw<Array<{ data: Date | string; no_prazo: bigint; atrasado: bigint; devolucao: bigint }>>`
+  const trendRaw = chartEnabled('4') ? await prisma.$queryRaw<Array<{ data: Date | string; no_prazo: bigint; atrasado: bigint; devolucao: bigint }>>`
     SELECT
-      DATE("DtAndamento") as data,
-      SUM(CASE WHEN COALESCE("DiasAtraso", 0) <= 0 AND COALESCE("IsDevolucao", false) = false THEN 1 ELSE 0 END) as no_prazo,
-      SUM(CASE WHEN COALESCE("DiasAtraso", 0) > 0 AND COALESCE("IsDevolucao", false) = false THEN 1 ELSE 0 END) as atrasado,
-      SUM(CASE WHEN COALESCE("IsDevolucao", false) = true THEN 1 ELSE 0 END) as devolucao
-    FROM fiorix_bi_data
-    WHERE "DtAndamento" IS NOT NULL
-      AND ${generalCondition}
-    GROUP BY DATE("DtAndamento")
-    ORDER BY DATE("DtAndamento")
-  ` : Promise.resolve([] as Array<{ data: Date | string; no_prazo: bigint; atrasado: bigint; devolucao: bigint }>);
-
-  const [prazoVsRealRaw, trendRaw] = await Promise.all([prazoVsRealPromise, trendPromise]);
+      a.day as data,
+      SUM(a.daily_no_prazo)::bigint as no_prazo,
+      SUM(a.daily_atrasado)::bigint as atrasado,
+      SUM(a.daily_devolucao)::bigint as devolucao
+    FROM fiorix_bi_daily_agg a
+    WHERE a.day <> DATE '1900-01-01'
+      AND ${aggregateGeneralCondition}
+    GROUP BY a.day
+    ORDER BY a.day
+  ` : [];
 
   const prazoPrometidoVsCorridosPorNatureza = prazoVsRealRaw.map((row) => ({
     natureza: row.natureza,
@@ -384,9 +396,16 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
   }));
 
   const totalRecordsRaw = includeSummary ? await prisma.$queryRaw<Array<{ cnt: bigint }>>`
-    SELECT COUNT(*) as cnt
-    FROM fiorix_bi_data
-    WHERE ${generalCondition}
+    SELECT COALESCE(SUM(a.total_records), 0)::bigint as cnt
+    FROM fiorix_bi_daily_agg a
+    WHERE ${aggregateGeneralCondition}
+  ` : [];
+
+  const exceptionRecordsAggregateRaw = includeSummary ? await prisma.$queryRaw<Array<{ cnt: bigint }>>`
+    SELECT COALESCE(SUM(a.total_records), 0)::bigint as cnt
+    FROM fiorix_bi_daily_agg a
+    WHERE ${aggregateBaseCondition}
+      AND a.is_exception = true
   ` : [];
 
   const exceptionSummaryRaw = (chartEnabled('8') || chartEnabled('9') || chartEnabled('10')) ? await prisma.$queryRaw<Array<{
@@ -438,16 +457,16 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
   ` : [];
 
   const tiposRaw = includeSummary ? await prisma.$queryRaw<Array<{ tipo: string }>>`
-    SELECT DISTINCT "TipoPrenotacao" as tipo
-    FROM fiorix_bi_data
-    WHERE "TipoPrenotacao" IS NOT NULL AND TRIM("TipoPrenotacao") != ''
+    SELECT DISTINCT a.tipo_prenotacao as tipo
+    FROM fiorix_bi_daily_agg a
+    WHERE a.tipo_prenotacao != ''
     LIMIT 30
   ` : [];
 
   const totalRecords = Number(totalRecordsRaw[0]?.cnt || 0);
   const devolucaoGeneralCount = Number(devolucaoSummaryRaw[0]?.cnt || 0);
   const exceptionSummary = exceptionSummaryRaw[0];
-  const exceptionRecordsExcluded = Number(exceptionSummary?.total || 0);
+  const exceptionRecordsExcluded = Number(exceptionSummary?.total || exceptionRecordsAggregateRaw[0]?.cnt || 0);
   const exceptionProtocolsExcluded = Number(exceptionSummary?.protocolos || 0);
   const exceptionEmAcompanhamento = Number(exceptionSummary?.em_acompanhamento || 0);
   const exceptionFinalizados = Number(exceptionSummary?.finalizados || 0);

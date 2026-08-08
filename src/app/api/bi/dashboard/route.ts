@@ -4,6 +4,7 @@ import { auth } from '@/auth';
 import { queryBiDashboardData, queryBiImportsList } from '@/lib/bi-dashboard';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
 export async function GET(request: Request) {
   const session = await auth();
