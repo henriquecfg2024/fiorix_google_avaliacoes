@@ -109,15 +109,15 @@ export default function FiorixBiImportPage() {
         estimatedTotal,
         // Lotes menores evitam exceder o limite de tempo/tamanho do Server Action
         // quando o CSV possui textos longos em TextoNotaDevolucao.
-        batchSize: 250,
+        batchSize: 1000,
         insertBatch: (rows) => insertBiBatch(importId, rows),
         onProgress: (processed, total) => {
           const safeTotal = Math.max(total, processed, 1);
-          const pct = Math.min(99, Math.round((processed / safeTotal) * 100));
+          const pct = Math.min(99, Number(((processed / safeTotal) * 100).toFixed(1)));
 
           setUploadProgress(pct);
           setImportStatusMsg(
-            `Importando ${processed.toLocaleString('pt-BR')} / ${safeTotal.toLocaleString('pt-BR')} linhas (${pct}%)`
+            `Importando ${processed.toLocaleString('pt-BR')} / ${safeTotal.toLocaleString('pt-BR')} linhas (${pct.toFixed(1)}%)`
           );
         },
       });

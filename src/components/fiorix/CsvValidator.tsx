@@ -341,16 +341,55 @@ export function validarCSV(
   });
 }
 
+export async function importarLinhasEmLotes({
+  rows,
+  batchSize = 1000,
+  concurrency = 3,
+  insertBatch,
+  onProgress,
+}: {
+  rows: BiCsvRow[];
+  batchSize?: number;
+  concurrency?: number;
+  insertBatch: (rows: BiCsvRow[]) => Promise<{ success: boolean; count?: number; error?: string }>;
+  onProgress?: (processed: number, total: number) => void | Promise<void>;
+}) {
+  let totalProcessed = 0;
+  const safeConcurrency = Math.max(1, concurrency);
+
+  for (let offset = 0; offset < rows.length; offset += batchSize * safeConcurrency) {
+    const batches: BiCsvRow[][] = [];
+    for (let index = 0; index < safeConcurrency && offset + index * batchSize < rows.length; index += 1) {
+      batches.push(rows.slice(offset + index * batchSize, offset + (index + 1) * batchSize));
+    }
+
+    const counts = await Promise.all(batches.map(async (batch) => {
+      const result = await insertBatch(batch);
+      if (!result?.success) {
+        throw new Error(result?.error || 'Falha ao inserir lote de dados.');
+      }
+      return batch.length;
+    }));
+
+    totalProcessed += counts.reduce((sum, count) => sum + count, 0);
+    if (onProgress) await onProgress(totalProcessed, rows.length);
+  }
+
+  return { totalProcessed };
+}
+
 export async function importarCSVEmLotes({
   file,
   batchSize = 5000,
   estimatedTotal,
   insertBatch,
   onProgress,
+  concurrency = 3,
 }: {
   file: File;
   batchSize?: number;
   estimatedTotal: number;
+  concurrency?: number;
   insertBatch: (
     rows: BiCsvRow[]
   ) => Promise<{ success: boolean; count?: number; error?: string }>;
@@ -364,6 +403,7 @@ export async function importarCSVEmLotes({
     let validRows = 0;
     let settled = false;
     const rowBuffer: BiCsvRow[] = [];
+    const pendingBatches = new Set<Promise<void>>();
 
     const fail = (error: unknown) => {
       if (settled) return;
@@ -371,22 +411,32 @@ export async function importarCSVEmLotes({
       reject(error instanceof Error ? error : new Error(String(error)));
     };
 
-    const flushBuffer = async () => {
-      if (rowBuffer.length === 0) return;
+    const flushBuffer = async (drain = false) => {
+      while (rowBuffer.length >= batchSize || (drain && rowBuffer.length > 0)) {
+        while (pendingBatches.size >= Math.max(1, concurrency)) {
+          await Promise.race(pendingBatches);
+        }
 
-      const batch = rowBuffer.splice(0, rowBuffer.length);
-      const result = await insertBatch(batch);
-      const success = result?.success;
-      const error = result?.error;
+        const batch = rowBuffer.splice(0, Math.min(batchSize, rowBuffer.length));
+        const task = (async () => {
+          const result = await insertBatch(batch);
+          if (!result?.success) {
+            throw new Error(result?.error || 'Falha ao inserir lote de dados.');
+          }
 
-      if (!success) {
-        throw new Error(error || 'Falha ao inserir lote de dados.');
+          totalProcessed += batch.length;
+          if (onProgress) await onProgress(totalProcessed, estimatedTotal);
+        })();
+
+        pendingBatches.add(task);
+        task.then(
+          () => pendingBatches.delete(task),
+          () => pendingBatches.delete(task),
+        );
       }
 
-      totalProcessed += batch.length;
-
-      if (onProgress) {
-        await onProgress(totalProcessed, estimatedTotal);
+      if (drain && pendingBatches.size > 0) {
+        await Promise.all(Array.from(pendingBatches));
       }
     };
 
@@ -449,7 +499,7 @@ export async function importarCSVEmLotes({
           .then(async () => {
             if (settled) return;
 
-            await flushBuffer();
+            await flushBuffer(true);
 
             if (validRows === 0) {
               throw new Error('Nenhum registro válido foi encontrado no CSV.');
@@ -530,7 +580,7 @@ export function PreviewCard({
             }}
           >
             <span>{importStatusMsg}</span>
-            <span>{uploadProgress}%</span>
+            <span>{uploadProgress.toFixed(1)}%</span>
           </div>
           <div
             style={{

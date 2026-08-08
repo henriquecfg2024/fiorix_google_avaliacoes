@@ -39,9 +39,11 @@ import {
   createBiImport,
   insertBiBatch,
   deleteBiImport,
+  updateBiImportStatus,
   BiRowInput,
 } from '@/app/actions/bi';
 
+import { importarLinhasEmLotes } from '@/components/fiorix/CsvValidator';
 
 const COLUNAS_OBRIGATORIAS = [
   'Protocolo',
@@ -244,22 +246,31 @@ export default function FiorixBiPage() {
     // sem linha de cabeçalho). Reprocessar o arquivo com header:true fazia a
     // primeira linha virar o cabeçalho e resultava em zero linhas inseridas.
     try {
-      const batchSize = 1000;
-      const rows = parsedRows as BiRowInput[];
-      if (rows.length === 0) throw new Error('Nenhum registro válido encontrado no CSV.');
+    const rows = parsedRows as BiRowInput[];
+    if (rows.length === 0) throw new Error('Nenhum registro válido encontrado no CSV.');
 
-      for (let offset = 0; offset < rows.length; offset += batchSize) {
-        const batch = rows.slice(offset, offset + batchSize);
-        const { success, error } = await insertBiBatch(importId, batch);
-        if (!success) throw new Error(error || 'Falha ao inserir lote de dados.');
-
-        totalProcessed += batch.length;
-        const pct = Math.min(99, Math.round((totalProcessed / rows.length) * 100));
+    const importResult = await importarLinhasEmLotes({
+      rows,
+      batchSize: 1000,
+      concurrency: 3,
+      insertBatch: (batch) => insertBiBatch(importId, batch),
+      onProgress: (processed, total) => {
+        totalProcessed = processed;
+        const pct = Math.min(99, Number(((processed / total) * 100).toFixed(1)));
         setUploadProgress(pct);
         setImportStatusMsg(
-          `Importando ${totalProcessed.toLocaleString('pt-BR')} / ${rows.length.toLocaleString('pt-BR')} linhas (${pct}%)`
+          `Importando ${processed.toLocaleString('pt-BR')} / ${total.toLocaleString('pt-BR')} linhas (${pct.toFixed(1)}%)`
         );
-      }
+      },
+    });
+
+    totalProcessed = importResult.totalProcessed;
+    await updateBiImportStatus(importId, 'SUCCESS');
+
+    {
+      const pct = 99;
+      setUploadProgress(pct);
+    }
 
       setUploadProgress(100);
       setImportStatusMsg(`Importação concluída! ${totalProcessed.toLocaleString('pt-BR')} registros inseridos.`);
