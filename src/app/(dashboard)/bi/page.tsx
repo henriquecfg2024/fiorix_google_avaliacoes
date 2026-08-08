@@ -109,6 +109,7 @@ export default function FiorixBiPage() {
   const [importsList, setImportsList] = useState<any[]>([]);
   const dashboardRequestRef = useRef<AbortController | null>(null);
   const dashboardRequestIdRef = useRef(0);
+  const manualImportSelectionRef = useRef(false);
 
   // State for Dashboard Filters
   const [selectedImportId, setSelectedImportId] = useState<string>('ALL');
@@ -151,6 +152,12 @@ export default function FiorixBiPage() {
     try {
       const params = new URLSearchParams();
       if (selectedImportId && selectedImportId !== 'ALL') params.set('importId', selectedImportId);
+      const hasHistoricalChart = enabledCharts.includes('11') || enabledCharts.includes('12');
+      if (selectedImportId === 'ALL' && !hasHistoricalChart && !manualImportSelectionRef.current) {
+        // Gráficos operacionais não precisam reprocessar os cinco anos.
+        // O usuário ainda pode escolher "Todas as Importações" manualmente.
+        params.set('importId', 'LATEST');
+      }
       if (startDate) params.set('startDate', startDate);
       if (endDate) params.set('endDate', endDate);
       if (selectedTipoPrenotacao && selectedTipoPrenotacao !== 'ALL') {
@@ -183,6 +190,9 @@ export default function FiorixBiPage() {
       if (requestId !== dashboardRequestIdRef.current) return;
       setDashboardData(payload.dashboard || null);
       setImportsList(payload.imports || []);
+      if (selectedImportId === 'ALL' && !hasHistoricalChart && !manualImportSelectionRef.current && payload.imports?.[0]?.id) {
+        setSelectedImportId(payload.imports[0].id);
+      }
     } catch (error: any) {
       if (error?.name === 'AbortError') return;
       console.error('Erro ao buscar dashboard BI no cliente:', error);
@@ -586,7 +596,10 @@ export default function FiorixBiPage() {
             <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', display: 'block', marginBottom: '4px' }}>LOTE IMPORTADO</label>
             <select
               value={selectedImportId}
-              onChange={(e) => setSelectedImportId(e.target.value)}
+              onChange={(e) => {
+                manualImportSelectionRef.current = true;
+                setSelectedImportId(e.target.value);
+              }}
               style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#ffffff', color: '#0f172a' }}
             >
               <option value="ALL">Todas as Importações</option>

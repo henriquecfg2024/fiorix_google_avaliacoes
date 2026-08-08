@@ -13,8 +13,10 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url);
+    const imports = await queryBiImportsList();
+    const requestedImportId = searchParams.get('importId') || undefined;
     const filters = {
-      importId: searchParams.get('importId') || undefined,
+      importId: requestedImportId === 'LATEST' ? imports[0]?.id : requestedImportId,
       startDate: searchParams.get('startDate') || undefined,
       endDate: searchParams.get('endDate') || undefined,
       tipoPrenotacao: searchParams.get('tipoPrenotacao') || undefined,
@@ -22,7 +24,6 @@ export async function GET(request: Request) {
     };
 
     const dashboard = await queryBiDashboardData(filters);
-    const imports = await queryBiImportsList();
 
     return NextResponse.json(
       {
