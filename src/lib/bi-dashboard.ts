@@ -231,63 +231,6 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
     WHERE ${aggregateGeneralCondition}
   ` : [];
 
-  const devolucoesRaw = chartEnabled('6') ? await prisma.$queryRaw<Array<{ texto: string; occurrences: bigint }>>`
-    SELECT n.texto, n.occurrences
-    FROM fiorix_bi_return_note_agg n
-    WHERE ${filters?.importId && filters.importId !== 'ALL' ? Prisma.sql`n.import_id = ${filters.importId}` : Prisma.sql`1=1`}
-      AND ${filters?.tipoPrenotacao && filters.tipoPrenotacao !== 'ALL' ? Prisma.sql`n.tipo_prenotacao = ${filters.tipoPrenotacao}` : Prisma.sql`1=1`}
-      AND ${filters?.startDate ? Prisma.sql`n.day >= CAST(${filters.startDate} AS date)` : Prisma.sql`1=1`}
-      AND ${filters?.endDate ? Prisma.sql`n.day <= CAST(${filters.endDate} AS date)` : Prisma.sql`1=1`}
-    ORDER BY n.occurrences DESC
-    LIMIT 1500
-  ` : [];
-
-  const stopWords = new Set([
-    'de', 'a', 'o', 'que', 'e', 'do', 'da', 'em', 'um', 'para', 'com', 'não', 'uma', 'os', 'no',
-    'se', 'na', 'por', 'mais', 'as', 'dos', 'como', 'mas', 'ao', 'ele', 'das', 'seu', 'sua', 'ou',
-    'quando', 'muito', 'nos', 'já', 'eu', 'também', 'só', 'pelo', 'pela', 'até', 'isso', 'ela',
-    'entre', 'depois', 'sem', 'mesmo', 'aos', 'seus', 'quem', 'nas', 'me', 'esse', 'eles', 'você',
-    'essa', 'num', 'nem', 'suas', 'meu', 'às', 'minha', 'numa', 'cujo', 'quais', 'item', 'conforme',
-    'nota', 'devolução', 'andamento', 'registro', 'prenotação', 'solicitação', 'favor', 'apresentar',
-    'deverá', 'ser', 'certidão', 'imóvel', 'documento', 'documentos', 'deve', 'constar', 'termos',
-    'artigo', 'art', 'lei', 'provimento', 'exigência', 'atender',
-  ]);
-
-  const reasonFrequency: Record<string, number> = {};
-  devolucoesRaw.forEach((row) => {
-    const note = row.texto || '';
-    const weight = Math.max(1, Number(row.occurrences || 1));
-    const clauses = note
-      .split(/(?:\r\n|\n|\.\s+|;\s+|\d+[\)\.\-\s])/g)
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.length > 5);
-
-    clauses.forEach((clause) => {
-      const words = clause
-        .toLowerCase()
-        .replace(/[^\w\sà-úÀ-Ú]/g, '')
-        .split(/\s+/)
-        .filter((word) => word.length > 3 && !stopWords.has(word));
-
-      if (words.length === 0) {
-        return;
-      }
-
-      const keyTerm = words.slice(0, 3).join(' ');
-      if (keyTerm.length < 4) {
-        return;
-      }
-
-      const capitalized = keyTerm.charAt(0).toUpperCase() + keyTerm.slice(1);
-      reasonFrequency[capitalized] = (reasonFrequency[capitalized] || 0) + weight;
-    });
-  });
-
-  const topDevolucoes = Object.entries(reasonFrequency)
-    .map(([motivo, count]) => ({ motivo, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
-
   const avgNaturezaRaw = chartEnabled('7') ? await prisma.$queryRaw<Array<{ natureza: string; media_dias: number; total: bigint }>>`
     SELECT
       a.natureza,
@@ -541,7 +484,6 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
     },
     charts: {
       pieChartData,
-      topDevolucoes,
       avgDiasPorNatureza,
       delaySeverity,
       prazoPrometidoVsCorridosPorNatureza,
