@@ -374,24 +374,6 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
     devolucao: Number(row.devolucao || 0),
   }));
 
-  const topAndamentosRaw = chartEnabled('5') ? await prisma.$queryRaw<Array<{ andamento: string; cnt: bigint; media_atraso: number }>>`
-    SELECT
-      COALESCE(TRIM("DescAndamento"), 'Sem andamento') as andamento,
-      COUNT(*)::bigint as cnt,
-      ROUND(AVG(COALESCE("DiasAtraso", 0))::numeric, 1)::float as media_atraso
-    FROM fiorix_bi_data
-    WHERE ${generalCondition}
-      AND TRIM(COALESCE("DescAndamento", '')) != ''
-    GROUP BY COALESCE(TRIM("DescAndamento"), 'Sem andamento')
-    ORDER BY cnt DESC, media_atraso DESC
-    LIMIT 8
-  ` : [];
-
-  const topAndamentosComAtraso = topAndamentosRaw.map((row) => ({
-    andamento: row.andamento,
-    count: Number(row.cnt || 0),
-    mediaAtraso: Number(row.media_atraso || 0),
-  }));
 
   const totalRecordsRaw = includeSummary ? await prisma.$queryRaw<Array<{ cnt: bigint }>>`
     SELECT COALESCE(SUM(a.total_records), 0)::bigint as cnt
@@ -442,17 +424,6 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
     ORDER BY total DESC, natureza
   ` : [];
 
-  const exceptionAndamentosRaw = chartEnabled('10') ? await prisma.$queryRaw<Array<{ andamento: string; cnt: bigint }>>`
-    SELECT
-      COALESCE(TRIM("DescAndamento"), 'Sem andamento') as andamento,
-      COUNT(*)::bigint as cnt
-    FROM fiorix_bi_data
-    WHERE ${exceptionCondition}
-      AND TRIM(COALESCE("DescAndamento", '')) != ''
-    GROUP BY COALESCE(TRIM("DescAndamento"), 'Sem andamento')
-    ORDER BY cnt DESC
-    LIMIT 8
-  ` : [];
 
   const tiposRaw = includeSummary ? await prisma.$queryRaw<Array<{ tipo: string }>>`
     SELECT DISTINCT a.tipo_prenotacao as tipo
@@ -553,10 +524,6 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
           protocolos: Number(row.protocolos || 0),
           mediaDias: Number(row.media_dias || 0),
         })),
-        topAndamentos: exceptionAndamentosRaw.map((row) => ({
-          andamento: row.andamento,
-          count: Number(row.cnt || 0),
-        })),
       },
     },
     historical: {
@@ -579,7 +546,6 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
       delaySeverity,
       prazoPrometidoVsCorridosPorNatureza,
       evolucaoPrazoPorDia,
-      topAndamentosComAtraso,
     },
     tiposPrenotacao: tiposRaw.map((row) => row.tipo).filter(Boolean).sort(),
   };

@@ -85,9 +85,8 @@ import { validarCSV, PreviewCard, CsvStats } from '@/components/fiorix/CsvValida
 export default function FiorixBiPage() {
   const chartDefinitions = [
     ['1', 'Prazo de entrega'], ['2', 'Severidade do atraso'], ['3', 'Prazo prometido x corrido'],
-    ['4', 'Evolução diária'], ['5', 'Andamentos com impacto'], ['6', 'Motivos de devolução'],
-    ['7', 'Média por natureza'], ['8', 'Exceções legais - situação'], ['9', 'Exceções por natureza'],
-    ['10', 'Exceções - andamentos'], ['11', 'Desempenho mensal'], ['12', 'Comparativo entre anos'],
+    ['4', 'Evolução diária'], ['6', 'Motivos de devolução'],
+    ['7', 'Média por natureza'], ['11', 'Desempenho mensal'], ['12', 'Comparativo entre anos'],
   ];
   const defaultCharts = ['1', '2', '3', '4', '6', '11', '12'];
   const chartSettingsKey = 'fiorix-bi-enabled-charts-v2';
@@ -933,33 +932,7 @@ export default function FiorixBiPage() {
             </div>
           </div>
 
-          {/* Chart 5: Top Andamentos */}
-          <div style={{ display: enabledCharts.includes('5') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
-              Gráfico 5: Andamentos com Maiores Impactos no Prazo
-            </h3>
-            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '20px' }}>
-              Avalia os andamentos mais recorrentes e sua média de atraso associada.
-            </p>
 
-            <div style={{ width: '100%', height: 260 }}>
-              {dashboardData.charts.topAndamentosComAtraso.length === 0 ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', fontSize: '13px' }}>
-                  Nenhum andamento com impacto de prazo encontrado.
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dashboardData.charts.topAndamentosComAtraso} layout="vertical" margin={{ left: 20, right: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" />
-                    <YAxis dataKey="andamento" type="category" width={140} tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(value: any, name: any) => [name === 'mediaAtraso' ? `${value} dias` : `${value} títulos`, name === 'mediaAtraso' ? 'Média de atraso' : 'Quantidade']} />
-                    <Bar dataKey="count" fill="#002B49" radius={[0, 6, 6, 0]} name="Quantidade" />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </div>
 
           {/* Chart 6: Top 10 Return Reasons */}
           <div style={{ display: enabledCharts.includes('6') ? undefined : 'none', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
