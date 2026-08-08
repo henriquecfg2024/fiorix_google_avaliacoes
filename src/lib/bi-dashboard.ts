@@ -312,8 +312,7 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
         COALESCE(SUM(a.delay_1_3), 0)::bigint AS d1,
         COALESCE(SUM(a.delay_4_7), 0)::bigint AS d2,
         COALESCE(SUM(a.delay_8_15), 0)::bigint AS d3,
-        COALESCE(SUM(a.delay_16_plus), 0)::bigint AS d4,
-        COALESCE(SUM(a.delay_sem_atraso), 0)::bigint AS d5
+        COALESCE(SUM(a.delay_16_plus), 0)::bigint AS d4
       FROM fiorix_bi_daily_agg a
       WHERE ${aggregateGeneralCondition}
     )
@@ -324,8 +323,7 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
         ('1-3 dias', totals.d1, 1),
         ('4-7 dias', totals.d2, 2),
         ('8-15 dias', totals.d3, 3),
-        ('16+ dias', totals.d4, 4),
-        ('Sem atraso', totals.d5, 5)
+        ('16+ dias', totals.d4, 4)
     ) AS buckets(bucket, cnt, sort_order)
     WHERE buckets.cnt > 0
     ORDER BY buckets.sort_order
