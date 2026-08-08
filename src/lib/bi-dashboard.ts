@@ -567,8 +567,25 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
 }
 
 export async function queryBiImportsList() {
-  return prisma.fiorixBiImport.findMany({
-    orderBy: { importedAt: 'desc' },
-    take: 20,
-  });
+  const cached = dashboardCache.get('__imports__');
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const running = dashboardInFlight.get('__imports__');
+  if (running) return running;
+
+  const request = (async () => {
+    const value = await prisma.fiorixBiImport.findMany({
+      orderBy: { importedAt: 'desc' },
+      take: 20,
+    });
+    dashboardCache.set('__imports__', { value, expiresAt: Date.now() + DASHBOARD_CACHE_TTL_MS });
+    return value;
+  })();
+
+  dashboardInFlight.set('__imports__', request);
+  try {
+    return await request;
+  } finally {
+    dashboardInFlight.delete('__imports__');
+  }
 }

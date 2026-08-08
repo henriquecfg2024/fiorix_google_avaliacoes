@@ -21,7 +21,7 @@ function getDatabaseUrl() {
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
-    log: ['query'],
+    log: process.env.NODE_ENV === 'development' ? ['query'] : ['error'],
     datasources: {
       db: {
         url: getDatabaseUrl(),
@@ -29,4 +29,6 @@ export const prisma =
     },
   });
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+// Reutiliza o mesmo cliente também em produção para impedir que cada
+// carregamento do dashboard abra um novo pool de conexões.
+globalForPrisma.prisma = prisma;
