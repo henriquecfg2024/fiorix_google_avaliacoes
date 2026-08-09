@@ -9,6 +9,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
   }
 
+  if (!session.user.role || !['ADMIN', 'MASTER'].includes(session.user.role)) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 403 });
+  }
+
   const tenantId = session.user.tenantId as string;
 
   const sampleReviews = [

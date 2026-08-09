@@ -1,11 +1,17 @@
 import { NextResponse } from 'next/server';
-import { getGoogleTokens } from '@/lib/google';
+import { auth } from '@/auth';
+import { getGoogleTokens, verifyGoogleOAuthState } from '@/lib/google';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(request: Request) {
+  const session = await auth();
+  if (!session?.user?.tenantId || session.user.role !== 'MASTER') {
+    return new NextResponse('Unauthorized', { status: 403 });
+  }
+
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
-  const tenantId = searchParams.get('state'); // State contains the tenantId
+  const tenantId = verifyGoogleOAuthState(searchParams.get('state'));
   const error = searchParams.get('error');
 
   if (error) {
@@ -14,7 +20,11 @@ export async function GET(request: Request) {
   }
 
   if (!code || !tenantId) {
-    return new NextResponse('Missing code or state', { status: 400 });
+    return new NextResponse('Missing code or invalid state', { status: 400 });
+  }
+
+  if (tenantId !== session.user.tenantId) {
+    return new NextResponse('Unauthorized', { status: 403 });
   }
 
   try {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import Link from 'next/link';
@@ -39,7 +40,9 @@ function getDemoMetric(name: string, aliases: string[]) {
 
 export default async function RelatoriosPage() {
   const session = await auth();
-  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
+  if (!session?.user?.tenantId) redirect('/login');
+
+  const tenantId = session.user.tenantId as string;
 
   const totalReviews = await prisma.review.count({ where: { tenantId } });
 

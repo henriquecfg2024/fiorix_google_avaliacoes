@@ -2,9 +2,26 @@
 
 import { revalidatePath } from 'next/cache';
 
+import { auth } from '@/auth';
 import { queryBiDashboardData, queryBiImportsList } from '@/lib/bi-dashboard';
 import { refreshBiAggregatesForImport } from '@/lib/bi-aggregates';
 import { prisma } from '@/lib/prisma';
+
+async function requireSession() {
+  const session = await auth();
+  if (!session?.user?.tenantId) {
+    throw new Error('Nao autorizado');
+  }
+  return session;
+}
+
+async function requireAdmin() {
+  const session = await requireSession();
+  if (!session.user.role || !['ADMIN', 'MASTER'].includes(session.user.role)) {
+    throw new Error('Apenas administradores podem gerenciar importacoes do BI.');
+  }
+  return session;
+}
 
 export interface BiRowInput {
   Protocolo: string;
@@ -29,6 +46,8 @@ export interface BiRowInput {
 
 export async function createBiImport(fileName: string, totalRows: number, importedBy = 'Manual SSMS') {
   try {
+    await requireAdmin();
+
     const record = await prisma.fiorixBiImport.create({
       data: {
         fileName,
@@ -47,6 +66,8 @@ export async function createBiImport(fileName: string, totalRows: number, import
 
 export async function updateBiImportStatus(importId: string, status: 'SUCCESS' | 'FAILED', errorMessage?: string) {
   try {
+    await requireAdmin();
+
     if (status === 'FAILED') {
       await prisma.$transaction([
         prisma.fiorixBiData.deleteMany({ where: { importId } }),
@@ -73,6 +94,8 @@ export async function updateBiImportStatus(importId: string, status: 'SUCCESS' |
 
 export async function insertBiBatch(importId: string, rows: BiRowInput[]) {
   try {
+    await requireAdmin();
+
     if (!rows || rows.length === 0) {
       return { success: true, count: 0 };
     }
@@ -142,6 +165,8 @@ export async function getBiDashboardData(filters?: {
   importId?: string;
 }) {
   try {
+    await requireSession();
+
     return {
       success: true,
       ...(await queryBiDashboardData(filters)),
@@ -154,6 +179,8 @@ export async function getBiDashboardData(filters?: {
 
 export async function getBiImportsList() {
   try {
+    await requireSession();
+
     const imports = await queryBiImportsList();
     return { success: true, imports };
   } catch (error: any) {
@@ -164,6 +191,8 @@ export async function getBiImportsList() {
 
 export async function deleteBiImport(importId: string) {
   try {
+    await requireAdmin();
+
     await prisma.fiorixBiImport.delete({
       where: { id: importId },
     });
