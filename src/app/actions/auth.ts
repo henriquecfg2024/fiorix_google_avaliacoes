@@ -5,6 +5,7 @@ import { AuthError } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { revalidatePath } from 'next/cache';
+import { logError } from '@/lib/errors';
 
 export async function authenticate(
   prevState: string | undefined,
@@ -14,12 +15,11 @@ export async function authenticate(
     await signIn('credentials', formData);
   } catch (error) {
     if (error instanceof AuthError) {
-      switch (error.type) {
-        case 'CredentialsSignin':
-          return 'Credenciais inválidas.';
-        default:
-          return 'Algo deu errado.';
+      if (error.type === 'CredentialsSignin') {
+        return 'Credenciais inválidas.';
       }
+      logError(`auth:signIn:${error.type}`, error);
+      return 'Algo deu errado.';
     }
     throw error;
   }

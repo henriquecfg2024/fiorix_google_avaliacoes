@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import Link from 'next/link';
 import { ReviewItemCard } from '@/components/avaliacoes/ReviewItemCard';
+import { DataLoadError } from '@/components/common/DataLoadError';
+import { describeError } from '@/lib/errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +37,7 @@ export default async function AvaliacoesPage({
   let totalCount = 0;
   let pendingCount = 0;
   let respondedCount = 0;
+  let loadError: string | null = null;
 
   try {
     reviews = await prisma.review.findMany({
@@ -49,7 +52,7 @@ export default async function AvaliacoesPage({
     pendingCount = await prisma.review.count({ where: { tenantId, status: 'PENDING' } });
     respondedCount = await prisma.review.count({ where: { tenantId, status: 'RESPONDED' } });
   } catch (err) {
-    console.error('Error fetching reviews:', err);
+    loadError = describeError('avaliacoes:fetchReviews', err, 'Falha ao consultar as avaliações no banco de dados.');
   }
 
   return (
@@ -85,7 +88,9 @@ export default async function AvaliacoesPage({
             </div>
           )}
 
-          {!Array.isArray(reviews) || !reviews.length ? (
+          {loadError ? (
+            <DataLoadError title="Não foi possível carregar as avaliações." message={loadError} />
+          ) : !Array.isArray(reviews) || !reviews.length ? (
             <div style={{ marginTop: '20px', padding: '40px', textAlign: 'center', background: '#f8fafc', borderRadius: '12px', color: '#64748b' }}>
               <p style={{ fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>Nenhuma avaliação encontrada com estes filtros.</p>
               <p style={{ fontSize: '13px' }}>Acesse o Dashboard para sincronizar ou importar novas avaliações.</p>

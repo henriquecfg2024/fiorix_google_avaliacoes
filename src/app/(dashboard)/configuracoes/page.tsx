@@ -6,6 +6,8 @@ import { auth } from '@/auth';
 import { PasswordForm } from '@/components/configuracoes/PasswordForm';
 import { redirect } from 'next/navigation';
 import { ensureSyncLogTable } from '@/lib/sync-log-db';
+import { DataLoadError } from '@/components/common/DataLoadError';
+import { describeError } from '@/lib/errors';
 
 export default async function ConfiguracoesPage({
   searchParams,
@@ -22,6 +24,7 @@ export default async function ConfiguracoesPage({
 
   let connection = null;
   let syncLogs: Array<any> = [];
+  let loadError: string | null = null;
   if (tenantId) {
     try {
       await ensureSyncLogTable();
@@ -34,7 +37,7 @@ export default async function ConfiguracoesPage({
         take: 10,
       });
     } catch (e) {
-      console.error('Error fetching google connection:', e);
+      loadError = describeError('configuracoes:fetchConnection', e, 'Falha ao consultar a integração do Google no banco de dados.');
     }
   }
 
@@ -44,6 +47,9 @@ export default async function ConfiguracoesPage({
 
   const rawDetails = searchParams?.details;
   const errorDetails = Array.isArray(rawDetails) ? rawDetails[0] : rawDetails;
+
+  const rawWarning = searchParams?.warning;
+  const warningMsg = Array.isArray(rawWarning) ? rawWarning[0] : rawWarning;
 
   return (
     <div className="layout" style={{ gridTemplateColumns: '1fr' }}>
@@ -55,6 +61,16 @@ export default async function ConfiguracoesPage({
               <div className="chart-sub">Integrações, Usuários, Cartórios e Preferências do Sistema</div>
             </div>
           </div>
+
+          {loadError && (
+            <DataLoadError title="Não foi possível carregar os dados de configuração." message={loadError} />
+          )}
+
+          {warningMsg && (
+            <div style={{ marginTop: '20px', padding: '12px 16px', background: '#fef3c7', border: '1px solid #fde68a', color: '#92400e', borderRadius: '8px', fontSize: '13px' }}>
+              <strong>Atenção:</strong> {warningMsg}
+            </div>
+          )}
 
           <div style={{ marginTop: '20px', padding: '20px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#f8fafc' }}>
             <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '6px', color: '#1e293b' }}>Histórico de sincronizações</h3>

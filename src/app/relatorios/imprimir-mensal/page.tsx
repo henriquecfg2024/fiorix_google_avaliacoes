@@ -1,6 +1,8 @@
 import React from 'react';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
+import { DataLoadError } from '@/components/common/DataLoadError';
+import { describeError } from '@/lib/errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +17,7 @@ export default async function ImprimirMensalPage() {
   let twoStars = 0;
   let oneStar = 0;
   let responded = 0;
+  let loadError: string | null = null;
 
   try {
     total = await prisma.review.count({ where: { tenantId } });
@@ -25,13 +28,17 @@ export default async function ImprimirMensalPage() {
     oneStar = await prisma.review.count({ where: { tenantId, rating: 1 } });
     responded = await prisma.review.count({ where: { tenantId, status: 'RESPONDED' } });
   } catch (err) {
-    console.error('Error in ImprimirMensalPage:', err);
+    loadError = describeError('imprimirMensal:countReviews', err, 'Falha ao consultar as avaliações no banco de dados.');
   }
 
   const calcPct = (count: number) => (total > 0 ? ((count / total) * 100).toFixed(1) : '0.0');
 
   return (
     <div style={{ padding: '40px', fontFamily: 'system-ui, sans-serif', color: '#0f172a', maxWidth: '800px', margin: '0 auto', background: 'white' }}>
+      {loadError && (
+        <DataLoadError title="Relatório incompleto: os números abaixo não foram carregados." message={loadError} />
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #e2e8f0', paddingBottom: '20px', marginBottom: '30px' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: '800', margin: 0, color: '#1e293b' }}>7º Cartório de Registro de Imóveis de SP</h1>

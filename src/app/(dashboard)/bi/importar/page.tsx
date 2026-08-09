@@ -17,6 +17,7 @@ import {
   importarCSVEmLotes,
   validarCSV,
 } from '@/components/fiorix/CsvValidator';
+import { getErrorMessage, logError } from '@/lib/errors';
 
 export default function FiorixBiImportPage() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -27,11 +28,20 @@ export default function FiorixBiImportPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [importStatusMsg, setImportStatusMsg] = useState('');
   const [importsList, setImportsList] = useState<any[]>([]);
+  const [listError, setListError] = useState<string | null>(null);
 
   const fetchImports = useCallback(async () => {
-    const importsRes = await getBiImportsList();
-    if (importsRes.success) {
+    try {
+      const importsRes = await getBiImportsList();
+      if (!importsRes.success) {
+        setListError(importsRes.error || 'Erro ao listar as importações.');
+        return;
+      }
+      setListError(null);
       setImportsList(importsRes.imports || []);
+    } catch (error) {
+      logError('biImportar:getBiImportsList', error);
+      setListError(getErrorMessage(error, 'Erro ao listar as importações.'));
     }
   }, []);
 
@@ -126,7 +136,10 @@ export default function FiorixBiImportPage() {
         throw new Error('Nenhum registro válido foi encontrado no CSV.');
       }
 
-      await updateBiImportStatus(importId, 'SUCCESS');
+      const statusRes = await updateBiImportStatus(importId, 'SUCCESS');
+      if (!statusRes.success) {
+        logError('biImportar:updateBiImportStatus:SUCCESS', statusRes.error);
+      }
 
       setUploadProgress(100);
       setImportStatusMsg(
@@ -138,10 +151,13 @@ export default function FiorixBiImportPage() {
         handleCancelUpload();
         fetchImports();
       }, 1000);
-    } catch (error: any) {
-      console.error('Erro ao inserir importação BI:', error);
-      const errMsg = error?.message || String(error);
-      await updateBiImportStatus(importId, 'FAILED', errMsg);
+    } catch (error) {
+      logError('biImportar:importarCSVEmLotes', error);
+      const errMsg = getErrorMessage(error, 'Erro ao importar o CSV.');
+      const statusRes = await updateBiImportStatus(importId, 'FAILED', errMsg);
+      if (!statusRes.success) {
+        logError('biImportar:updateBiImportStatus:FAILED', statusRes.error);
+      }
       alert(`Erro na importação: ${errMsg}`);
       setImportStatusMsg(`Erro na importação: ${errMsg}`);
       setIsImporting(false);
@@ -158,7 +174,11 @@ export default function FiorixBiImportPage() {
       return;
     }
 
-    await deleteBiImport(id);
+    const res = await deleteBiImport(id);
+    if (!res.success) {
+      logError('biImportar:deleteBiImport', res.error);
+      alert(`Não foi possível excluir a importação: ${res.error}`);
+    }
     fetchImports();
   };
 
@@ -397,6 +417,15 @@ export default function FiorixBiImportPage() {
           Histórico de Importações no Supabase (
           <code style={{ background: '#f1f5f9', padding: '2px 6px' }}>fiorix_bi_imports</code>)
         </h3>
+
+        {listError && (
+          <div
+            role="alert"
+            style={{ marginBottom: '16px', padding: '10px 14px', background: '#fee2e2', border: '1px solid #fecaca', borderRadius: '8px', color: '#991b1b', fontSize: '13px' }}
+          >
+            {listError}
+          </div>
+        )}
 
         {importsList.length === 0 ? (
           <div style={{ color: '#64748b', fontSize: '13px', textAlign: 'center', padding: '20px' }}>
