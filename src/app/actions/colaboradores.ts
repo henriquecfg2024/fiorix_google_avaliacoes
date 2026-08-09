@@ -44,10 +44,12 @@ export async function toggleColaboradorActive(id: string, currentStatus: boolean
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error('Não autorizado');
 
-  await prisma.colaborador.update({
-    where: { id },
+  const updated = await prisma.colaborador.updateMany({
+    where: { id, tenantId: session.user.tenantId },
     data: { active: !currentStatus }
   });
+
+  if (updated.count === 0) throw new Error('Colaborador nao encontrado');
 
   revalidatePath('/configuracoes/colaboradores');
 }
@@ -56,9 +58,11 @@ export async function deleteColaborador(id: string) {
   const session = await auth();
   if (!session?.user?.tenantId) throw new Error('Não autorizado');
 
-  await prisma.colaborador.delete({
-    where: { id }
+  const deleted = await prisma.colaborador.deleteMany({
+    where: { id, tenantId: session.user.tenantId }
   });
+
+  if (deleted.count === 0) throw new Error('Colaborador nao encontrado');
 
   revalidatePath('/configuracoes/colaboradores');
 }

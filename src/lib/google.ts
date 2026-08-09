@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+
 import { google } from 'googleapis';
 import { prisma } from './prisma';
 import { ensureSyncLogTable } from './sync-log-db';
@@ -41,13 +43,66 @@ async function withTimeout<T>(promise: Promise<T>, message: string, timeoutMs = 
   }
 }
 
+const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+
+function getStateSigningKey() {
+  const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+  if (!secret) {
+    throw new Error('AUTH_SECRET nao configurado: impossivel assinar o state do OAuth.');
+  }
+  return secret;
+}
+
+function signStatePayload(payload: string) {
+  return crypto.createHmac('sha256', getStateSigningKey()).update(payload).digest('base64url');
+}
+
+export function createGoogleOAuthState(tenantId: string) {
+  const payload = Buffer.from(
+    JSON.stringify({ tenantId, issuedAt: Date.now(), nonce: crypto.randomBytes(16).toString('base64url') })
+  ).toString('base64url');
+  return `${payload}.${signStatePayload(payload)}`;
+}
+
+/**
+ * Returns the tenant id carried by a state produced by createGoogleOAuthState,
+ * or null when the signature is invalid, malformed or expired.
+ */
+export function verifyGoogleOAuthState(state: string | null | undefined): string | null {
+  if (!state) return null;
+
+  const separator = state.lastIndexOf('.');
+  if (separator <= 0) return null;
+
+  const payload = state.slice(0, separator);
+  const signature = state.slice(separator + 1);
+  const expected = signStatePayload(payload);
+
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (signatureBuffer.length !== expectedBuffer.length) return null;
+  if (!crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) return null;
+
+  try {
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+      tenantId?: unknown;
+      issuedAt?: unknown;
+    };
+    if (typeof decoded.tenantId !== 'string' || typeof decoded.issuedAt !== 'number') return null;
+    if (Date.now() - decoded.issuedAt > OAUTH_STATE_TTL_MS) return null;
+    return decoded.tenantId;
+  } catch {
+    return null;
+  }
+}
+
 export function getGoogleAuthUrl(tenantId: string) {
   const oauth2Client = getGoogleOAuth2Client();
   return oauth2Client.generateAuthUrl({
     access_type: 'offline', // Required to get a refresh token
     scope: SCOPES,
     prompt: 'consent',
-    state: tenantId, // Pass the tenant ID in the state parameter
+    state: createGoogleOAuthState(tenantId),
   });
 }
 

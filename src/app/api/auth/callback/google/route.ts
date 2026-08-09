@@ -1,14 +1,24 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getGoogleTokens, fetchLocations, getGoogleOAuth2Client } from '@/lib/google';
+import { auth } from '@/auth';
+import { getGoogleTokens, fetchLocations, getGoogleOAuth2Client, verifyGoogleOAuthState } from '@/lib/google';
 
 export async function GET(request: Request) {
+  const session = await auth();
+  if (!session?.user?.tenantId || session.user.role !== 'MASTER') {
+    return NextResponse.json({ error: 'Nao autorizado' }, { status: 403 });
+  }
+
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
-  const tenantId = searchParams.get('state');
+  const tenantId = verifyGoogleOAuthState(searchParams.get('state'));
 
   if (!code || !tenantId) {
-    return NextResponse.json({ error: 'Missing code or state (tenantId)' }, { status: 400 });
+    return NextResponse.json({ error: 'Missing code or invalid state' }, { status: 400 });
+  }
+
+  if (tenantId !== session.user.tenantId) {
+    return NextResponse.json({ error: 'Nao autorizado' }, { status: 403 });
   }
 
   try {
@@ -57,6 +67,6 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL('/configuracoes?success=GoogleConnected', request.url));
   } catch (error: any) {
     console.error('Google Callback Error:', error);
-    return NextResponse.redirect(new URL(`/configuracoes?error=AuthFailed&details=${encodeURIComponent(error.message)}`, request.url));
+    return NextResponse.redirect(new URL('/configuracoes?error=AuthFailed', request.url));
   }
 }

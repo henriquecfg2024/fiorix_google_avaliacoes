@@ -1,4 +1,5 @@
 import React from 'react';
+import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import Link from 'next/link';
@@ -12,7 +13,9 @@ export default async function AvaliacoesPage({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   const session = await auth();
-  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
+  if (!session?.user?.tenantId) redirect('/login');
+
+  const tenantId = session.user.tenantId as string;
 
   const rawStatus = Array.isArray(searchParams?.status) ? searchParams.status[0] : searchParams?.status;
   const statusFilter = typeof rawStatus === 'string' ? rawStatus : undefined;

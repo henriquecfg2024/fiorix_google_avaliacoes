@@ -1,4 +1,5 @@
 import React from 'react';
+import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 
@@ -6,7 +7,9 @@ export const dynamic = 'force-dynamic';
 
 export default async function ImprimirMensalPage() {
   const session = await auth();
-  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
+  if (!session?.user?.tenantId) redirect('/login');
+
+  const tenantId = session.user.tenantId as string;
 
   let total = 0;
   let fiveStars = 0;

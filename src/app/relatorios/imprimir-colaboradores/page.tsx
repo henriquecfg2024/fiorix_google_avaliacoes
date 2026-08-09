@@ -1,4 +1,5 @@
 import React from 'react';
+import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 
@@ -37,14 +38,13 @@ function getDemoMetric(name: string, aliases: string[]) {
 }
 
 export default async function ImprimirColaboradoresPage() {
-  let tenantId = 'cartorio-7ri-sp';
+  const session = await auth();
+  if (!session?.user?.tenantId) redirect('/login');
+
+  const tenantId = session.user.tenantId as string;
   let tenantName = '7º Cartório de Registro de Imóveis de São Paulo';
-  
+
   try {
-    const session = await auth();
-    if (session?.user?.tenantId) {
-      tenantId = session.user.tenantId;
-    }
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (tenant?.name) {
       tenantName = tenant.name;

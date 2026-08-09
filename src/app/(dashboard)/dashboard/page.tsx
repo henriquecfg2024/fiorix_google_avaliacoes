@@ -1,4 +1,5 @@
 import React from 'react';
+import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 
@@ -15,7 +16,9 @@ export default async function Dashboard({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   const session = await auth();
-  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
+  if (!session?.user?.tenantId) redirect('/login');
+
+  const tenantId = session.user.tenantId as string;
 
   // Fetch real data from Prisma
   const totalReviews = await prisma.review.count({ where: { tenantId } });

@@ -7,7 +7,11 @@ export async function GET(request: Request) {
   const format = searchParams.get('format') || 'csv';
 
   const session = await auth();
-  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
+  if (!session?.user?.tenantId) {
+    return NextResponse.json({ error: 'Nao autorizado' }, { status: 401 });
+  }
+
+  const tenantId = session.user.tenantId as string;
 
   const reviews = await prisma.review.findMany({
     where: { tenantId },
