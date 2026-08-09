@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/auth';
+import { getTenantIdOrDefault } from '@/lib/tenant';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const format = searchParams.get('format') || 'csv';
 
-  const session = await auth();
-  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
+  const tenantId = await getTenantIdOrDefault();
 
   const reviews = await prisma.review.findMany({
     where: { tenantId },

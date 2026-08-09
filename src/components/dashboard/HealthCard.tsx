@@ -1,32 +1,24 @@
 import React from 'react';
 import Link from 'next/link';
+import {
+  classificarSaude,
+  INDICADORES_REPUTACAO,
+  IndicadorTone,
+  SAUDE_REPUTACAO,
+} from '@/lib/reputacao';
 import { GaugeChart } from './GaugeChart';
 
+const CORES_INDICADOR: Record<IndicadorTone, string> = {
+  green: '#10b981',
+  blue: '#2563eb',
+  amber: '#d97706',
+  red: '#dc2626',
+};
+
+const GRADIENTE_TOPO = 'linear-gradient(90deg,#10b981,#3b82f6)';
+
 export function HealthCard() {
-  // Os 10 Indicadores da Saúde da Reputação (ordenados por pontuação)
-  const indicadores = [
-    { icon: '🕘', nome: 'Horário de Atendimento', pct: 96, color: '#10b981', gradient: 'linear-gradient(90deg,#10b981,#3b82f6)' },
-    { icon: '💳', nome: 'Pagamento', pct: 93, color: '#10b981' },
-    { icon: '🤝', nome: 'Qualidade de Atendimento', pct: 91, color: '#10b981' },
-    { icon: '💡', nome: 'Clareza de Informações', pct: 88, color: '#10b981' },
-    { icon: '🌟', nome: 'Índice de Recomendação', pct: 85, color: '#2563eb' },
-    { icon: '🎯', nome: 'Resolução no 1º Contato', pct: 82, color: '#2563eb' },
-    { icon: '📄', nome: 'Documentação', pct: 59, color: '#2563eb' },
-    { icon: '🌐', nome: 'Site / Agendamento', pct: 42, color: '#d97706' },
-    { icon: '⏱️', nome: 'Prazo de Entrega', pct: 22, color: '#dc2626' },
-    { icon: '🕐', nome: 'Fila / Espera', pct: 18, color: '#dc2626' },
-  ];
-
-  const soma = indicadores.reduce((acc, curr) => acc + curr.pct, 0);
-  const saudeReputacao = Math.round(soma / indicadores.length); // 68
-
-  const getClassification = (score: number) => {
-    if (score >= 90) return 'Excelente';
-    if (score >= 80) return 'Muito Bom';
-    if (score >= 65) return 'Bom';
-    if (score >= 50) return 'Regular';
-    return 'Atenção Necessária';
-  };
+  const saudeReputacao = SAUDE_REPUTACAO;
 
   return (
     <div className="health-card" style={{ padding: '24px 20px' }}>
@@ -39,7 +31,7 @@ export function HealthCard() {
       
       <div className="health-score-display">{saudeReputacao}</div>
       <div className="health-score-label">
-        pontos de 100 — {getClassification(saudeReputacao)}
+        pontos de 100 — {classificarSaude(saudeReputacao)}
       </div>
 
       <div style={{ textAlign: 'center', marginTop: '8px', marginBottom: '20px' }}>
@@ -61,8 +53,9 @@ export function HealthCard() {
 
       {/* ═══ LISTA PERFEITAMENTE ALINHADA DOS 10 INDICADORES ═══ */}
       <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {indicadores.map((ind, idx) => {
+        {INDICADORES_REPUTACAO.map((ind, idx) => {
           const isBiLink = ind.nome === 'Prazo de Entrega';
+          const cor = CORES_INDICADOR[ind.tone];
           const cardContent = (
             <div 
               key={idx} 
@@ -82,18 +75,18 @@ export function HealthCard() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                 <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span>{ind.icon}</span>
-                  <span>{ind.nome} {isBiLink && <span style={{ fontSize: '10px', color: '#dc2626', fontWeight: 800, background: '#fee2e2', padding: '1px 5px', borderRadius: '4px' }}>VER BI →</span>}</span>
+                  <span>{ind.nomeCurto} {isBiLink && <span style={{ fontSize: '10px', color: '#dc2626', fontWeight: 800, background: '#fee2e2', padding: '1px 5px', borderRadius: '4px' }}>VER BI →</span>}</span>
                 </span>
                 <span style={{ 
                   fontSize: '12.5px', 
                   fontWeight: '800', 
-                  color: ind.color,
-                  background: `${ind.color}15`,
+                  color: cor,
+                  background: `${cor}15`,
                   padding: '2px 8px',
                   borderRadius: '6px',
                   whiteSpace: 'nowrap'
                 }}>
-                  {ind.pct}%
+                  {ind.score}%
                 </span>
               </div>
 
@@ -101,8 +94,8 @@ export function HealthCard() {
               <div style={{ height: '6px', background: '#e2e8f0', borderRadius: '99px', overflow: 'hidden', width: '100%' }}>
                 <div 
                   style={{ 
-                    width: `${ind.pct}%`, 
-                    background: ind.gradient || ind.color,
+                    width: `${ind.score}%`, 
+                    background: idx === 0 ? GRADIENTE_TOPO : cor,
                     height: '100%',
                     borderRadius: '99px'
                   }}

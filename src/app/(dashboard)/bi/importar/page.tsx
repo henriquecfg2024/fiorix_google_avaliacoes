@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { FileSpreadsheet, RefreshCw, Trash2, UploadCloud, XCircle } from 'lucide-react';
 
+import { formatDateTime, formatNumber } from '@/lib/format';
+
 import {
   createBiImport,
   deleteBiImport,
@@ -91,7 +93,7 @@ export default function FiorixBiImportPage() {
 
     const estimatedTotal = previewStats.totalLinhas || 1;
     setImportStatusMsg(
-      `Iniciando importação de ~${estimatedTotal.toLocaleString('pt-BR')} linhas...`
+      `Iniciando importação de ~${formatNumber(estimatedTotal)} linhas...`
     );
 
     const createRes = await createBiImport(csvFile.name, estimatedTotal, 'Manual SSMS');
@@ -117,7 +119,7 @@ export default function FiorixBiImportPage() {
 
           setUploadProgress(pct);
           setImportStatusMsg(
-            `Importando ${processed.toLocaleString('pt-BR')} / ${safeTotal.toLocaleString('pt-BR')} linhas (${pct.toFixed(1)}%)`
+            `Importando ${formatNumber(processed)} / ${formatNumber(safeTotal)} linhas (${pct.toFixed(1)}%)`
           );
         },
       });
@@ -130,7 +132,7 @@ export default function FiorixBiImportPage() {
 
       setUploadProgress(100);
       setImportStatusMsg(
-        `Importação concluída! ${totalProcessed.toLocaleString('pt-BR')} registros inseridos.`
+        `Importação concluída! ${formatNumber(totalProcessed)} registros inseridos.`
       );
       setIsImporting(false);
 
@@ -427,11 +429,11 @@ export default function FiorixBiImportPage() {
                 {importsList.map((item) => (
                   <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                     <td style={{ padding: '12px 16px', color: '#0f172a' }}>
-                      {new Date(item.importedAt).toLocaleString('pt-BR')}
+                      {formatDateTime(item.importedAt)}
                     </td>
                     <td style={{ padding: '12px 16px', color: '#334155' }}>{item.fileName}</td>
                     <td style={{ padding: '12px 16px', color: '#16a34a', fontWeight: 700 }}>
-                      {Number(item.rowsCount || 0).toLocaleString('pt-BR')} linhas
+                      {formatNumber(item.rowsCount)} linhas
                     </td>
                     <td style={{ padding: '12px 16px', color: '#64748b' }}>{item.importedBy}</td>
                     <td style={{ padding: '12px 16px', textAlign: 'center' }}>

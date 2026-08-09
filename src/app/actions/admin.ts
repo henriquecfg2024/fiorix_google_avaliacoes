@@ -1,24 +1,26 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/auth';
-import bcrypt from 'bcryptjs';
+import { hashPassword, MIN_PASSWORD_LENGTH } from '@/lib/password';
+import { getSessionTenantId, requireMasterSession, requireTenantId } from '@/lib/tenant';
+import { authorizeUserManagement } from '@/lib/user-admin';
 import { revalidatePath } from 'next/cache';
 
 export async function getUsers() {
-  const session = await auth();
-  if (!session?.user?.tenantId) return [];
+  const tenantId = await getSessionTenantId();
+  if (!tenantId) return [];
 
   return prisma.user.findMany({
-    where: { tenantId: session.user.tenantId },
+    where: { tenantId },
     select: { id: true, name: true, email: true, role: true, createdAt: true },
     orderBy: { createdAt: 'desc' }
   });
 }
 
 export async function getTenants() {
-  const session = await auth();
-  if (!session?.user?.role || session.user.role !== 'MASTER') {
+  try {
+    await requireMasterSession('Apenas usuários Master podem listar Cartórios.');
+  } catch {
     return [];
   }
 
@@ -33,8 +35,7 @@ export async function getTenants() {
 }
 
 export async function createUser(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.tenantId) throw new Error('Não autorizado');
+  const tenantId = await requireTenantId();
 
   const name = formData.get('name') as string;
   const email = formData.get('email') as string;
@@ -50,7 +51,7 @@ export async function createUser(formData: FormData) {
     throw new Error('Já existe um usuário cadastrado com este e-mail.');
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await hashPassword(password);
 
   await prisma.user.create({
     data: {
@@ -58,7 +59,7 @@ export async function createUser(formData: FormData) {
       email,
       passwordHash,
       role,
-      tenantId: session.user.tenantId,
+      tenantId,
     }
   });
 
@@ -66,10 +67,7 @@ export async function createUser(formData: FormData) {
 }
 
 export async function createTenant(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.role || session.user.role !== 'MASTER') {
-    throw new Error('Apenas usuários Master podem cadastrar novos Cartórios.');
-  }
+  await requireMasterSession('Apenas usuários Master podem cadastrar novos Cartórios.');
 
   const tenantName = formData.get('tenantName') as string;
   const adminEmail = formData.get('adminEmail') as string;
@@ -85,7 +83,7 @@ export async function createTenant(formData: FormData) {
     throw new Error('E-mail do administrador já está em uso.');
   }
 
-  const passwordHash = await bcrypt.hash(adminPassword, 10);
+  const passwordHash = await hashPassword(adminPassword);
 
   await prisma.$transaction(async (tx) => {
     const tenant = await tx.tenant.create({
@@ -107,28 +105,17 @@ export async function createTenant(formData: FormData) {
 }
 
 export async function resetUserPassword(userId: string, newPassword: string) {
-  const session = await auth();
-  if (!session?.user?.tenantId) return { error: 'Não autorizado' };
-  if (!session?.user?.role || !['ADMIN', 'MASTER'].includes(session.user.role)) {
-    return { error: 'Apenas administradores podem resetar senhas.' };
+  if (!userId || !newPassword || newPassword.trim().length < MIN_PASSWORD_LENGTH) {
+    return { error: `A nova senha deve ter no mínimo ${MIN_PASSWORD_LENGTH} caracteres.` };
   }
 
-  if (!userId || !newPassword || newPassword.trim().length < 6) {
-    return { error: 'A nova senha deve ter no mínimo 6 caracteres.' };
-  }
+  const authorized = await authorizeUserManagement(userId, {
+    forbidden: 'Apenas administradores podem resetar senhas.',
+    masterTarget: 'Apenas usuários MASTER podem resetar a senha de contas MASTER.',
+  });
+  if (authorized.error) return { error: authorized.error };
 
-  const targetUser = await prisma.user.findUnique({ where: { id: userId } });
-  if (!targetUser) return { error: 'Usuário não encontrado.' };
-
-  if (targetUser.role === 'MASTER' && session.user.role !== 'MASTER') {
-    return { error: 'Apenas usuários MASTER podem resetar a senha de contas MASTER.' };
-  }
-
-  if (session.user.role !== 'MASTER' && targetUser.tenantId !== session.user.tenantId) {
-    return { error: 'Não autorizado a alterar este usuário.' };
-  }
-
-  const passwordHash = await bcrypt.hash(newPassword, 10);
+  const passwordHash = await hashPassword(newPassword);
   await prisma.user.update({
     where: { id: userId },
     data: { passwordHash }
@@ -139,22 +126,11 @@ export async function resetUserPassword(userId: string, newPassword: string) {
 }
 
 export async function updateUserRole(userId: string, newRole: 'ADMIN' | 'USER') {
-  const session = await auth();
-  if (!session?.user?.tenantId) return { error: 'Não autorizado' };
-  if (!session?.user?.role || !['ADMIN', 'MASTER'].includes(session.user.role)) {
-    return { error: 'Apenas administradores podem alterar funções.' };
-  }
-
-  const targetUser = await prisma.user.findUnique({ where: { id: userId } });
-  if (!targetUser) return { error: 'Usuário não encontrado.' };
-
-  if (targetUser.role === 'MASTER' && session.user.role !== 'MASTER') {
-    return { error: 'Não é possível alterar a função de um usuário MASTER.' };
-  }
-
-  if (session.user.role !== 'MASTER' && targetUser.tenantId !== session.user.tenantId) {
-    return { error: 'Não autorizado a alterar este usuário.' };
-  }
+  const authorized = await authorizeUserManagement(userId, {
+    forbidden: 'Apenas administradores podem alterar funções.',
+    masterTarget: 'Não é possível alterar a função de um usuário MASTER.',
+  });
+  if (authorized.error) return { error: authorized.error };
 
   await prisma.user.update({
     where: { id: userId },
@@ -166,22 +142,11 @@ export async function updateUserRole(userId: string, newRole: 'ADMIN' | 'USER') 
 }
 
 export async function updateUserName(userId: string, newName: string) {
-  const session = await auth();
-  if (!session?.user?.tenantId) return { error: 'Não autorizado' };
-  if (!session?.user?.role || !['ADMIN', 'MASTER'].includes(session.user.role)) {
-    return { error: 'Apenas administradores podem alterar nomes.' };
-  }
-
-  const targetUser = await prisma.user.findUnique({ where: { id: userId } });
-  if (!targetUser) return { error: 'Usuário não encontrado.' };
-
-  if (targetUser.role === 'MASTER' && session.user.role !== 'MASTER') {
-    return { error: 'Apenas usuários MASTER podem alterar o nome de uma conta MASTER.' };
-  }
-
-  if (session.user.role !== 'MASTER' && targetUser.tenantId !== session.user.tenantId) {
-    return { error: 'Não autorizado a alterar este usuário.' };
-  }
+  const authorized = await authorizeUserManagement(userId, {
+    forbidden: 'Apenas administradores podem alterar nomes.',
+    masterTarget: 'Apenas usuários MASTER podem alterar o nome de uma conta MASTER.',
+  });
+  if (authorized.error) return { error: authorized.error };
 
   await prisma.user.update({
     where: { id: userId },

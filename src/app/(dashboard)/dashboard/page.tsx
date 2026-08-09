@@ -1,6 +1,8 @@
 import React from 'react';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/auth';
+import { loadColaboradoresComReviews } from '@/lib/colaboradores-data';
+import { countElogios, getColaboradorReviews } from '@/lib/colaboradores-metrics';
+import { getTenantIdOrDefault } from '@/lib/tenant';
 
 import { HealthCard } from '@/components/dashboard/HealthCard';
 import { InsightCard } from '@/components/dashboard/InsightCard';
@@ -14,8 +16,7 @@ export default async function Dashboard({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  const session = await auth();
-  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
+  const tenantId = await getTenantIdOrDefault();
 
   // Fetch real data from Prisma
   const totalReviews = await prisma.review.count({ where: { tenantId } });
@@ -93,52 +94,20 @@ export default async function Dashboard({
       })
     : demoReviewsSample;
 
-  // Real Collaborator Rankings from DB filtered by time periods
-  const dbColaboradores = await prisma.colaborador.findMany({
-    where: { tenantId, active: true },
-    include: {
-      mentions: {
-        include: { review: true }
-      }
-    }
-  });
-
-  const allReviews = await prisma.review.findMany({
-    where: { tenantId }
-  });
+  const { colaboradores: dbColaboradores, reviews: allReviews } = await loadColaboradoresComReviews(tenantId);
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const startOfQuarter = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
-  const getColabRank = (fromDate?: Date) => {
-    return dbColaboradores.map((colab) => {
-      const namesToSearch = [colab.name, ...(colab.aliases || [])].map(n => n.trim().toLowerCase()).filter(Boolean);
-      const matchedReviews = allReviews.filter(rev => {
-        if (!rev.comment) return false;
-        if (fromDate && new Date(rev.publishedAt) < fromDate) return false;
-        const commentLower = rev.comment.toLowerCase();
-        return namesToSearch.some(term => commentLower.includes(term));
-      });
-
-      const relationalReviews = colab.mentions
-        .map(m => m.review)
-        .filter(rev => rev && (!fromDate || new Date(rev.publishedAt) >= fromDate));
-
-      const combinedReviewsMap = new Map();
-      [...relationalReviews, ...matchedReviews].forEach(rev => {
-        if (rev && rev.id) combinedReviewsMap.set(rev.id, rev);
-      });
-      
-      const uniqueReviews = Array.from(combinedReviewsMap.values());
-      const elogios = uniqueReviews.filter(rev => rev.rating >= 4 || rev.aiSentiment === 'POSITIVE').length;
-
-      return {
+  const getColabRank = (fromDate?: Date) =>
+    dbColaboradores
+      .map((colab) => ({
         nome: colab.name,
-        elogios: uniqueReviews.length > 0 ? elogios : 0
-      };
-    }).sort((a, b) => b.elogios - a.elogios).slice(0, 5);
-  };
+        elogios: countElogios(getColaboradorReviews(colab, allReviews, fromDate)),
+      }))
+      .sort((a, b) => b.elogios - a.elogios)
+      .slice(0, 5);
 
   const monthColaboradores = getColabRank(startOfMonth);
   const quarterColaboradores = getColabRank(startOfQuarter);

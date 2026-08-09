@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { resetUserPassword, updateUserRole, updateUserName } from '@/app/actions/admin';
+import { formatDate } from '@/lib/format';
 
 interface UserItem {
   id: string;
@@ -174,7 +175,7 @@ export function UserListTable({
                     )}
                   </td>
                   <td style={{ padding: '14px 16px', color: '#64748b' }}>
-                    {new Date(u.createdAt).toLocaleDateString('pt-BR')}
+                    {formatDate(u.createdAt)}
                   </td>
                   <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                     {isProtected ? (

@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/auth';
+import { getSessionTenantId, requireTenantId } from '@/lib/tenant';
 import { revalidatePath } from 'next/cache';
 import { replyToGoogleReview } from '@/lib/google';
 
@@ -17,17 +17,16 @@ export async function generateAiResponse(reviewerName: string, rating: number, c
 }
 
 export async function sendReviewResponse(reviewId: string, content: string) {
-  const session = await auth();
-  if (!session?.user?.tenantId) throw new Error('Não autorizado');
+  const tenantId = await requireTenantId();
 
   const review = await prisma.review.findFirst({
-    where: { id: reviewId, tenantId: session.user.tenantId },
+    where: { id: reviewId, tenantId },
     select: { googleId: true },
   });
   if (!review?.googleId) throw new Error('Avaliação sem identificação do Google.');
 
   // Only mark it locally after Google accepts the reply.
-  await replyToGoogleReview(session.user.tenantId, review.googleId, content);
+  await replyToGoogleReview(tenantId, review.googleId, content);
 
   await prisma.$transaction(async (tx) => {
     // 1. Create or update Response record
@@ -54,12 +53,12 @@ export async function sendReviewResponse(reviewId: string, content: string) {
 }
 
 export async function getPendingCount() {
-  const session = await auth();
-  if (!session?.user?.tenantId) return 0;
+  const tenantId = await getSessionTenantId();
+  if (!tenantId) return 0;
 
   return prisma.review.count({
     where: {
-      tenantId: session.user.tenantId,
+      tenantId,
       status: 'PENDING'
     }
   });

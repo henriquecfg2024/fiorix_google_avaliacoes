@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { generateAiResponse, sendReviewResponse } from '@/app/actions/reviews';
+import { formatDate, formatTime } from '@/lib/format';
 
 interface ReviewItemProps {
   review: {
@@ -66,15 +67,9 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
     }
   };
 
-  const formatDate = (dateInput: any) => {
-    if (!dateInput) return 'Data recente';
-    try {
-      const d = new Date(dateInput);
-      if (isNaN(d.getTime())) return 'Data recente';
-      return `Publicado em ${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
-    } catch {
-      return 'Data recente';
-    }
+  const formatPublishedAt = (dateInput: Date | string | number | null | undefined) => {
+    const date = formatDate(dateInput);
+    return date ? `Publicado em ${date} às ${formatTime(dateInput)}` : 'Data recente';
   };
 
   return (
@@ -106,7 +101,7 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
             <div>
               <div style={{ fontWeight: '600', fontSize: '15px', color: '#1e293b' }}>{review.reviewerName}</div>
               <div style={{ fontSize: '12px', color: '#64748b' }}>
-                {formatDate(review.publishedAt)}
+                {formatPublishedAt(review.publishedAt)}
               </div>
             </div>
           </div>
