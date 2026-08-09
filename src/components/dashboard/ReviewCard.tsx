@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatDate } from '@/lib/format';
 
 interface ReviewItem {
   id: string;
@@ -57,7 +58,7 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
               <div>
                 <div className="review-name">{rev.reviewerName}</div>
                 <div className="review-time">
-                  {new Date(rev.publishedAt).toLocaleDateString('pt-BR')}
+                  {formatDate(rev.publishedAt)}
                 </div>
               </div>
             </div>

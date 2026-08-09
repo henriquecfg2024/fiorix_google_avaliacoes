@@ -1,22 +1,21 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/auth';
+import { getSessionTenantId, requireTenantId } from '@/lib/tenant';
 import { revalidatePath } from 'next/cache';
 
 export async function getColaboradores() {
-  const session = await auth();
-  if (!session?.user?.tenantId) return [];
+  const tenantId = await getSessionTenantId();
+  if (!tenantId) return [];
 
   return prisma.colaborador.findMany({
-    where: { tenantId: session.user.tenantId },
+    where: { tenantId },
     orderBy: { createdAt: 'desc' }
   });
 }
 
 export async function addColaborador(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.tenantId) throw new Error('Não autorizado');
+  const tenantId = await requireTenantId();
 
   const name = formData.get('name') as string;
   const aliasesRaw = formData.get('aliases') as string;
@@ -33,7 +32,7 @@ export async function addColaborador(formData: FormData) {
     data: {
       name,
       aliases,
-      tenantId: session.user.tenantId,
+      tenantId,
     }
   });
 
@@ -41,8 +40,7 @@ export async function addColaborador(formData: FormData) {
 }
 
 export async function toggleColaboradorActive(id: string, currentStatus: boolean) {
-  const session = await auth();
-  if (!session?.user?.tenantId) throw new Error('Não autorizado');
+  await requireTenantId();
 
   await prisma.colaborador.update({
     where: { id },
@@ -53,8 +51,7 @@ export async function toggleColaboradorActive(id: string, currentStatus: boolean
 }
 
 export async function deleteColaborador(id: string) {
-  const session = await auth();
-  if (!session?.user?.tenantId) throw new Error('Não autorizado');
+  await requireTenantId();
 
   await prisma.colaborador.delete({
     where: { id }

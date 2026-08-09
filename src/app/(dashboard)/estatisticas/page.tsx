@@ -1,50 +1,32 @@
 import React from 'react';
-import { prisma } from '@/lib/prisma';
-import { auth } from '@/auth';
+import { percentOf } from '@/lib/format';
+import {
+  INDICADORES_REPUTACAO,
+  IndicadorTone,
+  SAUDE_REPUTACAO,
+  SOMA_SCORE_REPUTACAO,
+} from '@/lib/reputacao';
+import { getRatingDistribution } from '@/lib/review-stats';
+import { getTenantIdOrDefault } from '@/lib/tenant';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
+const CORES_INDICADOR: Record<IndicadorTone, string> = {
+  green: '#10b981',
+  blue: '#3b82f6',
+  amber: '#f59e0b',
+  red: '#ef4444',
+};
+
 export default async function EstatisticasPage() {
-  const session = await auth();
-  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
+  const tenantId = await getTenantIdOrDefault();
+  const { total: totalReviews, byRating } = await getRatingDistribution(
+    tenantId,
+    'Error loading estatisticas:'
+  );
 
-  let totalReviews = 0;
-  let fiveStars = 0;
-  let fourStars = 0;
-  let threeStars = 0;
-  let twoStars = 0;
-  let oneStar = 0;
-
-  try {
-    totalReviews = await prisma.review.count({ where: { tenantId } });
-    fiveStars = await prisma.review.count({ where: { tenantId, rating: 5 } });
-    fourStars = await prisma.review.count({ where: { tenantId, rating: 4 } });
-    threeStars = await prisma.review.count({ where: { tenantId, rating: 3 } });
-    twoStars = await prisma.review.count({ where: { tenantId, rating: 2 } });
-    oneStar = await prisma.review.count({ where: { tenantId, rating: 1 } });
-  } catch (err) {
-    console.error('Error loading estatisticas:', err);
-  }
-
-  const getPercent = (count: number) => (totalReviews > 0 ? ((count / totalReviews) * 100).toFixed(1) : '0.0');
-
-  // Os 10 Indicadores da Saúde da Reputação (Incluindo os 6 pilares de Saúde Operacional + 4 pilares de Satisfação)
-  const indicadores = [
-    { icon: '🕘', nome: 'Horário de Atendimento', score: 96, status: 'Excelente', color: '#10b981', desc: 'Cumprimento dos horários de abertura, atendimento contínuo e pontualidade' },
-    { icon: '💳', nome: 'Pagamento', score: 93, status: 'Excelente', color: '#10b981', desc: 'Opções de pagamento como PIX, cartão de débito/crédito e agilidade no caixa' },
-    { icon: '🤝', nome: 'Qualidade de Atendimento', score: 91, status: 'Excelente', color: '#10b981', desc: 'Cordialidade, empatia e presteza da equipe de escreventes na recepção' },
-    { icon: '💡', nome: 'Clareza de Informações', score: 88, status: 'Excelente', color: '#10b981', desc: 'Orientação precisa ao cliente sobre requisitos e documentos necessários' },
-    { icon: '🌟', nome: 'Índice de Recomendação (NPS)', score: 85, status: 'Muito Bom', color: '#3b82f6', desc: 'Porcentagem de clientes promotores que elogiam ativamente a serventia' },
-    { icon: '🎯', nome: 'Resolução no Primeiro Contato', score: 82, status: 'Muito Bom', color: '#3b82f6', desc: 'Capacidade de resolver o ato sem exigir retornos adicionais desnecessários' },
-    { icon: '📄', nome: 'Documentação', score: 59, status: 'Regular', color: '#3b82f6', desc: 'Clareza na exigência e conferência prévia da documentação apresentada' },
-    { icon: '🌐', nome: 'Site / Agendamento', score: 42, status: 'Atenção', color: '#f59e0b', desc: 'Disponibilidade e facilidade de agendamento presencial no portal online' },
-    { icon: '⏱️', nome: 'Prazo de Entrega', score: 22, status: 'Crítico', color: '#ef4444', desc: 'Cumprimento do prazo prometido para devolução de títulos e certidões' },
-    { icon: '🕐', nome: 'Fila / Espera', score: 18, status: 'Crítico', color: '#ef4444', desc: 'Tempo de espera na fila de triagem e atendimento presencial' },
-  ];
-
-  const somaScore = indicadores.reduce((acc, curr) => acc + curr.score, 0);
-  const mediaSaudeReputacao = Math.round(somaScore / indicadores.length);
+  const getPercent = (count: number) => percentOf(count, totalReviews);
 
   return (
     <div className="layout" style={{ gridTemplateColumns: '1fr', gap: '24px' }}>
@@ -62,11 +44,11 @@ export default async function EstatisticasPage() {
 
           <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {[
-              { label: '5 Estrelas', count: fiveStars, color: '#22c55e' },
-              { label: '4 Estrelas', count: fourStars, color: '#3b82f6' },
-              { label: '3 Estrelas', count: threeStars, color: '#f59e0b' },
-              { label: '2 Estrelas', count: twoStars, color: '#fb923c' },
-              { label: '1 Estrela', count: oneStar, color: '#ef4444' },
+              { label: '5 Estrelas', count: byRating[5], color: '#22c55e' },
+              { label: '4 Estrelas', count: byRating[4], color: '#3b82f6' },
+              { label: '3 Estrelas', count: byRating[3], color: '#f59e0b' },
+              { label: '2 Estrelas', count: byRating[2], color: '#fb923c' },
+              { label: '1 Estrela', count: byRating[1], color: '#ef4444' },
             ].map((item, idx) => (
               <div key={idx} style={{ display: 'grid', gridTemplateColumns: '85px 1fr 100px', alignItems: 'center', gap: '12px' }}>
                 <span style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>{item.label}</span>
@@ -121,7 +103,7 @@ export default async function EstatisticasPage() {
           </div>
           <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '10px 18px', borderRadius: '10px', textAlign: 'right' }}>
             <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#3b82f6', fontWeight: '700', letterSpacing: '0.5px' }}>Saúde Global Calculada</span>
-            <div style={{ fontSize: '24px', fontWeight: '800', color: '#1d4ed8' }}>{mediaSaudeReputacao} <span style={{ fontSize: '14px', fontWeight: '600', color: '#64748b' }}>pts</span></div>
+            <div style={{ fontSize: '24px', fontWeight: '800', color: '#1d4ed8' }}>{SAUDE_REPUTACAO} <span style={{ fontSize: '14px', fontWeight: '600', color: '#64748b' }}>pts</span></div>
           </div>
         </div>
 
@@ -134,13 +116,16 @@ export default async function EstatisticasPage() {
             O score global é a <strong>média exata da soma dos 10 indicadores avaliados</strong> (incluindo os 6 pilares de Saúde Operacional):
           </p>
           <div style={{ background: 'white', padding: '12px 18px', borderRadius: '8px', border: '1px solid #cbd5e1', fontFamily: 'monospace', fontSize: '13.5px', color: '#1e293b', display: 'inline-block' }}>
-            Saúde da Reputação = ({somaScore}) ÷ 10 = <strong>{mediaSaudeReputacao} Pontos</strong>
+            Saúde da Reputação = ({SOMA_SCORE_REPUTACAO}) ÷ 10 = <strong>{SAUDE_REPUTACAO} Pontos</strong>
           </div>
         </div>
 
         {/* Grid com os 10 Indicadores */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-          {indicadores.map((ind, idx) => (
+          {INDICADORES_REPUTACAO.map((ind, idx) => {
+            const cor = CORES_INDICADOR[ind.tone];
+
+            return (
             <div 
               key={idx} 
               style={{ 
@@ -162,8 +147,8 @@ export default async function EstatisticasPage() {
                   <span style={{ 
                     fontSize: '13.5px', 
                     fontWeight: '800', 
-                    color: ind.color,
-                    background: `${ind.color}15`,
+                    color: cor,
+                    background: `${cor}15`,
                     padding: '2px 10px',
                     borderRadius: '6px'
                   }}>
@@ -177,11 +162,12 @@ export default async function EstatisticasPage() {
 
               <div style={{ marginTop: '12px' }}>
                 <div style={{ background: '#f1f5f9', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
-                  <div style={{ background: ind.color, height: '100%', width: `${ind.score}%` }} />
+                  <div style={{ background: cor, height: '100%', width: `${ind.score}%` }} />
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Esclarecimento sobre Taxa de Resposta */}

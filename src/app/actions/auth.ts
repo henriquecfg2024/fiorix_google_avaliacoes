@@ -3,8 +3,7 @@
 import { signIn, signOut, auth } from '@/auth';
 import { AuthError } from 'next-auth';
 import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
-import { revalidatePath } from 'next/cache';
+import { hashPassword, MIN_PASSWORD_LENGTH, verifyPassword } from '@/lib/password';
 
 export async function authenticate(
   prevState: string | undefined,
@@ -42,8 +41,8 @@ export async function updatePassword(formData: FormData) {
     return { error: 'Preencha todos os campos.' };
   }
 
-  if (newPassword.length < 6) {
-    return { error: 'A nova senha deve ter no mínimo 6 caracteres.' };
+  if (newPassword.length < MIN_PASSWORD_LENGTH) {
+    return { error: `A nova senha deve ter no mínimo ${MIN_PASSWORD_LENGTH} caracteres.` };
   }
 
   const user = await prisma.user.findUnique({
@@ -54,12 +53,12 @@ export async function updatePassword(formData: FormData) {
     return { error: 'Usuário não encontrado.' };
   }
 
-  const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+  const isMatch = await verifyPassword(currentPassword, user.passwordHash);
   if (!isMatch) {
     return { error: 'Senha atual incorreta.' };
   }
 
-  const newHash = await bcrypt.hash(newPassword, 10);
+  const newHash = await hashPassword(newPassword);
   await prisma.user.update({
     where: { id: user.id },
     data: { passwordHash: newHash }

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import Papa from 'papaparse';
+import { formatDate, formatNumber } from '@/lib/format';
 import {
   PieChart,
   Pie,
@@ -288,7 +289,7 @@ export default function FiorixBiPage() {
     setIsImporting(true);
     setUploadProgress(0);
     const estimatedTotal = previewStats.totalLinhas || 1491351;
-    setImportStatusMsg(`Iniciando importação de ~${estimatedTotal.toLocaleString('pt-BR')} linhas...`);
+    setImportStatusMsg(`Iniciando importação de ~${formatNumber(estimatedTotal)} linhas...`);
 
     const createRes = await createBiImport(csvFile.name, estimatedTotal, 'Manual SSMS');
     if (!createRes.success || !createRes.importId) {
@@ -318,7 +319,7 @@ export default function FiorixBiPage() {
         const pct = Math.min(99, Number(((processed / total) * 100).toFixed(1)));
         setUploadProgress(pct);
         setImportStatusMsg(
-          `Importando ${processed.toLocaleString('pt-BR')} / ${total.toLocaleString('pt-BR')} linhas (${pct.toFixed(1)}%)`
+          `Importando ${formatNumber(processed)} / ${formatNumber(total)} linhas (${pct.toFixed(1)}%)`
         );
       },
     });
@@ -332,7 +333,7 @@ export default function FiorixBiPage() {
     }
 
       setUploadProgress(100);
-      setImportStatusMsg(`Importação concluída! ${totalProcessed.toLocaleString('pt-BR')} registros inseridos.`);
+      setImportStatusMsg(`Importação concluída! ${formatNumber(totalProcessed)} registros inseridos.`);
       setIsImporting(false);
       setTimeout(() => {
         handleCancelUpload();
@@ -438,7 +439,7 @@ export default function FiorixBiPage() {
             const pct = Math.min(99, Math.round((totalProcessed / estimatedTotal) * 100));
             setUploadProgress(pct);
             setImportStatusMsg(
-              `Importando ${totalProcessed.toLocaleString('pt-BR')} / ${estimatedTotal.toLocaleString('pt-BR')} linhas (${pct}%)`
+              `Importando ${formatNumber(totalProcessed)} / ${formatNumber(estimatedTotal)} linhas (${pct}%)`
             );
           }
         } catch (e: any) {
@@ -462,7 +463,7 @@ export default function FiorixBiPage() {
           }
 
           setUploadProgress(100);
-          setImportStatusMsg(`🎉 Importação concluída! ${totalProcessed.toLocaleString('pt-BR')} registros inseridos.`);
+          setImportStatusMsg(`🎉 Importação concluída! ${formatNumber(totalProcessed)} registros inseridos.`);
           setIsImporting(false);
 
           setTimeout(() => {
@@ -629,7 +630,7 @@ export default function FiorixBiPage() {
               <option value="ALL">Todas as Importações</option>
               {importsList.map((imp) => (
                 <option key={imp.id} value={imp.id}>
-                  {imp.fileName} ({new Date(imp.importedAt).toLocaleDateString('pt-BR')}) - {imp.rowsCount} rows
+                  {imp.fileName} ({formatDate(imp.importedAt)}) - {imp.rowsCount} rows
                 </option>
               ))}
             </select>
@@ -680,7 +681,7 @@ export default function FiorixBiPage() {
           <div style={{ background: '#ffffff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Total de Títulos Analisados</div>
             <div style={{ fontSize: '28px', fontWeight: 800, color: '#002B49', marginTop: '6px' }}>
-              {dashboardData.summary.totalRecords.toLocaleString('pt-BR')}
+              {formatNumber(dashboardData.summary.totalRecords)}
             </div>
             <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
               {dashboardData.summary.totalRegistered} com Registrado (Cod 6) · {dashboardData.summary.exceptionRecordsExcluded || 0} fora da régua geral

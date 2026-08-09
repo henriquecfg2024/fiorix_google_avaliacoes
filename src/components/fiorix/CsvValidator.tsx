@@ -1,26 +1,19 @@
 import Papa from 'papaparse';
 
-export const HEADER_FIORIX = [
-  'Protocolo',
-  'FlagRecepcao',
-  'TipoSolicitacao',
-  'IdAndamento',
-  'DtProtocolo',
-  'DtPrevisaoEntrega',
-  'DtAndamento',
-  'DataProtocolo',
-  'CodProcessamento',
-  'DescAndamento',
-  'Natureza',
-  'TipoPrenotacao',
-  'DiasPrometidos',
-  'DiasCorridos',
-  'DiasAtraso',
-  'SituacaoPrazo',
-  'IsDevolucao',
-  'IsRegistrado',
-  'TextoNotaDevolucao',
-];
+import {
+  BiCsvRow,
+  HEADER_FIORIX,
+  limparCelula,
+  normalizarCabecalho,
+  parseBoolValue,
+  parseDateValue,
+  parseIntValue,
+  protocoloValido,
+} from '@/lib/bi-row';
+import { formatNumber, percentOf } from '@/lib/format';
+
+export type { BiCsvRow } from '@/lib/bi-row';
+export { HEADER_FIORIX } from '@/lib/bi-row';
 
 export const COLUNAS_OBRIGATORIAS = HEADER_FIORIX;
 
@@ -38,38 +31,7 @@ export interface CsvStats {
   naturezas: string[];
 }
 
-export interface BiCsvRow {
-  Protocolo: string;
-  FlagRecepcao?: number | null;
-  TipoSolicitacao?: string | null;
-  IdAndamento?: number | string | null;
-  DtProtocolo?: string | null;
-  DtPrevisaoEntrega?: string | null;
-  DtAndamento?: string | null;
-  CodProcessamento?: number | null;
-  DescAndamento?: string | null;
-  Natureza?: string | null;
-  TipoPrenotacao?: string | null;
-  DiasPrometidos?: number | null;
-  DiasCorridos?: number | null;
-  DiasAtraso?: number | null;
-  SituacaoPrazo?: string | null;
-  IsDevolucao?: boolean | null;
-  IsRegistrado?: boolean | null;
-  TextoNotaDevolucao?: string | null;
-}
-
-const HEADER_FIORIX_NORMALIZADO = HEADER_FIORIX.map((header) =>
-  header.toLowerCase().replace(/[^a-z0-9]/g, '')
-);
-
-function limparCelula(value: unknown) {
-  return typeof value === 'string' ? value.replace(/^\uFEFF/, '').trim() : '';
-}
-
-function normalizarCabecalho(value: unknown) {
-  return limparCelula(value).toLowerCase().replace(/[^a-z0-9]/g, '');
-}
+const HEADER_FIORIX_NORMALIZADO = HEADER_FIORIX.map(normalizarCabecalho);
 
 function linhaTemConteudo(row: string[]) {
   return Array.isArray(row) && row.some((cell) => limparCelula(cell) !== '');
@@ -132,70 +94,27 @@ function getVal(row: Record<string, string>, col: string) {
   return key ? row[key] : '';
 }
 
-function getInt(val: unknown) {
-  if (val === undefined || val === null || val === '') return null;
-  const parsed = parseInt(String(val).replace(/\D/g, ''), 10);
-  return Number.isNaN(parsed) ? null : parsed;
-}
-
-function getBool(val: unknown) {
-  if (val === undefined || val === null) return false;
-  if (typeof val === 'boolean') return val;
-
-  const lower = String(val).trim().toLowerCase();
-  return lower === '1' || lower === 'true' || lower === 'sim';
-}
-
-function protocoloValido(protocolo: unknown) {
-  const cleaned = String(protocolo || '').trim();
-  return Boolean(cleaned && cleaned !== '0' && cleaned.toLowerCase() !== 'protocolo');
-}
-
 function normalizarLinha(row: Record<string, string>): BiCsvRow {
   return {
     Protocolo: String(getVal(row, 'Protocolo') || '').trim(),
-    FlagRecepcao: getInt(getVal(row, 'FlagRecepcao')),
+    FlagRecepcao: parseIntValue(getVal(row, 'FlagRecepcao')),
     TipoSolicitacao: getVal(row, 'TipoSolicitacao') || null,
     IdAndamento: getVal(row, 'IdAndamento') || null,
     DtProtocolo: getVal(row, 'DtProtocolo') || getVal(row, 'DataProtocolo') || null,
     DtPrevisaoEntrega: getVal(row, 'DtPrevisaoEntrega') || null,
     DtAndamento: getVal(row, 'DtAndamento') || null,
-    CodProcessamento: getInt(getVal(row, 'CodProcessamento')),
+    CodProcessamento: parseIntValue(getVal(row, 'CodProcessamento')),
     DescAndamento: getVal(row, 'DescAndamento') || null,
     Natureza: getVal(row, 'Natureza') || null,
     TipoPrenotacao: getVal(row, 'TipoPrenotacao') || null,
-    DiasPrometidos: getInt(getVal(row, 'DiasPrometidos')),
-    DiasCorridos: getInt(getVal(row, 'DiasCorridos')),
-    DiasAtraso: getInt(getVal(row, 'DiasAtraso')),
+    DiasPrometidos: parseIntValue(getVal(row, 'DiasPrometidos')),
+    DiasCorridos: parseIntValue(getVal(row, 'DiasCorridos')),
+    DiasAtraso: parseIntValue(getVal(row, 'DiasAtraso')),
     SituacaoPrazo: getVal(row, 'SituacaoPrazo') || null,
-    IsDevolucao: getBool(getVal(row, 'IsDevolucao')),
-    IsRegistrado: getBool(getVal(row, 'IsRegistrado')),
+    IsDevolucao: parseBoolValue(getVal(row, 'IsDevolucao')),
+    IsRegistrado: parseBoolValue(getVal(row, 'IsRegistrado')),
     TextoNotaDevolucao: getVal(row, 'TextoNotaDevolucao') || null,
   };
-}
-
-function parseDateValue(value?: string | null) {
-  if (!value) return null;
-
-  const cleaned = String(value).trim();
-  if (!cleaned) return null;
-
-  const parsed = new Date(cleaned);
-  if (!Number.isNaN(parsed.getTime())) {
-    return parsed;
-  }
-
-  const match = cleaned.match(
-    /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}:\d{2}(?::\d{2})?))?$/
-  );
-
-  if (!match) {
-    return null;
-  }
-
-  const [, day, month, year, time = '00:00:00'] = match;
-  const fallback = new Date(`${year}-${month}-${day}T${time}`);
-  return Number.isNaN(fallback.getTime()) ? null : fallback;
 }
 
 function toPreviewDateString(value?: string | null) {
@@ -203,14 +122,52 @@ function toPreviewDateString(value?: string | null) {
   return parsed ? parsed.toISOString().slice(0, 10) : null;
 }
 
+/**
+ * Stateful reader that resolves the header layout from the first row and maps
+ * every following raw row into a `BiCsvRow`. Returns null for the header row.
+ */
+function criarLeitorDeLinhas() {
+  let detectedHeaders = HEADER_FIORIX;
+  let isHeader = false;
+  let firstDataRowResolved = false;
+
+  return function lerLinha(rawRow: string[]): BiCsvRow | null {
+    const cleanedRow = rawRow.map((cell) => limparCelula(cell));
+
+    if (!firstDataRowResolved) {
+      isHeader = detectarCabecalho(cleanedRow);
+      detectedHeaders = isHeader ? cleanedRow : HEADER_FIORIX;
+      firstDataRowResolved = true;
+
+      if (isHeader) return null;
+    }
+
+    return normalizarLinha(mapearLinhaBruta(cleanedRow, detectedHeaders, isHeader));
+  };
+}
+
+const PAPA_PARSE_CONFIG = {
+  header: false,
+  delimiter: ';',
+  skipEmptyLines: false,
+  encoding: 'UTF-8',
+  quoteChar: '"',
+  escapeChar: '"',
+  worker: false,
+  chunkSize: 1024 * 1024 * 4,
+  transform: (val: string) => limparCelula(val),
+} as const;
+
+function linhasDoChunk(results: Papa.ParseResult<unknown>) {
+  return ((results.data as string[][]) || []).filter(linhaTemConteudo);
+}
+
 export function validarCSV(
   file: File,
   onPreview: (stats: CsvStats, rows: BiCsvRow[]) => void,
   onError: (msg: string) => void
 ) {
-  let detectedHeaders = HEADER_FIORIX;
-  let isHeader = false;
-  let firstDataRowResolved = false;
+  const lerLinha = criarLeitorDeLinhas();
   let totalLinhas = 0;
   let validRows = 0;
   let devolucoes = 0;
@@ -223,35 +180,13 @@ export function validarCSV(
   const naturezas = new Set<string>();
 
   Papa.parse(file, {
-    header: false,
-    delimiter: ';',
-    skipEmptyLines: false,
-    encoding: 'UTF-8',
-    quoteChar: '"',
-    escapeChar: '"',
-    worker: false,
-    chunkSize: 1024 * 1024 * 4,
-    transform: (val: string) => limparCelula(val),
+    ...PAPA_PARSE_CONFIG,
     chunk: (results) => {
-      const rawRows = ((results.data as string[][]) || []).filter(linhaTemConteudo);
-
-      for (const rawRow of rawRows) {
-        const cleanedRow = rawRow.map((cell) => limparCelula(cell));
-
-        if (!firstDataRowResolved) {
-          isHeader = detectarCabecalho(cleanedRow);
-          detectedHeaders = isHeader ? cleanedRow : HEADER_FIORIX;
-          firstDataRowResolved = true;
-
-          if (isHeader) {
-            continue;
-          }
-        }
+      for (const rawRow of linhasDoChunk(results)) {
+        const normalizedRow = lerLinha(rawRow);
+        if (!normalizedRow) continue;
 
         totalLinhas += 1;
-
-        const mappedRow = mapearLinhaBruta(cleanedRow, detectedHeaders, isHeader);
-        const normalizedRow = normalizarLinha(mappedRow);
 
         if (!protocoloValido(normalizedRow.Protocolo)) {
           continue;
@@ -316,8 +251,7 @@ export function validarCSV(
         return;
       }
 
-      const percAtrasoVal =
-        noPrazo + atrasados > 0 ? (atrasados / (noPrazo + atrasados)) * 100 : 0;
+      const percAtrasoVal = percentOf(atrasados, noPrazo + atrasados);
 
       const stats: CsvStats = {
         fileName: file.name,
@@ -327,7 +261,7 @@ export function validarCSV(
         atrasados,
         noPrazo,
         emAndamento,
-        percAtraso: percAtrasoVal.toFixed(1),
+        percAtraso: percAtrasoVal,
         periodoIni: minDate || 'N/I',
         periodoFim: maxDate || 'N/I',
         naturezas: Array.from(naturezas).slice(0, 3),
@@ -341,6 +275,17 @@ export function validarCSV(
   });
 }
 
+export type InsertBatchFn = (
+  rows: BiCsvRow[]
+) => Promise<{ success: boolean; count?: number; error?: string }>;
+
+async function executarLote(batch: BiCsvRow[], insertBatch: InsertBatchFn) {
+  const result = await insertBatch(batch);
+  if (!result?.success) {
+    throw new Error(result?.error || 'Falha ao inserir lote de dados.');
+  }
+}
+
 export async function importarLinhasEmLotes({
   rows,
   batchSize = 1000,
@@ -351,7 +296,7 @@ export async function importarLinhasEmLotes({
   rows: BiCsvRow[];
   batchSize?: number;
   concurrency?: number;
-  insertBatch: (rows: BiCsvRow[]) => Promise<{ success: boolean; count?: number; error?: string }>;
+  insertBatch: InsertBatchFn;
   onProgress?: (processed: number, total: number) => void | Promise<void>;
 }) {
   let totalProcessed = 0;
@@ -364,10 +309,7 @@ export async function importarLinhasEmLotes({
     }
 
     const counts = await Promise.all(batches.map(async (batch) => {
-      const result = await insertBatch(batch);
-      if (!result?.success) {
-        throw new Error(result?.error || 'Falha ao inserir lote de dados.');
-      }
+      await executarLote(batch, insertBatch);
       return batch.length;
     }));
 
@@ -390,15 +332,11 @@ export async function importarCSVEmLotes({
   batchSize?: number;
   estimatedTotal: number;
   concurrency?: number;
-  insertBatch: (
-    rows: BiCsvRow[]
-  ) => Promise<{ success: boolean; count?: number; error?: string }>;
+  insertBatch: InsertBatchFn;
   onProgress?: (processed: number, estimatedTotal: number) => void | Promise<void>;
 }) {
   return new Promise<{ totalProcessed: number }>((resolve, reject) => {
-    let detectedHeaders = HEADER_FIORIX;
-    let isHeader = false;
-    let firstDataRowResolved = false;
+    const lerLinha = criarLeitorDeLinhas();
     let totalProcessed = 0;
     let validRows = 0;
     let settled = false;
@@ -419,10 +357,7 @@ export async function importarCSVEmLotes({
 
         const batch = rowBuffer.splice(0, Math.min(batchSize, rowBuffer.length));
         const task = (async () => {
-          const result = await insertBatch(batch);
-          if (!result?.success) {
-            throw new Error(result?.error || 'Falha ao inserir lote de dados.');
-          }
+          await executarLote(batch, insertBatch);
 
           totalProcessed += batch.length;
           if (onProgress) await onProgress(totalProcessed, estimatedTotal);
@@ -441,39 +376,16 @@ export async function importarCSVEmLotes({
     };
 
     Papa.parse(file, {
-      header: false,
-      delimiter: ';',
-      skipEmptyLines: false,
-      encoding: 'UTF-8',
-      quoteChar: '"',
-      escapeChar: '"',
-      worker: false,
-      chunkSize: 1024 * 1024 * 4,
-      transform: (val: string) => limparCelula(val),
+      ...PAPA_PARSE_CONFIG,
       chunk: (results, parser) => {
         parser.pause();
 
         Promise.resolve()
           .then(async () => {
-            const rawRows = ((results.data as string[][]) || []).filter(linhaTemConteudo);
+            for (const rawRow of linhasDoChunk(results)) {
+              const normalizedRow = lerLinha(rawRow);
 
-            for (const rawRow of rawRows) {
-              const cleanedRow = rawRow.map((cell) => limparCelula(cell));
-
-              if (!firstDataRowResolved) {
-                isHeader = detectarCabecalho(cleanedRow);
-                detectedHeaders = isHeader ? cleanedRow : HEADER_FIORIX;
-                firstDataRowResolved = true;
-
-                if (isHeader) {
-                  continue;
-                }
-              }
-
-              const mappedRow = mapearLinhaBruta(cleanedRow, detectedHeaders, isHeader);
-              const normalizedRow = normalizarLinha(mappedRow);
-
-              if (!protocoloValido(normalizedRow.Protocolo)) {
+              if (!normalizedRow || !protocoloValido(normalizedRow.Protocolo)) {
                 continue;
               }
 
@@ -546,18 +458,18 @@ export function PreviewCard({
         📊 Preview: {stats.fileName}
       </h3>
       <p style={{ margin: '4px 0', fontSize: '14px', color: '#334155' }}>
-        ✅ Total de linhas: <b>{stats.totalLinhas.toLocaleString('pt-BR')}</b>
+        ✅ Total de linhas: <b>{formatNumber(stats.totalLinhas)}</b>
       </p>
       <p style={{ margin: '4px 0', fontSize: '14px', color: '#334155' }}>
-        📄 Protocolos únicos: <b>{stats.protocolosUnicos.toLocaleString('pt-BR')}</b>
+        📄 Protocolos únicos: <b>{formatNumber(stats.protocolosUnicos)}</b>
       </p>
       <p style={{ margin: '4px 0', fontSize: '14px', color: '#334155' }}>
-        ⚠️ Devoluções: <b>{stats.devolucoes.toLocaleString('pt-BR')}</b>
+        ⚠️ Devoluções: <b>{formatNumber(stats.devolucoes)}</b>
       </p>
       <p style={{ margin: '4px 0', fontSize: '14px', color: '#334155' }}>
-        🟢 No Prazo: <b>{stats.noPrazo.toLocaleString('pt-BR')}</b> | 🔴 Atrasados:{' '}
+        🟢 No Prazo: <b>{formatNumber(stats.noPrazo)}</b> | 🔴 Atrasados:{' '}
         <b>
-          {stats.atrasados.toLocaleString('pt-BR')} ({stats.percAtraso}%)
+          {formatNumber(stats.atrasados)} ({stats.percAtraso}%)
         </b>
       </p>
       <p style={{ margin: '4px 0', fontSize: '14px', color: '#334155' }}>

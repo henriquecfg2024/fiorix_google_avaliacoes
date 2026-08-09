@@ -3,6 +3,7 @@ import { getTenants, createTenant } from '@/app/actions/admin';
 import Link from 'next/link';
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
+import { formatDate } from '@/lib/format';
 
 export default async function CartoriosConfigPage() {
   const session = await auth();
@@ -117,7 +118,7 @@ export default async function CartoriosConfigPage() {
                     <td style={{ padding: '14px 16px' }}>{c._count.reviews}</td>
                     <td style={{ padding: '14px 16px' }}>{c._count.colaboradores}</td>
                     <td style={{ padding: '14px 16px', color: '#64748b' }}>
-                      {new Date(c.createdAt).toLocaleDateString('pt-BR')}
+                      {formatDate(c.createdAt)}
                     </td>
                   </tr>
                 ))}

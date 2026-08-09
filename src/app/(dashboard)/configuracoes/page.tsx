@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { SyncButton } from '@/components/configuracoes/SyncButton';
 import { GoogleAuthButton } from '@/components/configuracoes/GoogleAuthButton';
+import { formatDateTime } from '@/lib/format';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import { PasswordForm } from '@/components/configuracoes/PasswordForm';
@@ -62,7 +63,7 @@ export default async function ConfiguracoesPage({
             {syncLogs.length === 0 ? <div style={{ fontSize: '13px', color: '#64748b' }}>Nenhuma sincronização registrada ainda.</div> : (
               <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                 <thead><tr style={{ textAlign: 'left', color: '#64748b' }}><th style={{ padding: '8px' }}>Data</th><th style={{ padding: '8px' }}>Status</th><th style={{ padding: '8px' }}>Encontradas</th><th style={{ padding: '8px' }}>Importadas</th><th style={{ padding: '8px' }}>Duração</th><th style={{ padding: '8px' }}>Detalhe</th></tr></thead>
-                <tbody>{syncLogs.map((log) => { const statusLabel = { COMPLETED: 'Concluída', FAILED: 'Erro', TIMEOUT: 'Timeout', RUNNING: 'Em andamento' }[log.status as string] || log.status; const statusColor = log.status === 'COMPLETED' ? '#166534' : log.status === 'RUNNING' ? '#92400e' : '#991b1b'; return <tr key={log.id} style={{ borderTop: '1px solid #e2e8f0' }}><td style={{ padding: '9px 8px', whiteSpace: 'nowrap' }}>{new Date(log.createdAt).toLocaleString('pt-BR')}</td><td style={{ padding: '9px 8px', color: statusColor, fontWeight: '600' }}>{statusLabel}</td><td style={{ padding: '9px 8px' }}>{log.reviewsFetched}</td><td style={{ padding: '9px 8px' }}>{log.reviewsImported}</td><td style={{ padding: '9px 8px' }}>{log.durationMs ? `${(log.durationMs / 1000).toFixed(1)}s` : '—'}</td><td style={{ padding: '9px 8px', maxWidth: '260px', color: '#64748b' }}>{log.errorMessage || '—'}</td></tr>; })}</tbody>
+                <tbody>{syncLogs.map((log) => { const statusLabel = { COMPLETED: 'Concluída', FAILED: 'Erro', TIMEOUT: 'Timeout', RUNNING: 'Em andamento' }[log.status as string] || log.status; const statusColor = log.status === 'COMPLETED' ? '#166534' : log.status === 'RUNNING' ? '#92400e' : '#991b1b'; return <tr key={log.id} style={{ borderTop: '1px solid #e2e8f0' }}><td style={{ padding: '9px 8px', whiteSpace: 'nowrap' }}>{formatDateTime(log.createdAt)}</td><td style={{ padding: '9px 8px', color: statusColor, fontWeight: '600' }}>{statusLabel}</td><td style={{ padding: '9px 8px' }}>{log.reviewsFetched}</td><td style={{ padding: '9px 8px' }}>{log.reviewsImported}</td><td style={{ padding: '9px 8px' }}>{log.durationMs ? `${(log.durationMs / 1000).toFixed(1)}s` : '—'}</td><td style={{ padding: '9px 8px', maxWidth: '260px', color: '#64748b' }}>{log.errorMessage || '—'}</td></tr>; })}</tbody>
               </table></div>
             )}
           </div>
