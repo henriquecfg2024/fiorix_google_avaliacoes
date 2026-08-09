@@ -11,7 +11,7 @@ const {
 } = vi.hoisted(() => {
   const instances: any[] = [];
   const constructorArgs: any[][] = [];
-  const request = vi.fn(async (...args: any[]) => ({ data: {} as any, args }));
+  const request = vi.fn(async (..._args: any[]): Promise<any> => ({ data: {} }));
 
   class OAuth2 {
     credentials: any = null;
