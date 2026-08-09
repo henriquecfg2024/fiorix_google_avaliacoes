@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import { getErrorMessage, logError } from '@/lib/errors';
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -49,17 +50,25 @@ export async function POST(request: Request) {
     }
   ];
 
-  for (const item of sampleReviews) {
-    await prisma.review.create({
-      data: {
-        tenantId,
-        reviewerName: item.reviewerName,
-        rating: item.rating,
-        comment: item.comment,
-        publishedAt: item.publishedAt,
-        status: item.status,
-      }
-    });
+  try {
+    for (const item of sampleReviews) {
+      await prisma.review.create({
+        data: {
+          tenantId,
+          reviewerName: item.reviewerName,
+          rating: item.rating,
+          comment: item.comment,
+          publishedAt: item.publishedAt,
+          status: item.status,
+        }
+      });
+    }
+  } catch (error) {
+    logError('api:seedReviews', error);
+    return NextResponse.json(
+      { success: false, error: getErrorMessage(error, 'Falha ao criar as avaliações de exemplo.') },
+      { status: 500 }
+    );
   }
 
   return NextResponse.redirect(new URL('/dashboard?synced=5', request.url));

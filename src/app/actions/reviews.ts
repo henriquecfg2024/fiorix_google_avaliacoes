@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import { revalidatePath } from 'next/cache';
 import { replyToGoogleReview } from '@/lib/google';
+import { describeError } from '@/lib/errors';
 
 export async function generateAiResponse(reviewerName: string, rating: number, comment?: string | null) {
   // Formal cartório response templates tailored by rating
@@ -16,41 +17,56 @@ export async function generateAiResponse(reviewerName: string, rating: number, c
   }
 }
 
-export async function sendReviewResponse(reviewId: string, content: string) {
+export type SendReviewResponseResult = { success: true } | { success: false; error: string };
+
+/**
+ * Returns the failure reason instead of throwing: Next.js redacts Server Action
+ * exceptions in production, which would hide the Google/database message.
+ */
+export async function sendReviewResponse(reviewId: string, content: string): Promise<SendReviewResponseResult> {
   const session = await auth();
-  if (!session?.user?.tenantId) throw new Error('Não autorizado');
+  if (!session?.user?.tenantId) return { success: false, error: 'Não autorizado' };
 
-  const review = await prisma.review.findFirst({
-    where: { id: reviewId, tenantId: session.user.tenantId },
-    select: { googleId: true },
-  });
-  if (!review?.googleId) throw new Error('Avaliação sem identificação do Google.');
-
-  // Only mark it locally after Google accepts the reply.
-  await replyToGoogleReview(session.user.tenantId, review.googleId, content);
-
-  await prisma.$transaction(async (tx) => {
-    // 1. Create or update Response record
-    await tx.response.upsert({
-      where: { reviewId },
-      update: { content, sentAt: new Date() },
-      create: {
-        reviewId,
-        content,
-        sentAt: new Date(),
-        isAiDraft: false
-      }
+  try {
+    const review = await prisma.review.findFirst({
+      where: { id: reviewId, tenantId: session.user.tenantId },
+      select: { googleId: true },
     });
+    if (!review?.googleId) return { success: false, error: 'Avaliação sem identificação do Google.' };
 
-    // 2. Mark review status as RESPONDED
-    await tx.review.update({
-      where: { id: reviewId },
-      data: { status: 'RESPONDED' }
+    // Only mark it locally after Google accepts the reply.
+    await replyToGoogleReview(session.user.tenantId, review.googleId, content);
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Create or update Response record
+      await tx.response.upsert({
+        where: { reviewId },
+        update: { content, sentAt: new Date() },
+        create: {
+          reviewId,
+          content,
+          sentAt: new Date(),
+          isAiDraft: false
+        }
+      });
+
+      // 2. Mark review status as RESPONDED
+      await tx.review.update({
+        where: { id: reviewId },
+        data: { status: 'RESPONDED' }
+      });
     });
-  });
+  } catch (error) {
+    return {
+      success: false,
+      error: describeError('reviews:sendReviewResponse', error, 'Não foi possível publicar a resposta no Google.'),
+    };
+  }
 
   revalidatePath('/avaliacoes');
   revalidatePath('/dashboard');
+
+  return { success: true };
 }
 
 export async function getPendingCount() {

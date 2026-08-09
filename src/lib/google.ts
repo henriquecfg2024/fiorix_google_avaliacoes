@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import { prisma } from './prisma';
 import { ensureSyncLogTable } from './sync-log-db';
+import { getErrorMessage, logError } from './errors';
 
 function getRedirectUri() {
   if (process.env.GOOGLE_REDIRECT_URI) {
@@ -73,26 +74,27 @@ export async function getAuthenticatedGoogleClient(tenantId: string) {
     expiry_date: connection.expiresAt.getTime(),
   });
 
-  // Automatically handle token refresh
-  oauth2Client.on('tokens', async (tokens) => {
-    if (tokens.refresh_token) {
-      await prisma.googleConnection.update({
-        where: { id: connection.id },
-        data: {
+  // Automatically handle token refresh. The listener runs outside the request
+  // promise chain, so a rejection here would become an unhandled rejection.
+  oauth2Client.on('tokens', (tokens) => {
+    const data = tokens.refresh_token
+      ? {
           accessToken: tokens.access_token!,
           refreshToken: tokens.refresh_token,
           expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : new Date(Date.now() + 3500000),
         }
-      });
-    } else if (tokens.access_token) {
-      await prisma.googleConnection.update({
-        where: { id: connection.id },
-        data: {
-          accessToken: tokens.access_token,
-          expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : new Date(Date.now() + 3500000),
-        }
-      });
-    }
+      : tokens.access_token
+        ? {
+            accessToken: tokens.access_token,
+            expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : new Date(Date.now() + 3500000),
+          }
+        : null;
+
+    if (!data) return;
+
+    prisma.googleConnection
+      .update({ where: { id: connection.id }, data })
+      .catch((error) => logError('google:persistRefreshedTokens', error));
   });
 
   return oauth2Client;
@@ -132,7 +134,7 @@ export async function fetchLocations(oauth2Client: any) {
       title: loc.title
     })) || [];
   } catch (error) {
-    console.error('Error fetching locations:', error);
+    logError('google:fetchLocations', error);
     throw error;
   }
 }
@@ -203,7 +205,7 @@ export async function syncReviews(tenantId: string, triggeredBy?: string) {
         await prisma.googleConnection.deleteMany({ where: { tenantId } });
         throw new Error('Sua credencial do Google expirou ou foi alterada. Por favor, clique em "Conectar Conta Google" em Configurações para reconectar.');
       }
-      throw new Error(`Não foi possível obter o local do Google: ${err.message}`);
+      throw new Error(`Não foi possível obter o local do Google: ${getErrorMessage(err)}`, { cause: err });
     }
   }
 
@@ -292,13 +294,15 @@ export async function syncReviews(tenantId: string, triggeredBy?: string) {
         })
       : [];
     const republishedIds: string[] = [];
+    const failedReplyIds: string[] = [];
     for (const localReply of localReplies) {
       if (!localReply.review.googleId) continue;
       try {
         await replyToGoogleReview(tenantId, localReply.review.googleId, localReply.content);
         republishedIds.push(localReply.review.googleId);
       } catch (replyError) {
-        console.error('Error re-publishing local Google reply:', replyError);
+        logError(`google:republishReply:${localReply.review.googleId}`, replyError);
+        failedReplyIds.push(localReply.review.googleId);
       }
     }
     if (republishedIds.length > 0) {
@@ -315,19 +319,19 @@ export async function syncReviews(tenantId: string, triggeredBy?: string) {
       reviewsImported: newReviewsCount,
     });
 
-    return { success: true, count: newReviewsCount };
+    return { success: true, count: newReviewsCount, failedReplyCount: failedReplyIds.length };
   } catch (error: any) {
-    console.error('Error syncing reviews:', error);
-    const errorMessage = error.message || 'Falha ao buscar avaliações do Google';
+    logError('google:syncReviews', error);
+    const errorMessage = getErrorMessage(error, 'Falha ao buscar avaliações do Google');
     await finishLog({
       status: /demorou|timeout/i.test(errorMessage) ? 'TIMEOUT' : 'FAILED',
       errorMessage: errorMessage.slice(0, 1000),
-    }).catch((logError) => console.error('Error saving sync log:', logError));
+    }).catch((saveError) => logError('google:saveSyncLog', saveError));
     if (error.message?.includes('deleted_client') || error.message?.includes('invalid_grant')) {
       await prisma.googleConnection.deleteMany({ where: { tenantId } });
-      throw new Error('Sua credencial do Google expirou ou foi alterada. Por favor, clique em "Conectar Conta Google" em Configurações para reconectar.');
+      throw new Error('Sua credencial do Google expirou ou foi alterada. Por favor, clique em "Conectar Conta Google" em Configurações para reconectar.', { cause: error });
     }
-    throw new Error(errorMessage);
+    throw new Error(errorMessage, { cause: error });
   }
 }
 

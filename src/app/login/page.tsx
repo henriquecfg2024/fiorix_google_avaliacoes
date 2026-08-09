@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { isNextControlFlowError, logError } from '@/lib/errors';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -44,6 +45,10 @@ export default function LoginPage() {
         setError(errorMessage);
       }
     } catch (err) {
+      // `signIn` redirects by throwing; turning that into an error message
+      // would block the navigation to the dashboard.
+      if (isNextControlFlowError(err)) throw err;
+      logError('login:authenticate', err);
       setError('Ocorreu um erro ao tentar fazer login.');
     } finally {
       setIsLoading(false);

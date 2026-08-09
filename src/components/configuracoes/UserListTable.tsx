@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { resetUserPassword, updateUserRole, updateUserName } from '@/app/actions/admin';
+import { logError } from '@/lib/errors';
 
 interface UserItem {
   id: string;
@@ -35,7 +36,8 @@ export function UserListTable({
         alert(res.error);
       }
     } catch (err) {
-      alert('Erro ao alterar a função do usuário.');
+      logError('userListTable:updateUserRole', err);
+      alert('Erro ao alterar a função do usuário. Tente novamente em instantes.');
     } finally {
       setUpdatingRoleId(null);
     }
@@ -75,7 +77,8 @@ export function UserListTable({
         }, 1200);
       }
     } catch (err) {
-      setNameMessage({ type: 'error', text: 'Erro ao atualizar o nome.' });
+      logError('userListTable:updateUserName', err);
+      setNameMessage({ type: 'error', text: 'Erro ao atualizar o nome. Tente novamente em instantes.' });
     } finally {
       setLoading(false);
     }
@@ -114,8 +117,9 @@ export function UserListTable({
           handleCloseModal();
         }, 1800);
       }
-    } catch (err: any) {
-      setMessage({ type: 'error', text: 'Erro ao redefinir a senha.' });
+    } catch (err) {
+      logError('userListTable:resetUserPassword', err);
+      setMessage({ type: 'error', text: 'Erro ao redefinir a senha. Tente novamente em instantes.' });
     } finally {
       setLoading(false);
     }

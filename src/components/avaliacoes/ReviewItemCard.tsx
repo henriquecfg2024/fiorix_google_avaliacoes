@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { generateAiResponse, sendReviewResponse } from '@/app/actions/reviews';
+import { logError } from '@/lib/errors';
 
 interface ReviewItemProps {
   review: {
@@ -28,6 +29,7 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
   const [responseText, setResponseText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const renderStars = (rating: number) => {
     const full = '★'.repeat(rating);
@@ -37,6 +39,7 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
 
   const handleOpenModal = async () => {
     setIsOpen(true);
+    setErrorMessage(null);
     if (review.status === 'RESPONDED' && review.response?.content) {
       setResponseText(review.response.content);
     } else {
@@ -46,6 +49,8 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
         const aiDraft = await generateAiResponse(review.reviewerName, review.rating, cleanedComment);
         setResponseText(aiDraft);
       } catch (err) {
+        logError('reviewItemCard:generateAiResponse', err);
+        setErrorMessage('Não foi possível gerar a sugestão automática. Revise o texto padrão abaixo antes de enviar.');
         setResponseText(`Prezado(a) ${review.reviewerName}, agradecemos sua avaliação!`);
       } finally {
         setIsGenerating(false);
@@ -56,11 +61,17 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
   const handleSubmitResponse = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSending(true);
+    setErrorMessage(null);
     try {
-      await sendReviewResponse(review.id, responseText);
+      const result = await sendReviewResponse(review.id, responseText);
+      if (!result.success) {
+        setErrorMessage(result.error);
+        return;
+      }
       setIsOpen(false);
     } catch (err) {
-      alert('Erro ao enviar resposta.');
+      logError('reviewItemCard:sendReviewResponse', err);
+      setErrorMessage('Erro ao enviar a resposta ao Google. Tente novamente em instantes.');
     } finally {
       setIsSending(false);
     }
@@ -206,6 +217,15 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
             </div>
 
             <form onSubmit={handleSubmitResponse}>
+              {errorMessage && (
+                <div
+                  role="alert"
+                  style={{ marginBottom: '16px', padding: '10px 14px', background: '#fee2e2', border: '1px solid #fecaca', borderRadius: '8px', color: '#991b1b', fontSize: '13px' }}
+                >
+                  {errorMessage}
+                </div>
+              )}
+
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: '#1e293b' }}>
                   Sugestão de Resposta Gerada por IA:

@@ -2,6 +2,8 @@ import React from 'react';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import Link from 'next/link';
+import { DataLoadError } from '@/components/common/DataLoadError';
+import { describeError } from '@/lib/errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +17,7 @@ export default async function EstatisticasPage() {
   let threeStars = 0;
   let twoStars = 0;
   let oneStar = 0;
+  let loadError: string | null = null;
 
   try {
     totalReviews = await prisma.review.count({ where: { tenantId } });
@@ -24,7 +27,7 @@ export default async function EstatisticasPage() {
     twoStars = await prisma.review.count({ where: { tenantId, rating: 2 } });
     oneStar = await prisma.review.count({ where: { tenantId, rating: 1 } });
   } catch (err) {
-    console.error('Error loading estatisticas:', err);
+    loadError = describeError('estatisticas:countReviews', err, 'Falha ao consultar as avaliações no banco de dados.');
   }
 
   const getPercent = (count: number) => (totalReviews > 0 ? ((count / totalReviews) * 100).toFixed(1) : '0.0');
@@ -48,6 +51,9 @@ export default async function EstatisticasPage() {
 
   return (
     <div className="layout" style={{ gridTemplateColumns: '1fr', gap: '24px' }}>
+      {loadError && (
+        <DataLoadError title="Não foi possível carregar a distribuição de notas." message={loadError} />
+      )}
       
       {/* 📊 SEÇÃO SUPERIOR: DISTRIBUIÇÃO E ANÁLISE QUALITATIVA */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>

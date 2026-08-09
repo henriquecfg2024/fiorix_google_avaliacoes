@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { handleSignOut, getCurrentUser } from '@/app/actions/auth';
 import { getPendingCount } from '@/app/actions/reviews';
+import { logError } from '@/lib/errors';
 
 import { PwaInstallBanner } from '@/components/pwa/PwaInstallBanner';
 
@@ -21,12 +22,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     applyTheme(savedTheme);
 
     // Fetch live user session details
-    getCurrentUser().then((user) => {
-      if (user) setCurrentUser(user);
-    }).catch(() => {});
+    getCurrentUser()
+      .then((user) => {
+        if (user) setCurrentUser(user);
+      })
+      .catch((error) => logError('dashboardLayout:getCurrentUser', error));
 
     // Fetch live pending count
-    getPendingCount().then((count) => setPendingCount(count)).catch(() => {});
+    getPendingCount()
+      .then((count) => setPendingCount(count))
+      .catch((error) => logError('dashboardLayout:getPendingCount', error));
   }, [pathname]);
 
   const applyTheme = (t: string) => {

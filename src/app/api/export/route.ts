@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
+import { getErrorMessage, logError } from '@/lib/errors';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -9,11 +10,20 @@ export async function GET(request: Request) {
   const session = await auth();
   const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
 
-  const reviews = await prisma.review.findMany({
-    where: { tenantId },
-    include: { response: true },
-    orderBy: { publishedAt: 'desc' },
-  });
+  let reviews;
+  try {
+    reviews = await prisma.review.findMany({
+      where: { tenantId },
+      include: { response: true },
+      orderBy: { publishedAt: 'desc' },
+    });
+  } catch (error) {
+    logError('api:export:findReviews', error);
+    return NextResponse.json(
+      { success: false, error: getErrorMessage(error, 'Falha ao exportar as avaliações.') },
+      { status: 500 }
+    );
+  }
 
   if (format === 'json') {
     const jsonString = JSON.stringify(reviews, null, 2);

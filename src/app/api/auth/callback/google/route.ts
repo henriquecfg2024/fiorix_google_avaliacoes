@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getGoogleTokens, fetchLocations, getGoogleOAuth2Client } from '@/lib/google';
+import { getErrorMessage, logError } from '@/lib/errors';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -24,12 +25,15 @@ export async function GET(request: Request) {
 
     // Fetch the accounts/locations to bind to this tenant
     let locations: any[] = [];
+    let locationsWarning: string | null = null;
     try {
       locations = await fetchLocations(tempClient);
-    } catch (apiError: any) {
-      console.warn('Google API not fully enabled, proceeding with mock locations:', apiError.message);
-      // Fallback so the user doesn't get blocked
+    } catch (apiError) {
+      logError('api:googleCallback:fetchLocations', apiError);
+      // Fallback so the user doesn't get blocked: the location is resolved again
+      // on the next sync. The warning keeps the failure visible.
       locations = [{ accountId: 'pendente', locationId: 'pendente', title: 'Conta Pendente' }];
+      locationsWarning = `A conta foi conectada, mas o local do Google Meu Negócio não pôde ser lido agora: ${getErrorMessage(apiError)}`;
     }
 
     if (locations.length === 0) {
@@ -54,9 +58,15 @@ export async function GET(request: Request) {
       })
     ]);
 
-    return NextResponse.redirect(new URL('/configuracoes?success=GoogleConnected', request.url));
-  } catch (error: any) {
-    console.error('Google Callback Error:', error);
-    return NextResponse.redirect(new URL(`/configuracoes?error=AuthFailed&details=${encodeURIComponent(error.message)}`, request.url));
+    const successUrl = new URL('/configuracoes?success=GoogleConnected', request.url);
+    if (locationsWarning) {
+      successUrl.searchParams.set('warning', locationsWarning);
+    }
+    return NextResponse.redirect(successUrl);
+  } catch (error) {
+    logError('api:googleCallback', error);
+    return NextResponse.redirect(
+      new URL(`/configuracoes?error=AuthFailed&details=${encodeURIComponent(getErrorMessage(error))}`, request.url)
+    );
   }
 }

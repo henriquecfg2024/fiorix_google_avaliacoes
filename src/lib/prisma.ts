@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
+import { logError } from './errors';
+
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 function getDatabaseUrl() {
@@ -15,7 +17,9 @@ function getDatabaseUrl() {
     // quando o Supabase estiver sem conexoes, em vez de deixar o spinner preso.
     url.searchParams.set('pool_timeout', '10');
     return url.toString();
-  } catch {
+  } catch (error) {
+    // Keep the raw value so Prisma reports the connection problem itself.
+    logError('prisma:parseDatabaseUrl', error);
     return value;
   }
 }

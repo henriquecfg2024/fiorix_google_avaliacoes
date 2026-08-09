@@ -46,6 +46,7 @@ import {
 } from '@/app/actions/bi';
 
 import { importarLinhasEmLotes } from '@/components/fiorix/CsvValidator';
+import { getErrorMessage, logError } from '@/lib/errors';
 
 const COLUNAS_OBRIGATORIAS = [
   'Protocolo',
@@ -206,13 +207,13 @@ export default function FiorixBiPage() {
       }
     } catch (error: any) {
       if (error?.name === 'AbortError' && !timedOut) return;
-      console.error('Erro ao buscar dashboard BI no cliente:', error);
+      logError('bi:fetchDashboard', error);
       if (requestId !== dashboardRequestIdRef.current) return;
       setDashboardData(null);
       setDashboardError(
         timedOut
           ? 'O Supabase demorou mais de 30 segundos para responder. A consulta foi interrompida; tente novamente em instantes.'
-          : (error?.message || 'Nao foi possivel carregar os graficos do BI.')
+          : getErrorMessage(error, 'Nao foi possivel carregar os graficos do BI.')
       );
     } finally {
       window.clearTimeout(timeoutId);
@@ -324,7 +325,10 @@ export default function FiorixBiPage() {
     });
 
     totalProcessed = importResult.totalProcessed;
-    await updateBiImportStatus(importId, 'SUCCESS');
+    const statusRes = await updateBiImportStatus(importId, 'SUCCESS');
+    if (!statusRes.success) {
+      logError('bi:updateBiImportStatus:SUCCESS', statusRes.error);
+    }
 
     {
       const pct = 99;
@@ -340,10 +344,13 @@ export default function FiorixBiPage() {
       }, 800);
       return;
     } catch (e: any) {
-      console.error('Erro ao inserir importação BI:', e);
-      await deleteBiImport(importId);
-      alert(`Erro na importação: ${e.message || e}`);
-      setImportStatusMsg(`Erro na importação: ${e.message || e}`);
+      logError('bi:importarLinhasEmLotes', e);
+      const cleanupRes = await deleteBiImport(importId);
+      if (!cleanupRes.success) {
+        logError('bi:deleteBiImport:cleanup', cleanupRes.error);
+      }
+      alert(`Erro na importação: ${getErrorMessage(e)}`);
+      setImportStatusMsg(`Erro na importação: ${getErrorMessage(e)}`);
       setIsImporting(false);
       return;
     }
@@ -442,9 +449,9 @@ export default function FiorixBiPage() {
             );
           }
         } catch (e: any) {
-          console.error(e);
-          alert(`Erro na importação: ${e.message || e}`);
-          setImportStatusMsg(`Erro na importação: ${e.message || e}`);
+          logError('bi:parseChunk', e);
+          alert(`Erro na importação: ${getErrorMessage(e)}`);
+          setImportStatusMsg(`Erro na importação: ${getErrorMessage(e)}`);
           parser.abort();
           setIsImporting(false);
           return;
@@ -470,14 +477,14 @@ export default function FiorixBiPage() {
             fetchDashboard();
           }, 1800);
         } catch (e: any) {
-          console.error(e);
-          alert(`Erro no encerramento da importação: ${e.message || e}`);
-          setImportStatusMsg(`Erro no encerramento da importação: ${e.message || e}`);
+          logError('bi:completeImport', e);
+          alert(`Erro no encerramento da importação: ${getErrorMessage(e)}`);
+          setImportStatusMsg(`Erro no encerramento da importação: ${getErrorMessage(e)}`);
           setIsImporting(false);
         }
       },
       error: (err) => {
-        console.error('Streaming PapaParse error:', err);
+        logError('bi:papaParseStream', err);
         setImportStatusMsg(`Erro ao ler arquivo: ${err.message}`);
         setIsImporting(false);
       },
@@ -487,7 +494,11 @@ export default function FiorixBiPage() {
   // Handle Delete Import Run
   const handleDeleteImport = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este lote de importação? Todos os dados associados serão removidos.')) return;
-    await deleteBiImport(id);
+    const res = await deleteBiImport(id);
+    if (!res.success) {
+      logError('bi:deleteBiImport', res.error);
+      alert(`Não foi possível excluir a importação: ${res.error}`);
+    }
     fetchDashboard();
   };
 

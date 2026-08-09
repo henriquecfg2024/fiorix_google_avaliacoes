@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { updatePassword } from '@/app/actions/auth';
+import { logError } from '@/lib/errors';
 
 export function PasswordForm() {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -27,8 +28,9 @@ export function PasswordForm() {
         setCurrentPassword('');
         setNewPassword('');
       }
-    } catch (err: any) {
-      setMessage({ type: 'error', text: 'Erro ao alterar a senha.' });
+    } catch (err) {
+      logError('passwordForm:updatePassword', err);
+      setMessage({ type: 'error', text: 'Erro ao alterar a senha. Tente novamente em instantes.' });
     } finally {
       setLoading(false);
     }

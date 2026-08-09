@@ -1,6 +1,7 @@
 import React from 'react';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import { logError } from '@/lib/errors';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,17 +41,19 @@ export default async function ImprimirColaboradoresPage() {
   let tenantId = 'cartorio-7ri-sp';
   let tenantName = '7º Cartório de Registro de Imóveis de São Paulo';
   
+  const session = await auth();
+  if (session?.user?.tenantId) {
+    tenantId = session.user.tenantId;
+  }
+
   try {
-    const session = await auth();
-    if (session?.user?.tenantId) {
-      tenantId = session.user.tenantId;
-    }
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (tenant?.name) {
       tenantName = tenant.name;
     }
   } catch (e) {
-    console.error('Error in ImprimirColaboradoresPage session:', e);
+    // Only the cartório name is missing here; the report below still renders.
+    logError('imprimirColaboradores:fetchTenantName', e);
   }
 
   const dbColaboradores = await prisma.colaborador.findMany({

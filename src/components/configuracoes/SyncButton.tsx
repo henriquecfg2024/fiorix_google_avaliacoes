@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { getErrorMessage, logError } from '@/lib/errors';
 
 export function SyncButton() {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
@@ -28,14 +29,18 @@ export function SyncButton() {
       try {
         data = await res.json();
       } catch (parseErr) {
+        logError('syncButton:parseResponse', parseErr);
         throw new Error(`Servidor retornou erro ${res.status}: ${res.statusText}`);
       }
 
       if (res.ok && data.success !== false) {
         const count = data.count ?? 0;
+        const failedReplyCount = data.failedReplyCount ?? 0;
         setSyncResult({
-          success: true,
-          message: `Sincronização concluída com sucesso! ${count} avaliações obtidas do Google.`,
+          success: failedReplyCount === 0,
+          message: failedReplyCount > 0
+            ? `Sincronização concluída com ${count} avaliações obtidas, mas ${failedReplyCount} resposta(s) salva(s) localmente não foram publicada(s) no Google.`
+            : `Sincronização concluída com sucesso! ${count} avaliações obtidas do Google.`,
         });
       } else {
         const errMsg = data?.error;
@@ -51,19 +56,12 @@ export function SyncButton() {
         });
       }
     } catch (err: any) {
-      console.error('Sync error caught in button:', err);
-      const errMsg = err?.name === 'AbortError'
-        ? 'A sincronização excedeu 50 segundos. O Google não respondeu a tempo; tente novamente.'
-        : err?.message || err;
-      let finalMsg = 'Erro de conexão ao sincronizar avaliações.';
-      if (typeof errMsg === 'string') {
-        finalMsg = errMsg;
-      } else if (errMsg && typeof errMsg === 'object') {
-        finalMsg = errMsg.message || JSON.stringify(errMsg);
-      }
+      logError('syncButton:handleSync', err);
       setSyncResult({
         success: false,
-        message: finalMsg,
+        message: err?.name === 'AbortError'
+          ? 'A sincronização excedeu 50 segundos. O Google não respondeu a tempo; tente novamente.'
+          : getErrorMessage(err, 'Erro de conexão ao sincronizar avaliações.'),
       });
     } finally {
       setIsSyncing(false);
