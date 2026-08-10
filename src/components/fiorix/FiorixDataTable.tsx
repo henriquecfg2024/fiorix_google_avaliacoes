@@ -10,13 +10,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface FiorixDataTableProps {
   data: any[];
+  totalAtrasadosCount?: number;
 }
 
 const DELAY_RANGES = [
@@ -28,7 +29,7 @@ const DELAY_RANGES = [
   { label: "31+ dias", min: 31, max: Infinity },
 ];
 
-export function FiorixDataTable({ data }: FiorixDataTableProps) {
+export function FiorixDataTable({ data, totalAtrasadosCount }: FiorixDataTableProps) {
   const [activeRange, setActiveRange] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -61,13 +62,29 @@ export function FiorixDataTable({ data }: FiorixDataTableProps) {
     }).length
   );
 
+  const formattedTotalOverall = totalAtrasadosCount ? totalAtrasadosCount.toLocaleString("pt-BR") : null;
+
   return (
     <Card className="rounded-2xl shadow-sm border-gray-100 dark:border-border mt-4 overflow-hidden">
+      {/* Sample Banner Notification */}
+      <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-2.5 flex items-center justify-between flex-wrap gap-2 text-xs text-amber-900 dark:text-amber-200">
+        <div className="flex items-center gap-2 font-medium">
+          <Info size={15} className="text-amber-600 dark:text-amber-400 shrink-0" />
+          <span>
+            <strong>Amostra dos 100 maiores atrasos:</strong> Esta tabela lista os 100 casos com maior tempo de extrapolação do prazo legal
+            {formattedTotalOverall && <> (de um total de <strong>{formattedTotalOverall}</strong> títulos em atraso no filtro selecionado)</>}.
+          </span>
+        </div>
+        <Badge variant="outline" className="bg-amber-100 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 font-semibold text-[11px]">
+          Top 100 Atrasados
+        </Badge>
+      </div>
+
       <CardHeader className="pb-4 border-b border-gray-100 dark:border-border space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <CardTitle className="text-base font-semibold">Títulos em Atraso (Drill-down)</CardTitle>
-            <CardDescription>Amostra dos protocolos que estouraram o prazo legal</CardDescription>
+            <CardDescription>Detalhamento dos protocolos críticos com estouro de prazo legal</CardDescription>
           </div>
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -134,7 +151,7 @@ export function FiorixDataTable({ data }: FiorixDataTableProps) {
             {filteredData.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                  Nenhum título atrasado encontrado {activeRange > 0 ? `na faixa "${range.label}"` : "nos filtros atuais"}.
+                  Nenhum título atrasado encontrado na amostra {activeRange > 0 ? `para a faixa "${range.label}"` : "nos filtros atuais"}.
                 </TableCell>
               </TableRow>
             )}
@@ -142,12 +159,16 @@ export function FiorixDataTable({ data }: FiorixDataTableProps) {
         </Table>
       </div>
 
-      {/* Rodapé com contagem */}
-      <div className="px-6 py-3 border-t border-gray-100 dark:border-border bg-gray-50/30 dark:bg-accent/30">
+      {/* Rodapé com esclarecimento explicito */}
+      <div className="px-6 py-3 border-t border-gray-100 dark:border-border bg-gray-50/30 dark:bg-accent/30 flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          Exibindo <strong className="text-foreground">{filteredData.length}</strong> de <strong className="text-foreground">{data.length}</strong> títulos atrasados
-          {activeRange > 0 && <span> · Filtro: <strong className="text-foreground">{range.label}</strong></span>}
+          Exibindo <strong className="text-foreground">{filteredData.length}</strong> resultados da amostra de <strong className="text-foreground">{data.length}</strong> maiores atrasos
+          {formattedTotalOverall && <> (de um total geral de <strong className="text-foreground">{formattedTotalOverall}</strong> títulos atrasados)</>}
+          {activeRange > 0 && <span> · Faixa: <strong className="text-foreground">{range.label}</strong></span>}
         </p>
+        <span className="text-[11px] text-muted-foreground/70 italic">
+          * Amostra ordenada por gravidade (maior atraso em dias)
+        </span>
       </div>
     </Card>
   );

@@ -119,7 +119,7 @@ export function FiorixDashboardClient({ imports, dashboardData, atrasados, initi
               visibleCharts={visibleCharts}
             />
             
-            <FiorixDataTable data={atrasados} />
+            <FiorixDataTable data={atrasados} totalAtrasadosCount={dashboardData.summary.atrasadoCount} />
           </div>
         )}
       </main>
