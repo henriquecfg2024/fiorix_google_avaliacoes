@@ -400,29 +400,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
               Tema Visual:
             </span>
-            <div className="flex items-center gap-2">
-              {[1, 2, 3, 4, 5].map((t) => (
+            <div className="flex items-center gap-2.5 pt-0.5">
+              {[
+                { id: 1, name: 'Meia-Noite', bg: 'linear-gradient(135deg,#070d1a,#1a2340)' },
+                { id: 2, name: 'Azul Profundo', bg: 'linear-gradient(135deg,#0d1f3c,#1a3560)' },
+                { id: 3, name: 'Azul Royal', bg: 'linear-gradient(135deg,#1a3a6b,#2d5fa0)' },
+                { id: 4, name: 'Azul Aço', bg: 'linear-gradient(135deg,#2c6fad,#4a9fd4)' },
+                { id: 5, name: 'Azul Claro', bg: 'linear-gradient(135deg,#bfdbfe,#e0e7ff)', border: '2px solid rgba(59,130,246,0.4)' },
+              ].map((t) => (
                 <button
-                  key={t}
-                  onClick={() => applyTheme(String(t))}
-                  className={`w-7 h-7 rounded-full border-2 transition-transform cursor-pointer ${
-                    theme === String(t)
-                      ? 'border-blue-600 scale-110 shadow-xs'
-                      : 'border-white opacity-80 hover:opacity-100'
+                  key={t.id}
+                  onClick={() => applyTheme(String(t.id))}
+                  className={`w-7 h-7 rounded-full transition-all cursor-pointer ${
+                    theme === String(t.id)
+                      ? 'ring-2 ring-blue-600 ring-offset-2 scale-110 shadow-sm'
+                      : 'hover:scale-105 opacity-90'
                   }`}
                   style={{
-                    background:
-                      t === 1
-                        ? '#2563eb'
-                        : t === 2
-                        ? '#059669'
-                        : t === 3
-                        ? '#7c3aed'
-                        : t === 4
-                        ? '#d97706'
-                        : '#0f172a',
+                    background: t.bg,
+                    border: t.border,
                   }}
-                  title={`Tema ${t}`}
+                  title={`Tema ${t.id} — ${t.name}`}
                 />
               ))}
             </div>
