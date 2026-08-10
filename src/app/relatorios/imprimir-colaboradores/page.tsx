@@ -42,7 +42,6 @@ export default async function ImprimirColaboradoresPage() {
   let tenantName = '7º Cartório de Registro de Imóveis de São Paulo';
   
   try {
-    }
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (tenant?.name) {
       tenantName = tenant.name;
