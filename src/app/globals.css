@@ -196,7 +196,7 @@
     }
     .header-inner {
       width: 100%;
-      max-width: 1600px;
+      max-width: 100%;
       margin: 0 auto;
       display: flex;
       align-items: center;
@@ -303,7 +303,7 @@
       display: grid;
       grid-template-columns: 300px 1fr 310px;
       gap: 20px; padding: 24px 28px;
-      max-width: 1600px; margin: 0 auto;
+      max-width: 100%; margin: 0 auto;
       align-items: stretch;
     }
     .left-col, .center-col, .right-col { display: flex; flex-direction: column; gap: 16px; }
