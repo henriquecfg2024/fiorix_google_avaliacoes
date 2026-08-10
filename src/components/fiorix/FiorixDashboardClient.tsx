@@ -17,9 +17,10 @@ interface FiorixDashboardClientProps {
   dashboardData: any;
   atrasados: any[];
   initialFilters: any;
+  userRole?: string;
 }
 
-export function FiorixDashboardClient({ imports, dashboardData, atrasados, initialFilters }: FiorixDashboardClientProps) {
+export function FiorixDashboardClient({ imports, dashboardData, atrasados, initialFilters, userRole }: FiorixDashboardClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isUpdating, setIsUpdating] = useState(false);
@@ -66,6 +67,7 @@ export function FiorixDashboardClient({ imports, dashboardData, atrasados, initi
               onUpdate={handleUpdate} 
               onImport={handleImport}
               isUpdating={isUpdating || isPending}
+              userRole={userRole}
             />
             
             <FiorixControlBar />

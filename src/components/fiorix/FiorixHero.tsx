@@ -7,9 +7,11 @@ interface FiorixHeroProps {
   onUpdate: () => void;
   onImport: () => void;
   isUpdating?: boolean;
+  userRole?: string;
 }
 
-export function FiorixHero({ onUpdate, onImport, isUpdating = false }: FiorixHeroProps) {
+export function FiorixHero({ onUpdate, onImport, isUpdating = false, userRole }: FiorixHeroProps) {
+  const canImport = userRole !== 'USER';
   return (
     <Card className="relative overflow-hidden rounded-2xl border-0 p-8 shadow-sm">
       {/* Background Gradient & Pattern */}
@@ -58,13 +60,15 @@ export function FiorixHero({ onUpdate, onImport, isUpdating = false }: FiorixHer
             <RefreshCw className={`mr-2 h-4 w-4 ${isUpdating ? 'animate-spin' : ''}`} />
             {isUpdating ? 'Atualizando...' : 'Atualizar Dados'}
           </Button>
-          <Button 
-            className="bg-[#10B981] text-white hover:bg-[#059669] shadow-sm"
-            onClick={onImport}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Importar Novos Dados
-          </Button>
+          {canImport && (
+            <Button 
+              className="bg-[#10B981] text-white hover:bg-[#059669] shadow-sm"
+              onClick={onImport}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Importar Novos Dados
+            </Button>
+          )}
         </div>
 
       </div>
