@@ -39,23 +39,32 @@ export default async function AvaliacoesPage({
     whereClause.comment = { contains: colabFilter, mode: 'insensitive' };
   }
 
+  const rawPage = Array.isArray(searchParams?.page) ? searchParams.page[0] : searchParams?.page;
+  const currentPage = Math.max(1, parseInt(typeof rawPage === 'string' ? rawPage : '1', 10) || 1);
+  const pageSize = 10;
+  const skip = (currentPage - 1) * pageSize;
+
   let dbReviews: any[] = [];
   let totalCount = 547;
+  let totalFilteredCount = 547;
   let pendingCount = 0;
   let respondedCount = 547;
 
   try {
-    dbReviews = await prisma.review.findMany({
-      where: whereClause,
-      include: { response: true },
-      orderBy: { publishedAt: 'desc' },
-    });
-
     const dbTotal = await prisma.review.count({ where: { tenantId } });
     if (dbTotal > 0) {
       totalCount = dbTotal;
+      totalFilteredCount = await prisma.review.count({ where: whereClause });
       pendingCount = await prisma.review.count({ where: { tenantId, status: 'PENDING' } });
       respondedCount = await prisma.review.count({ where: { tenantId, status: 'RESPONDED' } });
+
+      dbReviews = await prisma.review.findMany({
+        where: whereClause,
+        include: { response: true },
+        orderBy: { publishedAt: 'desc' },
+        skip,
+        take: pageSize,
+      });
     }
   } catch (err) {
     console.error('Error fetching reviews:', err);
@@ -152,7 +161,23 @@ export default async function AvaliacoesPage({
         (r.comment || '').toLowerCase().includes(colabFilter.toLowerCase())
       );
     }
+    totalFilteredCount = displayReviews.length;
   }
+
+  const effectiveTotalCount = dbReviews.length > 0 ? totalFilteredCount : displayReviews.length;
+  const totalPages = Math.max(1, Math.ceil(effectiveTotalCount / pageSize));
+  const startItemIndex = Math.min(skip + 1, effectiveTotalCount);
+  const endItemIndex = Math.min(skip + displayReviews.length, effectiveTotalCount);
+
+  const buildPageUrl = (newPage: number) => {
+    const params = new URLSearchParams();
+    if (statusFilter) params.set('status', statusFilter);
+    if (ratingFilter) params.set('rating', String(ratingFilter));
+    if (colabFilter) params.set('colaborador', colabFilter);
+    if (searchQuery) params.set('search', searchQuery);
+    params.set('page', String(newPage));
+    return `/avaliacoes?${params.toString()}`;
+  };
 
   return (
     <div className="w-full px-4 md:px-7 py-6 space-y-6">
@@ -340,25 +365,77 @@ export default async function AvaliacoesPage({
       {/* FOOTER PAGINATION */}
       <div className="bg-white rounded-2xl border border-gray-100 p-4 px-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 font-medium">
         <div>
-          Mostrando <strong className="text-slate-900">1-{displayReviews.length}</strong> de{' '}
-          <strong className="text-slate-900">{totalCount}</strong> avaliações registradas
+          Mostrando <strong className="text-slate-900">{startItemIndex}-{endItemIndex}</strong> de{' '}
+          <strong className="text-slate-900">{effectiveTotalCount}</strong> avaliações
+          {totalPages > 1 && (
+            <span className="text-slate-400 ml-1">(Página {currentPage} de {totalPages})</span>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            disabled
-            className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-400 font-bold flex items-center gap-1 cursor-not-allowed text-xs"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Anterior
-          </button>
-          <button
-            disabled
-            className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-400 font-bold flex items-center gap-1 cursor-not-allowed text-xs"
-          >
-            Próxima
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          {/* ANTERIOR */}
+          {currentPage > 1 ? (
+            <Link
+              href={buildPageUrl(currentPage - 1)}
+              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold flex items-center gap-1 text-xs transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Anterior
+            </Link>
+          ) : (
+            <button
+              disabled
+              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-400 font-bold flex items-center gap-1 cursor-not-allowed text-xs"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Anterior
+            </button>
+          )}
+
+          {/* PAGE NUMBERS */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let p = i + 1;
+                if (totalPages > 5 && currentPage > 3) {
+                  p = currentPage - 2 + i;
+                  if (p > totalPages) p = totalPages - (4 - i);
+                }
+                return (
+                  <Link
+                    key={p}
+                    href={buildPageUrl(p)}
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs transition-all ${
+                      currentPage === p
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {p}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          {/* PRÓXIMA */}
+          {currentPage < totalPages ? (
+            <Link
+              href={buildPageUrl(currentPage + 1)}
+              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold flex items-center gap-1 text-xs transition-colors"
+            >
+              Próxima
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          ) : (
+            <button
+              disabled
+              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-400 font-bold flex items-center gap-1 cursor-not-allowed text-xs"
+            >
+              Próxima
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>
