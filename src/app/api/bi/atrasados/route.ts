@@ -1,0 +1,47 @@
+import { NextResponse } from 'next/server';
+import { auth } from '@/auth';
+import { queryBiAtrasadosList } from '@/lib/bi-dashboard';
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
+export async function GET(request: Request) {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 });
+  }
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const filters = {
+      importId: searchParams.get('importId') || undefined,
+      startDate: searchParams.get('startDate') || undefined,
+      endDate: searchParams.get('endDate') || undefined,
+      tipoPrenotacao: searchParams.get('tipoPrenotacao') || undefined,
+      page: Number(searchParams.get('page')) || 1,
+      pageSize: Number(searchParams.get('pageSize')) || 20,
+      search: searchParams.get('search') || '',
+      rangeIndex: Number(searchParams.get('rangeIndex')) || 0,
+    };
+
+    const data = await queryBiAtrasadosList(filters);
+
+    return NextResponse.json(
+      {
+        success: true,
+        ...data,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      }
+    );
+  } catch (error: any) {
+    console.error('Error in BI atrasados API route:', error);
+    return NextResponse.json(
+      { success: false, error: error.message || 'Erro ao carregar lista de títulos atrasados' },
+      { status: 500 }
+    );
+  }
+}

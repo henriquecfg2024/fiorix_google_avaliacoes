@@ -11,7 +11,7 @@ async function test() {
     JSON.stringify(dashboard);
 
     const atrasados = await queryBiAtrasadosList({});
-    console.log("Atrasados length:", atrasados.length);
+    console.log("Atrasados length:", atrasados.items.length);
     JSON.stringify(atrasados);
 
     console.log("SUCCESS! No BigInts found.");

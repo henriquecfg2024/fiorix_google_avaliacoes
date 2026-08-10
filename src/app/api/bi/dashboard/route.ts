@@ -34,9 +34,9 @@ export async function GET(request: Request) {
       {
         success: true,
         dashboard,
-        imports: imports.map((row) => ({
+        imports: imports.map((row: any) => ({
           ...row,
-          importedAt: row.importedAt.toISOString(),
+          importedAt: row.importedAt ? new Date(row.importedAt).toISOString() : null,
         })),
       },
       {

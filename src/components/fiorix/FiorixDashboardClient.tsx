@@ -14,7 +14,7 @@ import { FiorixSkeleton } from "@/components/fiorix/FiorixSkeleton";
 interface FiorixDashboardClientProps {
   imports: any[];
   dashboardData: any;
-  atrasados: any[];
+  atrasados: any;
   initialFilters: any;
   userRole?: string;
 }
@@ -116,7 +116,11 @@ export function FiorixDashboardClient({ imports, dashboardData, atrasados, initi
               visibleCharts={visibleCharts}
             />
             
-            <FiorixDataTable data={atrasados} totalAtrasadosCount={dashboardData.summary.atrasadoCount} />
+            <FiorixDataTable 
+              initialData={atrasados} 
+              initialFilters={initialFilters}
+              totalAtrasadosCount={dashboardData.summary.atrasadoCount} 
+            />
           </div>
         )}
       </main>

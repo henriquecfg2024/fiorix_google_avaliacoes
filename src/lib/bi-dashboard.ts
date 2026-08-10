@@ -425,7 +425,39 @@ export async function queryBiImportsList() {
   }
 }
 
-export async function queryBiAtrasadosList(filters?: BiDashboardFilters) {
+export interface BiAtrasadosFilters extends BiDashboardFilters {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  rangeIndex?: number;
+}
+
+export interface BiAtrasadosItem {
+  id: string;
+  protocolo: string;
+  data: string;
+  tipo: string;
+  atraso: number;
+  status: string;
+}
+
+export interface BiAtrasadosResult {
+  items: BiAtrasadosItem[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+  };
+  rangeCounts: number[];
+}
+
+export async function queryBiAtrasadosList(filters?: BiAtrasadosFilters): Promise<BiAtrasadosResult> {
+  const page = Math.max(1, Number(filters?.page) || 1);
+  const pageSize = Math.min(100, Math.max(1, Number(filters?.pageSize) || 20));
+  const rangeIndex = Number(filters?.rangeIndex) || 0;
+  const search = filters?.search?.trim() || '';
+
   let importCondition = Prisma.sql`1=1`;
   if (filters?.importId && filters.importId !== 'ALL') {
     importCondition = Prisma.sql`"import_id" = ${filters.importId}`;
@@ -453,20 +485,71 @@ export async function queryBiAtrasadosList(filters?: BiDashboardFilters) {
 
   const baseCondition = Prisma.sql`${importCondition} AND ${tipoCondition} AND ${dateCondition}`;
   const generalCondition = Prisma.sql`${baseCondition} AND ${GENERAL_NATURE_CONDITION_SQL}`;
+  const atrasadoCondition = Prisma.sql`("DiasAtraso" > 0 OR ("DiasCorridos" > "DiasPrometidos" AND "DiasPrometidos" > 0))`;
 
-  // Get atrasados logic based on fiorix_bi_data fields.
-  // Using IsAtrasado or DiasCorridos > PrazoLegal.
-  // Let's assume IsAtrasado = true is present, or we can check DiasCorridos > PrazoLegal where PrazoLegal > 0.
-  // Note: we can use the condition "registered_atrasado" logic. Usually "IsAtrasado" = true if it has it, 
-  // or "DiasCorridos" > "PrazoLegal" and "PrazoLegal" > 0 and "IsRegistrado" = true.
-  
+  let searchCondition = Prisma.sql`1=1`;
+  if (search !== '') {
+    searchCondition = Prisma.sql`CAST("Protocolo" AS TEXT) ILIKE ${'%' + search + '%'}`;
+  }
+
+  const calculatedAtraso = Prisma.sql`COALESCE("DiasAtraso", COALESCE("DiasCorridos", 0) - COALESCE("DiasPrometidos", 0))`;
+
+  let rangeCondition = Prisma.sql`1=1`;
+  if (rangeIndex === 1) {
+    rangeCondition = Prisma.sql`${calculatedAtraso} >= 1 AND ${calculatedAtraso} <= 3`;
+  } else if (rangeIndex === 2) {
+    rangeCondition = Prisma.sql`${calculatedAtraso} >= 4 AND ${calculatedAtraso} <= 7`;
+  } else if (rangeIndex === 3) {
+    rangeCondition = Prisma.sql`${calculatedAtraso} >= 8 AND ${calculatedAtraso} <= 15`;
+  } else if (rangeIndex === 4) {
+    rangeCondition = Prisma.sql`${calculatedAtraso} >= 16 AND ${calculatedAtraso} <= 30`;
+  } else if (rangeIndex === 5) {
+    rangeCondition = Prisma.sql`${calculatedAtraso} >= 31`;
+  }
+
+  const countsRaw = await prisma.$queryRaw<Array<{
+    total: bigint;
+    d1_3: bigint;
+    d4_7: bigint;
+    d8_15: bigint;
+    d16_30: bigint;
+    d31_plus: bigint;
+  }>>`
+    SELECT
+      COUNT(*)::bigint AS total,
+      COUNT(CASE WHEN ${calculatedAtraso} >= 1 AND ${calculatedAtraso} <= 3 THEN 1 END)::bigint AS d1_3,
+      COUNT(CASE WHEN ${calculatedAtraso} >= 4 AND ${calculatedAtraso} <= 7 THEN 1 END)::bigint AS d4_7,
+      COUNT(CASE WHEN ${calculatedAtraso} >= 8 AND ${calculatedAtraso} <= 15 THEN 1 END)::bigint AS d8_15,
+      COUNT(CASE WHEN ${calculatedAtraso} >= 16 AND ${calculatedAtraso} <= 30 THEN 1 END)::bigint AS d16_30,
+      COUNT(CASE WHEN ${calculatedAtraso} >= 31 THEN 1 END)::bigint AS d31_plus
+    FROM fiorix_bi_data
+    WHERE ${generalCondition}
+      AND ${atrasadoCondition}
+      AND ${searchCondition}
+  `;
+
+  const countRow = countsRaw[0] || { total: BigInt(0), d1_3: BigInt(0), d4_7: BigInt(0), d8_15: BigInt(0), d16_30: BigInt(0), d31_plus: BigInt(0) };
+  const rangeCounts = [
+    Number(countRow.total || 0),
+    Number(countRow.d1_3 || 0),
+    Number(countRow.d4_7 || 0),
+    Number(countRow.d8_15 || 0),
+    Number(countRow.d16_30 || 0),
+    Number(countRow.d31_plus || 0),
+  ];
+
+  const totalItems = rangeIndex > 0 ? rangeCounts[rangeIndex] : rangeCounts[0];
+  const totalPages = Math.ceil(totalItems / pageSize) || 1;
+  const validPage = Math.min(page, totalPages);
+  const offset = (validPage - 1) * pageSize;
+
   const atrasadosRaw = await prisma.$queryRaw<Array<{ id: string; protocolo: string; data_entrada: Date; tipo: string; atraso_dias: number; situacao: string }>>`
     SELECT
       "id",
       "Protocolo" as protocolo,
       "DtAndamento" as data_entrada,
       "TipoPrenotacao" as tipo,
-      COALESCE("DiasAtraso", COALESCE("DiasCorridos", 0) - COALESCE("DiasPrometidos", 0)) as atraso_dias,
+      ${calculatedAtraso} as atraso_dias,
       CASE 
         WHEN "IsDevolucao" = true THEN 'devolvido'
         WHEN "DiasAtraso" > 0 OR ("DiasCorridos" > "DiasPrometidos" AND "DiasPrometidos" > 0) THEN 'atrasado'
@@ -474,17 +557,32 @@ export async function queryBiAtrasadosList(filters?: BiDashboardFilters) {
       END as situacao
     FROM fiorix_bi_data
     WHERE ${generalCondition}
-      AND ("DiasAtraso" > 0 OR ("DiasCorridos" > "DiasPrometidos" AND "DiasPrometidos" > 0))
-    ORDER BY atraso_dias DESC
-    LIMIT 100
+      AND ${atrasadoCondition}
+      AND ${searchCondition}
+      AND ${rangeCondition}
+    ORDER BY atraso_dias DESC, "DtAndamento" DESC
+    OFFSET ${offset}
+    LIMIT ${pageSize}
   `;
 
-  return atrasadosRaw.map(row => ({
+  const items = atrasadosRaw.map(row => ({
     id: row.id,
-    protocolo: row.protocolo,
+    protocolo: String(row.protocolo),
     data: formatDateKey(row.data_entrada),
     tipo: row.tipo,
     atraso: Number(row.atraso_dias),
     status: row.situacao,
   }));
+
+  return {
+    items,
+    pagination: {
+      page: validPage,
+      pageSize,
+      totalItems,
+      totalPages,
+    },
+    rangeCounts,
+  };
 }
+
