@@ -18,7 +18,6 @@ import {
   importarCSVEmLotes,
   validarCSV,
 } from '@/components/fiorix/CsvValidator';
-import { FiorixHeader } from '@/components/fiorix/FiorixHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -173,15 +172,8 @@ export default function FiorixBiImportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <FiorixHeader
-        title="FIORIX BI"
-        subtitle="Módulo de Inteligência & Prazos"
-        cartorio="7º REGISTRO DE IMÓVEIS DE SP"
-        badge="SUPABASE ONLINE"
-      />
-
-      <main className="container mx-auto px-4 py-8 max-w-6xl space-y-6">
+    <div className="min-h-screen bg-slate-50 py-6">
+      <main className="container mx-auto px-4 py-4 max-w-6xl space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">

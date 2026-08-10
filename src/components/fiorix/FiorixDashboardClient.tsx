@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FiorixHeader } from "@/components/fiorix/FiorixHeader";
 import { FiorixHero } from "@/components/fiorix/FiorixHero";
 import { FiorixControlBar, ChartVisibility } from "@/components/fiorix/FiorixControlBar";
 import { FiorixFilters } from "@/components/fiorix/FiorixFilters";
@@ -78,8 +77,6 @@ export function FiorixDashboardClient({ imports, dashboardData, atrasados, initi
 
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-blue-200 dark:selection:bg-blue-900 transition-colors duration-300">
-      <FiorixHeader />
-      
       <main className="container mx-auto px-4 lg:px-8 py-8 space-y-6">
         {isPending && isUpdating ? (
           <FiorixSkeleton />
