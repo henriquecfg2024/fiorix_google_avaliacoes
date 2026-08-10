@@ -151,91 +151,69 @@ export default async function Dashboard({
   const syncedCount = Array.isArray(rawSynced) ? rawSynced[0] : rawSynced;
 
   return (
-    <div className="layout">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 bg-[#F5F7FB] min-h-screen">
       {syncError && (
-        <div style={{ gridColumn: '1 / -1', background: '#fee2e2', color: '#991b1b', padding: '12px 20px', borderRadius: '12px', fontSize: '14px', marginBottom: '10px', border: '1px solid #fca5a5' }}>
-          ❌ <strong>Erro ao Sincronizar com o Google:</strong> {syncError}
+        <div className="bg-red-50 text-red-800 p-3.5 px-5 rounded-2xl text-sm border border-red-200 flex items-center gap-2">
+          <span>❌</span>
+          <span><strong>Erro ao Sincronizar com o Google:</strong> {syncError}</span>
         </div>
       )}
 
       {syncedCount && (
-        <div style={{ gridColumn: '1 / -1', background: '#dcfce7', color: '#166534', padding: '12px 20px', borderRadius: '12px', fontSize: '14px', marginBottom: '10px', border: '1px solid #86efac' }}>
-          🎉 <strong>Sincronização Concluída:</strong> {syncedCount} novas avaliações importadas!
+        <div className="bg-emerald-50 text-emerald-800 p-3.5 px-5 rounded-2xl text-sm border border-emerald-200 flex items-center gap-2">
+          <span>🎉</span>
+          <span><strong>Sincronização Concluída:</strong> {syncedCount} novas avaliações importadas!</span>
         </div>
       )}
 
       {!isConnected && isDemo && (
-        <div style={{ 
-          gridColumn: '1 / -1', 
-          background: '#eff6ff', 
-          color: '#1e3a8a', 
-          padding: '14px 20px', 
-          borderRadius: '12px', 
-          fontSize: '14px', 
-          fontWeight: '500', 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'space-between', 
-          border: '1px solid #bfdbfe', 
-          marginBottom: '10px' 
-        }}>
-          <div>
-            👋 <strong>Modo Demonstração:</strong> Como você ainda não conectou o Google Meu Negócio, estamos exibindo dados fictícios para você conhecer o painel.
+        <div className="bg-blue-50/80 text-blue-900 p-4 px-5 rounded-2xl text-sm border border-blue-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2">
+            <span>👋</span>
+            <span>
+              <strong>Modo Demonstração:</strong> Como você ainda não conectou o Google Meu Negócio, estamos exibindo dados de exemplo para demonstração do painel.
+            </span>
           </div>
-          
-          <a href="/configuracoes" style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'none' }}>
-            Conectar Google
+          <a
+            href="/configuracoes"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap self-end sm:self-auto"
+          >
+            Conectar Google →
           </a>
         </div>
       )}
 
-      {/* ═══ LEFT ═══ */}
-      <div className="left-col">
-        <HealthCard />
-      </div>
+      {/* HEALTH CARD TOP SECTION */}
+      <HealthCard />
 
-      {/* ═══ CENTER ═══ */}
-      <div className="center-col">
-        <KpiRow 
-          isDemo={isDemo}
-          notaMedia={isDemo ? 4.4 : notaMedia}
-          totalAvaliacoes={isDemo ? 536 : totalReviews}
-          pendentes={isDemo ? 7 : pendentes}
-          respondidasHoje={isDemo ? 12 : respondidasHoje}
-        />
+      {/* KPI ROW */}
+      <KpiRow
+        isDemo={isDemo}
+        notaMedia={isDemo ? 4.4 : notaMedia}
+        totalAvaliacoes={isDemo ? 536 : totalReviews}
+        pendentes={isDemo ? 7 : pendentes}
+        respondidasHoje={isDemo ? 12 : respondidasHoje}
+      />
 
-        {/* AREA CHART */}
-        <div className="chart-card">
-          <div className="chart-header">
-            <div>
-              <div className="chart-title">Tendência de Avaliações</div>
-              <div className="chart-sub">Evolução da nota média e volume — últimos 6 meses</div>
-            </div>
-            <div className="period-tabs">
-              <button className="period-tab">7d</button>
-              <button className="period-tab active">30d</button>
-              <button className="period-tab">90d</button>
-              <button className="period-tab">1a</button>
-            </div>
-          </div>
+      {/* MAIN CONTENT GRID: 2 COLUMNS ON DESKTOP */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* LEFT COLUMN (7 COLS): CHARTS */}
+        <div className="lg:col-span-7 space-y-6">
           <TrendChart />
-        </div>
-
-        {/* COLABORADORES CHART */}
-        <div className="chart-card">
-          <ColaboradoresChart 
-            monthData={monthColaboradores} 
-            quarterData={quarterColaboradores} 
-            totalData={totalColaboradores} 
+          <ColaboradoresChart
+            monthData={monthColaboradores}
+            quarterData={quarterColaboradores}
+            totalData={totalColaboradores}
           />
         </div>
-      </div>
 
-      {/* ═══ RIGHT ═══ */}
-      <div className="right-col">
-        <ReviewCard reviews={latestReviews} />
-        <InsightCard />
+        {/* RIGHT COLUMN (5 COLS): REVIEWS & INSIGHTS */}
+        <div className="lg:col-span-5 space-y-6">
+          <ReviewCard reviews={latestReviews} />
+          <InsightCard />
+        </div>
       </div>
     </div>
   );
 }
+

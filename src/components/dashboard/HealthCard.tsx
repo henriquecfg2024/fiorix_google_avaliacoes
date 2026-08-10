@@ -1,127 +1,205 @@
 import React from 'react';
 import Link from 'next/link';
-import { GaugeChart } from './GaugeChart';
 
 export function HealthCard() {
-  // Os 10 Indicadores da Saúde da Reputação (ordenados por pontuação)
-  const indicadores = [
-    { icon: '🕘', nome: 'Horário de Atendimento', pct: 96, color: '#10b981', gradient: 'linear-gradient(90deg,#10b981,#3b82f6)' },
-    { icon: '💳', nome: 'Pagamento', pct: 93, color: '#10b981' },
-    { icon: '🤝', nome: 'Qualidade de Atendimento', pct: 91, color: '#10b981' },
-    { icon: '💡', nome: 'Clareza de Informações', pct: 88, color: '#10b981' },
-    { icon: '🌟', nome: 'Índice de Recomendação', pct: 85, color: '#2563eb' },
-    { icon: '🎯', nome: 'Resolução no 1º Contato', pct: 82, color: '#2563eb' },
-    { icon: '📄', nome: 'Documentação', pct: 59, color: '#2563eb' },
-    { icon: '🌐', nome: 'Site / Agendamento', pct: 42, color: '#d97706' },
-    { icon: '⏱️', nome: 'Prazo de Entrega', pct: 22, color: '#dc2626' },
-    { icon: '🕐', nome: 'Fila / Espera', pct: 18, color: '#dc2626' },
+  const saudeReputacao = 68;
+
+  const saudaveis = [
+    { icon: '🕘', nome: 'Horário de Atendimento', pct: 96 },
+    { icon: '💳', nome: 'Pagamento', pct: 93 },
+    { icon: '🤝', nome: 'Qualidade de Atendimento', pct: 91 },
+    { icon: '💡', nome: 'Clareza de Informações', pct: 88 },
   ];
 
-  const soma = indicadores.reduce((acc, curr) => acc + curr.pct, 0);
-  const saudeReputacao = Math.round(soma / indicadores.length); // 68
+  const atencao = [
+    { icon: '🌟', nome: 'Índice de Recomendação', pct: 85, badgeColor: 'blue' },
+    { icon: '🎯', nome: 'Resolução no 1º Contato', pct: 82, badgeColor: 'blue' },
+    { icon: '📄', nome: 'Documentação', pct: 59, badgeColor: 'amber' },
+    { icon: '🌐', nome: 'Site / Agendamento', pct: 42, badgeColor: 'amber' },
+  ];
 
-  const getClassification = (score: number) => {
-    if (score >= 90) return 'Excelente';
-    if (score >= 80) return 'Muito Bom';
-    if (score >= 65) return 'Bom';
-    if (score >= 50) return 'Regular';
-    return 'Atenção Necessária';
-  };
+  const criticos = [
+    { icon: '⏱️', nome: 'Prazo de Entrega', pct: 22, isBi: true },
+    { icon: '🕐', nome: 'Fila / Espera', pct: 18, isBi: false },
+  ];
+
+  const radius = 58;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (saudeReputacao / 100) * circumference;
 
   return (
-    <div className="health-card" style={{ padding: '24px 20px' }}>
-      <div className="health-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span>Saúde da Reputação</span>
-        <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600', background: '#f1f5f9', padding: '2px 8px', borderRadius: '12px' }}>10 Indicadores</span>
-      </div>
-      
-      <GaugeChart score={saudeReputacao} />
-      
-      <div className="health-score-display">{saudeReputacao}</div>
-      <div className="health-score-label">
-        pontos de 100 — {getClassification(saudeReputacao)}
-      </div>
-
-      <div style={{ textAlign: 'center', marginTop: '8px', marginBottom: '20px' }}>
-        <Link 
-          href="/estatisticas#metodologia-reputacao" 
-          style={{ 
-            fontSize: '12px', 
-            color: '#2563eb', 
-            fontWeight: '600', 
-            textDecoration: 'none',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}
-        >
-          ℹ️ Metodologia e Detalhes ({saudeReputacao} pts) →
-        </Link>
+    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all">
+      {/* HEADER */}
+      <div className="flex items-center justify-between pb-5 border-b border-gray-100 mb-6">
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse" />
+          <h2 className="text-xs font-bold tracking-widest text-gray-500 uppercase">
+            SAÚDE DA REPUTAÇÃO
+          </h2>
+        </div>
+        <span className="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-full font-semibold">
+          10 INDICADORES
+        </span>
       </div>
 
-      {/* ═══ LISTA PERFEITAMENTE ALINHADA DOS 10 INDICADORES ═══ */}
-      <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {indicadores.map((ind, idx) => {
-          const isBiLink = ind.nome === 'Prazo de Entrega';
-          const cardContent = (
-            <div 
-              key={idx} 
-              style={{ 
-                background: isBiLink ? '#fef2f2' : '#f8fafc', 
-                border: isBiLink ? '1px solid #fca5a5' : '1px solid #e2e8f0', 
-                borderRadius: '10px', 
-                padding: '10px 14px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px',
-                transition: 'all 0.2s ease',
-                cursor: isBiLink ? 'pointer' : 'default',
-              }}
-            >
-              {/* Linha de Texto: Nome do Indicador na esquerda ... % com destaque na direita */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>{ind.icon}</span>
-                  <span>{ind.nome} {isBiLink && <span style={{ fontSize: '10px', color: '#dc2626', fontWeight: 800, background: '#fee2e2', padding: '1px 5px', borderRadius: '4px' }}>VER BI →</span>}</span>
-                </span>
-                <span style={{ 
-                  fontSize: '12.5px', 
-                  fontWeight: '800', 
-                  color: ind.color,
-                  background: `${ind.color}15`,
-                  padding: '2px 8px',
-                  borderRadius: '6px',
-                  whiteSpace: 'nowrap'
-                }}>
-                  {ind.pct}%
-                </span>
-              </div>
-
-              {/* Barra de Progresso */}
-              <div style={{ height: '6px', background: '#e2e8f0', borderRadius: '99px', overflow: 'hidden', width: '100%' }}>
-                <div 
-                  style={{ 
-                    width: `${ind.pct}%`, 
-                    background: ind.gradient || ind.color,
-                    height: '100%',
-                    borderRadius: '99px'
-                  }}
-                />
-              </div>
+      {/* GRID CONTAINER: 35% LEFT (SCORE) | 65% RIGHT (INDICATORS BY GROUP) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+        {/* LEFT COLUMN: SCORE CIRCLE & DISPLAY */}
+        <div className="lg:col-span-4 flex flex-col items-center justify-center p-4 bg-slate-50/70 rounded-xl border border-slate-100 text-center">
+          <div className="relative w-36 h-36 flex items-center justify-center">
+            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 140 140">
+              <circle
+                cx="70"
+                cy="70"
+                r={radius}
+                className="text-slate-200"
+                strokeWidth="12"
+                stroke="currentColor"
+                fill="transparent"
+              />
+              <circle
+                cx="70"
+                cy="70"
+                r={radius}
+                stroke="#2B7AE4"
+                strokeWidth="12"
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeDashoffset}
+                strokeLinecap="round"
+                fill="transparent"
+                className="transition-all duration-1000 ease-out"
+              />
+            </svg>
+            <div className="absolute flex flex-col items-center justify-center">
+              <span className="text-4xl font-extrabold text-slate-900 tracking-tight">
+                {saudeReputacao}
+              </span>
+              <span className="text-[11px] font-semibold text-slate-500">de 100</span>
             </div>
-          );
+          </div>
 
-          if (isBiLink) {
-            return (
-              <Link key={idx} href="/bi" style={{ textDecoration: 'none' }}>
-                {cardContent}
-              </Link>
-            );
-          }
+          <div className="mt-3">
+            <p className="text-sm font-bold text-slate-800">
+              {saudeReputacao} pontos de 100 — <span className="text-blue-600">Bom</span>
+            </p>
+            <Link
+              href="/estatisticas#metodologia-reputacao"
+              className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+            >
+              <span>Metodologia e Detalhes ({saudeReputacao} pts)</span>
+              <span>→</span>
+            </Link>
+          </div>
+        </div>
 
-          return cardContent;
-        })}
+        {/* RIGHT COLUMN: 3 GROUPS OF INDICATORS */}
+        <div className="lg:col-span-8 space-y-4">
+          {/* GROUP A: SAUDÁVEIS 🟢 */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 uppercase tracking-wider">
+              <span>🟢</span>
+              <span>Indicadores Saudáveis</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {saudaveis.map((ind, idx) => (
+                <div key={idx} className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <span>{ind.icon}</span>
+                      <span className="truncate">{ind.nome}</span>
+                    </span>
+                    <span className="bg-emerald-50 text-emerald-700 font-bold px-1.5 py-0.5 rounded text-[11px]">
+                      {ind.pct}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${ind.pct}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* GROUP B: ATENÇÃO 🟡 */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 uppercase tracking-wider">
+              <span>🟡</span>
+              <span>Pontos de Atenção</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {atencao.map((ind, idx) => {
+                const isBlue = ind.badgeColor === 'blue';
+                return (
+                  <div key={idx} className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                      <span className="flex items-center gap-1.5 truncate">
+                        <span>{ind.icon}</span>
+                        <span className="truncate">{ind.nome}</span>
+                      </span>
+                      <span
+                        className={`font-bold px-1.5 py-0.5 rounded text-[11px] ${
+                          isBlue ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'
+                        }`}
+                      >
+                        {ind.pct}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          isBlue ? 'bg-blue-600' : 'bg-amber-500'
+                        }`}
+                        style={{ width: `${ind.pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* GROUP C: CRÍTICOS 🔴 */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-red-700 uppercase tracking-wider">
+              <span>🔴</span>
+              <span>Indicadores Críticos</span>
+            </div>
+            <div className="bg-red-50/70 border border-red-200 rounded-xl p-3 space-y-2.5">
+              {criticos.map((ind, idx) => (
+                <div key={idx} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-800">
+                    <span className="flex items-center gap-1.5">
+                      <span>{ind.icon}</span>
+                      <span>{ind.nome}</span>
+                      {ind.isBi && (
+                        <Link
+                          href="/bi"
+                          className="bg-red-100 hover:bg-red-200 text-red-700 font-extrabold text-[10px] px-2 py-0.5 rounded transition-colors"
+                        >
+                          VER BI →
+                        </Link>
+                      )}
+                    </span>
+                    <span className="bg-red-100 text-red-700 font-extrabold px-2 py-0.5 rounded text-[11px]">
+                      {ind.pct}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-red-200/60 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-red-600 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${ind.pct}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+

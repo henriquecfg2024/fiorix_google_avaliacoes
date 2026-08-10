@@ -1,7 +1,15 @@
 'use client';
+
 import React, { useState } from 'react';
-import ReactECharts from 'echarts-for-react';
-import 'echarts-gl';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Cell,
+} from 'recharts';
 
 export interface ColaboradorRankData {
   nome: string;
@@ -17,13 +25,12 @@ interface ColaboradoresChartProps {
 export function ColaboradoresChart({ monthData, quarterData, totalData }: ColaboradoresChartProps) {
   const [period, setPeriod] = useState<'month' | 'quarter' | 'total'>('month');
 
-  // Amostras padrão para modo demonstração ou períodos sem registro recente
   const defaultMonth: ColaboradorRankData[] = [
     { nome: 'Lucas', elogios: 8 },
     { nome: 'Ana', elogios: 6 },
     { nome: 'Jonatan', elogios: 4 },
     { nome: 'Anne', elogios: 3 },
-    { nome: 'Ricardo Marçal', elogios: 3 }
+    { nome: 'Ricardo Marçal', elogios: 3 },
   ];
 
   const defaultQuarter: ColaboradorRankData[] = [
@@ -31,7 +38,7 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
     { nome: 'Ana', elogios: 12 },
     { nome: 'Lucas', elogios: 10 },
     { nome: 'Jonatan', elogios: 5 },
-    { nome: 'Anne', elogios: 4 }
+    { nome: 'Anne', elogios: 4 },
   ];
 
   const defaultTotal: ColaboradorRankData[] = [
@@ -39,187 +46,145 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
     { nome: 'Ana', elogios: 19 },
     { nome: 'Jonatan', elogios: 5 },
     { nome: 'Anne', elogios: 4 },
-    { nome: 'Lucas', elogios: 4 }
+    { nome: 'Lucas', elogios: 4 },
   ];
 
-  let rawList: ColaboradorRankData[] = [];
+  let currentList: ColaboradorRankData[] = [];
   if (period === 'month') {
-    rawList = (monthData && monthData.length > 0 && monthData.some(d => d.elogios > 0)) ? monthData : defaultMonth;
+    currentList = monthData && monthData.length > 0 && monthData.some((d) => d.elogios > 0) ? monthData : defaultMonth;
   } else if (period === 'quarter') {
-    rawList = (quarterData && quarterData.length > 0 && quarterData.some(d => d.elogios > 0)) ? quarterData : defaultQuarter;
+    currentList = quarterData && quarterData.length > 0 && quarterData.some((d) => d.elogios > 0) ? quarterData : defaultQuarter;
   } else {
-    rawList = (totalData && totalData.length > 0 && totalData.some(d => d.elogios > 0)) ? totalData : defaultTotal;
+    currentList = totalData && totalData.length > 0 && totalData.some((d) => d.elogios > 0) ? totalData : defaultTotal;
   }
 
-  const chartData = rawList.map(item => [item.nome, 0, item.elogios]);
-  const categories = chartData.map(item => item[0] as string);
-  const maxScore = Math.max(...rawList.map(item => item.elogios || 10), 10);
+  // Reverse list so top rank displays at top in vertical layout
+  const chartData = [...currentList].reverse();
 
-  const option = {
-    tooltip: {
-      show: true,
-      formatter: (params: any) => `<strong style="font-size:14px; color:#1e293b;">${params.value[0]}</strong><br/><span style="color:#10b981; font-weight:700;">👏 ${params.value[2]} elogios no período</span>`
-    },
-    visualMap: {
-      max: maxScore,
-      inRange: {
-        color: [
-          '#3b82f6', // blue
-          '#8b5cf6', // purple
-          '#10d9a0'  // teal
-        ]
-      },
-      show: false
-    },
-    xAxis3D: {
-      type: 'category',
-      name: '',
-      data: categories,
-      axisLabel: { 
-        color: '#1e293b', 
-        fontSize: 13, 
-        fontWeight: '700',
-        interval: 0
-      },
-      axisLine: { lineStyle: { color: 'rgba(148,163,184,0.4)', width: 2 } }
-    },
-    yAxis3D: {
-      type: 'category',
-      name: '',
-      data: ['Elogios'],
-      axisLabel: { show: false },
-      axisLine: { lineStyle: { color: 'rgba(148,163,184,0.4)' } }
-    },
-    zAxis3D: {
-      type: 'value',
-      name: '',
-      axisLabel: { color: '#475569', fontSize: 12, fontWeight: 'bold' },
-      axisLine: { lineStyle: { color: 'rgba(148,163,184,0.4)', width: 2 } }
-    },
-    grid3D: {
-      boxWidth: 380,
-      boxHeight: 200,
-      boxDepth: 70,
-      viewControl: {
-        alpha: 22,
-        beta: 28,
-        distance: 210,
-        autoRotate: true,
-        autoRotateSpeed: 4
-      },
-      light: {
-        main: {
-          intensity: 1.4,
-          shadow: true
-        },
-        ambient: {
-          intensity: 0.4
-        }
-      }
-    },
-    series: [
-      {
-        type: 'bar3D',
-        data: chartData.map(item => ({
-          name: item[0],
-          value: [item[0], item[1], item[2]]
-        })),
-        shading: 'realistic',
-        label: {
-          show: true,
-          formatter: (params: any) => params.value[2].toString(),
-          textStyle: { fontSize: 15, fontWeight: '800', color: '#10b981', borderWidth: 1 }
-        },
-        itemStyle: {
-          opacity: 0.95
-        },
-        emphasis: {
-          label: {
-            textStyle: { fontSize: 18, color: '#fff', fontWeight: 'bold' }
-          },
-          itemStyle: {
-            color: '#f59e0b'
-          }
-        }
-      }
-    ]
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-slate-900/95 border border-slate-800 text-white rounded-xl shadow-xl p-2.5 text-xs backdrop-blur-sm">
+          <p className="font-bold text-slate-200">{data.nome}</p>
+          <p className="text-emerald-400 font-semibold mt-0.5">👏 {data.elogios} elogios registrados</p>
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '16px' }}>
-      {/* ═══ CABEÇALHO COM TABS FUNCIONAIS ═══ */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
+    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all space-y-4">
+      {/* HEADER WITH TABS */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <div style={{ fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>Ranking dos Colaboradores</div>
-          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-            {period === 'month' ? 'Menções no mês atual' : period === 'quarter' ? 'Menções nos últimos 90 dias' : 'Todo o período acumulado'}
-          </div>
+          <h3 className="text-base font-bold text-slate-900">Ranking dos Colaboradores</h3>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {period === 'month'
+              ? 'Menções positivas no mês atual'
+              : period === 'quarter'
+              ? 'Menções nos últimos 90 dias'
+              : 'Todo o período acumulado'}
+          </p>
         </div>
 
-        <div className="period-tabs">
-          <button 
-            className={`period-tab ${period === 'month' ? 'active' : ''}`}
+        {/* TABS */}
+        <div className="inline-flex bg-slate-100 p-1 rounded-xl gap-1 text-xs font-semibold self-start sm:self-auto">
+          <button
             onClick={() => setPeriod('month')}
-            style={{ cursor: 'pointer' }}
+            className={`px-3 py-1.5 rounded-lg transition-all ${
+              period === 'month'
+                ? 'bg-blue-600 text-white shadow-sm font-bold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
           >
             Este mês
           </button>
-          <button 
-            className={`period-tab ${period === 'quarter' ? 'active' : ''}`}
+          <button
             onClick={() => setPeriod('quarter')}
-            style={{ cursor: 'pointer' }}
+            className={`px-3 py-1.5 rounded-lg transition-all ${
+              period === 'quarter'
+                ? 'bg-blue-600 text-white shadow-sm font-bold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
           >
             Trimestre
           </button>
-          <button 
-            className={`period-tab ${period === 'total' ? 'active' : ''}`}
+          <button
             onClick={() => setPeriod('total')}
-            style={{ cursor: 'pointer' }}
+            className={`px-3 py-1.5 rounded-lg transition-all ${
+              period === 'total'
+                ? 'bg-blue-600 text-white shadow-sm font-bold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
           >
             Geral
           </button>
         </div>
       </div>
 
-      {/* 🏆 MINI LEADERBOARD EM CARDS SUPERIORES */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginTop: '4px' }}>
-        {rawList.map((col, idx) => {
+      {/* MINI LEADERBOARD PILLS */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        {currentList.map((col, idx) => {
           const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
-          const badgeBg = idx === 0 ? '#dcfce7' : idx === 1 ? '#eff6ff' : '#f8fafc';
-          const badgeBorder = idx === 0 ? '#86efac' : idx === 1 ? '#bfdbfe' : '#e2e8f0';
-          const textColor = idx === 0 ? '#15803d' : idx === 1 ? '#1d4ed8' : '#334155';
+          const isTop = idx === 0;
 
           return (
-            <div 
-              key={idx} 
-              style={{ 
-                background: badgeBg, 
-                border: `1px solid ${badgeBorder}`, 
-                borderRadius: '10px', 
-                padding: '10px 12px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '2px',
-                alignItems: 'center',
-                textAlign: 'center'
-              }}
+            <div
+              key={idx}
+              className={`rounded-xl p-2.5 flex flex-col items-center justify-center text-center transition-all border ${
+                isTop
+                  ? 'bg-blue-50/80 border-blue-200 shadow-sm'
+                  : 'bg-slate-50 border-slate-100 hover:bg-slate-100/80'
+              }`}
             >
-              <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b' }}>{medal} Rank</div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: textColor, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+              <span className="text-[10px] font-bold text-slate-500 uppercase">{medal} Rank</span>
+              <span className="text-xs font-bold text-slate-900 truncate max-w-full mt-0.5">
                 {col.nome}
-              </div>
-              <div style={{ fontSize: '13px', fontWeight: '800', color: '#16a34a', marginTop: '2px' }}>
+              </span>
+              <span className="text-xs font-extrabold text-emerald-600 mt-1">
                 {col.elogios} 👏
-              </div>
+              </span>
             </div>
           );
         })}
       </div>
 
-      {/* 📊 GRÁFICO 3D EXPANDIDO PREENCHENDO A ÁREA */}
-      <div style={{ width: '100%', marginTop: '4px' }}>
-        <ReactECharts option={option} style={{ height: 440, width: '100%' }} />
+      {/* RECHARTS HORIZONTAL BARCHART (FLAT - NO 3D) */}
+      <div className="w-full h-[220px] pt-2">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            layout="vertical"
+            data={chartData}
+            margin={{ top: 0, right: 20, left: 10, bottom: 0 }}
+            barCategoryGap={12}
+          >
+            <XAxis type="number" hide />
+            <YAxis
+              type="category"
+              dataKey="nome"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: '#334155', fontSize: 12, fontWeight: 600 }}
+              width={100}
+            />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(241,245,249,0.6)' }} />
+            <Bar dataKey="elogios" radius={[0, 8, 8, 0]} barSize={20}>
+              {chartData.map((entry, index) => {
+                const isTop1 = entry.nome === currentList[0]?.nome;
+                return (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={isTop1 ? '#1E40AF' : '#3B82F6'}
+                  />
+                );
+              })}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
 }
+
