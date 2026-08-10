@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { FiorixHeader } from "@/components/fiorix/FiorixHeader";
 import { FiorixHero } from "@/components/fiorix/FiorixHero";
-import { FiorixControlBar } from "@/components/fiorix/FiorixControlBar";
+import { FiorixControlBar, ChartVisibility } from "@/components/fiorix/FiorixControlBar";
 import { FiorixFilters } from "@/components/fiorix/FiorixFilters";
 import { FiorixKpiGrid } from "@/components/fiorix/FiorixKpiGrid";
 import { FiorixCharts } from "@/components/fiorix/FiorixCharts";
@@ -24,6 +24,28 @@ export function FiorixDashboardClient({ imports, dashboardData, atrasados, initi
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isUpdating, setIsUpdating] = useState(false);
+
+  const [visibleCharts, setVisibleCharts] = useState<ChartVisibility>({
+    chart1: true,
+    chart2: true,
+    chart3: true,
+  });
+
+  const handleToggleChart = (chartKey: keyof ChartVisibility) => {
+    setVisibleCharts((prev) => ({
+      ...prev,
+      [chartKey]: !prev[chartKey],
+    }));
+  };
+
+  const handleResetCharts = () => {
+    setVisibleCharts({
+      chart1: true,
+      chart2: true,
+      chart3: true,
+    });
+    toast.success("Visualização dos gráficos restaurada para o padrão.");
+  };
 
   const handleFilterChange = (key: string, value: string) => {
     startTransition(() => {
@@ -70,7 +92,11 @@ export function FiorixDashboardClient({ imports, dashboardData, atrasados, initi
               userRole={userRole}
             />
             
-            <FiorixControlBar />
+            <FiorixControlBar
+              visibleCharts={visibleCharts}
+              onToggleChart={handleToggleChart}
+              onResetCharts={handleResetCharts}
+            />
             
             <FiorixFilters 
               imports={imports}
@@ -79,7 +105,6 @@ export function FiorixDashboardClient({ imports, dashboardData, atrasados, initi
               onFilterChange={handleFilterChange}
             />
             
-            {/* We map the Supabase dashboardData to the format KpiGrid expects */}
             <FiorixKpiGrid data={{
               total: { value: dashboardData.summary.totalRegistered, label: "Total de títulos computados" },
               noPrazo: { value: dashboardData.summary.noPrazoCount, percentage: dashboardData.summary.percentNoPrazo, label: "Dentro do prazo legal" },
@@ -89,7 +114,9 @@ export function FiorixDashboardClient({ imports, dashboardData, atrasados, initi
             
             <FiorixCharts 
               pieChartData={dashboardData.charts.pieChartData}
+              delaySeverity={dashboardData.charts.delaySeverity}
               evolucaoPrazoPorDia={dashboardData.charts.evolucaoPrazoPorDia}
+              visibleCharts={visibleCharts}
             />
             
             <FiorixDataTable data={atrasados} />
