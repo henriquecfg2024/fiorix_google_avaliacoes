@@ -18,7 +18,7 @@ export default async function Dashboard({
   const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
 
   // Fetch real data from Prisma
-  const totalReviews = await prisma.review.count({ where: { tenantId } });
+  const totalReviews = await prisma.review.count({ where: { tenantId, deletedFromGoogle: false } });
   const googleConnection = await prisma.googleConnection.findFirst({ where: { tenantId } });
   
   const isConnected = !!googleConnection;
@@ -26,19 +26,20 @@ export default async function Dashboard({
 
   // Real KPI aggregation
   const avgRatingRes = await prisma.review.aggregate({
-    where: { tenantId },
+    where: { tenantId, deletedFromGoogle: false },
     _avg: { rating: true }
   });
   const notaMedia = avgRatingRes._avg.rating || 0;
 
   const pendentes = await prisma.review.count({
-    where: { tenantId, status: 'PENDING' }
+    where: { tenantId, status: 'PENDING', deletedFromGoogle: false }
   });
 
   const respondidasHoje = await prisma.review.count({
     where: {
       tenantId,
       status: 'RESPONDED',
+      deletedFromGoogle: false,
     }
   });
 

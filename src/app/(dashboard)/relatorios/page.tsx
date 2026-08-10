@@ -12,7 +12,7 @@ export default async function RelatoriosPage() {
 
   let totalReviews = 547;
   try {
-    const dbTotal = await prisma.review.count({ where: { tenantId } });
+    const dbTotal = await prisma.review.count({ where: { tenantId, deletedFromGoogle: false } });
     if (dbTotal > 0) totalReviews = dbTotal;
   } catch (err) {
     console.error('Error fetching total reviews:', err);

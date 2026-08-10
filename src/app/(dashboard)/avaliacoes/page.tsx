@@ -28,7 +28,7 @@ export default async function AvaliacoesPage({
   const rawSearch = Array.isArray(searchParams?.search) ? searchParams.search[0] : searchParams?.search;
   const searchQuery = typeof rawSearch === 'string' ? rawSearch.trim() : undefined;
 
-  const whereClause: any = { tenantId };
+  const whereClause: any = { tenantId, deletedFromGoogle: false };
   if (statusFilter === 'PENDING') whereClause.status = 'PENDING';
   if (statusFilter === 'RESPONDED') whereClause.status = 'RESPONDED';
   if (ratingFilter) whereClause.rating = ratingFilter;
@@ -51,12 +51,12 @@ export default async function AvaliacoesPage({
   let respondedCount = 547;
 
   try {
-    const dbTotal = await prisma.review.count({ where: { tenantId } });
+    const dbTotal = await prisma.review.count({ where: { tenantId, deletedFromGoogle: false } });
     if (dbTotal > 0) {
       totalCount = dbTotal;
       totalFilteredCount = await prisma.review.count({ where: whereClause });
-      pendingCount = await prisma.review.count({ where: { tenantId, status: 'PENDING' } });
-      respondedCount = await prisma.review.count({ where: { tenantId, status: 'RESPONDED' } });
+      pendingCount = await prisma.review.count({ where: { tenantId, status: 'PENDING', deletedFromGoogle: false } });
+      respondedCount = await prisma.review.count({ where: { tenantId, status: 'RESPONDED', deletedFromGoogle: false } });
 
       dbReviews = await prisma.review.findMany({
         where: whereClause,

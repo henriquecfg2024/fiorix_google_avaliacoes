@@ -113,7 +113,8 @@ export async function getPendingCount() {
   return prisma.review.count({
     where: {
       tenantId: session.user.tenantId,
-      status: 'PENDING'
+      status: 'PENDING',
+      deletedFromGoogle: false,
     }
   });
 }

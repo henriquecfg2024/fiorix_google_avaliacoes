@@ -307,6 +307,45 @@ export async function syncReviews(tenantId: string, triggeredBy?: string) {
         data: { status: 'RESPONDED' }
       });
     }
+
+    // ── Soft-delete: marcar avaliações que não existem mais no Google ──
+    // Só faz a reconciliação se buscamos todas as páginas (sem pageToken restante),
+    // garantindo que temos o catálogo completo do Google.
+    let deletedCount = 0;
+    let restoredCount = 0;
+    if (!pageToken && googleIds.length > 0) {
+      const activeGoogleIds = new Set(googleIds);
+
+      // Marcar como deletadas: avaliações locais com googleId que não estão mais no Google
+      const markedDeleted = await prisma.review.updateMany({
+        where: {
+          tenantId,
+          googleId: { notIn: [...activeGoogleIds], not: null },
+          deletedFromGoogle: false,
+        },
+        data: { deletedFromGoogle: true },
+      });
+      deletedCount = markedDeleted.count;
+
+      // Restaurar avaliações que reapareceram no Google (caso raro)
+      const markedRestored = await prisma.review.updateMany({
+        where: {
+          tenantId,
+          googleId: { in: [...activeGoogleIds] },
+          deletedFromGoogle: true,
+        },
+        data: { deletedFromGoogle: false },
+      });
+      restoredCount = markedRestored.count;
+
+      if (deletedCount > 0) {
+        console.log(`[Sync] Marcadas ${deletedCount} avaliações como removidas do Google para tenant ${tenantId}`);
+      }
+      if (restoredCount > 0) {
+        console.log(`[Sync] Restauradas ${restoredCount} avaliações que reapareceram no Google para tenant ${tenantId}`);
+      }
+    }
+
     const newReviewsCount = newReviews.length;
 
     await finishLog({
@@ -315,7 +354,7 @@ export async function syncReviews(tenantId: string, triggeredBy?: string) {
       reviewsImported: newReviewsCount,
     });
 
-    return { success: true, count: newReviewsCount };
+    return { success: true, count: newReviewsCount, deleted: deletedCount, restored: restoredCount };
   } catch (error: any) {
     console.error('Error syncing reviews:', error);
     const errorMessage = error.message || 'Falha ao buscar avaliações do Google';

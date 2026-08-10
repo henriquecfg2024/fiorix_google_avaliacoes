@@ -126,6 +126,9 @@ model Review {
   aiSummary     String?
   aiSentiment   Sentiment?
 
+  // Soft-delete: marcado como true quando a avaliação não existe mais no Google
+  deletedFromGoogle Boolean @default(false)
+
   tenantId      String
   tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdAt     DateTime     @default(now())

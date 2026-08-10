@@ -18,14 +18,14 @@ export default async function EstatisticasPage() {
   let oneStar = 58;
 
   try {
-    const dbTotal = await prisma.review.count({ where: { tenantId } });
+    const dbTotal = await prisma.review.count({ where: { tenantId, deletedFromGoogle: false } });
     if (dbTotal > 0) {
       totalReviews = dbTotal;
-      fiveStars = await prisma.review.count({ where: { tenantId, rating: 5 } });
-      fourStars = await prisma.review.count({ where: { tenantId, rating: 4 } });
-      threeStars = await prisma.review.count({ where: { tenantId, rating: 3 } });
-      twoStars = await prisma.review.count({ where: { tenantId, rating: 2 } });
-      oneStar = await prisma.review.count({ where: { tenantId, rating: 1 } });
+      fiveStars = await prisma.review.count({ where: { tenantId, rating: 5, deletedFromGoogle: false } });
+      fourStars = await prisma.review.count({ where: { tenantId, rating: 4, deletedFromGoogle: false } });
+      threeStars = await prisma.review.count({ where: { tenantId, rating: 3, deletedFromGoogle: false } });
+      twoStars = await prisma.review.count({ where: { tenantId, rating: 2, deletedFromGoogle: false } });
+      oneStar = await prisma.review.count({ where: { tenantId, rating: 1, deletedFromGoogle: false } });
     }
   } catch (err) {
     console.error('Error loading estatisticas:', err);
