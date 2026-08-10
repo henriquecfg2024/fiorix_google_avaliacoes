@@ -151,7 +151,7 @@ export default async function Dashboard({
   const syncedCount = Array.isArray(rawSynced) ? rawSynced[0] : rawSynced;
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 bg-[#F5F7FB] min-h-screen">
+    <div className="max-w-[1600px] mx-auto p-4 md:p-6 space-y-6 bg-[#F5F7FB] min-h-screen">
       {syncError && (
         <div className="bg-red-50 text-red-800 p-3.5 px-5 rounded-2xl text-sm border border-red-200 flex items-center gap-2">
           <span>❌</span>
