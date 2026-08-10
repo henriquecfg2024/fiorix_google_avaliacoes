@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
-
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 export const HEADER_FIORIX = [
   'Protocolo',
   'FlagRecepcao',
@@ -533,108 +534,55 @@ export function PreviewCard({
   if (!stats) return null;
 
   return (
-    <div
-      style={{
-        background: '#f8fafc',
-        border: '2px dashed #cbd5e1',
-        padding: '24px',
-        borderRadius: '16px',
-        marginTop: '20px',
-      }}
-    >
-      <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: '0 0 12px' }}>
-        📊 Preview: {stats.fileName}
-      </h3>
-      <p style={{ margin: '4px 0', fontSize: '14px', color: '#334155' }}>
-        ✅ Total de linhas: <b>{stats.totalLinhas.toLocaleString('pt-BR')}</b>
-      </p>
-      <p style={{ margin: '4px 0', fontSize: '14px', color: '#334155' }}>
-        📄 Protocolos únicos: <b>{stats.protocolosUnicos.toLocaleString('pt-BR')}</b>
-      </p>
-      <p style={{ margin: '4px 0', fontSize: '14px', color: '#334155' }}>
-        ⚠️ Devoluções: <b>{stats.devolucoes.toLocaleString('pt-BR')}</b>
-      </p>
-      <p style={{ margin: '4px 0', fontSize: '14px', color: '#334155' }}>
-        🟢 No Prazo: <b>{stats.noPrazo.toLocaleString('pt-BR')}</b> | 🔴 Atrasados:{' '}
-        <b>
-          {stats.atrasados.toLocaleString('pt-BR')} ({stats.percAtraso}%)
-        </b>
-      </p>
-      <p style={{ margin: '4px 0', fontSize: '14px', color: '#334155' }}>
-        📅 Período: <b>{stats.periodoIni}</b> até <b>{stats.periodoFim}</b>
-      </p>
+    <Card className="mt-5 border-dashed border-2 border-slate-300 bg-slate-50">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-800">
+          <span>📊 Preview: {stats.fileName}</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 text-sm text-slate-600">
+        <p>✅ Total de linhas: <strong className="text-slate-800">{stats.totalLinhas.toLocaleString('pt-BR')}</strong></p>
+        <p>📄 Protocolos únicos: <strong className="text-slate-800">{stats.protocolosUnicos.toLocaleString('pt-BR')}</strong></p>
+        <p>⚠️ Devoluções: <strong className="text-slate-800">{stats.devolucoes.toLocaleString('pt-BR')}</strong></p>
+        <p>
+          🟢 No Prazo: <strong className="text-slate-800">{stats.noPrazo.toLocaleString('pt-BR')}</strong> | 🔴 Atrasados:{' '}
+          <strong className="text-slate-800">
+            {stats.atrasados.toLocaleString('pt-BR')} ({stats.percAtraso}%)
+          </strong>
+        </p>
+        <p>📅 Período: <strong className="text-slate-800">{stats.periodoIni}</strong> até <strong className="text-slate-800">{stats.periodoFim}</strong></p>
 
-      {isImporting && (
-        <div style={{ marginTop: '16px', marginBottom: '16px' }}>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              fontSize: '12px',
-              fontWeight: 600,
-              color: '#334155',
-              marginBottom: '6px',
-            }}
-          >
-            <span>{importStatusMsg}</span>
-            <span>{uploadProgress.toFixed(1)}%</span>
+        {isImporting && (
+          <div className="mt-4 pt-4 border-t border-slate-200">
+            <div className="flex justify-between text-xs font-semibold text-slate-600 mb-1.5">
+              <span>{importStatusMsg}</span>
+              <span>{(uploadProgress || 0).toFixed(1)}%</span>
+            </div>
+            <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-emerald-500 transition-all duration-300"
+                style={{ width: `${uploadProgress || 0}%` }}
+              />
+            </div>
           </div>
-          <div
-            style={{
-              width: '100%',
-              height: '10px',
-              background: '#e2e8f0',
-              borderRadius: '5px',
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              style={{
-                width: `${uploadProgress}%`,
-                height: '100%',
-                background: '#10b981',
-                transition: 'width 0.3s',
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      <div style={{ display: 'flex', gap: '12px', marginTop: '20px', flexWrap: 'wrap' }}>
-        <button
+        )}
+      </CardContent>
+      <CardFooter className="flex gap-3 flex-wrap pt-0">
+        <Button
+          variant="outline"
           onClick={onCancel}
           disabled={isImporting}
-          style={{
-            border: '1px solid #cbd5e1',
-            background: '#ffffff',
-            color: '#475569',
-            padding: '10px 20px',
-            borderRadius: '8px',
-            fontWeight: 600,
-            fontSize: '13px',
-            cursor: isImporting ? 'not-allowed' : 'pointer',
-          }}
         >
           Cancelar
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={onConfirm}
           disabled={isImporting}
-          style={{
-            background: isImporting ? '#94a3b8' : '#002B49',
-            color: '#ffffff',
-            padding: '10px 24px',
-            borderRadius: '8px',
-            border: 'none',
-            fontWeight: 700,
-            fontSize: '13px',
-            cursor: isImporting ? 'not-allowed' : 'pointer',
-            boxShadow: '0 4px 12px rgba(0, 43, 73, 0.25)',
-          }}
+          className="bg-slate-900 hover:bg-slate-800 text-white shadow-md"
         >
           {isImporting ? 'Importando...' : 'Confirmar e Importar para Supabase'}
-        </button>
-      </div>
-    </div>
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }

@@ -1,0 +1,99 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { FiorixHeader } from "@/components/fiorix/FiorixHeader";
+import { FiorixHero } from "@/components/fiorix/FiorixHero";
+import { FiorixControlBar } from "@/components/fiorix/FiorixControlBar";
+import { FiorixFilters } from "@/components/fiorix/FiorixFilters";
+import { FiorixKpiGrid } from "@/components/fiorix/FiorixKpiGrid";
+import { FiorixCharts } from "@/components/fiorix/FiorixCharts";
+import { FiorixDataTable } from "@/components/fiorix/FiorixDataTable";
+import { FiorixSkeleton } from "@/components/fiorix/FiorixSkeleton";
+
+interface FiorixDashboardClientProps {
+  imports: any[];
+  dashboardData: any;
+  atrasados: any[];
+  initialFilters: any;
+}
+
+export function FiorixDashboardClient({ imports, dashboardData, atrasados, initialFilters }: FiorixDashboardClientProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleFilterChange = (key: string, value: string) => {
+    startTransition(() => {
+      const searchParams = new URLSearchParams(window.location.search);
+      if (value && value !== "ALL" && value !== "todos") {
+        searchParams.set(key, value);
+      } else {
+        searchParams.delete(key);
+      }
+      router.push(`?${searchParams.toString()}`);
+    });
+  };
+
+  const handleUpdate = () => {
+    setIsUpdating(true);
+    startTransition(() => {
+      router.refresh();
+      setTimeout(() => {
+        setIsUpdating(false);
+        toast.success("Dados sincronizados com sucesso!", {
+          description: "As informações refletem o estado atual da base de dados.",
+        });
+      }, 500);
+    });
+  };
+
+  const handleImport = () => {
+    router.push("/bi/importar");
+  };
+
+  return (
+    <div className="min-h-screen bg-background text-foreground selection:bg-blue-200 dark:selection:bg-blue-900 transition-colors duration-300">
+      <FiorixHeader />
+      
+      <main className="container mx-auto px-4 lg:px-8 py-8 space-y-6">
+        {isPending && isUpdating ? (
+          <FiorixSkeleton />
+        ) : (
+          <div className="space-y-6 animate-in fade-in duration-700 slide-in-from-bottom-4">
+            <FiorixHero 
+              onUpdate={handleUpdate} 
+              onImport={handleImport}
+              isUpdating={isUpdating || isPending}
+            />
+            
+            <FiorixControlBar />
+            
+            <FiorixFilters 
+              imports={imports}
+              tiposPrenotacao={dashboardData.tiposPrenotacao}
+              filters={initialFilters}
+              onFilterChange={handleFilterChange}
+            />
+            
+            {/* We map the Supabase dashboardData to the format KpiGrid expects */}
+            <FiorixKpiGrid data={{
+              total: { value: dashboardData.summary.totalRegistered, label: "Total de títulos computados" },
+              noPrazo: { value: dashboardData.summary.noPrazoCount, percentage: dashboardData.summary.percentNoPrazo, label: "Dentro do prazo legal" },
+              emAtraso: { value: dashboardData.summary.atrasadoCount, percentage: dashboardData.summary.percentAtrasado, label: "Fora do prazo legal" },
+              devolucoes: { value: dashboardData.summary.devolucaoCount, percentage: dashboardData.summary.percentDevolucao, label: "Com exigências" }
+            }} />
+            
+            <FiorixCharts 
+              pieChartData={dashboardData.charts.pieChartData}
+              evolucaoPrazoPorDia={dashboardData.charts.evolucaoPrazoPorDia}
+            />
+            
+            <FiorixDataTable data={atrasados} />
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}

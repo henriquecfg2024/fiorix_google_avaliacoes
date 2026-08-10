@@ -1,5 +1,4 @@
 import { Prisma } from '@prisma/client';
-
 import { prisma } from '@/lib/prisma';
 
 export interface BiDashboardFilters {
@@ -19,10 +18,6 @@ const NATUREZA_NORMALIZADA_SQL = Prisma.sql`
   )
 `;
 
-// Fonte legal recebida em 6 de agosto de 2026:
-// quando a previsao e 0, nao existe prazo legal de entrega.
-// A classificacao abaixo segue exatamente as descricoes com previsao zero
-// da tabela legal enviada pelo usuario.
 const ZERO_DEADLINE_NATURE_CONDITION_SQL = Prisma.sql`
   (
     ${NATUREZA_NORMALIZADA_SQL} = 'INTIMACAO'
@@ -62,11 +57,8 @@ function formatDateKey(value: string | Date) {
   if (value instanceof Date) {
     return value.toISOString().slice(0, 10);
   }
-
   return String(value);
 }
-
-const MONTH_NAMES_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 type DashboardCacheEntry = { expiresAt: number; value: any };
 const dashboardCache = new Map<string, DashboardCacheEntry>();
@@ -299,7 +291,6 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
     devolucao: Number(row.devolucao || 0),
   }));
 
-
   const totalRecordsRaw = includeSummary ? await prisma.$queryRaw<Array<{ cnt: bigint }>>`
     SELECT COALESCE(SUM(a.total_records), 0)::bigint as cnt
     FROM fiorix_bi_daily_agg a
@@ -349,7 +340,6 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
     ORDER BY total DESC, natureza
   ` : [];
 
-
   const tiposRaw = includeSummary ? await prisma.$queryRaw<Array<{ tipo: string }>>`
     SELECT DISTINCT a.tipo_prenotacao as tipo
     FROM fiorix_bi_daily_agg a
@@ -374,9 +364,9 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
       noPrazoCount,
       atrasadoCount,
       devolucaoCount: devolucaoGeneralCount,
-      percentNoPrazo: Number(((noPrazoCount / totalRegistered) * 100).toFixed(1)),
-      percentAtrasado: Number(((atrasadoCount / totalRegistered) * 100).toFixed(1)),
-      percentDevolucao: Number(((devolucaoGeneralCount / (totalRecords || 1)) * 100).toFixed(1)),
+      percentNoPrazo: Number(((noPrazoCount / totalRegistered) * 100).toFixed(1)) || 0,
+      percentAtrasado: Number(((atrasadoCount / totalRegistered) * 100).toFixed(1)) || 0,
+      percentDevolucao: Number(((devolucaoGeneralCount / (totalRecords || 1)) * 100).toFixed(1)) || 0,
       exceptionRecordsExcluded,
       exceptionProtocolsExcluded,
     },
@@ -433,4 +423,68 @@ export async function queryBiImportsList() {
   } finally {
     dashboardInFlight.delete('__imports__');
   }
+}
+
+export async function queryBiAtrasadosList(filters?: BiDashboardFilters) {
+  let importCondition = Prisma.sql`1=1`;
+  if (filters?.importId && filters.importId !== 'ALL') {
+    importCondition = Prisma.sql`"import_id" = ${filters.importId}`;
+  }
+
+  let tipoCondition = Prisma.sql`1=1`;
+  if (filters?.tipoPrenotacao && filters.tipoPrenotacao !== 'ALL') {
+    tipoCondition = Prisma.sql`"TipoPrenotacao" = ${filters.tipoPrenotacao}`;
+  }
+
+  let dateCondition = Prisma.sql`1=1`;
+  if (filters?.startDate || filters?.endDate) {
+    if (filters.startDate && filters.endDate) {
+      const endD = new Date(filters.endDate);
+      endD.setHours(23, 59, 59, 999);
+      dateCondition = Prisma.sql`"DtAndamento" >= ${new Date(filters.startDate)} AND "DtAndamento" <= ${endD}`;
+    } else if (filters.startDate) {
+      dateCondition = Prisma.sql`"DtAndamento" >= ${new Date(filters.startDate)}`;
+    } else if (filters.endDate) {
+      const endD = new Date(filters.endDate);
+      endD.setHours(23, 59, 59, 999);
+      dateCondition = Prisma.sql`"DtAndamento" <= ${endD}`;
+    }
+  }
+
+  const baseCondition = Prisma.sql`${importCondition} AND ${tipoCondition} AND ${dateCondition}`;
+  const generalCondition = Prisma.sql`${baseCondition} AND ${GENERAL_NATURE_CONDITION_SQL}`;
+
+  // Get atrasados logic based on fiorix_bi_data fields.
+  // Using IsAtrasado or DiasCorridos > PrazoLegal.
+  // Let's assume IsAtrasado = true is present, or we can check DiasCorridos > PrazoLegal where PrazoLegal > 0.
+  // Note: we can use the condition "registered_atrasado" logic. Usually "IsAtrasado" = true if it has it, 
+  // or "DiasCorridos" > "PrazoLegal" and "PrazoLegal" > 0 and "IsRegistrado" = true.
+  
+  const atrasadosRaw = await prisma.$queryRaw<Array<{ id: string; protocolo: string; data_entrada: Date; tipo: string; atraso_dias: number; situacao: string }>>`
+    SELECT
+      "id",
+      "Protocolo" as protocolo,
+      "DtAndamento" as data_entrada,
+      "TipoPrenotacao" as tipo,
+      COALESCE("DiasAtraso", COALESCE("DiasCorridos", 0) - COALESCE("DiasPrometidos", 0)) as atraso_dias,
+      CASE 
+        WHEN "IsDevolucao" = true THEN 'devolvido'
+        WHEN "DiasAtraso" > 0 OR ("DiasCorridos" > "DiasPrometidos" AND "DiasPrometidos" > 0) THEN 'atrasado'
+        ELSE 'no_prazo'
+      END as situacao
+    FROM fiorix_bi_data
+    WHERE ${generalCondition}
+      AND ("DiasAtraso" > 0 OR ("DiasCorridos" > "DiasPrometidos" AND "DiasPrometidos" > 0))
+    ORDER BY atraso_dias DESC
+    LIMIT 100
+  `;
+
+  return atrasadosRaw.map(row => ({
+    id: row.id,
+    protocolo: row.protocolo,
+    data: formatDateKey(row.data_entrada),
+    tipo: row.tipo,
+    atraso: Number(row.atraso_dias),
+    status: row.situacao,
+  }));
 }
