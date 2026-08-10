@@ -112,7 +112,8 @@ export default async function Dashboard({
   const startOfQuarter = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
   const getColabRank = (fromDate?: Date) => {
-    return dbColaboradores.map((colab) => {
+    const nameMap = new Map<string, number>();
+    dbColaboradores.forEach((colab) => {
       const namesToSearch = [colab.name, ...(colab.aliases || [])].map(n => n.trim().toLowerCase()).filter(Boolean);
       const matchedReviews = allReviews.filter(rev => {
         if (!rev.comment) return false;
@@ -133,11 +134,15 @@ export default async function Dashboard({
       const uniqueReviews = Array.from(combinedReviewsMap.values());
       const elogios = uniqueReviews.filter(rev => rev.rating >= 4 || rev.aiSentiment === 'POSITIVE').length;
 
-      return {
-        nome: colab.name,
-        elogios: uniqueReviews.length > 0 ? elogios : 0
-      };
-    }).sort((a, b) => b.elogios - a.elogios).slice(0, 5);
+      const normName = colab.name.trim();
+      const current = nameMap.get(normName) || 0;
+      nameMap.set(normName, Math.max(current, elogios));
+    });
+
+    return Array.from(nameMap.entries())
+      .map(([nome, elogios]) => ({ nome, elogios }))
+      .sort((a, b) => b.elogios - a.elogios)
+      .slice(0, 5);
   };
 
   const monthColaboradores = getColabRank(startOfMonth);

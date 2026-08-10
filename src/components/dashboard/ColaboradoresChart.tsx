@@ -49,14 +49,27 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
     { nome: 'Lucas', elogios: 4 },
   ];
 
-  let currentList: ColaboradorRankData[] = [];
+  let rawList: ColaboradorRankData[] = [];
   if (period === 'month') {
-    currentList = monthData && monthData.length > 0 && monthData.some((d) => d.elogios > 0) ? monthData : defaultMonth;
+    rawList = monthData && monthData.length > 0 && monthData.some((d) => d.elogios > 0) ? monthData : defaultMonth;
   } else if (period === 'quarter') {
-    currentList = quarterData && quarterData.length > 0 && quarterData.some((d) => d.elogios > 0) ? quarterData : defaultQuarter;
+    rawList = quarterData && quarterData.length > 0 && quarterData.some((d) => d.elogios > 0) ? quarterData : defaultQuarter;
   } else {
-    currentList = totalData && totalData.length > 0 && totalData.some((d) => d.elogios > 0) ? totalData : defaultTotal;
+    rawList = totalData && totalData.length > 0 && totalData.some((d) => d.elogios > 0) ? totalData : defaultTotal;
   }
+
+  // Deduplicate by name to prevent duplicated collaborator bars
+  const deduplicatedMap = new Map<string, number>();
+  rawList.forEach((item) => {
+    const norm = item.nome.trim();
+    const existing = deduplicatedMap.get(norm) || 0;
+    deduplicatedMap.set(norm, Math.max(existing, item.elogios));
+  });
+
+  const currentList: ColaboradorRankData[] = Array.from(deduplicatedMap.entries())
+    .map(([nome, elogios]) => ({ nome, elogios }))
+    .sort((a, b) => b.elogios - a.elogios)
+    .slice(0, 5);
 
   // Reverse list so top rank displays at top in vertical layout
   const chartData = [...currentList].reverse();
