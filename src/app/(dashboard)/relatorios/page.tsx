@@ -1,5 +1,5 @@
 import React from 'react';
-import { prisma } from '@/lib/prisma';
+import { prisma, getTenantId } from '@/lib/prisma';
 import { auth } from '@/auth';
 import Link from 'next/link';
 import { BarChart3, Download, Printer, Users, Award, ExternalLink, Search, Star, Sparkles, CheckCircle2 } from 'lucide-react';
@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function RelatoriosPage() {
   const session = await auth();
-  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
+  const tenantId = await getTenantId(session?.user?.tenantId as string);
 
   let totalReviews = 547;
   try {

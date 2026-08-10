@@ -37,13 +37,11 @@ function getDemoMetric(name: string, aliases: string[]) {
 }
 
 export default async function ImprimirColaboradoresPage() {
-  let tenantId = 'cartorio-7ri-sp';
+  const session = await auth();
+  let tenantId = await getTenantId(session?.user?.tenantId as string);
   let tenantName = '7º Cartório de Registro de Imóveis de São Paulo';
   
   try {
-    const session = await auth();
-    if (session?.user?.tenantId) {
-      tenantId = session.user.tenantId;
     }
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (tenant?.name) {

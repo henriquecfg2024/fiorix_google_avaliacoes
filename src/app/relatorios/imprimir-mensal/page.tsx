@@ -1,12 +1,12 @@
 import React from 'react';
-import { prisma } from '@/lib/prisma';
+import { prisma, getTenantId } from '@/lib/prisma';
 import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ImprimirMensalPage() {
   const session = await auth();
-  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
+  const tenantId = await getTenantId(session?.user?.tenantId as string);
 
   let total = 0;
   let fiveStars = 0;

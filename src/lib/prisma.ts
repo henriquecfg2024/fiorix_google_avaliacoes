@@ -34,3 +34,9 @@ export const prisma =
 // Reutiliza o mesmo cliente também em produção para impedir que cada
 // carregamento do dashboard abra um novo pool de conexões.
 globalForPrisma.prisma = prisma;
+
+export async function getTenantId(sessionTenantId?: string): Promise<string> {
+  if (sessionTenantId) return sessionTenantId;
+  const tenant = await prisma.tenant.findFirst({ select: { id: true } });
+  return tenant?.id || 'cms3xd0wm00002pw9j2k0ahan';
+}

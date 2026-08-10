@@ -1,5 +1,5 @@
 import React from 'react';
-import { prisma } from '@/lib/prisma';
+import { prisma, getTenantId } from '@/lib/prisma';
 import { auth } from '@/auth';
 import Link from 'next/link';
 import { ReviewItemCard } from '@/components/avaliacoes/ReviewItemCard';
@@ -13,7 +13,7 @@ export default async function AvaliacoesPage({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   const session = await auth();
-  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
+  const tenantId = await getTenantId(session?.user?.tenantId as string);
 
   const rawStatus = Array.isArray(searchParams?.status) ? searchParams.status[0] : searchParams?.status;
   const statusFilter = typeof rawStatus === 'string' ? rawStatus : undefined;

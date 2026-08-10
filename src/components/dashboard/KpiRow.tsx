@@ -11,9 +11,9 @@ interface KpiRowProps {
 
 export function KpiRow({ notaMedia, totalAvaliacoes, pendentes, respondidasHoje, isDemo }: KpiRowProps) {
   const formattedNota = (notaMedia || 4.4).toFixed(1).replace('.', ',');
-  const totalDisplay = totalAvaliacoes || 547;
+  const totalDisplay = totalAvaliacoes ?? 0;
   const pendentesDisplay = pendentes ?? 0;
-  const respondidasDisplay = respondidasHoje || 547;
+  const respondidasDisplay = respondidasHoje ?? 0;
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
