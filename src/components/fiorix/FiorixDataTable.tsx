@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -9,15 +10,28 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Search } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Search, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface FiorixDataTableProps {
   data: any[];
 }
 
+const DELAY_RANGES = [
+  { label: "Todos", min: 0, max: Infinity },
+  { label: "1–3 dias", min: 1, max: 3 },
+  { label: "4–7 dias", min: 4, max: 7 },
+  { label: "8–15 dias", min: 8, max: 15 },
+  { label: "16–30 dias", min: 16, max: 30 },
+  { label: "31+ dias", min: 31, max: Infinity },
+];
+
 export function FiorixDataTable({ data }: FiorixDataTableProps) {
+  const [activeRange, setActiveRange] = useState(0);
+  const [searchTerm, setSearchTerm] = useState("");
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'no_prazo':
@@ -31,20 +45,66 @@ export function FiorixDataTable({ data }: FiorixDataTableProps) {
     }
   };
 
+  const range = DELAY_RANGES[activeRange];
+  const filteredData = data.filter((row) => {
+    const atraso = Number(row.atraso) || 0;
+    const inRange = atraso >= range.min && atraso <= range.max;
+    const matchesSearch = searchTerm === "" || String(row.protocolo).toLowerCase().includes(searchTerm.toLowerCase());
+    return inRange && matchesSearch;
+  });
+
+  // Count how many items fall in each range (for the badges)
+  const rangeCounts = DELAY_RANGES.map((r) =>
+    data.filter((row) => {
+      const a = Number(row.atraso) || 0;
+      return a >= r.min && a <= r.max;
+    }).length
+  );
+
   return (
     <Card className="rounded-2xl shadow-sm border-gray-100 dark:border-border mt-4 overflow-hidden">
-      <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-100 dark:border-border">
-        <div>
-          <CardTitle className="text-base font-semibold">Títulos em Atraso (Drill-down)</CardTitle>
-          <CardDescription>Amostra dos protocolos que estouraram o prazo legal</CardDescription>
+      <CardHeader className="pb-4 border-b border-gray-100 dark:border-border space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <CardTitle className="text-base font-semibold">Títulos em Atraso (Drill-down)</CardTitle>
+            <CardDescription>Amostra dos protocolos que estouraram o prazo legal</CardDescription>
+          </div>
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Buscar protocolo..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8 bg-gray-50 dark:bg-accent border-gray-200 dark:border-border rounded-lg shadow-sm"
+            />
+          </div>
         </div>
-        <div className="relative mt-4 sm:mt-0 w-full sm:w-64">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar protocolo..."
-            className="pl-8 bg-gray-50 dark:bg-accent border-gray-200 dark:border-border rounded-lg shadow-sm"
-          />
+
+        {/* Filtro por faixa de dias */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Filter size={14} className="text-muted-foreground shrink-0" />
+          <span className="text-xs text-muted-foreground font-medium mr-1">Dias de atraso:</span>
+          {DELAY_RANGES.map((r, i) => (
+            <Button
+              key={r.label}
+              variant={activeRange === i ? "default" : "outline"}
+              size="sm"
+              className={`h-7 text-xs rounded-full px-3 transition-all ${
+                activeRange === i
+                  ? "bg-slate-900 text-white hover:bg-slate-800 shadow-sm"
+                  : "text-muted-foreground hover:bg-gray-100 dark:hover:bg-accent"
+              }`}
+              onClick={() => setActiveRange(i)}
+            >
+              {r.label}
+              <span className={`ml-1.5 text-[10px] font-bold ${
+                activeRange === i ? "text-slate-300" : "text-muted-foreground/60"
+              }`}>
+                {rangeCounts[i]}
+              </span>
+            </Button>
+          ))}
         </div>
       </CardHeader>
       
@@ -60,27 +120,34 @@ export function FiorixDataTable({ data }: FiorixDataTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.map((row) => (
+            {filteredData.map((row) => (
               <TableRow key={row.id} className="hover:bg-gray-50/50 dark:hover:bg-accent/50 transition-colors">
                 <TableCell className="font-medium">{row.protocolo}</TableCell>
                 <TableCell>{getStatusBadge(row.status)}</TableCell>
                 <TableCell className="text-red-600 font-medium">+{row.atraso}d</TableCell>
                 <TableCell className="text-muted-foreground">
-                  {/* format YYYY-MM-DD to DD/MM/YYYY */}
                   {row.data.split('-').reverse().join('/')}
                 </TableCell>
                 <TableCell className="text-right text-muted-foreground">{row.tipo}</TableCell>
               </TableRow>
             ))}
-            {data.length === 0 && (
+            {filteredData.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                  Nenhum título atrasado encontrado nos filtros atuais.
+                  Nenhum título atrasado encontrado {activeRange > 0 ? `na faixa "${range.label}"` : "nos filtros atuais"}.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Rodapé com contagem */}
+      <div className="px-6 py-3 border-t border-gray-100 dark:border-border bg-gray-50/30 dark:bg-accent/30">
+        <p className="text-xs text-muted-foreground">
+          Exibindo <strong className="text-foreground">{filteredData.length}</strong> de <strong className="text-foreground">{data.length}</strong> títulos atrasados
+          {activeRange > 0 && <span> · Filtro: <strong className="text-foreground">{range.label}</strong></span>}
+        </p>
       </div>
     </Card>
   );
