@@ -2,6 +2,23 @@
 
 import React, { useState } from 'react';
 import { generateAiResponse, sendReviewResponse } from '@/app/actions/reviews';
+import {
+  Star,
+  CheckCircle,
+  Clock,
+  AlertTriangle,
+  Pencil,
+  Bot,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Check,
+  RefreshCw,
+  Tag,
+  UserCheck,
+} from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ReviewItemProps {
   review: {
@@ -23,11 +40,63 @@ function cleanReviewComment(comment: string | null | undefined): string {
     .trim();
 }
 
+function renderCommentWithPills(text: string) {
+  const staffNames = ['Lucas', 'Ana', 'Edvan', 'Juliana', 'Sarah'];
+  const regex = new RegExp(`\\b(${staffNames.join('|')})\\b`, 'gi');
+
+  const parts = text.split(regex);
+  return parts.map((part, idx) => {
+    const isStaff = staffNames.some((s) => s.toLowerCase() === part.toLowerCase());
+    if (isStaff) {
+      const formattedName = part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+      return (
+        <span
+          key={idx}
+          className="inline-flex items-center gap-0.5 bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded-full text-xs border border-blue-100 mx-0.5"
+        >
+          <UserCheck className="w-3 h-3 text-blue-600" />
+          @{formattedName}
+        </span>
+      );
+    }
+    return part;
+  });
+}
+
+function detectTopicTags(comment: string | null | undefined, rating: number) {
+  if (!comment) return [];
+  const text = comment.toLowerCase();
+  const tags: Array<{ label: string; color: string }> = [];
+
+  if (text.includes('fila') || text.includes('espera') || text.includes('demora')) {
+    tags.push({ label: '🏷️ Tempo de Espera', color: 'bg-amber-50 text-amber-700 border-amber-200' });
+  }
+  if (text.includes('prazo') || text.includes('atraso') || text.includes('corregedoria') || text.includes('protocolo')) {
+    tags.push({ label: '🏷️ SLA / Prazos', color: 'bg-red-50 text-red-700 border-red-200' });
+  }
+  if (text.includes('lucas') || text.includes('ana') || text.includes('edvan') || text.includes('juliana') || text.includes('sarah') || text.includes('atendimento') || text.includes('equipe')) {
+    tags.push({ label: '🏷️ Atendimento', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' });
+  }
+
+  return tags;
+}
+
 export function ReviewItemCard({ review }: ReviewItemProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [showTechDetails, setShowTechDetails] = useState(false);
   const [responseText, setResponseText] = useState('');
+  const [selectedTone, setSelectedTone] = useState<'formal' | 'empathic' | 'short'>('formal');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [copiedResponse, setCopiedResponse] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
+
+  const cleanedComment = cleanReviewComment(review.comment);
+  const isLong = cleanedComment.length > 180;
+  const isLowRating = review.rating <= 2;
+  const isMidRating = review.rating === 3;
+  const topicTags = detectTopicTags(cleanedComment, review.rating);
 
   const renderStars = (rating: number) => {
     const full = '★'.repeat(rating);
@@ -35,21 +104,24 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
     return `${full}${empty}`;
   };
 
+  const handleGenerate = async (tone: 'formal' | 'empathic' | 'short') => {
+    setIsGenerating(true);
+    try {
+      const aiDraft = await generateAiResponse(review.reviewerName, review.rating, cleanedComment, tone);
+      setResponseText(aiDraft);
+    } catch {
+      setResponseText(`Prezado(a) ${review.reviewerName}, agradecemos sua avaliação!`);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleOpenModal = async () => {
     setIsOpen(true);
     if (review.status === 'RESPONDED' && review.response?.content) {
       setResponseText(review.response.content);
     } else {
-      setIsGenerating(true);
-      try {
-        const cleanedComment = cleanReviewComment(review.comment);
-        const aiDraft = await generateAiResponse(review.reviewerName, review.rating, cleanedComment);
-        setResponseText(aiDraft);
-      } catch (err) {
-        setResponseText(`Prezado(a) ${review.reviewerName}, agradecemos sua avaliação!`);
-      } finally {
-        setIsGenerating(false);
-      }
+      await handleGenerate(selectedTone);
     }
   };
 
@@ -58,12 +130,30 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
     setIsSending(true);
     try {
       await sendReviewResponse(review.id, responseText);
+      toast.success('Resposta enviada com sucesso ao Google!');
       setIsOpen(false);
-    } catch (err) {
-      alert('Erro ao enviar resposta.');
+    } catch {
+      toast.error('Erro ao enviar resposta ao Google.');
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleCopyResponse = () => {
+    if (review.response?.content) {
+      navigator.clipboard.writeText(review.response.content);
+      setCopiedResponse(true);
+      toast.success('Resposta copiada para a área de transferência!');
+      setTimeout(() => setCopiedResponse(false), 2000);
+    }
+  };
+
+  const handleCopyGoogleId = () => {
+    const googleIdStr = review.googleId || review.id;
+    navigator.clipboard.writeText(googleIdStr);
+    setCopiedId(true);
+    toast.success('ID do Google copiado!');
+    setTimeout(() => setCopiedId(false), 2000);
   };
 
   const formatDate = (dateInput: any) => {
@@ -79,170 +169,304 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
 
   return (
     <>
-      <div style={{
-        border: '1px solid #e2e8f0',
-        borderRadius: '12px',
-        padding: '20px',
-        background: 'white',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <div style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
-              color: 'white',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 'bold',
-              fontSize: '16px',
-              flexShrink: 0
-            }}>
+      <div
+        className={`bg-white rounded-2xl border p-5 shadow-sm hover:shadow-md transition-all space-y-3.5 ${
+          isLowRating
+            ? 'border-red-200 border-l-4 border-l-red-500 bg-red-50/20'
+            : isMidRating
+            ? 'border-amber-200 border-l-4 border-l-amber-400 bg-amber-50/15'
+            : 'border-gray-100 hover:border-gray-200'
+        }`}
+      >
+        {/* TOP ROW: AUTHOR + STARS + STATUS */}
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
               {review.reviewerName ? review.reviewerName[0].toUpperCase() : 'A'}
             </div>
             <div>
-              <div style={{ fontWeight: '600', fontSize: '15px', color: '#1e293b' }}>{review.reviewerName}</div>
-              <div style={{ fontSize: '12px', color: '#64748b' }}>
+              <h4 className="text-sm font-semibold text-slate-900 leading-tight">
+                {review.reviewerName}
+              </h4>
+              <span className="text-xs text-slate-500">
                 {formatDate(review.publishedAt)}
-              </div>
+              </span>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <span style={{
-              color: review.rating >= 4 ? '#16a34a' : review.rating === 3 ? '#d97706' : '#dc2626',
-              fontSize: '16px',
-              letterSpacing: '2px'
-            }}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className={`text-sm font-bold tracking-tight ${
+                review.rating >= 4
+                  ? 'text-emerald-600'
+                  : review.rating === 3
+                  ? 'text-amber-500'
+                  : 'text-red-500'
+              }`}
+            >
               {renderStars(review.rating)}
             </span>
-            <span style={{
-              padding: '4px 10px',
-              borderRadius: '20px',
-              fontSize: '12px',
-              fontWeight: '600',
-              background: review.status === 'RESPONDED' ? '#dcfce7' : '#fef3c7',
-              color: review.status === 'RESPONDED' ? '#166534' : '#92400e',
-            }}>
-              {review.status === 'RESPONDED' ? '✓ Respondida' : '⏳ Aguardando resposta'}
-            </span>
+
+            {review.status === 'RESPONDED' ? (
+              <span className="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-emerald-100 inline-flex items-center gap-1">
+                <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                Respondida
+              </span>
+            ) : (
+              <span className="bg-amber-50 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-amber-100 inline-flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                Aguardando resposta
+              </span>
+            )}
+
+            {isLowRating && (
+              <span className="bg-red-50 text-red-700 text-xs font-bold px-2.5 py-1 rounded-full border border-red-200 inline-flex items-center gap-1">
+                <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                Crítica • Requer atenção
+              </span>
+            )}
           </div>
         </div>
 
-        <p style={{ fontSize: '14px', color: '#334155', lineHeight: '1.5', margin: '12px 0 16px 0', background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-          "{cleanReviewComment(review.comment) || 'Sem comentário por extenso.'}"
-        </p>
-
-        {review.status === 'RESPONDED' && review.response?.content && (
-          <div style={{ margin: '12px 0', padding: '12px 16px', background: '#f0fdf4', borderRadius: '8px', borderLeft: '4px solid #16a34a', fontSize: '13px', color: '#166534', wordBreak: 'break-word' }}>
-            <strong>Resposta Enviada:</strong> {review.response.content}
+        {/* TOPIC TAGS */}
+        {topicTags.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+            {topicTags.map((t, idx) => (
+              <span
+                key={idx}
+                className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${t.color}`}
+              >
+                {t.label}
+              </span>
+            ))}
           </div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #f1f5f9', paddingTop: '12px', flexWrap: 'wrap', gap: '10px' }}>
-          <div style={{ fontSize: '12px', color: '#64748b', wordBreak: 'break-all', maxWidth: '100%' }}>
-            ID Google: <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', wordBreak: 'break-all', display: 'inline-block', maxWidth: '100%' }}>{review.googleId || review.id}</code>
+        {/* COMMENT BOX */}
+        <div className="bg-slate-50/80 border border-slate-100 rounded-xl p-3.5 text-sm leading-relaxed text-slate-800">
+          {!cleanedComment ? (
+            <p className="italic text-slate-400">Sem comentário por extenso.</p>
+          ) : (
+            <div>
+              <p className={!isExpanded && isLong ? 'line-clamp-3' : ''}>
+                "{renderCommentWithPills(cleanedComment)}"
+              </p>
+              {isLong && (
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="mt-1 text-xs font-bold text-blue-600 hover:underline inline-block cursor-pointer"
+                >
+                  {isExpanded ? 'Ver menos ↑' : 'Ler completo →'}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* RESPONDED BOX */}
+        {review.status === 'RESPONDED' && review.response?.content && (
+          <div className="bg-emerald-50/70 border border-emerald-100 border-l-4 border-l-emerald-500 rounded-xl p-4 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                Resposta Enviada ✓ IA
+              </span>
+              <button
+                onClick={handleCopyResponse}
+                className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 bg-emerald-100/70 hover:bg-emerald-200/80 px-2 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                {copiedResponse ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedResponse ? 'Copiado!' : 'Copiar'}</span>
+              </button>
+            </div>
+            <p className="text-sm text-slate-700 leading-relaxed">
+              {review.response.content}
+            </p>
+          </div>
+        )}
+
+        {/* FOOTER ACTIONS */}
+        <div className="pt-2 border-t border-slate-100 flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* PRIMARY BUTTON */}
+            <button
+              onClick={handleOpenModal}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                review.status === 'RESPONDED'
+                  ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-100'
+                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+              }`}
+            >
+              {review.status === 'RESPONDED' ? (
+                <>
+                  <Pencil className="w-3.5 h-3.5" />
+                  <span>Editar Resposta</span>
+                </>
+              ) : (
+                <>
+                  <Bot className="w-3.5 h-3.5" />
+                  <span>Responder com IA</span>
+                </>
+              )}
+            </button>
+
+            {/* GOOGLE EXTERNAL LINK */}
+            <a
+              href="https://business.google.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+              <span>Ver no Google</span>
+            </a>
           </div>
 
-          <button 
-            onClick={handleOpenModal}
-            style={{
-              background: review.status === 'RESPONDED' ? '#f1f5f9' : '#3b82f6',
-              color: review.status === 'RESPONDED' ? '#475569' : 'white',
-              border: review.status === 'RESPONDED' ? '1px solid #cbd5e1' : 'none',
-              padding: '8px 16px',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
+          {/* TECH DETAILS COLLAPSIBLE TRIGGER */}
+          <button
+            onClick={() => setShowTechDetails(!showTechDetails)}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-700 py-1 transition-colors cursor-pointer"
           >
-            {review.status === 'RESPONDED' ? '✏️ Ver / Editar Resposta' : '💬 Responder com IA'}
+            <span>Detalhes técnicos</span>
+            {showTechDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
         </div>
+
+        {/* COLLAPSIBLE TECH DETAILS */}
+        {showTechDetails && (
+          <div className="mt-2 p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-xs flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <span className="font-semibold text-slate-500 shrink-0">ID Google:</span>
+              <code className="bg-slate-200/70 text-slate-800 px-2 py-0.5 rounded font-mono text-[11px] truncate">
+                {review.googleId || review.id}
+              </code>
+            </div>
+            <button
+              onClick={handleCopyGoogleId}
+              className="bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 px-2 py-1 rounded-lg text-[11px] font-bold transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
+            >
+              {copiedId ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+              <span>{copiedId ? 'Copiado!' : 'Copiar ID'}</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* MODAL OVERLAY */}
+      {/* MODAL IA RESPONDER */}
       {isOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(15, 23, 42, 0.6)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: '20px'
-        }}>
-          <div style={{
-            background: 'white',
-            borderRadius: '16px',
-            maxWidth: '560px',
-            width: '100%',
-            padding: '24px',
-            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>
-                🤖 Resposta com Inteligência Artificial
-              </h3>
-              <button 
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            {/* MODAL HEADER */}
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <Bot className="w-5 h-5 text-blue-600" />
+                <h3 className="text-base font-bold text-slate-900">
+                  Resposta com Inteligência Artificial
+                </h3>
+              </div>
+              <button
                 onClick={() => setIsOpen(false)}
-                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748b' }}
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', color: '#475569' }}>
-              <strong>Avaliação de {review.reviewerName} ({review.rating}★):</strong> "{cleanReviewComment(review.comment) || 'Sem comentário'}"
+            {/* AVALIAÇÃO PREVIEW */}
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 text-xs space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-slate-900">{review.reviewerName} ({review.rating}★)</span>
+                <span className="text-amber-500 font-bold">{renderStars(review.rating)}</span>
+              </div>
+              <p className="text-slate-600 italic">
+                "{cleanedComment || 'Sem comentário'}"
+              </p>
             </div>
 
-            <form onSubmit={handleSubmitResponse}>
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: '#1e293b' }}>
-                  Sugestão de Resposta Gerada por IA:
-                </label>
+            {/* SELETOR DE TOM DE VOZ */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700">
+                Selecione o tom de voz da IA:
+              </label>
+              <div className="grid grid-cols-3 gap-2 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTone('formal');
+                    handleGenerate('formal');
+                  }}
+                  className={`p-2 rounded-xl border transition-all text-center cursor-pointer ${
+                    selectedTone === 'formal'
+                      ? 'bg-blue-50 border-blue-600 text-blue-700 font-bold'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  Formal 👔
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTone('empathic');
+                    handleGenerate('empathic');
+                  }}
+                  className={`p-2 rounded-xl border transition-all text-center cursor-pointer ${
+                    selectedTone === 'empathic'
+                      ? 'bg-blue-50 border-blue-600 text-blue-700 font-bold'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  Empático 🤝
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTone('short');
+                    handleGenerate('short');
+                  }}
+                  className={`p-2 rounded-xl border transition-all text-center cursor-pointer ${
+                    selectedTone === 'short'
+                      ? 'bg-blue-50 border-blue-600 text-blue-700 font-bold'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  Direto ⚡
+                </button>
+              </div>
+            </div>
+
+            {/* TEXTAREA FORM */}
+            <form onSubmit={handleSubmitResponse} className="space-y-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700">
+                    Sugestão de Resposta Rascunhada:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleGenerate(selectedTone)}
+                    disabled={isGenerating}
+                    className="text-[11px] font-bold text-blue-600 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isGenerating ? 'animate-spin' : ''}`} />
+                    <span>Regerar Rascunho</span>
+                  </button>
+                </div>
+
                 <textarea
                   rows={5}
                   value={responseText}
                   onChange={(e) => setResponseText(e.target.value)}
                   disabled={isGenerating}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '14px',
-                    outline: 'none',
-                    resize: 'vertical',
-                    lineHeight: '1.5',
-                    fontFamily: 'inherit'
-                  }}
+                  className="w-full p-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none leading-relaxed text-slate-800 disabled:bg-slate-100"
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              {/* MODAL ACTIONS */}
+              <div className="flex items-center justify-end gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  style={{
-                    background: '#f1f5f9',
-                    color: '#475569',
-                    border: 'none',
-                    padding: '10px 18px',
-                    borderRadius: '8px',
-                    fontWeight: '600',
-                    fontSize: '14px',
-                    cursor: 'pointer'
-                  }}
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-4 py-2 rounded-xl text-xs transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -250,17 +474,7 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
                 <button
                   type="submit"
                   disabled={isSending || isGenerating}
-                  style={{
-                    background: '#2563eb',
-                    color: 'white',
-                    border: 'none',
-                    padding: '10px 20px',
-                    borderRadius: '8px',
-                    fontWeight: '600',
-                    fontSize: '14px',
-                    cursor: (isSending || isGenerating) ? 'not-allowed' : 'pointer',
-                    opacity: (isSending || isGenerating) ? 0.7 : 1
-                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded-xl text-xs transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
                 >
                   {isSending ? 'Enviando ao Google...' : '🚀 Enviar Resposta ao Google'}
                 </button>
@@ -272,3 +486,4 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
     </>
   );
 }
+
