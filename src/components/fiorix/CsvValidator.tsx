@@ -322,140 +322,132 @@ export function validarCSV(
   onPreview: (stats: CsvStats, rows: BiCsvRow[]) => void,
   onError: (msg: string) => void
 ) {
-  let detectedHeaders = HEADER_FIORIX;
-  let isHeader = false;
-  let useNewSchema = false;
-  let firstDataRowResolved = false;
-  let totalLinhas = 0;
-  let validRows = 0;
-  let devolucoes = 0;
-  let atrasados = 0;
-  let noPrazo = 0;
-  let emAndamento = 0;
-  let minDate: string | null = null;
-  let maxDate: string | null = null;
-  const protocolosUnicos = new Set<number | string>();
-  const naturezas = new Set<string>();
+  /** Normalize a header key: lowercase, strip non-alphanumeric */
+  const normalizeKey = (k: string) => k.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+
+  /** Case-insensitive field getter that tries multiple possible column names */
+  const get = (row: any, ...names: string[]): string => {
+    const map: Record<string, any> = {};
+    Object.keys(row).forEach(k => { map[normalizeKey(k)] = row[k]; });
+    for (const n of names) {
+      const nk = normalizeKey(n);
+      if (map[nk] !== undefined && map[nk] !== null && String(map[nk]).trim() !== '') {
+        return String(map[nk]).trim();
+      }
+    }
+    return '';
+  };
+
+  /** Flexible date parser: handles YYYY-MM-DD (with optional time) and DD/MM/YYYY */
+  const parseData = (s: string): Date | null => {
+    if (!s) return null;
+    s = s.split(' ')[0].trim(); // remove 00:00:00.000 from SSMS exports
+    if (s.includes('-') && /^\d{4}-/.test(s)) {
+      const d = new Date(s + 'T00:00:00');
+      return isNaN(d.getTime()) ? null : d;
+    }
+    if (s.includes('/')) {
+      const [d, m, y] = s.split('/').map(Number);
+      return new Date(y, m - 1, d);
+    }
+    return null;
+  };
+
+  let headerLogged = false;
 
   Papa.parse(file, {
-    header: false,
+    header: true,
     delimiter: ';',
-    skipEmptyLines: false,
+    skipEmptyLines: true,
     encoding: 'UTF-8',
     quoteChar: '"',
     escapeChar: '"',
     worker: false,
     chunkSize: 1024 * 1024 * 4,
-    transform: (val: string) => limparCelula(val),
-    chunk: (results) => {
-      const rawRows = ((results.data as string[][]) || []).filter(linhaTemConteudo);
+    transformHeader: (h: string) => h.replace(/^\uFEFF/, '').trim(),
+    complete: (results) => {
+      const rawRows = (results.data as Record<string, any>[]) || [];
 
-      for (const rawRow of rawRows) {
-        const cleanedRow = rawRow.map((cell) => limparCelula(cell));
-
-        if (!firstDataRowResolved) {
-          isHeader = detectarCabecalho(cleanedRow);
-          detectedHeaders = isHeader ? cleanedRow : HEADER_FIORIX;
-          useNewSchema = isHeader && isNewSchema(cleanedRow);
-          firstDataRowResolved = true;
-
-          if (isHeader) {
-            continue;
-          }
-        }
-
-        totalLinhas += 1;
-
-        const mappedRow = mapearLinhaBruta(cleanedRow, detectedHeaders, isHeader);
-        const normalizedRow = normalizarLinha(mappedRow, useNewSchema);
-
-        if (!protocoloValido(normalizedRow.Protocolo)) {
-          continue;
-        }
-
-        validRows += 1;
-
-        const numericProtocol = Number(normalizedRow.Protocolo);
-        protocolosUnicos.add(
-          Number.isFinite(numericProtocol) ? numericProtocol : normalizedRow.Protocolo
-        );
-
-        if (normalizedRow.Natureza && naturezas.size < 12) {
-          naturezas.add(normalizedRow.Natureza.trim());
-        }
-
-        const situacao = String(normalizedRow.SituacaoPrazo || '').toLowerCase();
-
-        if (normalizedRow.IsDevolucao || situacao.includes('devolucao') || situacao.includes('devol')) {
-          devolucoes += 1;
-        }
-
-        if (situacao.includes('atrasad') || ((normalizedRow.DiasAtraso || 0) > 0)) {
-          atrasados += 1;
-        }
-
-        if (situacao === 'noprazo' || situacao === 'no prazo') {
-          noPrazo += 1;
-        }
-
-        if (situacao.includes('andamento')) {
-          emAndamento += 1;
-        }
-
-        // Use DtProtocolo (which maps to DATA_ENTRADA in new schema) for period calculation
-        const previewDate = toPreviewDateString(
-          normalizedRow.DtAndamento || normalizedRow.DtProtocolo
-        );
-
-        if (previewDate) {
-          if (!minDate || previewDate < minDate) minDate = previewDate;
-          if (!maxDate || previewDate > maxDate) maxDate = previewDate;
-        }
+      if (rawRows.length > 0 && !headerLogged) {
+        console.log('[CsvValidator] Colunas detectadas:', Object.keys(rawRows[0]));
+        headerLogged = true;
       }
-    },
-    complete: () => {
-      if (totalLinhas === 0) {
+
+      if (rawRows.length === 0) {
         onError('O arquivo CSV está vazio. Exporte novamente o resultado da pr_Fiorix_BI.');
         return;
       }
 
-      if (totalLinhas < 10) {
+      const rowsLimpos = rawRows.map(row => {
+        const statusRaw = get(row, 'STATUS', 'status', 'SituacaoPrazo', 'situacao', 'situacaoprazo').toUpperCase();
+        const tipoRaw = get(row, 'TIPO', 'tipo', 'TipoPrenotacao', 'TipoSolicitacao', 'Natureza');
+        const atrasoBruto = get(row, 'ATRASO_DIAS', 'ATRASO', 'DIAS', 'ATRASO_DIAS_CALCULADO', 'DiasAtraso', 'diasatraso');
+        const isDevolucaoField = get(row, 'IsDevolucao', 'isdevolucao');
+
+        return {
+          protocolo: get(row, 'PROTOCOLO', 'protocolo'),
+          data: parseData(get(row, 'DATA_ENTRADA', 'DATA', 'DTRECEP', 'DtProtocolo', 'DataProtocolo', 'DtAndamento')),
+          status: (statusRaw.includes('DEVOL') || isDevolucaoField === '1' || isDevolucaoField.toLowerCase() === 'true' || isDevolucaoField.toLowerCase() === 'sim')
+            ? 'DEVOLVIDO'
+            : 'REGISTRADO',
+          atraso: parseInt(atrasoBruto.replace(/[^0-9\-]/g, '') || '0', 10),
+          tipo: tipoRaw,
+        };
+      }).filter(r => r.protocolo && r.protocolo !== '0' && normalizeKey(r.protocolo) !== 'protocolo');
+
+      if (rowsLimpos.length === 0) {
+        onError('Nenhum registro válido foi encontrado no CSV. Confira a coluna Protocolo na exportação.');
+        return;
+      }
+
+      if (rowsLimpos.length < 10) {
         onError(
-          `Arquivo com apenas ${totalLinhas} linhas. Exporte novamente o resultado completo da pr_Fiorix_BI.`
+          `Arquivo com apenas ${rowsLimpos.length} linhas. Exporte novamente o resultado completo da pr_Fiorix_BI.`
         );
         return;
       }
 
-      if (validRows === 0) {
-        onError(
-          'Nenhum registro válido foi encontrado no CSV. Confira a coluna Protocolo na exportação.'
-        );
-        return;
-      }
+      const totalLinhas = rowsLimpos.length;
+      const protocolosUnicos = new Set(rowsLimpos.map(r => r.protocolo)).size;
+      const devolucoes = rowsLimpos.filter(r => r.status === 'DEVOLVIDO').length;
+      const atrasados = rowsLimpos.filter(r => r.atraso > 5).length;
+      const noPrazo = rowsLimpos.filter(r => r.atraso <= 5 && r.status !== 'DEVOLVIDO').length;
+      const emAndamento = 0;
 
-      // For new schema, if noPrazo was not explicitly set, calculate it
-      if (useNewSchema && noPrazo === 0) {
-        noPrazo = validRows - devolucoes - atrasados;
-        if (noPrazo < 0) noPrazo = 0;
+      const datasValidas = rowsLimpos
+        .map(r => r.data)
+        .filter((d): d is Date => d !== null);
+
+      let periodoIni = 'N/I';
+      let periodoFim = 'N/I';
+
+      if (datasValidas.length > 0) {
+        const minDate = new Date(Math.min(...datasValidas.map(d => d.getTime())));
+        const maxDate = new Date(Math.max(...datasValidas.map(d => d.getTime())));
+        periodoIni = minDate.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+        periodoFim = maxDate.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
       }
 
       const percAtrasoVal =
         noPrazo + atrasados > 0 ? (atrasados / (noPrazo + atrasados)) * 100 : 0;
 
+      const naturezas = [...new Set(rowsLimpos.map(r => r.tipo).filter(Boolean))].slice(0, 3);
+
       const stats: CsvStats = {
         fileName: file.name,
         totalLinhas,
-        protocolosUnicos: protocolosUnicos.size,
+        protocolosUnicos,
         devolucoes,
         atrasados,
         noPrazo,
         emAndamento,
         percAtraso: percAtrasoVal.toFixed(1),
-        periodoIni: minDate ? formatDatePtBR(minDate) : 'N/I',
-        periodoFim: maxDate ? formatDatePtBR(maxDate) : 'N/I',
-        naturezas: Array.from(naturezas).slice(0, 3),
+        periodoIni,
+        periodoFim,
+        naturezas,
       };
 
+      console.log('[CsvValidator] Preview stats:', stats);
       onPreview(stats, []);
     },
     error: (err) => {
@@ -519,10 +511,22 @@ export async function importarCSVEmLotes({
   onProgress?: (processed: number, estimatedTotal: number) => void | Promise<void>;
 }) {
   return new Promise<{ totalProcessed: number }>((resolve, reject) => {
-    let detectedHeaders = HEADER_FIORIX;
-    let isHeader = false;
-    let useNewSchema = false;
-    let firstDataRowResolved = false;
+    /** Normalize a header key: lowercase, strip non-alphanumeric */
+    const normalizeKey = (k: string) => k.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+
+    /** Case-insensitive field getter that tries multiple possible column names */
+    const get = (row: any, ...names: string[]): string => {
+      const map: Record<string, any> = {};
+      Object.keys(row).forEach(k => { map[normalizeKey(k)] = row[k]; });
+      for (const n of names) {
+        const nk = normalizeKey(n);
+        if (map[nk] !== undefined && map[nk] !== null && String(map[nk]).trim() !== '') {
+          return String(map[nk]).trim();
+        }
+      }
+      return '';
+    };
+
     let totalProcessed = 0;
     let validRows = 0;
     let settled = false;
@@ -564,43 +568,70 @@ export async function importarCSVEmLotes({
       }
     };
 
+    /** Convert a raw row (old or new schema) to BiCsvRow for Supabase insert */
+    const toBiCsvRow = (row: Record<string, any>): BiCsvRow | null => {
+      const protocolo = get(row, 'PROTOCOLO', 'protocolo');
+      if (!protocolo || protocolo === '0' || normalizeKey(protocolo) === 'protocolo') {
+        return null;
+      }
+
+      const statusRaw = get(row, 'STATUS', 'status', 'SituacaoPrazo', 'situacao').toUpperCase();
+      const tipoRaw = get(row, 'TIPO', 'tipo', 'TipoPrenotacao', 'TipoSolicitacao', 'Natureza');
+      const atrasoBruto = get(row, 'ATRASO_DIAS', 'ATRASO', 'DIAS', 'DiasAtraso', 'diasatraso');
+      const atrasoDias = parseInt(atrasoBruto.replace(/[^0-9\-]/g, '') || '0', 10);
+      const isDevolucaoField = get(row, 'IsDevolucao', 'isdevolucao');
+      const isDevolucao = statusRaw.includes('DEVOL') || isDevolucaoField === '1' || isDevolucaoField.toLowerCase() === 'true' || isDevolucaoField.toLowerCase() === 'sim';
+      const isRegistrado = statusRaw.includes('REGISTRAD') || statusRaw.includes('AVERBAD') || (!isDevolucao);
+
+      let situacaoPrazo = 'NoPrazo';
+      if (isDevolucao) {
+        situacaoPrazo = 'Devolucao';
+      } else if (atrasoDias > 0) {
+        situacaoPrazo = 'Atrasado';
+      }
+
+      return {
+        Protocolo: protocolo,
+        FlagRecepcao: getInt(get(row, 'FlagRecepcao', 'flagrecepcao')),
+        TipoSolicitacao: tipoRaw || get(row, 'TipoSolicitacao', 'tiposolicitacao') || null,
+        IdAndamento: get(row, 'IdAndamento', 'idandamento') || null,
+        DtProtocolo: get(row, 'DATA_ENTRADA', 'DATA', 'DtProtocolo', 'DataProtocolo', 'dtprotocolo', 'dataprotocolo') || null,
+        DtPrevisaoEntrega: get(row, 'DtPrevisaoEntrega', 'dtprevisaoentrega') || null,
+        DtAndamento: get(row, 'DtAndamento', 'dtandamento') || null,
+        CodProcessamento: getInt(get(row, 'CodProcessamento', 'codprocessamento')),
+        DescAndamento: get(row, 'DescAndamento', 'descandamento') || null,
+        Natureza: tipoRaw || get(row, 'Natureza', 'natureza') || null,
+        TipoPrenotacao: tipoRaw || get(row, 'TipoPrenotacao', 'tipoprenotacao') || null,
+        DiasPrometidos: getInt(get(row, 'DiasPrometidos', 'diasprometidos')),
+        DiasCorridos: getInt(get(row, 'DiasCorridos', 'diascorridos')),
+        DiasAtraso: isNaN(atrasoDias) ? null : atrasoDias,
+        SituacaoPrazo: situacaoPrazo,
+        IsDevolucao: isDevolucao,
+        IsRegistrado: isRegistrado,
+        TextoNotaDevolucao: get(row, 'TextoNotaDevolucao', 'textonotadevolucao') || null,
+      };
+    };
+
     Papa.parse(file, {
-      header: false,
+      header: true,
       delimiter: ';',
-      skipEmptyLines: false,
+      skipEmptyLines: true,
       encoding: 'UTF-8',
       quoteChar: '"',
       escapeChar: '"',
       worker: false,
       chunkSize: 1024 * 1024 * 4,
-      transform: (val: string) => limparCelula(val),
+      transformHeader: (h: string) => h.replace(/^\uFEFF/, '').trim(),
       chunk: (results, parser) => {
         parser.pause();
 
         Promise.resolve()
           .then(async () => {
-            const rawRows = ((results.data as string[][]) || []).filter(linhaTemConteudo);
+            const rawRows = (results.data as Record<string, any>[]) || [];
 
             for (const rawRow of rawRows) {
-              const cleanedRow = rawRow.map((cell) => limparCelula(cell));
-
-              if (!firstDataRowResolved) {
-                isHeader = detectarCabecalho(cleanedRow);
-                detectedHeaders = isHeader ? cleanedRow : HEADER_FIORIX;
-                useNewSchema = isHeader && isNewSchema(cleanedRow);
-                firstDataRowResolved = true;
-
-                if (isHeader) {
-                  continue;
-                }
-              }
-
-              const mappedRow = mapearLinhaBruta(cleanedRow, detectedHeaders, isHeader);
-              const normalizedRow = normalizarLinha(mappedRow, useNewSchema);
-
-              if (!protocoloValido(normalizedRow.Protocolo)) {
-                continue;
-              }
+              const normalizedRow = toBiCsvRow(rawRow);
+              if (!normalizedRow) continue;
 
               validRows += 1;
               rowBuffer.push(normalizedRow);
