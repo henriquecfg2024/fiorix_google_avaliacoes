@@ -169,6 +169,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Link className={isActive('/bi')} href="/bi">
                 Módulo BI
               </Link>
+              <Link className={isActive('/bi/produtividade')} href="/bi/produtividade">
+                Produtividade
+              </Link>
               {currentUser?.role && currentUser.role !== 'USER' && (
                 <Link className={isActive('/configuracoes')} href="/configuracoes">
                   Configurações

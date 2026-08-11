@@ -121,20 +121,23 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
     setIsImporting(true);
 
     try {
-      const chunkSize = 1000;
-      let insertedCount = 0;
+      const res = await fetch("/api/bi/produtividade/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows: parsedData }),
+      });
 
-      for (let i = 0; i < parsedData.length; i += chunkSize) {
-        const chunk = parsedData.slice(i, i + chunkSize);
-        const { error } = await supabase
-          .from("fiorix_produtividade_dados")
-          .upsert(chunk, { onConflict: "PEDIDO,DATA" });
-
-        if (error) throw error;
-        insertedCount += chunk.length;
+      const contentType = res.headers.get("content-type");
+      if (!res.ok || !contentType || !contentType.includes("application/json")) {
+        throw new Error(`Falha na resposta do servidor (Status ${res.status}).`);
       }
 
-      toast.success(`Sucesso! ${insertedCount} registros importados/atualizados.`);
+      const result = await res.json();
+      if (!result.success) {
+        throw new Error(result.error || "Erro ao salvar no banco de dados.");
+      }
+
+      toast.success(`Sucesso! ${result.count} registros importados/atualizados.`);
       onSuccess();
       onClose();
       // Reset state
@@ -143,7 +146,10 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
       setParsedData([]);
     } catch (error: any) {
       console.error("Erro na importação:", error);
-      toast.error(`Erro ao salvar no banco de dados: ${error.message}`);
+      const cleanMsg = typeof error?.message === "string" && error.message.includes("<")
+        ? "Erro no servidor ao importar CSV."
+        : error?.message || "Erro de conexão ao salvar.";
+      toast.error(`Erro ao salvar no banco: ${cleanMsg}`);
     } finally {
       setIsImporting(false);
     }
