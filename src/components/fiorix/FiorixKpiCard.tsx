@@ -18,24 +18,24 @@ interface FiorixKpiCardProps {
 
 const variantStyles: Record<KpiVariant, { text: string; bg: string; icon: string }> = {
   default: {
-    text: "text-slate-900 dark:text-slate-100",
-    bg: "bg-slate-100 dark:bg-slate-800",
-    icon: "text-slate-500",
+    text: "text-white",
+    bg: "bg-white/10",
+    icon: "text-white",
   },
   success: {
-    text: "text-emerald-500",
-    bg: "bg-emerald-50 dark:bg-emerald-500/10",
-    icon: "text-emerald-500",
+    text: "text-emerald-400",
+    bg: "bg-emerald-500/10",
+    icon: "text-emerald-400",
   },
   danger: {
-    text: "text-red-500",
-    bg: "bg-red-50 dark:bg-red-500/10",
-    icon: "text-red-500",
+    text: "text-red-400",
+    bg: "bg-red-500/10",
+    icon: "text-red-400",
   },
   warning: {
-    text: "text-amber-500",
-    bg: "bg-amber-50 dark:bg-amber-500/10",
-    icon: "text-amber-500",
+    text: "text-amber-400",
+    bg: "bg-amber-500/10",
+    icon: "text-amber-400",
   },
 };
 
@@ -43,10 +43,10 @@ export function FiorixKpiCard({ title, value, subtitle, variant, icon: Icon }: F
   const styles = variantStyles[variant];
 
   return (
-    <Card className="relative p-5 rounded-2xl shadow-sm border-gray-100 dark:border-border hover:shadow-md transition-shadow group flex flex-col justify-between min-h-[140px]">
+    <Card className="relative p-5 rounded-2xl shadow-lg bg-white/[0.05] backdrop-blur-xl border border-white/10 hover:bg-white/[0.08] transition-all group flex flex-col justify-between min-h-[140px]">
       
       <div className="flex justify-between items-start w-full">
-        <h3 className="text-[11px] uppercase tracking-widest font-bold text-muted-foreground w-[80%]">
+        <h3 className="text-xs uppercase tracking-widest font-bold text-white/60 w-[80%]">
           {title}
         </h3>
         <div className={`p-2 rounded-lg ${styles.bg}`}>
@@ -63,11 +63,11 @@ export function FiorixKpiCard({ title, value, subtitle, variant, icon: Icon }: F
         
         <Tooltip>
           <TooltipTrigger asChild>
-            <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1">
+            <button className="text-white/40 hover:text-white/70 transition-colors p-1">
               <Info className="w-4 h-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent className="max-w-[200px] text-xs leading-relaxed text-center">
+          <TooltipContent className="max-w-[200px] text-xs leading-relaxed text-center bg-[#151C2F] text-white border-white/10">
             {subtitle}
           </TooltipContent>
         </Tooltip>

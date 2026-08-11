@@ -46,9 +46,9 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
 
   if (activeCount === 0) {
     return (
-      <Card className="p-8 text-center border-dashed rounded-2xl">
-        <p className="text-muted-foreground text-sm">Nenhum gráfico selecionado para exibição.</p>
-        <p className="text-xs text-muted-foreground/70 mt-1">Utilize o painel acima ou clique em "Restaurar padrão" para reexibir os gráficos.</p>
+      <Card className="p-8 text-center border-dashed rounded-2xl bg-[#151C2F] border-white/10 text-white">
+        <p className="text-white/60 text-sm">Nenhum gráfico selecionado para exibição.</p>
+        <p className="text-xs text-white/40 mt-1">Utilize o painel acima ou clique em "Restaurar padrão" para reexibir os gráficos.</p>
       </Card>
     );
   }
@@ -57,21 +57,22 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
     <div className="space-y-4">
       {/* Top Row: Main Trend / Evolution Chart (if active) */}
       {visibleCharts.chart1 && (
-        <Card className="shadow-sm rounded-2xl">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">Gráfico 1: Evolução Diária do Prazo de Entrega</CardTitle>
-            <CardDescription>Comparativo contínuo entre títulos entregues no prazo e em atraso</CardDescription>
+        <Card className="bg-[#151C2F] border-white/10 rounded-2xl p-6 shadow-sm">
+          <CardHeader className="p-0 pb-4">
+            <CardTitle className="text-base font-semibold text-white">Gráfico 1: Evolução Diária do Prazo de Entrega</CardTitle>
+            <CardDescription className="text-white/50 text-xs">Comparativo contínuo entre títulos entregues no prazo e em atraso</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {formattedEvolucao.length > 0 ? (
               <ChartContainer config={chartConfig} className="h-[260px] w-full">
                 <BarChart accessibilityLayer data={formattedEvolucao} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                   <XAxis
                     dataKey="displayDate"
                     tickLine={false}
                     axisLine={false}
                     tickMargin={10}
+                    tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 11 }}
                   />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Bar dataKey="noPrazo" fill="var(--color-noPrazo)" radius={[4, 4, 0, 0]} />
@@ -79,7 +80,7 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
                 </BarChart>
               </ChartContainer>
             ) : (
-              <div className="h-[250px] w-full flex items-center justify-center text-muted-foreground">
+              <div className="h-[250px] w-full flex items-center justify-center text-white/40">
                 Sem dados suficientes no período.
               </div>
             )}
@@ -92,23 +93,23 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
         <div className={`grid grid-cols-1 ${visibleCharts.chart2 && visibleCharts.chart3 ? "lg:grid-cols-2" : "grid-cols-1"} gap-4`}>
           {/* Chart 2: Delay Severity */}
           {visibleCharts.chart2 && (
-            <Card className="shadow-sm rounded-2xl">
-              <CardHeader>
-                <CardTitle className="text-base font-semibold">Gráfico 2: Severidade do Atraso</CardTitle>
-                <CardDescription>Distribuição dos títulos fora do prazo por faixas de dias de atraso</CardDescription>
+            <Card className="bg-[#151C2F] border-white/10 rounded-2xl p-6 shadow-sm">
+              <CardHeader className="p-0 pb-4">
+                <CardTitle className="text-base font-semibold text-white">Gráfico 2: Severidade do Atraso</CardTitle>
+                <CardDescription className="text-white/50 text-xs">Distribuição dos títulos fora do prazo por faixas de dias de atraso</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-0">
                 {delaySeverity.length > 0 ? (
                   <ChartContainer config={severityChartConfig} className="h-[250px] w-full">
                     <BarChart accessibilityLayer data={delaySeverity} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                      <XAxis dataKey="bucket" tickLine={false} axisLine={false} tickMargin={10} />
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                      <XAxis dataKey="bucket" tickLine={false} axisLine={false} tickMargin={10} tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 11 }} />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <Bar dataKey="count" fill="#EF4444" radius={[6, 6, 0, 0]} />
                     </BarChart>
                   </ChartContainer>
                 ) : (
-                  <div className="h-[250px] w-full flex items-center justify-center text-muted-foreground">
+                  <div className="h-[250px] w-full flex items-center justify-center text-white/40">
                     Sem dados de severidade de atraso.
                   </div>
                 )}
@@ -118,12 +119,12 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
 
           {/* Chart 3: Pie / Donut Chart */}
           {visibleCharts.chart3 && (
-            <Card className="shadow-sm rounded-2xl">
-              <CardHeader>
-                <CardTitle className="text-base font-semibold">Gráfico 3: Distribuição Geral</CardTitle>
-                <CardDescription>Visão macro da proporção de títulos no prazo, atrasos e exigências</CardDescription>
+            <Card className="bg-[#151C2F] border-white/10 rounded-2xl p-6 shadow-sm">
+              <CardHeader className="p-0 pb-4">
+                <CardTitle className="text-base font-semibold text-white">Gráfico 3: Distribuição Geral</CardTitle>
+                <CardDescription className="text-white/50 text-xs">Visão macro da proporção de títulos no prazo, atrasos e exigências</CardDescription>
               </CardHeader>
-              <CardContent className="flex justify-center pb-0">
+              <CardContent className="flex justify-center pb-0 p-0">
                 {pieChartData.length > 0 ? (
                   <div className="h-[250px] w-full max-w-[320px]">
                     <ResponsiveContainer width="100%" height="100%">
@@ -143,15 +144,15 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
                           ))}
                         </Pie>
                         <RechartsTooltip 
-                          contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                          itemStyle={{ color: '#1e293b', fontSize: '14px', fontWeight: 500 }}
+                          contentStyle={{ borderRadius: '8px', border: 'none', backgroundColor: '#151C2F', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                          itemStyle={{ color: '#fff', fontSize: '14px', fontWeight: 500 }}
                         />
-                        <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                        <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ color: '#fff' }} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
                 ) : (
-                  <div className="h-[250px] w-full flex items-center justify-center text-muted-foreground">
+                  <div className="h-[250px] w-full flex items-center justify-center text-white/40">
                     Nenhum dado para o período.
                   </div>
                 )}

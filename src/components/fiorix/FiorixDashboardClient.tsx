@@ -76,7 +76,7 @@ export function FiorixDashboardClient({ imports, dashboardData, atrasados, initi
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-blue-200 dark:selection:bg-blue-900 transition-colors duration-300">
+    <div className="min-h-screen bg-[#0F172A] text-white selection:bg-blue-900 transition-colors duration-300">
       <main className="container mx-auto px-4 lg:px-8 py-8 space-y-6">
         {isPending && isUpdating ? (
           <FiorixSkeleton />

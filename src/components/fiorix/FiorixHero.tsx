@@ -13,9 +13,9 @@ interface FiorixHeroProps {
 export function FiorixHero({ onUpdate, onImport, isUpdating = false, userRole }: FiorixHeroProps) {
   const canImport = userRole !== 'USER';
   return (
-    <Card className="relative overflow-hidden rounded-2xl border-0 p-8 shadow-sm">
+    <Card className="relative overflow-hidden rounded-2xl border border-white/10 p-8 shadow-sm">
       {/* Background Gradient & Pattern */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0F2040] to-[#1E3A8A]" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#0F172A] to-[#1E293B]" />
       <div 
         className="absolute inset-0 opacity-5" 
         style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}
@@ -52,8 +52,7 @@ export function FiorixHero({ onUpdate, onImport, isUpdating = false, userRole }:
         {/* Actions */}
         <div className="flex flex-wrap items-center gap-3 pt-2">
           <Button 
-            variant="secondary" 
-            className="bg-white/10 text-white hover:bg-white/20 border border-white/20"
+            className="bg-[#00C950] text-white hover:bg-[#00A844] border-0"
             onClick={onUpdate}
             disabled={isUpdating}
           >
@@ -62,7 +61,7 @@ export function FiorixHero({ onUpdate, onImport, isUpdating = false, userRole }:
           </Button>
           {canImport && (
             <Button 
-              className="bg-[#10B981] text-white hover:bg-[#059669] shadow-sm"
+              className="bg-[#00C950] text-white hover:bg-[#00A844] shadow-sm"
               onClick={onImport}
             >
               <Plus className="mr-2 h-4 w-4" />
