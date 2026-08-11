@@ -43,7 +43,7 @@ export function FiorixFilters({ imports, tiposPrenotacao, filters, onFilterChang
               <SelectItem value="ALL">Todos os lotes</SelectItem>
               {imports.map((imp) => (
                 <SelectItem key={imp.id} value={imp.id}>
-                  {imp.filename} ({new Date(imp.importedAt).toLocaleDateString()})
+                  {imp.fileName} ({new Date(imp.importedAt).toLocaleDateString()})
                 </SelectItem>
               ))}
             </SelectContent>
