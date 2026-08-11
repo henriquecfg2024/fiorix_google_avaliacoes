@@ -1,7 +1,8 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Plus } from "lucide-react";
+import { RefreshCw, Plus, BarChart2 } from "lucide-react";
+import Link from "next/link";
 
 interface FiorixHeroProps {
   onUpdate: () => void;
@@ -50,24 +51,33 @@ export function FiorixHero({ onUpdate, onImport, isUpdating = false, userRole }:
         </div>
 
         {/* Actions */}
-        <div className="flex flex-wrap items-center gap-3 pt-2">
-          <Button 
-            className="bg-[#00C950] text-white hover:bg-[#00A844] border-0"
-            onClick={onUpdate}
-            disabled={isUpdating}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${isUpdating ? 'animate-spin' : ''}`} />
-            {isUpdating ? 'Atualizando...' : 'Atualizar Dados'}
-          </Button>
-          {canImport && (
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
+          <div className="flex flex-wrap items-center gap-3">
             <Button 
-              className="bg-[#00C950] text-white hover:bg-[#00A844] shadow-sm"
-              onClick={onImport}
+              className="bg-[#00C950] text-white hover:bg-[#00A844] border-0"
+              onClick={onUpdate}
+              disabled={isUpdating}
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Importar Novos Dados
+              <RefreshCw className={`mr-2 h-4 w-4 ${isUpdating ? 'animate-spin' : ''}`} />
+              {isUpdating ? 'Atualizando...' : 'Atualizar Dados'}
             </Button>
-          )}
+            {canImport && (
+              <Button 
+                className="bg-[#00C950] text-white hover:bg-[#00A844] shadow-sm"
+                onClick={onImport}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Importar Novos Dados
+              </Button>
+            )}
+          </div>
+
+          <Link href="/bi/produtividade" passHref>
+            <Button className="bg-[#2B7FFF] text-white hover:bg-blue-600 shadow-sm gap-2 font-semibold">
+              <BarChart2 className="h-4 w-4" />
+              Ver Produtividade de Caixa
+            </Button>
+          </Link>
         </div>
 
       </div>

@@ -20,7 +20,7 @@ export function HealthCard() {
 
   const criticos = [
     { icon: '⏱️', nome: 'Prazo de Entrega', pct: 22, isBi: true },
-    { icon: '🕐', nome: 'Fila / Espera', pct: 18, isBi: false },
+    { icon: '🕐', nome: 'Fila / Espera', pct: 18, isBi: true, biPath: '/bi/produtividade' },
   ];
 
   const radius = 58;
@@ -176,7 +176,7 @@ export function HealthCard() {
                       <span>{ind.nome}</span>
                       {ind.isBi && (
                         <Link
-                          href="/bi"
+                          href={(ind as any).biPath || "/bi"}
                           className="bg-red-100 hover:bg-red-200 text-red-700 font-extrabold text-[10px] px-2 py-0.5 rounded transition-colors"
                         >
                           VER BI →
