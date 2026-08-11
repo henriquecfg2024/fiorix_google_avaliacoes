@@ -44,6 +44,9 @@ export function FiorixHeader() {
             <Link href="/bi" className="px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 transition-colors">
               Módulo BI
             </Link>
+            <Link href="/bi/produtividade" className="px-3 py-1.5 rounded-full hover:bg-accent hover:text-accent-foreground transition-colors">
+              Produtividade
+            </Link>
           </nav>
 
           <Button
