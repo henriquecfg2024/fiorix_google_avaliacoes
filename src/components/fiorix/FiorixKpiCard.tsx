@@ -28,18 +28,18 @@ const variantStyles: Record<KpiVariant, { text: string; icon: string; border: st
     border: "border-l-4 border-l-blue-500",
   },
   success: {
-    text: "text-[var(--green)]",
-    icon: "text-[var(--green)]",
+    text: "text-emerald-400",
+    icon: "text-emerald-400",
     border: "border-l-4 border-l-emerald-500",
   },
   danger: {
-    text: "text-[var(--red)]",
-    icon: "text-[var(--red)]",
+    text: "text-red-400",
+    icon: "text-red-400",
     border: "border-l-4 border-l-red-500",
   },
   warning: {
-    text: "text-[var(--amber)]",
-    icon: "text-[var(--amber)]",
+    text: "text-amber-400",
+    icon: "text-amber-400",
     border: "border-l-4 border-l-amber-500",
   },
 };
@@ -48,10 +48,10 @@ export function FiorixKpiCard({ title, value, subtitle, variant, icon: Icon, tre
   const styles = variantStyles[variant];
 
   return (
-    <Card className={`relative p-5 rounded-2xl shadow-[var(--card-shadow)] bg-[var(--card-bg)] border border-[var(--card-border)] ${styles.border} hover:bg-white/[0.08] transition-all group flex flex-col justify-between min-h-[145px]`}>
+    <Card className={`relative p-5 rounded-2xl shadow-lg bg-white/[0.05] backdrop-blur-xl border border-white/10 ${styles.border} hover:bg-white/[0.08] transition-all group flex flex-col justify-between min-h-[145px] text-white`}>
       
       <div className="flex justify-between items-start w-full">
-        <h3 className="text-xs uppercase tracking-widest font-bold text-[var(--muted)] w-[80%]">
+        <h3 className="text-xs uppercase tracking-widest font-bold text-white/60 w-[80%]">
           {title}
         </h3>
         <div className="p-2 rounded-lg bg-white/5">
@@ -69,18 +69,18 @@ export function FiorixKpiCard({ title, value, subtitle, variant, icon: Icon, tre
               <span className={trend.isGood ? "text-emerald-400" : "text-red-400"}>
                 {trend.isUp ? "↑" : "↓"} {trend.value}
               </span>
-              <span className="text-[var(--muted)]/70">vs mês anterior</span>
+              <span className="text-white/40">vs mês anterior</span>
             </div>
           )}
         </div>
         
         <Tooltip>
           <TooltipTrigger asChild>
-            <button className="text-[var(--muted)] hover:text-[var(--text)] transition-colors p-1">
+            <button className="text-white/40 hover:text-white/70 transition-colors p-1">
               <Info className="w-4 h-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent className="max-w-[200px] text-xs leading-relaxed text-center bg-[var(--card-bg)] text-[var(--text)] border-[var(--card-border)]">
+          <TooltipContent className="max-w-[200px] text-xs leading-relaxed text-center bg-[#151C2F] text-white border-white/10">
             {subtitle}
           </TooltipContent>
         </Tooltip>
