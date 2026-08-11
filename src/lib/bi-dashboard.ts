@@ -122,13 +122,13 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
     if (filters.startDate && filters.endDate) {
       const endD = new Date(filters.endDate);
       endD.setHours(23, 59, 59, 999);
-      dateCondition = Prisma.sql`"DtAndamento" >= ${new Date(filters.startDate)} AND "DtAndamento" <= ${endD}`;
+      dateCondition = Prisma.sql`"DtProtocolo" >= ${new Date(filters.startDate)} AND "DtProtocolo" <= ${endD}`;
     } else if (filters.startDate) {
-      dateCondition = Prisma.sql`"DtAndamento" >= ${new Date(filters.startDate)}`;
+      dateCondition = Prisma.sql`"DtProtocolo" >= ${new Date(filters.startDate)}`;
     } else if (filters.endDate) {
       const endD = new Date(filters.endDate);
       endD.setHours(23, 59, 59, 999);
-      dateCondition = Prisma.sql`"DtAndamento" <= ${endD}`;
+      dateCondition = Prisma.sql`"DtProtocolo" <= ${endD}`;
     }
   }
 
@@ -479,13 +479,13 @@ export async function queryBiAtrasadosList(filters?: BiAtrasadosFilters): Promis
     if (filters.startDate && filters.endDate) {
       const endD = new Date(filters.endDate);
       endD.setHours(23, 59, 59, 999);
-      dateCondition = Prisma.sql`"DtAndamento" >= ${new Date(filters.startDate)} AND "DtAndamento" <= ${endD}`;
+      dateCondition = Prisma.sql`"DtProtocolo" >= ${new Date(filters.startDate)} AND "DtProtocolo" <= ${endD}`;
     } else if (filters.startDate) {
-      dateCondition = Prisma.sql`"DtAndamento" >= ${new Date(filters.startDate)}`;
+      dateCondition = Prisma.sql`"DtProtocolo" >= ${new Date(filters.startDate)}`;
     } else if (filters.endDate) {
       const endD = new Date(filters.endDate);
       endD.setHours(23, 59, 59, 999);
-      dateCondition = Prisma.sql`"DtAndamento" <= ${endD}`;
+      dateCondition = Prisma.sql`"DtProtocolo" <= ${endD}`;
     }
   }
 
