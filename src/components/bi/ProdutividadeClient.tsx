@@ -153,17 +153,8 @@ export function ProdutividadeClient() {
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-3">
           <Button
-            onClick={handleSync}
-            disabled={isSyncing}
-            className="bg-[#2B7FFF] text-white hover:bg-blue-600 font-semibold gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
-            Sincronizar Dados
-          </Button>
-
-          <Button
             onClick={() => setIsImportOpen(true)}
-            className="bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold gap-2"
+            className="bg-[#00C950] hover:bg-[#00A844] text-white font-semibold gap-2"
           >
             <Upload className="h-4 w-4" />
             Importar CSV
@@ -272,13 +263,11 @@ export function ProdutividadeClient() {
           <Sparkles className="h-10 w-10 text-[#00C950] animate-pulse" />
           <div>
             <h3 className="text-lg font-bold">Nenhum dado cadastrado no Supabase</h3>
-            <p className="text-sm text-white/50 mt-1">Sincronize com a base SQL Server ou faça o upload de um arquivo CSV para começar.</p>
+            <p className="text-sm text-white/50 mt-1">Faça o upload de um arquivo CSV para começar.</p>
           </div>
           <div className="flex gap-4">
-            <Button onClick={handleSync} className="bg-[#2B7FFF] text-white hover:bg-blue-600 font-semibold">
-              Sincronizar SQL Server
-            </Button>
-            <Button onClick={() => setIsImportOpen(true)} className="bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold">
+            <Button onClick={() => setIsImportOpen(true)} className="bg-[#00C950] hover:bg-[#00A844] text-white font-semibold gap-2">
+              <Upload className="h-4 w-4" />
               Importar CSV
             </Button>
           </div>
