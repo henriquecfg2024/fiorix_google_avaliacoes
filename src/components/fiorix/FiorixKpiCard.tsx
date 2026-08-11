@@ -18,24 +18,24 @@ interface FiorixKpiCardProps {
 
 const variantStyles: Record<KpiVariant, { text: string; bg: string; icon: string }> = {
   default: {
-    text: "text-white",
-    bg: "bg-white/10",
-    icon: "text-white",
+    text: "text-[var(--text)]",
+    bg: "bg-[var(--mini-bg)]",
+    icon: "text-[var(--text)]",
   },
   success: {
-    text: "text-emerald-400",
-    bg: "bg-emerald-500/10",
-    icon: "text-emerald-400",
+    text: "text-[var(--green)]",
+    bg: "bg-[var(--green)]/10",
+    icon: "text-[var(--green)]",
   },
   danger: {
-    text: "text-red-400",
-    bg: "bg-red-500/10",
-    icon: "text-red-400",
+    text: "text-[var(--red)]",
+    bg: "bg-[var(--red)]/10",
+    icon: "text-[var(--red)]",
   },
   warning: {
-    text: "text-amber-400",
-    bg: "bg-amber-500/10",
-    icon: "text-amber-400",
+    text: "text-[var(--amber)]",
+    bg: "bg-[var(--amber)]/10",
+    icon: "text-[var(--amber)]",
   },
 };
 
@@ -43,10 +43,10 @@ export function FiorixKpiCard({ title, value, subtitle, variant, icon: Icon }: F
   const styles = variantStyles[variant];
 
   return (
-    <Card className="relative p-5 rounded-2xl shadow-lg bg-white/[0.05] backdrop-blur-xl border border-white/10 hover:bg-white/[0.08] transition-all group flex flex-col justify-between min-h-[140px]">
+    <Card className="relative p-5 rounded-2xl shadow-[var(--card-shadow)] bg-[var(--card-bg)] border border-[var(--card-border)] hover:bg-[var(--mini-bg)] transition-all group flex flex-col justify-between min-h-[140px]">
       
       <div className="flex justify-between items-start w-full">
-        <h3 className="text-xs uppercase tracking-widest font-bold text-white/60 w-[80%]">
+        <h3 className="text-xs uppercase tracking-widest font-bold text-[var(--muted)] w-[80%]">
           {title}
         </h3>
         <div className={`p-2 rounded-lg ${styles.bg}`}>
@@ -63,11 +63,11 @@ export function FiorixKpiCard({ title, value, subtitle, variant, icon: Icon }: F
         
         <Tooltip>
           <TooltipTrigger asChild>
-            <button className="text-white/40 hover:text-white/70 transition-colors p-1">
+            <button className="text-[var(--muted)] hover:text-[var(--text)] transition-colors p-1">
               <Info className="w-4 h-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent className="max-w-[200px] text-xs leading-relaxed text-center bg-[#151C2F] text-white border-white/10">
+          <TooltipContent className="max-w-[200px] text-xs leading-relaxed text-center bg-[var(--card-bg)] text-[var(--text)] border-[var(--card-border)]">
             {subtitle}
           </TooltipContent>
         </Tooltip>
