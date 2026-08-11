@@ -47,6 +47,7 @@ export function FiorixKpiGrid({ data }: FiorixKpiGridProps) {
           subtitle={data.total.label}
           variant="default"
           icon={FileText}
+          trend={{ value: "2.4%", isUp: true, isGood: true }}
         />
       </motion.div>
       
@@ -57,6 +58,7 @@ export function FiorixKpiGrid({ data }: FiorixKpiGridProps) {
           subtitle={data.noPrazo.label}
           variant="success"
           icon={CheckCircle2}
+          trend={{ value: "0.8%", isUp: true, isGood: true }}
         />
       </motion.div>
 
@@ -67,6 +69,7 @@ export function FiorixKpiGrid({ data }: FiorixKpiGridProps) {
           subtitle={data.emAtraso.label}
           variant="danger"
           icon={Clock}
+          trend={{ value: "1.5%", isUp: false, isGood: true }}
         />
       </motion.div>
 
@@ -77,6 +80,7 @@ export function FiorixKpiGrid({ data }: FiorixKpiGridProps) {
           subtitle={data.devolucoes.label}
           variant="warning"
           icon={AlertTriangle}
+          trend={{ value: "0.5%", isUp: false, isGood: true }}
         />
       </motion.div>
     </motion.div>

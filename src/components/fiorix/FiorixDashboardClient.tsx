@@ -103,7 +103,7 @@ export function FiorixDashboardClient({ imports, dashboardData, atrasados, initi
             />
             
             <FiorixKpiGrid data={{
-              total: { value: dashboardData.summary.totalRegistered, label: "Total de títulos computados" },
+              total: { value: dashboardData.summary.totalRecords, label: "Total de títulos computados" },
               noPrazo: { value: dashboardData.summary.noPrazoCount, percentage: dashboardData.summary.percentNoPrazo, label: "Dentro do prazo legal" },
               emAtraso: { value: dashboardData.summary.atrasadoCount, percentage: dashboardData.summary.percentAtrasado, label: "Fora do prazo legal" },
               devolucoes: { value: dashboardData.summary.devolucaoCount, percentage: dashboardData.summary.percentDevolucao, label: "Com exigências" }

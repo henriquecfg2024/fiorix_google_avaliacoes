@@ -137,13 +137,13 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "no_prazo":
-        return <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20">No Prazo</Badge>;
+        return <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 backdrop-blur-md">No Prazo</Badge>;
       case "atrasado":
-        return <Badge className="bg-red-500/15 text-red-400 border border-red-500/20 hover:bg-red-500/20">Atrasado</Badge>;
+        return <Badge className="bg-red-500/10 border border-red-500/20 text-red-400 backdrop-blur-md">Atrasado</Badge>;
       case "devolvido":
-        return <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20">Devolvido</Badge>;
+        return <Badge className="bg-amber-500/10 border border-amber-500/20 text-amber-400 backdrop-blur-md">Devolvido</Badge>;
       default:
-        return <Badge variant="outline" className="border-white/10 text-white">{status}</Badge>;
+        return <Badge variant="outline" className="border-white/10 text-white backdrop-blur-md">{status}</Badge>;
     }
   };
 
@@ -223,7 +223,7 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
         </div>
       </CardHeader>
       
-      <div className="overflow-x-auto relative">
+      <div className="overflow-x-auto relative max-h-[600px] overflow-y-auto">
         {isLoading && (
           <div className="absolute inset-0 bg-[#151C2F]/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
             <div className="flex items-center gap-2 bg-[#151C2F] border border-white/10 px-4 py-2 rounded-xl shadow-md text-xs text-white/60">
@@ -234,17 +234,17 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
         )}
         
         <Table>
-          <TableHeader className="bg-white/5">
-            <TableRow className="border-white/5">
-              <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60">Protocolo</TableHead>
-              <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60">Status</TableHead>
-              <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60">Atraso (Dias)</TableHead>
-              <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60 text-right">Tipo</TableHead>
+          <TableHeader className="sticky top-0 z-20 bg-[#0F172A]">
+            <TableRow className="border-white/5 bg-[#0F172A]">
+              <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60 bg-[#0F172A] sticky top-0 z-20">Protocolo</TableHead>
+              <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60 bg-[#0F172A] sticky top-0 z-20">Status</TableHead>
+              <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60 bg-[#0F172A] sticky top-0 z-20">Atraso (Dias)</TableHead>
+              <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60 text-right bg-[#0F172A] sticky top-0 z-20">Tipo</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {items.map((row) => (
-              <TableRow key={row.id} className="border-white/5 hover:bg-white/[0.03] text-white/80 transition-colors">
+              <TableRow key={row.id} className="border-white/5 hover:bg-white/[0.04] text-white/80 transition-colors">
                 <TableCell className="font-semibold text-white">{row.protocolo}</TableCell>
                 <TableCell>{getStatusBadge(row.status)}</TableCell>
                 <TableCell className="text-red-400 font-bold">+{row.atraso}d</TableCell>

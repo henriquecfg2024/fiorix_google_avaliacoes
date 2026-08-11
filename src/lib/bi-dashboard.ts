@@ -224,26 +224,32 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
   }));
 
   const delayBucketsRaw = chartEnabled('2') ? await prisma.$queryRaw<Array<{ bucket: string; cnt: bigint }>>`
-    WITH totals AS (
+    WITH buckets AS (
       SELECT
-        COALESCE(SUM(a.delay_1_3), 0)::bigint AS d1,
-        COALESCE(SUM(a.delay_4_7), 0)::bigint AS d2,
-        COALESCE(SUM(a.delay_8_15), 0)::bigint AS d3,
-        COALESCE(SUM(a.delay_16_plus), 0)::bigint AS d4
-      FROM fiorix_bi_daily_agg a
-      WHERE ${aggregateGeneralCondition}
+        CASE
+          WHEN COALESCE("DiasAtraso", COALESCE("DiasCorridos", 0) - COALESCE("DiasPrometidos", 0)) BETWEEN 1 AND 3 THEN '1-3 dias'
+          WHEN COALESCE("DiasAtraso", COALESCE("DiasCorridos", 0) - COALESCE("DiasPrometidos", 0)) BETWEEN 4 AND 7 THEN '4-7 dias'
+          WHEN COALESCE("DiasAtraso", COALESCE("DiasCorridos", 0) - COALESCE("DiasPrometidos", 0)) BETWEEN 8 AND 15 THEN '8-15 dias'
+          WHEN COALESCE("DiasAtraso", COALESCE("DiasCorridos", 0) - COALESCE("DiasPrometidos", 0)) BETWEEN 16 AND 30 THEN '16-30 dias'
+          WHEN COALESCE("DiasAtraso", COALESCE("DiasCorridos", 0) - COALESCE("DiasPrometidos", 0)) >= 31 THEN '31+ dias'
+          ELSE 'Outros'
+        END as bucket,
+        COUNT(*)::bigint as cnt
+      FROM fiorix_bi_data
+      WHERE ("DiasAtraso" > 0 OR ("DiasCorridos" > "DiasPrometidos" AND "DiasPrometidos" > 0)) AND ${baseCondition}
+      GROUP BY 1
     )
-    SELECT buckets.bucket, buckets.cnt
-    FROM totals
-    CROSS JOIN LATERAL (
-      VALUES
-        ('1-3 dias', totals.d1, 1),
-        ('4-7 dias', totals.d2, 2),
-        ('8-15 dias', totals.d3, 3),
-        ('16+ dias', totals.d4, 4)
-    ) AS buckets(bucket, cnt, sort_order)
-    WHERE buckets.cnt > 0
-    ORDER BY buckets.sort_order
+    SELECT bucket, cnt
+    FROM buckets
+    WHERE bucket <> 'Outros'
+    ORDER BY CASE bucket
+      WHEN '1-3 dias' THEN 1
+      WHEN '4-7 dias' THEN 2
+      WHEN '8-15 dias' THEN 3
+      WHEN '16-30 dias' THEN 4
+      WHEN '31+ dias' THEN 5
+      ELSE 6
+    END
   ` : [];
 
   const delaySeverity = delayBucketsRaw.map((row) => ({

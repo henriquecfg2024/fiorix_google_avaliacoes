@@ -73,7 +73,7 @@ BEGIN
   WITH classified AS (
     SELECT
       "import_id",
-      COALESCE("DtAndamento"::date, DATE '1900-01-01') AS day,
+      COALESCE("DtProtocolo"::date, DATE '1900-01-01') AS day,
       COALESCE(TRIM("TipoPrenotacao"), '') AS tipo_prenotacao,
       COALESCE(TRIM("Natureza"), 'Outros') AS natureza,
       TRANSLATE(
@@ -130,7 +130,7 @@ BEGIN
   )
   SELECT
     "import_id",
-    COALESCE("DtAndamento"::date, DATE '1900-01-01'),
+    COALESCE("DtProtocolo"::date, DATE '1900-01-01'),
     COALESCE(TRIM("TipoPrenotacao"), ''),
     TRIM("TextoNotaDevolucao"),
     COUNT(*)::bigint
