@@ -239,7 +239,6 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
               <TableHead className="font-semibold text-xs tracking-wider uppercase text-muted-foreground">Protocolo</TableHead>
               <TableHead className="font-semibold text-xs tracking-wider uppercase text-muted-foreground">Status</TableHead>
               <TableHead className="font-semibold text-xs tracking-wider uppercase text-muted-foreground">Atraso (Dias)</TableHead>
-              <TableHead className="font-semibold text-xs tracking-wider uppercase text-muted-foreground">Data Entrada</TableHead>
               <TableHead className="font-semibold text-xs tracking-wider uppercase text-muted-foreground text-right">Tipo</TableHead>
             </TableRow>
           </TableHeader>
@@ -249,15 +248,12 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
                 <TableCell className="font-semibold text-foreground">{row.protocolo}</TableCell>
                 <TableCell>{getStatusBadge(row.status)}</TableCell>
                 <TableCell className="text-red-600 font-bold dark:text-red-400">+{row.atraso}d</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {row.data ? row.data.split('-').reverse().join('/') : '-'}
-                </TableCell>
                 <TableCell className="text-right text-muted-foreground font-medium">{row.tipo}</TableCell>
               </TableRow>
             ))}
             {items.length === 0 && !isLoading && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
+                <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
                   <div className="space-y-1">
                     <p className="font-medium text-sm text-foreground">Nenhum protocolo atrasado encontrado</p>
                     <p className="text-xs text-muted-foreground">
