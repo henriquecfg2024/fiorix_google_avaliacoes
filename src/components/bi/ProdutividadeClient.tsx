@@ -61,16 +61,25 @@ export function ProdutividadeClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ startDate, endDate }),
       });
+
+      const contentType = res.headers.get("content-type");
+      if (!res.ok || !contentType || !contentType.includes("application/json")) {
+        throw new Error(`Falha no servidor (Status ${res.status}). Verifique as credenciais ou a rota de API.`);
+      }
+
       const result = await res.json();
       if (result.success) {
         toast.success(`Sincronização concluída! ${result.inserted} registros atualizados.`);
         fetchData();
       } else {
-        throw new Error(result.error);
+        throw new Error(result.error || "Erro desconhecido ao sincronizar.");
       }
     } catch (error: any) {
       console.error("Erro na sincronização:", error);
-      toast.error(`Erro na sincronização: ${error.message}`);
+      const cleanMsg = typeof error?.message === "string" && error.message.includes("<")
+        ? "Erro no servidor ao processar resposta."
+        : error?.message || "Erro de conexão.";
+      toast.error(`Erro na sincronização: ${cleanMsg}`);
     } finally {
       setIsSyncing(false);
     }

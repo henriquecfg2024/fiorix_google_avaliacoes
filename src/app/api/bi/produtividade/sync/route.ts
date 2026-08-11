@@ -1,14 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
-// Se as credenciais do mssql existirem, tentaremos usá-lo.
-let sql: any;
-try {
-  sql = require("mssql");
-} catch (e) {
-  console.warn("Pacote mssql não pôde ser carregado:", e);
-}
-
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
@@ -21,6 +13,15 @@ export async function POST(request: Request) {
 
     let rowsToUpsert: any[] = [];
     let isSimulated = false;
+
+    let sql: any = null;
+    if (server && user && password) {
+      try {
+        sql = require("mssql");
+      } catch (e) {
+        console.warn("MSSQL package loading error:", e);
+      }
+    }
 
     if (server && user && password && sql) {
       // Configuração de conexão do SQL Server
