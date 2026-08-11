@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { FileSpreadsheet, RefreshCw, Trash2, UploadCloud, XCircle, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
@@ -32,6 +32,7 @@ export default function FiorixBiImportPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [importStatusMsg, setImportStatusMsg] = useState('');
   const [importsList, setImportsList] = useState<any[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchImports = useCallback(async () => {
     const importsRes = await getBiImportsList();
@@ -201,7 +202,19 @@ export default function FiorixBiImportPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv,application/vnd.ms-excel,text/plain"
+              className="hidden"
+              style={{ display: 'none' }}
+              onClick={(e) => {
+                (e.target as HTMLInputElement).value = '';
+              }}
+              onChange={(e) => e.target.files?.[0] && handleFileChange(e.target.files[0])}
+            />
             <div
+              onClick={() => fileInputRef.current?.click()}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               className="border-2 border-dashed border-slate-300 rounded-xl p-10 text-center bg-slate-50 hover:bg-slate-100/50 transition-colors cursor-pointer flex flex-col items-center justify-center"
@@ -214,20 +227,16 @@ export default function FiorixBiImportPage() {
                 Suporta <code className="bg-slate-200 px-1 py-0.5 rounded text-slate-700">fiorix_bi_YYYY-MM-DD.csv</code> gerado via Save Results As...
               </p>
 
-              <label className="cursor-pointer">
-                <Button variant="default" asChild>
-                  <span>Selecionar Arquivo CSV</span>
-                </Button>
-                <input
-                  type="file"
-                  accept=".csv,text/csv,application/vnd.ms-excel,text/plain"
-                  className="hidden"
-                  onClick={(e) => {
-                    (e.target as HTMLInputElement).value = '';
-                  }}
-                  onChange={(e) => e.target.files?.[0] && handleFileChange(e.target.files[0])}
-                />
-              </label>
+              <Button
+                type="button"
+                variant="default"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+              >
+                Selecionar Arquivo CSV
+              </Button>
             </div>
 
             {validationError && (

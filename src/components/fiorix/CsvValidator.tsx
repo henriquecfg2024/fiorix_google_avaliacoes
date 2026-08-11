@@ -23,6 +23,15 @@ export const HEADER_FIORIX = [
   'TextoNotaDevolucao',
 ];
 
+/** Headers do CSV gerado pela nova procedure dbo.pr_Fiorix_BI */
+export const HEADER_FIORIX_NOVO = [
+  'PROTOCOLO',
+  'DATA_ENTRADA',
+  'TIPO',
+  'STATUS',
+  'ATRASO_DIAS',
+];
+
 export const COLUNAS_OBRIGATORIAS = HEADER_FIORIX;
 
 export interface CsvStats {
@@ -64,25 +73,95 @@ const HEADER_FIORIX_NORMALIZADO = HEADER_FIORIX.map((header) =>
   header.toLowerCase().replace(/[^a-z0-9]/g, '')
 );
 
+const HEADER_FIORIX_NOVO_NORMALIZADO = HEADER_FIORIX_NOVO.map((header) =>
+  header.toLowerCase().replace(/[^a-z0-9_]/g, '')
+);
+
+/** All known header names (old + new) normalized for detection */
+const ALL_KNOWN_HEADERS_NORMALIZADO = [
+  ...HEADER_FIORIX_NORMALIZADO,
+  ...HEADER_FIORIX_NOVO_NORMALIZADO,
+];
+
 function limparCelula(value: unknown) {
   return typeof value === 'string' ? value.replace(/^\uFEFF/, '').trim() : '';
 }
 
 function normalizarCabecalho(value: unknown) {
-  return limparCelula(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+  return limparCelula(value).toLowerCase().replace(/[^a-z0-9_]/g, '');
 }
 
 function linhaTemConteudo(row: string[]) {
   return Array.isArray(row) && row.some((cell) => limparCelula(cell) !== '');
 }
 
+/**
+ * Case-insensitive, trim-aware field getter.
+ * Accepts multiple possible column names and returns the first match.
+ */
+function getField(row: Record<string, string>, ...possibleNames: string[]): string {
+  const lowerNames = possibleNames.map((n) => n.toLowerCase().trim());
+  const foundKey = Object.keys(row).find((k) =>
+    lowerNames.includes(k.toLowerCase().trim())
+  );
+  return foundKey ? String(row[foundKey]).trim() : '';
+}
+
+/**
+ * Flexible date parser that handles both YYYY-MM-DD and DD/MM/YYYY formats.
+ */
+function parseDataFlexivel(s: string): Date | null {
+  if (!s) return null;
+  s = s.trim();
+  if (!s) return null;
+
+  // YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS
+  if (s.includes('-') && /^\d{4}-/.test(s)) {
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // DD/MM/YYYY or DD/MM/YYYY HH:MM:SS
+  if (s.includes('/')) {
+    const match = s.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{2}:\d{2}(?::\d{2})?))?$/
+    );
+    if (match) {
+      const [, day, month, year, time = '00:00:00'] = match;
+      const fallback = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${time}`);
+      return isNaN(fallback.getTime()) ? null : fallback;
+    }
+  }
+
+  // Last resort: try native Date parse
+  const last = new Date(s);
+  return isNaN(last.getTime()) ? null : last;
+}
+
+/**
+ * Detect whether a new-schema CSV is being used (PROTOCOLO, DATA_ENTRADA, STATUS, etc.)
+ */
+function isNewSchema(headers: string[]): boolean {
+  const normalized = headers.map(normalizarCabecalho);
+  return normalized.includes('protocolo') &&
+    (normalized.includes('data_entrada') || normalized.includes('dataentrada')) &&
+    (normalized.includes('status') || normalized.includes('atraso_dias') || normalized.includes('atrasodias'));
+}
+
 function detectarCabecalho(row: string[]) {
   const normalizedRow = row.map(normalizarCabecalho).filter(Boolean);
-  const matches = normalizedRow.filter((header) =>
+
+  // Check old-schema matches
+  const oldMatches = normalizedRow.filter((header) =>
     HEADER_FIORIX_NORMALIZADO.includes(header)
   ).length;
 
-  return normalizarCabecalho(row[0]) === 'protocolo' || matches >= 6;
+  // Check new-schema matches
+  const newMatches = normalizedRow.filter((header) =>
+    HEADER_FIORIX_NOVO_NORMALIZADO.includes(header)
+  ).length;
+
+  return normalizarCabecalho(row[0]) === 'protocolo' || oldMatches >= 6 || newMatches >= 3;
 }
 
 function mapearLinhaBruta(
@@ -152,7 +231,53 @@ function protocoloValido(protocolo: unknown) {
   return Boolean(cleaned && cleaned !== '0' && cleaned.toLowerCase() !== 'protocolo');
 }
 
-function normalizarLinha(row: Record<string, string>): BiCsvRow {
+/**
+ * Normalize a raw row into BiCsvRow.
+ * Supports both old schema (Protocolo, SituacaoPrazo, IsDevolucao, DiasAtraso, etc.)
+ * and new schema from dbo.pr_Fiorix_BI (PROTOCOLO, DATA_ENTRADA, TIPO, STATUS, ATRASO_DIAS).
+ */
+function normalizarLinha(row: Record<string, string>, useNewSchema: boolean): BiCsvRow {
+  if (useNewSchema) {
+    // New schema: PROTOCOLO, DATA_ENTRADA, TIPO, STATUS, ATRASO_DIAS
+    const protocolo = getField(row, 'protocolo');
+    const dataEntradaRaw = getField(row, 'data_entrada', 'data_protocolo', 'dt_protocolo', 'data', 'dataentrada');
+    const statusRaw = getField(row, 'status').toUpperCase();
+    const tipoRaw = getField(row, 'tipo', 'tipossolicitacao', 'tiposolicitacao', 'tipo_prenotacao', 'tipoprenotacao');
+    const atrasoDias = parseInt(getField(row, 'atraso_dias', 'atraso', 'dias_atraso', 'diasatraso', 'atrasodias') || '0', 10);
+
+    const isDevolucao = statusRaw.includes('DEVOL');
+    const isRegistrado = statusRaw.includes('REGISTRAD') || statusRaw.includes('AVERBAD');
+
+    let situacaoPrazo = 'NoPrazo';
+    if (isDevolucao) {
+      situacaoPrazo = 'Devolucao';
+    } else if (atrasoDias > 0) {
+      situacaoPrazo = 'Atrasado';
+    }
+
+    return {
+      Protocolo: protocolo,
+      FlagRecepcao: null,
+      TipoSolicitacao: tipoRaw || null,
+      IdAndamento: null,
+      DtProtocolo: dataEntradaRaw || null,
+      DtPrevisaoEntrega: null,
+      DtAndamento: null,
+      CodProcessamento: null,
+      DescAndamento: null,
+      Natureza: tipoRaw || null,
+      TipoPrenotacao: tipoRaw || null,
+      DiasPrometidos: null,
+      DiasCorridos: null,
+      DiasAtraso: isNaN(atrasoDias) ? null : atrasoDias,
+      SituacaoPrazo: situacaoPrazo,
+      IsDevolucao: isDevolucao,
+      IsRegistrado: isRegistrado,
+      TextoNotaDevolucao: null,
+    };
+  }
+
+  // Old schema: original column mapping
   return {
     Protocolo: String(getVal(row, 'Protocolo') || '').trim(),
     FlagRecepcao: getInt(getVal(row, 'FlagRecepcao')),
@@ -177,31 +302,19 @@ function normalizarLinha(row: Record<string, string>): BiCsvRow {
 
 function parseDateValue(value?: string | null) {
   if (!value) return null;
-
-  const cleaned = String(value).trim();
-  if (!cleaned) return null;
-
-  const parsed = new Date(cleaned);
-  if (!Number.isNaN(parsed.getTime())) {
-    return parsed;
-  }
-
-  const match = cleaned.match(
-    /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}:\d{2}(?::\d{2})?))?$/
-  );
-
-  if (!match) {
-    return null;
-  }
-
-  const [, day, month, year, time = '00:00:00'] = match;
-  const fallback = new Date(`${year}-${month}-${day}T${time}`);
-  return Number.isNaN(fallback.getTime()) ? null : fallback;
+  return parseDataFlexivel(String(value));
 }
 
 function toPreviewDateString(value?: string | null) {
   const parsed = parseDateValue(value);
   return parsed ? parsed.toISOString().slice(0, 10) : null;
+}
+
+/** Format an ISO date string (YYYY-MM-DD) to pt-BR format (DD/MM/YYYY) */
+function formatDatePtBR(isoDate: string): string {
+  const parsed = parseDataFlexivel(isoDate);
+  if (!parsed) return isoDate;
+  return parsed.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 }
 
 export function validarCSV(
@@ -211,6 +324,7 @@ export function validarCSV(
 ) {
   let detectedHeaders = HEADER_FIORIX;
   let isHeader = false;
+  let useNewSchema = false;
   let firstDataRowResolved = false;
   let totalLinhas = 0;
   let validRows = 0;
@@ -242,6 +356,7 @@ export function validarCSV(
         if (!firstDataRowResolved) {
           isHeader = detectarCabecalho(cleanedRow);
           detectedHeaders = isHeader ? cleanedRow : HEADER_FIORIX;
+          useNewSchema = isHeader && isNewSchema(cleanedRow);
           firstDataRowResolved = true;
 
           if (isHeader) {
@@ -252,7 +367,7 @@ export function validarCSV(
         totalLinhas += 1;
 
         const mappedRow = mapearLinhaBruta(cleanedRow, detectedHeaders, isHeader);
-        const normalizedRow = normalizarLinha(mappedRow);
+        const normalizedRow = normalizarLinha(mappedRow, useNewSchema);
 
         if (!protocoloValido(normalizedRow.Protocolo)) {
           continue;
@@ -271,7 +386,7 @@ export function validarCSV(
 
         const situacao = String(normalizedRow.SituacaoPrazo || '').toLowerCase();
 
-        if (normalizedRow.IsDevolucao || situacao.includes('devolucao')) {
+        if (normalizedRow.IsDevolucao || situacao.includes('devolucao') || situacao.includes('devol')) {
           devolucoes += 1;
         }
 
@@ -279,7 +394,7 @@ export function validarCSV(
           atrasados += 1;
         }
 
-        if (situacao === 'noprazo') {
+        if (situacao === 'noprazo' || situacao === 'no prazo') {
           noPrazo += 1;
         }
 
@@ -287,6 +402,7 @@ export function validarCSV(
           emAndamento += 1;
         }
 
+        // Use DtProtocolo (which maps to DATA_ENTRADA in new schema) for period calculation
         const previewDate = toPreviewDateString(
           normalizedRow.DtAndamento || normalizedRow.DtProtocolo
         );
@@ -317,6 +433,12 @@ export function validarCSV(
         return;
       }
 
+      // For new schema, if noPrazo was not explicitly set, calculate it
+      if (useNewSchema && noPrazo === 0) {
+        noPrazo = validRows - devolucoes - atrasados;
+        if (noPrazo < 0) noPrazo = 0;
+      }
+
       const percAtrasoVal =
         noPrazo + atrasados > 0 ? (atrasados / (noPrazo + atrasados)) * 100 : 0;
 
@@ -329,8 +451,8 @@ export function validarCSV(
         noPrazo,
         emAndamento,
         percAtraso: percAtrasoVal.toFixed(1),
-        periodoIni: minDate || 'N/I',
-        periodoFim: maxDate || 'N/I',
+        periodoIni: minDate ? formatDatePtBR(minDate) : 'N/I',
+        periodoFim: maxDate ? formatDatePtBR(maxDate) : 'N/I',
         naturezas: Array.from(naturezas).slice(0, 3),
       };
 
@@ -399,6 +521,7 @@ export async function importarCSVEmLotes({
   return new Promise<{ totalProcessed: number }>((resolve, reject) => {
     let detectedHeaders = HEADER_FIORIX;
     let isHeader = false;
+    let useNewSchema = false;
     let firstDataRowResolved = false;
     let totalProcessed = 0;
     let validRows = 0;
@@ -464,6 +587,7 @@ export async function importarCSVEmLotes({
               if (!firstDataRowResolved) {
                 isHeader = detectarCabecalho(cleanedRow);
                 detectedHeaders = isHeader ? cleanedRow : HEADER_FIORIX;
+                useNewSchema = isHeader && isNewSchema(cleanedRow);
                 firstDataRowResolved = true;
 
                 if (isHeader) {
@@ -472,7 +596,7 @@ export async function importarCSVEmLotes({
               }
 
               const mappedRow = mapearLinhaBruta(cleanedRow, detectedHeaders, isHeader);
-              const normalizedRow = normalizarLinha(mappedRow);
+              const normalizedRow = normalizarLinha(mappedRow, useNewSchema);
 
               if (!protocoloValido(normalizedRow.Protocolo)) {
                 continue;
