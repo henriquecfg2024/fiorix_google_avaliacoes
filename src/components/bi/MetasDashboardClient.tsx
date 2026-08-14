@@ -85,61 +85,85 @@ export function MetasDashboardClient() {
     return null;
   };
 
-  // Helper para cor do Badge de Status estrito
+  // Helper para calcular atraso real em dias de calendário
+  const getAtrasoDias = (record: MetasData) => {
+    const d10 = getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT", "dtEntregaReal", "DT_ENTREGA_REAL");
+    const dtPrev = getVal(record, "dtPrevisao", "DT_PREVISAO");
+    const dataApres = getVal(record, "dataApresentado", "DATA_APRESENTADO", "d1Protocolo", "D1_PROTOCOLO");
+
+    // Se já foi entregue
+    if (d10) {
+      const atrImported = Number(getVal(record, "atrasoDias", "ATRASO_DIAS") || 0);
+      return Math.max(0, atrImported);
+    }
+
+    if (!dtPrev) return 0;
+
+    try {
+      const prevDate = new Date(dtPrev);
+      if (isNaN(prevDate.getTime())) return 0;
+
+      // Data de Previsão em 00:00:00 (Início do Dia)
+      const prevDay = new Date(prevDate.getFullYear(), prevDate.getMonth(), prevDate.getDate()).getTime();
+      const today = new Date();
+      const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+
+      // Se a data de previsão é hoje ou no futuro -> Atraso 0d!
+      if (prevDay >= todayDay) {
+        return 0;
+      }
+
+      // Se o protocolo deu entrada hoje -> Atraso 0d!
+      if (dataApres) {
+        const apresDate = new Date(dataApres);
+        if (!isNaN(apresDate.getTime())) {
+          const apresDay = new Date(apresDate.getFullYear(), apresDate.getMonth(), apresDate.getDate()).getTime();
+          if (apresDay === todayDay) {
+            return 0;
+          }
+        }
+      }
+
+      const diffDays = Math.floor((todayDay - prevDay) / (1000 * 60 * 60 * 24));
+      return Math.max(0, diffDays);
+    } catch {
+      return 0;
+    }
+  };
+
+  // Helper para cor do Badge de Status
   const getStatusBadge = (statusVal: any, atrasoDiasNum: number) => {
-    if (!statusVal) {
-      return {
-        text: "N/A",
-        bgClass: "bg-gray-500/20 text-gray-400 border border-gray-500/30",
-      };
-    }
+    const s = String(statusVal || "").toLowerCase().trim();
 
-    const s = String(statusVal).toLowerCase().trim();
-
-    if (s.includes("entregue com atraso") || (s.includes("entregue") && s.includes("atraso"))) {
+    // Se o atraso calculado é 0 e o protocolo não foi entregue com atraso -> Em dia
+    if (atrasoDiasNum === 0 && !s.includes("entregue")) {
       return {
-        text: statusVal,
-        bgClass: "bg-orange-500/20 text-orange-400 border border-orange-500/30",
-      };
-    }
-
-    if (s === "atrasado" || (s.includes("atrasado") && !s.includes("em dia")) || (atrasoDiasNum > 0 && !s.includes("entregue"))) {
-      return {
-        text: statusVal,
-        bgClass: "bg-red-500/20 text-red-400 border border-red-500/30",
-      };
-    }
-
-    if (s.includes("em dia") || s.includes("no prazo")) {
-      return {
-        text: statusVal,
+        text: "Em dia",
         bgClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
       };
     }
 
-    return {
-      text: statusVal,
-      bgClass: "bg-gray-500/20 text-gray-400 border border-gray-500/30",
-    };
-  };
-
-  // Helper para dias de atraso real
-  const getAtrasoDias = (record: MetasData) => {
-    let atr = Number(getVal(record, "atrasoDias", "ATRASO_DIAS") || 0);
-    const st = String(getVal(record, "status", "STATUS") || "").toLowerCase().trim();
-    const d10 = getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT", "dtEntregaReal", "DT_ENTREGA_REAL");
-    const dtPrev = getVal(record, "dtPrevisao", "DT_PREVISAO");
-
-    if (atr <= 0 && st.includes("atrasado") && !d10 && dtPrev) {
-      try {
-        const pDate = new Date(dtPrev).getTime();
-        const now = new Date().getTime();
-        if (!isNaN(pDate) && now > pDate) {
-          atr = Math.max(0, Math.floor((now - pDate) / (1000 * 60 * 60 * 24)));
-        }
-      } catch {}
+    // 1. Entregue com Atraso -> Laranja
+    if (s.includes("entregue com atraso") || (s.includes("entregue") && (s.includes("atraso") || atrasoDiasNum > 0))) {
+      return {
+        text: statusVal || "Entregue com Atraso",
+        bgClass: "bg-orange-500/20 text-orange-400 border border-orange-500/30",
+      };
     }
-    return atr;
+
+    // 2. Atrasado (quando de fato atrasou > 0d) -> Vermelho
+    if (atrasoDiasNum > 0 || s === "atrasado" || (s.includes("atrasado") && !s.includes("em dia"))) {
+      return {
+        text: "Atrasado",
+        bgClass: "bg-red-500/20 text-red-400 border border-red-500/30",
+      };
+    }
+
+    // 3. Em dia / No Prazo -> Verde
+    return {
+      text: statusVal || "Em dia",
+      bgClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
+    };
   };
 
   // Format date helper
@@ -195,7 +219,6 @@ export function MetasDashboardClient() {
     const d9C = getVal(record, "d9Conferencia", "D9_CONFERENCIA", "D9_CONF");
     const d10 = getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT");
 
-    // Identifica qual é a fase ativa atual (em andamento)
     const isP1Active = Boolean(d1 && !d1E);
     const isP2Active = Boolean(d1E && !d2);
     const isP3Active = Boolean(d2 && !d3);
@@ -255,14 +278,13 @@ export function MetasDashboardClient() {
     const gargaloCounts: Record<string, number> = {};
 
     data.forEach(item => {
-      const st = String(getVal(item, "status", "STATUS") || "Desconhecido");
       const atrasoDias = getAtrasoDias(item);
+      const badge = getStatusBadge(getVal(item, "status", "STATUS"), atrasoDias);
 
-      statusSet.add(st);
+      statusSet.add(badge.text);
 
-      const isLate = atrasoDias > 0 || st.toLowerCase().includes("atraso");
-      if (isLate) {
-        if (st.toLowerCase().includes("entregue")) {
+      if (atrasoDias > 0 || badge.text.toLowerCase().includes("atras")) {
+        if (badge.text.toLowerCase().includes("entregue")) {
           entregueComAtraso++;
         } else {
           atrasados++;
@@ -329,9 +351,11 @@ export function MetasDashboardClient() {
   const filteredData = useMemo(() => {
     return data.filter(item => {
       const prot = String(getVal(item, "protocolo", "PROTOCOLO") || "");
-      const st = String(getVal(item, "status", "STATUS") || "");
+      const atr = getAtrasoDias(item);
+      const badge = getStatusBadge(getVal(item, "status", "STATUS"), atr);
+      
       const matchSearch = search ? prot.includes(search) : true;
-      const matchStatus = statusFilter !== "ALL" ? st === statusFilter : true;
+      const matchStatus = statusFilter !== "ALL" ? badge.text === statusFilter || String(getVal(item, "status", "STATUS")) === statusFilter : true;
       const matchGargalo = gargaloFilter !== "ALL" ? getGargaloForRecord(item).name === gargaloFilter : true;
       
       return matchSearch && matchStatus && matchGargalo;
@@ -400,11 +424,12 @@ export function MetasDashboardClient() {
     const rows = exportList.map(item => {
       const g = getGargaloForRecord(item);
       const prot = getVal(item, "protocolo", "PROTOCOLO");
-      const st = getVal(item, "status", "STATUS");
       const atr = getAtrasoDias(item);
+      const badge = getStatusBadge(getVal(item, "status", "STATUS"), atr);
+
       return [
         prot,
-        `"${(st || "").replace(/"/g, '""')}"`,
+        `"${(badge.text || "").replace(/"/g, '""')}"`,
         atr || 0,
         `"${getVal(item, "dataApresentado", "DATA_APRESENTADO") || ""}"`,
         `"${getVal(item, "dtPrevisao", "DT_PREVISAO") || ""}"`,
@@ -776,11 +801,9 @@ export function MetasDashboardClient() {
       {/* MODAL / DRAWER LATERAL DIREITO - DETALHAMENTO DO PROTOCOLO */}
       {selectedProtocol && (() => {
         const protNum = getVal(selectedProtocol, "protocolo", "PROTOCOLO");
-        const stStr = String(getVal(selectedProtocol, "status", "STATUS") || "Em dia");
         const atrDias = getAtrasoDias(selectedProtocol);
+        const statusBadge = getStatusBadge(getVal(selectedProtocol, "status", "STATUS"), atrDias);
         const retrabalho = Number(getVal(selectedProtocol, "qtdRetrabalho", "QTD_RETRABALHO", "qtd_retrabalho") || 0);
-
-        const statusBadge = getStatusBadge(stStr, atrDias);
 
         // Seção 1: Mapeamento de Datas das 10 Fases
         const datesMap = [
