@@ -8,9 +8,22 @@ interface HeatmapChartProps {
 }
 
 export function HeatmapChart({ data }: HeatmapChartProps) {
-  const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-  const daysOfWeekPt = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
+  const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const daysOfWeekPt = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
   const hours = Array.from({ length: 24 }, (_, i) => i);
+
+  const normalizeDay = (d: string) => {
+    if (!d) return "Sunday";
+    const lower = d.toLowerCase();
+    if (lower.includes("domingo") || lower === "sunday" || lower === "0") return "Sunday";
+    if (lower.includes("segunda") || lower === "monday" || lower === "1") return "Monday";
+    if (lower.includes("terça") || lower.includes("terca") || lower === "tuesday" || lower === "2") return "Tuesday";
+    if (lower.includes("quarta") || lower === "wednesday" || lower === "3") return "Wednesday";
+    if (lower.includes("quinta") || lower === "thursday" || lower === "4") return "Thursday";
+    if (lower.includes("sexta") || lower === "friday" || lower === "5") return "Friday";
+    if (lower.includes("sábado") || lower.includes("sabado") || lower === "saturday" || lower === "6") return "Saturday";
+    return "Sunday";
+  };
 
   const heatmapData = useMemo(() => {
     // Initialize empty grid 7x24
@@ -24,10 +37,11 @@ export function HeatmapChart({ data }: HeatmapChartProps) {
 
     // Populate grid
     data.forEach((row) => {
-      const day = row.DIA_SEMANA;
-      const hour = row.HORA_NUM;
+      const day = normalizeDay(row.DIA_SEMANA);
+      const hour = Number(row.HORA_NUM);
+      const quantity = Number(row.QUANTIDADE ?? 1);
       if (grid[day] !== undefined && grid[day][hour] !== undefined) {
-        grid[day][hour] += row.QUANTIDADE || 0;
+        grid[day][hour] += Number.isFinite(quantity) ? quantity : 1;
       }
     });
 
@@ -64,7 +78,7 @@ export function HeatmapChart({ data }: HeatmapChartProps) {
           <h3 className="text-base font-bold tracking-tight text-white flex items-center gap-2">
             Distribuição por Dia e Hora (Heatmap 7x24)
           </h3>
-          <p className="text-xs text-white/40">Visualização de produtividade por faixa horária de Segunda a Domingo</p>
+          <p className="text-xs text-white/40">Visualização de produtividade por faixa horária de Domingo a Sábado</p>
         </div>
         <div className="flex items-center gap-1.5 text-xs text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded border border-amber-400/20">
           <Info className="h-3.5 w-3.5" />
@@ -78,7 +92,7 @@ export function HeatmapChart({ data }: HeatmapChartProps) {
           {/* Hours Header */}
           <div className="flex items-center">
             <div className="w-20 text-xs text-white/40 font-medium pr-2 text-right">Dia</div>
-            <div className="flex-1 grid grid-cols-24 gap-[2px]">
+            <div className="flex-1 grid grid-cols-[repeat(24,minmax(0,1fr))] gap-[2px]">
               {hours.map((hour) => (
                 <div key={hour} className="text-center text-[10px] text-white/40 font-mono">
                   {String(hour).padStart(2, "0")}h
@@ -96,7 +110,7 @@ export function HeatmapChart({ data }: HeatmapChartProps) {
               </div>
 
               {/* Day Hours Cells */}
-              <div className="flex-1 grid grid-cols-24 gap-[2px]">
+              <div className="flex-1 grid grid-cols-[repeat(24,minmax(0,1fr))] gap-[2px]">
                 {hours.map((hour) => {
                   const value = heatmapData.grid[day][hour];
                   const color = getColorIntensity(value);

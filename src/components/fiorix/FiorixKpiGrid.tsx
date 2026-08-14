@@ -42,45 +42,41 @@ export function FiorixKpiGrid({ data }: FiorixKpiGridProps) {
     >
       <motion.div variants={item}>
         <FiorixKpiCard 
-          title="Total de Títulos Analisados"
+          title="Total Importado"
           value={formatNumber(data.total.value)}
           subtitle={data.total.label}
           variant="default"
           icon={FileText}
-          trend={{ value: "2.4%", isUp: true, isGood: true }}
         />
       </motion.div>
       
       <motion.div variants={item}>
         <FiorixKpiCard 
-          title="Entregues no Prazo"
-          value={`${data.noPrazo.percentage}%`}
-          subtitle={data.noPrazo.label}
+          title="Em dia"
+          value={formatNumber(data.noPrazo.value)}
+          subtitle={`${data.noPrazo.percentage}% dos títulos analisados`}
           variant="success"
           icon={CheckCircle2}
-          trend={{ value: "0.8%", isUp: true, isGood: true }}
         />
       </motion.div>
 
       <motion.div variants={item}>
         <FiorixKpiCard 
-          title="Entregues em Atraso"
-          value={`${data.emAtraso.percentage}%`}
-          subtitle={data.emAtraso.label}
+          title="Atrasados"
+          value={formatNumber(data.emAtraso.value)}
+          subtitle={`${data.emAtraso.percentage}% dos títulos analisados`}
           variant="danger"
           icon={Clock}
-          trend={{ value: "1.5%", isUp: false, isGood: true }}
         />
       </motion.div>
 
       <motion.div variants={item}>
         <FiorixKpiCard 
-          title="Devoluções / Exigências"
-          value={`${data.devolucoes.percentage}%`}
-          subtitle={data.devolucoes.label}
+          title="Devolvidos"
+          value={formatNumber(data.devolucoes.value)}
+          subtitle={`${data.devolucoes.percentage}% de devoluções no período`}
           variant="warning"
           icon={AlertTriangle}
-          trend={{ value: "0.5%", isUp: false, isGood: true }}
         />
       </motion.div>
     </motion.div>

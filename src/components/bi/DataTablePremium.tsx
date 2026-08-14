@@ -42,7 +42,7 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
       if (sortField === "DATA") {
         aVal = new Date(`${a.DATA}T${a.HORA || "00:00"}`).getTime();
         bVal = new Date(`${b.DATA}T${b.HORA || "00:00"}`).getTime();
-      } else if (sortField === "PEDIDO" || sortField === "HORA_NUM" || sortField === "QUANTIDADE") {
+      } else if (sortField === "PEDIDO" || sortField === "HORA_NUM") {
         aVal = Number(aVal) || 0;
         bVal = Number(bVal) || 0;
       } else {
@@ -174,9 +174,6 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
               <th onClick={() => handleSort("TIPO_DETALHADO")} className="p-3 border-b border-white/10 cursor-pointer hover:bg-white/5">
                 Detalhado {sortField === "TIPO_DETALHADO" && (sortDirection === "asc" ? "▲" : "▼")}
               </th>
-              <th onClick={() => handleSort("QUANTIDADE")} className="p-3 border-b border-white/10 cursor-pointer hover:bg-white/5 text-center">
-                Qtd {sortField === "QUANTIDADE" && (sortDirection === "asc" ? "▲" : "▼")}
-              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5 bg-white/[0.01]">
@@ -203,12 +200,11 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
                     </Badge>
                   </td>
                   <td className="p-3 text-xs text-white/50">{row.TIPO_DETALHADO}</td>
-                  <td className="p-3 text-center font-bold text-white">{row.QUANTIDADE}</td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={9} className="p-8 text-center text-white/40">
+                <td colSpan={8} className="p-8 text-center text-white/40">
                   Nenhum registro encontrado.
                 </td>
               </tr>

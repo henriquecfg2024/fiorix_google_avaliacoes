@@ -22,6 +22,9 @@ export async function GET(request: Request) {
       pageSize: Number(searchParams.get('pageSize')) || 20,
       search: searchParams.get('search') || '',
       rangeIndex: Number(searchParams.get('rangeIndex')) || 0,
+      queryMode: (searchParams.get('queryMode') as 'atrasado' | 'full') || 'atrasado',
+      statusFilter: searchParams.get('statusFilter') || undefined,
+      servicoFilter: searchParams.get('servicoFilter') || undefined,
     };
 
     const data = await queryBiAtrasadosList(filters);

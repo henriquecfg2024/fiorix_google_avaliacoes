@@ -247,8 +247,59 @@ model FiorixBiData {
   @@index([importId], name: "idx_fiorix_bi_data_import_id")
   @@index([dtAndamento], name: "idx_fiorix_bi_data_dt_andamento")
   @@index([codProcessamento], name: "idx_fiorix_bi_data_cod_proc")
-    @@index([tipoPrenotacao], name: "idx_fiorix_bi_data_tipo_prenotacao")
-    @@unique([importId, idAndamento], name: "fiorix_bi_data_import_id_andamento_key")
+  @@index([tipoPrenotacao], name: "idx_fiorix_bi_data_tipo_prenotacao")
+  @@unique([importId, idAndamento], name: "fiorix_bi_data_import_id_andamento_key")
 
   @@map("fiorix_bi_data")
 }
+
+// ── FIORIX METAS MODULE ───────────────────────────────────────────────
+
+model FiorixMetasImport {
+  id           Int       @id @default(autoincrement())
+  importKey    String?   @unique @map("import_key") @db.VarChar(100)
+  arquivo      String?   @db.VarChar(255)
+  periodo      String?   @db.VarChar(100)
+  dataHora     DateTime? @default(now()) @map("data_hora")
+  linhas       Int?
+  inseridas    Int?
+  importadoPor String?   @map("importado_por") @db.VarChar(100)
+  status       String?   @db.VarChar(20)
+
+  dados        FiorixMetasDados[]
+
+  @@map("fiorix_metas_imports")
+}
+
+model FiorixMetasDados {
+  protocolo       Int       @id @map("protocolo")
+  dataApresentado DateTime? @map("data_apresentado")
+  dtPrevisao      DateTime? @map("dt_previsao")
+  dtEntregaReal   DateTime? @map("dt_entrega_real")
+  status          String?   @db.VarChar(50)
+  atrasoDias      Int?      @map("atraso_dias")
+  d1Protocolo     DateTime? @map("d1_protocolo")
+  d1Escaneamento  DateTime? @map("d1_escaneamento")
+  d2Contraditorio DateTime? @map("d2_contraditorio")
+  d3Extrato       DateTime? @map("d3_extrato")
+  d4Qualificacao  DateTime? @map("d4_qualificacao")
+  d5Calculo       DateTime? @map("d5_calculo")
+  d8Impressao     DateTime? @map("d8_impressao")
+  d9Preparacao    DateTime? @map("d9_preparacao")
+  d9Conferencia   DateTime? @map("d9_conferencia")
+  d10Entrega      DateTime? @map("d10_entrega")
+  qtdRetrabalho   Int?      @map("qtd_retrabalho")
+  diasD1D2        Int?      @map("dias_d1_d2")
+  diasD2D3        Int?      @map("dias_d2_d3")
+  diasD3D4        Int?      @map("dias_d3_d4")
+  diasD4D5        Int?      @map("dias_d4_d5")
+  diasD5D8        Int?      @map("dias_d5_d8")
+  diasD8D9        Int?      @map("dias_d8_d9")
+
+  importId        Int?      @map("import_id")
+  import          FiorixMetasImport? @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  @@index([importId], name: "idx_fiorix_metas_dados_import_id")
+  @@map("fiorix_metas_dados")
+}
+

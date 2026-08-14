@@ -2,57 +2,47 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { handleSignOut, getCurrentUser } from '@/app/actions/auth';
 import { getPendingCount } from '@/app/actions/reviews';
 import { PwaInstallBanner } from '@/components/pwa/PwaInstallBanner';
-import { Menu, X, LogOut, Building2, Clock, CheckCircle } from 'lucide-react';
+import { Menu, X, LogOut, Building2 } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState('5');
   const [showMenu, setShowMenu] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState<number>(0);
   const [currentUser, setCurrentUser] = useState<{ name: string; email: string; role: string } | null>(null);
   const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('fiorix_theme') || '5';
-    setTheme(savedTheme);
-    applyTheme(savedTheme);
+    document.body.classList.remove('t1', 't2', 't3', 't4');
+    localStorage.removeItem('fiorix_theme');
 
-    // Fetch live user session details
     getCurrentUser()
       .then((user) => {
         if (user) setCurrentUser(user);
       })
       .catch(() => {});
 
-    // Fetch live pending count
     getPendingCount()
       .then((count) => setPendingCount(count))
       .catch(() => {});
   }, [pathname]);
 
-  // Close drawer when route changes
   useEffect(() => {
     setIsDrawerOpen(false);
     setShowMenu(false);
   }, [pathname]);
 
-  // Lock body scroll when drawer is open
   useEffect(() => {
-    if (isDrawerOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
+    document.body.style.overflow = isDrawerOpen ? 'hidden' : '';
     return () => {
       document.body.style.overflow = '';
     };
   }, [isDrawerOpen]);
 
-  // Close drawer on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setIsDrawerOpen(false);
@@ -61,18 +51,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const applyTheme = (t: string) => {
-    document.body.className = t === '5' ? '' : `t${t}`;
-    localStorage.setItem('fiorix_theme', t);
-    setTheme(t);
-  };
-
   const isActive = (path: string) => {
     if (path === '/dashboard' && pathname === '/dashboard') return 'active';
     if (path !== '/dashboard') {
-      if (path === '/bi') {
-        return pathname === '/bi' ? 'active' : '';
-      }
+      if (path === '/bi') return pathname === '/bi' ? 'active' : '';
       if (pathname?.startsWith(path)) return 'active';
     }
     return '';
@@ -85,6 +67,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
+  const openSettings = () => {
+    setShowMenu(false);
+    setIsDrawerOpen(false);
+    router.push('/minha-conta');
+  };
+
   const navLinks = [
     { href: '/dashboard', label: 'Home' },
     { href: '/avaliacoes', label: 'Avaliações', badge: pendingCount },
@@ -95,13 +83,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   ];
 
   if (currentUser?.role && currentUser.role !== 'USER') {
+    navLinks.push({ href: '/bi/importacoes', label: 'Importações' });
     navLinks.push({ href: '/configuracoes', label: 'Configurações' });
   }
 
   return (
     <>
       <PwaInstallBanner />
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
+
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0F172A]/95 backdrop-blur-xl">
         <div className="header-inner">
           <div className="header-left flex items-center justify-between w-full lg:w-auto">
             <div className="logo flex items-center gap-2">
@@ -137,64 +127,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </span>
             </div>
 
-            {/* MOBILE HAMBURGER BUTTON */}
             <button
               onClick={() => setIsDrawerOpen(true)}
               aria-label="Abrir menu"
-              className="lg:hidden relative p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+              className="lg:hidden relative p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors cursor-pointer"
             >
               <Menu className="w-5 h-5" />
               {pendingCount > 0 && (
-                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-ping" />
-              )}
-              {pendingCount > 0 && (
-                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
+                <>
+                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-ping" />
+                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
+                </>
               )}
             </button>
 
-            {/* DESKTOP NAV */}
             <nav className="hidden lg:flex items-center gap-1">
-              <Link className={isActive('/dashboard')} href="/dashboard">
-                Home
-              </Link>
-              <Link className={isActive('/avaliacoes')} href="/avaliacoes">
-                Avaliações
-              </Link>
-              <Link className={isActive('/estatisticas')} href="/estatisticas">
-                Estatísticas
-              </Link>
-              <Link className={isActive('/relatorios')} href="/relatorios">
-                Relatórios
-              </Link>
-              <Link className={isActive('/bi')} href="/bi">
-                Módulo BI
-              </Link>
-              <Link className={isActive('/bi/produtividade')} href="/bi/produtividade">
-                Produtividade
-              </Link>
-              {currentUser?.role && currentUser.role !== 'USER' && (
-                <Link className={isActive('/configuracoes')} href="/configuracoes">
-                  Configurações
+              {navLinks.map((link) => (
+                <Link key={link.href} className={isActive(link.href)} href={link.href}>
+                  {link.label}
                 </Link>
-              )}
+              ))}
             </nav>
           </div>
 
-          {/* DESKTOP HEADER RIGHT */}
           <div className="header-right hidden lg:flex">
-            {/* THEME SWITCHER */}
-            <div className="theme-switcher">
-              <span className="theme-switcher-label">Tema</span>
-              {[1, 2, 3, 4, 5].map((t) => (
-                <div
-                  key={t}
-                  className={`theme-dot ${theme === String(t) ? 'active' : ''}`}
-                  data-t={t}
-                  onClick={() => applyTheme(String(t))}
-                />
-              ))}
-            </div>
-
             <Link
               href="/avaliacoes?status=PENDING"
               className="badge-new"
@@ -207,16 +163,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 transition: 'background 0.3s ease',
               }}
             >
-              {pendingCount > 0
-                ? `${pendingCount} aguardando resposta`
-                : '✓ Todas respondidas'}
+              {pendingCount > 0 ? `${pendingCount} aguardando resposta` : '✓ Todas respondidas'}
             </Link>
 
             <div className="tenant-selector">
               🏢 <span>7º RI São Paulo</span> ▾
             </div>
 
-            {/* AVATAR WITH LOGOUT DROPDOWN */}
             <div style={{ position: 'relative' }}>
               <div
                 className="avatar"
@@ -233,10 +186,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     position: 'absolute',
                     right: 0,
                     top: '48px',
-                    background: 'white',
-                    border: '1px solid #cbd5e1',
+                    background: '#111827',
+                    border: '1px solid rgba(255,255,255,0.10)',
                     borderRadius: '12px',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
                     padding: '12px 0',
                     width: '200px',
                     zIndex: 999,
@@ -245,14 +198,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <div
                     style={{
                       padding: '0 16px 10px 16px',
-                      borderBottom: '1px solid #f1f5f9',
+                      borderBottom: '1px solid rgba(255,255,255,0.08)',
                     }}
                   >
                     <div
                       style={{
                         fontSize: '14px',
                         fontWeight: '700',
-                        color: '#0f172a',
+                        color: '#ffffff',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
@@ -263,7 +216,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <div
                       style={{
                         fontSize: '11px',
-                        color: '#64748b',
+                        color: 'rgba(255,255,255,0.60)',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
@@ -283,25 +236,51 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             currentUser?.role === 'MASTER'
                               ? '#fef3c7'
                               : currentUser?.role === 'ADMIN'
-                              ? '#dbeafe'
-                              : '#f1f5f9',
+                                ? '#dbeafe'
+                                : '#f1f5f9',
                           color:
                             currentUser?.role === 'MASTER'
                               ? '#92400e'
                               : currentUser?.role === 'ADMIN'
-                              ? '#1e40af'
-                              : '#334155',
+                                ? '#1e40af'
+                                : '#334155',
                           border:
                             currentUser?.role === 'MASTER'
                               ? '1px solid #fde68a'
                               : currentUser?.role === 'ADMIN'
-                              ? '1px solid #bfdbfe'
-                              : '1px solid #cbd5e1',
+                                ? '1px solid #bfdbfe'
+                                : '1px solid #cbd5e1',
                         }}
                       >
                         {currentUser?.role || 'USER'}
                       </span>
                     </div>
+                  </div>
+
+                  <div
+                    style={{
+                      padding: '8px 16px',
+                      borderBottom: '1px solid rgba(255,255,255,0.08)',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={openSettings}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        textAlign: 'left',
+                        fontSize: '13px',
+                        color: '#e5e7eb',
+                        fontWeight: '600',
+                        textDecoration: 'none',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      👤 Minha conta
+                    </button>
                   </div>
 
                   <form action={handleSignOut} style={{ marginTop: '4px' }}>
@@ -314,7 +293,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         background: 'none',
                         border: 'none',
                         fontSize: '13px',
-                        color: '#dc2626',
+                        color: '#f87171',
                         fontWeight: '600',
                         cursor: 'pointer',
                       }}
@@ -329,7 +308,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </header>
 
-      {/* MOBILE DRAWER OVERLAY & PANEL */}
       {isDrawerOpen && (
         <div
           onClick={() => setIsDrawerOpen(false)}
@@ -338,19 +316,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       <div
-        className={`fixed inset-y-0 right-0 z-50 w-80 max-w-[85vw] bg-white shadow-2xl flex flex-col justify-between transition-transform duration-300 ease-in-out lg:hidden ${
+        className={`fixed inset-y-0 right-0 z-50 w-80 max-w-[85vw] bg-[#0F172A] shadow-2xl flex flex-col justify-between transition-transform duration-300 ease-in-out lg:hidden ${
           isDrawerOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        {/* DRAWER TOP HEADER */}
-        <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+        <div className="p-5 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="logo-icon">F</div>
             <div>
-              <span className="font-extrabold text-slate-900 text-base tracking-tight block">
-                FIORIX
-              </span>
-              <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+              <span className="font-extrabold text-white text-base tracking-tight block">FIORIX</span>
+              <span className="text-[11px] font-semibold text-white/60 flex items-center gap-1">
                 <Building2 className="w-3 h-3 text-blue-600" />
                 7º RI São Paulo
               </span>
@@ -360,13 +335,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <button
             onClick={() => setIsDrawerOpen(false)}
             aria-label="Fechar menu"
-            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors cursor-pointer"
+            className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* DRAWER NAV LINKS */}
         <div className="p-4 space-y-1.5 flex-1 overflow-y-auto">
           {navLinks.map((link) => {
             const active = isActive(link.href) === 'active';
@@ -376,9 +350,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 href={link.href}
                 onClick={() => setIsDrawerOpen(false)}
                 className={`flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold transition-all ${
-                  active
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                  active ? 'bg-blue-600 text-white shadow-xs' : 'text-white/75 hover:bg-white/5 hover:text-white'
                 }`}
               >
                 <span>{link.label}</span>
@@ -388,10 +360,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       link.badge > 0
                         ? active
                           ? 'bg-red-500 text-white'
-                          : 'bg-red-100 text-red-700'
+                          : 'bg-red-500/15 text-red-300'
                         : active
-                        ? 'bg-emerald-500 text-white'
-                        : 'bg-emerald-100 text-emerald-700'
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-emerald-500/15 text-emerald-300'
                     }`}
                   >
                     {link.badge > 0 ? `${link.badge} pendente` : '✓ 0'}
@@ -402,62 +374,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           })}
         </div>
 
-        {/* DRAWER FOOTER (USER & THEME & LOGOUT) */}
-        <div className="p-5 border-t border-slate-100 bg-slate-50/70 space-y-4">
-          {/* THEME SWITCHER IN DRAWER */}
-          <div className="space-y-1.5">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-              Tema Visual:
-            </span>
-            <div className="flex items-center gap-2.5 pt-0.5">
-              {[
-                { id: 1, name: 'Meia-Noite', bg: 'linear-gradient(135deg,#070d1a,#1a2340)' },
-                { id: 2, name: 'Azul Profundo', bg: 'linear-gradient(135deg,#0d1f3c,#1a3560)' },
-                { id: 3, name: 'Azul Royal', bg: 'linear-gradient(135deg,#1a3a6b,#2d5fa0)' },
-                { id: 4, name: 'Azul Aço', bg: 'linear-gradient(135deg,#2c6fad,#4a9fd4)' },
-                { id: 5, name: 'Azul Claro', bg: 'linear-gradient(135deg,#bfdbfe,#e0e7ff)', border: '2px solid rgba(59,130,246,0.4)' },
-              ].map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => applyTheme(String(t.id))}
-                  className={`w-7 h-7 rounded-full transition-all cursor-pointer ${
-                    theme === String(t.id)
-                      ? 'ring-2 ring-blue-600 ring-offset-2 scale-110 shadow-sm'
-                      : 'hover:scale-105 opacity-90'
-                  }`}
-                  style={{
-                    background: t.bg,
-                    border: t.border,
-                  }}
-                  title={`Tema ${t.id} — ${t.name}`}
-                />
-              ))}
-            </div>
-          </div>
+        <div className="p-5 border-t border-white/10 bg-[#111827] space-y-4">
+          <button
+            type="button"
+            onClick={openSettings}
+            className="w-full bg-white/5 hover:bg-white/10 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 border border-white/10 cursor-pointer"
+          >
+            <span>👤 Minha conta</span>
+          </button>
 
-          {/* USER INFO */}
-          <div className="flex items-center gap-3 pt-1 border-t border-slate-200/60">
+          <div className="flex items-center gap-3 pt-1 border-t border-white/10">
             <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs shrink-0">
               {getInitials(currentUser?.name)}
             </div>
             <div className="overflow-hidden flex-1">
-              <div className="text-xs font-bold text-slate-900 truncate">
-                {currentUser?.name || 'Usuário'}
-              </div>
-              <div className="text-[11px] text-slate-500 truncate">
-                {currentUser?.email}
-              </div>
+              <div className="text-xs font-bold text-white truncate">{currentUser?.name || 'Usuário'}</div>
+              <div className="text-[11px] text-white/55 truncate">{currentUser?.email}</div>
             </div>
-            <span className="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2 py-0.5 rounded-md shrink-0">
+            <span className="bg-blue-500/15 text-blue-300 border border-blue-500/30 text-[10px] font-extrabold px-2 py-0.5 rounded-md shrink-0">
               {currentUser?.role || 'USER'}
             </span>
           </div>
 
-          {/* LOGOUT BUTTON */}
           <form action={handleSignOut} className="pt-1">
             <button
               type="submit"
-              className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold px-4 py-2.5 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 border border-red-200/80 cursor-pointer"
+              className="w-full bg-red-500/10 hover:bg-red-500/15 text-red-300 font-bold px-4 py-2.5 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 border border-red-500/20 cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
               <span>Sair do Sistema</span>
@@ -474,4 +416,3 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </>
   );
 }
-

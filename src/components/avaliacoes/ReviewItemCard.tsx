@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { generateAiResponse, sendReviewResponse } from '@/app/actions/reviews';
 import {
-  Star,
   CheckCircle,
   Clock,
   AlertTriangle,
@@ -15,8 +14,8 @@ import {
   Copy,
   Check,
   RefreshCw,
-  Tag,
   UserCheck,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -52,9 +51,9 @@ function renderCommentWithPills(text: string) {
       return (
         <span
           key={idx}
-          className="inline-flex items-center gap-0.5 bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded-full text-xs border border-blue-100 mx-0.5"
+          className="mx-0.5 inline-flex items-center gap-0.5 rounded-full border border-blue-500/25 bg-blue-500/12 px-2 py-0.5 text-xs font-bold text-blue-300"
         >
-          <UserCheck className="w-3 h-3 text-blue-600" />
+          <UserCheck className="h-3 w-3 text-blue-400" />
           @{formattedName}
         </span>
       );
@@ -63,19 +62,27 @@ function renderCommentWithPills(text: string) {
   });
 }
 
-function detectTopicTags(comment: string | null | undefined, rating: number) {
+function detectTopicTags(comment: string | null | undefined) {
   if (!comment) return [];
   const text = comment.toLowerCase();
   const tags: Array<{ label: string; color: string }> = [];
 
   if (text.includes('fila') || text.includes('espera') || text.includes('demora')) {
-    tags.push({ label: '🏷️ Tempo de Espera', color: 'bg-amber-50 text-amber-700 border-amber-200' });
+    tags.push({ label: 'Tempo de Espera', color: 'border-amber-500/20 bg-amber-500/12 text-amber-300' });
   }
   if (text.includes('prazo') || text.includes('atraso') || text.includes('corregedoria') || text.includes('protocolo')) {
-    tags.push({ label: '🏷️ SLA / Prazos', color: 'bg-red-50 text-red-700 border-red-200' });
+    tags.push({ label: 'SLA / Prazos', color: 'border-red-500/20 bg-red-500/12 text-red-300' });
   }
-  if (text.includes('lucas') || text.includes('ana') || text.includes('edvan') || text.includes('juliana') || text.includes('sarah') || text.includes('atendimento') || text.includes('equipe')) {
-    tags.push({ label: '🏷️ Atendimento', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' });
+  if (
+    text.includes('lucas') ||
+    text.includes('ana') ||
+    text.includes('edvan') ||
+    text.includes('juliana') ||
+    text.includes('sarah') ||
+    text.includes('atendimento') ||
+    text.includes('equipe')
+  ) {
+    tags.push({ label: 'Atendimento', color: 'border-emerald-500/20 bg-emerald-500/12 text-emerald-300' });
   }
 
   return tags;
@@ -96,7 +103,7 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
   const isLong = cleanedComment.length > 180;
   const isLowRating = review.rating <= 2;
   const isMidRating = review.rating === 3;
-  const topicTags = detectTopicTags(cleanedComment, review.rating);
+  const topicTags = detectTopicTags(cleanedComment);
 
   const renderStars = (rating: number) => {
     const full = '★'.repeat(rating);
@@ -161,7 +168,10 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
     try {
       const d = new Date(dateInput);
       if (isNaN(d.getTime())) return 'Data recente';
-      return `Publicado em ${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+      return `Publicado em ${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })}`;
     } catch {
       return 'Data recente';
     }
@@ -170,91 +180,75 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
   return (
     <>
       <div
-        className={`bg-white rounded-2xl border p-5 shadow-sm hover:shadow-md transition-all space-y-3.5 ${
+        className={`space-y-3.5 rounded-2xl border p-5 shadow-[0_12px_30px_rgba(2,6,23,0.18)] transition-all ${
           isLowRating
-            ? 'border-red-200 border-l-4 border-l-red-500 bg-red-50/20'
+            ? 'border-red-500/35 border-l-4 border-l-red-500 bg-red-500/[0.04]'
             : isMidRating
-            ? 'border-amber-200 border-l-4 border-l-amber-400 bg-amber-50/15'
-            : 'border-gray-100 hover:border-gray-200'
+              ? 'border-amber-500/30 border-l-4 border-l-amber-400 bg-amber-500/[0.035]'
+              : 'border-white/10 bg-slate-900/78 hover:border-white/15'
         }`}
       >
-        {/* TOP ROW: AUTHOR + STARS + STATUS */}
-        <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm font-bold text-white shadow-xs">
               {review.reviewerName ? review.reviewerName[0].toUpperCase() : 'A'}
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-slate-900 leading-tight">
-                {review.reviewerName}
-              </h4>
-              <span className="text-xs text-slate-500">
-                {formatDate(review.publishedAt)}
-              </span>
+              <h4 className="text-sm font-semibold leading-tight text-white">{review.reviewerName}</h4>
+              <span className="text-xs text-slate-400">{formatDate(review.publishedAt)}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-wrap items-center gap-2">
             <span
               className={`text-sm font-bold tracking-tight ${
-                review.rating >= 4
-                  ? 'text-emerald-600'
-                  : review.rating === 3
-                  ? 'text-amber-500'
-                  : 'text-red-500'
+                review.rating >= 4 ? 'text-emerald-400' : review.rating === 3 ? 'text-amber-400' : 'text-red-400'
               }`}
             >
               {renderStars(review.rating)}
             </span>
 
             {review.status === 'RESPONDED' ? (
-              <span className="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-emerald-100 inline-flex items-center gap-1">
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/12 px-2.5 py-1 text-xs font-semibold text-emerald-300">
+                <CheckCircle className="h-3.5 w-3.5 text-emerald-400" />
                 Respondida
               </span>
             ) : (
-              <span className="bg-amber-50 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-amber-100 inline-flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5 text-amber-600" />
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/12 px-2.5 py-1 text-xs font-semibold text-amber-300">
+                <Clock className="h-3.5 w-3.5 text-amber-400" />
                 Aguardando resposta
               </span>
             )}
 
             {isLowRating && (
-              <span className="bg-red-50 text-red-700 text-xs font-bold px-2.5 py-1 rounded-full border border-red-200 inline-flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+              <span className="inline-flex items-center gap-1 rounded-full border border-red-500/20 bg-red-500/12 px-2.5 py-1 text-xs font-bold text-red-300">
+                <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
                 Crítica • Requer atenção
               </span>
             )}
           </div>
         </div>
 
-        {/* TOPIC TAGS */}
         {topicTags.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
             {topicTags.map((t, idx) => (
-              <span
-                key={idx}
-                className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${t.color}`}
-              >
+              <span key={idx} className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold ${t.color}`}>
                 {t.label}
               </span>
             ))}
           </div>
         )}
 
-        {/* COMMENT BOX */}
-        <div className="bg-slate-50/80 border border-slate-100 rounded-xl p-3.5 text-sm leading-relaxed text-slate-800">
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5 text-sm leading-relaxed text-slate-200">
           {!cleanedComment ? (
             <p className="italic text-slate-400">Sem comentário por extenso.</p>
           ) : (
             <div>
-              <p className={!isExpanded && isLong ? 'line-clamp-3' : ''}>
-                "{renderCommentWithPills(cleanedComment)}"
-              </p>
+              <p className={!isExpanded && isLong ? 'line-clamp-3' : ''}>"{renderCommentWithPills(cleanedComment)}"</p>
               {isLong && (
                 <button
                   onClick={() => setIsExpanded(!isExpanded)}
-                  className="mt-1 text-xs font-bold text-blue-600 hover:underline inline-block cursor-pointer"
+                  className="mt-1 inline-block cursor-pointer text-xs font-bold text-blue-400 hover:underline"
                 >
                   {isExpanded ? 'Ver menos ↑' : 'Ler completo →'}
                 </button>
@@ -263,191 +257,149 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
           )}
         </div>
 
-        {/* RESPONDED BOX */}
         {review.status === 'RESPONDED' && review.response?.content && (
-          <div className="bg-emerald-50/70 border border-emerald-100 border-l-4 border-l-emerald-500 rounded-xl p-4 space-y-1.5">
+          <div className="space-y-1.5 rounded-xl border border-emerald-500/15 bg-[linear-gradient(135deg,rgba(16,185,129,0.11),rgba(59,130,246,0.08))] p-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
-                <CheckCircle className="w-4 h-4 text-emerald-600" />
-                Resposta Enviada ✓ IA
+              <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">
+                <CheckCircle className="h-4 w-4 text-emerald-400" />
+                Resposta enviada ✓ IA
               </span>
               <button
                 onClick={handleCopyResponse}
-                className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 bg-emerald-100/70 hover:bg-emerald-200/80 px-2 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                className="flex cursor-pointer items-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/18"
               >
-                {copiedResponse ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                {copiedResponse ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
                 <span>{copiedResponse ? 'Copiado!' : 'Copiar'}</span>
               </button>
             </div>
-            <p className="text-sm text-slate-700 leading-relaxed">
-              {review.response.content}
-            </p>
+            <p className="text-sm leading-relaxed text-slate-200">{review.response.content}</p>
           </div>
         )}
 
-        {/* FOOTER ACTIONS */}
-        <div className="pt-2 border-t border-slate-100 flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* PRIMARY BUTTON */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleOpenModal}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all ${
                 review.status === 'RESPONDED'
-                  ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-100'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                  ? 'border border-blue-500/20 bg-blue-500/12 text-blue-300 hover:bg-blue-500/20'
+                  : 'bg-blue-600 text-white shadow-sm hover:bg-blue-500'
               }`}
             >
               {review.status === 'RESPONDED' ? (
                 <>
-                  <Pencil className="w-3.5 h-3.5" />
+                  <Pencil className="h-3.5 w-3.5" />
                   <span>Editar Resposta</span>
                 </>
               ) : (
                 <>
-                  <Bot className="w-3.5 h-3.5" />
+                  <Bot className="h-3.5 w-3.5" />
                   <span>Responder com IA</span>
                 </>
               )}
             </button>
 
-            {/* GOOGLE EXTERNAL LINK */}
             <a
               href="https://business.google.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+              className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/[0.04] hover:text-white"
             >
-              <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+              <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
               <span>Ver no Google</span>
             </a>
           </div>
 
-          {/* TECH DETAILS COLLAPSIBLE TRIGGER */}
           <button
             onClick={() => setShowTechDetails(!showTechDetails)}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-700 py-1 transition-colors cursor-pointer"
+            className="inline-flex cursor-pointer items-center gap-1 py-1 text-xs font-semibold text-slate-400 transition-colors hover:text-slate-200"
           >
             <span>Detalhes técnicos</span>
-            {showTechDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            {showTechDetails ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </button>
         </div>
 
-        {/* COLLAPSIBLE TECH DETAILS */}
         {showTechDetails && (
-          <div className="mt-2 p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-xs flex items-center justify-between gap-2">
+          <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs">
             <div className="flex items-center gap-2 overflow-hidden">
-              <span className="font-semibold text-slate-500 shrink-0">ID Google:</span>
-              <code className="bg-slate-200/70 text-slate-800 px-2 py-0.5 rounded font-mono text-[11px] truncate">
+              <span className="shrink-0 font-semibold text-slate-400">ID Google:</span>
+              <code className="truncate rounded bg-slate-800/80 px-2 py-0.5 font-mono text-[11px] text-slate-200">
                 {review.googleId || review.id}
               </code>
             </div>
             <button
               onClick={handleCopyGoogleId}
-              className="bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 px-2 py-1 rounded-lg text-[11px] font-bold transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
+              className="flex shrink-0 cursor-pointer items-center gap-1 rounded-lg border border-white/10 bg-slate-800/80 px-2 py-1 text-[11px] font-bold text-slate-200 transition-colors hover:bg-slate-700"
             >
-              {copiedId ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+              {copiedId ? <Check className="h-3 w-3 text-emerald-300" /> : <Copy className="h-3 w-3" />}
               <span>{copiedId ? 'Copiado!' : 'Copiar ID'}</span>
             </button>
           </div>
         )}
       </div>
 
-      {/* MODAL IA RESPONDER */}
       {isOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            {/* MODAL HEADER */}
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-xl animate-in zoom-in-95 space-y-4 rounded-2xl border border-white/10 bg-slate-900 p-6 shadow-2xl duration-200">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
-                <Bot className="w-5 h-5 text-blue-600" />
-                <h3 className="text-base font-bold text-slate-900">
-                  Resposta com Inteligência Artificial
-                </h3>
+                <Bot className="h-5 w-5 text-blue-400" />
+                <h3 className="text-base font-bold text-white">Resposta com Inteligência Artificial</h3>
               </div>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 cursor-pointer"
-              >
-                ✕
+              <button onClick={() => setIsOpen(false)} className="cursor-pointer rounded-lg p-1 text-slate-400 hover:bg-white/[0.04] hover:text-white">
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* AVALIAÇÃO PREVIEW */}
-            <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 text-xs space-y-1">
+            <div className="space-y-1 rounded-xl border border-white/10 bg-white/[0.03] p-3.5 text-xs">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-900">{review.reviewerName} ({review.rating}★)</span>
-                <span className="text-amber-500 font-bold">{renderStars(review.rating)}</span>
+                <span className="font-bold text-white">
+                  {review.reviewerName} ({review.rating}★)
+                </span>
+                <span className="font-bold text-amber-400">{renderStars(review.rating)}</span>
               </div>
-              <p className="text-slate-600 italic">
-                "{cleanedComment || 'Sem comentário'}"
-              </p>
+              <p className="italic text-slate-300">"{cleanedComment || 'Sem comentário'}"</p>
             </div>
 
-            {/* SELETOR DE TOM DE VOZ */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700">
-                Selecione o tom de voz da IA:
-              </label>
+              <label className="block text-xs font-bold text-slate-300">Selecione o tom de voz da IA:</label>
               <div className="grid grid-cols-3 gap-2 text-xs font-semibold">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedTone('formal');
-                    handleGenerate('formal');
-                  }}
-                  className={`p-2 rounded-xl border transition-all text-center cursor-pointer ${
-                    selectedTone === 'formal'
-                      ? 'bg-blue-50 border-blue-600 text-blue-700 font-bold'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  Formal 👔
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedTone('empathic');
-                    handleGenerate('empathic');
-                  }}
-                  className={`p-2 rounded-xl border transition-all text-center cursor-pointer ${
-                    selectedTone === 'empathic'
-                      ? 'bg-blue-50 border-blue-600 text-blue-700 font-bold'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  Empático 🤝
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedTone('short');
-                    handleGenerate('short');
-                  }}
-                  className={`p-2 rounded-xl border transition-all text-center cursor-pointer ${
-                    selectedTone === 'short'
-                      ? 'bg-blue-50 border-blue-600 text-blue-700 font-bold'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  Direto ⚡
-                </button>
+                {[
+                  { key: 'formal', label: 'Formal 👔' },
+                  { key: 'empathic', label: 'Empático 🤝' },
+                  { key: 'short', label: 'Direto ⚡' },
+                ].map((tone) => (
+                  <button
+                    key={tone.key}
+                    type="button"
+                    onClick={() => {
+                      const selected = tone.key as 'formal' | 'empathic' | 'short';
+                      setSelectedTone(selected);
+                      handleGenerate(selected);
+                    }}
+                    className={`cursor-pointer rounded-xl border p-2 text-center transition-all ${
+                      selectedTone === tone.key
+                        ? 'border-blue-500/30 bg-blue-500/12 font-bold text-blue-300'
+                        : 'border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.05]'
+                    }`}
+                  >
+                    {tone.label}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* TEXTAREA FORM */}
             <form onSubmit={handleSubmitResponse} className="space-y-4">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700">
-                    Sugestão de Resposta Rascunhada:
-                  </label>
+                  <label className="text-xs font-bold text-slate-300">Sugestão de Resposta Rascunhada:</label>
                   <button
                     type="button"
                     onClick={() => handleGenerate(selectedTone)}
                     disabled={isGenerating}
-                    className="text-[11px] font-bold text-blue-600 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                    className="inline-flex cursor-pointer items-center gap-1 text-[11px] font-bold text-blue-400 hover:underline"
                   >
-                    <RefreshCw className={`w-3 h-3 ${isGenerating ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h-3 w-3 ${isGenerating ? 'animate-spin' : ''}`} />
                     <span>Regerar Rascunho</span>
                   </button>
                 </div>
@@ -457,16 +409,15 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
                   value={responseText}
                   onChange={(e) => setResponseText(e.target.value)}
                   disabled={isGenerating}
-                  className="w-full p-3 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none leading-relaxed text-slate-800 disabled:bg-slate-100"
+                  className="w-full rounded-xl border border-white/10 bg-slate-950/70 p-3 text-sm leading-relaxed text-slate-100 outline-none focus:border-blue-500/40 focus:ring-2 focus:ring-blue-500/30 disabled:bg-slate-900"
                 />
               </div>
 
-              {/* MODAL ACTIONS */}
               <div className="flex items-center justify-end gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold px-4 py-2 rounded-xl text-xs transition-colors cursor-pointer"
+                  className="cursor-pointer rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.08]"
                 >
                   Cancelar
                 </button>
@@ -474,7 +425,7 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
                 <button
                   type="submit"
                   disabled={isSending || isGenerating}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2 rounded-xl text-xs transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+                  className="cursor-pointer rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-blue-500 disabled:opacity-50"
                 >
                   {isSending ? 'Enviando ao Google...' : '🚀 Enviar Resposta ao Google'}
                 </button>
@@ -486,4 +437,3 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
     </>
   );
 }
-

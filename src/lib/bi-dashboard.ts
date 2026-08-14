@@ -436,15 +436,18 @@ export interface BiAtrasadosFilters extends BiDashboardFilters {
   pageSize?: number;
   search?: string;
   rangeIndex?: number;
+  queryMode?: 'atrasado' | 'full'; // 'atrasado' (default) or 'full' (Consulta Geral)
+  statusFilter?: string; // 'ALL' | 'Em dia' | 'Atrasado'
+  servicoFilter?: string; // 'ALL' | 'REGISTRADO' | 'DEVOLVIDO'
 }
 
 export interface BiAtrasadosItem {
   id: string;
   protocolo: string;
-  data: string;
   tipo: string;
-  atraso: number;
   status: string;
+  atraso: number;
+  servico: string;
 }
 
 export interface BiAtrasadosResult {
@@ -463,6 +466,9 @@ export async function queryBiAtrasadosList(filters?: BiAtrasadosFilters): Promis
   const pageSize = Math.min(100, Math.max(1, Number(filters?.pageSize) || 20));
   const rangeIndex = Number(filters?.rangeIndex) || 0;
   const search = filters?.search?.trim() || '';
+  const queryMode = filters?.queryMode || 'atrasado';
+  const statusFilter = filters?.statusFilter || 'ALL';
+  const servicoFilter = filters?.servicoFilter || 'ALL';
 
   let importCondition = Prisma.sql`1=1`;
   if (filters?.importId && filters.importId !== 'ALL') {
@@ -491,14 +497,47 @@ export async function queryBiAtrasadosList(filters?: BiAtrasadosFilters): Promis
 
   const baseCondition = Prisma.sql`${importCondition} AND ${tipoCondition} AND ${dateCondition}`;
   const generalCondition = Prisma.sql`${baseCondition} AND ${GENERAL_NATURE_CONDITION_SQL}`;
-  const atrasadoCondition = Prisma.sql`("DiasAtraso" > 0 OR ("DiasCorridos" > "DiasPrometidos" AND "DiasPrometidos" > 0))`;
+
+  const calculatedAtraso = Prisma.sql`COALESCE("DiasAtraso", COALESCE("DiasCorridos", 0) - COALESCE("DiasPrometidos", 0))`;
+
+  // Se for busca exata de protocolo, pula as restrições normais para permitir pesquisar em toda a base
+  const isExactSearch = search !== '' && /^\d+$/.test(search);
+
+  // Filtro de atrasado: Só se aplica em queryMode 'atrasado' E se não for busca exata
+  let modeCondition = Prisma.sql`1=1`;
+  if (queryMode === 'atrasado' && !isExactSearch) {
+    modeCondition = Prisma.sql`("DiasAtraso" > 0 OR ("DiasCorridos" > "DiasPrometidos" AND "DiasPrometidos" > 0))`;
+  }
+
+  // Filtro de Status para a Consulta Geral (Apenas quando não for busca exata)
+  let statusCondition = Prisma.sql`1=1`;
+  if (!isExactSearch && statusFilter !== 'ALL') {
+    if (statusFilter === 'Atrasado') {
+      statusCondition = Prisma.sql`("IsDevolucao" = true OR "DiasAtraso" > 0 OR ("DiasCorridos" > "DiasPrometidos" AND "DiasPrometidos" > 0))`;
+    } else if (statusFilter === 'Em dia') {
+      statusCondition = Prisma.sql`(COALESCE("IsDevolucao", false) = false AND COALESCE("DiasAtraso", 0) <= 0 AND (COALESCE("DiasCorridos", 0) <= COALESCE("DiasPrometidos", 0) OR COALESCE("DiasPrometidos", 0) = 0))`;
+    }
+  }
+
+  // Filtro de Serviço para a Consulta Geral (Apenas quando não for busca exata)
+  let servicoCondition = Prisma.sql`1=1`;
+  if (!isExactSearch && servicoFilter !== 'ALL') {
+    if (servicoFilter === 'DEVOLVIDO') {
+      servicoCondition = Prisma.sql`"IsDevolucao" = true`;
+    } else if (servicoFilter === 'REGISTRADO') {
+      servicoCondition = Prisma.sql`COALESCE("IsDevolucao", false) = false`;
+    }
+  }
 
   let searchCondition = Prisma.sql`1=1`;
   if (search !== '') {
-    searchCondition = Prisma.sql`CAST("Protocolo" AS TEXT) ILIKE ${'%' + search + '%'}`;
+    if (isExactSearch) {
+      // Se for busca exata de protocolo, buscamos pelo número exato
+      searchCondition = Prisma.sql`"Protocolo" = ${search}`;
+    } else {
+      searchCondition = Prisma.sql`CAST("Protocolo" AS TEXT) ILIKE ${'%' + search + '%'}`;
+    }
   }
-
-  const calculatedAtraso = Prisma.sql`COALESCE("DiasAtraso", COALESCE("DiasCorridos", 0) - COALESCE("DiasPrometidos", 0))`;
 
   let rangeCondition = Prisma.sql`1=1`;
   if (rangeIndex === 1) {
@@ -530,7 +569,9 @@ export async function queryBiAtrasadosList(filters?: BiAtrasadosFilters): Promis
       COUNT(CASE WHEN ${calculatedAtraso} >= 31 THEN 1 END)::bigint AS d31_plus
     FROM fiorix_bi_data
     WHERE ${generalCondition}
-      AND ${atrasadoCondition}
+      AND ${modeCondition}
+      AND ${statusCondition}
+      AND ${servicoCondition}
       AND ${searchCondition}
   `;
 
@@ -549,21 +590,33 @@ export async function queryBiAtrasadosList(filters?: BiAtrasadosFilters): Promis
   const validPage = Math.min(page, totalPages);
   const offset = (validPage - 1) * pageSize;
 
-  const atrasadosRaw = await prisma.$queryRaw<Array<{ id: string; protocolo: string; data_entrada: Date; tipo: string; atraso_dias: number; situacao: string }>>`
+  const rawQueryItems = await prisma.$queryRaw<Array<{
+    id: string;
+    protocolo: string;
+    tipo: string;
+    status: string;
+    atraso_dias: number;
+    servico: string;
+  }>>`
     SELECT
       "id",
       "Protocolo" as protocolo,
-      "DtAndamento" as data_entrada,
       "TipoPrenotacao" as tipo,
+      CASE 
+        WHEN "IsDevolucao" = true THEN 'Atrasado'
+        WHEN "DiasAtraso" > 0 OR ("DiasCorridos" > "DiasPrometidos" AND "DiasPrometidos" > 0) THEN 'Atrasado'
+        ELSE 'Em dia'
+      END as status,
       ${calculatedAtraso} as atraso_dias,
       CASE 
-        WHEN "IsDevolucao" = true THEN 'devolvido'
-        WHEN "DiasAtraso" > 0 OR ("DiasCorridos" > "DiasPrometidos" AND "DiasPrometidos" > 0) THEN 'atrasado'
-        ELSE 'no_prazo'
-      END as situacao
+        WHEN "IsDevolucao" = true THEN 'DEVOLVIDO'
+        ELSE 'REGISTRADO'
+      END as servico
     FROM fiorix_bi_data
     WHERE ${generalCondition}
-      AND ${atrasadoCondition}
+      AND ${modeCondition}
+      AND ${statusCondition}
+      AND ${servicoCondition}
       AND ${searchCondition}
       AND ${rangeCondition}
     ORDER BY atraso_dias DESC, "DtAndamento" DESC
@@ -571,13 +624,13 @@ export async function queryBiAtrasadosList(filters?: BiAtrasadosFilters): Promis
     LIMIT ${pageSize}
   `;
 
-  const items = atrasadosRaw.map(row => ({
+  const items = rawQueryItems.map(row => ({
     id: row.id,
     protocolo: String(row.protocolo),
-    data: formatDateKey(row.data_entrada),
-    tipo: row.tipo,
-    atraso: Number(row.atraso_dias),
-    status: row.situacao,
+    tipo: row.tipo || 'PRENOTADO',
+    status: row.status,
+    atraso: Math.max(0, Number(row.atraso_dias)),
+    servico: row.servico,
   }));
 
   return {

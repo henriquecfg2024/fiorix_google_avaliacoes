@@ -357,7 +357,6 @@ export function validarCSV(
 
   Papa.parse(file, {
     header: true,
-    delimiter: ';',
     skipEmptyLines: true,
     encoding: 'UTF-8',
     quoteChar: '"',
@@ -614,7 +613,6 @@ export async function importarCSVEmLotes({
 
     Papa.parse(file, {
       header: true,
-      delimiter: ';',
       skipEmptyLines: true,
       encoding: 'UTF-8',
       quoteChar: '"',

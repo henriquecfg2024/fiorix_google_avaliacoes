@@ -26,6 +26,9 @@ export const authConfig = {
         if (nextUrl.pathname.startsWith('/bi/importar') && auth.user.role === 'USER') {
           return Response.redirect(new URL('/bi', nextUrl));
         }
+        if (nextUrl.pathname.startsWith('/bi/importacoes') && auth.user.role === 'USER') {
+          return Response.redirect(new URL('/bi', nextUrl));
+        }
         return true;
       } else if (isLoggedIn && nextUrl.pathname === '/login') {
         return Response.redirect(new URL('/dashboard', nextUrl));

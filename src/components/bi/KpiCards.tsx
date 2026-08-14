@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { motion } from "framer-motion";
 import { Award, Zap, Users, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -142,11 +141,8 @@ export function KpiCards({ data }: KpiCardsProps) {
       {cardsData.map((card, idx) => {
         const Icon = card.icon;
         return (
-          <motion.div
+          <div
             key={idx}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: idx * 0.1 }}
             className="relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-6 shadow-2xl hover:border-white/20 transition-all group"
           >
             {/* Top Row */}
@@ -182,9 +178,10 @@ export function KpiCards({ data }: KpiCardsProps) {
 
             {/* Glowing Accent Bottom Border */}
             <div className={`absolute bottom-0 left-0 right-0 h-[3px] bg-gradient-to-r ${card.color} opacity-70`} />
-          </motion.div>
+          </div>
         );
       })}
     </div>
   );
 }
+

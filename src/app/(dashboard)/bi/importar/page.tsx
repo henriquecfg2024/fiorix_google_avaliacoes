@@ -191,6 +191,14 @@ export default function FiorixBiImportPage() {
           </Link>
         </div>
 
+        <div className="flex justify-end">
+          <Link href="/bi/importacoes">
+            <Button variant="outline" className="flex items-center gap-2">
+              Ver demonstrativo geral de importações
+            </Button>
+          </Link>
+        </div>
+
         <Card className="border-slate-200 shadow-sm">
           <CardHeader>
             <div className="flex items-center gap-2">

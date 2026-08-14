@@ -28,35 +28,22 @@ export function HealthCard() {
   const strokeDashoffset = circumference - (saudeReputacao / 100) * circumference;
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all">
-      {/* HEADER */}
-      <div className="flex items-center justify-between pb-5 border-b border-gray-100 mb-6">
+    <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-6 shadow-[0_14px_35px_rgba(2,6,23,0.24)] transition-all">
+      <div className="mb-6 flex items-center justify-between border-b border-white/10 pb-5">
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse" />
-          <h2 className="text-xs font-bold tracking-widest text-gray-500 uppercase">
-            SAÚDE DA REPUTAÇÃO
-          </h2>
+          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-blue-500" />
+          <h2 className="text-xs font-bold uppercase tracking-[0.22em] text-slate-400">SAÚDE DA REPUTAÇÃO</h2>
         </div>
-        <span className="bg-gray-100 text-gray-700 text-xs px-2.5 py-1 rounded-full font-semibold">
+        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs font-semibold text-slate-200">
           10 INDICADORES
         </span>
       </div>
 
-      {/* GRID CONTAINER: 35% LEFT (SCORE) | 65% RIGHT (INDICATORS BY GROUP) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-        {/* LEFT COLUMN: SCORE CIRCLE & DISPLAY */}
-        <div className="lg:col-span-4 flex flex-col items-center justify-center p-4 bg-slate-50/70 rounded-xl border border-slate-100 text-center">
-          <div className="relative w-36 h-36 flex items-center justify-center">
-            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 140 140">
-              <circle
-                cx="70"
-                cy="70"
-                r={radius}
-                className="text-slate-200"
-                strokeWidth="12"
-                stroke="currentColor"
-                fill="transparent"
-              />
+      <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-12">
+        <div className="lg:col-span-4 flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] p-4 text-center">
+          <div className="relative flex h-36 w-36 items-center justify-center">
+            <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 140 140">
+              <circle cx="70" cy="70" r={radius} className="text-slate-700" strokeWidth="12" stroke="currentColor" fill="transparent" />
               <circle
                 cx="70"
                 cy="70"
@@ -67,24 +54,22 @@ export function HealthCard() {
                 strokeDashoffset={strokeDashoffset}
                 strokeLinecap="round"
                 fill="transparent"
-                className="transition-all duration-1000 ease-out"
+                className="drop-shadow-[0_0_18px_rgba(43,122,228,0.25)] transition-all duration-1000 ease-out"
               />
             </svg>
             <div className="absolute flex flex-col items-center justify-center">
-              <span className="text-4xl font-extrabold text-slate-900 tracking-tight">
-                {saudeReputacao}
-              </span>
-              <span className="text-[11px] font-semibold text-slate-500">de 100</span>
+              <span className="text-4xl font-extrabold tracking-tight text-white">{saudeReputacao}</span>
+              <span className="text-[11px] font-semibold text-slate-400">de 100</span>
             </div>
           </div>
 
           <div className="mt-3">
-            <p className="text-sm font-bold text-slate-800">
-              {saudeReputacao} pontos de 100 — <span className="text-blue-600">Bom</span>
+            <p className="text-sm font-bold text-slate-100">
+              {saudeReputacao} pontos de 100 — <span className="text-blue-400">Bom</span>
             </p>
             <Link
               href="/estatisticas#metodologia-reputacao"
-              className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+              className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-blue-400 transition-colors hover:text-blue-300 hover:underline"
             >
               <span>Metodologia e Detalhes ({saudeReputacao} pts)</span>
               <span>→</span>
@@ -92,68 +77,57 @@ export function HealthCard() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: 3 GROUPS OF INDICATORS */}
-        <div className="lg:col-span-8 space-y-4">
-          {/* GROUP A: SAUDÁVEIS 🟢 */}
+        <div className="space-y-4 lg:col-span-8">
           <div className="space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.16em] text-emerald-300">
               <span>🟢</span>
               <span>Indicadores Saudáveis</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {saudaveis.map((ind, idx) => (
-                <div key={idx} className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 space-y-1.5">
-                  <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                <div key={idx} className="space-y-1.5 rounded-lg border border-emerald-500/12 bg-emerald-500/[0.04] p-2.5">
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-200">
                     <span className="flex items-center gap-1.5 truncate">
                       <span>{ind.icon}</span>
                       <span className="truncate">{ind.nome}</span>
                     </span>
-                    <span className="bg-emerald-50 text-emerald-700 font-bold px-1.5 py-0.5 rounded text-[11px]">
+                    <span className="rounded border border-emerald-500/20 bg-emerald-500/12 px-1.5 py-0.5 text-[11px] font-bold text-emerald-300">
                       {ind.pct}%
                     </span>
                   </div>
-                  <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
-                    <div
-                      className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${ind.pct}%` }}
-                    />
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-700/70">
+                    <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${ind.pct}%` }} />
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* GROUP B: ATENÇÃO 🟡 */}
           <div className="space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.16em] text-amber-300">
               <span>🟡</span>
               <span>Pontos de Atenção</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {atencao.map((ind, idx) => {
                 const isBlue = ind.badgeColor === 'blue';
                 return (
-                  <div key={idx} className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 space-y-1.5">
-                    <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                  <div key={idx} className="space-y-1.5 rounded-lg border border-white/10 bg-white/[0.03] p-2.5">
+                    <div className="flex items-center justify-between text-xs font-semibold text-slate-200">
                       <span className="flex items-center gap-1.5 truncate">
                         <span>{ind.icon}</span>
                         <span className="truncate">{ind.nome}</span>
                       </span>
                       <span
-                        className={`font-bold px-1.5 py-0.5 rounded text-[11px] ${
-                          isBlue ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'
+                        className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${
+                          isBlue ? 'border border-blue-500/20 bg-blue-500/12 text-blue-300' : 'border border-amber-500/20 bg-amber-500/12 text-amber-300'
                         }`}
                       >
                         {ind.pct}%
                       </span>
                     </div>
-                    <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          isBlue ? 'bg-blue-600' : 'bg-amber-500'
-                        }`}
-                        style={{ width: `${ind.pct}%` }}
-                      />
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-700/70">
+                      <div className={`h-full rounded-full transition-all duration-500 ${isBlue ? 'bg-blue-500' : 'bg-amber-500'}`} style={{ width: `${ind.pct}%` }} />
                     </div>
                   </div>
                 );
@@ -161,37 +135,33 @@ export function HealthCard() {
             </div>
           </div>
 
-          {/* GROUP C: CRÍTICOS 🔴 */}
           <div className="space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-red-700 uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.16em] text-red-300">
               <span>🔴</span>
               <span>Indicadores Críticos</span>
             </div>
-            <div className="bg-red-50/70 border border-red-200 rounded-xl p-3 space-y-2.5">
+            <div className="space-y-2.5 rounded-xl border border-red-500/18 bg-red-500/[0.05] p-3">
               {criticos.map((ind, idx) => (
                 <div key={idx} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs font-semibold text-slate-800">
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-100">
                     <span className="flex items-center gap-1.5">
                       <span>{ind.icon}</span>
                       <span>{ind.nome}</span>
                       {ind.isBi && (
                         <Link
-                          href={(ind as any).biPath || "/bi"}
-                          className="bg-red-100 hover:bg-red-200 text-red-700 font-extrabold text-[10px] px-2 py-0.5 rounded transition-colors"
+                          href={ind.biPath || '/bi'}
+                          className="rounded border border-red-500/20 bg-red-500/12 px-2 py-0.5 text-[10px] font-extrabold text-red-300 transition-colors hover:bg-red-500/20"
                         >
                           VER BI →
                         </Link>
                       )}
                     </span>
-                    <span className="bg-red-100 text-red-700 font-extrabold px-2 py-0.5 rounded text-[11px]">
+                    <span className="rounded border border-red-500/20 bg-red-500/12 px-2 py-0.5 text-[11px] font-extrabold text-red-300">
                       {ind.pct}%
                     </span>
                   </div>
-                  <div className="w-full bg-red-200/60 h-1.5 rounded-full overflow-hidden">
-                    <div
-                      className="bg-red-600 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${ind.pct}%` }}
-                    />
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-red-950/40">
+                    <div className="h-full rounded-full bg-red-600 transition-all duration-500" style={{ width: `${ind.pct}%` }} />
                   </div>
                 </div>
               ))}
@@ -202,4 +172,3 @@ export function HealthCard() {
     </div>
   );
 }
-

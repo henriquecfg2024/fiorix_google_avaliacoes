@@ -65,7 +65,12 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(rawPagination.page || 1);
   const [pageSize, setPageSize] = useState(rawPagination.pageSize || 20);
+  const [queryMode, setQueryMode] = useState<'atrasado' | 'full'>('atrasado');
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [servicoFilter, setServicoFilter] = useState<string>("ALL");
+  const [tipoFilter, setTipoFilter] = useState<string>("ALL");
   const [isLoading, setIsLoading] = useState(false);
+  const [messagePrompt, setMessagePrompt] = useState<string | null>(null);
 
   const isMounted = useRef(false);
 
@@ -89,16 +94,29 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
     let isSubscribed = true;
     async function fetchData() {
       setIsLoading(true);
+      setMessagePrompt(null);
       try {
         const params = new URLSearchParams();
         if (initialFilters?.importId) params.set("importId", initialFilters.importId);
         if (initialFilters?.startDate) params.set("startDate", initialFilters.startDate);
         if (initialFilters?.endDate) params.set("endDate", initialFilters.endDate);
-        if (initialFilters?.tipoPrenotacao) params.set("tipoPrenotacao", initialFilters.tipoPrenotacao);
+        
+        // Se estiver no modo Consulta Geral, prioriza o filtro TIPO da própria tabela. Caso contrário, usa o do painel principal
+        const finalTipo = queryMode === 'full' ? tipoFilter : (initialFilters?.tipoPrenotacao || "ALL");
+        if (finalTipo && finalTipo !== "ALL") params.set("tipoPrenotacao", finalTipo);
 
         params.set("page", String(page));
         params.set("pageSize", String(pageSize));
-        if (activeRange > 0) params.set("rangeIndex", String(activeRange));
+        params.set("queryMode", queryMode);
+        
+        if (queryMode === 'atrasado' && activeRange > 0) {
+          params.set("rangeIndex", String(activeRange));
+        }
+        if (queryMode === 'full') {
+          if (statusFilter !== "ALL") params.set("statusFilter", statusFilter);
+          if (servicoFilter !== "ALL") params.set("servicoFilter", servicoFilter);
+        }
+
         if (debouncedSearch) params.set("search", debouncedSearch);
 
         const res = await fetch(`/api/bi/atrasados?${params.toString()}`);
@@ -109,6 +127,21 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
           setItems(json.items || []);
           setPagination(json.pagination || { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 });
           if (json.rangeCounts) setRangeCounts(json.rangeCounts);
+
+          // Se for uma busca por protocolo numérico exato
+          if (debouncedSearch && /^\d+$/.test(debouncedSearch)) {
+            const foundItem = (json.items || []).find((i: any) => i.protocolo === debouncedSearch);
+            if (foundItem) {
+              if (foundItem.status === 'Em dia') {
+                setMessagePrompt(`Protocolo ${debouncedSearch} está Em dia (0 dias) - não está em atraso`);
+              }
+            } else {
+              // Se não achou na busca com o queryMode atual, tentar avisar
+              if (queryMode === 'atrasado') {
+                setMessagePrompt(`Protocolo ${debouncedSearch} não encontrado em atraso. Use a Consulta Geral.`);
+              }
+            }
+          }
         }
       } catch (err) {
         console.error("Erro ao buscar títulos atrasados:", err);
@@ -122,7 +155,81 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
     return () => {
       isSubscribed = false;
     };
-  }, [page, pageSize, activeRange, debouncedSearch, initialFilters]);
+  }, [page, pageSize, activeRange, debouncedSearch, queryMode, statusFilter, servicoFilter, tipoFilter, initialFilters]);
+
+  // Functions are defined below
+
+  useEffect(() => {
+    if (!isMounted.current) {
+      isMounted.current = true;
+      return;
+    }
+
+    let isSubscribed = true;
+    async function fetchData() {
+      setIsLoading(true);
+      setMessagePrompt(null);
+      try {
+        const params = new URLSearchParams();
+        if (initialFilters?.importId) params.set("importId", initialFilters.importId);
+        if (initialFilters?.startDate) params.set("startDate", initialFilters.startDate);
+        if (initialFilters?.endDate) params.set("endDate", initialFilters.endDate);
+        
+        // Se estiver no modo Consulta Geral, prioriza o filtro TIPO da própria tabela. Caso contrário, usa o do painel principal
+        const finalTipo = queryMode === 'full' ? tipoFilter : (initialFilters?.tipoPrenotacao || "ALL");
+        if (finalTipo && finalTipo !== "ALL") params.set("tipoPrenotacao", finalTipo);
+
+        params.set("page", String(page));
+        params.set("pageSize", String(pageSize));
+        params.set("queryMode", queryMode);
+        
+        if (queryMode === 'atrasado' && activeRange > 0) {
+          params.set("rangeIndex", String(activeRange));
+        }
+        if (queryMode === 'full') {
+          if (statusFilter !== "ALL") params.set("statusFilter", statusFilter);
+          if (servicoFilter !== "ALL") params.set("servicoFilter", servicoFilter);
+        }
+
+        if (debouncedSearch) params.set("search", debouncedSearch);
+
+        const res = await fetch(`/api/bi/atrasados?${params.toString()}`);
+        if (!res.ok) throw new Error("Erro ao carregar dados");
+        const json = await res.json();
+
+        if (isSubscribed && json.success) {
+          setItems(json.items || []);
+          setPagination(json.pagination || { page: 1, pageSize: 20, totalItems: 0, totalPages: 1 });
+          if (json.rangeCounts) setRangeCounts(json.rangeCounts);
+
+          // Se for uma busca por protocolo numérico exato
+          if (debouncedSearch && /^\d+$/.test(debouncedSearch)) {
+            const foundItem = (json.items || []).find((i: any) => i.protocolo === debouncedSearch);
+            if (foundItem) {
+              if (foundItem.status === 'Em dia') {
+                setMessagePrompt(`Protocolo ${debouncedSearch} está Em dia (0 dias) - não está em atraso`);
+              }
+            } else {
+              // Se não achou na busca com o queryMode atual, tentar avisar
+              if (queryMode === 'atrasado') {
+                setMessagePrompt(`Protocolo ${debouncedSearch} não encontrado em atraso. Use a Consulta Geral.`);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao buscar títulos atrasados:", err);
+      } finally {
+        if (isSubscribed) setIsLoading(false);
+      }
+    }
+
+    fetchData();
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [page, pageSize, activeRange, debouncedSearch, queryMode, statusFilter, servicoFilter, tipoFilter, initialFilters]);
 
   const handleRangeChange = (index: number) => {
     setActiveRange(index);
@@ -134,17 +241,40 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
     setPage(1);
   };
 
+  const handleToggleQueryMode = (mode: 'atrasado' | 'full') => {
+    setQueryMode(mode);
+    setPage(1);
+    setActiveRange(0);
+    setStatusFilter("ALL");
+    setServicoFilter("ALL");
+    setTipoFilter("ALL");
+  };
+
   const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "no_prazo":
-        return <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 backdrop-blur-md">No Prazo</Badge>;
-      case "atrasado":
-        return <Badge className="bg-red-500/10 border border-red-500/20 text-red-400 backdrop-blur-md">Atrasado</Badge>;
-      case "devolvido":
-        return <Badge className="bg-amber-500/10 border border-amber-500/20 text-amber-400 backdrop-blur-md">Devolvido</Badge>;
-      default:
-        return <Badge variant="outline" className="border-white/10 text-white backdrop-blur-md">{status}</Badge>;
+    if (status === "Atrasado") {
+      return <Badge className="bg-red-500/10 border border-red-500/20 text-red-400 backdrop-blur-md font-semibold text-[11px]">Atrasado</Badge>;
     }
+    return <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 backdrop-blur-md font-semibold text-[11px]">Em dia</Badge>;
+  };
+
+  const getAtrasoBadge = (dias: number) => {
+    if (dias === 0) {
+      return <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 backdrop-blur-md font-mono font-bold text-[11px]">0 dias</Badge>;
+    }
+    if (dias >= 1 && dias <= 15) {
+      return <Badge className="bg-amber-500/10 border border-amber-500/20 text-amber-400 backdrop-blur-md font-mono font-bold text-[11px]">{dias} dias</Badge>;
+    }
+    if (dias >= 16 && dias <= 30) {
+      return <Badge className="bg-orange-500/10 border border-orange-500/20 text-orange-400 backdrop-blur-md font-mono font-bold text-[11px]">{dias} dias</Badge>;
+    }
+    return <Badge className="bg-red-500/10 border border-red-500/20 text-red-400 backdrop-blur-md font-mono font-bold text-[11px]">{dias} dias</Badge>;
+  };
+
+  const getServicoBadge = (servico: string) => {
+    if (servico === "REGISTRADO") {
+      return <Badge className="bg-blue-500/10 border border-blue-500/20 text-blue-400 backdrop-blur-md font-semibold text-[11px]">REGISTRADO</Badge>;
+    }
+    return <Badge className="bg-purple-500/10 border border-purple-500/20 text-purple-400 backdrop-blur-md font-semibold text-[11px]">DEVOLVIDO</Badge>;
   };
 
   const totalOverallCount = totalAtrasadosCount || rangeCounts[0] || pagination.totalItems;
@@ -155,32 +285,47 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
 
   return (
     <Card className="bg-[#151C2F] border-white/10 rounded-2xl shadow-lg mt-4 overflow-hidden text-white">
-      {/* Banner de informações sobre consulta completa */}
-      <div className="bg-white/5 border-b border-white/10 px-6 py-2.5 flex items-center justify-between flex-wrap gap-2 text-xs text-white/80">
-        <div className="flex items-center gap-2 font-medium">
-          <Info size={15} className="text-blue-400 shrink-0" />
-          <span>
-            <strong>Consulta integral de títulos em atraso:</strong> Pesquise, filtre por faixa e navegue por todos os{" "}
-            <strong>{formattedTotalOverall}</strong> protocolos com estouro de prazo legal.
-          </span>
-        </div>
-        <Badge variant="outline" className="bg-white/10 border-white/20 text-white font-semibold text-[11px] flex items-center gap-1">
-          <Layers size={11} />
-          Consulta Geral ({formattedTotalOverall})
-        </Badge>
+      {/* Abas Superiores */}
+      <div className="flex border-b border-white/10 bg-[#0F172A]">
+        <button
+          onClick={() => handleToggleQueryMode('atrasado')}
+          className={`flex-1 sm:flex-initial px-6 py-3.5 text-xs uppercase font-bold tracking-wider transition-colors border-b-2 ${
+            queryMode === 'atrasado'
+              ? 'border-red-500 text-red-400 bg-white/[0.02]'
+              : 'border-transparent text-white/50 hover:text-white/80'
+          }`}
+        >
+          ⏰ Títulos em Atraso ({formattedTotalOverall})
+        </button>
+        <button
+          onClick={() => handleToggleQueryMode('full')}
+          className={`flex-1 sm:flex-initial px-6 py-3.5 text-xs uppercase font-bold tracking-wider transition-colors border-b-2 ${
+            queryMode === 'full'
+              ? 'border-blue-500 text-blue-400 bg-white/[0.02]'
+              : 'border-transparent text-white/50 hover:text-white/80'
+          }`}
+        >
+          🔍 Consulta Geral
+        </button>
       </div>
 
       <CardHeader className="pb-4 border-b border-white/5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <CardTitle className="text-base font-semibold text-white">Títulos em Atraso (Drill-down)</CardTitle>
-            <CardDescription className="text-white/50 text-xs">Detalhamento dos protocolos críticos com estouro de prazo legal</CardDescription>
+            <CardTitle className="text-base font-semibold text-white">
+              {queryMode === 'full' ? 'Consulta Geral (Todos os Títulos)' : 'Títulos em Atraso (Drill-down)'}
+            </CardTitle>
+            <CardDescription className="text-white/50 text-xs">
+              {queryMode === 'full' 
+                ? 'Exibição completa de títulos e prazos registrados no sistema' 
+                : 'Detalhamento dos protocolos críticos com estouro de prazo legal'}
+            </CardDescription>
           </div>
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-white/40" />
             <Input
               type="search"
-              placeholder="Buscar protocolo em toda base..."
+              placeholder="Buscar protocolo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-8 bg-white/5 border-white/10 text-white rounded-xl shadow-sm text-xs focus:ring-0 focus:border-white/20"
@@ -191,36 +336,92 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
           </div>
         </div>
 
-        {/* Filtro por faixa de dias */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <Filter size={14} className="text-white/40 shrink-0" />
-          <span className="text-xs text-white/60 font-medium mr-1">Dias de atraso:</span>
-          {DELAY_RANGES.map((r) => {
-            const countForBadge = rangeCounts[r.index] ?? 0;
-            return (
-              <Button
-                key={r.label}
-                variant={activeRange === r.index ? "default" : "outline"}
-                size="sm"
-                className={`h-7 text-xs rounded-full px-3 transition-all border-white/10 ${
-                  activeRange === r.index
-                    ? "bg-white text-slate-900 hover:bg-white/90 shadow-sm font-medium"
-                    : "text-white/70 hover:bg-white/5"
-                }`}
-                onClick={() => handleRangeChange(r.index)}
+        {messagePrompt && (
+          <div className="bg-blue-500/10 border border-blue-500/20 text-blue-400 p-3 rounded-xl text-xs flex items-center gap-2">
+            <Info size={14} />
+            <span>{messagePrompt}</span>
+          </div>
+        )}
+
+        {/* Filtros da Consulta Geral */}
+        {queryMode === 'full' && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] uppercase font-bold text-white/40">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+                className="bg-white/5 border border-white/10 text-white text-xs rounded-xl px-2 py-1.5 focus:border-white/20 outline-none"
               >
-                {r.label}
-                <span
-                  className={`ml-1.5 text-[10px] font-bold ${
-                    activeRange === r.index ? "text-slate-700" : "text-white/40"
+                <option value="ALL" className="bg-[#151C2F]">Todos os Status</option>
+                <option value="Em dia" className="bg-[#151C2F]">Em dia</option>
+                <option value="Atrasado" className="bg-[#151C2F]">Atrasado</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] uppercase font-bold text-white/40">Serviço</label>
+              <select
+                value={servicoFilter}
+                onChange={(e) => { setServicoFilter(e.target.value); setPage(1); }}
+                className="bg-white/5 border border-white/10 text-white text-xs rounded-xl px-2 py-1.5 focus:border-white/20 outline-none"
+              >
+                <option value="ALL" className="bg-[#151C2F]">Todos os Serviços</option>
+                <option value="REGISTRADO" className="bg-[#151C2F]">REGISTRADO</option>
+                <option value="DEVOLVIDO" className="bg-[#151C2F]">DEVOLVIDO</option>
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] uppercase font-bold text-white/40">Tipo</label>
+              <select
+                value={tipoFilter}
+                onChange={(e) => { setTipoFilter(e.target.value); setPage(1); }}
+                className="bg-white/5 border border-white/10 text-white text-xs rounded-xl px-2 py-1.5 focus:border-white/20 outline-none"
+              >
+                <option value="ALL" className="bg-[#151C2F]">Todos os Tipos</option>
+                <option value="PRENOTADO" className="bg-[#151C2F]">PRENOTADO</option>
+                <option value="INTIMACAO" className="bg-[#151C2F]">INTIMACAO</option>
+                <option value="INTIMACAO ONLINE" className="bg-[#151C2F]">INTIMACAO ONLINE</option>
+                <option value="OFICIO - INDISPONIBILIDADE" className="bg-[#151C2F]">OFICIO - INDISPONIBILIDADE</option>
+                <option value="REGULARIZACAO FUNDIARIA" className="bg-[#151C2F]">REGULARIZACAO FUNDIARIA</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Filtro por faixa de dias (Apenas para modo Atrasado) */}
+        {queryMode === 'atrasado' && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <Filter size={14} className="text-white/40 shrink-0" />
+            <span className="text-xs text-white/60 font-medium mr-1">Dias de atraso:</span>
+            {DELAY_RANGES.map((r) => {
+              const countForBadge = rangeCounts[r.index] ?? 0;
+              return (
+                <Button
+                  key={r.label}
+                  variant={activeRange === r.index ? "default" : "outline"}
+                  size="sm"
+                  className={`h-7 text-xs rounded-full px-3 transition-all border-white/10 ${
+                    activeRange === r.index
+                      ? "bg-white text-slate-900 hover:bg-white/90 shadow-sm font-medium"
+                      : "text-white/70 hover:bg-white/5"
                   }`}
+                  onClick={() => handleRangeChange(r.index)}
                 >
-                  {countForBadge.toLocaleString("pt-BR")}
-                </span>
-              </Button>
-            );
-          })}
-        </div>
+                  {r.label}
+                  <span
+                    className={`ml-1.5 text-[10px] font-bold ${
+                      activeRange === r.index ? "text-slate-700" : "text-white/40"
+                    }`}
+                  >
+                    {countForBadge.toLocaleString("pt-BR")}
+                  </span>
+                </Button>
+              );
+            })}
+          </div>
+        )}
       </CardHeader>
       
       <div className="overflow-x-auto relative max-h-[600px] overflow-y-auto">
@@ -228,7 +429,7 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
           <div className="absolute inset-0 bg-[#151C2F]/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
             <div className="flex items-center gap-2 bg-[#151C2F] border border-white/10 px-4 py-2 rounded-xl shadow-md text-xs text-white/60">
               <Loader2 className="h-4 w-4 text-emerald-400 animate-spin" />
-              <span>Carregando dados da página...</span>
+              <span>Carregando dados...</span>
             </div>
           </div>
         )}
@@ -237,30 +438,30 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
           <TableHeader className="sticky top-0 z-20 bg-[#0F172A]">
             <TableRow className="border-white/5 bg-[#0F172A]">
               <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60 bg-[#0F172A] sticky top-0 z-20">Protocolo</TableHead>
+              <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60 bg-[#0F172A] sticky top-0 z-20">Tipo</TableHead>
               <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60 bg-[#0F172A] sticky top-0 z-20">Status</TableHead>
-              <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60 bg-[#0F172A] sticky top-0 z-20">Atraso (Dias)</TableHead>
-              <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60 text-right bg-[#0F172A] sticky top-0 z-20">Tipo</TableHead>
+              <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60 bg-[#0F172A] sticky top-0 z-20">Atraso Dias</TableHead>
+              <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60 text-right bg-[#0F172A] sticky top-0 z-20">Serviço</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {items.map((row) => (
               <TableRow key={row.id} className="border-white/5 hover:bg-white/[0.04] text-white/80 transition-colors">
                 <TableCell className="font-semibold text-white">{row.protocolo}</TableCell>
+                <TableCell className="text-white/60 font-medium">{row.tipo}</TableCell>
                 <TableCell>{getStatusBadge(row.status)}</TableCell>
-                <TableCell className="text-red-400 font-bold">+{row.atraso}d</TableCell>
-                <TableCell className="text-right text-white/60 font-medium">{row.tipo}</TableCell>
+                <TableCell>{getAtrasoBadge(row.atraso)}</TableCell>
+                <TableCell className="text-right">{getServicoBadge(row.servico)}</TableCell>
               </TableRow>
             ))}
             {items.length === 0 && !isLoading && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-12 text-white/40">
+                <TableCell colSpan={5} className="text-center py-12 text-white/40">
                   <div className="space-y-1">
-                    <p className="font-medium text-sm text-white">Nenhum protocolo atrasado encontrado</p>
+                    <p className="font-medium text-sm text-white">Nenhum protocolo encontrado</p>
                     <p className="text-xs text-white/40">
                       {debouncedSearch
                         ? `Nenhum resultado corresponde ao protocolo "${debouncedSearch}".`
-                        : activeRange > 0
-                        ? `Nenhum título encontrado para a faixa "${DELAY_RANGES[activeRange].label}".`
                         : "Não há registros disponíveis nos filtros selecionados."}
                     </p>
                   </div>
@@ -277,8 +478,8 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
         <div className="text-xs text-white/60 text-center sm:text-left">
           Exibindo <strong className="text-white">{startItem.toLocaleString("pt-BR")}</strong> a{" "}
           <strong className="text-white">{endItem.toLocaleString("pt-BR")}</strong> de{" "}
-          <strong className="text-white">{pagination.totalItems.toLocaleString("pt-BR")}</strong> protocolos atrasados
-          {activeRange > 0 && (
+          <strong className="text-white">{pagination.totalItems.toLocaleString("pt-BR")}</strong> registros
+          {activeRange > 0 && queryMode === 'atrasado' && (
             <span> · Faixa: <strong className="text-white">{DELAY_RANGES[activeRange].label}</strong></span>
           )}
         </div>

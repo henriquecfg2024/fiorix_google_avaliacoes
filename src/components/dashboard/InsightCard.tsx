@@ -3,60 +3,57 @@ import { Bot, AlertTriangle, Sparkles, Calendar, ThumbsUp, Zap } from 'lucide-re
 
 export function InsightCard() {
   return (
-    <div className="bg-gradient-to-br from-[#EEF2FF] to-[#E0E7FF] border border-violet-200 p-5 rounded-2xl shadow-sm space-y-4">
-      {/* HEADER */}
-      <div className="flex items-center gap-2 text-violet-800">
-        <Bot className="w-5 h-5 text-violet-700" />
-        <h3 className="text-xs font-bold tracking-wider uppercase">INSIGHTS DA IA</h3>
+    <div className="space-y-4 rounded-2xl border border-white/10 bg-[linear-gradient(135deg,rgba(30,41,59,0.98),rgba(15,23,42,0.98))] p-5 shadow-[0_18px_45px_rgba(2,6,23,0.35)]">
+      <div className="flex items-center gap-2 text-violet-300">
+        <Bot className="h-5 w-5 text-violet-400" />
+        <h3 className="text-xs font-bold uppercase tracking-[0.22em]">INSIGHTS DA IA</h3>
       </div>
 
-      {/* ALERT HIGHLIGHT CARD */}
-      <div className="bg-white/90 backdrop-blur-sm p-3.5 rounded-xl border border-violet-200/80 shadow-xs space-y-1">
-        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+      <div className="space-y-1 rounded-xl border border-amber-500/20 bg-amber-500/8 p-3.5 backdrop-blur-sm">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-amber-100">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
           <span>Alerta de Atendimento</span>
         </div>
-        <p className="text-xs text-slate-600 leading-relaxed">
+        <p className="text-xs leading-relaxed text-slate-300">
           Reclamações sobre tempo de espera na fila subiram{' '}
-          <strong className="text-red-600 font-extrabold">+40%</strong> este mês. Recomendamos otimizar a triagem inicial na recepção.
+          <strong className="font-extrabold text-red-400">+40%</strong> este mês. Recomendamos otimizar a triagem
+          inicial na recepção.
         </p>
       </div>
 
-      {/* INSIGHT LIST */}
       <div className="space-y-2 text-xs">
-        <div className="flex items-start gap-2.5 p-2 rounded-lg bg-white/50 border border-white/60">
-          <ThumbsUp className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-          <p className="text-slate-700">
-            <strong>Elogio Lucas:</strong> O escrevente <strong>Lucas</strong> foi citado com elogios em{' '}
-            <strong className="text-emerald-700 font-bold">47 avaliações positivas</strong> este mês.
+        <div className="flex items-start gap-2.5 rounded-lg border border-emerald-500/15 bg-emerald-500/6 p-2.5">
+          <ThumbsUp className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+          <p className="text-slate-300">
+            <strong className="text-slate-100">Elogio Lucas:</strong> O escrevente <strong>Lucas</strong> foi citado com
+            elogios em <strong className="font-bold text-emerald-300">47 avaliações positivas</strong> este mês.
           </p>
         </div>
 
-        <div className="flex items-start gap-2.5 p-2 rounded-lg bg-white/50 border border-white/60">
-          <Calendar className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-          <p className="text-slate-700">
-            <strong>Padrão Segunda:</strong> Notas dadas às <strong>segundas-feiras</strong> são em média{' '}
-            <strong className="text-amber-700 font-bold">-0,4★ menores</strong> que nos outros dias.
+        <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/15 bg-amber-500/6 p-2.5">
+          <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+          <p className="text-slate-300">
+            <strong className="text-slate-100">Padrão Segunda:</strong> Notas dadas às <strong>segundas-feiras</strong>{' '}
+            são em média <strong className="font-bold text-amber-300">-0,4★ menores</strong> que nos outros dias.
           </p>
         </div>
 
-        <div className="flex items-start gap-2.5 p-2 rounded-lg bg-white/50 border border-white/60">
-          <Sparkles className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-          <p className="text-slate-700">
-            <strong>Motivo Agendamento:</strong> Agendamento online foi a causa apontada em{' '}
-            <strong className="text-red-600 font-bold">70% das 3★</strong>.
+        <div className="flex items-start gap-2.5 rounded-lg border border-red-500/15 bg-red-500/6 p-2.5">
+          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+          <p className="text-slate-300">
+            <strong className="text-slate-100">Motivo Agendamento:</strong> Agendamento online foi a causa apontada em{' '}
+            <strong className="font-bold text-red-300">70% das 3★</strong>.
           </p>
         </div>
 
-        <div className="flex items-start gap-2.5 p-2 rounded-lg bg-white/50 border border-white/60">
-          <Zap className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-          <p className="text-slate-700">
-            <strong>Impacto SLA:</strong> Respostas enviadas em &lt;24h elevam a satisfação em{' '}
-            <strong className="text-blue-700 font-bold">+35%</strong>.
+        <div className="flex items-start gap-2.5 rounded-lg border border-blue-500/15 bg-blue-500/6 p-2.5">
+          <Zap className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" />
+          <p className="text-slate-300">
+            <strong className="text-slate-100">Impacto SLA:</strong> Respostas enviadas em &lt;24h elevam a satisfação em{' '}
+            <strong className="font-bold text-blue-300">+35%</strong>.
           </p>
         </div>
       </div>
     </div>
   );
 }
-

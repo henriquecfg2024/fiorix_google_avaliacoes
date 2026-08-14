@@ -12,13 +12,12 @@ import {
 } from "@/components/ui/select";
 
 interface FiorixFiltersProps {
-  imports: any[];
   tiposPrenotacao: string[];
   filters: any;
   onFilterChange: (key: string, value: string) => void;
 }
 
-export function FiorixFilters({ imports, tiposPrenotacao, filters, onFilterChange }: FiorixFiltersProps) {
+export function FiorixFilters({ tiposPrenotacao, filters, onFilterChange }: FiorixFiltersProps) {
   return (
     <Card className="p-5 rounded-2xl bg-[#151C2F] border border-white/10 shadow-sm text-white">
       <div className="flex items-center gap-2 mb-5">
@@ -26,30 +25,7 @@ export function FiorixFilters({ imports, tiposPrenotacao, filters, onFilterChang
         <h2 className="text-base font-semibold text-white">Filtros de Análise:</h2>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* LOTE IMPORTADO */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] uppercase tracking-widest text-white/60 font-semibold">
-            Lote Importado
-          </label>
-          <Select 
-            value={filters.importId || "ALL"} 
-            onValueChange={(val) => onFilterChange("importId", val)}
-          >
-            <SelectTrigger className="h-10 bg-white/5 border border-white/10 text-white rounded-xl text-sm shadow-sm truncate focus:ring-0 focus:border-white/20">
-              <SelectValue placeholder="Selecione um lote..." />
-            </SelectTrigger>
-            <SelectContent className="bg-[#151C2F] border-white/10 text-white">
-              <SelectItem value="ALL">Todos os lotes</SelectItem>
-              {imports.map((imp) => (
-                <SelectItem key={imp.id} value={imp.id}>
-                  {imp.fileName} ({new Date(imp.importedAt).toLocaleDateString()})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* DATA INICIAL */}
         <div className="flex flex-col gap-1.5">
           <label className="text-[10px] uppercase tracking-widest text-white/60 font-semibold">

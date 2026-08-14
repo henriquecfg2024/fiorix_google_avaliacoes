@@ -124,9 +124,9 @@ export function UserListTable({
   return (
     <>
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'left' }}>
+        <table className="user-management-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'left' }}>
           <thead>
-            <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#64748b', fontSize: '12px', textTransform: 'uppercase' }}>
+            <tr style={{ fontSize: '12px', textTransform: 'uppercase' }}>
               <th style={{ padding: '12px 16px' }}>Nome</th>
               <th style={{ padding: '12px 16px' }}>E-mail</th>
               <th style={{ padding: '12px 16px' }}>Função</th>
@@ -141,11 +141,11 @@ export function UserListTable({
               const isProtected = isMasterTarget && !canModifyMaster;
 
               return (
-                <tr key={u.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '14px 16px', fontWeight: '600', color: '#1e293b' }}>
+                <tr key={u.id}>
+                  <td className="user-name-cell" style={{ padding: '14px 16px', fontWeight: '600' }}>
                     {u.name || 'Sem nome'}
                   </td>
-                  <td style={{ padding: '14px 16px', color: '#64748b' }}>{u.email}</td>
+                  <td className="user-email-cell" style={{ padding: '14px 16px' }}>{u.email}</td>
                   <td style={{ padding: '14px 16px' }}>
                     {isMasterTarget ? (
                       <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}>
@@ -173,7 +173,7 @@ export function UserListTable({
                       </select>
                     )}
                   </td>
-                  <td style={{ padding: '14px 16px', color: '#64748b' }}>
+                  <td className="user-date-cell" style={{ padding: '14px 16px' }}>
                     {new Date(u.createdAt).toLocaleDateString('pt-BR')}
                   </td>
                   <td style={{ padding: '14px 16px', textAlign: 'right' }}>
@@ -469,4 +469,3 @@ export function UserListTable({
     </>
   );
 }
-

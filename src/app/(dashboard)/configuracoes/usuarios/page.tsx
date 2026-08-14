@@ -10,7 +10,7 @@ export default async function UsuariosConfigPage() {
   const usuarios = await getUsers();
 
   return (
-    <div className="layout" style={{ gridTemplateColumns: '1fr' }}>
+    <div className="layout user-management-page" style={{ gridTemplateColumns: '1fr' }}>
       <div className="center-col">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
           <Link href="/configuracoes" style={{ fontSize: '14px', color: '#3b82f6', textDecoration: 'none', fontWeight: '500' }}>
@@ -26,13 +26,13 @@ export default async function UsuariosConfigPage() {
             </div>
           </div>
 
-          <form action={createUser} style={{ marginTop: '20px', background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-            <h4 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '14px', color: '#1e293b' }}>
+          <form className="user-create-form" action={createUser} style={{ marginTop: '20px', padding: '20px', borderRadius: '12px' }}>
+            <h4 className="user-create-title" style={{ fontSize: '15px', fontWeight: '600', marginBottom: '14px' }}>
               👤 Cadastrar Novo Usuário
             </h4>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 150px auto', gap: '12px', alignItems: 'end' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#475569' }}>
+                <label className="user-field-label" style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px' }}>
                   Nome *
                 </label>
                 <input 
@@ -40,12 +40,13 @@ export default async function UsuariosConfigPage() {
                   name="name" 
                   required
                   placeholder="Nome do usuário"
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                  className="user-field-input"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', fontSize: '14px' }}
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#475569' }}>
+                <label className="user-field-label" style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px' }}>
                   E-mail de Acesso *
                 </label>
                 <input 
@@ -53,12 +54,13 @@ export default async function UsuariosConfigPage() {
                   name="email" 
                   required
                   placeholder="usuario@cartorio.com.br"
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                  className="user-field-input"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', fontSize: '14px' }}
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#475569' }}>
+                <label className="user-field-label" style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px' }}>
                   Senha Inicial *
                 </label>
                 <input 
@@ -66,18 +68,20 @@ export default async function UsuariosConfigPage() {
                   name="password" 
                   required
                   placeholder="••••••••"
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                  className="user-field-input"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', fontSize: '14px' }}
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#475569' }}>
+                <label className="user-field-label" style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px' }}>
                   Função *
                 </label>
                 <select
                   name="role"
                   defaultValue="USER"
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', background: 'white' }}
+                  className="user-field-input"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', fontSize: '14px' }}
                 >
                   <option value="USER">Usuário (USER)</option>
                   <option value="ADMIN">Admin (ADMIN)</option>
@@ -86,10 +90,8 @@ export default async function UsuariosConfigPage() {
 
               <button 
                 type="submit"
+                className="user-create-button"
                 style={{
-                  background: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
                   padding: '9px 18px',
                   borderRadius: '8px',
                   fontWeight: '600',
@@ -115,4 +117,3 @@ export default async function UsuariosConfigPage() {
     </div>
   );
 }
-

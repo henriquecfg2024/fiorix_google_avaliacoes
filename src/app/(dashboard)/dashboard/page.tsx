@@ -157,7 +157,7 @@ export default async function Dashboard({
   const syncedCount = Array.isArray(rawSynced) ? rawSynced[0] : rawSynced;
 
   return (
-    <div className="w-full px-4 md:px-7 py-6 space-y-6">
+    <div className="fiorix-dark-page w-full px-4 md:px-7 py-6 space-y-6">
       {syncError && (
         <div className="bg-red-50 text-red-800 p-3.5 px-5 rounded-2xl text-sm border border-red-200 flex items-center gap-2">
           <span>❌</span>
@@ -222,4 +222,3 @@ export default async function Dashboard({
     </div>
   );
 }
-

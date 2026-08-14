@@ -1,15 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Cell,
-} from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 
 export interface ColaboradorRankData {
   nome: string;
@@ -58,7 +50,6 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
     rawList = totalData && totalData.length > 0 && totalData.some((d) => d.elogios > 0) ? totalData : defaultTotal;
   }
 
-  // Deduplicate by name to prevent duplicated collaborator bars
   const deduplicatedMap = new Map<string, number>();
   rawList.forEach((item) => {
     const norm = item.nome.trim();
@@ -71,16 +62,15 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
     .sort((a, b) => b.elogios - a.elogios)
     .slice(0, 5);
 
-  // Reverse list so top rank displays at top in vertical layout
   const chartData = [...currentList].reverse();
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-slate-900/95 border border-slate-800 text-white rounded-xl shadow-xl p-2.5 text-xs backdrop-blur-sm">
+        <div className="rounded-xl border border-slate-700 bg-slate-950/95 p-2.5 text-xs text-white shadow-xl backdrop-blur-sm">
           <p className="font-bold text-slate-200">{data.nome}</p>
-          <p className="text-emerald-400 font-semibold mt-0.5">👏 {data.elogios} elogios registrados</p>
+          <p className="mt-0.5 font-semibold text-emerald-400">👏 {data.elogios} elogios registrados</p>
         </div>
       );
     }
@@ -88,48 +78,40 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all space-y-4">
-      {/* HEADER WITH TABS */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="space-y-4 rounded-2xl border border-white/10 bg-slate-900/80 p-6 shadow-[0_12px_30px_rgba(2,6,23,0.22)] transition-all">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <h3 className="text-base font-bold text-slate-900">Ranking dos Colaboradores</h3>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <h3 className="text-base font-bold text-white">Ranking dos Colaboradores</h3>
+          <p className="mt-0.5 text-xs text-slate-400">
             {period === 'month'
               ? 'Menções positivas no mês atual'
               : period === 'quarter'
-              ? 'Menções nos últimos 90 dias'
-              : 'Todo o período acumulado'}
+                ? 'Menções nos últimos 90 dias'
+                : 'Todo o período acumulado'}
           </p>
         </div>
 
-        {/* TABS */}
-        <div className="inline-flex bg-slate-100 p-1 rounded-xl gap-1 text-xs font-semibold self-start sm:self-auto">
+        <div className="inline-flex self-start gap-1 rounded-xl border border-white/10 bg-white/[0.04] p-1 text-xs font-semibold sm:self-auto">
           <button
             onClick={() => setPeriod('month')}
-            className={`px-3 py-1.5 rounded-lg transition-all ${
-              period === 'month'
-                ? 'bg-blue-600 text-white shadow-sm font-bold'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            className={`rounded-lg px-3 py-1.5 transition-all ${
+              period === 'month' ? 'bg-blue-600 font-bold text-white shadow-sm' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
             }`}
           >
             Este mês
           </button>
           <button
             onClick={() => setPeriod('quarter')}
-            className={`px-3 py-1.5 rounded-lg transition-all ${
-              period === 'quarter'
-                ? 'bg-blue-600 text-white shadow-sm font-bold'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            className={`rounded-lg px-3 py-1.5 transition-all ${
+              period === 'quarter' ? 'bg-blue-600 font-bold text-white shadow-sm' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
             }`}
           >
             Trimestre
           </button>
           <button
             onClick={() => setPeriod('total')}
-            className={`px-3 py-1.5 rounded-lg transition-all ${
-              period === 'total'
-                ? 'bg-blue-600 text-white shadow-sm font-bold'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            className={`rounded-lg px-3 py-1.5 transition-all ${
+              period === 'total' ? 'bg-blue-600 font-bold text-white shadow-sm' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
             }`}
           >
             Geral
@@ -137,8 +119,7 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
         </div>
       </div>
 
-      {/* MINI LEADERBOARD PILLS */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {currentList.map((col, idx) => {
           const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
           const isTop = idx === 0;
@@ -146,52 +127,35 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
           return (
             <div
               key={idx}
-              className={`rounded-xl p-2.5 flex flex-col items-center justify-center text-center transition-all border ${
-                isTop
-                  ? 'bg-blue-50/80 border-blue-200 shadow-sm'
-                  : 'bg-slate-50 border-slate-100 hover:bg-slate-100/80'
+              className={`flex flex-col items-center justify-center rounded-xl border p-2.5 text-center transition-all ${
+                isTop ? 'border-blue-500/25 bg-blue-500/12 shadow-sm' : 'border-white/8 bg-white/[0.03] hover:bg-white/[0.05]'
               }`}
             >
-              <span className="text-[10px] font-bold text-slate-500 uppercase">{medal} Rank</span>
-              <span className="text-xs font-bold text-slate-900 truncate max-w-full mt-0.5">
-                {col.nome}
-              </span>
-              <span className="text-xs font-extrabold text-emerald-600 mt-1">
-                {col.elogios} 👏
-              </span>
+              <span className="text-[10px] font-bold uppercase text-slate-400">{medal} Rank</span>
+              <span className="mt-0.5 max-w-full truncate text-xs font-bold text-white">{col.nome}</span>
+              <span className="mt-1 text-xs font-extrabold text-emerald-400">{col.elogios} 👏</span>
             </div>
           );
         })}
       </div>
 
-      {/* RECHARTS HORIZONTAL BARCHART (FLAT - NO 3D) */}
-      <div className="w-full h-[220px] pt-2">
+      <div className="h-[220px] w-full pt-2">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            layout="vertical"
-            data={chartData}
-            margin={{ top: 0, right: 20, left: 10, bottom: 0 }}
-            barCategoryGap={12}
-          >
+          <BarChart layout="vertical" data={chartData} margin={{ top: 0, right: 20, left: 10, bottom: 0 }} barCategoryGap={12}>
             <XAxis type="number" hide />
             <YAxis
               type="category"
               dataKey="nome"
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#334155', fontSize: 12, fontWeight: 600 }}
+              tick={{ fill: '#CBD5E1', fontSize: 12, fontWeight: 600 }}
               width={100}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(241,245,249,0.6)' }} />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(148,163,184,0.08)' }} />
             <Bar dataKey="elogios" radius={[0, 8, 8, 0]} barSize={20}>
               {chartData.map((entry, index) => {
                 const isTop1 = entry.nome === currentList[0]?.nome;
-                return (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={isTop1 ? '#1E40AF' : '#3B82F6'}
-                  />
-                );
+                return <Cell key={`cell-${index}`} fill={isTop1 ? '#2563EB' : '#1D4ED8'} />;
               })}
             </Bar>
           </BarChart>
@@ -200,4 +164,3 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
     </div>
   );
 }
-
