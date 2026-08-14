@@ -85,84 +85,88 @@ export function MetasDashboardClient() {
     return null;
   };
 
-  // Helper para calcular atraso real em dias de calendário
-  const getAtrasoDias = (record: MetasData) => {
+  // Lógica principal de recalcular Status e Atraso zerando horas (Regra estrita)
+  const getMetasStatusAndAtraso = (record: MetasData) => {
     const d10 = getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT", "dtEntregaReal", "DT_ENTREGA_REAL");
     const dtPrev = getVal(record, "dtPrevisao", "DT_PREVISAO");
-    const dataApres = getVal(record, "dataApresentado", "DATA_APRESENTADO", "d1Protocolo", "D1_PROTOCOLO");
+    const dataApres = getVal(record, "dataApresentado", "DATA_APRESENTADO", "d1Protocolo", "D1_PROTOCOLO", "D1_PROT");
 
-    // Se já foi entregue
-    if (d10) {
-      const atrImported = Number(getVal(record, "atrasoDias", "ATRASO_DIAS") || 0);
-      return Math.max(0, atrImported);
-    }
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
 
-    if (!dtPrev) return 0;
-
-    try {
-      const prevDate = new Date(dtPrev);
-      if (isNaN(prevDate.getTime())) return 0;
-
-      // Data de Previsão em 00:00:00 (Início do Dia)
-      const prevDay = new Date(prevDate.getFullYear(), prevDate.getMonth(), prevDate.getDate()).getTime();
-      const today = new Date();
-      const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-
-      // Se a data de previsão é hoje ou no futuro -> Atraso 0d!
-      if (prevDay >= todayDay) {
-        return 0;
-      }
-
-      // Se o protocolo deu entrada hoje -> Atraso 0d!
-      if (dataApres) {
+    // 1. Protocolos apresentados hoje (14/08) nunca podem ser Atrasados -> Sempre Em dia 0d
+    if (dataApres) {
+      try {
         const apresDate = new Date(dataApres);
         if (!isNaN(apresDate.getTime())) {
-          const apresDay = new Date(apresDate.getFullYear(), apresDate.getMonth(), apresDate.getDate()).getTime();
-          if (apresDay === todayDay) {
-            return 0;
+          apresDate.setHours(0, 0, 0, 0);
+          if (apresDate.getTime() === hoje.getTime()) {
+            return {
+              status: "Em dia",
+              atrasoDias: 0,
+              badge: { text: "Em dia", bgClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" }
+            };
           }
         }
-      }
-
-      const diffDays = Math.floor((todayDay - prevDay) / (1000 * 60 * 60 * 24));
-      return Math.max(0, diffDays);
-    } catch {
-      return 0;
-    }
-  };
-
-  // Helper para cor do Badge de Status
-  const getStatusBadge = (statusVal: any, atrasoDiasNum: number) => {
-    const s = String(statusVal || "").toLowerCase().trim();
-
-    // Se o atraso calculado é 0 e o protocolo não foi entregue com atraso -> Em dia
-    if (atrasoDiasNum === 0 && !s.includes("entregue")) {
-      return {
-        text: "Em dia",
-        bgClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
-      };
+      } catch {}
     }
 
-    // 1. Entregue com Atraso -> Laranja
-    if (s.includes("entregue com atraso") || (s.includes("entregue") && (s.includes("atraso") || atrasoDiasNum > 0))) {
-      return {
-        text: statusVal || "Entregue com Atraso",
-        bgClass: "bg-orange-500/20 text-orange-400 border border-orange-500/30",
-      };
+    // 2. Se D10_ENTREGA (ou entrega real) já existe
+    if (d10 && dtPrev) {
+      try {
+        const d10Date = new Date(d10);
+        const prevDate = new Date(dtPrev);
+        if (!isNaN(d10Date.getTime()) && !isNaN(prevDate.getTime())) {
+          d10Date.setHours(0, 0, 0, 0);
+          prevDate.setHours(0, 0, 0, 0);
+
+          const diffEnt = Math.floor((d10Date.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffEnt <= 0) {
+            return {
+              status: "Em dia",
+              atrasoDias: 0,
+              badge: { text: "Em dia", bgClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" }
+            };
+          } else {
+            return {
+              status: "Entregue com Atraso",
+              atrasoDias: diffEnt,
+              badge: { text: "Entregue com Atraso", bgClass: "bg-orange-500/20 text-orange-400 border border-orange-500/30" }
+            };
+          }
+        }
+      } catch {}
     }
 
-    // 2. Atrasado (quando de fato atrasou > 0d) -> Vermelho
-    if (atrasoDiasNum > 0 || s === "atrasado" || (s.includes("atrasado") && !s.includes("em dia"))) {
-      return {
-        text: "Atrasado",
-        bgClass: "bg-red-500/20 text-red-400 border border-red-500/30",
-      };
+    // 3. Protocolos abertos (sem D10_ENTREGA): calcula diffDias = hoje - previsao (zerando horas)
+    if (dtPrev) {
+      try {
+        const prevDate = new Date(dtPrev);
+        if (!isNaN(prevDate.getTime())) {
+          prevDate.setHours(0, 0, 0, 0);
+
+          const diffDias = Math.floor((hoje.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDias <= 0) {
+            return {
+              status: "Em dia",
+              atrasoDias: 0,
+              badge: { text: "Em dia", bgClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" }
+            };
+          } else {
+            return {
+              status: "Atrasado",
+              atrasoDias: diffDias,
+              badge: { text: "Atrasado", bgClass: "bg-red-500/20 text-red-400 border border-red-500/30" }
+            };
+          }
+        }
+      } catch {}
     }
 
-    // 3. Em dia / No Prazo -> Verde
     return {
-      text: statusVal || "Em dia",
-      bgClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
+      status: "Em dia",
+      atrasoDias: 0,
+      badge: { text: "Em dia", bgClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" }
     };
   };
 
@@ -278,17 +282,13 @@ export function MetasDashboardClient() {
     const gargaloCounts: Record<string, number> = {};
 
     data.forEach(item => {
-      const atrasoDias = getAtrasoDias(item);
-      const badge = getStatusBadge(getVal(item, "status", "STATUS"), atrasoDias);
-
+      const { status, atrasoDias, badge } = getMetasStatusAndAtraso(item);
       statusSet.add(badge.text);
 
-      if (atrasoDias > 0 || badge.text.toLowerCase().includes("atras")) {
-        if (badge.text.toLowerCase().includes("entregue")) {
-          entregueComAtraso++;
-        } else {
-          atrasados++;
-        }
+      if (status === "Atrasado") {
+        atrasados++;
+      } else if (status === "Entregue com Atraso") {
+        entregueComAtraso++;
       }
 
       const { phases, topGargalo } = getPhasesForRecord(item);
@@ -351,11 +351,10 @@ export function MetasDashboardClient() {
   const filteredData = useMemo(() => {
     return data.filter(item => {
       const prot = String(getVal(item, "protocolo", "PROTOCOLO") || "");
-      const atr = getAtrasoDias(item);
-      const badge = getStatusBadge(getVal(item, "status", "STATUS"), atr);
+      const { badge } = getMetasStatusAndAtraso(item);
       
       const matchSearch = search ? prot.includes(search) : true;
-      const matchStatus = statusFilter !== "ALL" ? badge.text === statusFilter || String(getVal(item, "status", "STATUS")) === statusFilter : true;
+      const matchStatus = statusFilter !== "ALL" ? badge.text === statusFilter : true;
       const matchGargalo = gargaloFilter !== "ALL" ? getGargaloForRecord(item).name === gargaloFilter : true;
       
       return matchSearch && matchStatus && matchGargalo;
@@ -424,13 +423,12 @@ export function MetasDashboardClient() {
     const rows = exportList.map(item => {
       const g = getGargaloForRecord(item);
       const prot = getVal(item, "protocolo", "PROTOCOLO");
-      const atr = getAtrasoDias(item);
-      const badge = getStatusBadge(getVal(item, "status", "STATUS"), atr);
+      const { status, atrasoDias } = getMetasStatusAndAtraso(item);
 
       return [
         prot,
-        `"${(badge.text || "").replace(/"/g, '""')}"`,
-        atr || 0,
+        `"${status.replace(/"/g, '""')}"`,
+        atrasoDias || 0,
         `"${getVal(item, "dataApresentado", "DATA_APRESENTADO") || ""}"`,
         `"${getVal(item, "dtPrevisao", "DT_PREVISAO") || ""}"`,
         `"${getVal(item, "dtEntregaReal", "DT_ENTREGA_REAL") || ""}"`,
@@ -666,9 +664,7 @@ export function MetasDashboardClient() {
             <tbody>
               {paginatedData.map((row) => {
                 const prot = getVal(row, "protocolo", "PROTOCOLO");
-                const st = String(getVal(row, "status", "STATUS") || "N/A");
-                const atr = getAtrasoDias(row);
-                const statusBadge = getStatusBadge(st, atr);
+                const { atrasoDias, badge } = getMetasStatusAndAtraso(row);
 
                 const gargalo = getGargaloForRecord(row);
                 
@@ -688,12 +684,12 @@ export function MetasDashboardClient() {
                   >
                     <td className="px-4 py-3 font-medium text-blue-400 underline decoration-blue-400/30 underline-offset-4">{prot}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${statusBadge.bgClass}`}>
-                        {statusBadge.text}
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${badge.bgClass}`}>
+                        {badge.text}
                       </span>
                     </td>
-                    <td className={`px-4 py-3 font-medium ${atr > 0 ? 'text-red-400' : 'text-white/50'}`}>
-                      {atr > 0 ? `${atr}d` : '0d'}
+                    <td className={`px-4 py-3 font-medium ${atrasoDias > 0 ? 'text-red-400' : 'text-white/50'}`}>
+                      {atrasoDias > 0 ? `${atrasoDias}d` : '0d'}
                     </td>
                     <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(d1Val)}</td>
                     <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(d3Val)}</td>
@@ -801,8 +797,7 @@ export function MetasDashboardClient() {
       {/* MODAL / DRAWER LATERAL DIREITO - DETALHAMENTO DO PROTOCOLO */}
       {selectedProtocol && (() => {
         const protNum = getVal(selectedProtocol, "protocolo", "PROTOCOLO");
-        const atrDias = getAtrasoDias(selectedProtocol);
-        const statusBadge = getStatusBadge(getVal(selectedProtocol, "status", "STATUS"), atrDias);
+        const { atrasoDias, badge } = getMetasStatusAndAtraso(selectedProtocol);
         const retrabalho = Number(getVal(selectedProtocol, "qtdRetrabalho", "QTD_RETRABALHO", "qtd_retrabalho") || 0);
 
         // Seção 1: Mapeamento de Datas das 10 Fases
@@ -865,15 +860,15 @@ export function MetasDashboardClient() {
                 <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white/5 border border-white/10 rounded-xl">
                   <div>
                     <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1">Status do Pedido</p>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${statusBadge.bgClass}`}>
-                      {statusBadge.text}
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${badge.bgClass}`}>
+                      {badge.text}
                     </span>
                   </div>
 
                   <div className="text-right">
                     <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1">Dias de Atraso</p>
-                    <span className={`text-sm font-bold ${atrDias > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                      {atrDias > 0 ? `${atrDias}d` : '0d'}
+                    <span className={`text-sm font-bold ${atrasoDias > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                      {atrasoDias > 0 ? `${atrasoDias}d` : '0d'}
                     </span>
                   </div>
                 </div>
