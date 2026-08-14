@@ -85,7 +85,7 @@ export function MetasDashboardClient() {
     return null;
   };
 
-  // Helper para cor do Badge de Status
+  // Helper para cor do Badge de Status estrito (Vermelho para Atrasado, Laranja para Entregue com Atraso, Verde para Em dia)
   const getStatusBadge = (statusVal: any, atrasoDiasNum: number) => {
     if (!statusVal) {
       return {
@@ -97,15 +97,15 @@ export function MetasDashboardClient() {
     const s = String(statusVal).toLowerCase().trim();
 
     // 1. Entregue com Atraso -> Laranja
-    if (s.includes("entregue") && (s.includes("atraso") || atrasoDiasNum > 0)) {
+    if (s.includes("entregue com atraso") || (s.includes("entregue") && s.includes("atraso"))) {
       return {
         text: statusVal,
         bgClass: "bg-orange-500/20 text-orange-400 border border-orange-500/30",
       };
     }
 
-    // 2. Atrasado (Vermelho) - estrito
-    if (s === "atrasado" || (s.includes("atrasado") && !s.includes("em dia"))) {
+    // 2. Atrasado -> Vermelho (Estrito: se s === "atrasado" ou contem atrasado sem ser "em dia")
+    if (s === "atrasado" || (s.includes("atrasado") && !s.includes("em dia")) || (atrasoDiasNum > 0 && !s.includes("entregue"))) {
       return {
         text: statusVal,
         bgClass: "bg-red-500/20 text-red-400 border border-red-500/30",
@@ -126,10 +126,10 @@ export function MetasDashboardClient() {
     };
   };
 
-  // Helper para dias de atraso real
+  // Helper para dias de atraso real (calcula hoje - dtPrevisao se D10_ENTREGA for NULL e status for Atrasado)
   const getAtrasoDias = (record: MetasData) => {
     let atr = Number(getVal(record, "atrasoDias", "ATRASO_DIAS") || 0);
-    const st = String(getVal(record, "status", "STATUS") || "").toLowerCase();
+    const st = String(getVal(record, "status", "STATUS") || "").toLowerCase().trim();
     const d10 = getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT", "dtEntregaReal", "DT_ENTREGA_REAL");
     const dtPrev = getVal(record, "dtPrevisao", "DT_PREVISAO");
 
@@ -138,7 +138,7 @@ export function MetasDashboardClient() {
         const pDate = new Date(dtPrev).getTime();
         const now = new Date().getTime();
         if (!isNaN(pDate) && now > pDate) {
-          atr = Math.max(1, Math.floor((now - pDate) / (1000 * 60 * 60 * 24)));
+          atr = Math.max(0, Math.floor((now - pDate) / (1000 * 60 * 60 * 24)));
         }
       } catch {}
     }
