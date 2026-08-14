@@ -8,22 +8,26 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const useSimulation = searchParams.get("simulate") === "true";
 
-    let metas: any[] = [];
+    let rawMetas: any[] = [];
 
-    // Tentar pegar do Postgres primeiro
+    // Tentar pegar do Postgres (via queryRawUnsafe para evitar discrepâncias de casing das colunas)
     try {
-      metas = await prisma.fiorixMetasDados.findMany({
-        take: 5000,
-        orderBy: {
-          dataApresentado: 'desc'
-        }
-      });
+      rawMetas = await prisma.$queryRawUnsafe(`
+        SELECT * FROM public.fiorix_metas_dados 
+        ORDER BY COALESCE("DATA_APRESENTADO", data_apresentado) DESC 
+        LIMIT 5000
+      `);
     } catch (dbError) {
-      console.warn("Postgres fetch error for Metas:", dbError);
+      // Se queryRaw falhar por causa da ordenação, tenta sem ORDER BY
+      try {
+        rawMetas = await prisma.$queryRawUnsafe(`SELECT * FROM public.fiorix_metas_dados LIMIT 5000`);
+      } catch (err2) {
+        console.warn("Postgres fetch error for Metas:", err2);
+      }
     }
 
     // Fallback para SQL Server se estiver vazio ou com erro
-    if (!metas || metas.length === 0) {
+    if (!rawMetas || rawMetas.length === 0) {
       const server = process.env.MSSQL_SERVER;
       const user = process.env.MSSQL_USER;
       const password = process.env.MSSQL_PASSWORD;
@@ -56,32 +60,7 @@ export async function GET(request: Request) {
             .request()
             .query(`EXEC pr_Fiorix_BI_METAS`);
 
-          metas = result.recordset.map((row: any) => ({
-            protocolo: row.PROTOCOLO || row.protocolo,
-            dataApresentado: row.DATA_APRESENTADO || row.data_apresentado,
-            dtPrevisao: row.DT_PREVISAO || row.dt_previsao,
-            dtEntregaReal: row.DT_ENTREGA_REAL || row.dt_entrega_real,
-            status: row.STATUS || row.status,
-            atrasoDias: row.ATRASO_DIAS || row.atraso_dias,
-            d1Protocolo: row.D1_PROTOCOLO || row.d1_protocolo,
-            d1Escaneamento: row.D1_ESCANEAMENTO || row.d1_escaneamento,
-            d2Contraditorio: row.D2_CONTRADITORIO || row.d2_contraditorio,
-            d3Extrato: row.D3_EXTRATO || row.d3_extrato,
-            d4Qualificacao: row.D4_QUALIFICACAO || row.d4_qualificacao,
-            d5Calculo: row.D5_CALCULO || row.d5_calculo,
-            d8Impressao: row.D8_IMPRESSAO || row.d8_impressao,
-            d9Preparacao: row.D9_PREPARACAO || row.d9_preparacao,
-            d9Conferencia: row.D9_CONFERENCIA || row.d9_conferencia,
-            d10Entrega: row.D10_ENTREGA || row.d10_entrega,
-            qtdRetrabalho: row.QTD_RETRABALHO || row.qtd_retrabalho,
-            diasD1D2: row.DIAS_D1_D2 || row.dias_d1_d2,
-            diasD2D3: row.DIAS_D2_D3 || row.dias_d2_d3,
-            diasD3D4: row.DIAS_D3_D4 || row.dias_d3_d4,
-            diasD4D5: row.DIAS_D4_D5 || row.dias_d4_d5,
-            diasD5D8: row.DIAS_D5_D8 || row.dias_d5_d8,
-            diasD8D9: row.DIAS_D8_D9 || row.dias_d8_d9,
-          }));
-
+          rawMetas = result.recordset || [];
           await sql.close();
         } catch (mssqlError) {
           console.error("MSSQL fallback error for Metas:", mssqlError);
@@ -89,9 +68,75 @@ export async function GET(request: Request) {
       }
     }
 
-    // Fallback Mocked se tudo falhar
+    // Normalizador Universal de Atributos (suporta UPPERCASE, lowercase, aliases e camelCase)
+    const normalizeRow = (row: any) => {
+      const getVal = (...keys: string[]) => {
+        for (const k of keys) {
+          if (row[k] !== undefined && row[k] !== null) return row[k];
+        }
+        return null;
+      };
+
+      return {
+        protocolo: Number(getVal("PROTOCOLO", "protocolo", "Protocolo")),
+        dataApresentado: getVal("DATA_APRESENTADO", "data_apresentado", "dataApresentado"),
+        dtPrevisao: getVal("DT_PREVISAO", "dt_previsao", "dtPrevisao"),
+        dtEntregaReal: getVal("DT_ENTREGA_REAL", "dt_entrega_real", "dtEntregaReal"),
+        status: getVal("STATUS", "status", "Status") || "No Prazo",
+        atrasoDias: Number(getVal("ATRASO_DIAS", "atraso_dias", "atrasoDias") || 0),
+        
+        d1Protocolo: getVal("D1_PROTOCOLO", "d1_protocolo", "d1Protocolo", "D1_PROT"),
+        d1Escaneamento: getVal("D1_ESCANEAMENTO", "d1_escaneamento", "d1Escaneamento", "D1_ESCAN"),
+        d2Contraditorio: getVal("D2_CONTRADITORIO", "d2_contraditorio", "d2Contraditorio", "D2_CONTRAD"),
+        d3Extrato: getVal("D3_EXTRATO", "d3_extrato", "d3Extrato", "D3_EXTR"),
+        d4Qualificacao: getVal("D4_QUALIFICACAO", "d4_qualificacao", "d4Qualificacao", "D4_QUALI"),
+        d5Calculo: getVal("D5_CALCULO", "d5_calculo", "d5Calculo", "D5_CALC"),
+        d8Impressao: getVal("D8_IMPRESSAO", "d8_impressao", "d8Impressao", "D8_IMP"),
+        d9Preparacao: getVal("D9_PREPARACAO", "d9_preparacao", "d9Preparacao", "D9_PREP"),
+        d9Conferencia: getVal("D9_CONFERENCIA", "d9_conferencia", "d9Conferencia", "D9_CONF"),
+        d10Entrega: getVal("D10_ENTREGA", "d10_entrega", "d10Entrega", "D10_ENT"),
+        
+        qtdRetrabalho: Number(getVal("QTD_RETRABALHO", "qtd_retrabalho", "qtdRetrabalho") || 0),
+        
+        diasD1D2: getVal("DIAS_D1_D2", "dias_d1_d2", "diasD1D2") !== null ? Number(getVal("DIAS_D1_D2", "dias_d1_d2", "diasD1D2")) : null,
+        diasD2D3: getVal("DIAS_D2_D3", "dias_d2_d3", "diasD2D3") !== null ? Number(getVal("DIAS_D2_D3", "dias_d2_d3", "diasD2D3")) : null,
+        diasD3D4: getVal("DIAS_D3_D4", "dias_d3_d4", "diasD3D4") !== null ? Number(getVal("DIAS_D3_D4", "dias_d3_d4", "diasD3D4")) : null,
+        diasD4D5: getVal("DIAS_D4_D5", "dias_d4_d5", "diasD4D5") !== null ? Number(getVal("DIAS_D4_D5", "dias_d4_d5", "diasD4D5")) : null,
+        diasD5D8: getVal("DIAS_D5_D8", "dias_d5_d8", "diasD5D8") !== null ? Number(getVal("DIAS_D5_D8", "dias_d5_d8", "diasD5D8")) : null,
+        diasD8D9: getVal("DIAS_D8_D9", "dias_d8_d9", "diasD8D9") !== null ? Number(getVal("DIAS_D8_D9", "dias_d8_d9", "diasD8D9")) : null,
+      };
+    };
+
+    let metas = (rawMetas || []).map(normalizeRow);
+
+    // Fallback Mocked se tudo falhar (para testes do layout conforme prompt 629999 e 642139)
     if (!metas || metas.length === 0 || useSimulation) {
       metas = [
+        {
+          protocolo: 642139,
+          dataApresentado: new Date("2026-08-14T08:33:00Z"),
+          dtPrevisao: new Date("2026-08-18T00:00:00Z"),
+          dtEntregaReal: null,
+          status: "Em dia",
+          atrasoDias: 0,
+          d1Protocolo: new Date("2026-08-14T08:33:00Z"),
+          d1Escaneamento: null,
+          d2Contraditorio: null,
+          d3Extrato: null,
+          d4Qualificacao: null,
+          d5Calculo: null,
+          d8Impressao: null,
+          d9Preparacao: null,
+          d9Conferencia: null,
+          d10Entrega: null,
+          qtdRetrabalho: 0,
+          diasD1D2: 0,
+          diasD2D3: null,
+          diasD3D4: null,
+          diasD4D5: null,
+          diasD5D8: null,
+          diasD8D9: null,
+        },
         {
           protocolo: 629999,
           dataApresentado: new Date("2026-04-16T12:04:00Z"),
@@ -114,31 +159,6 @@ export async function GET(request: Request) {
           diasD2D3: 1,
           diasD3D4: 7,
           diasD4D5: 3,
-          diasD5D8: 0,
-          diasD8D9: 0,
-        },
-        {
-          protocolo: 630000,
-          dataApresentado: new Date("2026-04-17T10:00:00Z"),
-          dtPrevisao: new Date("2026-04-20T00:00:00Z"),
-          dtEntregaReal: new Date("2026-04-19T00:00:00Z"),
-          status: "No Prazo",
-          atrasoDias: 0,
-          d1Protocolo: new Date("2026-04-17T10:00:00Z"),
-          d1Escaneamento: null,
-          d2Contraditorio: new Date("2026-04-17T14:00:00Z"),
-          d3Extrato: new Date("2026-04-18T10:00:00Z"),
-          d4Qualificacao: new Date("2026-04-19T10:00:00Z"),
-          d5Calculo: new Date("2026-04-19T12:00:00Z"),
-          d8Impressao: new Date("2026-04-19T12:30:00Z"),
-          d9Preparacao: new Date("2026-04-19T12:45:00Z"),
-          d9Conferencia: null,
-          d10Entrega: new Date("2026-04-19T13:00:00Z"),
-          qtdRetrabalho: 0,
-          diasD1D2: 0,
-          diasD2D3: 1,
-          diasD3D4: 1,
-          diasD4D5: 0,
           diasD5D8: 0,
           diasD8D9: 0,
         }

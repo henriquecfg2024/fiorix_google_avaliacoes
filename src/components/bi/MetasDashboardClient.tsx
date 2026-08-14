@@ -9,33 +9,34 @@ import {
 import { 
   Target, AlertCircle, Clock, TrendingUp, Search, Filter, Loader2, Download,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet,
-  X, AlertTriangle, Calendar, Layers, Activity
+  X, AlertTriangle, Calendar, Activity
 } from "lucide-react";
 
 type MetasData = {
   protocolo: number;
-  dataApresentado: string;
-  dtPrevisao: string;
-  dtEntregaReal: string;
-  status: string;
-  atrasoDias: number;
-  d1Protocolo: string;
+  dataApresentado?: string;
+  dtPrevisao?: string;
+  dtEntregaReal?: string;
+  status?: string;
+  atrasoDias?: number;
+  d1Protocolo?: string;
   d1Escaneamento?: string;
-  d2Contraditorio: string;
-  d3Extrato: string;
-  d4Qualificacao: string;
-  d5Calculo: string;
-  d8Impressao: string;
-  d9Preparacao: string;
+  d2Contraditorio?: string;
+  d3Extrato?: string;
+  d4Qualificacao?: string;
+  d5Calculo?: string;
+  d8Impressao?: string;
+  d9Preparacao?: string;
   d9Conferencia?: string;
-  d10Entrega: string;
+  d10Entrega?: string;
   qtdRetrabalho?: number;
-  diasD1D2: number;
-  diasD2D3: number;
-  diasD3D4: number;
-  diasD4D5: number;
-  diasD5D8: number;
-  diasD8D9: number;
+  diasD1D2?: number | null;
+  diasD2D3?: number | null;
+  diasD3D4?: number | null;
+  diasD4D5?: number | null;
+  diasD5D8?: number | null;
+  diasD8D9?: number | null;
+  [key: string]: any;
 };
 
 export function MetasDashboardClient() {
@@ -75,34 +76,77 @@ export function MetasDashboardClient() {
     setCurrentPage(1);
   }, [search, statusFilter, gargaloFilter, itemsPerPage]);
 
+  // Helper universal para pegar valor ignorando casing e aliases
+  const getVal = (record: any, ...keys: string[]) => {
+    if (!record) return null;
+    for (const k of keys) {
+      if (record[k] !== undefined && record[k] !== null) return record[k];
+    }
+    return null;
+  };
+
   // Format date helper
-  const formatDate = (dateStr: string | null | undefined) => {
-    if (!dateStr) return "-";
+  const formatDate = (val: any) => {
+    if (!val) return "-";
     try {
-      return format(new Date(dateStr), "dd/MM HH:mm", { locale: ptBR });
+      const d = new Date(val);
+      if (isNaN(d.getTime())) return "-";
+      return format(d, "dd/MM HH:mm", { locale: ptBR });
     } catch {
       return "-";
     }
   };
 
-  // Determine the bottleneck phase for a given record
-  const getGargaloForRecord = (record: MetasData) => {
-    const phases = [
-      { name: "PROTOCOLO -> CONTRADITORIO", dias: record.diasD1D2 || 0 },
-      { name: "CONTRADITORIO -> EXTRATO", dias: record.diasD2D3 || 0 },
-      { name: "EXTRATO -> QUALIFICACAO", dias: record.diasD3D4 || 0 },
-      { name: "QUALIFICACAO -> CALCULO", dias: record.diasD4D5 || 0 },
-      { name: "CALCULO -> IMPRESSAO", dias: record.diasD5D8 || 0 },
-      { name: "IMPRESSAO -> PREPARACAO", dias: record.diasD8D9 || 0 },
-    ];
+  // Safe diff calculation in days between two date fields
+  const calculateDaysBetween = (startVal: any, endVal: any, givenDaysVal: any) => {
+    if (givenDaysVal !== null && givenDaysVal !== undefined) {
+      return Number(givenDaysVal);
+    }
+    if (!startVal) return null;
+    if (!endVal) return null; // Fase ainda não aconteceu
     
+    try {
+      const dStart = new Date(startVal).getTime();
+      const dEnd = new Date(endVal).getTime();
+      if (isNaN(dStart) || isNaN(dEnd)) return null;
+      const diff = Math.max(0, Math.floor((dEnd - dStart) / (1000 * 60 * 60 * 24)));
+      return diff;
+    } catch {
+      return null;
+    }
+  };
+
+  // Determine phases and bottleneck for a given record
+  const getPhasesForRecord = (record: MetasData) => {
+    const d1 = getVal(record, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT");
+    const d1E = getVal(record, "d1Escaneamento", "D1_ESCANEAMENTO", "D1_ESCAN");
+    const d2 = getVal(record, "d2Contraditorio", "D2_CONTRADITORIO", "D2_CONTRAD");
+    const d3 = getVal(record, "d3Extrato", "D3_EXTRATO", "D3_EXTR");
+    const d4 = getVal(record, "d4Qualificacao", "D4_QUALIFICACAO", "D4_QUALI");
+    const d5 = getVal(record, "d5Calculo", "D5_CALCULO", "D5_CALC");
+    const d8 = getVal(record, "d8Impressao", "D8_IMPRESSAO", "D8_IMP");
+    const d9 = getVal(record, "d9Preparacao", "D9_PREPARACAO", "D9_PREP");
+
+    const phases = [
+      { name: "PROTOCOLO -> CONTRADITORIO", dias: calculateDaysBetween(d1, d2, getVal(record, "diasD1D2", "DIAS_D1_D2")) },
+      { name: "CONTRADITORIO -> EXTRATO", dias: calculateDaysBetween(d2, d3, getVal(record, "diasD2D3", "DIAS_D2_D3")) },
+      { name: "EXTRATO -> QUALIFICACAO", dias: calculateDaysBetween(d3, d4, getVal(record, "diasD3D4", "DIAS_D3_D4")) },
+      { name: "QUALIFICACAO -> CALCULO", dias: calculateDaysBetween(d4, d5, getVal(record, "diasD4D5", "DIAS_D4_D5")) },
+      { name: "CALCULO -> IMPRESSAO", dias: calculateDaysBetween(d5, d8, getVal(record, "diasD5D8", "DIAS_D5_D8")) },
+      { name: "IMPRESSAO -> PREPARACAO", dias: calculateDaysBetween(d8, d9, getVal(record, "diasD8D9", "DIAS_D8_D9")) },
+    ];
+
     let max = phases[0];
     for (const phase of phases) {
-      if (phase.dias > max.dias) {
+      if ((phase.dias || 0) > (max.dias || 0)) {
         max = phase;
       }
     }
-    return max;
+    return { phases, topGargalo: max };
+  };
+
+  const getGargaloForRecord = (record: MetasData) => {
+    return getPhasesForRecord(record).topGargalo;
   };
 
   // Calculate chart data & KPIs
@@ -126,10 +170,12 @@ export function MetasDashboardClient() {
     const gargaloCounts: Record<string, number> = {};
 
     data.forEach(item => {
-      const st = item.status || "Desconhecido";
+      const st = String(getVal(item, "status", "STATUS") || "Desconhecido");
+      const atrasoDias = Number(getVal(item, "atrasoDias", "ATRASO_DIAS") || 0);
+
       statusSet.add(st);
 
-      const isLate = (item.atrasoDias || 0) > 0 || st.toLowerCase().includes("atraso");
+      const isLate = atrasoDias > 0 || st.toLowerCase().includes("atraso");
       if (isLate) {
         if (st.toLowerCase().includes("entregue")) {
           entregueComAtraso++;
@@ -138,16 +184,16 @@ export function MetasDashboardClient() {
         }
       }
 
-      const gargalo = getGargaloForRecord(item);
-      gargaloSet.add(gargalo.name);
-      gargaloCounts[gargalo.name] = (gargaloCounts[gargalo.name] || 0) + 1;
+      const { phases, topGargalo } = getPhasesForRecord(item);
+      gargaloSet.add(topGargalo.name);
+      gargaloCounts[topGargalo.name] = (gargaloCounts[topGargalo.name] || 0) + 1;
 
-      if (item.diasD1D2 !== null && item.diasD1D2 !== undefined) { phaseSums.D1_D2.sum += item.diasD1D2; phaseSums.D1_D2.count++; }
-      if (item.diasD2D3 !== null && item.diasD2D3 !== undefined) { phaseSums.D2_D3.sum += item.diasD2D3; phaseSums.D2_D3.count++; }
-      if (item.diasD3D4 !== null && item.diasD3D4 !== undefined) { phaseSums.D3_D4.sum += item.diasD3D4; phaseSums.D3_D4.count++; }
-      if (item.diasD4D5 !== null && item.diasD4D5 !== undefined) { phaseSums.D4_D5.sum += item.diasD4D5; phaseSums.D4_D5.count++; }
-      if (item.diasD5D8 !== null && item.diasD5D8 !== undefined) { phaseSums.D5_D8.sum += item.diasD5D8; phaseSums.D5_D8.count++; }
-      if (item.diasD8D9 !== null && item.diasD8D9 !== undefined) { phaseSums.D8_D9.sum += item.diasD8D9; phaseSums.D8_D9.count++; }
+      if (phases[0].dias !== null) { phaseSums.D1_D2.sum += phases[0].dias; phaseSums.D1_D2.count++; }
+      if (phases[1].dias !== null) { phaseSums.D2_D3.sum += phases[1].dias; phaseSums.D2_D3.count++; }
+      if (phases[2].dias !== null) { phaseSums.D3_D4.sum += phases[2].dias; phaseSums.D3_D4.count++; }
+      if (phases[3].dias !== null) { phaseSums.D4_D5.sum += phases[3].dias; phaseSums.D4_D5.count++; }
+      if (phases[4].dias !== null) { phaseSums.D5_D8.sum += phases[4].dias; phaseSums.D5_D8.count++; }
+      if (phases[5].dias !== null) { phaseSums.D8_D9.sum += phases[5].dias; phaseSums.D8_D9.count++; }
     });
 
     let topGargaloName = "Nenhum";
@@ -184,8 +230,10 @@ export function MetasDashboardClient() {
   // Filtering
   const filteredData = useMemo(() => {
     return data.filter(item => {
-      const matchSearch = search ? String(item.protocolo).includes(search) : true;
-      const matchStatus = statusFilter !== "ALL" ? item.status === statusFilter : true;
+      const prot = String(getVal(item, "protocolo", "PROTOCOLO") || "");
+      const st = String(getVal(item, "status", "STATUS") || "");
+      const matchSearch = search ? prot.includes(search) : true;
+      const matchStatus = statusFilter !== "ALL" ? st === statusFilter : true;
       const matchGargalo = gargaloFilter !== "ALL" ? getGargaloForRecord(item).name === gargaloFilter : true;
       
       return matchSearch && matchStatus && matchGargalo;
@@ -253,21 +301,24 @@ export function MetasDashboardClient() {
 
     const rows = exportList.map(item => {
       const g = getGargaloForRecord(item);
+      const prot = getVal(item, "protocolo", "PROTOCOLO");
+      const st = getVal(item, "status", "STATUS");
+      const atr = getVal(item, "atrasoDias", "ATRASO_DIAS");
       return [
-        item.protocolo,
-        `"${(item.status || "").replace(/"/g, '""')}"`,
-        item.atrasoDias || 0,
-        `"${item.dataApresentado || ""}"`,
-        `"${item.dtPrevisao || ""}"`,
-        `"${item.dtEntregaReal || ""}"`,
-        `"${item.d1Protocolo || ""}"`,
-        `"${item.d3Extrato || ""}"`,
-        `"${item.d4Qualificacao || ""}"`,
-        `"${item.d5Calculo || ""}"`,
-        `"${item.d8Impressao || ""}"`,
-        `"${item.d10Entrega || ""}"`,
+        prot,
+        `"${(st || "").replace(/"/g, '""')}"`,
+        atr || 0,
+        `"${getVal(item, "dataApresentado", "DATA_APRESENTADO") || ""}"`,
+        `"${getVal(item, "dtPrevisao", "DT_PREVISAO") || ""}"`,
+        `"${getVal(item, "dtEntregaReal", "DT_ENTREGA_REAL") || ""}"`,
+        `"${getVal(item, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT") || ""}"`,
+        `"${getVal(item, "d3Extrato", "D3_EXTRATO", "D3_EXTR") || ""}"`,
+        `"${getVal(item, "d4Qualificacao", "D4_QUALIFICACAO", "D4_QUALI") || ""}"`,
+        `"${getVal(item, "d5Calculo", "D5_CALCULO", "D5_CALC") || ""}"`,
+        `"${getVal(item, "d8Impressao", "D8_IMPRESSAO", "D8_IMP") || ""}"`,
+        `"${getVal(item, "d10Entrega", "D10_ENTREGA", "D10_ENT") || ""}"`,
         `"${g.name}"`,
-        g.dias
+        g.dias !== null ? g.dias : 0
       ].join(",");
     });
 
@@ -469,7 +520,7 @@ export function MetasDashboardClient() {
           </div>
         </div>
 
-        {/* Tabela de Dados (Clique na linha abre Modal) */}
+        {/* Tabela de Dados */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-white/60 bg-white/[0.03] uppercase">
@@ -488,37 +539,48 @@ export function MetasDashboardClient() {
             </thead>
             <tbody>
               {paginatedData.map((row) => {
-                const isAtrasado = row.atrasoDias > 0 || String(row.status).toLowerCase().includes("atraso");
+                const prot = getVal(row, "protocolo", "PROTOCOLO");
+                const st = String(getVal(row, "status", "STATUS") || "N/A");
+                const atr = Number(getVal(row, "atrasoDias", "ATRASO_DIAS") || 0);
+
+                const isAtrasado = atr > 0 || st.toLowerCase().includes("atraso");
                 const gargalo = getGargaloForRecord(row);
                 
+                const d1Val = getVal(row, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT");
+                const d3Val = getVal(row, "d3Extrato", "D3_EXTRATO", "D3_EXTR");
+                const d4Val = getVal(row, "d4Qualificacao", "D4_QUALIFICACAO", "D4_QUALI");
+                const d5Val = getVal(row, "d5Calculo", "D5_CALCULO", "D5_CALC");
+                const d8Val = getVal(row, "d8Impressao", "D8_IMPRESSAO", "D8_IMP");
+                const d10Val = getVal(row, "d10Entrega", "D10_ENTREGA", "D10_ENT");
+
                 return (
                   <tr 
-                    key={row.protocolo} 
+                    key={prot} 
                     onClick={() => setSelectedProtocol(row)}
                     title="Clique para ver o detalhamento completo do protocolo"
                     className="border-b border-white/5 hover:bg-white/[0.06] transition-colors cursor-pointer"
                   >
-                    <td className="px-4 py-3 font-medium text-blue-400 underline decoration-blue-400/30 underline-offset-4">{row.protocolo}</td>
+                    <td className="px-4 py-3 font-medium text-blue-400 underline decoration-blue-400/30 underline-offset-4">{prot}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
                         isAtrasado ? 'bg-red-500/15 text-red-400' : 'bg-emerald-500/15 text-emerald-400'
                       }`}>
-                        {row.status || "N/A"}
+                        {st}
                       </span>
                     </td>
-                    <td className={`px-4 py-3 font-medium ${row.atrasoDias > 0 ? 'text-red-400' : 'text-white/50'}`}>
-                      {row.atrasoDias > 0 ? `${row.atrasoDias}d` : '-'}
+                    <td className={`px-4 py-3 font-medium ${atr > 0 ? 'text-red-400' : 'text-white/50'}`}>
+                      {atr > 0 ? `${atr}d` : '-'}
                     </td>
-                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(row.d1Protocolo)}</td>
-                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(row.d3Extrato)}</td>
+                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(d1Val)}</td>
+                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(d3Val)}</td>
                     <td className={`px-4 py-3 text-[11px] text-center bg-white/[0.01] ${gargalo.name.includes("EXTRATO -> QUALIFICACAO") ? "text-orange-400 font-bold" : "text-white/70"}`}>
-                      {formatDate(row.d4Qualificacao)}
+                      {formatDate(d4Val)}
                     </td>
-                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(row.d5Calculo)}</td>
-                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(row.d8Impressao)}</td>
-                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(row.d10Entrega)}</td>
+                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(d5Val)}</td>
+                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(d8Val)}</td>
+                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(d10Val)}</td>
                     <td className="px-4 py-3 text-[11px] font-medium text-purple-300">
-                      {gargalo.name} ({gargalo.dias}d)
+                      {gargalo.name} ({gargalo.dias !== null ? `${gargalo.dias}d` : '0d'})
                     </td>
                   </tr>
                 );
@@ -613,146 +675,143 @@ export function MetasDashboardClient() {
       </div>
 
       {/* MODAL / DRAWER LATERAL DIREITO - DETALHAMENTO DO PROTOCOLO */}
-      {selectedProtocol && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Backdrop (clicar fora fecha) */}
-          <div 
-            className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity animate-in fade-in"
-            onClick={() => setSelectedProtocol(null)}
-          />
+      {selectedProtocol && (() => {
+        const protNum = getVal(selectedProtocol, "protocolo", "PROTOCOLO");
+        const stStr = String(getVal(selectedProtocol, "status", "STATUS") || "Em dia");
+        const atrDias = Number(getVal(selectedProtocol, "atrasoDias", "ATRASO_DIAS") || 0);
+        const retrabalho = Number(getVal(selectedProtocol, "qtdRetrabalho", "QTD_RETRABALHO", "qtd_retrabalho") || 0);
 
-          {/* Painel Lateral */}
-          <div className="relative w-full max-w-lg bg-[#0F172A] border-l border-white/10 shadow-2xl h-full flex flex-col z-10 overflow-hidden animate-in slide-in-from-right duration-300">
-            
-            {/* Header do Drawer */}
-            <div className="p-6 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
-              <div>
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  Protocolo <span className="text-blue-400">{selectedProtocol.protocolo}</span>
-                </h2>
-                <p className="text-xs text-white/50 mt-0.5">Linha do Tempo e Detalhamento por Fase</p>
-              </div>
+        const isEntregueComAtraso = stStr.toLowerCase().includes("entregue") && (atrDias > 0 || stStr.toLowerCase().includes("atraso"));
+        const isAtrasado = !isEntregueComAtraso && (atrDias > 0 || stStr.toLowerCase().includes("atraso"));
 
-              <button
-                onClick={() => setSelectedProtocol(null)}
-                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+        // Seção 1: Mapeamento de Datas com suporte a aliases
+        const datesMap = [
+          { label: "D1_PROTOCOLO", val: getVal(selectedProtocol, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT") },
+          { label: "D1_ESCANEAMENTO", val: getVal(selectedProtocol, "d1Escaneamento", "D1_ESCANEAMENTO", "D1_ESCAN") },
+          { label: "D2_CONTRADITORIO", val: getVal(selectedProtocol, "d2Contraditorio", "D2_CONTRADITORIO", "D2_CONTRAD") },
+          { label: "D3_EXTRATO", val: getVal(selectedProtocol, "d3Extrato", "D3_EXTRATO", "D3_EXTR") },
+          { label: "D4_QUALIFICACAO", val: getVal(selectedProtocol, "d4Qualificacao", "D4_QUALIFICACAO", "D4_QUALI") },
+          { label: "D5_CALCULO", val: getVal(selectedProtocol, "d5Calculo", "D5_CALCULO", "D5_CALC") },
+          { label: "D8_IMPRESSAO", val: getVal(selectedProtocol, "d8Impressao", "D8_IMPRESSAO", "D8_IMP") },
+          { label: "D9_PREPARACAO", val: getVal(selectedProtocol, "d9Preparacao", "D9_PREPARACAO", "D9_PREP") },
+          { label: "D9_CONFERENCIA", val: getVal(selectedProtocol, "d9Conferencia", "D9_CONFERENCIA", "D9_CONF") },
+          { label: "D10_ENTREGA", val: getVal(selectedProtocol, "d10Entrega", "D10_ENTREGA", "D10_ENT") },
+        ];
 
-            {/* Conteúdo com Scroll */}
-            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+        // Seção 2: Cálculo dos Dias por Fase
+        const { phases } = getPhasesForRecord(selectedProtocol);
+        let totalDiasSoma = 0;
+        let temAlgumDia = false;
+        phases.forEach(p => {
+          if (p.dias !== null && p.dias !== undefined) {
+            totalDiasSoma += p.dias;
+            temAlgumDia = true;
+          }
+        });
+
+        return (
+          <div className="fixed inset-0 z-50 flex justify-end">
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity animate-in fade-in"
+              onClick={() => setSelectedProtocol(null)}
+            />
+
+            {/* Painel Lateral */}
+            <div className="relative w-full max-w-lg bg-[#0F172A] border-l border-white/10 shadow-2xl h-full flex flex-col z-10 overflow-hidden animate-in slide-in-from-right duration-300">
               
-              {/* Badges de Status & Atraso */}
-              <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white/5 border border-white/10 rounded-xl">
+              {/* Header do Drawer */}
+              <div className="p-6 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
                 <div>
-                  <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1">Status do Pedido</p>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                    String(selectedProtocol.status).toLowerCase().includes("entregue")
-                      ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
-                      : (selectedProtocol.atrasoDias || 0) > 0 || String(selectedProtocol.status).toLowerCase().includes("atraso")
-                        ? 'bg-red-500/20 text-red-300 border border-red-500/30'
-                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                  }`}>
-                    {selectedProtocol.status || "N/A"}
-                  </span>
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    Protocolo <span className="text-blue-400">{protNum}</span>
+                  </h2>
+                  <p className="text-xs text-white/50 mt-0.5">Linha do Tempo e Detalhamento por Fase</p>
                 </div>
 
-                <div className="text-right">
-                  <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1">Dias de Atraso</p>
-                  <span className={`text-sm font-bold ${selectedProtocol.atrasoDias > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                    {selectedProtocol.atrasoDias > 0 ? `${selectedProtocol.atrasoDias} dias de atraso` : 'Em dia'}
-                  </span>
-                </div>
+                <button
+                  onClick={() => setSelectedProtocol(null)}
+                  className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              {/* Alerta de Retrabalho */}
-              {(selectedProtocol.qtdRetrabalho || 0) > 0 && (
-                <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-center gap-3 text-yellow-300 text-xs font-medium">
-                  <AlertTriangle className="w-5 h-5 shrink-0 text-yellow-400" />
-                  <div>
-                    <p className="font-bold">Atenção: Retrabalho Registrado</p>
-                    <p className="text-yellow-300/80 text-[11px] mt-0.5">
-                      Este protocolo teve {selectedProtocol.qtdRetrabalho} reanálise(s) de retrabalho na esteira.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Seção 1 - Datas das Fases */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold text-white/70 uppercase tracking-wider flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-blue-400" /> Seção 1 - Datas das Fases
-                </h3>
+              {/* Conteúdo com Scroll */}
+              <div className="p-6 overflow-y-auto space-y-6 flex-1">
                 
-                <div className="bg-white/5 border border-white/10 rounded-xl divide-y divide-white/5 text-xs">
-                  <div className="p-3 flex justify-between items-center">
-                    <span className="text-white/60">D1_PROTOCOLO:</span>
-                    <span className="font-medium text-white">{formatDate(selectedProtocol.d1Protocolo)}</span>
+                {/* Badges de Status & Atraso Sem Duplicidade */}
+                <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white/5 border border-white/10 rounded-xl">
+                  <div>
+                    <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1">Status do Pedido</p>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      isEntregueComAtraso
+                        ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+                        : isAtrasado
+                          ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    }`}>
+                      {stStr}
+                    </span>
                   </div>
-                  <div className="p-3 flex justify-between items-center">
-                    <span className="text-white/60">D1_ESCANEAMENTO:</span>
-                    <span className="font-medium text-white">{formatDate(selectedProtocol.d1Escaneamento)}</span>
-                  </div>
-                  <div className="p-3 flex justify-between items-center">
-                    <span className="text-white/60">D2_CONTRADITORIO:</span>
-                    <span className="font-medium text-white">{formatDate(selectedProtocol.d2Contraditorio)}</span>
-                  </div>
-                  <div className="p-3 flex justify-between items-center">
-                    <span className="text-white/60">D3_EXTRATO:</span>
-                    <span className="font-medium text-white">{formatDate(selectedProtocol.d3Extrato)}</span>
-                  </div>
-                  <div className="p-3 flex justify-between items-center">
-                    <span className="text-white/60">D4_QUALIFICACAO:</span>
-                    <span className="font-medium text-white">{formatDate(selectedProtocol.d4Qualificacao)}</span>
-                  </div>
-                  <div className="p-3 flex justify-between items-center">
-                    <span className="text-white/60">D5_CALCULO:</span>
-                    <span className="font-medium text-white">{formatDate(selectedProtocol.d5Calculo)}</span>
-                  </div>
-                  <div className="p-3 flex justify-between items-center">
-                    <span className="text-white/60">D8_IMPRESSAO:</span>
-                    <span className="font-medium text-white">{formatDate(selectedProtocol.d8Impressao)}</span>
-                  </div>
-                  <div className="p-3 flex justify-between items-center">
-                    <span className="text-white/60">D9_PREPARACAO:</span>
-                    <span className="font-medium text-white">{formatDate(selectedProtocol.d9Preparacao)}</span>
-                  </div>
-                  <div className="p-3 flex justify-between items-center">
-                    <span className="text-white/60">D9_CONFERENCIA:</span>
-                    <span className="font-medium text-white">{formatDate(selectedProtocol.d9Conferencia)}</span>
-                  </div>
-                  <div className="p-3 flex justify-between items-center">
-                    <span className="text-white/60">D10_ENTREGA:</span>
-                    <span className="font-medium text-white">{formatDate(selectedProtocol.d10Entrega)}</span>
+
+                  <div className="text-right">
+                    <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1">Dias de Atraso</p>
+                    <span className={`text-sm font-bold ${atrDias > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                      {atrDias > 0 ? `${atrDias}d` : '0d'}
+                    </span>
                   </div>
                 </div>
-              </div>
 
-              {/* Seção 2 - Quadro de Dias por Fase */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold text-white/70 uppercase tracking-wider flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-purple-400" /> Seção 2 - Quadro de Dias por Fase
-                </h3>
+                {/* Alerta de Retrabalho */}
+                {retrabalho > 0 && (
+                  <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-center gap-3 text-yellow-300 text-xs font-medium">
+                    <AlertTriangle className="w-5 h-5 shrink-0 text-yellow-400" />
+                    <div>
+                      <p className="font-bold">Atenção: Retrabalho Registrado ({retrabalho})</p>
+                      <p className="text-yellow-300/80 text-[11px] mt-0.5">
+                        Este protocolo passou por {retrabalho} reanálise(s) de retrabalho.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 text-xs">
-                  {[
-                    { label: "Prot. -> Contrad.", dias: selectedProtocol.diasD1D2 || 0 },
-                    { label: "Contrad. -> Extr.", dias: selectedProtocol.diasD2D3 || 0 },
-                    { label: "Extr. -> Qualif.", dias: selectedProtocol.diasD3D4 || 0 },
-                    { label: "Qualif. -> Calc.", dias: selectedProtocol.diasD4D5 || 0 },
-                    { label: "Calc. -> Impres.", dias: selectedProtocol.diasD5D8 || 0 },
-                    { label: "Impres. -> Prep.", dias: selectedProtocol.diasD8D9 || 0 },
-                  ].map((phase, idx) => {
-                    const isGargalo = phase.dias > 3;
-                    return (
-                      <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02]">
-                        <span className="text-white/70 font-medium">{phase.label}</span>
-                        <div className="flex items-center gap-2">
-                          <span className={`font-bold ${isGargalo ? "text-red-400" : "text-white"}`}>
-                            {phase.dias}d
-                          </span>
+                {/* Seção 1 - Datas das Fases */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold text-white/70 uppercase tracking-wider flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-blue-400" /> Seção 1 - Datas das Fases
+                  </h3>
+                  
+                  <div className="bg-white/5 border border-white/10 rounded-xl divide-y divide-white/5 text-xs">
+                    {datesMap.map((d, idx) => (
+                      <div key={idx} className="p-3 flex justify-between items-center">
+                        <span className="text-white/60 font-mono">{d.label}:</span>
+                        <span className={`font-medium ${d.val ? 'text-white' : 'text-white/30'}`}>
+                          {formatDate(d.val)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Seção 2 - Quadro de Dias por Fase */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold text-white/70 uppercase tracking-wider flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-purple-400" /> Seção 2 - Quadro de Dias por Fase
+                  </h3>
+
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 text-xs">
+                    {phases.map((phase, idx) => {
+                      const hasDays = phase.dias !== null && phase.dias !== undefined;
+                      const isGargalo = hasDays && phase.dias > 3;
+
+                      return (
+                        <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02]">
+                          <span className="text-white/70 font-medium">{phase.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`font-bold ${isGargalo ? "text-red-400" : hasDays ? "text-white" : "text-white/30"}`}>
+                              {hasDays ? `${phase.dias}d` : "-"}
+                            </span>
                           {isGargalo && (
                             <span className="px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/30 text-[10px] font-bold">
                               Gargalo
@@ -767,12 +826,7 @@ export function MetasDashboardClient() {
                   <div className="pt-3 border-t border-white/10 flex items-center justify-between font-bold text-sm text-white">
                     <span className="text-purple-300">TOTAL DE DIAS NA ESTEIRA:</span>
                     <span className="text-purple-400 bg-purple-500/10 border border-purple-500/30 px-3 py-1 rounded-lg">
-                      {(selectedProtocol.diasD1D2 || 0) + 
-                       (selectedProtocol.diasD2D3 || 0) + 
-                       (selectedProtocol.diasD3D4 || 0) + 
-                       (selectedProtocol.diasD4D5 || 0) + 
-                       (selectedProtocol.diasD5D8 || 0) + 
-                       (selectedProtocol.diasD8D9 || 0)} dias
+                      {temAlgumDia ? `${totalDiasSoma} dias` : '-'}
                     </span>
                   </div>
                 </div>
@@ -791,7 +845,8 @@ export function MetasDashboardClient() {
             </div>
           </div>
         </div>
-      )}
+      );
+    })()}
     </div>
   );
 }
