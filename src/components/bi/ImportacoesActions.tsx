@@ -267,7 +267,7 @@ export function ImportacoesActions() {
 
             if (!res.ok) {
               const errData = await res.json().catch(() => ({ error: "Erro desconhecido" }));
-              throw new Error(errData.error || \`Falha no lote \${batchNumber}/\${totalBatches}\`);
+              throw new Error(errData.error || `Falha no lote ${batchNumber}/${totalBatches}`);
             }
 
             const result = await res.json().catch(() => ({ success: true, count: batch.length }));
@@ -278,11 +278,11 @@ export function ImportacoesActions() {
             });
           }
 
-          toast.success(\`Importação de \${importedTotal.toLocaleString("pt-BR")} metas concluída!\`);
+          toast.success(`Importação de ${importedTotal.toLocaleString("pt-BR")} metas concluída!`);
           router.refresh();
         } catch (err: any) {
           console.error("Erro na importação de metas:", err);
-          toast.error(\`Erro ao salvar metas: \${err.message}\`);
+          toast.error(`Erro ao salvar metas: ${err.message}`);
         } finally {
           setIsImportingMetas(false);
         }
