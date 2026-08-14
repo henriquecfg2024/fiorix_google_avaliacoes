@@ -9,8 +9,22 @@ import {
 import { 
   Target, AlertCircle, Clock, TrendingUp, Search, Filter, Loader2, Download,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet,
-  X, AlertTriangle, Calendar, Activity
+  X, AlertTriangle, Calendar, Activity, ArrowUpDown, ArrowUp, ArrowDown
 } from "lucide-react";
+
+type SortField = 
+  | "protocolo" 
+  | "status" 
+  | "atraso" 
+  | "d1Protocolo" 
+  | "d3Extrato" 
+  | "d4Qualificacao" 
+  | "d5Calculo" 
+  | "d8Impressao" 
+  | "d10Entrega" 
+  | "gargalo";
+
+type SortOrder = "asc" | "desc";
 
 type MetasData = {
   protocolo: number;
@@ -45,6 +59,8 @@ export function MetasDashboardClient() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [gargaloFilter, setGargaloFilter] = useState("ALL");
+  const [sortField, setSortField] = useState<SortField>("protocolo");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
   // Drawer/Modal State
   const [selectedProtocol, setSelectedProtocol] = useState<MetasData | null>(null);
@@ -71,10 +87,10 @@ export function MetasDashboardClient() {
     fetchData();
   }, []);
 
-  // Reset page when filters change
+  // Reset page when filters or sorting change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, statusFilter, gargaloFilter, itemsPerPage]);
+  }, [search, statusFilter, gargaloFilter, itemsPerPage, sortField, sortOrder]);
 
   // Helper universal para pegar valor ignorando casing e aliases
   const getVal = (record: any, ...keys: string[]) => {
@@ -354,9 +370,9 @@ export function MetasDashboardClient() {
     };
   }, [data]);
 
-  // Filtering
+  // Filtering & Sorting
   const filteredData = useMemo(() => {
-    return data.filter(item => {
+    const filtered = data.filter(item => {
       const prot = String(getVal(item, "protocolo", "PROTOCOLO") || "");
       const { badge } = getMetasStatusAndAtraso(item);
       
@@ -366,7 +382,91 @@ export function MetasDashboardClient() {
       
       return matchSearch && matchStatus && matchGargalo;
     });
-  }, [data, search, statusFilter, gargaloFilter]);
+
+    return [...filtered].sort((a, b) => {
+      let valA: any = null;
+      let valB: any = null;
+
+      switch (sortField) {
+        case "protocolo":
+          valA = Number(getVal(a, "protocolo", "PROTOCOLO")) || 0;
+          valB = Number(getVal(b, "protocolo", "PROTOCOLO")) || 0;
+          break;
+        case "atraso":
+          valA = getMetasStatusAndAtraso(a).atrasoDias;
+          valB = getMetasStatusAndAtraso(b).atrasoDias;
+          break;
+        case "status":
+          valA = getMetasStatusAndAtraso(a).badge.text;
+          valB = getMetasStatusAndAtraso(b).badge.text;
+          break;
+        case "gargalo":
+          valA = getGargaloForRecord(a).name;
+          valB = getGargaloForRecord(b).name;
+          break;
+        case "d1Protocolo":
+          valA = getVal(a, "d1Protocolo", "D1_PROTOCOLO", "DATA_APRESENTADO");
+          valB = getVal(b, "d1Protocolo", "D1_PROTOCOLO", "DATA_APRESENTADO");
+          break;
+        case "d3Extrato":
+          valA = getVal(a, "d3Extrato", "D3_EXTRATO");
+          valB = getVal(b, "d3Extrato", "D3_EXTRATO");
+          break;
+        case "d4Qualificacao":
+          valA = getVal(a, "d4Qualificacao", "D4_QUALIFICACAO");
+          valB = getVal(b, "d4Qualificacao", "D4_QUALIFICACAO");
+          break;
+        case "d5Calculo":
+          valA = getVal(a, "d5Calculo", "D5_CALCULO");
+          valB = getVal(b, "d5Calculo", "D5_CALCULO");
+          break;
+        case "d8Impressao":
+          valA = getVal(a, "d8Impressao", "D8_IMPRESSAO");
+          valB = getVal(b, "d8Impressao", "D8_IMPRESSAO");
+          break;
+        case "d10Entrega":
+          valA = getVal(a, "d10Entrega", "D10_ENTREGA");
+          valB = getVal(b, "d10Entrega", "D10_ENTREGA");
+          break;
+        default:
+          valA = getVal(a, sortField);
+          valB = getVal(b, sortField);
+      }
+
+      if (valA === valB) return 0;
+      if (valA === null || valA === undefined || valA === "") return 1;
+      if (valB === null || valB === undefined || valB === "") return -1;
+
+      let res = 0;
+      if (typeof valA === "number" && typeof valB === "number") {
+        res = valA - valB;
+      } else {
+        res = String(valA).localeCompare(String(valB), "pt-BR", { numeric: true });
+      }
+
+      return sortOrder === "asc" ? res : -res;
+    });
+  }, [data, search, statusFilter, gargaloFilter, sortField, sortOrder]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(prev => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortOrder(field === "atraso" || field === "protocolo" || field.startsWith("d") ? "desc" : "asc");
+    }
+  };
+
+  const renderSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-3 w-3 text-white/30 group-hover:text-white/70 transition-colors inline ml-1" />;
+    }
+    return sortOrder === "asc" ? (
+      <ArrowUp className="h-3 w-3 text-purple-400 inline ml-1" />
+    ) : (
+      <ArrowDown className="h-3 w-3 text-purple-400 inline ml-1" />
+    );
+  };
 
   // Pagination Calculations
   const totalFiltered = filteredData.length;
@@ -632,6 +732,30 @@ export function MetasDashboardClient() {
               </select>
             </div>
 
+            {/* Ordenação */}
+            <div className="flex items-center gap-2 bg-[#0F172A] border border-white/10 rounded-lg px-3 py-1.5">
+              <ArrowUpDown className="h-3.5 w-3.5 text-purple-400" />
+              <select 
+                className="bg-transparent text-sm text-white focus:outline-none appearance-none pr-4 max-w-[170px] truncate"
+                value={`${sortField}-${sortOrder}`}
+                onChange={(e) => {
+                  const [field, order] = e.target.value.split("-") as [SortField, SortOrder];
+                  setSortField(field);
+                  setSortOrder(order);
+                }}
+              >
+                <option value="protocolo-desc">Protocolo (Decrescente)</option>
+                <option value="protocolo-asc">Protocolo (Crescente)</option>
+                <option value="atraso-desc">Maior Atraso</option>
+                <option value="atraso-asc">Menor Atraso</option>
+                <option value="d1Protocolo-desc">D1 Prot (Mais Recente)</option>
+                <option value="d1Protocolo-asc">D1 Prot (Mais Antigo)</option>
+                <option value="status-asc">Status (A-Z)</option>
+                <option value="status-desc">Status (Z-A)</option>
+                <option value="gargalo-asc">Gargalo (A-Z)</option>
+              </select>
+            </div>
+
             {/* Botões Exportar CSV */}
             <button
               onClick={() => handleExportCSV(paginatedData, `metas_pagina_${currentPage}`)}
@@ -654,18 +778,88 @@ export function MetasDashboardClient() {
         {/* Tabela de Dados */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="text-xs text-white/60 bg-white/[0.03] uppercase">
+            <thead className="text-xs text-white/60 bg-white/[0.03] uppercase select-none">
               <tr>
-                <th className="px-4 py-3 font-semibold">Protocolo</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
-                <th className="px-4 py-3 font-semibold">Atraso</th>
-                <th className="px-4 py-3 font-semibold text-center bg-white/[0.01]">D1 Prot</th>
-                <th className="px-4 py-3 font-semibold text-center bg-white/[0.01]">D3 Extr</th>
-                <th className="px-4 py-3 font-semibold text-center bg-white/[0.01]">D4 Quali</th>
-                <th className="px-4 py-3 font-semibold text-center bg-white/[0.01]">D5 Calc</th>
-                <th className="px-4 py-3 font-semibold text-center bg-white/[0.01]">D8 Imp</th>
-                <th className="px-4 py-3 font-semibold text-center bg-white/[0.01]">D10 Ent</th>
-                <th className="px-4 py-3 font-semibold">Gargalo</th>
+                <th 
+                  onClick={() => handleSort("protocolo")}
+                  className="px-4 py-3 font-semibold cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                >
+                  <div className="flex items-center gap-1">
+                    Protocolo {renderSortIcon("protocolo")}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort("status")}
+                  className="px-4 py-3 font-semibold cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                >
+                  <div className="flex items-center gap-1">
+                    Status {renderSortIcon("status")}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort("atraso")}
+                  className="px-4 py-3 font-semibold cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                >
+                  <div className="flex items-center gap-1">
+                    Atraso {renderSortIcon("atraso")}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort("d1Protocolo")}
+                  className="px-4 py-3 font-semibold text-center bg-white/[0.01] cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    D1 Prot {renderSortIcon("d1Protocolo")}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort("d3Extrato")}
+                  className="px-4 py-3 font-semibold text-center bg-white/[0.01] cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    D3 Extr {renderSortIcon("d3Extrato")}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort("d4Qualificacao")}
+                  className="px-4 py-3 font-semibold text-center bg-white/[0.01] cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    D4 Quali {renderSortIcon("d4Qualificacao")}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort("d5Calculo")}
+                  className="px-4 py-3 font-semibold text-center bg-white/[0.01] cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    D5 Calc {renderSortIcon("d5Calculo")}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort("d8Impressao")}
+                  className="px-4 py-3 font-semibold text-center bg-white/[0.01] cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    D8 Imp {renderSortIcon("d8Impressao")}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort("d10Entrega")}
+                  className="px-4 py-3 font-semibold text-center bg-white/[0.01] cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    D10 Ent {renderSortIcon("d10Entrega")}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort("gargalo")}
+                  className="px-4 py-3 font-semibold cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                >
+                  <div className="flex items-center gap-1">
+                    Gargalo {renderSortIcon("gargalo")}
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>
