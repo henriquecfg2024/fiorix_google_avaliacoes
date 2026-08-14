@@ -77,15 +77,37 @@ export async function GET(request: Request) {
         return null;
       };
 
+      const dataApresentado = getVal("DATA_APRESENTADO", "data_apresentado", "dataApresentado");
+      const d1Protocolo = getVal("D1_PROTOCOLO", "d1_protocolo", "d1Protocolo", "D1_PROT");
+
+      // Datas vindas do banco podem ser serializadas em UTC. Para regra de prazo,
+      // compare o dia civil em São Paulo, sem deixar o fuso transformar 14/08 em 13/08.
+      const dateKey = (value: unknown) => {
+        if (!value) return null;
+        const text = String(value);
+        if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
+        const brDate = text.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+        if (brDate) return `${brDate[3]}-${brDate[2]}-${brDate[1]}`;
+        const date = new Date(text);
+        return Number.isNaN(date.getTime()) ? null : new Intl.DateTimeFormat("en-CA", {
+          timeZone: "America/Sao_Paulo",
+        }).format(date);
+      };
+      const todayKey = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Sao_Paulo",
+      }).format(new Date());
+      const isProtocolOfToday = [dataApresentado, d1Protocolo]
+        .some((value) => dateKey(value) === todayKey);
+
       return {
         protocolo: Number(getVal("PROTOCOLO", "protocolo", "Protocolo")),
-        dataApresentado: getVal("DATA_APRESENTADO", "data_apresentado", "dataApresentado"),
+        dataApresentado,
         dtPrevisao: getVal("DT_PREVISAO", "dt_previsao", "dtPrevisao"),
         dtEntregaReal: getVal("DT_ENTREGA_REAL", "dt_entrega_real", "dtEntregaReal"),
-        status: getVal("STATUS", "status", "Status") || "No Prazo",
-        atrasoDias: Number(getVal("ATRASO_DIAS", "atraso_dias", "atrasoDias") || 0),
+        status: isProtocolOfToday ? "Em dia" : (getVal("STATUS", "status", "Status") || "No Prazo"),
+        atrasoDias: isProtocolOfToday ? 0 : Number(getVal("ATRASO_DIAS", "atraso_dias", "atrasoDias") || 0),
         
-        d1Protocolo: getVal("D1_PROTOCOLO", "d1_protocolo", "d1Protocolo", "D1_PROT"),
+        d1Protocolo,
         d1Escaneamento: getVal("D1_ESCANEAMENTO", "d1_escaneamento", "d1Escaneamento", "D1_ESCAN"),
         d2Contraditorio: getVal("D2_CONTRADITORIO", "d2_contraditorio", "d2Contraditorio", "D2_CONTRAD"),
         d3Extrato: getVal("D3_EXTRATO", "d3_extrato", "d3Extrato", "D3_EXTR"),

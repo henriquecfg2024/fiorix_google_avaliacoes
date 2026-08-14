@@ -9,6 +9,39 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 
+const normalizeHeader = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+const aliases: Record<string, string[]> = {
+  PROTOCOLO: ["protocolo", "numero_protocolo", "numero", "cod_protocolo", "nr_protocolo"],
+  DATA_APRESENTADO: [
+    "data_apresentado",
+    "data_apresentacao",
+    "data_entrada",
+    "data_protocolo",
+    "dt_protocolo",
+    "DataDoTituloApresentado",
+    "d1_protocolo",
+  ],
+  DT_PREVISAO: ["dt_previsao", "dt_previsao_entrega", "data_previsao", "data_previsao_entrega"],
+  DT_ENTREGA_REAL: ["dt_entrega_real", "dt_entrega", "data_entrega", "data_entrega_real", "DtRetirada"],
+  STATUS: ["status", "situacao", "status_protocolo"],
+  ATRASO_DIAS: ["atraso_dias", "dias_atraso", "atraso"],
+};
+
+const canonicalHeader = (header: string) => {
+  const normalized = normalizeHeader(header);
+  return (
+    Object.entries(aliases).find(([, names]) =>
+      names.some((name) => normalizeHeader(name) === normalized)
+    )?.[0] || header
+  );
+};
+
 export function ImportacoesActions() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -30,8 +63,18 @@ export function ImportacoesActions() {
       header: true,
       skipEmptyLines: true,
       encoding: "UTF-8",
+      transformHeader: (header) => header.replace(/^\uFEFF/, "").trim(),
+      worker: false,
+      chunkSize: 512 * 1024,
       complete: async (results) => {
-        const rawRows = results.data;
+        const rawRows = (results.data as Record<string, any>[]).map((row) => {
+          const normalizedRow: Record<string, any> = { ...row };
+          Object.entries(row).forEach(([header, value]) => {
+            const canonical = canonicalHeader(header);
+            if (canonical !== header && normalizedRow[canonical] === undefined) normalizedRow[canonical] = value;
+          });
+          return normalizedRow;
+        });
 
         if (rawRows.length === 0) {
           toast.error("O arquivo CSV está vazio.");
@@ -104,7 +147,7 @@ export function ImportacoesActions() {
         };
 
         try {
-          const batchSize = 500;
+          const batchSize = 100;
           let importedTotal = 0;
 
           for (let start = 0; start < totalRows; start += batchSize) {
@@ -196,52 +239,61 @@ export function ImportacoesActions() {
       header: true,
       skipEmptyLines: true,
       encoding: "UTF-8",
+      transformHeader: (header) => header.replace(/^\uFEFF/, "").trim(),
       complete: async (results) => {
-        const rawRows = results.data;
-
-        if (rawRows.length === 0) {
-          toast.error("O arquivo CSV de Metas está vazio.");
-          setIsImportingMetas(false);
-          return;
-        }
-
-        // Validate required headers
-        const requiredHeaders = [
-          "PROTOCOLO", "DATA_APRESENTADO", "DT_PREVISAO", "DT_ENTREGA_REAL", "STATUS",
-          "ATRASO_DIAS", "D1_PROTOCOLO", "D1_ESCANEAMENTO", "D2_CONTRADITORIO", "D3_EXTRATO",
-          "D4_QUALIFICACAO", "D5_CALCULO", "D8_IMPRESSAO", "D9_PREPARACAO", "D9_CONFERENCIA",
-          "D10_ENTREGA", "QTD_RETRABALHO", "DIAS_D1_D2", "DIAS_D2_D3", "DIAS_D3_D4",
-          "DIAS_D4_D5", "DIAS_D5_D8", "DIAS_D8_D9"
-        ];
-        
-        const fileHeaders = results.meta.fields || [];
-        const missingHeaders = requiredHeaders.filter(h => !fileHeaders.includes(h));
-        
-        if (missingHeaders.length > 0) {
-          toast.error(`CSV inválido. Colunas faltando: ${missingHeaders.join(", ")}`);
-          setIsImportingMetas(false);
-          return;
-        }
-
-        const totalRows = rawRows.length;
-        setMetasProgress({ current: 0, total: totalRows });
-        const importKey = crypto.randomUUID();
-
-        // Extraindo datas para o periodo
-        const dates = rawRows.map((r: any) => r.DATA_APRESENTADO).filter(Boolean).sort();
-        const periodStart = dates[0] || null;
-        const periodEnd = dates[dates.length - 1] || null;
-        
-        const importMetaBase = {
-          importKey,
-          fileName: file.name,
-          totalRows,
-          importedBy: "Manual CSV (Metas)",
-          periodStart,
-          periodEnd
-        };
-
         try {
+          const rawRows = (results.data as Record<string, any>[]).map((row) => {
+            const normalizedRow: Record<string, any> = { ...row };
+            Object.entries(row).forEach(([header, value]) => {
+              const canonical = canonicalHeader(header);
+              if (canonical !== header && normalizedRow[canonical] === undefined) {
+                normalizedRow[canonical] = value;
+              }
+              const upperClean = header.replace(/^\uFEFF/, "").trim().toUpperCase();
+              if (normalizedRow[upperClean] === undefined) {
+                normalizedRow[upperClean] = value;
+              }
+            });
+            return normalizedRow;
+          });
+
+          if (rawRows.length === 0) {
+            toast.error("O arquivo CSV de Metas está vazio.");
+            return;
+          }
+
+          const fileHeaders = results.meta.fields || [];
+          const availableHeaders = new Set(fileHeaders.map(normalizeHeader));
+          const hasProtocol = aliases.PROTOCOLO.some((name) => availableHeaders.has(normalizeHeader(name)));
+          const hasProtocolDate = [...aliases.DATA_APRESENTADO, "d1_protocolo"]
+            .some((name) => availableHeaders.has(normalizeHeader(name)));
+
+          if (!hasProtocol || !hasProtocolDate) {
+            toast.error("CSV inválido. Colunas de PROTOCOLO e/ou DATA indisponíveis.");
+            return;
+          }
+
+          const totalRows = rawRows.length;
+          setMetasProgress({ current: 0, total: totalRows });
+          const importKey = crypto.randomUUID();
+
+          // Extraindo datas para o periodo
+          const dates = rawRows
+            .map((r: any) => r.DATA_APRESENTADO || r.D1_PROTOCOLO)
+            .filter(Boolean)
+            .sort();
+          const periodStart = dates[0] || null;
+          const periodEnd = dates[dates.length - 1] || null;
+
+          const importMetaBase = {
+            importKey,
+            fileName: file.name,
+            totalRows,
+            importedBy: "Manual CSV (Metas)",
+            periodStart,
+            periodEnd,
+          };
+
           const batchSize = 500;
           let importedTotal = 0;
 
@@ -250,11 +302,14 @@ export function ImportacoesActions() {
             const batchNumber = Math.floor(start / batchSize) + 1;
             const totalBatches = Math.ceil(totalRows / batchSize);
 
+            const controller = new AbortController();
+            const timeout = window.setTimeout(() => controller.abort(), 55000);
             const res = await fetch("/api/bi/metas/import", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
               },
+              signal: controller.signal,
               body: JSON.stringify({
                 rows: batch,
                 importMeta: {
@@ -264,6 +319,7 @@ export function ImportacoesActions() {
                 },
               }),
             });
+            window.clearTimeout(timeout);
 
             if (!res.ok) {
               const errData = await res.json().catch(() => ({ error: "Erro desconhecido" }));
@@ -282,7 +338,7 @@ export function ImportacoesActions() {
           router.refresh();
         } catch (err: any) {
           console.error("Erro na importação de metas:", err);
-          toast.error(`Erro ao salvar metas: ${err.message}`);
+          toast.error(`Erro ao salvar metas: ${err.message || "Erro desconhecido"}`);
         } finally {
           setIsImportingMetas(false);
         }

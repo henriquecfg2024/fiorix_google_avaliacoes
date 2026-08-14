@@ -85,29 +85,36 @@ export function MetasDashboardClient() {
     return null;
   };
 
+  const getDateKey = (value: unknown) => {
+    if (!value) return null;
+    const text = String(value);
+    if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
+    const brDate = text.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (brDate) return `${brDate[3]}-${brDate[2]}-${brDate[1]}`;
+    const date = new Date(text);
+    if (Number.isNaN(date.getTime())) return null;
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(date);
+  };
+
   // Lógica principal de recalcular Status e Atraso zerando horas (Regra estrita)
   const getMetasStatusAndAtraso = (record: MetasData) => {
     const d10 = getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT", "dtEntregaReal", "DT_ENTREGA_REAL");
     const dtPrev = getVal(record, "dtPrevisao", "DT_PREVISAO");
-    const dataApres = getVal(record, "dataApresentado", "DATA_APRESENTADO", "d1Protocolo", "D1_PROTOCOLO", "D1_PROT");
+    const dataApres = getVal(record, "dataApresentado", "DATA_APRESENTADO");
+    const d1Protocolo = getVal(record, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT");
 
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
+    const hojeKey = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
 
-    // 1. Protocolos apresentados hoje (14/08) nunca podem ser Atrasados -> Sempre Em dia 0d
-    if (dataApres) {
+    // 1. Protocolos apresentados hoje nunca podem ser Atrasados -> Sempre Em dia 0d
+    if ([dataApres, d1Protocolo].some((value) => getDateKey(value) === hojeKey)) {
       try {
-        const apresDate = new Date(dataApres);
-        if (!isNaN(apresDate.getTime())) {
-          apresDate.setHours(0, 0, 0, 0);
-          if (apresDate.getTime() === hoje.getTime()) {
-            return {
-              status: "Em dia",
-              atrasoDias: 0,
-              badge: { text: "Em dia", bgClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" }
-            };
-          }
-        }
+        return {
+          status: "Em dia",
+          atrasoDias: 0,
+          badge: { text: "Em dia", bgClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" }
+        };
       } catch {}
     }
 
