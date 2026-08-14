@@ -288,7 +288,7 @@ export function ImportacoesActions() {
         }
       },
       error: (error) => {
-        toast.error(\`Erro ao ler CSV de Metas: \${error.message}\`);
+        toast.error(`Erro ao ler CSV de Metas: ${error.message}`);
         setIsImportingMetas(false);
       },
     });
