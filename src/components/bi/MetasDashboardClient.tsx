@@ -340,15 +340,15 @@ export function MetasDashboardClient() {
     });
 
     const chart = [
-      { name: "D1->D1E", fullName: "Prot.->Escan.", label: "Protocolo -> Escaneamento", key: "D1_D1E" },
-      { name: "D1E->D2", fullName: "Escan.->Contrad.", label: "Escaneamento -> Contraditório", key: "D1E_D2" },
-      { name: "D2->D3", fullName: "Contrad.->Extr.", label: "Contraditório -> Extrato", key: "D2_D3" },
-      { name: "D3->D4", fullName: "Extr.->Qualif.", label: "Extrato -> Qualificação", key: "D3_D4" },
-      { name: "D4->D5", fullName: "Qualif.->Calc.", label: "Qualificação -> Cálculo", key: "D4_D5" },
-      { name: "D5->D8", fullName: "Calc.->Impres.", label: "Cálculo -> Impressão", key: "D5_D8" },
-      { name: "D8->D9", fullName: "Impres.->Prep.", label: "Impressão -> Preparação", key: "D8_D9" },
-      { name: "D9->D9C", fullName: "Prep.->Conf.", label: "Preparação -> Conferência", key: "D9_D9C" },
-      { name: "D9C->D10", fullName: "Conf.->Entrega", label: "Conferência -> Entrega", key: "D9C_D10" },
+      { name: "D1->D1E", fullName: "Prot.->Escan.", label: "Protocolo -> Escaneamento", key: "D1_D1E", phaseName: "PROTOCOLO -> ESCANEAMENTO" },
+      { name: "D1E->D2", fullName: "Escan.->Contrad.", label: "Escaneamento -> Contraditório", key: "D1E_D2", phaseName: "ESCANEAMENTO -> CONTRADITORIO" },
+      { name: "D2->D3", fullName: "Contrad.->Extr.", label: "Contraditório -> Extrato", key: "D2_D3", phaseName: "CONTRADITORIO -> EXTRATO" },
+      { name: "D3->D4", fullName: "Extr.->Qualif.", label: "Extrato -> Qualificação", key: "D3_D4", phaseName: "EXTRATO -> QUALIFICACAO" },
+      { name: "D4->D5", fullName: "Qualif.->Calc.", label: "Qualificação -> Cálculo", key: "D4_D5", phaseName: "QUALIFICACAO -> CALCULO" },
+      { name: "D5->D8", fullName: "Calc.->Impres.", label: "Cálculo -> Impressão", key: "D5_D8", phaseName: "CALCULO -> IMPRESSAO" },
+      { name: "D8->D9", fullName: "Impres.->Prep.", label: "Impressão -> Preparação", key: "D8_D9", phaseName: "IMPRESSAO -> PREPARACAO" },
+      { name: "D9->D9C", fullName: "Prep.->Conf.", label: "Preparação -> Conferência", key: "D9_D9C", phaseName: "PREPARACAO -> CONFERENCIA" },
+      { name: "D9C->D10", fullName: "Conf.->Entrega", label: "Conferência -> Entrega", key: "D9C_D10", phaseName: "CONFERENCIA -> ENTREGA" },
     ].map(d => {
       const stats = phaseSums[d.key];
       const avg = stats.count > 0 ? stats.sum / stats.count : 0;
@@ -371,6 +371,18 @@ export function MetasDashboardClient() {
       gargaloTypes: Array.from(gargaloSet).sort(),
     };
   }, [data]);
+
+  const handleChartClick = (phaseName: string) => {
+    if (!phaseName) return;
+    if (gargaloFilter === phaseName) {
+      setGargaloFilter("ALL");
+    } else {
+      setGargaloFilter(phaseName);
+      if (tableRef.current) {
+        tableRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+  };
 
   // Filtering & Sorting
   const filteredData = useMemo(() => {
@@ -629,15 +641,41 @@ export function MetasDashboardClient() {
 
       {/* Gráfico de Média de Dias por Fase (9 Transições) */}
       <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-        <h3 className="text-white font-semibold mb-6 flex items-center gap-2">
-          Média de Dias por Fase 
-          <span className="text-xs font-normal text-white/50 bg-white/10 px-2 py-0.5 rounded-md">
-            9 Transições de Esteira
-          </span>
+        <h3 className="text-white font-semibold mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            Média de Dias por Fase 
+            <span className="text-xs font-normal text-white/50 bg-white/10 px-2 py-0.5 rounded-md">
+              9 Transições de Esteira
+            </span>
+          </div>
+          {gargaloFilter !== "ALL" && (
+            <div className="flex items-center gap-2 bg-purple-500/20 border border-purple-500/30 text-purple-200 text-xs px-3 py-1 rounded-full animate-in fade-in duration-200">
+              <span>Filtrado por: <strong>{gargaloFilter}</strong></span>
+              <button 
+                onClick={() => setGargaloFilter("ALL")} 
+                className="hover:text-white transition-colors cursor-pointer p-0.5 rounded-full hover:bg-white/10"
+                title="Remover filtro do gráfico"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </h3>
+        <p className="text-xs text-white/40 mb-4">
+          Clique em qualquer barra do gráfico para filtrar a lista de protocolos na tabela abaixo.
+        </p>
+
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <BarChart 
+              data={chartData} 
+              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              onClick={(state: any) => {
+                if (state && state.activePayload && state.activePayload.length) {
+                  handleChartClick(state.activePayload[0].payload.phaseName);
+                }
+              }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
               <XAxis dataKey="fullName" stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} />
               <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => String(Math.round(val))} />
@@ -646,6 +684,7 @@ export function MetasDashboardClient() {
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     const dataPoint = payload[0].payload;
+                    const isSelected = gargaloFilter === dataPoint.phaseName;
                     return (
                       <div className="bg-[#1E293B] border border-white/10 rounded-xl p-3 shadow-2xl text-xs space-y-1 text-white">
                         <p className="font-bold text-blue-400">{dataPoint.label}</p>
@@ -653,19 +692,34 @@ export function MetasDashboardClient() {
                           {dataPoint.name}: média <span className="font-bold text-white">{Math.round(dataPoint.dias)} dias</span> |{" "}
                           <span className="text-white/60">{dataPoint.count?.toLocaleString("pt-BR") || 0} protocolos</span>
                         </p>
+                        <p className="text-[10px] text-purple-300 pt-1 border-t border-white/10">
+                          {isSelected ? "Clique para desmarcar o filtro" : "Clique para filtrar este gargalo na tabela"}
+                        </p>
                       </div>
                     );
                   }
                   return null;
                 }}
               />
-              <Bar dataKey="dias" radius={[4, 4, 0, 0]}>
-                {chartData.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${index}`} 
-                    fill={entry.dias > 3 ? '#ef4444' : entry.dias >= 1 ? '#f59e0b' : '#3b82f6'} 
-                  />
-                ))}
+              <Bar dataKey="dias" radius={[4, 4, 0, 0]} className="cursor-pointer">
+                {chartData.map((entry, index) => {
+                  const isSelected = gargaloFilter === entry.phaseName;
+                  const isAnySelected = gargaloFilter !== "ALL";
+                  return (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleChartClick(entry.phaseName);
+                      }}
+                      fill={entry.dias > 3 ? '#ef4444' : entry.dias >= 1 ? '#f59e0b' : '#3b82f6'} 
+                      stroke={isSelected ? '#ffffff' : 'none'}
+                      strokeWidth={isSelected ? 2.5 : 0}
+                      opacity={isAnySelected && !isSelected ? 0.35 : 1}
+                      className="cursor-pointer transition-all duration-200"
+                    />
+                  );
+                })}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -1138,7 +1192,7 @@ export function MetasDashboardClient() {
                   <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 text-xs">
                     {phases.map((phase, idx) => {
                       const hasDays = phase.dias !== null && phase.dias !== undefined;
-                      const isGargalo = hasDays && phase.dias > 3;
+                      const isGargalo = hasDays && (phase.dias ?? 0) > 3;
 
                       return (
                         <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02]">
