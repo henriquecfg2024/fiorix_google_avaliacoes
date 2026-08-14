@@ -80,6 +80,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: '/relatorios', label: 'Relatórios' },
     { href: '/bi', label: 'Módulo BI' },
     { href: '/bi/produtividade', label: 'Produtividade' },
+    { href: '/bi/metas', label: 'Metas' },
   ];
 
   if (currentUser?.role && currentUser.role !== 'USER') {
