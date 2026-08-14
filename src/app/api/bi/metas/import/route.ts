@@ -52,22 +52,27 @@ export async function POST(req: Request) {
     if (rows.length > 0) {
       const values: string[] = [];
       
-      const parseDate = (val: string) => {
+      const parseDate = (val: any) => {
         if (!val) return 'NULL';
-        if (val.includes('/')) {
-           const parts = val.split(' ');
+        const str = String(val).trim();
+        if (!str || str.toUpperCase() === 'NULL' || str === 'undefined') return 'NULL';
+
+        if (str.includes('/')) {
+           const parts = str.split(' ');
            const dateParts = parts[0].split('/');
            const timePart = parts[1] || '00:00:00';
            if (dateParts.length === 3) {
-             return `'${dateParts[2]}-${dateParts[1]}-${dateParts[0]} ${timePart}'::timestamp`;
+             return `'${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')} ${timePart}'::timestamp`;
            }
         }
-        return `'${val}'::timestamp`;
+        return `'${str.replace(/'/g, "''")}'::timestamp`;
       };
 
-      const parseIntSafe = (val: string) => {
-        if (!val || val.trim() === '') return 'NULL';
-        const parsed = parseInt(val, 10);
+      const parseIntSafe = (val: any) => {
+        if (!val) return 'NULL';
+        const str = String(val).trim();
+        if (!str || str.toUpperCase() === 'NULL' || str === 'undefined') return 'NULL';
+        const parsed = parseInt(str, 10);
         return isNaN(parsed) ? 'NULL' : parsed;
       };
 
@@ -75,12 +80,14 @@ export async function POST(req: Request) {
         const p = parseIntSafe(row.PROTOCOLO);
         if (p === 'NULL') continue;
 
+        const statusClean = (row.STATUS || '').trim().replace(/'/g, "''");
+
         values.push(`(
           ${p},
           ${parseDate(row.DATA_APRESENTADO)},
           ${parseDate(row.DT_PREVISAO)},
           ${parseDate(row.DT_ENTREGA_REAL)},
-          '${(row.STATUS || '').replace(/'/g, "''")}',
+          '${statusClean}',
           ${parseIntSafe(row.ATRASO_DIAS)},
           ${parseDate(row.D1_PROTOCOLO)},
           ${parseDate(row.D1_ESCANEAMENTO)},
