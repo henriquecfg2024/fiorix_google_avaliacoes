@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const useSimulation = searchParams.get("simulate") === "true";
 
-    let metas = [];
+    let metas: any[] = [];
 
     // Tentar pegar do Postgres primeiro
     try {
@@ -64,13 +64,16 @@ export async function GET(request: Request) {
             status: row.STATUS || row.status,
             atrasoDias: row.ATRASO_DIAS || row.atraso_dias,
             d1Protocolo: row.D1_PROTOCOLO || row.d1_protocolo,
+            d1Escaneamento: row.D1_ESCANEAMENTO || row.d1_escaneamento,
             d2Contraditorio: row.D2_CONTRADITORIO || row.d2_contraditorio,
             d3Extrato: row.D3_EXTRATO || row.d3_extrato,
             d4Qualificacao: row.D4_QUALIFICACAO || row.d4_qualificacao,
             d5Calculo: row.D5_CALCULO || row.d5_calculo,
             d8Impressao: row.D8_IMPRESSAO || row.d8_impressao,
             d9Preparacao: row.D9_PREPARACAO || row.d9_preparacao,
+            d9Conferencia: row.D9_CONFERENCIA || row.d9_conferencia,
             d10Entrega: row.D10_ENTREGA || row.d10_entrega,
+            qtdRetrabalho: row.QTD_RETRABALHO || row.qtd_retrabalho,
             diasD1D2: row.DIAS_D1_D2 || row.dias_d1_d2,
             diasD2D3: row.DIAS_D2_D3 || row.dias_d2_d3,
             diasD3D4: row.DIAS_D3_D4 || row.dias_d3_d4,
@@ -86,7 +89,7 @@ export async function GET(request: Request) {
       }
     }
 
-    // Fallback Mocked se tudo falhar (para testes do layout conforme prompt 629999)
+    // Fallback Mocked se tudo falhar
     if (!metas || metas.length === 0 || useSimulation) {
       metas = [
         {
@@ -97,10 +100,16 @@ export async function GET(request: Request) {
           status: "Entregue com Atraso",
           atrasoDias: 9,
           d1Protocolo: new Date("2026-04-16T12:04:00Z"),
+          d1Escaneamento: new Date("2026-04-16T14:30:00Z"),
           d2Contraditorio: new Date("2026-04-17T09:00:00Z"),
           d3Extrato: new Date("2026-04-18T10:00:00Z"),
-          d4Qualificacao: new Date("2026-04-25T14:00:00Z"), // Gargalo aqui (7 dias)
+          d4Qualificacao: new Date("2026-04-25T14:00:00Z"),
           d5Calculo: new Date("2026-04-28T10:00:00Z"),
+          d8Impressao: new Date("2026-04-28T11:00:00Z"),
+          d9Preparacao: new Date("2026-04-28T11:30:00Z"),
+          d9Conferencia: new Date("2026-04-28T11:45:00Z"),
+          d10Entrega: new Date("2026-04-28T12:00:00Z"),
+          qtdRetrabalho: 1,
           diasD1D2: 1,
           diasD2D3: 1,
           diasD3D4: 7,
@@ -116,10 +125,16 @@ export async function GET(request: Request) {
           status: "No Prazo",
           atrasoDias: 0,
           d1Protocolo: new Date("2026-04-17T10:00:00Z"),
+          d1Escaneamento: null,
           d2Contraditorio: new Date("2026-04-17T14:00:00Z"),
           d3Extrato: new Date("2026-04-18T10:00:00Z"),
           d4Qualificacao: new Date("2026-04-19T10:00:00Z"),
           d5Calculo: new Date("2026-04-19T12:00:00Z"),
+          d8Impressao: new Date("2026-04-19T12:30:00Z"),
+          d9Preparacao: new Date("2026-04-19T12:45:00Z"),
+          d9Conferencia: null,
+          d10Entrega: new Date("2026-04-19T13:00:00Z"),
+          qtdRetrabalho: 0,
           diasD1D2: 0,
           diasD2D3: 1,
           diasD3D4: 1,

@@ -8,7 +8,8 @@ import {
 } from "recharts";
 import { 
   Target, AlertCircle, Clock, TrendingUp, Search, Filter, Loader2, Download,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet,
+  X, AlertTriangle, Calendar, Layers, Activity
 } from "lucide-react";
 
 type MetasData = {
@@ -19,13 +20,16 @@ type MetasData = {
   status: string;
   atrasoDias: number;
   d1Protocolo: string;
+  d1Escaneamento?: string;
   d2Contraditorio: string;
   d3Extrato: string;
   d4Qualificacao: string;
   d5Calculo: string;
   d8Impressao: string;
   d9Preparacao: string;
+  d9Conferencia?: string;
   d10Entrega: string;
+  qtdRetrabalho?: number;
   diasD1D2: number;
   diasD2D3: number;
   diasD3D4: number;
@@ -40,6 +44,9 @@ export function MetasDashboardClient() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [gargaloFilter, setGargaloFilter] = useState("ALL");
+
+  // Drawer/Modal State
+  const [selectedProtocol, setSelectedProtocol] = useState<MetasData | null>(null);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -69,7 +76,7 @@ export function MetasDashboardClient() {
   }, [search, statusFilter, gargaloFilter, itemsPerPage]);
 
   // Format date helper
-  const formatDate = (dateStr: string | null) => {
+  const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return "-";
     try {
       return format(new Date(dateStr), "dd/MM HH:mm", { locale: ptBR });
@@ -153,12 +160,12 @@ export function MetasDashboardClient() {
     });
 
     const chart = [
-      { name: "D1->D2", fullName: "Prot->Contrad.", dias: phaseSums.D1_D2.count ? phaseSums.D1_D2.sum / phaseSums.D1_D2.count : 0 },
-      { name: "D2->D3", fullName: "Contrad.->Extr.", dias: phaseSums.D2_D3.count ? phaseSums.D2_D3.sum / phaseSums.D2_D3.count : 0 },
-      { name: "D3->D4", fullName: "Extr.->Qualif.", dias: phaseSums.D3_D4.count ? phaseSums.D3_D4.sum / phaseSums.D3_D4.count : 0 },
-      { name: "D4->D5", fullName: "Qualif.->Calc.", dias: phaseSums.D4_D5.count ? phaseSums.D4_D5.sum / phaseSums.D4_D5.count : 0 },
-      { name: "D5->D8", fullName: "Calc.->Impres.", dias: phaseSums.D5_D8.count ? phaseSums.D5_D8.sum / phaseSums.D5_D8.count : 0 },
-      { name: "D8->D9", fullName: "Impres.->Prep.", dias: phaseSums.D8_D9.count ? phaseSums.D8_D9.sum / phaseSums.D8_D9.count : 0 },
+      { name: "D1->D2", fullName: "Prot->Contrad.", dias: phaseSums.D1_D2.count ? phaseSums.D1_D2.sum / phaseSums.D1_D2.count : 0, count: phaseSums.D1_D2.count },
+      { name: "D2->D3", fullName: "Contrad.->Extr.", dias: phaseSums.D2_D3.count ? phaseSums.D2_D3.sum / phaseSums.D2_D3.count : 0, count: phaseSums.D2_D3.count },
+      { name: "D3->D4", fullName: "Extr.->Qualif.", dias: phaseSums.D3_D4.count ? phaseSums.D3_D4.sum / phaseSums.D3_D4.count : 0, count: phaseSums.D3_D4.count },
+      { name: "D4->D5", fullName: "Qualif.->Calc.", dias: phaseSums.D4_D5.count ? phaseSums.D4_D5.sum / phaseSums.D4_D5.count : 0, count: phaseSums.D4_D5.count },
+      { name: "D5->D8", fullName: "Calc.->Impres.", dias: phaseSums.D5_D8.count ? phaseSums.D5_D8.sum / phaseSums.D5_D8.count : 0, count: phaseSums.D5_D8.count },
+      { name: "D8->D9", fullName: "Impres.->Prep.", dias: phaseSums.D8_D9.count ? phaseSums.D8_D9.sum / phaseSums.D8_D9.count : 0, count: phaseSums.D8_D9.count },
     ].map(d => ({ ...d, dias: Number(d.dias.toFixed(2)) }));
 
     return {
@@ -203,10 +210,9 @@ export function MetasDashboardClient() {
     }
   };
 
-  // Generate pagination buttons (max 5 around current)
   const paginationRange = useMemo(() => {
     const range: (number | string)[] = [];
-    const delta = 2; // 2 pages before and 2 pages after current
+    const delta = 2;
 
     let start = Math.max(1, currentPage - delta);
     let end = Math.min(totalPages, currentPage + delta);
@@ -348,8 +354,21 @@ export function MetasDashboardClient() {
               <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} />
               <Tooltip 
                 cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                contentStyle={{ backgroundColor: '#1E293B', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }}
-                formatter={(value: number) => [`${value} dias médios`, "Tempo"]}
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const dataPoint = payload[0].payload;
+                    return (
+                      <div className="bg-[#1E293B] border border-white/10 rounded-xl p-3 shadow-2xl text-xs space-y-1 text-white">
+                        <p className="font-bold text-blue-400">{dataPoint.fullName}</p>
+                        <p className="text-white/80">
+                          {dataPoint.name}: média <span className="font-bold text-white">{dataPoint.dias}d</span> -{" "}
+                          <span className="text-white/60">{dataPoint.count?.toLocaleString("pt-BR") || 0} protocolos</span>
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
               />
               <Bar dataKey="dias" radius={[4, 4, 0, 0]}>
                 {chartData.map((entry, index) => (
@@ -435,7 +454,7 @@ export function MetasDashboardClient() {
             <button
               onClick={() => handleExportCSV(paginatedData, `metas_pagina_${currentPage}`)}
               title="Exportar registros visíveis na página atual para CSV"
-              className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/90 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/90 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer"
             >
               <Download className="w-3.5 h-3.5 text-blue-400" /> Exportar Página (CSV)
             </button>
@@ -443,14 +462,14 @@ export function MetasDashboardClient() {
             <button
               onClick={() => handleExportCSV(filteredData, "metas_filtradas")}
               title="Exportar todos os registros filtrados para CSV"
-              className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-200 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-200 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-purple-400" /> Exportar Filtrados (CSV)
             </button>
           </div>
         </div>
 
-        {/* Tabela de Dados */}
+        {/* Tabela de Dados (Clique na linha abre Modal) */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-white/60 bg-white/[0.03] uppercase">
@@ -473,8 +492,13 @@ export function MetasDashboardClient() {
                 const gargalo = getGargaloForRecord(row);
                 
                 return (
-                  <tr key={row.protocolo} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                    <td className="px-4 py-3 font-medium text-white">{row.protocolo}</td>
+                  <tr 
+                    key={row.protocolo} 
+                    onClick={() => setSelectedProtocol(row)}
+                    title="Clique para ver o detalhamento completo do protocolo"
+                    className="border-b border-white/5 hover:bg-white/[0.06] transition-colors cursor-pointer"
+                  >
+                    <td className="px-4 py-3 font-medium text-blue-400 underline decoration-blue-400/30 underline-offset-4">{row.protocolo}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
                         isAtrasado ? 'bg-red-500/15 text-red-400' : 'bg-emerald-500/15 text-emerald-400'
@@ -518,27 +542,24 @@ export function MetasDashboardClient() {
             </div>
 
             <div className="flex items-center gap-1.5">
-              {/* << Primeira */}
               <button
                 onClick={() => handlePageChange(1)}
                 disabled={currentPage === 1}
                 title="Primeira Página"
-                className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all"
+                className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all cursor-pointer"
               >
                 <ChevronsLeft className="w-4 h-4" />
               </button>
 
-              {/* < Anterior */}
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
                 title="Página Anterior"
-                className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all"
+                className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all cursor-pointer"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
 
-              {/* Números das Páginas */}
               <div className="flex items-center gap-1 mx-1">
                 {paginationRange.map((page, index) => {
                   if (typeof page === "string") {
@@ -557,9 +578,9 @@ export function MetasDashboardClient() {
                       style={{
                         backgroundColor: isCurrent ? "#8b5cf6" : undefined,
                       }}
-                      className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-semibold transition-all ${
+                      className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                         isCurrent
-                          ? "text-white shadow-lg shadow-purple-500/20"
+                          ? "text-white shadow-lg shadow-purple-500/20 font-bold"
                           : "bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
                       }`}
                     >
@@ -569,22 +590,20 @@ export function MetasDashboardClient() {
                 })}
               </div>
 
-              {/* Próxima > */}
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
                 title="Próxima Página"
-                className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all"
+                className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all cursor-pointer"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
 
-              {/* Última >> */}
               <button
                 onClick={() => handlePageChange(totalPages)}
                 disabled={currentPage === totalPages}
                 title="Última Página"
-                className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all"
+                className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all cursor-pointer"
               >
                 <ChevronsRight className="w-4 h-4" />
               </button>
@@ -592,6 +611,187 @@ export function MetasDashboardClient() {
           </div>
         )}
       </div>
+
+      {/* MODAL / DRAWER LATERAL DIREITO - DETALHAMENTO DO PROTOCOLO */}
+      {selectedProtocol && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop (clicar fora fecha) */}
+          <div 
+            className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity animate-in fade-in"
+            onClick={() => setSelectedProtocol(null)}
+          />
+
+          {/* Painel Lateral */}
+          <div className="relative w-full max-w-lg bg-[#0F172A] border-l border-white/10 shadow-2xl h-full flex flex-col z-10 overflow-hidden animate-in slide-in-from-right duration-300">
+            
+            {/* Header do Drawer */}
+            <div className="p-6 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+              <div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  Protocolo <span className="text-blue-400">{selectedProtocol.protocolo}</span>
+                </h2>
+                <p className="text-xs text-white/50 mt-0.5">Linha do Tempo e Detalhamento por Fase</p>
+              </div>
+
+              <button
+                onClick={() => setSelectedProtocol(null)}
+                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Conteúdo com Scroll */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              
+              {/* Badges de Status & Atraso */}
+              <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white/5 border border-white/10 rounded-xl">
+                <div>
+                  <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1">Status do Pedido</p>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                    String(selectedProtocol.status).toLowerCase().includes("entregue")
+                      ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+                      : (selectedProtocol.atrasoDias || 0) > 0 || String(selectedProtocol.status).toLowerCase().includes("atraso")
+                        ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  }`}>
+                    {selectedProtocol.status || "N/A"}
+                  </span>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1">Dias de Atraso</p>
+                  <span className={`text-sm font-bold ${selectedProtocol.atrasoDias > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                    {selectedProtocol.atrasoDias > 0 ? `${selectedProtocol.atrasoDias} dias de atraso` : 'Em dia'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Alerta de Retrabalho */}
+              {(selectedProtocol.qtdRetrabalho || 0) > 0 && (
+                <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-center gap-3 text-yellow-300 text-xs font-medium">
+                  <AlertTriangle className="w-5 h-5 shrink-0 text-yellow-400" />
+                  <div>
+                    <p className="font-bold">Atenção: Retrabalho Registrado</p>
+                    <p className="text-yellow-300/80 text-[11px] mt-0.5">
+                      Este protocolo teve {selectedProtocol.qtdRetrabalho} reanálise(s) de retrabalho na esteira.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Seção 1 - Datas das Fases */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-white/70 uppercase tracking-wider flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-blue-400" /> Seção 1 - Datas das Fases
+                </h3>
+                
+                <div className="bg-white/5 border border-white/10 rounded-xl divide-y divide-white/5 text-xs">
+                  <div className="p-3 flex justify-between items-center">
+                    <span className="text-white/60">D1_PROTOCOLO:</span>
+                    <span className="font-medium text-white">{formatDate(selectedProtocol.d1Protocolo)}</span>
+                  </div>
+                  <div className="p-3 flex justify-between items-center">
+                    <span className="text-white/60">D1_ESCANEAMENTO:</span>
+                    <span className="font-medium text-white">{formatDate(selectedProtocol.d1Escaneamento)}</span>
+                  </div>
+                  <div className="p-3 flex justify-between items-center">
+                    <span className="text-white/60">D2_CONTRADITORIO:</span>
+                    <span className="font-medium text-white">{formatDate(selectedProtocol.d2Contraditorio)}</span>
+                  </div>
+                  <div className="p-3 flex justify-between items-center">
+                    <span className="text-white/60">D3_EXTRATO:</span>
+                    <span className="font-medium text-white">{formatDate(selectedProtocol.d3Extrato)}</span>
+                  </div>
+                  <div className="p-3 flex justify-between items-center">
+                    <span className="text-white/60">D4_QUALIFICACAO:</span>
+                    <span className="font-medium text-white">{formatDate(selectedProtocol.d4Qualificacao)}</span>
+                  </div>
+                  <div className="p-3 flex justify-between items-center">
+                    <span className="text-white/60">D5_CALCULO:</span>
+                    <span className="font-medium text-white">{formatDate(selectedProtocol.d5Calculo)}</span>
+                  </div>
+                  <div className="p-3 flex justify-between items-center">
+                    <span className="text-white/60">D8_IMPRESSAO:</span>
+                    <span className="font-medium text-white">{formatDate(selectedProtocol.d8Impressao)}</span>
+                  </div>
+                  <div className="p-3 flex justify-between items-center">
+                    <span className="text-white/60">D9_PREPARACAO:</span>
+                    <span className="font-medium text-white">{formatDate(selectedProtocol.d9Preparacao)}</span>
+                  </div>
+                  <div className="p-3 flex justify-between items-center">
+                    <span className="text-white/60">D9_CONFERENCIA:</span>
+                    <span className="font-medium text-white">{formatDate(selectedProtocol.d9Conferencia)}</span>
+                  </div>
+                  <div className="p-3 flex justify-between items-center">
+                    <span className="text-white/60">D10_ENTREGA:</span>
+                    <span className="font-medium text-white">{formatDate(selectedProtocol.d10Entrega)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Seção 2 - Quadro de Dias por Fase */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-bold text-white/70 uppercase tracking-wider flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-purple-400" /> Seção 2 - Quadro de Dias por Fase
+                </h3>
+
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 text-xs">
+                  {[
+                    { label: "Prot. -> Contrad.", dias: selectedProtocol.diasD1D2 || 0 },
+                    { label: "Contrad. -> Extr.", dias: selectedProtocol.diasD2D3 || 0 },
+                    { label: "Extr. -> Qualif.", dias: selectedProtocol.diasD3D4 || 0 },
+                    { label: "Qualif. -> Calc.", dias: selectedProtocol.diasD4D5 || 0 },
+                    { label: "Calc. -> Impres.", dias: selectedProtocol.diasD5D8 || 0 },
+                    { label: "Impres. -> Prep.", dias: selectedProtocol.diasD8D9 || 0 },
+                  ].map((phase, idx) => {
+                    const isGargalo = phase.dias > 3;
+                    return (
+                      <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02]">
+                        <span className="text-white/70 font-medium">{phase.label}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-bold ${isGargalo ? "text-red-400" : "text-white"}`}>
+                            {phase.dias}d
+                          </span>
+                          {isGargalo && (
+                            <span className="px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/30 text-[10px] font-bold">
+                              Gargalo
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* TOTAL */}
+                  <div className="pt-3 border-t border-white/10 flex items-center justify-between font-bold text-sm text-white">
+                    <span className="text-purple-300">TOTAL DE DIAS NA ESTEIRA:</span>
+                    <span className="text-purple-400 bg-purple-500/10 border border-purple-500/30 px-3 py-1 rounded-lg">
+                      {(selectedProtocol.diasD1D2 || 0) + 
+                       (selectedProtocol.diasD2D3 || 0) + 
+                       (selectedProtocol.diasD3D4 || 0) + 
+                       (selectedProtocol.diasD4D5 || 0) + 
+                       (selectedProtocol.diasD5D8 || 0) + 
+                       (selectedProtocol.diasD8D9 || 0)} dias
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer do Drawer */}
+            <div className="p-4 border-t border-white/10 bg-white/[0.02] flex justify-end">
+              <button
+                onClick={() => setSelectedProtocol(null)}
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
