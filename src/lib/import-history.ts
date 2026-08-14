@@ -207,6 +207,7 @@ export async function ensureMetasImportsTable() {
       DT_PREVISAO TIMESTAMP, 
       DT_ENTREGA_REAL TIMESTAMP, 
       STATUS VARCHAR(50), 
+      NATUREZA VARCHAR(255),
       ATRASO_DIAS INT, 
       D1_PROTOCOLO TIMESTAMP, 
       D1_ESCANEAMENTO TIMESTAMP, 
@@ -227,6 +228,9 @@ export async function ensureMetasImportsTable() {
       DIAS_D8_D9 INT, 
       import_id INT REFERENCES fiorix_metas_imports(id) ON DELETE CASCADE
     );
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE public.fiorix_metas_dados ADD COLUMN IF NOT EXISTS NATUREZA VARCHAR(255);
   `);
 }
 

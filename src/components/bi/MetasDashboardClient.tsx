@@ -14,6 +14,7 @@ import {
 
 type SortField = 
   | "protocolo" 
+  | "natureza"
   | "status" 
   | "atraso" 
   | "d1Protocolo" 
@@ -28,6 +29,7 @@ type SortOrder = "asc" | "desc";
 
 type MetasData = {
   protocolo: number;
+  natureza?: string;
   dataApresentado?: string;
   dtPrevisao?: string;
   dtEntregaReal?: string;
@@ -374,9 +376,11 @@ export function MetasDashboardClient() {
   const filteredData = useMemo(() => {
     const filtered = data.filter(item => {
       const prot = String(getVal(item, "protocolo", "PROTOCOLO") || "");
+      const nat = String(getVal(item, "natureza", "NATUREZA") || "").toLowerCase();
       const { badge } = getMetasStatusAndAtraso(item);
       
-      const matchSearch = search ? prot.includes(search) : true;
+      const searchLower = search.toLowerCase();
+      const matchSearch = search ? (prot.includes(search) || nat.includes(searchLower)) : true;
       const matchStatus = statusFilter !== "ALL" ? badge.text === statusFilter : true;
       const matchGargalo = gargaloFilter !== "ALL" ? getGargaloForRecord(item).name === gargaloFilter : true;
       
@@ -391,6 +395,10 @@ export function MetasDashboardClient() {
         case "protocolo":
           valA = Number(getVal(a, "protocolo", "PROTOCOLO")) || 0;
           valB = Number(getVal(b, "protocolo", "PROTOCOLO")) || 0;
+          break;
+        case "natureza":
+          valA = getVal(a, "natureza", "NATUREZA") || "";
+          valB = getVal(b, "natureza", "NATUREZA") || "";
           break;
         case "atraso":
           valA = getMetasStatusAndAtraso(a).atrasoDias;
@@ -522,7 +530,7 @@ export function MetasDashboardClient() {
     if (exportList.length === 0) return;
 
     const headers = [
-      "PROTOCOLO", "STATUS", "ATRASO_DIAS", "DATA_APRESENTADO", "DT_PREVISAO", 
+      "PROTOCOLO", "NATUREZA", "STATUS", "ATRASO_DIAS", "DATA_APRESENTADO", "DT_PREVISAO", 
       "DT_ENTREGA_REAL", "D1_PROTOCOLO", "D3_EXTRATO", "D4_QUALIFICACAO", 
       "D5_CALCULO", "D8_IMPRESSAO", "D10_ENTREGA", "GARGALO", "DIAS_GARGALO"
     ];
@@ -530,10 +538,12 @@ export function MetasDashboardClient() {
     const rows = exportList.map(item => {
       const g = getGargaloForRecord(item);
       const prot = getVal(item, "protocolo", "PROTOCOLO");
+      const nat = getVal(item, "natureza", "NATUREZA") || "";
       const { status, atrasoDias } = getMetasStatusAndAtraso(item);
 
       return [
         prot,
+        `"${String(nat).replace(/"/g, '""')}"`,
         `"${status.replace(/"/g, '""')}"`,
         atrasoDias || 0,
         `"${getVal(item, "dataApresentado", "DATA_APRESENTADO") || ""}"`,
@@ -746,6 +756,8 @@ export function MetasDashboardClient() {
               >
                 <option value="protocolo-desc">Protocolo (Decrescente)</option>
                 <option value="protocolo-asc">Protocolo (Crescente)</option>
+                <option value="natureza-asc">Natureza (A-Z)</option>
+                <option value="natureza-desc">Natureza (Z-A)</option>
                 <option value="atraso-desc">Maior Atraso</option>
                 <option value="atraso-asc">Menor Atraso</option>
                 <option value="d1Protocolo-desc">D1 Prot (Mais Recente)</option>
@@ -786,6 +798,14 @@ export function MetasDashboardClient() {
                 >
                   <div className="flex items-center gap-1">
                     Protocolo {renderSortIcon("protocolo")}
+                  </div>
+                </th>
+                <th 
+                  onClick={() => handleSort("natureza")}
+                  className="px-4 py-3 font-semibold cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                >
+                  <div className="flex items-center gap-1">
+                    Natureza {renderSortIcon("natureza")}
                   </div>
                 </th>
                 <th 
@@ -865,6 +885,7 @@ export function MetasDashboardClient() {
             <tbody>
               {paginatedData.map((row) => {
                 const prot = getVal(row, "protocolo", "PROTOCOLO");
+                const natVal = getVal(row, "natureza", "NATUREZA", "TIPO_DETALHADO", "tipo_detalhado");
                 const { atrasoDias, badge } = getMetasStatusAndAtraso(row);
 
                 const gargalo = getGargaloForRecord(row);
@@ -884,6 +905,9 @@ export function MetasDashboardClient() {
                     className="border-b border-white/5 hover:bg-white/[0.06] transition-colors cursor-pointer"
                   >
                     <td className="px-4 py-3 font-medium text-blue-400 underline decoration-blue-400/30 underline-offset-4">{prot}</td>
+                    <td className="px-4 py-3 text-xs text-white/80 max-w-[160px] truncate" title={natVal || "-"}>
+                      {natVal || "-"}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${badge.bgClass}`}>
                         {badge.text}

@@ -83,6 +83,7 @@ export async function POST(req: Request) {
         if (p === 'NULL') continue;
 
         const statusClean = (row.STATUS || '').trim().replace(/'/g, "''");
+        const naturezaClean = (row.NATUREZA || row.natureza || row.TIPO_DETALHADO || row.tipo_detalhado || '').trim().replace(/'/g, "''");
 
         values.push(`(
           ${p},
@@ -90,6 +91,7 @@ export async function POST(req: Request) {
           ${parseDate(row.DT_PREVISAO)},
           ${parseDate(row.DT_ENTREGA_REAL)},
           '${statusClean}',
+          '${naturezaClean}',
           ${parseIntSafe(row.ATRASO_DIAS)},
           ${parseDate(row.D1_PROTOCOLO)},
           ${parseDate(row.D1_ESCANEAMENTO)},
@@ -116,7 +118,7 @@ export async function POST(req: Request) {
       if (values.length > 0) {
         const query = `
           INSERT INTO public.fiorix_metas_dados (
-            PROTOCOLO, DATA_APRESENTADO, DT_PREVISAO, DT_ENTREGA_REAL, STATUS, ATRASO_DIAS,
+            PROTOCOLO, DATA_APRESENTADO, DT_PREVISAO, DT_ENTREGA_REAL, STATUS, NATUREZA, ATRASO_DIAS,
             D1_PROTOCOLO, D1_ESCANEAMENTO, D2_CONTRADITORIO, D3_EXTRATO, D4_QUALIFICACAO, D5_CALCULO,
             D8_IMPRESSAO, D9_PREPARACAO, D9_CONFERENCIA, D10_ENTREGA, QTD_RETRABALHO, 
             DIAS_D1_D2, DIAS_D2_D3, DIAS_D3_D4, DIAS_D4_D5, DIAS_D5_D8, DIAS_D8_D9, import_id
@@ -126,6 +128,7 @@ export async function POST(req: Request) {
             DT_PREVISAO = EXCLUDED.DT_PREVISAO,
             DT_ENTREGA_REAL = EXCLUDED.DT_ENTREGA_REAL,
             STATUS = EXCLUDED.STATUS,
+            NATUREZA = EXCLUDED.NATUREZA,
             ATRASO_DIAS = EXCLUDED.ATRASO_DIAS,
             D1_PROTOCOLO = EXCLUDED.D1_PROTOCOLO,
             D1_ESCANEAMENTO = EXCLUDED.D1_ESCANEAMENTO,

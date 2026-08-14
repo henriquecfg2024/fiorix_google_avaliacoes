@@ -30,6 +30,7 @@ const aliases: Record<string, string[]> = {
   DT_PREVISAO: ["dt_previsao", "dt_previsao_entrega", "data_previsao", "data_previsao_entrega"],
   DT_ENTREGA_REAL: ["dt_entrega_real", "dt_entrega", "data_entrega", "data_entrega_real", "DtRetirada"],
   STATUS: ["status", "situacao", "status_protocolo"],
+  NATUREZA: ["natureza", "naturezatitulo", "natureza_titulo", "tipo_detalhado", "tipo", "especie", "Natureza"],
   ATRASO_DIAS: ["atraso_dias", "dias_atraso", "atraso"],
 };
 

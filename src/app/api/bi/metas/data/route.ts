@@ -101,6 +101,7 @@ export async function GET(request: Request) {
 
       return {
         protocolo: Number(getVal("PROTOCOLO", "protocolo", "Protocolo")),
+        natureza: getVal("NATUREZA", "natureza", "Natureza", "TIPO_DETALHADO", "tipo_detalhado") || "",
         dataApresentado,
         dtPrevisao: getVal("DT_PREVISAO", "dt_previsao", "dtPrevisao"),
         dtEntregaReal: getVal("DT_ENTREGA_REAL", "dt_entrega_real", "dtEntregaReal"),
@@ -136,6 +137,7 @@ export async function GET(request: Request) {
       metas = [
         {
           protocolo: 642139,
+          natureza: "Certidão",
           dataApresentado: new Date("2026-08-14T08:33:00Z"),
           dtPrevisao: new Date("2026-08-18T00:00:00Z"),
           dtEntregaReal: null,
@@ -161,6 +163,7 @@ export async function GET(request: Request) {
         },
         {
           protocolo: 629999,
+          natureza: "Escritura de Compra e Venda",
           dataApresentado: new Date("2026-04-16T12:04:00Z"),
           dtPrevisao: new Date("2026-04-19T00:00:00Z"),
           dtEntregaReal: new Date("2026-04-28T00:00:00Z"),
