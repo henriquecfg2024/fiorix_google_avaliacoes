@@ -352,7 +352,7 @@ export function MetasDashboardClient() {
       const avg = stats.count > 0 ? stats.sum / stats.count : 0;
       return {
         ...d,
-        dias: Number(Math.max(0, avg).toFixed(2)),
+        dias: Math.round(Math.max(0, avg)),
         count: stats.count
       };
     });
@@ -630,7 +630,7 @@ export function MetasDashboardClient() {
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
               <XAxis dataKey="fullName" stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} />
-              <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} />
+              <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => String(Math.round(val))} />
               <Tooltip 
                 cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                 content={({ active, payload }) => {
@@ -640,7 +640,7 @@ export function MetasDashboardClient() {
                       <div className="bg-[#1E293B] border border-white/10 rounded-xl p-3 shadow-2xl text-xs space-y-1 text-white">
                         <p className="font-bold text-blue-400">{dataPoint.label}</p>
                         <p className="text-white/80">
-                          {dataPoint.name}: média <span className="font-bold text-white">{dataPoint.dias} dias</span> |{" "}
+                          {dataPoint.name}: média <span className="font-bold text-white">{Math.round(dataPoint.dias)} dias</span> |{" "}
                           <span className="text-white/60">{dataPoint.count?.toLocaleString("pt-BR") || 0} protocolos</span>
                         </p>
                       </div>
