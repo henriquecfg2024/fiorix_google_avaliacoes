@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { format, parseISO } from "date-fns";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell 
 } from "recharts";
 import { 
-  Target, AlertCircle, Clock, TrendingUp, Search, Filter, Loader2 
+  Target, AlertCircle, Clock, TrendingUp, Search, Filter, Loader2, Download,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet
 } from "lucide-react";
 
 type MetasData = {
@@ -40,6 +41,11 @@ export function MetasDashboardClient() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [gargaloFilter, setGargaloFilter] = useState("ALL");
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
+  const tableRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     async function fetchData() {
       try {
@@ -56,6 +62,11 @@ export function MetasDashboardClient() {
     }
     fetchData();
   }, []);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, gargaloFilter, itemsPerPage]);
 
   // Format date helper
   const formatDate = (dateStr: string | null) => {
@@ -108,11 +119,9 @@ export function MetasDashboardClient() {
     const gargaloCounts: Record<string, number> = {};
 
     data.forEach(item => {
-      // Statuses for filter
       const st = item.status || "Desconhecido";
       statusSet.add(st);
 
-      // KPIs
       const isLate = (item.atrasoDias || 0) > 0 || st.toLowerCase().includes("atraso");
       if (isLate) {
         if (st.toLowerCase().includes("entregue")) {
@@ -122,12 +131,10 @@ export function MetasDashboardClient() {
         }
       }
 
-      // Gargalo Calculation
       const gargalo = getGargaloForRecord(item);
       gargaloSet.add(gargalo.name);
       gargaloCounts[gargalo.name] = (gargaloCounts[gargalo.name] || 0) + 1;
 
-      // Phase Averages
       if (item.diasD1D2 !== null && item.diasD1D2 !== undefined) { phaseSums.D1_D2.sum += item.diasD1D2; phaseSums.D1_D2.count++; }
       if (item.diasD2D3 !== null && item.diasD2D3 !== undefined) { phaseSums.D2_D3.sum += item.diasD2D3; phaseSums.D2_D3.count++; }
       if (item.diasD3D4 !== null && item.diasD3D4 !== undefined) { phaseSums.D3_D4.sum += item.diasD3D4; phaseSums.D3_D4.count++; }
@@ -136,7 +143,6 @@ export function MetasDashboardClient() {
       if (item.diasD8D9 !== null && item.diasD8D9 !== undefined) { phaseSums.D8_D9.sum += item.diasD8D9; phaseSums.D8_D9.count++; }
     });
 
-    // Find overall top gargalo
     let topGargaloName = "Nenhum";
     let topGargaloCount = 0;
     Object.entries(gargaloCounts).forEach(([name, count]) => {
@@ -178,6 +184,96 @@ export function MetasDashboardClient() {
       return matchSearch && matchStatus && matchGargalo;
     });
   }, [data, search, statusFilter, gargaloFilter]);
+
+  // Pagination Calculations
+  const totalFiltered = filteredData.length;
+  const totalPages = Math.ceil(totalFiltered / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = Math.min(startIndex + itemsPerPage, totalFiltered);
+  
+  const paginatedData = useMemo(() => {
+    return filteredData.slice(startIndex, endIndex);
+  }, [filteredData, startIndex, endIndex]);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    setCurrentPage(newPage);
+    if (tableRef.current) {
+      tableRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  // Generate pagination buttons (max 5 around current)
+  const paginationRange = useMemo(() => {
+    const range: (number | string)[] = [];
+    const delta = 2; // 2 pages before and 2 pages after current
+
+    let start = Math.max(1, currentPage - delta);
+    let end = Math.min(totalPages, currentPage + delta);
+
+    if (currentPage <= delta) {
+      end = Math.min(totalPages, 1 + delta * 2);
+    }
+    if (currentPage + delta >= totalPages) {
+      start = Math.max(1, totalPages - delta * 2);
+    }
+
+    if (start > 1) {
+      range.push(1);
+      if (start > 2) range.push("...");
+    }
+
+    for (let i = start; i <= end; i++) {
+      range.push(i);
+    }
+
+    if (end < totalPages) {
+      if (end < totalPages - 1) range.push("...");
+      range.push(totalPages);
+    }
+
+    return range;
+  }, [currentPage, totalPages]);
+
+  // CSV Export Helper
+  const handleExportCSV = (exportList: MetasData[], filename: string) => {
+    if (exportList.length === 0) return;
+
+    const headers = [
+      "PROTOCOLO", "STATUS", "ATRASO_DIAS", "DATA_APRESENTADO", "DT_PREVISAO", 
+      "DT_ENTREGA_REAL", "D1_PROTOCOLO", "D3_EXTRATO", "D4_QUALIFICACAO", 
+      "D5_CALCULO", "D8_IMPRESSAO", "D10_ENTREGA", "GARGALO", "DIAS_GARGALO"
+    ];
+
+    const rows = exportList.map(item => {
+      const g = getGargaloForRecord(item);
+      return [
+        item.protocolo,
+        `"${(item.status || "").replace(/"/g, '""')}"`,
+        item.atrasoDias || 0,
+        `"${item.dataApresentado || ""}"`,
+        `"${item.dtPrevisao || ""}"`,
+        `"${item.dtEntregaReal || ""}"`,
+        `"${item.d1Protocolo || ""}"`,
+        `"${item.d3Extrato || ""}"`,
+        `"${item.d4Qualificacao || ""}"`,
+        `"${item.d5Calculo || ""}"`,
+        `"${item.d8Impressao || ""}"`,
+        `"${item.d10Entrega || ""}"`,
+        `"${g.name}"`,
+        g.dias
+      ].join(",");
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(","), ...rows].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${filename}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   if (loading) {
     return (
@@ -265,9 +361,36 @@ export function MetasDashboardClient() {
         </div>
       </div>
 
-      {/* Tabela */}
-      <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-white/10 flex flex-wrap gap-4 items-center justify-between bg-white/[0.02]">
+      {/* Tabela Container */}
+      <div ref={tableRef} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col scroll-mt-24">
+        
+        {/* Topo da Tabela: Informações e Itens por página */}
+        <div className="p-4 border-b border-white/10 flex flex-wrap gap-4 items-center justify-between bg-white/[0.03] text-xs text-white/70">
+          <div>
+            Mostrando <span className="font-semibold text-white">{totalFiltered > 0 ? startIndex + 1 : 0}</span>-
+            <span className="font-semibold text-white">{endIndex}</span> de{" "}
+            <span className="font-semibold text-white">{totalFiltered.toLocaleString("pt-BR")}</span> | Página{" "}
+            <span className="font-semibold text-white">{currentPage}</span> de{" "}
+            <span className="font-semibold text-white">{totalPages}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span>Itens por página:</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => setItemsPerPage(Number(e.target.value))}
+              className="bg-[#0F172A] border border-white/10 text-white rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:border-purple-500"
+            >
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={200}>200</option>
+              <option value={500}>500</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Toolbar de Busca, Filtros e Exportação CSV */}
+        <div className="p-4 border-b border-white/10 flex flex-wrap gap-4 items-center justify-between bg-white/[0.01]">
           <div className="relative max-w-xs w-full">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-white/40" />
@@ -275,13 +398,14 @@ export function MetasDashboardClient() {
             <input
               type="text"
               placeholder="Buscar por Protocolo..."
-              className="w-full bg-[#0F172A] border border-white/10 text-white rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder:text-white/30"
+              className="w-full bg-[#0F172A] border border-white/10 text-white rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all placeholder:text-white/30"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3 items-center">
+            {/* Filtro Status */}
             <div className="flex items-center gap-2 bg-[#0F172A] border border-white/10 rounded-lg px-3 py-1.5">
               <Filter className="h-3.5 w-3.5 text-white/40" />
               <select 
@@ -294,6 +418,7 @@ export function MetasDashboardClient() {
               </select>
             </div>
 
+            {/* Filtro Gargalo */}
             <div className="flex items-center gap-2 bg-[#0F172A] border border-white/10 rounded-lg px-3 py-1.5">
               <Filter className="h-3.5 w-3.5 text-white/40" />
               <select 
@@ -305,9 +430,27 @@ export function MetasDashboardClient() {
                 {gargaloTypes.map(g => <option key={g} value={g}>{g}</option>)}
               </select>
             </div>
+
+            {/* Botões Exportar CSV */}
+            <button
+              onClick={() => handleExportCSV(paginatedData, `metas_pagina_${currentPage}`)}
+              title="Exportar registros visíveis na página atual para CSV"
+              className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/90 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            >
+              <Download className="w-3.5 h-3.5 text-blue-400" /> Exportar Página (CSV)
+            </button>
+
+            <button
+              onClick={() => handleExportCSV(filteredData, "metas_filtradas")}
+              title="Exportar todos os registros filtrados para CSV"
+              className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-200 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-purple-400" /> Exportar Filtrados (CSV)
+            </button>
           </div>
         </div>
 
+        {/* Tabela de Dados */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-white/60 bg-white/[0.03] uppercase">
@@ -325,7 +468,7 @@ export function MetasDashboardClient() {
               </tr>
             </thead>
             <tbody>
-              {filteredData.slice(0, 50).map((row) => {
+              {paginatedData.map((row) => {
                 const isAtrasado = row.atrasoDias > 0 || String(row.status).toLowerCase().includes("atraso");
                 const gargalo = getGargaloForRecord(row);
                 
@@ -358,17 +501,96 @@ export function MetasDashboardClient() {
               })}
             </tbody>
           </table>
+
           {filteredData.length === 0 && (
             <div className="p-8 text-center text-white/50">
               Nenhum protocolo encontrado com os filtros atuais.
             </div>
           )}
-          {filteredData.length > 50 && (
-            <div className="p-3 text-center text-xs text-white/40 bg-white/[0.02]">
-              Mostrando os 50 registros mais recentes de {filteredData.length}.
-            </div>
-          )}
         </div>
+
+        {/* Rodapé: Paginação */}
+        {totalPages > 1 && (
+          <div className="p-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-4 bg-white/[0.02]">
+            <div className="text-xs text-white/50">
+              Página <span className="text-white font-semibold">{currentPage}</span> de{" "}
+              <span className="text-white font-semibold">{totalPages}</span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {/* << Primeira */}
+              <button
+                onClick={() => handlePageChange(1)}
+                disabled={currentPage === 1}
+                title="Primeira Página"
+                className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all"
+              >
+                <ChevronsLeft className="w-4 h-4" />
+              </button>
+
+              {/* < Anterior */}
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                title="Página Anterior"
+                className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              {/* Números das Páginas */}
+              <div className="flex items-center gap-1 mx-1">
+                {paginationRange.map((page, index) => {
+                  if (typeof page === "string") {
+                    return (
+                      <span key={`dots-${index}`} className="px-2 text-white/40 text-xs select-none">
+                        ...
+                      </span>
+                    );
+                  }
+
+                  const isCurrent = page === currentPage;
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      style={{
+                        backgroundColor: isCurrent ? "#8b5cf6" : undefined,
+                      }}
+                      className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-semibold transition-all ${
+                        isCurrent
+                          ? "text-white shadow-lg shadow-purple-500/20"
+                          : "bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Próxima > */}
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                title="Próxima Página"
+                className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+
+              {/* Última >> */}
+              <button
+                onClick={() => handlePageChange(totalPages)}
+                disabled={currentPage === totalPages}
+                title="Última Página"
+                className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all"
+              >
+                <ChevronsRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
