@@ -85,7 +85,7 @@ export function MetasDashboardClient() {
     return null;
   };
 
-  // Helper para cor do Badge de Status estrito (Vermelho para Atrasado, Laranja para Entregue com Atraso, Verde para Em dia)
+  // Helper para cor do Badge de Status estrito
   const getStatusBadge = (statusVal: any, atrasoDiasNum: number) => {
     if (!statusVal) {
       return {
@@ -96,7 +96,6 @@ export function MetasDashboardClient() {
 
     const s = String(statusVal).toLowerCase().trim();
 
-    // 1. Entregue com Atraso -> Laranja
     if (s.includes("entregue com atraso") || (s.includes("entregue") && s.includes("atraso"))) {
       return {
         text: statusVal,
@@ -104,7 +103,6 @@ export function MetasDashboardClient() {
       };
     }
 
-    // 2. Atrasado -> Vermelho (Estrito: se s === "atrasado" ou contem atrasado sem ser "em dia")
     if (s === "atrasado" || (s.includes("atrasado") && !s.includes("em dia")) || (atrasoDiasNum > 0 && !s.includes("entregue"))) {
       return {
         text: statusVal,
@@ -112,7 +110,6 @@ export function MetasDashboardClient() {
       };
     }
 
-    // 3. Em dia / No Prazo -> Verde
     if (s.includes("em dia") || s.includes("no prazo")) {
       return {
         text: statusVal,
@@ -126,7 +123,7 @@ export function MetasDashboardClient() {
     };
   };
 
-  // Helper para dias de atraso real (calcula hoje - dtPrevisao se D10_ENTREGA for NULL e status for Atrasado)
+  // Helper para dias de atraso real
   const getAtrasoDias = (record: MetasData) => {
     let atr = Number(getVal(record, "atrasoDias", "ATRASO_DIAS") || 0);
     const st = String(getVal(record, "status", "STATUS") || "").toLowerCase().trim();
@@ -157,10 +154,10 @@ export function MetasDashboardClient() {
     }
   };
 
-  // Safe diff calculation in days between two date fields with support for active in-progress phase
+  // Safe diff calculation in days (com Math.max(0, ...) para evitar dias negativos por datas invertidas)
   const calculateDaysBetween = (startVal: any, endVal: any, givenDaysVal: any, isLastActivePhase: boolean = false) => {
     if (givenDaysVal !== null && givenDaysVal !== undefined) {
-      return Number(givenDaysVal);
+      return Math.max(0, Number(givenDaysVal));
     }
     if (!startVal) return null;
     
@@ -168,14 +165,12 @@ export function MetasDashboardClient() {
       const dStart = new Date(startVal).getTime();
       if (isNaN(dStart)) return null;
 
-      // Se a fase já encerrou (tem data final)
       if (endVal) {
         const dEnd = new Date(endVal).getTime();
         if (isNaN(dEnd)) return null;
         return Math.max(0, Math.floor((dEnd - dStart) / (1000 * 60 * 60 * 24)));
       }
 
-      // Se é a fase ATIVA atual (ainda em andamento)
       if (isLastActivePhase) {
         const now = new Date().getTime();
         return Math.max(0, Math.floor((now - dStart) / (1000 * 60 * 60 * 24)));
@@ -187,31 +182,40 @@ export function MetasDashboardClient() {
     }
   };
 
-  // Determine phases and bottleneck for a given record
+  // Determine all 9 phase transitions & bottleneck for a given record
   const getPhasesForRecord = (record: MetasData) => {
     const d1 = getVal(record, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT");
+    const d1E = getVal(record, "d1Escaneamento", "D1_ESCANEAMENTO", "D1_ESCAN");
     const d2 = getVal(record, "d2Contraditorio", "D2_CONTRADITORIO", "D2_CONTRAD");
     const d3 = getVal(record, "d3Extrato", "D3_EXTRATO", "D3_EXTR");
     const d4 = getVal(record, "d4Qualificacao", "D4_QUALIFICACAO", "D4_QUALI");
     const d5 = getVal(record, "d5Calculo", "D5_CALCULO", "D5_CALC");
     const d8 = getVal(record, "d8Impressao", "D8_IMPRESSAO", "D8_IMP");
     const d9 = getVal(record, "d9Preparacao", "D9_PREPARACAO", "D9_PREP");
+    const d9C = getVal(record, "d9Conferencia", "D9_CONFERENCIA", "D9_CONF");
+    const d10 = getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT");
 
-    // Identifica qual é a última fase iniciada (fase ativa atual)
-    const isP1Active = Boolean(d1 && !d2);
-    const isP2Active = Boolean(d2 && !d3);
-    const isP3Active = Boolean(d3 && !d4);
-    const isP4Active = Boolean(d4 && !d5);
-    const isP5Active = Boolean(d5 && !d8);
-    const isP6Active = Boolean(d8 && !d9);
+    // Identifica qual é a fase ativa atual (em andamento)
+    const isP1Active = Boolean(d1 && !d1E);
+    const isP2Active = Boolean(d1E && !d2);
+    const isP3Active = Boolean(d2 && !d3);
+    const isP4Active = Boolean(d3 && !d4);
+    const isP5Active = Boolean(d4 && !d5);
+    const isP6Active = Boolean(d5 && !d8);
+    const isP7Active = Boolean(d8 && !d9);
+    const isP8Active = Boolean(d9 && !d9C);
+    const isP9Active = Boolean(d9C && !d10);
 
     const phases = [
-      { name: "PROTOCOLO -> CONTRADITORIO", dias: calculateDaysBetween(d1, d2, getVal(record, "diasD1D2", "DIAS_D1_D2"), isP1Active) },
-      { name: "CONTRADITORIO -> EXTRATO", dias: calculateDaysBetween(d2, d3, getVal(record, "diasD2D3", "DIAS_D2_D3"), isP2Active) },
-      { name: "EXTRATO -> QUALIFICACAO", dias: calculateDaysBetween(d3, d4, getVal(record, "diasD3D4", "DIAS_D3_D4"), isP3Active) },
-      { name: "QUALIFICACAO -> CALCULO", dias: calculateDaysBetween(d4, d5, getVal(record, "diasD4D5", "DIAS_D4_D5"), isP4Active) },
-      { name: "CALCULO -> IMPRESSAO", dias: calculateDaysBetween(d5, d8, getVal(record, "diasD5D8", "DIAS_D5_D8"), isP5Active) },
-      { name: "IMPRESSAO -> PREPARACAO", dias: calculateDaysBetween(d8, d9, getVal(record, "diasD8D9", "DIAS_D8_D9"), isP6Active) },
+      { key: "D1_D1E", label: "Prot. -> Escan.", name: "PROTOCOLO -> ESCANEAMENTO", dias: calculateDaysBetween(d1, d1E, getVal(record, "diasD1D1E", "DIAS_D1_D1ESCAN"), isP1Active) },
+      { key: "D1E_D2", label: "Escan. -> Contrad.", name: "ESCANEAMENTO -> CONTRADITORIO", dias: calculateDaysBetween(d1E, d2, getVal(record, "diasD1ED2", "DIAS_D1ESCAN_D2"), isP2Active) },
+      { key: "D2_D3", label: "Contrad. -> Extr.", name: "CONTRADITORIO -> EXTRATO", dias: calculateDaysBetween(d2, d3, getVal(record, "diasD2D3", "DIAS_D2_D3"), isP3Active) },
+      { key: "D3_D4", label: "Extr. -> Qualif.", name: "EXTRATO -> QUALIFICACAO", dias: calculateDaysBetween(d3, d4, getVal(record, "diasD3D4", "DIAS_D3_D4"), isP4Active) },
+      { key: "D4_D5", label: "Qualif. -> Calc.", name: "QUALIFICACAO -> CALCULO", dias: calculateDaysBetween(d4, d5, getVal(record, "diasD4D5", "DIAS_D4_D5"), isP5Active) },
+      { key: "D5_D8", label: "Calc. -> Impres.", name: "CALCULO -> IMPRESSAO", dias: calculateDaysBetween(d5, d8, getVal(record, "diasD5D8", "DIAS_D5_D8"), isP6Active) },
+      { key: "D8_D9", label: "Impres. -> Prep.", name: "IMPRESSAO -> PREPARACAO", dias: calculateDaysBetween(d8, d9, getVal(record, "diasD8D9", "DIAS_D8_D9"), isP7Active) },
+      { key: "D9_D9C", label: "Prep. -> Conf.", name: "PREPARACAO -> CONFERENCIA", dias: calculateDaysBetween(d9, d9C, getVal(record, "diasD9D9C", "DIAS_D9PREP_D9CONF"), isP8Active) },
+      { key: "D9C_D10", label: "Conf. -> Entrega", name: "CONFERENCIA -> ENTREGA", dias: calculateDaysBetween(d9C, d10, getVal(record, "diasD9CD10", "DIAS_D9CONF_D10"), isP9Active) },
     ];
 
     let max = phases[0];
@@ -227,20 +231,23 @@ export function MetasDashboardClient() {
     return getPhasesForRecord(record).topGargalo;
   };
 
-  // Calculate chart data & KPIs
+  // Calculate chart data & KPIs considerando as 9 transições completas
   const { chartData, kpis, statuses, gargaloTypes } = useMemo(() => {
     if (data.length === 0) return { chartData: [], kpis: null, statuses: [], gargaloTypes: [] };
 
     let atrasados = 0;
     let entregueComAtraso = 0;
     
-    const phaseSums = {
-      D1_D2: { sum: 0, count: 0 },
+    const phaseSums: Record<string, { sum: number; count: number }> = {
+      D1_D1E: { sum: 0, count: 0 },
+      D1E_D2: { sum: 0, count: 0 },
       D2_D3: { sum: 0, count: 0 },
       D3_D4: { sum: 0, count: 0 },
       D4_D5: { sum: 0, count: 0 },
       D5_D8: { sum: 0, count: 0 },
       D8_D9: { sum: 0, count: 0 },
+      D9_D9C: { sum: 0, count: 0 },
+      D9C_D10: { sum: 0, count: 0 },
     };
 
     const statusSet = new Set<string>();
@@ -266,12 +273,14 @@ export function MetasDashboardClient() {
       gargaloSet.add(topGargalo.name);
       gargaloCounts[topGargalo.name] = (gargaloCounts[topGargalo.name] || 0) + 1;
 
-      if (phases[0].dias !== null) { phaseSums.D1_D2.sum += phases[0].dias; phaseSums.D1_D2.count++; }
-      if (phases[1].dias !== null) { phaseSums.D2_D3.sum += phases[1].dias; phaseSums.D2_D3.count++; }
-      if (phases[2].dias !== null) { phaseSums.D3_D4.sum += phases[2].dias; phaseSums.D3_D4.count++; }
-      if (phases[3].dias !== null) { phaseSums.D4_D5.sum += phases[3].dias; phaseSums.D4_D5.count++; }
-      if (phases[4].dias !== null) { phaseSums.D5_D8.sum += phases[4].dias; phaseSums.D5_D8.count++; }
-      if (phases[5].dias !== null) { phaseSums.D8_D9.sum += phases[5].dias; phaseSums.D8_D9.count++; }
+      phases.forEach(p => {
+        if (p.dias !== null && p.dias !== undefined) {
+          if (phaseSums[p.key]) {
+            phaseSums[p.key].sum += Math.max(0, p.dias);
+            phaseSums[p.key].count++;
+          }
+        }
+      });
     });
 
     let topGargaloName = "Nenhum";
@@ -284,13 +293,24 @@ export function MetasDashboardClient() {
     });
 
     const chart = [
-      { name: "D1->D2", fullName: "Prot->Contrad.", dias: phaseSums.D1_D2.count ? phaseSums.D1_D2.sum / phaseSums.D1_D2.count : 0, count: phaseSums.D1_D2.count },
-      { name: "D2->D3", fullName: "Contrad.->Extr.", dias: phaseSums.D2_D3.count ? phaseSums.D2_D3.sum / phaseSums.D2_D3.count : 0, count: phaseSums.D2_D3.count },
-      { name: "D3->D4", fullName: "Extr.->Qualif.", dias: phaseSums.D3_D4.count ? phaseSums.D3_D4.sum / phaseSums.D3_D4.count : 0, count: phaseSums.D3_D4.count },
-      { name: "D4->D5", fullName: "Qualif.->Calc.", dias: phaseSums.D4_D5.count ? phaseSums.D4_D5.sum / phaseSums.D4_D5.count : 0, count: phaseSums.D4_D5.count },
-      { name: "D5->D8", fullName: "Calc.->Impres.", dias: phaseSums.D5_D8.count ? phaseSums.D5_D8.sum / phaseSums.D5_D8.count : 0, count: phaseSums.D5_D8.count },
-      { name: "D8->D9", fullName: "Impres.->Prep.", dias: phaseSums.D8_D9.count ? phaseSums.D8_D9.sum / phaseSums.D8_D9.count : 0, count: phaseSums.D8_D9.count },
-    ].map(d => ({ ...d, dias: Number(d.dias.toFixed(2)) }));
+      { name: "D1->D1E", fullName: "Prot.->Escan.", label: "Protocolo -> Escaneamento", key: "D1_D1E" },
+      { name: "D1E->D2", fullName: "Escan.->Contrad.", label: "Escaneamento -> Contraditório", key: "D1E_D2" },
+      { name: "D2->D3", fullName: "Contrad.->Extr.", label: "Contraditório -> Extrato", key: "D2_D3" },
+      { name: "D3->D4", fullName: "Extr.->Qualif.", label: "Extrato -> Qualificação", key: "D3_D4" },
+      { name: "D4->D5", fullName: "Qualif.->Calc.", label: "Qualificação -> Cálculo", key: "D4_D5" },
+      { name: "D5->D8", fullName: "Calc.->Impres.", label: "Cálculo -> Impressão", key: "D5_D8" },
+      { name: "D8->D9", fullName: "Impres.->Prep.", label: "Impressão -> Preparação", key: "D8_D9" },
+      { name: "D9->D9C", fullName: "Prep.->Conf.", label: "Preparação -> Conferência", key: "D9_D9C" },
+      { name: "D9C->D10", fullName: "Conf.->Entrega", label: "Conferência -> Entrega", key: "D9C_D10" },
+    ].map(d => {
+      const stats = phaseSums[d.key];
+      const avg = stats.count > 0 ? stats.sum / stats.count : 0;
+      return {
+        ...d,
+        dias: Number(Math.max(0, avg).toFixed(2)),
+        count: stats.count
+      };
+    });
 
     return {
       chartData: chart,
@@ -467,19 +487,19 @@ export function MetasDashboardClient() {
         </div>
       </div>
 
-      {/* Gráfico */}
+      {/* Gráfico de Média de Dias por Fase (9 Transições) */}
       <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
         <h3 className="text-white font-semibold mb-6 flex items-center gap-2">
           Média de Dias por Fase 
           <span className="text-xs font-normal text-white/50 bg-white/10 px-2 py-0.5 rounded-md">
-            Identificador de Gargalos
+            9 Transições de Esteira
           </span>
         </h3>
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-              <XAxis dataKey="fullName" stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} />
+              <XAxis dataKey="fullName" stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} />
               <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} />
               <Tooltip 
                 cursor={{ fill: 'rgba(255,255,255,0.05)' }}
@@ -488,9 +508,9 @@ export function MetasDashboardClient() {
                     const dataPoint = payload[0].payload;
                     return (
                       <div className="bg-[#1E293B] border border-white/10 rounded-xl p-3 shadow-2xl text-xs space-y-1 text-white">
-                        <p className="font-bold text-blue-400">{dataPoint.fullName}</p>
+                        <p className="font-bold text-blue-400">{dataPoint.label}</p>
                         <p className="text-white/80">
-                          {dataPoint.name}: média <span className="font-bold text-white">{dataPoint.dias}d</span> -{" "}
+                          {dataPoint.name}: média <span className="font-bold text-white">{dataPoint.dias} dias</span> |{" "}
                           <span className="text-white/60">{dataPoint.count?.toLocaleString("pt-BR") || 0} protocolos</span>
                         </p>
                       </div>
@@ -501,7 +521,10 @@ export function MetasDashboardClient() {
               />
               <Bar dataKey="dias" radius={[4, 4, 0, 0]}>
                 {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.dias > 3 ? '#ef4444' : entry.dias > 1 ? '#f59e0b' : '#3b82f6'} />
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={entry.dias > 3 ? '#ef4444' : entry.dias >= 1 ? '#f59e0b' : '#3b82f6'} 
+                  />
                 ))}
               </Bar>
             </BarChart>
@@ -759,7 +782,7 @@ export function MetasDashboardClient() {
 
         const statusBadge = getStatusBadge(stStr, atrDias);
 
-        // Seção 1: Mapeamento de Datas com suporte a aliases
+        // Seção 1: Mapeamento de Datas das 10 Fases
         const datesMap = [
           { label: "D1_PROTOCOLO", val: getVal(selectedProtocol, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT") },
           { label: "D1_ESCANEAMENTO", val: getVal(selectedProtocol, "d1Escaneamento", "D1_ESCANEAMENTO", "D1_ESCAN") },
@@ -773,13 +796,13 @@ export function MetasDashboardClient() {
           { label: "D10_ENTREGA", val: getVal(selectedProtocol, "d10Entrega", "D10_ENTREGA", "D10_ENT") },
         ];
 
-        // Seção 2: Cálculo dos Dias por Fase
+        // Seção 2: Cálculo dos Dias pelas 9 Transições
         const { phases } = getPhasesForRecord(selectedProtocol);
         let totalDiasSoma = 0;
         let temAlgumDia = false;
         phases.forEach(p => {
           if (p.dias !== null && p.dias !== undefined) {
-            totalDiasSoma += p.dias;
+            totalDiasSoma += Math.max(0, p.dias);
             temAlgumDia = true;
           }
         });
@@ -845,7 +868,7 @@ export function MetasDashboardClient() {
                   </div>
                 )}
 
-                {/* Seção 1 - Datas das Fases */}
+                {/* Seção 1 - Datas das Fases (10 Fases) */}
                 <div className="space-y-3">
                   <h3 className="text-xs font-bold text-white/70 uppercase tracking-wider flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-blue-400" /> Seção 1 - Datas das Fases
@@ -863,7 +886,7 @@ export function MetasDashboardClient() {
                   </div>
                 </div>
 
-                {/* Seção 2 - Quadro de Dias por Fase */}
+                {/* Seção 2 - Quadro de Dias por Fase (9 Transições) */}
                 <div className="space-y-3">
                   <h3 className="text-xs font-bold text-white/70 uppercase tracking-wider flex items-center gap-2">
                     <Activity className="w-4 h-4 text-purple-400" /> Seção 2 - Quadro de Dias por Fase
@@ -876,7 +899,7 @@ export function MetasDashboardClient() {
 
                       return (
                         <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02]">
-                          <span className="text-white/70 font-medium">{phase.name}</span>
+                          <span className="text-white/70 font-medium">{phase.label}</span>
                           <div className="flex items-center gap-2">
                             <span className={`font-bold ${isGargalo ? "text-red-400" : hasDays ? "text-white" : "text-white/30"}`}>
                               {hasDays ? `${phase.dias}d` : "-"}
