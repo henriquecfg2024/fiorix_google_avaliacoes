@@ -85,6 +85,66 @@ export function MetasDashboardClient() {
     return null;
   };
 
+  // Helper para cor do Badge de Status
+  const getStatusBadge = (statusVal: any, atrasoDiasNum: number) => {
+    if (!statusVal) {
+      return {
+        text: "N/A",
+        bgClass: "bg-gray-500/20 text-gray-400 border border-gray-500/30",
+      };
+    }
+
+    const s = String(statusVal).toLowerCase().trim();
+
+    // 1. Entregue com Atraso -> Laranja
+    if (s.includes("entregue") && (s.includes("atraso") || atrasoDiasNum > 0)) {
+      return {
+        text: statusVal,
+        bgClass: "bg-orange-500/20 text-orange-400 border border-orange-500/30",
+      };
+    }
+
+    // 2. Atrasado (Vermelho) - estrito
+    if (s === "atrasado" || (s.includes("atrasado") && !s.includes("em dia"))) {
+      return {
+        text: statusVal,
+        bgClass: "bg-red-500/20 text-red-400 border border-red-500/30",
+      };
+    }
+
+    // 3. Em dia / No Prazo -> Verde
+    if (s.includes("em dia") || s.includes("no prazo")) {
+      return {
+        text: statusVal,
+        bgClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
+      };
+    }
+
+    return {
+      text: statusVal,
+      bgClass: "bg-gray-500/20 text-gray-400 border border-gray-500/30",
+    };
+  };
+
+  // Helper para dias de atraso real
+  const getAtrasoDias = (record: MetasData) => {
+    let atr = Number(getVal(record, "atrasoDias", "ATRASO_DIAS") || 0);
+    const st = String(getVal(record, "status", "STATUS") || "").toLowerCase();
+    const d10 = getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT", "dtEntregaReal", "DT_ENTREGA_REAL");
+    const dtPrev = getVal(record, "dtPrevisao", "DT_PREVISAO");
+
+    if (atr <= 0 && st.includes("atrasado") && !d10 && dtPrev) {
+      try {
+        const pDate = new Date(dtPrev).getTime();
+        const now = new Date().getTime();
+        if (!isNaN(pDate) && now > pDate) {
+          atr = Math.max(1, Math.floor((now - pDate) / (1000 * 60 * 60 * 24)));
+        }
+      } catch {}
+    }
+    return atr;
+  };
+
   // Format date helper
   const formatDate = (val: any) => {
     if (!val) return "-";
@@ -97,20 +157,31 @@ export function MetasDashboardClient() {
     }
   };
 
-  // Safe diff calculation in days between two date fields
-  const calculateDaysBetween = (startVal: any, endVal: any, givenDaysVal: any) => {
+  // Safe diff calculation in days between two date fields with support for active in-progress phase
+  const calculateDaysBetween = (startVal: any, endVal: any, givenDaysVal: any, isLastActivePhase: boolean = false) => {
     if (givenDaysVal !== null && givenDaysVal !== undefined) {
       return Number(givenDaysVal);
     }
     if (!startVal) return null;
-    if (!endVal) return null; // Fase ainda não aconteceu
     
     try {
       const dStart = new Date(startVal).getTime();
-      const dEnd = new Date(endVal).getTime();
-      if (isNaN(dStart) || isNaN(dEnd)) return null;
-      const diff = Math.max(0, Math.floor((dEnd - dStart) / (1000 * 60 * 60 * 24)));
-      return diff;
+      if (isNaN(dStart)) return null;
+
+      // Se a fase já encerrou (tem data final)
+      if (endVal) {
+        const dEnd = new Date(endVal).getTime();
+        if (isNaN(dEnd)) return null;
+        return Math.max(0, Math.floor((dEnd - dStart) / (1000 * 60 * 60 * 24)));
+      }
+
+      // Se é a fase ATIVA atual (ainda em andamento)
+      if (isLastActivePhase) {
+        const now = new Date().getTime();
+        return Math.max(0, Math.floor((now - dStart) / (1000 * 60 * 60 * 24)));
+      }
+
+      return null;
     } catch {
       return null;
     }
@@ -119,7 +190,6 @@ export function MetasDashboardClient() {
   // Determine phases and bottleneck for a given record
   const getPhasesForRecord = (record: MetasData) => {
     const d1 = getVal(record, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT");
-    const d1E = getVal(record, "d1Escaneamento", "D1_ESCANEAMENTO", "D1_ESCAN");
     const d2 = getVal(record, "d2Contraditorio", "D2_CONTRADITORIO", "D2_CONTRAD");
     const d3 = getVal(record, "d3Extrato", "D3_EXTRATO", "D3_EXTR");
     const d4 = getVal(record, "d4Qualificacao", "D4_QUALIFICACAO", "D4_QUALI");
@@ -127,13 +197,21 @@ export function MetasDashboardClient() {
     const d8 = getVal(record, "d8Impressao", "D8_IMPRESSAO", "D8_IMP");
     const d9 = getVal(record, "d9Preparacao", "D9_PREPARACAO", "D9_PREP");
 
+    // Identifica qual é a última fase iniciada (fase ativa atual)
+    const isP1Active = Boolean(d1 && !d2);
+    const isP2Active = Boolean(d2 && !d3);
+    const isP3Active = Boolean(d3 && !d4);
+    const isP4Active = Boolean(d4 && !d5);
+    const isP5Active = Boolean(d5 && !d8);
+    const isP6Active = Boolean(d8 && !d9);
+
     const phases = [
-      { name: "PROTOCOLO -> CONTRADITORIO", dias: calculateDaysBetween(d1, d2, getVal(record, "diasD1D2", "DIAS_D1_D2")) },
-      { name: "CONTRADITORIO -> EXTRATO", dias: calculateDaysBetween(d2, d3, getVal(record, "diasD2D3", "DIAS_D2_D3")) },
-      { name: "EXTRATO -> QUALIFICACAO", dias: calculateDaysBetween(d3, d4, getVal(record, "diasD3D4", "DIAS_D3_D4")) },
-      { name: "QUALIFICACAO -> CALCULO", dias: calculateDaysBetween(d4, d5, getVal(record, "diasD4D5", "DIAS_D4_D5")) },
-      { name: "CALCULO -> IMPRESSAO", dias: calculateDaysBetween(d5, d8, getVal(record, "diasD5D8", "DIAS_D5_D8")) },
-      { name: "IMPRESSAO -> PREPARACAO", dias: calculateDaysBetween(d8, d9, getVal(record, "diasD8D9", "DIAS_D8_D9")) },
+      { name: "PROTOCOLO -> CONTRADITORIO", dias: calculateDaysBetween(d1, d2, getVal(record, "diasD1D2", "DIAS_D1_D2"), isP1Active) },
+      { name: "CONTRADITORIO -> EXTRATO", dias: calculateDaysBetween(d2, d3, getVal(record, "diasD2D3", "DIAS_D2_D3"), isP2Active) },
+      { name: "EXTRATO -> QUALIFICACAO", dias: calculateDaysBetween(d3, d4, getVal(record, "diasD3D4", "DIAS_D3_D4"), isP3Active) },
+      { name: "QUALIFICACAO -> CALCULO", dias: calculateDaysBetween(d4, d5, getVal(record, "diasD4D5", "DIAS_D4_D5"), isP4Active) },
+      { name: "CALCULO -> IMPRESSAO", dias: calculateDaysBetween(d5, d8, getVal(record, "diasD5D8", "DIAS_D5_D8"), isP5Active) },
+      { name: "IMPRESSAO -> PREPARACAO", dias: calculateDaysBetween(d8, d9, getVal(record, "diasD8D9", "DIAS_D8_D9"), isP6Active) },
     ];
 
     let max = phases[0];
@@ -171,7 +249,7 @@ export function MetasDashboardClient() {
 
     data.forEach(item => {
       const st = String(getVal(item, "status", "STATUS") || "Desconhecido");
-      const atrasoDias = Number(getVal(item, "atrasoDias", "ATRASO_DIAS") || 0);
+      const atrasoDias = getAtrasoDias(item);
 
       statusSet.add(st);
 
@@ -303,7 +381,7 @@ export function MetasDashboardClient() {
       const g = getGargaloForRecord(item);
       const prot = getVal(item, "protocolo", "PROTOCOLO");
       const st = getVal(item, "status", "STATUS");
-      const atr = getVal(item, "atrasoDias", "ATRASO_DIAS");
+      const atr = getAtrasoDias(item);
       return [
         prot,
         `"${(st || "").replace(/"/g, '""')}"`,
@@ -541,9 +619,9 @@ export function MetasDashboardClient() {
               {paginatedData.map((row) => {
                 const prot = getVal(row, "protocolo", "PROTOCOLO");
                 const st = String(getVal(row, "status", "STATUS") || "N/A");
-                const atr = Number(getVal(row, "atrasoDias", "ATRASO_DIAS") || 0);
+                const atr = getAtrasoDias(row);
+                const statusBadge = getStatusBadge(st, atr);
 
-                const isAtrasado = atr > 0 || st.toLowerCase().includes("atraso");
                 const gargalo = getGargaloForRecord(row);
                 
                 const d1Val = getVal(row, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT");
@@ -562,14 +640,12 @@ export function MetasDashboardClient() {
                   >
                     <td className="px-4 py-3 font-medium text-blue-400 underline decoration-blue-400/30 underline-offset-4">{prot}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                        isAtrasado ? 'bg-red-500/15 text-red-400' : 'bg-emerald-500/15 text-emerald-400'
-                      }`}>
-                        {st}
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${statusBadge.bgClass}`}>
+                        {statusBadge.text}
                       </span>
                     </td>
                     <td className={`px-4 py-3 font-medium ${atr > 0 ? 'text-red-400' : 'text-white/50'}`}>
-                      {atr > 0 ? `${atr}d` : '-'}
+                      {atr > 0 ? `${atr}d` : '0d'}
                     </td>
                     <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(d1Val)}</td>
                     <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(d3Val)}</td>
@@ -678,11 +754,10 @@ export function MetasDashboardClient() {
       {selectedProtocol && (() => {
         const protNum = getVal(selectedProtocol, "protocolo", "PROTOCOLO");
         const stStr = String(getVal(selectedProtocol, "status", "STATUS") || "Em dia");
-        const atrDias = Number(getVal(selectedProtocol, "atrasoDias", "ATRASO_DIAS") || 0);
+        const atrDias = getAtrasoDias(selectedProtocol);
         const retrabalho = Number(getVal(selectedProtocol, "qtdRetrabalho", "QTD_RETRABALHO", "qtd_retrabalho") || 0);
 
-        const isEntregueComAtraso = stStr.toLowerCase().includes("entregue") && (atrDias > 0 || stStr.toLowerCase().includes("atraso"));
-        const isAtrasado = !isEntregueComAtraso && (atrDias > 0 || stStr.toLowerCase().includes("atraso"));
+        const statusBadge = getStatusBadge(stStr, atrDias);
 
         // Seção 1: Mapeamento de Datas com suporte a aliases
         const datesMap = [
@@ -744,14 +819,8 @@ export function MetasDashboardClient() {
                 <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white/5 border border-white/10 rounded-xl">
                   <div>
                     <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1">Status do Pedido</p>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      isEntregueComAtraso
-                        ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
-                        : isAtrasado
-                          ? 'bg-red-500/20 text-red-300 border border-red-500/30'
-                          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                    }`}>
-                      {stStr}
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${statusBadge.bgClass}`}>
+                      {statusBadge.text}
                     </span>
                   </div>
 
@@ -812,41 +881,41 @@ export function MetasDashboardClient() {
                             <span className={`font-bold ${isGargalo ? "text-red-400" : hasDays ? "text-white" : "text-white/30"}`}>
                               {hasDays ? `${phase.dias}d` : "-"}
                             </span>
-                          {isGargalo && (
-                            <span className="px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/30 text-[10px] font-bold">
-                              Gargalo
-                            </span>
-                          )}
+                            {isGargalo && (
+                              <span className="px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/30 text-[10px] font-bold">
+                                Gargalo
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
 
-                  {/* TOTAL */}
-                  <div className="pt-3 border-t border-white/10 flex items-center justify-between font-bold text-sm text-white">
-                    <span className="text-purple-300">TOTAL DE DIAS NA ESTEIRA:</span>
-                    <span className="text-purple-400 bg-purple-500/10 border border-purple-500/30 px-3 py-1 rounded-lg">
-                      {temAlgumDia ? `${totalDiasSoma} dias` : '-'}
-                    </span>
+                    {/* TOTAL */}
+                    <div className="pt-3 border-t border-white/10 flex items-center justify-between font-bold text-sm text-white">
+                      <span className="text-purple-300">TOTAL DE DIAS NA ESTEIRA:</span>
+                      <span className="text-purple-400 bg-purple-500/10 border border-purple-500/30 px-3 py-1 rounded-lg">
+                        {temAlgumDia ? `${totalDiasSoma} dias` : '-'}
+                      </span>
+                    </div>
                   </div>
                 </div>
+
               </div>
 
-            </div>
-
-            {/* Footer do Drawer */}
-            <div className="p-4 border-t border-white/10 bg-white/[0.02] flex justify-end">
-              <button
-                onClick={() => setSelectedProtocol(null)}
-                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-              >
-                Fechar
-              </button>
+              {/* Footer do Drawer */}
+              <div className="p-4 border-t border-white/10 bg-white/[0.02] flex justify-end">
+                <button
+                  onClick={() => setSelectedProtocol(null)}
+                  className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      );
-    })()}
+        );
+      })()}
     </div>
   );
 }
