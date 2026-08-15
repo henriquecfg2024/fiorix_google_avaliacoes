@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft, Database, FileSpreadsheet, Layers3 } from "lucide-react";
 
 import { auth } from "@/auth";
+import { getTenantId } from "@/lib/prisma";
 import { ImportacoesActions } from "@/components/bi/ImportacoesActions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -184,7 +185,7 @@ export default async function BiImportacoesPage() {
     redirect("/login");
   }
 
-  const tenantId = session.user.tenantId || '';
+  const tenantId = await getTenantId(session.user.tenantId as string);
 
   const [biImports, produtividadeLogs, produtividadeInferred, metasImports] = await Promise.all([
     listBiImports(tenantId),

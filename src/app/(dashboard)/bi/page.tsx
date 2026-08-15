@@ -1,6 +1,7 @@
 import { FiorixDashboardClient } from "@/components/fiorix/FiorixDashboardClient";
 import { queryBiDashboardData, queryBiImportsList, queryBiAtrasadosList } from "@/lib/bi-dashboard";
 import { auth } from "@/auth";
+import { getTenantId } from "@/lib/prisma";
 
 export default async function FiorixBIPage({
   searchParams,
@@ -22,7 +23,7 @@ export default async function FiorixBIPage({
     tipoPrenotacao,
   };
 
-  const tenantId = session?.user?.tenantId || '';
+  const tenantId = await getTenantId(session?.user?.tenantId as string);
 
   const [imports, dashboardData, atrasados] = await Promise.all([
     queryBiImportsList(tenantId),
