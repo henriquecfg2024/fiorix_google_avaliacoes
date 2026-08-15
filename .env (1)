@@ -1,4 +1,0 @@
-DATABASE_URL="postgresql://postgres.uvieekfizuzujpwfbjww:FhBKcnbROfCGzpYRsupabase@aws-0-sa-east-1.pooler.supabase.com:5432/postgres?connection_limit=1"
-
-# NextAuth Configuration (We'll generate a real secret in production)
-AUTH_SECRET="fiorix-secret-key-for-development-only-replace-later"

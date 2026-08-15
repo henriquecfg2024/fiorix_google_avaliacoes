@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { queryBiDashboardData, queryBiImportsList } from '@/lib/bi-dashboard';
 import { refreshBiAggregatesForImport } from '@/lib/bi-aggregates';
 import { prisma } from '@/lib/prisma';
+import { requireAuth, requireRole } from '@/lib/auth-helpers';
 
 export interface BiRowInput {
   Protocolo: string;
@@ -29,11 +30,13 @@ export interface BiRowInput {
 
 export async function createBiImport(fileName: string, totalRows: number, importedBy = 'Manual SSMS') {
   try {
+    const user = await requireRole('ADMIN', 'MASTER');
     const record = await prisma.fiorixBiImport.create({
       data: {
         fileName,
         rowsCount: totalRows,
         importedBy,
+        tenantId: user.tenantId,
         status: 'PROCESSING',
       },
     });
@@ -47,18 +50,26 @@ export async function createBiImport(fileName: string, totalRows: number, import
 
 export async function updateBiImportStatus(importId: string, status: 'SUCCESS' | 'FAILED', errorMessage?: string) {
   try {
+    const user = await requireRole('ADMIN', 'MASTER');
+    
+    // Validar se a importação pertence ao tenant
+    const targetImport = await prisma.fiorixBiImport.findFirst({
+      where: { id: importId, tenantId: user.tenantId },
+    });
+    if (!targetImport) {
+      return { success: false, error: 'Importação não encontrada para este cartório.' };
+    }
+
     if (status === 'FAILED') {
       await prisma.$transaction([
-        prisma.fiorixBiData.deleteMany({ where: { importId } }),
+        prisma.fiorixBiData.deleteMany({ where: { importId, tenantId: user.tenantId } }),
         prisma.fiorixBiImport.update({
           where: { id: importId },
           data: { status, errorMessage },
         }),
       ]);
     } else {
-      // Calcula uma vez os resumos do BI. Os graficos passam a consultar
-      // milhares de linhas agregadas, em vez de reler todo o CSV importado.
-      await refreshBiAggregatesForImport(importId);
+      await refreshBiAggregatesForImport(importId, user.tenantId);
       await prisma.fiorixBiImport.update({
         where: { id: importId },
         data: { status, errorMessage },
@@ -73,6 +84,16 @@ export async function updateBiImportStatus(importId: string, status: 'SUCCESS' |
 
 export async function insertBiBatch(importId: string, rows: BiRowInput[]) {
   try {
+    const user = await requireRole('ADMIN', 'MASTER');
+
+    // Validar se a importação pertence ao tenant
+    const targetImport = await prisma.fiorixBiImport.findFirst({
+      where: { id: importId, tenantId: user.tenantId },
+    });
+    if (!targetImport) {
+      return { success: false, error: 'Importação não encontrada para este cartório.' };
+    }
+
     if (!rows || rows.length === 0) {
       return { success: true, count: 0 };
     }
@@ -102,6 +123,7 @@ export async function insertBiBatch(importId: string, rows: BiRowInput[]) {
 
       return {
         importId,
+        tenantId: user.tenantId,
         protocolo: String(row.Protocolo || '').trim(),
         flagRecepcao: parseIntVal(row.FlagRecepcao),
         tipoSolicitacao: row.TipoSolicitacao ? String(row.TipoSolicitacao).trim() : null,
@@ -142,9 +164,10 @@ export async function getBiDashboardData(filters?: {
   importId?: string;
 }) {
   try {
+    const user = await requireAuth();
     return {
       success: true,
-      ...(await queryBiDashboardData(filters)),
+      ...(await queryBiDashboardData(user.tenantId, filters)),
     };
   } catch (error: any) {
     console.error('Error fetching BI dashboard data:', error);
@@ -154,7 +177,8 @@ export async function getBiDashboardData(filters?: {
 
 export async function getBiImportsList() {
   try {
-    const imports = await queryBiImportsList();
+    const user = await requireAuth();
+    const imports = await queryBiImportsList(user.tenantId);
     return { success: true, imports };
   } catch (error: any) {
     console.error('Error fetching imports list:', error);
@@ -164,8 +188,9 @@ export async function getBiImportsList() {
 
 export async function deleteBiImport(importId: string) {
   try {
-    await prisma.fiorixBiImport.delete({
-      where: { id: importId },
+    const user = await requireRole('ADMIN', 'MASTER');
+    await prisma.fiorixBiImport.deleteMany({
+      where: { id: importId, tenantId: user.tenantId },
     });
 
     revalidatePath('/admin/bi');
@@ -175,3 +200,4 @@ export async function deleteBiImport(importId: string) {
     return { success: false, error: error.message || 'Erro ao excluir importacao' };
   }
 }
+

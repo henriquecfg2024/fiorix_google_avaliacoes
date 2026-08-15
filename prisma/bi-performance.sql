@@ -3,6 +3,7 @@
 -- varrer mais de um milhao de linhas a cada abertura de grafico.
 
 CREATE TABLE IF NOT EXISTS fiorix_bi_daily_agg (
+  tenant_id text NOT NULL DEFAULT '',
   import_id text NOT NULL REFERENCES fiorix_bi_imports(id) ON DELETE CASCADE,
   day date NOT NULL,
   tipo_prenotacao text NOT NULL DEFAULT '',
@@ -25,18 +26,19 @@ CREATE TABLE IF NOT EXISTS fiorix_bi_daily_agg (
   sum_dias_prometidos bigint NOT NULL DEFAULT 0,
   sum_dias_corridos bigint NOT NULL DEFAULT 0,
   metric_count bigint NOT NULL DEFAULT 0,
-  PRIMARY KEY (import_id, day, tipo_prenotacao, natureza, is_exception)
+  PRIMARY KEY (tenant_id, import_id, day, tipo_prenotacao, natureza, is_exception)
 );
 
 CREATE INDEX IF NOT EXISTS idx_fiorix_bi_daily_agg_day
-  ON fiorix_bi_daily_agg(day);
+  ON fiorix_bi_daily_agg(tenant_id, day);
 CREATE INDEX IF NOT EXISTS idx_fiorix_bi_daily_agg_import_day
-  ON fiorix_bi_daily_agg(import_id, day);
+  ON fiorix_bi_daily_agg(tenant_id, import_id, day);
 CREATE INDEX IF NOT EXISTS idx_fiorix_bi_daily_agg_tipo_day
-  ON fiorix_bi_daily_agg(tipo_prenotacao, day);
+  ON fiorix_bi_daily_agg(tenant_id, tipo_prenotacao, day);
 
 CREATE TABLE IF NOT EXISTS fiorix_bi_return_note_agg (
   id bigserial PRIMARY KEY,
+  tenant_id text NOT NULL DEFAULT '',
   import_id text NOT NULL REFERENCES fiorix_bi_imports(id) ON DELETE CASCADE,
   day date NOT NULL,
   tipo_prenotacao text NOT NULL DEFAULT '',
@@ -45,11 +47,11 @@ CREATE TABLE IF NOT EXISTS fiorix_bi_return_note_agg (
 );
 
 CREATE INDEX IF NOT EXISTS idx_fiorix_bi_return_note_import_day
-  ON fiorix_bi_return_note_agg(import_id, day);
+  ON fiorix_bi_return_note_agg(tenant_id, import_id, day);
 CREATE INDEX IF NOT EXISTS idx_fiorix_bi_return_note_tipo_day
-  ON fiorix_bi_return_note_agg(tipo_prenotacao, day);
+  ON fiorix_bi_return_note_agg(tenant_id, tipo_prenotacao, day);
 
-CREATE OR REPLACE FUNCTION refresh_fiorix_bi_aggregates(p_import_id text)
+CREATE OR REPLACE FUNCTION refresh_fiorix_bi_aggregates(p_import_id text, p_tenant_id text DEFAULT '')
 RETURNS TABLE(daily_rows bigint, note_rows bigint)
 LANGUAGE plpgsql
 SECURITY INVOKER
@@ -58,11 +60,11 @@ AS $$
 BEGIN
   PERFORM pg_advisory_xact_lock(hashtext(p_import_id));
 
-  DELETE FROM fiorix_bi_daily_agg WHERE import_id = p_import_id;
-  DELETE FROM fiorix_bi_return_note_agg WHERE import_id = p_import_id;
+  DELETE FROM fiorix_bi_daily_agg WHERE import_id = p_import_id AND (p_tenant_id = '' OR tenant_id = p_tenant_id);
+  DELETE FROM fiorix_bi_return_note_agg WHERE import_id = p_import_id AND (p_tenant_id = '' OR tenant_id = p_tenant_id);
 
   INSERT INTO fiorix_bi_daily_agg (
-    import_id, day, tipo_prenotacao, natureza, is_exception,
+    tenant_id, import_id, day, tipo_prenotacao, natureza, is_exception,
     total_records, total_registered, registered_no_prazo,
     registered_atrasado, registered_devolucao, devolucao_all,
     delay_1_3, delay_4_7, delay_8_15, delay_16_plus,
@@ -72,6 +74,7 @@ BEGIN
   )
   WITH classified AS (
     SELECT
+      COALESCE("tenant_id", p_tenant_id) AS tenant_id,
       "import_id",
       COALESCE("DtProtocolo"::date, DATE '1900-01-01') AS day,
       COALESCE(TRIM("TipoPrenotacao"), '') AS tipo_prenotacao,
@@ -100,9 +103,10 @@ BEGIN
       COALESCE("DiasCorridos", 0) AS dias_corridos
     FROM fiorix_bi_data
     WHERE "import_id" = p_import_id
+      AND (p_tenant_id = '' OR "tenant_id" = p_tenant_id)
   )
   SELECT
-    import_id, day, tipo_prenotacao, natureza, is_exception,
+    tenant_id, import_id, day, tipo_prenotacao, natureza, is_exception,
     COUNT(*)::bigint,
     COUNT(*) FILTER (WHERE is_registered)::bigint,
     COUNT(*) FILTER (WHERE is_registered AND NOT is_devolucao AND NOT is_atrasado)::bigint,
@@ -121,14 +125,15 @@ BEGIN
     SUM(dias_corridos)::bigint,
     COUNT(*)::bigint
   FROM classified
-  GROUP BY import_id, day, tipo_prenotacao, natureza, is_exception;
+  GROUP BY tenant_id, import_id, day, tipo_prenotacao, natureza, is_exception;
 
   GET DIAGNOSTICS daily_rows = ROW_COUNT;
 
   INSERT INTO fiorix_bi_return_note_agg (
-    import_id, day, tipo_prenotacao, texto, occurrences
+    tenant_id, import_id, day, tipo_prenotacao, texto, occurrences
   )
   SELECT
+    COALESCE("tenant_id", p_tenant_id),
     "import_id",
     COALESCE("DtProtocolo"::date, DATE '1900-01-01'),
     COALESCE(TRIM("TipoPrenotacao"), ''),
@@ -136,6 +141,7 @@ BEGIN
     COUNT(*)::bigint
   FROM fiorix_bi_data
   WHERE "import_id" = p_import_id
+    AND (p_tenant_id = '' OR "tenant_id" = p_tenant_id)
     AND TRANSLATE(
       UPPER(COALESCE(TRIM("Natureza"), '')),
       'ÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ',
@@ -151,9 +157,10 @@ BEGIN
     )
     AND "TextoNotaDevolucao" IS NOT NULL
     AND LENGTH(TRIM("TextoNotaDevolucao")) > 5
-  GROUP BY 1, 2, 3, 4;
+  GROUP BY 1, 2, 3, 4, 5;
 
   GET DIAGNOSTICS note_rows = ROW_COUNT;
   RETURN NEXT;
 END;
 $$;
+

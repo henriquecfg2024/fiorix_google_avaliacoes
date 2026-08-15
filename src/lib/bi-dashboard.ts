@@ -65,15 +65,16 @@ const dashboardCache = new Map<string, DashboardCacheEntry>();
 const dashboardInFlight = new Map<string, Promise<any>>();
 const DASHBOARD_CACHE_TTL_MS = 30_000;
 
-function dashboardCacheKey(filters?: BiDashboardFilters) {
+function dashboardCacheKey(tenantId: string, filters?: BiDashboardFilters) {
   return JSON.stringify({
+    tenantId,
     ...filters,
     enabledCharts: filters?.enabledCharts ? [...filters.enabledCharts].sort() : undefined,
   });
 }
 
-export async function queryBiDashboardData(filters?: BiDashboardFilters) {
-  const key = dashboardCacheKey(filters);
+export async function queryBiDashboardData(tenantId: string, filters?: BiDashboardFilters) {
+  const key = dashboardCacheKey(tenantId, filters);
   const now = Date.now();
   const cached = dashboardCache.get(key);
   if (cached && cached.expiresAt > now) {
@@ -85,7 +86,7 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
   if (running) return running;
 
   const request = (async () => {
-    const value = await queryBiDashboardDataUncached(filters);
+    const value = await queryBiDashboardDataUncached(tenantId, filters);
     dashboardCache.set(key, { value, expiresAt: Date.now() + DASHBOARD_CACHE_TTL_MS });
     while (dashboardCache.size > 8) {
       const oldestKey = dashboardCache.keys().next().value;
@@ -103,10 +104,13 @@ export async function queryBiDashboardData(filters?: BiDashboardFilters) {
   }
 }
 
-async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
+async function queryBiDashboardDataUncached(tenantId: string, filters?: BiDashboardFilters) {
   const selectedCharts = filters?.enabledCharts?.length ? new Set(filters.enabledCharts) : null;
   const chartEnabled = (id: string) => !selectedCharts || selectedCharts.has(id);
   const includeSummary = filters?.includeSummary !== false;
+
+  const tenantCondition = Prisma.sql`"tenant_id" = ${tenantId}`;
+
   let importCondition = Prisma.sql`1=1`;
   if (filters?.importId && filters.importId !== 'ALL') {
     importCondition = Prisma.sql`"import_id" = ${filters.importId}`;
@@ -132,9 +136,11 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
     }
   }
 
-  const baseCondition = Prisma.sql`${importCondition} AND ${tipoCondition} AND ${dateCondition}`;
+  const baseCondition = Prisma.sql`${tenantCondition} AND ${importCondition} AND ${tipoCondition} AND ${dateCondition}`;
   const generalCondition = Prisma.sql`${baseCondition} AND ${GENERAL_NATURE_CONDITION_SQL}`;
   const exceptionCondition = Prisma.sql`${baseCondition} AND ${EXCEPTION_NATURE_CONDITION_SQL}`;
+
+  const aggregateTenantCondition = Prisma.sql`a.tenant_id = ${tenantId}`;
 
   let aggregateImportCondition = Prisma.sql`1=1`;
   if (filters?.importId && filters.importId !== 'ALL') {
@@ -161,7 +167,8 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
   }
 
   const aggregateBaseCondition = Prisma.sql`
-    ${aggregateImportCondition}
+    ${aggregateTenantCondition}
+    AND ${aggregateImportCondition}
     AND ${aggregateTipoCondition}
     AND ${aggregateDateCondition}
   `;
@@ -349,7 +356,7 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
   const tiposRaw = includeSummary ? await prisma.$queryRaw<Array<{ tipo: string }>>`
     SELECT DISTINCT a.tipo_prenotacao as tipo
     FROM fiorix_bi_daily_agg a
-    WHERE a.tipo_prenotacao != ''
+    WHERE a.tenant_id = ${tenantId} AND a.tipo_prenotacao != ''
     LIMIT 30
   ` : [];
 
@@ -407,27 +414,29 @@ async function queryBiDashboardDataUncached(filters?: BiDashboardFilters) {
   };
 }
 
-export async function queryBiImportsList() {
-  const cached = dashboardCache.get('__imports__');
+export async function queryBiImportsList(tenantId: string) {
+  const cacheKey = `__imports__:${tenantId}`;
+  const cached = dashboardCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
 
-  const running = dashboardInFlight.get('__imports__');
+  const running = dashboardInFlight.get(cacheKey);
   if (running) return running;
 
   const request = (async () => {
     const value = await prisma.fiorixBiImport.findMany({
+      where: { tenantId },
       orderBy: { importedAt: 'desc' },
       take: 20,
     });
-    dashboardCache.set('__imports__', { value, expiresAt: Date.now() + DASHBOARD_CACHE_TTL_MS });
+    dashboardCache.set(cacheKey, { value, expiresAt: Date.now() + DASHBOARD_CACHE_TTL_MS });
     return value;
   })();
 
-  dashboardInFlight.set('__imports__', request);
+  dashboardInFlight.set(cacheKey, request);
   try {
     return await request;
   } finally {
-    dashboardInFlight.delete('__imports__');
+    dashboardInFlight.delete(cacheKey);
   }
 }
 
@@ -436,9 +445,9 @@ export interface BiAtrasadosFilters extends BiDashboardFilters {
   pageSize?: number;
   search?: string;
   rangeIndex?: number;
-  queryMode?: 'atrasado' | 'full'; // 'atrasado' (default) or 'full' (Consulta Geral)
-  statusFilter?: string; // 'ALL' | 'Em dia' | 'Atrasado'
-  servicoFilter?: string; // 'ALL' | 'REGISTRADO' | 'DEVOLVIDO'
+  queryMode?: 'atrasado' | 'full';
+  statusFilter?: string;
+  servicoFilter?: string;
 }
 
 export interface BiAtrasadosItem {
@@ -461,7 +470,7 @@ export interface BiAtrasadosResult {
   rangeCounts: number[];
 }
 
-export async function queryBiAtrasadosList(filters?: BiAtrasadosFilters): Promise<BiAtrasadosResult> {
+export async function queryBiAtrasadosList(tenantId: string, filters?: BiAtrasadosFilters): Promise<BiAtrasadosResult> {
   const page = Math.max(1, Number(filters?.page) || 1);
   const pageSize = Math.min(100, Math.max(1, Number(filters?.pageSize) || 20));
   const rangeIndex = Number(filters?.rangeIndex) || 0;
@@ -469,6 +478,8 @@ export async function queryBiAtrasadosList(filters?: BiAtrasadosFilters): Promis
   const queryMode = filters?.queryMode || 'atrasado';
   const statusFilter = filters?.statusFilter || 'ALL';
   const servicoFilter = filters?.servicoFilter || 'ALL';
+
+  const tenantCondition = Prisma.sql`"tenant_id" = ${tenantId}`;
 
   let importCondition = Prisma.sql`1=1`;
   if (filters?.importId && filters.importId !== 'ALL') {
@@ -495,21 +506,17 @@ export async function queryBiAtrasadosList(filters?: BiAtrasadosFilters): Promis
     }
   }
 
-  const baseCondition = Prisma.sql`${importCondition} AND ${tipoCondition} AND ${dateCondition}`;
+  const baseCondition = Prisma.sql`${tenantCondition} AND ${importCondition} AND ${tipoCondition} AND ${dateCondition}`;
   const generalCondition = Prisma.sql`${baseCondition} AND ${GENERAL_NATURE_CONDITION_SQL}`;
 
   const calculatedAtraso = Prisma.sql`COALESCE("DiasAtraso", COALESCE("DiasCorridos", 0) - COALESCE("DiasPrometidos", 0))`;
-
-  // Se for busca exata de protocolo, pula as restrições normais para permitir pesquisar em toda a base
   const isExactSearch = search !== '' && /^\d+$/.test(search);
 
-  // Filtro de atrasado: Só se aplica em queryMode 'atrasado' E se não for busca exata
   let modeCondition = Prisma.sql`1=1`;
   if (queryMode === 'atrasado' && !isExactSearch) {
     modeCondition = Prisma.sql`("DiasAtraso" > 0 OR ("DiasCorridos" > "DiasPrometidos" AND "DiasPrometidos" > 0))`;
   }
 
-  // Filtro de Status para a Consulta Geral (Apenas quando não for busca exata)
   let statusCondition = Prisma.sql`1=1`;
   if (!isExactSearch && statusFilter !== 'ALL') {
     if (statusFilter === 'Atrasado') {
@@ -519,7 +526,6 @@ export async function queryBiAtrasadosList(filters?: BiAtrasadosFilters): Promis
     }
   }
 
-  // Filtro de Serviço para a Consulta Geral (Apenas quando não for busca exata)
   let servicoCondition = Prisma.sql`1=1`;
   if (!isExactSearch && servicoFilter !== 'ALL') {
     if (servicoFilter === 'DEVOLVIDO') {
@@ -532,7 +538,6 @@ export async function queryBiAtrasadosList(filters?: BiAtrasadosFilters): Promis
   let searchCondition = Prisma.sql`1=1`;
   if (search !== '') {
     if (isExactSearch) {
-      // Se for busca exata de protocolo, buscamos pelo número exato
       searchCondition = Prisma.sql`"Protocolo" = ${search}`;
     } else {
       searchCondition = Prisma.sql`CAST("Protocolo" AS TEXT) ILIKE ${'%' + search + '%'}`;
@@ -644,4 +649,5 @@ export async function queryBiAtrasadosList(filters?: BiAtrasadosFilters): Promis
     rangeCounts,
   };
 }
+
 

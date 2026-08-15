@@ -1,26 +1,37 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireTenant } from "@/lib/auth-helpers";
+import { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
+    const user = await requireTenant();
     const { searchParams } = new URL(request.url);
     const useSimulation = searchParams.get("simulate") === "true";
 
     let rawMetas: any[] = [];
 
-    // Tentar pegar do Postgres (via queryRawUnsafe para evitar discrepâncias de casing das colunas)
+    // Tentar pegar do Postgres escopado por tenantId
     try {
-      rawMetas = await prisma.$queryRawUnsafe(`
-        SELECT * FROM public.fiorix_metas_dados 
-        ORDER BY COALESCE("DATA_APRESENTADO", data_apresentado) DESC 
-        LIMIT 5000
-      `);
+      rawMetas = await prisma.$queryRaw(
+        Prisma.sql`
+          SELECT * FROM public.fiorix_metas_dados 
+          WHERE tenant_id = ${user.tenantId} OR tenant_id = ''
+          ORDER BY COALESCE("DATA_APRESENTADO", data_apresentado) DESC 
+          LIMIT 5000
+        `
+      );
     } catch (dbError) {
-      // Se queryRaw falhar por causa da ordenação, tenta sem ORDER BY
       try {
-        rawMetas = await prisma.$queryRawUnsafe(`SELECT * FROM public.fiorix_metas_dados LIMIT 5000`);
+        rawMetas = await prisma.$queryRaw(
+          Prisma.sql`
+            SELECT * FROM public.fiorix_metas_dados 
+            WHERE tenant_id = ${user.tenantId} OR tenant_id = ''
+            LIMIT 5000
+          `
+        );
       } catch (err2) {
         console.warn("Postgres fetch error for Metas:", err2);
       }
@@ -29,12 +40,12 @@ export async function GET(request: Request) {
     // Fallback para SQL Server se estiver vazio ou com erro
     if (!rawMetas || rawMetas.length === 0) {
       const server = process.env.MSSQL_SERVER;
-      const user = process.env.MSSQL_USER;
+      const dbUser = process.env.MSSQL_USER;
       const password = process.env.MSSQL_PASSWORD;
       const database = process.env.MSSQL_DATABASE || "WEBRI";
 
       let sql: any = null;
-      if (server && user && password) {
+      if (server && dbUser && password) {
         try {
           sql = require("mssql");
         } catch (e) {
@@ -42,10 +53,10 @@ export async function GET(request: Request) {
         }
       }
 
-      if (server && user && password && sql) {
+      if (server && dbUser && password && sql) {
         try {
           const config = {
-            user,
+            user: dbUser,
             password,
             server,
             database,
@@ -80,8 +91,6 @@ export async function GET(request: Request) {
       const dataApresentado = getVal("DATA_APRESENTADO", "data_apresentado", "dataApresentado");
       const d1Protocolo = getVal("D1_PROTOCOLO", "d1_protocolo", "d1Protocolo", "D1_PROT");
 
-      // Datas vindas do banco podem ser serializadas em UTC. Para regra de prazo,
-      // compare o dia civil em São Paulo, sem deixar o fuso transformar 14/08 em 13/08.
       const dateKey = (value: unknown) => {
         if (!value) return null;
         const text = String(value);
@@ -132,7 +141,6 @@ export async function GET(request: Request) {
 
     let metas = (rawMetas || []).map(normalizeRow);
 
-    // Fallback Mocked se tudo falhar (para testes do layout conforme prompt 629999 e 642139)
     if (!metas || metas.length === 0 || useSimulation) {
       metas = [
         {
@@ -193,6 +201,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, data: metas });
   } catch (error: any) {
     console.error("Metas API Error:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message || "Erro ao consultar banco de dados" }, { status: 401 });
   }
 }
+

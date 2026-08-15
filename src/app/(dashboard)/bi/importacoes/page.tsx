@@ -184,11 +184,13 @@ export default async function BiImportacoesPage() {
     redirect("/login");
   }
 
+  const tenantId = session.user.tenantId || '';
+
   const [biImports, produtividadeLogs, produtividadeInferred, metasImports] = await Promise.all([
-    listBiImports(),
-    listProdutividadeImportLogs(),
-    listProdutividadeInferredPeriods(),
-    listMetasImportLogs(),
+    listBiImports(tenantId),
+    listProdutividadeImportLogs(tenantId),
+    listProdutividadeInferredPeriods(tenantId),
+    listMetasImportLogs(tenantId),
   ]);
 
   const loggedPeriods = new Set(

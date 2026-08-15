@@ -1,23 +1,20 @@
 import { NextResponse } from 'next/server';
 
-import { auth } from '@/auth';
+import { requireTenant } from '@/lib/auth-helpers';
 import { queryBiDashboardData, queryBiImportsList } from '@/lib/bi-dashboard';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ success: false, error: 'Nao autorizado' }, { status: 401 });
-  }
-
   try {
+    const user = await requireTenant();
+
     const { searchParams } = new URL(request.url);
     const requestedImportId = searchParams.get('importId') || undefined;
     const includeSummary = searchParams.get('includeSummary') !== '0';
     const imports = (includeSummary || requestedImportId === 'LATEST')
-      ? await queryBiImportsList()
+      ? await queryBiImportsList(user.tenantId)
       : [];
     const filters = {
       importId: requestedImportId === 'LATEST' ? imports[0]?.id : requestedImportId,
@@ -28,7 +25,7 @@ export async function GET(request: Request) {
       includeSummary,
     };
 
-    const dashboard = await queryBiDashboardData(filters);
+    const dashboard = await queryBiDashboardData(user.tenantId, filters);
 
     return NextResponse.json(
       {
@@ -53,3 +50,4 @@ export async function GET(request: Request) {
     );
   }
 }
+

@@ -1,6 +1,6 @@
 import React from 'react';
 import { auth } from '@/auth';
-import { prisma } from '@/lib/prisma';
+import { prisma, getTenantId } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 

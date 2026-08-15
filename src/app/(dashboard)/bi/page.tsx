@@ -22,10 +22,12 @@ export default async function FiorixBIPage({
     tipoPrenotacao,
   };
 
+  const tenantId = session?.user?.tenantId || '';
+
   const [imports, dashboardData, atrasados] = await Promise.all([
-    queryBiImportsList(),
-    queryBiDashboardData(filters),
-    queryBiAtrasadosList(filters),
+    queryBiImportsList(tenantId),
+    queryBiDashboardData(tenantId, filters),
+    queryBiAtrasadosList(tenantId, filters),
   ]);
 
   return (

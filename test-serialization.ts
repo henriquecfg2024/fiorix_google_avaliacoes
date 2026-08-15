@@ -2,15 +2,16 @@ import { queryBiDashboardData, queryBiImportsList, queryBiAtrasadosList } from '
 
 async function test() {
   try {
-    const imports = await queryBiImportsList();
+    const tenantId = 'tenant-test';
+    const imports = await queryBiImportsList(tenantId);
     console.log("Imports length:", imports.length);
     JSON.stringify(imports);
 
-    const dashboard = await queryBiDashboardData({});
+    const dashboard = await queryBiDashboardData(tenantId, {});
     console.log("Dashboard keys:", Object.keys(dashboard));
     JSON.stringify(dashboard);
 
-    const atrasados = await queryBiAtrasadosList({});
+    const atrasados = await queryBiAtrasadosList(tenantId, {});
     console.log("Atrasados length:", atrasados.items.length);
     JSON.stringify(atrasados);
 
@@ -20,3 +21,4 @@ async function test() {
   }
 }
 test();
+

@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
+import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/auth-helpers";
 import { upsertProdutividadeImportRecord } from "@/lib/import-history";
-
-const prisma = new PrismaClient();
+import { Prisma } from "@prisma/client";
 
 interface ImportMetaPayload {
   importKey: string;
@@ -16,8 +15,11 @@ interface ImportMetaPayload {
   totalBatches?: number;
 }
 
+const MAX_BATCH_SIZE = 5000;
+
 export async function POST(request: Request) {
   try {
+    const user = await requireRole("ADMIN", "MASTER");
     const body = await request.json();
     const action = body?.action;
 
@@ -26,6 +28,7 @@ export async function POST(request: Request) {
       if (meta?.importKey && meta?.fileName) {
         await upsertProdutividadeImportRecord({
           importKey: meta.importKey,
+          tenantId: user.tenantId,
           fileName: meta.fileName,
           rowsCount: Number(meta.totalRows || 0),
           insertedCount: 0,
@@ -50,9 +53,17 @@ export async function POST(request: Request) {
       );
     }
 
+    if (rows.length > MAX_BATCH_SIZE) {
+      return NextResponse.json(
+        { success: false, error: `Lote excede o limite máximo permitido de ${MAX_BATCH_SIZE} linhas.` },
+        { status: 400 }
+      );
+    }
+
     if (importMeta?.importKey && importMeta?.fileName) {
       await upsertProdutividadeImportRecord({
         importKey: importMeta.importKey,
+        tenantId: user.tenantId,
         fileName: importMeta.fileName,
         rowsCount: Number(importMeta.totalRows || rows.length),
         insertedCount: 0,
@@ -81,8 +92,10 @@ export async function POST(request: Request) {
     }
     const rowsToInsert = Array.from(dedupMap.values());
 
-    await prisma.$executeRawUnsafe(`
+    await prisma.$executeRaw`
       CREATE TABLE IF NOT EXISTS public.fiorix_produtividade_dados (
+        id SERIAL PRIMARY KEY,
+        tenant_id VARCHAR(100) NOT NULL DEFAULT '',
         data DATE NOT NULL,
         hora_num INTEGER NOT NULL,
         dia_semana VARCHAR(20) NOT NULL,
@@ -93,59 +106,47 @@ export async function POST(request: Request) {
         tipo_pedido VARCHAR(100) NOT NULL,
         tipo_detalhado TEXT,
         quantidade INTEGER NOT NULL DEFAULT 1,
-        CONSTRAINT pk_fiorix_produtividade PRIMARY KEY (pedido, data)
+        CONSTRAINT pk_fiorix_produtividade UNIQUE (tenant_id, pedido, data)
       );
-    `);
+    `;
 
-    await prisma.$executeRawUnsafe(`
-      CREATE UNIQUE INDEX IF NOT EXISTS fiorix_produtividade_dados_pedido_data_idx
-      ON public.fiorix_produtividade_dados (pedido, data);
-    `);
-
-    const chunkSize = 500;
     let insertedTotal = 0;
 
-    for (let i = 0; i < rowsToInsert.length; i += chunkSize) {
-      const chunk = rowsToInsert.slice(i, i + chunkSize);
+    for (const row of rowsToInsert) {
+      let parsedDate = row.data || "";
+      if (parsedDate.includes("/")) {
+        const parts = parsedDate.split("/");
+        if (parts.length === 3) {
+          parsedDate = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+        }
+      }
 
-      const valueStrings = chunk
-        .map((row: any) => {
-          let parsedDate = row.data || "";
-          if (parsedDate.includes("/")) {
-            const parts = parsedDate.split("/");
-            if (parts.length === 3) {
-              parsedDate = `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
-            }
-          }
+      const dtVal = parsedDate ? new Date(parsedDate) : new Date();
+      const horaNum = parseInt(row.hora_num || 0, 10);
+      const diaSemana = row.dia_semana || "Monday";
+      const hora = row.hora || "00:00";
+      const pedido = BigInt(row.pedido || 0);
+      const nome = row.nome || "Outro";
+      const tipo = row.tipo || "TÍTULO";
+      const tipoPedido = row.tipo_pedido || "PRENOTADO";
+      const tipoDetalhado = row.tipo_detalhado || "";
+      const quantidade = parseInt(
+        row.quantidade !== undefined && row.quantidade !== "" ? row.quantidade : 1,
+        10
+      );
 
-          const dataStr = parsedDate ? `'${parsedDate.replace(/'/g, "''")}'::date` : "CURRENT_DATE";
-          const horaNum = parseInt(row.hora_num || 0, 10);
-          const diaSemana = (row.dia_semana || "Monday").replace(/'/g, "''");
-          const hora = (row.hora || "00:00").replace(/'/g, "''");
-          const pedido = parseInt(row.pedido || 0, 10);
-          const nome = (row.nome || "Outro").replace(/'/g, "''");
-          const tipo = (row.tipo || "TÍTULO").replace(/'/g, "''");
-          const tipoPedido = (row.tipo_pedido || "PRENOTADO").replace(/'/g, "''");
-          const tipoDetalhado = (row.tipo_detalhado || "").replace(/'/g, "''");
-          const quantidade = parseInt(
-            row.quantidade !== undefined && row.quantidade !== "" ? row.quantidade : 1,
-            10
-          );
-
-          return `(${dataStr}, ${horaNum}, '${diaSemana}', '${hora}', ${pedido}, '${nome}', '${tipo}', '${tipoPedido}', '${tipoDetalhado}', ${quantidade})`;
-        })
-        .join(",\n");
-
-      const query = `
-        INSERT INTO public.fiorix_produtividade_dados (
-          data, hora_num, dia_semana, hora, pedido, nome, tipo, tipo_pedido, tipo_detalhado, quantidade
-        )
-        VALUES ${valueStrings}
-        ON CONFLICT (pedido, data) DO NOTHING;
-      `;
-
-      await prisma.$executeRawUnsafe(query);
-      insertedTotal += chunk.length;
+      await prisma.$executeRaw(
+        Prisma.sql`
+          INSERT INTO public.fiorix_produtividade_dados (
+            tenant_id, data, hora_num, dia_semana, hora, pedido, nome, tipo, tipo_pedido, tipo_detalhado, quantidade
+          )
+          VALUES (
+            ${user.tenantId}, ${dtVal}, ${horaNum}, ${diaSemana}, ${hora}, ${pedido}, ${nome}, ${tipo}, ${tipoPedido}, ${tipoDetalhado}, ${quantidade}
+          )
+          ON CONFLICT (tenant_id, pedido, data) DO NOTHING;
+        `
+      );
+      insertedTotal++;
     }
 
     if (
@@ -155,6 +156,7 @@ export async function POST(request: Request) {
     ) {
       await upsertProdutividadeImportRecord({
         importKey: importMeta.importKey,
+        tenantId: user.tenantId,
         fileName: importMeta.fileName,
         rowsCount: Number(importMeta.totalRows || rowsToInsert.length),
         insertedCount: Number(importMeta.totalRows || rowsToInsert.length),
@@ -174,3 +176,4 @@ export async function POST(request: Request) {
     );
   }
 }
+

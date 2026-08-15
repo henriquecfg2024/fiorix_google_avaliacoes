@@ -1,17 +1,13 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { requireTenant } from '@/lib/auth-helpers';
 import { queryBiAtrasadosList } from '@/lib/bi-dashboard';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ success: false, error: 'Não autorizado' }, { status: 401 });
-  }
-
   try {
+    const user = await requireTenant();
     const { searchParams } = new URL(request.url);
     const filters = {
       importId: searchParams.get('importId') || undefined,
@@ -27,7 +23,7 @@ export async function GET(request: Request) {
       servicoFilter: searchParams.get('servicoFilter') || undefined,
     };
 
-    const data = await queryBiAtrasadosList(filters);
+    const data = await queryBiAtrasadosList(user.tenantId, filters);
 
     return NextResponse.json(
       {
@@ -48,3 +44,4 @@ export async function GET(request: Request) {
     );
   }
 }
+

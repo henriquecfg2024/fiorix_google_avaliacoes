@@ -55,6 +55,10 @@ model Tenant {
   reviews           Review[]
   googleConnections GoogleConnection[]
   syncLogs          SyncLog[]
+  biImports         FiorixBiImport[]
+  biData            FiorixBiData[]
+  metasImports      FiorixMetasImport[]
+  metasDados        FiorixMetasDados[]
 }
 
 // ── USERS ─────────────────────────────────────────────────────────────
@@ -208,6 +212,8 @@ model SyncLog {
 
 model FiorixBiImport {
   id           String   @id @default(uuid())
+  tenantId     String   @default("") @map("tenant_id")
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   fileName     String   @map("file_name")
   importedAt   DateTime @default(now()) @map("imported_at")
   rowsCount    Int      @map("rows_count")
@@ -217,18 +223,21 @@ model FiorixBiImport {
 
   data        FiorixBiData[]
 
+  @@index([tenantId], name: "idx_fiorix_bi_imports_tenant_id")
   @@map("fiorix_bi_imports")
 }
 
 model FiorixBiData {
   id                 String   @id @default(uuid())
+  tenantId           String   @default("") @map("tenant_id")
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   importId           String   @map("import_id")
   import             FiorixBiImport @relation(fields: [importId], references: [id], onDelete: Cascade)
   
   protocolo          String   @map("Protocolo")
   flagRecepcao       Int?     @map("FlagRecepcao")
   tipoSolicitacao    String?  @map("TipoSolicitacao")
-    idAndamento        BigInt?  @map("IdAndamento")
+  idAndamento        BigInt?  @map("IdAndamento")
   dtProtocolo        DateTime? @map("DtProtocolo")
   dtPrevisaoEntrega  DateTime? @map("DtPrevisaoEntrega")
   dtAndamento        DateTime? @map("DtAndamento")
@@ -244,11 +253,12 @@ model FiorixBiData {
   isRegistrado       Boolean? @default(false) @map("IsRegistrado")
   textoNotaDevolucao String?  @map("TextoNotaDevolucao")
 
+  @@index([tenantId], name: "idx_fiorix_bi_data_tenant_id")
   @@index([importId], name: "idx_fiorix_bi_data_import_id")
   @@index([dtAndamento], name: "idx_fiorix_bi_data_dt_andamento")
   @@index([codProcessamento], name: "idx_fiorix_bi_data_cod_proc")
   @@index([tipoPrenotacao], name: "idx_fiorix_bi_data_tipo_prenotacao")
-  @@unique([importId, idAndamento], name: "fiorix_bi_data_import_id_andamento_key")
+  @@unique([tenantId, importId, idAndamento], name: "fiorix_bi_data_import_id_andamento_key")
 
   @@map("fiorix_bi_data")
 }
@@ -257,7 +267,9 @@ model FiorixBiData {
 
 model FiorixMetasImport {
   id           Int       @id @default(autoincrement())
-  importKey    String?   @unique @map("import_key") @db.VarChar(100)
+  tenantId     String    @default("") @map("tenant_id")
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  importKey    String?   @map("import_key") @db.VarChar(100)
   arquivo      String?   @db.VarChar(255)
   periodo      String?   @db.VarChar(100)
   dataHora     DateTime? @default(now()) @map("data_hora")
@@ -268,15 +280,21 @@ model FiorixMetasImport {
 
   dados        FiorixMetasDados[]
 
+  @@unique([tenantId, importKey], name: "fiorix_metas_imports_tenant_import_key")
+  @@index([tenantId], name: "idx_fiorix_metas_imports_tenant_id")
   @@map("fiorix_metas_imports")
 }
 
 model FiorixMetasDados {
-  protocolo       Int       @id @map("protocolo")
+  id              Int       @id @default(autoincrement())
+  tenantId        String    @default("") @map("tenant_id")
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  protocolo       Int       @map("protocolo")
   dataApresentado DateTime? @map("data_apresentado")
   dtPrevisao      DateTime? @map("dt_previsao")
   dtEntregaReal   DateTime? @map("dt_entrega_real")
   status          String?   @db.VarChar(50)
+  natureza        String?   @db.VarChar(255)
   atrasoDias      Int?      @map("atraso_dias")
   d1Protocolo     DateTime? @map("d1_protocolo")
   d1Escaneamento  DateTime? @map("d1_escaneamento")
@@ -299,7 +317,10 @@ model FiorixMetasDados {
   importId        Int?      @map("import_id")
   import          FiorixMetasImport? @relation(fields: [importId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, protocolo], name: "fiorix_metas_dados_tenant_protocolo")
+  @@index([tenantId], name: "idx_fiorix_metas_dados_tenant_id")
   @@index([importId], name: "idx_fiorix_metas_dados_import_id")
   @@map("fiorix_metas_dados")
 }
+
 
