@@ -1,15 +1,18 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { requireRole } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
-  const session = await auth();
-  
-  if (!session?.user?.tenantId) {
-    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  // Restringir a ambiente de desenvolvimento apenas
+  if (process.env.NODE_ENV !== 'development') {
+    return NextResponse.json(
+      { error: 'Esta rota está disponível apenas em ambiente de desenvolvimento.' },
+      { status: 403 }
+    );
   }
 
-  const tenantId = session.user.tenantId as string;
+  const user = await requireRole('MASTER');
+  const tenantId = user.tenantId;
 
   const sampleReviews = [
     {

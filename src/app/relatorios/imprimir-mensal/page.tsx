@@ -1,12 +1,19 @@
 import React from 'react';
-import { prisma, getTenantId } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
+import { redirect } from 'next/navigation';
+import { requireAuth } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ImprimirMensalPage() {
-  const session = await auth();
-  const tenantId = await getTenantId(session?.user?.tenantId as string);
+  let user;
+  try {
+    user = await requireAuth();
+  } catch {
+    redirect('/login');
+  }
+  const tenantId = user.tenantId;
 
   let total = 0;
   let fiveStars = 0;

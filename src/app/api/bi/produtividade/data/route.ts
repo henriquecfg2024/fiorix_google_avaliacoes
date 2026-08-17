@@ -23,7 +23,7 @@ export async function GET() {
           "tipo_detalhado" as "TIPO_DETALHADO",
           "quantidade" as "QUANTIDADE"
         FROM public.fiorix_produtividade_dados
-        WHERE tenant_id = ${user.tenantId} OR tenant_id = ''
+        WHERE tenant_id = ${user.tenantId}
         ORDER BY "data" DESC
         LIMIT 200000;
       `
@@ -33,8 +33,8 @@ export async function GET() {
   } catch (error: any) {
     console.error("Erro ao buscar dados de produtividade:", error);
     return NextResponse.json(
-      { success: false, error: error.message || "Erro ao consultar banco de dados" },
-      { status: 401 }
+      { success: false, error: "Erro ao consultar banco de dados" },
+      { status: 500 }
     );
   }
 }

@@ -1,11 +1,11 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { requireTenant } from '@/lib/auth-helpers';
+import { requireAuth, requireRole } from '@/lib/auth-helpers';
 import { revalidatePath } from 'next/cache';
 
 export async function getColaboradores() {
-  const user = await requireTenant();
+  const user = await requireAuth();
 
   return prisma.colaborador.findMany({
     where: { tenantId: user.tenantId },
@@ -14,7 +14,7 @@ export async function getColaboradores() {
 }
 
 export async function addColaborador(formData: FormData) {
-  const user = await requireTenant();
+  const user = await requireRole('ADMIN', 'MASTER');
 
   const name = formData.get('name') as string;
   const aliasesRaw = formData.get('aliases') as string;
@@ -39,7 +39,7 @@ export async function addColaborador(formData: FormData) {
 }
 
 export async function toggleColaboradorActive(id: string, currentStatus: boolean) {
-  const user = await requireTenant();
+  const user = await requireRole('ADMIN', 'MASTER');
 
   const target = await prisma.colaborador.findFirst({
     where: { id, tenantId: user.tenantId }
@@ -55,7 +55,7 @@ export async function toggleColaboradorActive(id: string, currentStatus: boolean
 }
 
 export async function deleteColaborador(id: string) {
-  const user = await requireTenant();
+  const user = await requireRole('ADMIN', 'MASTER');
 
   const target = await prisma.colaborador.findFirst({
     where: { id, tenantId: user.tenantId }

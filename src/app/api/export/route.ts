@@ -66,7 +66,7 @@ export async function GET(request: Request) {
     });
   } catch (error: any) {
     console.error('Export Error:', error);
-    return NextResponse.json({ error: error.message || 'Erro ao exportar avaliações' }, { status: 401 });
+    return NextResponse.json({ error: 'Erro ao exportar avaliações' }, { status: 500 });
   }
 }
 

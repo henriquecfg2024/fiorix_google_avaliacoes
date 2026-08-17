@@ -18,7 +18,7 @@ export async function GET(request: Request) {
       rawMetas = await prisma.$queryRaw(
         Prisma.sql`
           SELECT * FROM public.fiorix_metas_dados 
-          WHERE tenant_id = ${user.tenantId} OR tenant_id = ''
+          WHERE tenant_id = ${user.tenantId}
           ORDER BY COALESCE("DATA_APRESENTADO", data_apresentado) DESC 
           LIMIT 5000
         `
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
         rawMetas = await prisma.$queryRaw(
           Prisma.sql`
             SELECT * FROM public.fiorix_metas_dados 
-            WHERE tenant_id = ${user.tenantId} OR tenant_id = ''
+            WHERE tenant_id = ${user.tenantId}
             LIMIT 5000
           `
         );
@@ -201,7 +201,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, data: metas });
   } catch (error: any) {
     console.error("Metas API Error:", error);
-    return NextResponse.json({ success: false, error: error.message || "Erro ao consultar banco de dados" }, { status: 401 });
+    return NextResponse.json({ success: false, error: "Erro ao consultar banco de dados" }, { status: 500 });
   }
 }
 

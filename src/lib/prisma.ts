@@ -35,14 +35,13 @@ export const prisma =
 // carregamento do dashboard abra um novo pool de conexões.
 globalForPrisma.prisma = prisma;
 
+/**
+ * @deprecated Prefira usar `requireAuth()` de `@/lib/auth-helpers` em vez desta função.
+ * Mantida apenas para compatibilidade durante a migração das páginas.
+ */
 export async function getTenantId(sessionTenantId?: string): Promise<string> {
   if (sessionTenantId) return sessionTenantId;
-  try {
-    const tenant = await prisma.tenant.findFirst({ select: { id: true } });
-    return tenant?.id || 'cms3xd0wm00002pw9j2k0ahan';
-  } catch {
-    return 'cms3xd0wm00002pw9j2k0ahan';
-  }
+  throw new Error('Tenant não identificado. Sessão inválida ou ausente.');
 }
 
 

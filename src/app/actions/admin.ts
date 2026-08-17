@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs';
 import { revalidatePath } from 'next/cache';
 
 export async function getUsers() {
-  const user = await requireAuth();
+  const user = await requireRole('ADMIN', 'MASTER');
 
   return prisma.user.findMany({
     where: { tenantId: user.tenantId },

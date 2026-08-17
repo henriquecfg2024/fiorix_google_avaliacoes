@@ -1,6 +1,8 @@
 import React from 'react';
-import { prisma, getTenantId } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
+import { redirect } from 'next/navigation';
+import { requireAuth } from '@/lib/auth-helpers';
 
 import { HealthCard } from '@/components/dashboard/HealthCard';
 import { InsightCard } from '@/components/dashboard/InsightCard';
@@ -14,8 +16,13 @@ export default async function Dashboard({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  const session = await auth();
-  const tenantId = await getTenantId(session?.user?.tenantId as string);
+  let user;
+  try {
+    user = await requireAuth();
+  } catch {
+    redirect('/login');
+  }
+  const tenantId = user.tenantId;
 
   // Fetch real data from Prisma
   const totalReviews = await prisma.review.count({ where: { tenantId, deletedFromGoogle: false } });

@@ -1,14 +1,21 @@
 import React from 'react';
-import { prisma, getTenantId } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { requireAuth } from '@/lib/auth-helpers';
 import { Target, ExternalLink, ArrowRight, Lightbulb, Sparkles, ShieldAlert } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
 export default async function EstatisticasPage() {
-  const session = await auth();
-  const tenantId = await getTenantId(session?.user?.tenantId as string);
+  let user;
+  try {
+    user = await requireAuth();
+  } catch {
+    redirect('/login');
+  }
+  const tenantId = user.tenantId;
 
   let totalReviews = 547;
   let fiveStars = 436;

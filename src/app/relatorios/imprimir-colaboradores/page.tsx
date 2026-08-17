@@ -1,6 +1,8 @@
 import React from 'react';
 import { auth } from '@/auth';
-import { prisma, getTenantId } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
+import { redirect } from 'next/navigation';
+import { requireAuth } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,8 +39,13 @@ function getDemoMetric(name: string, aliases: string[]) {
 }
 
 export default async function ImprimirColaboradoresPage() {
-  const session = await auth();
-  let tenantId = await getTenantId(session?.user?.tenantId as string);
+  let user;
+  try {
+    user = await requireAuth();
+  } catch {
+    redirect('/login');
+  }
+  let tenantId = user.tenantId;
   let tenantName = '7º Cartório de Registro de Imóveis de São Paulo';
   
   try {

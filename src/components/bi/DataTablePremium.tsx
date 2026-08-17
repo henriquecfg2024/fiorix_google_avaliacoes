@@ -75,6 +75,16 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
     setCurrentPage(1);
   };
 
+  const sanitizeCsvField = (value: string | null | undefined): string => {
+    if (!value) return '';
+    const str = String(value);
+    // Se começar com caracteres perigosos de fórmula CSV/Excel/Calc, adiciona apóstrofo
+    if (/^[=+\-@\t\r]/.test(str)) {
+      return `'${str.replace(/"/g, '""').replace(/\n/g, ' ')}`;
+    }
+    return str.replace(/"/g, '""').replace(/\n/g, ' ');
+  };
+
   const exportToCSV = () => {
     if (processedData.length === 0) return;
     
@@ -87,10 +97,10 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
           row.HORA,
           row.DIA_SEMANA,
           row.PEDIDO,
-          `"${row.NOME.replace(/"/g, '""')}"`,
+          `"${sanitizeCsvField(row.NOME)}"`,
           row.TIPO,
-          `"${row.TIPO_PEDIDO.replace(/"/g, '""')}"`,
-          `"${(row.TIPO_DETALHADO || "").replace(/"/g, '""')}"`,
+          `"${sanitizeCsvField(row.TIPO_PEDIDO)}"`,
+          `"${sanitizeCsvField(row.TIPO_DETALHADO)}"`,
           row.QUANTIDADE,
         ].join(";")
       ),

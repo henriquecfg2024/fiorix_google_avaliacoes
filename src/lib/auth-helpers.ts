@@ -33,12 +33,7 @@ export async function requireAuth(): Promise<AuthenticatedUser> {
   }
 
   if (!tenantId) {
-    try {
-      const tenant = await prisma.tenant.findFirst({ select: { id: true } });
-      tenantId = tenant?.id || 'cms3xd0wm00002pw9j2k0ahan';
-    } catch {
-      tenantId = 'cms3xd0wm00002pw9j2k0ahan';
-    }
+    throw new Error('Usuário sem tenant válido.');
   }
 
   return {

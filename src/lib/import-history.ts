@@ -104,7 +104,7 @@ export async function listProdutividadeImportLogs(tenantId: string): Promise<Uni
         to_char(period_start, 'YYYY-MM-DD') as "periodStart",
         to_char(period_end, 'YYYY-MM-DD') as "periodEnd"
       FROM public.fiorix_produtividade_imports
-      WHERE tenant_id = ${tenantId} OR tenant_id = ''
+      WHERE tenant_id = ${tenantId}
       ORDER BY imported_at DESC;
     `
   );
@@ -141,7 +141,7 @@ export async function listProdutividadeInferredPeriods(tenantId: string): Promis
         to_char(MIN(data), 'YYYY-MM-DD') as "periodStart",
         to_char(MAX(data), 'YYYY-MM-DD') as "periodEnd"
       FROM public.fiorix_produtividade_dados
-      WHERE tenant_id = ${tenantId} OR tenant_id = ''
+      WHERE tenant_id = ${tenantId}
       GROUP BY date_trunc('month', data)
       ORDER BY date_trunc('month', data) DESC;
     `
@@ -246,7 +246,7 @@ export async function listMetasImportLogs(tenantId: string): Promise<UnifiedImpo
         SPLIT_PART(periodo, '|', 1) as "periodStart",
         SPLIT_PART(periodo, '|', 2) as "periodEnd"
       FROM public.fiorix_metas_imports
-      WHERE tenant_id = ${tenantId} OR tenant_id = ''
+      WHERE tenant_id = ${tenantId}
       ORDER BY data_hora DESC;
     `
   );

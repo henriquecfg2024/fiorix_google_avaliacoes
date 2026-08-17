@@ -44,7 +44,7 @@ export async function createBiImport(fileName: string, totalRows: number, import
     return { success: true, importId: record.id };
   } catch (error: any) {
     console.error('Error creating BI import:', error);
-    return { success: false, error: error.message || 'Erro ao criar registro de importacao' };
+    return { success: false, error: 'Erro ao criar registro de importação.' };
   }
 }
 
@@ -78,7 +78,7 @@ export async function updateBiImportStatus(importId: string, status: 'SUCCESS' |
     return { success: true };
   } catch (error: any) {
     console.error('Error updating import status:', error);
-    return { success: false, error: error.message || 'Erro ao atualizar status da importacao' };
+    return { success: false, error: 'Erro ao atualizar status da importação.' };
   }
 }
 
@@ -153,7 +153,7 @@ export async function insertBiBatch(importId: string, rows: BiRowInput[]) {
     return { success: true, count: dataToInsert.length };
   } catch (error: any) {
     console.error('Error inserting BI batch:', error);
-    return { success: false, error: error.message || 'Erro ao inserir lote de dados' };
+    return { success: false, error: 'Erro ao inserir lote de dados.' };
   }
 }
 
@@ -171,7 +171,7 @@ export async function getBiDashboardData(filters?: {
     };
   } catch (error: any) {
     console.error('Error fetching BI dashboard data:', error);
-    return { success: false, error: error.message || 'Erro ao carregar dados do dashboard' };
+    return { success: false, error: 'Erro ao carregar dados do dashboard.' };
   }
 }
 
@@ -182,7 +182,7 @@ export async function getBiImportsList() {
     return { success: true, imports };
   } catch (error: any) {
     console.error('Error fetching imports list:', error);
-    return { success: false, error: error.message || 'Erro ao listar importacoes' };
+    return { success: false, error: 'Erro ao listar importações.' };
   }
 }
 
@@ -197,7 +197,7 @@ export async function deleteBiImport(importId: string) {
     return { success: true };
   } catch (error: any) {
     console.error('Error deleting import:', error);
-    return { success: false, error: error.message || 'Erro ao excluir importacao' };
+    return { success: false, error: 'Erro ao excluir importação.' };
   }
 }
 

@@ -1,33 +1,69 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { getGoogleTokens, fetchLocations, getGoogleOAuth2Client } from '@/lib/google';
-import { auth } from '@/auth';
+import { requireRole } from '@/lib/auth-helpers';
+import { encryptToken } from '@/lib/crypto';
 
 export async function GET(request: Request) {
-  const session = await auth();
-
-  if (!session?.user?.tenantId || !session?.user?.role || !['ADMIN', 'MASTER'].includes(session.user.role)) {
+  // Harmonizar com a rota de início: exigir MASTER
+  let user;
+  try {
+    user = await requireRole('MASTER');
+  } catch {
     return NextResponse.json(
-      { error: 'Não autorizado: É necessário ter sessão ativa como ADMIN ou MASTER para conectar o Google.' },
+      { error: 'Não autorizado: É necessário ter sessão ativa como MASTER para conectar o Google.' },
       { status: 403 }
     );
   }
 
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
-  const stateTenantId = searchParams.get('state');
+  const stateParam = searchParams.get('state');
 
-  if (!code || !stateTenantId) {
+  if (!code || !stateParam) {
     return NextResponse.json({ error: 'Parâmetros code ou state ausentes' }, { status: 400 });
   }
 
-  // Validação estrita: O tenant do state DEVE ser idêntico ao tenant do usuário autenticado
-  if (stateTenantId !== session.user.tenantId) {
-    console.error(`[OAuth CSRF Alert] Tenant do State (${stateTenantId}) diverge da sessão (${session.user.tenantId})`);
+  // Validar nonce do cookie
+  const cookieStore = await cookies();
+  const savedNonce = cookieStore.get('google_oauth_state')?.value;
+
+  // Deletar cookie imediatamente
+  const response = NextResponse.redirect(new URL('/configuracoes?success=GoogleConnected', request.url));
+  response.cookies.set('google_oauth_state', '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 0,
+    path: '/api/auth/callback/google',
+  });
+
+  if (!savedNonce) {
+    console.error('[OAuth CSRF Alert] Cookie google_oauth_state ausente no callback');
+    return NextResponse.redirect(new URL('/configuracoes?error=InvalidState', request.url));
+  }
+
+  // Parsear state e validar nonce + tenantId
+  let parsedState: { tenantId?: string; nonce?: string };
+  try {
+    parsedState = JSON.parse(stateParam);
+  } catch {
+    console.error('[OAuth CSRF Alert] State não é JSON válido');
+    return NextResponse.redirect(new URL('/configuracoes?error=InvalidState', request.url));
+  }
+
+  if (parsedState.nonce !== savedNonce) {
+    console.error('[OAuth CSRF Alert] Nonce diverge — esperado:', savedNonce, 'recebido:', parsedState.nonce);
+    return NextResponse.redirect(new URL('/configuracoes?error=InvalidState', request.url));
+  }
+
+  if (parsedState.tenantId !== user.tenantId) {
+    console.error(`[OAuth CSRF Alert] Tenant do State (${parsedState.tenantId}) diverge da sessão (${user.tenantId})`);
     return NextResponse.redirect(new URL('/configuracoes?error=InvalidStateTenant', request.url));
   }
 
-  const tenantId = session.user.tenantId;
+  const tenantId = user.tenantId;
 
   try {
     const tokens = await getGoogleTokens(code);
@@ -43,7 +79,7 @@ export async function GET(request: Request) {
     try {
       locations = await fetchLocations(tempClient);
     } catch (apiError: any) {
-      console.warn('Google API not fully enabled, proceeding with mock locations:', apiError.message);
+      console.warn('Google API not fully enabled, proceeding with mock locations');
       locations = [{ accountId: 'pendente', locationId: 'pendente', title: 'Conta Pendente' }];
     }
 
@@ -60,17 +96,17 @@ export async function GET(request: Request) {
           tenantId,
           accountId: firstLocation.accountId,
           locationId: firstLocation.locationId,
-          accessToken: tokens.access_token,
-          refreshToken: tokens.refresh_token,
+          accessToken: encryptToken(tokens.access_token),
+          refreshToken: encryptToken(tokens.refresh_token),
           expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : new Date(Date.now() + 3500000),
         }
       })
     ]);
 
-    return NextResponse.redirect(new URL('/configuracoes?success=GoogleConnected', request.url));
+    return response;
   } catch (error: any) {
     console.error('Google Callback Error:', error);
-    return NextResponse.redirect(new URL(`/configuracoes?error=AuthFailed&details=${encodeURIComponent(error.message)}`, request.url));
+    // Não vazar error.message na query string
+    return NextResponse.redirect(new URL('/configuracoes?error=AuthFailed', request.url));
   }
 }
-

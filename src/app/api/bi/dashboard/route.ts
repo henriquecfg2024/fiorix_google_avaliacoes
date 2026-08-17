@@ -45,7 +45,7 @@ export async function GET(request: Request) {
   } catch (error: any) {
     console.error('Error in BI dashboard API route:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Erro ao carregar dashboard BI' },
+      { success: false, error: 'Erro ao carregar dashboard BI' },
       { status: 500 }
     );
   }

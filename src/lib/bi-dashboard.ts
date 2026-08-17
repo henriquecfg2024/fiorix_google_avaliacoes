@@ -140,7 +140,13 @@ async function queryBiDashboardDataUncached(tenantId: string, filters?: BiDashbo
   const generalCondition = Prisma.sql`${baseCondition} AND ${GENERAL_NATURE_CONDITION_SQL}`;
   const exceptionCondition = Prisma.sql`${baseCondition} AND ${EXCEPTION_NATURE_CONDITION_SQL}`;
 
-  const aggregateTenantCondition = Prisma.sql`a.tenant_id = ${tenantId}`;
+  const aggregateTenantCondition = Prisma.sql`
+    a.import_id IN (
+      SELECT id
+      FROM fiorix_bi_imports
+      WHERE tenant_id = ${tenantId}
+    )
+  `;
 
   let aggregateImportCondition = Prisma.sql`1=1`;
   if (filters?.importId && filters.importId !== 'ALL') {
@@ -280,9 +286,9 @@ async function queryBiDashboardDataUncached(tenantId: string, filters?: BiDashbo
   const trendRaw = chartEnabled('3') ? await prisma.$queryRaw<Array<{ data: Date | string; no_prazo: bigint; atrasado: bigint; devolucao: bigint }>>`
     SELECT
       a.day as data,
-      SUM(a.daily_no_prazo)::bigint as no_prazo,
-      SUM(a.daily_atrasado)::bigint as atrasado,
-      SUM(a.daily_devolucao)::bigint as devolucao
+      SUM(a.registered_no_prazo)::bigint as no_prazo,
+      SUM(a.registered_atrasado)::bigint as atrasado,
+      SUM(a.registered_devolucao)::bigint as devolucao
     FROM fiorix_bi_daily_agg a
     WHERE a.day <> DATE '1900-01-01'
       AND ${aggregateGeneralCondition}
@@ -356,7 +362,7 @@ async function queryBiDashboardDataUncached(tenantId: string, filters?: BiDashbo
   const tiposRaw = includeSummary ? await prisma.$queryRaw<Array<{ tipo: string }>>`
     SELECT DISTINCT a.tipo_prenotacao as tipo
     FROM fiorix_bi_daily_agg a
-    WHERE a.tenant_id = ${tenantId} AND a.tipo_prenotacao != ''
+    WHERE ${aggregateTenantCondition} AND a.tipo_prenotacao != ''
     LIMIT 30
   ` : [];
 
@@ -649,5 +655,3 @@ export async function queryBiAtrasadosList(tenantId: string, filters?: BiAtrasad
     rangeCounts,
   };
 }
-
-

@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import { prisma } from './prisma';
 import { ensureSyncLogTable } from './sync-log-db';
+import { decryptToken, encryptToken } from './crypto';
 
 function getRedirectUri() {
   if (process.env.GOOGLE_REDIRECT_URI) {
@@ -41,14 +42,17 @@ async function withTimeout<T>(promise: Promise<T>, message: string, timeoutMs = 
   }
 }
 
-export function getGoogleAuthUrl(tenantId: string) {
+export function getGoogleAuthUrl(tenantId: string): { url: string; nonce: string } {
   const oauth2Client = getGoogleOAuth2Client();
-  return oauth2Client.generateAuthUrl({
+  const nonce = crypto.randomUUID();
+  const state = JSON.stringify({ tenantId, nonce });
+  const url = oauth2Client.generateAuthUrl({
     access_type: 'offline', // Required to get a refresh token
     scope: SCOPES,
     prompt: 'consent',
-    state: tenantId, // Pass the tenant ID in the state parameter
+    state,
   });
+  return { url, nonce };
 }
 
 export async function getGoogleTokens(code: string) {
@@ -68,8 +72,8 @@ export async function getAuthenticatedGoogleClient(tenantId: string) {
 
   const oauth2Client = getGoogleOAuth2Client();
   oauth2Client.setCredentials({
-    access_token: connection.accessToken,
-    refresh_token: connection.refreshToken,
+    access_token: decryptToken(connection.accessToken),
+    refresh_token: decryptToken(connection.refreshToken),
     expiry_date: connection.expiresAt.getTime(),
   });
 
@@ -79,8 +83,8 @@ export async function getAuthenticatedGoogleClient(tenantId: string) {
       await prisma.googleConnection.update({
         where: { id: connection.id },
         data: {
-          accessToken: tokens.access_token!,
-          refreshToken: tokens.refresh_token,
+          accessToken: encryptToken(tokens.access_token!),
+          refreshToken: encryptToken(tokens.refresh_token),
           expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : new Date(Date.now() + 3500000),
         }
       });
@@ -88,7 +92,7 @@ export async function getAuthenticatedGoogleClient(tenantId: string) {
       await prisma.googleConnection.update({
         where: { id: connection.id },
         data: {
-          accessToken: tokens.access_token,
+          accessToken: encryptToken(tokens.access_token),
           expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : new Date(Date.now() + 3500000),
         }
       });

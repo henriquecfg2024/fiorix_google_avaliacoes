@@ -122,18 +122,28 @@ export async function POST(request: Request) {
       }
 
       const dtVal = parsedDate ? new Date(parsedDate) : new Date();
-      const horaNum = parseInt(row.hora_num || 0, 10);
-      const diaSemana = row.dia_semana || "Monday";
-      const hora = row.hora || "00:00";
-      const pedido = BigInt(row.pedido || 0);
-      const nome = row.nome || "Outro";
-      const tipo = row.tipo || "TÍTULO";
-      const tipoPedido = row.tipo_pedido || "PRENOTADO";
-      const tipoDetalhado = row.tipo_detalhado || "";
-      const quantidade = parseInt(
+      if (Number.isNaN(dtVal.getTime())) {
+        continue; // Ignorar linha com data inválida
+      }
+
+      const horaNum = Math.min(23, Math.max(0, parseInt(row.hora_num || 0, 10)));
+      const diaSemana = String(row.dia_semana || "Monday").slice(0, 20);
+      const hora = String(row.hora || "00:00").slice(0, 10);
+      
+      const parsedPedido = parseInt(row.pedido, 10);
+      if (isNaN(parsedPedido) || parsedPedido <= 0) {
+        continue; // Ignorar registros sem número de pedido válido
+      }
+      const pedido = BigInt(parsedPedido);
+
+      const nome = String(row.nome || "Outro").slice(0, 255);
+      const tipo = String(row.tipo || "TÍTULO").slice(0, 50);
+      const tipoPedido = String(row.tipo_pedido || "PRENOTADO").slice(0, 100);
+      const tipoDetalhado = row.tipo_detalhado ? String(row.tipo_detalhado) : "";
+      const quantidade = Math.max(1, parseInt(
         row.quantidade !== undefined && row.quantidade !== "" ? row.quantidade : 1,
         10
-      );
+      ));
 
       await prisma.$executeRaw(
         Prisma.sql`
@@ -171,7 +181,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error("Erro na API de importação:", error);
     return NextResponse.json(
-      { success: false, error: error.message || "Erro no banco de dados durante a importação" },
+      { success: false, error: "Erro no banco de dados durante a importação" },
       { status: 500 }
     );
   }

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft, Database, FileSpreadsheet, Layers3 } from "lucide-react";
 
 import { auth } from "@/auth";
-import { getTenantId } from "@/lib/prisma";
+import { requireAuth } from "@/lib/auth-helpers";
 import { ImportacoesActions } from "@/components/bi/ImportacoesActions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -180,12 +180,14 @@ function ImportTable({ rows }: { rows: UnifiedImportRecord[] }) {
 }
 
 export default async function BiImportacoesPage() {
-  const session = await auth();
-  if (!session?.user) {
+  let user;
+  try {
+    user = await requireAuth();
+  } catch {
     redirect("/login");
   }
 
-  const tenantId = await getTenantId(session.user.tenantId as string);
+  const tenantId = user.tenantId;
 
   const [biImports, produtividadeLogs, produtividadeInferred, metasImports] = await Promise.all([
     listBiImports(tenantId),

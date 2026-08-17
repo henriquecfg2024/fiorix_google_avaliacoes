@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { requireRole } from "@/lib/auth-helpers";
 
 export async function POST(request: Request) {
   try {
+    const currentUser = await requireRole("ADMIN", "MASTER");
     const body = await request.json().catch(() => ({}));
     const { startDate = "2026-08-01", endDate = "2026-08-11" } = body;
 
@@ -150,7 +152,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error("Erro na rota de sync:", error);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: "Erro interno na sincronização" },
       { status: 500 }
     );
   }

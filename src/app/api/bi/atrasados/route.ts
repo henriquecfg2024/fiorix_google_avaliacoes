@@ -39,7 +39,7 @@ export async function GET(request: Request) {
   } catch (error: any) {
     console.error('Error in BI atrasados API route:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Erro ao carregar lista de títulos atrasados' },
+      { success: false, error: 'Erro ao carregar lista de títulos atrasados' },
       { status: 500 }
     );
   }

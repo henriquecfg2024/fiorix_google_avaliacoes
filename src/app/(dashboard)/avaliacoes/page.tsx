@@ -1,7 +1,9 @@
 import React from 'react';
-import { prisma, getTenantId } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { requireAuth } from '@/lib/auth-helpers';
 import { ReviewItemCard } from '@/components/avaliacoes/ReviewItemCard';
 import { MessageSquare, CheckCircle, Clock, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -12,8 +14,13 @@ export default async function AvaliacoesPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  const session = await auth();
-  const tenantId = await getTenantId(session?.user?.tenantId as string);
+  let user;
+  try {
+    user = await requireAuth();
+  } catch {
+    redirect('/login');
+  }
+  const tenantId = user.tenantId;
 
   const rawStatus = Array.isArray(searchParams?.status) ? searchParams.status[0] : searchParams?.status;
   const statusFilter = typeof rawStatus === 'string' ? rawStatus : undefined;

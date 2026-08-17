@@ -29,7 +29,7 @@ export async function deleteImportRecord(id: string, source: "BI" | "PRODUTIVIDA
     return { success: true };
   } catch (error: any) {
     console.error("Failed to delete import record:", error);
-    return { error: error.message || "Erro ao excluir registro de importação" };
+    return { error: "Erro ao excluir registro de importação" };
   }
 }
 
