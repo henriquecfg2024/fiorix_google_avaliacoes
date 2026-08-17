@@ -148,7 +148,7 @@ export function ImportacoesActions() {
         };
 
         try {
-          const batchSize = 100;
+          const batchSize = 1000;
           let importedTotal = 0;
 
           for (let start = 0; start < totalRows; start += batchSize) {

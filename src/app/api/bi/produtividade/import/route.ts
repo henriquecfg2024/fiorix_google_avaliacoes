@@ -1,23 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
-import { upsertProdutividadeImportRecord } from "@/lib/import-history";
+import { ensureProdutividadeDataTable, upsertProdutividadeImportRecord } from "@/lib/import-history";
 import { Prisma } from "@prisma/client";
 import { produtividadeImportSchema } from "@/lib/zod-schemas";
 import { checkRateLimit } from "@/lib/rate-limiter";
 
-interface ImportMetaPayload {
-  importKey: string;
-  fileName: string;
-  totalRows: number;
-  importedBy?: string;
-  periodStart?: string | null;
-  periodEnd?: string | null;
-  batchNumber?: number;
-  totalBatches?: number;
-}
-
 const MAX_BATCH_SIZE = 5000;
+
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {
@@ -117,25 +108,10 @@ export async function POST(request: Request) {
     }
     const rowsToInsert = Array.from(dedupMap.values());
 
-    await prisma.$executeRaw`
-      CREATE TABLE IF NOT EXISTS public.fiorix_produtividade_dados (
-        id SERIAL PRIMARY KEY,
-        tenant_id VARCHAR(100) NOT NULL DEFAULT '',
-        data DATE NOT NULL,
-        hora_num INTEGER NOT NULL,
-        dia_semana VARCHAR(20) NOT NULL,
-        hora VARCHAR(10) NOT NULL,
-        pedido BIGINT NOT NULL,
-        nome VARCHAR(255) NOT NULL,
-        tipo VARCHAR(50) NOT NULL,
-        tipo_pedido VARCHAR(100) NOT NULL,
-        tipo_detalhado TEXT,
-        quantidade INTEGER NOT NULL DEFAULT 1,
-        CONSTRAINT pk_fiorix_produtividade UNIQUE (tenant_id, pedido, data)
-      );
-    `;
+    await ensureProdutividadeDataTable();
 
     let insertedTotal = 0;
+    const values: Prisma.Sql[] = [];
 
     for (const row of rowsToInsert) {
       let parsedDate = row.data || "";
@@ -170,18 +146,24 @@ export async function POST(request: Request) {
         10
       ));
 
+      values.push(
+        Prisma.sql`(
+          ${user.tenantId}, ${dtVal}, ${horaNum}, ${diaSemana}, ${hora}, ${pedido},
+          ${nome}, ${tipo}, ${tipoPedido}, ${tipoDetalhado}, ${quantidade}
+        )`
+      );
+    }
+
+    if (values.length > 0) {
       await prisma.$executeRaw(
         Prisma.sql`
           INSERT INTO public.fiorix_produtividade_dados (
             tenant_id, data, hora_num, dia_semana, hora, pedido, nome, tipo, tipo_pedido, tipo_detalhado, quantidade
-          )
-          VALUES (
-            ${user.tenantId}, ${dtVal}, ${horaNum}, ${diaSemana}, ${hora}, ${pedido}, ${nome}, ${tipo}, ${tipoPedido}, ${tipoDetalhado}, ${quantidade}
-          )
+          ) VALUES ${Prisma.join(values)}
           ON CONFLICT (tenant_id, pedido, data) DO NOTHING;
         `
       );
-      insertedTotal++;
+      insertedTotal = values.length;
     }
 
     if (
@@ -211,4 +193,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

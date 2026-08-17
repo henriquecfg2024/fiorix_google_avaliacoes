@@ -50,6 +50,36 @@ export async function ensureProdutividadeImportsTable() {
   `;
 }
 
+export async function ensureProdutividadeDataTable() {
+  await prisma.$executeRaw`
+    CREATE TABLE IF NOT EXISTS public.fiorix_produtividade_dados (
+      id SERIAL PRIMARY KEY,
+      tenant_id VARCHAR(100) NOT NULL DEFAULT '',
+      data DATE NOT NULL,
+      hora_num INTEGER NOT NULL,
+      dia_semana VARCHAR(20) NOT NULL,
+      hora VARCHAR(10) NOT NULL,
+      pedido BIGINT NOT NULL,
+      nome VARCHAR(255) NOT NULL,
+      tipo VARCHAR(50) NOT NULL,
+      tipo_pedido VARCHAR(100) NOT NULL,
+      tipo_detalhado TEXT,
+      quantidade INTEGER NOT NULL DEFAULT 1
+    );
+  `;
+  await prisma.$executeRaw`
+    CREATE UNIQUE INDEX IF NOT EXISTS fiorix_produtividade_dados_tenant_pedido_data
+    ON public.fiorix_produtividade_dados (tenant_id, pedido, data);
+  `;
+  await prisma.$executeRaw`
+    ALTER TABLE public.fiorix_produtividade_dados
+    DROP CONSTRAINT IF EXISTS pk_fiorix_produtividade;
+  `;
+  await prisma.$executeRaw`
+    DROP INDEX IF EXISTS public.fiorix_produtividade_dados_pedido_data_idx;
+  `;
+}
+
 export async function upsertProdutividadeImportRecord(input: ProdutividadeImportLogInput) {
   await ensureProdutividadeImportsTable();
 
