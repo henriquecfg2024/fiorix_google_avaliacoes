@@ -366,7 +366,7 @@ export function ImportacoesActions() {
       />
 
       <Link href="/bi/importar">
-        <Button variant="outline" className="bg-white/5 border-white/10 text-white hover:bg-white/10 gap-2">
+        <Button className="bg-[#00C950] hover:bg-[#00A844] text-white gap-2">
           <UploadCloud className="h-4 w-4" />
           Importar Módulo BI
         </Button>
