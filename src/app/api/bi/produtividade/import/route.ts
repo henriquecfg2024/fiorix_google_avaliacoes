@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { upsertProdutividadeImportRecord } from "@/lib/import-history";
 import { Prisma } from "@prisma/client";
+import { produtividadeImportSchema } from "@/lib/zod-schemas";
+import { checkRateLimit } from "@/lib/rate-limiter";
 
 interface ImportMetaPayload {
   importKey: string;
@@ -20,33 +22,56 @@ const MAX_BATCH_SIZE = 5000;
 export async function POST(request: Request) {
   try {
     const user = await requireRole("ADMIN", "MASTER");
+
+    // Limite de taxa (Rate Limit): Máximo 10 requisições por minuto por IP/Tenant
+    const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
+    const rateLimitKey = `rate_limit:produtividade_import:${user.tenantId}:${ip}`;
+    const limitResult = await checkRateLimit(rateLimitKey, 10, 60);
+    if (!limitResult.success) {
+      const retryAfter = Math.ceil((limitResult.reset.getTime() - Date.now()) / 1000);
+      return NextResponse.json(
+        { success: false, error: "Limite de requisições excedido. Tente novamente em alguns segundos." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": retryAfter.toString(),
+          },
+        }
+      );
+    }
+
     const body = await request.json();
-    const action = body?.action;
+
+    const validation = produtividadeImportSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { success: false, error: "Dados de importação inválidos", details: validation.error.format() },
+        { status: 400 }
+      );
+    }
+
+    const { rows, importMeta, action, errorMessage } = validation.data;
 
     if (action === "mark_failed") {
-      const meta = body?.importMeta as ImportMetaPayload | undefined;
-      if (meta?.importKey && meta?.fileName) {
+      if (importMeta?.importKey && importMeta?.fileName) {
         await upsertProdutividadeImportRecord({
-          importKey: meta.importKey,
+          importKey: importMeta.importKey,
           tenantId: user.tenantId,
-          fileName: meta.fileName,
-          rowsCount: Number(meta.totalRows || 0),
+          fileName: importMeta.fileName,
+          rowsCount: Number(importMeta.totalRows || 0),
           insertedCount: 0,
-          importedBy: meta.importedBy || "Manual CSV",
+          importedBy: importMeta.importedBy || "Manual CSV",
           status: "FAILED",
-          errorMessage: body?.errorMessage || "Falha durante a importação",
-          periodStart: meta.periodStart || null,
-          periodEnd: meta.periodEnd || null,
+          errorMessage: errorMessage || "Falha durante a importação",
+          periodStart: importMeta.periodStart || null,
+          periodEnd: importMeta.periodEnd || null,
         });
       }
 
       return NextResponse.json({ success: true });
     }
 
-    const rows = body?.rows;
-    const importMeta = body?.importMeta as ImportMetaPayload | undefined;
-
-    if (!Array.isArray(rows) || rows.length === 0) {
+    if (!rows || rows.length === 0) {
       return NextResponse.json(
         { success: false, error: "Nenhum dado válido para importação." },
         { status: 400 }

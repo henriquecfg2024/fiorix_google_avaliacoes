@@ -323,4 +323,13 @@ model FiorixMetasDados {
   @@map("fiorix_metas_dados")
 }
 
+model RateLimit {
+  key       String   @id
+  points    Int      @default(0)
+  expireAt  DateTime
+  updatedAt DateTime @updatedAt
+
+  @@map("fiorix_rate_limits")
+}
+
 

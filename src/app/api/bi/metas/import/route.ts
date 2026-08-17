@@ -4,17 +4,47 @@ import { requireRole } from "@/lib/auth-helpers";
 import { ensureMetasImportsTable } from "@/lib/import-history";
 import { Prisma } from "@prisma/client";
 
+import { metasImportSchema } from "@/lib/zod-schemas";
+import { checkRateLimit } from "@/lib/rate-limiter";
+
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
     const user = await requireRole("ADMIN", "MASTER");
+
+    // Limite de taxa (Rate Limit): Máximo 10 requisições por minuto por IP/Tenant
+    const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
+    const rateLimitKey = `rate_limit:metas_import:${user.tenantId}:${ip}`;
+    const limitResult = await checkRateLimit(rateLimitKey, 10, 60);
+    if (!limitResult.success) {
+      const retryAfter = Math.ceil((limitResult.reset.getTime() - Date.now()) / 1000);
+      return NextResponse.json(
+        { error: "Limite de requisições excedido. Tente novamente em alguns segundos." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": retryAfter.toString(),
+          },
+        }
+      );
+    }
+
     const body = await req.json();
-    const { rows, importMeta, action } = body;
+    
+    const validation = metasImportSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json({ error: "Dados de importação inválidos", details: validation.error.format() }, { status: 400 });
+    }
+
+    const { rows, importMeta, action } = validation.data;
 
     await ensureMetasImportsTable();
 
     if (action === "mark_failed") {
+      if (!importMeta?.importKey) {
+        return NextResponse.json({ error: "Chave de importação ausente para falha" }, { status: 400 });
+      }
       await prisma.$executeRaw(
         Prisma.sql`
           UPDATE public.fiorix_metas_imports
@@ -36,6 +66,10 @@ export async function POST(req: Request) {
         { error: `Lote excede o limite máximo permitido de ${MAX_BATCH_SIZE} linhas.` },
         { status: 400 }
       );
+    }
+
+    if (!importMeta) {
+      return NextResponse.json({ error: "Metadados de importação ausentes" }, { status: 400 });
     }
 
     const { importKey, fileName, totalRows, importedBy, periodStart, periodEnd, batchNumber, totalBatches } = importMeta;
