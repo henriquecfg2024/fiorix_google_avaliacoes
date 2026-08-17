@@ -84,7 +84,7 @@ export async function POST(req: Request) {
         ) VALUES (
           ${user.tenantId}, ${importKey}, ${fileName}, ${periodStr}, ${totalRows}, 0, ${importedBy}, ${status}
         )
-        ON CONFLICT (import_key) DO UPDATE SET
+        ON CONFLICT (tenant_id, import_key) DO UPDATE SET
           linhas = EXCLUDED.linhas,
           status = EXCLUDED.status;
       `
@@ -131,11 +131,18 @@ export async function POST(req: Request) {
       };
 
       for (const row of rows) {
+        const rowData = row as Record<string, unknown>;
         const p = parseIntSafe(row.PROTOCOLO);
         if (p === null || p <= 0) continue;
 
         const statusClean = String(row.STATUS || '').trim().slice(0, 50);
-        const naturezaClean = String(row.NATUREZA || row.natureza || row.TIPO_DETALHADO || row.tipo_detalhado || '').trim().slice(0, 255);
+        const naturezaClean = String(
+          row.NATUREZA ||
+          rowData.natureza ||
+          rowData.TIPO_DETALHADO ||
+          rowData.tipo_detalhado ||
+          ''
+        ).trim().slice(0, 255);
 
         await prisma.$executeRaw(
           Prisma.sql`
@@ -197,4 +204,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Erro durante importação de metas" }, { status: 500 });
   }
 }
-

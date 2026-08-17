@@ -1,8 +1,17 @@
 import { z } from 'zod';
 
+const nullableCsvInt = z.preprocess((value) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed.toUpperCase() === 'NULL' || trimmed === 'undefined') return null;
+  }
+  return value;
+}, z.coerce.number().int().nullable());
+
 // Esquema para um item individual do lote de produtividade
 export const produtividadeRowSchema = z.object({
-  pedido: z.coerce.number({ invalid_type_error: 'Número do pedido inválido.' }).int().positive(),
+  pedido: z.coerce.number().int().positive('Número do pedido inválido.'),
   data: z.string().min(1, 'A data é obrigatória.'),
   hora_num: z.coerce.number().int().min(0).max(23).default(0),
   dia_semana: z.string().max(20).optional().default('Monday'),
@@ -33,13 +42,13 @@ export const produtividadeImportSchema = z.object({
 
 // Esquema para um item individual do lote de metas
 export const metasRowSchema = z.object({
-  PROTOCOLO: z.coerce.number({ invalid_type_error: 'Número do protocolo inválido.' }).int().positive(),
+  PROTOCOLO: z.coerce.number().int().positive('Número do protocolo inválido.'),
   DATA_APRESENTADO: z.string().nullable().optional(),
   DT_PREVISAO: z.string().nullable().optional(),
   DT_ENTREGA_REAL: z.string().nullable().optional(),
   STATUS: z.string().max(50).nullable().optional(),
   NATUREZA: z.string().max(255).nullable().optional(),
-  ATRASO_DIAS: z.coerce.number().int().nullable().optional(),
+  ATRASO_DIAS: nullableCsvInt,
   D1_PROTOCOLO: z.string().nullable().optional(),
   D1_ESCANEAMENTO: z.string().nullable().optional(),
   D2_CONTRADITORIO: z.string().nullable().optional(),
@@ -50,13 +59,13 @@ export const metasRowSchema = z.object({
   D9_PREPARACAO: z.string().nullable().optional(),
   D9_CONFERENCIA: z.string().nullable().optional(),
   D10_ENTREGA: z.string().nullable().optional(),
-  QTD_RETRABALHO: z.coerce.number().int().nullable().optional(),
-  DIAS_D1_D2: z.coerce.number().int().nullable().optional(),
-  DIAS_D2_D3: z.coerce.number().int().nullable().optional(),
-  DIAS_D3_D4: z.coerce.number().int().nullable().optional(),
-  DIAS_D4_D5: z.coerce.number().int().nullable().optional(),
-  DIAS_D5_D8: z.coerce.number().int().nullable().optional(),
-  DIAS_D8_D9: z.coerce.number().int().nullable().optional(),
+  QTD_RETRABALHO: nullableCsvInt,
+  DIAS_D1_D2: nullableCsvInt,
+  DIAS_D2_D3: nullableCsvInt,
+  DIAS_D3_D4: nullableCsvInt,
+  DIAS_D4_D5: nullableCsvInt,
+  DIAS_D5_D8: nullableCsvInt,
+  DIAS_D8_D9: nullableCsvInt,
 });
 
 // Esquema para o payload completo da importação de metas

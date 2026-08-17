@@ -195,6 +195,10 @@ export async function ensureMetasImportsTable() {
     );
   `;
   await prisma.$executeRaw`
+    CREATE UNIQUE INDEX IF NOT EXISTS fiorix_metas_imports_tenant_import_key
+    ON public.fiorix_metas_imports (tenant_id, import_key);
+  `;
+  await prisma.$executeRaw`
     CREATE TABLE IF NOT EXISTS public.fiorix_metas_dados (
       id SERIAL PRIMARY KEY,
       tenant_id VARCHAR(100) NOT NULL DEFAULT '',
@@ -259,5 +263,4 @@ export async function listMetasImportLogs(tenantId: string): Promise<UnifiedImpo
     insertedCount: row.insertedCount !== null ? Number(row.insertedCount || 0) : null,
   }));
 }
-
 
