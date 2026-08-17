@@ -41,15 +41,11 @@ export async function addColaborador(formData: FormData) {
 export async function toggleColaboradorActive(id: string, currentStatus: boolean) {
   const user = await requireRole('ADMIN', 'MASTER');
 
-  const target = await prisma.colaborador.findFirst({
-    where: { id, tenantId: user.tenantId }
-  });
-  if (!target) throw new Error('Colaborador não encontrado.');
-
-  await prisma.colaborador.update({
-    where: { id },
+  const updateResult = await prisma.colaborador.updateMany({
+    where: { id, tenantId: user.tenantId },
     data: { active: !currentStatus }
   });
+  if (updateResult.count === 0) throw new Error('Colaborador não encontrado.');
 
   revalidatePath('/configuracoes/colaboradores');
 }
@@ -57,14 +53,10 @@ export async function toggleColaboradorActive(id: string, currentStatus: boolean
 export async function deleteColaborador(id: string) {
   const user = await requireRole('ADMIN', 'MASTER');
 
-  const target = await prisma.colaborador.findFirst({
+  const deleteResult = await prisma.colaborador.deleteMany({
     where: { id, tenantId: user.tenantId }
   });
-  if (!target) throw new Error('Colaborador não encontrado.');
-
-  await prisma.colaborador.delete({
-    where: { id }
-  });
+  if (deleteResult.count === 0) throw new Error('Colaborador não encontrado.');
 
   revalidatePath('/configuracoes/colaboradores');
 }

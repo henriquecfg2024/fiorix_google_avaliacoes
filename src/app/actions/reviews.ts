@@ -95,10 +95,13 @@ export async function sendReviewResponse(reviewId: string, content: string) {
     });
 
     // 2. Mark review status as RESPONDED
-    await tx.review.update({
-      where: { id: reviewId },
+    const updateResult = await tx.review.updateMany({
+      where: { id: reviewId, tenantId: user.tenantId },
       data: { status: 'RESPONDED' }
     });
+    if (updateResult.count === 0) {
+      throw new Error('Falha ao atualizar o status da avaliação.');
+    }
   });
 
   revalidatePath('/avaliacoes');

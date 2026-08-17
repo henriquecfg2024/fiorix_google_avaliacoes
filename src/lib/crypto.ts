@@ -63,8 +63,7 @@ export function decryptToken(encryptedValue: string): string {
     let decrypted = decipher.update(ciphertextHex, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
-  } catch {
-    // Se a descriptografia falhar, pode ser um token antigo — retorna como está
-    return encryptedValue;
+  } catch (error: any) {
+    throw new Error('Falha ao descriptografar o token de segurança: dados corrompidos ou chave inválida.');
   }
 }

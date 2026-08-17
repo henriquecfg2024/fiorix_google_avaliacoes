@@ -42,6 +42,15 @@ async function withTimeout<T>(promise: Promise<T>, message: string, timeoutMs = 
   }
 }
 
+function validateGoogleResourceNames(accountId: string, locationId: string) {
+  const accountRegex = /^accounts\/[a-zA-Z0-9_-]+$/;
+  const locationRegex = /^(accounts\/[a-zA-Z0-9_-]+\/)?locations\/[a-zA-Z0-9_-]+$/;
+
+  if (!accountRegex.test(accountId) || !locationRegex.test(locationId)) {
+    throw new Error('Identificadores de recursos do Google Meu Negócio inválidos.');
+  }
+}
+
 export function getGoogleAuthUrl(tenantId: string): { url: string; nonce: string } {
   const oauth2Client = getGoogleOAuth2Client();
   const nonce = crypto.randomUUID();
@@ -211,6 +220,10 @@ export async function syncReviews(tenantId: string, triggeredBy?: string) {
     }
   }
 
+  if (connection.accountId !== 'pendente' && connection.locationId !== 'pendente') {
+    validateGoogleResourceNames(connection.accountId, connection.locationId);
+  }
+
   try {
     // The Google API paginates results. Fetch several pages, but stop before
     // the serverless function limit so partial progress can still be saved.
@@ -377,6 +390,8 @@ export async function syncReviews(tenantId: string, triggeredBy?: string) {
 export async function replyToGoogleReview(tenantId: string, reviewId: string, content: string) {
   const connection = await prisma.googleConnection.findFirst({ where: { tenantId } });
   if (!connection) throw new Error('Nenhuma conta do Google vinculada a este cartório.');
+
+  validateGoogleResourceNames(connection.accountId, connection.locationId);
 
   const oauth2Client = await getAuthenticatedGoogleClient(tenantId);
   const url = `https://mybusiness.googleapis.com/v4/${connection.accountId}/${connection.locationId}/reviews/${encodeURIComponent(reviewId)}/reply`;
