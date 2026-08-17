@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList
 } from "recharts";
+import { motion, useReducedMotion } from "framer-motion";
 import { 
   Target, AlertCircle, Clock, TrendingUp, Search, Filter, Loader2, Download,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet,
@@ -52,10 +53,155 @@ type MetasData = {
   diasD4D5?: number | null;
   diasD5D8?: number | null;
   diasD8D9?: number | null;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
+type PhaseChartDatum = {
+  name: string;
+  fullName: string;
+  label: string;
+  key: string;
+  phaseName: string;
+  dias: number;
+  count: number;
+  isBottleneck: boolean;
+  status: "Principal gargalo" | "Atenção" | "Fluxo regular";
+};
+
+const formatDays = (value: number) => {
+  const rounded = Number(value.toFixed(1));
+  return `${rounded.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}d`;
+};
+
+function PremiumBarShape({
+  x = 0,
+  y = 0,
+  width = 0,
+  height = 0,
+  index = 0,
+  payload,
+  selectedPhase,
+  reduceMotion,
+  onSelect,
+}: {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  index?: number;
+  payload?: PhaseChartDatum;
+  selectedPhase: string;
+  reduceMotion: boolean;
+  onSelect: (phaseName: string) => void;
+}) {
+  if (!payload || width <= 0 || height <= 0) return null;
+
+  const isSelected = selectedPhase === payload.phaseName;
+  const hasSelection = selectedPhase !== "ALL";
+  const fill = payload.isBottleneck ? "url(#bottleneckGradient)" : "url(#phaseGradient)";
+
+  return (
+    <motion.rect
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      rx={Math.min(12, width / 2)}
+      fill={fill}
+      stroke={isSelected ? "#ffffff" : payload.isBottleneck ? "#fbbf24" : "rgba(255,255,255,0.12)"}
+      strokeWidth={isSelected ? 2.5 : 1}
+      opacity={hasSelection && !isSelected ? 0.3 : 1}
+      filter={payload.isBottleneck ? "url(#bottleneckGlow)" : undefined}
+      role="button"
+      tabIndex={0}
+      aria-pressed={isSelected}
+      aria-label={`${payload.label}: média de ${formatDays(payload.dias)}, ${payload.count.toLocaleString("pt-BR")} protocolos. ${payload.status}.`}
+      className="cursor-pointer outline-none transition-opacity focus-visible:stroke-cyan-300"
+      initial={reduceMotion ? false : { scaleY: 0, opacity: 0 }}
+      animate={{ scaleY: 1, opacity: hasSelection && !isSelected ? 0.3 : 1 }}
+      transition={{ duration: reduceMotion ? 0 : 0.48, delay: reduceMotion ? 0 : index * 0.065, ease: "easeOut" }}
+      style={{ transformBox: "fill-box", transformOrigin: "center bottom" }}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect(payload.phaseName);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect(payload.phaseName);
+        }
+      }}
+    />
+  );
+}
+
+function ChartValueLabel({ x = 0, y = 0, width = 0, value = 0 }: {
+  x?: number;
+  y?: number;
+  width?: number;
+  value?: number;
+}) {
+  return (
+    <text
+      x={x + width / 2}
+      y={Math.max(12, y - 8)}
+      fill="#e2e8f0"
+      textAnchor="middle"
+      fontSize={11}
+      fontWeight={600}
+    >
+      {formatDays(Number(value) || 0)}
+    </text>
+  );
+}
+
+function PremiumChartTooltip({
+  active,
+  payload,
+  totalProtocols,
+  selectedPhase,
+}: {
+  active?: boolean;
+  payload?: ReadonlyArray<{ payload?: PhaseChartDatum }>;
+  totalProtocols: number;
+  selectedPhase: string;
+}) {
+  const dataPoint = payload?.[0]?.payload;
+  if (!active || !dataPoint) return null;
+
+  const percentage = totalProtocols > 0 ? (dataPoint.count / totalProtocols) * 100 : 0;
+  const isSelected = selectedPhase === dataPoint.phaseName;
+
+  return (
+    <div className="min-w-[250px] rounded-lg border border-white/10 bg-[#1A1D27] p-3.5 text-xs text-white shadow-2xl shadow-black/40">
+      <div className="mb-2 flex items-start justify-between gap-4">
+        <p className="font-semibold text-white">{dataPoint.label}</p>
+        <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+          dataPoint.isBottleneck
+            ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
+            : dataPoint.status === "Atenção"
+              ? "border-violet-400/30 bg-violet-400/10 text-violet-300"
+              : "border-cyan-400/25 bg-cyan-400/10 text-cyan-300"
+        }`}>
+          {dataPoint.status}
+        </span>
+      </div>
+      <p className="text-sm font-semibold text-white">
+        {formatDays(dataPoint.dias)}
+        <span className="ml-1 font-normal text-white/55">de média</span>
+      </p>
+      <p className="mt-1 text-white/65">
+        {dataPoint.count.toLocaleString("pt-BR")} protocolos • Afeta {percentage.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% da base
+      </p>
+      <p className="mt-2 border-t border-white/10 pt-2 text-[10px] text-white/45">
+        {isSelected ? "Clique para remover o filtro" : "Clique para filtrar os protocolos desta fase"}
+      </p>
+    </div>
+  );
+}
+
 export function MetasDashboardClient() {
+  const prefersReducedMotion = useReducedMotion();
   const [data, setData] = useState<MetasData[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -95,15 +241,15 @@ export function MetasDashboardClient() {
   }, [search, statusFilter, gargaloFilter, itemsPerPage, sortField, sortOrder]);
 
   // Helper universal para pegar valor ignorando casing e aliases
-  const getVal = (record: any, ...keys: string[]) => {
+  const getVal = useCallback((record: Record<string, unknown> | null | undefined, ...keys: string[]) => {
     if (!record) return null;
     for (const k of keys) {
       if (record[k] !== undefined && record[k] !== null) return record[k];
     }
     return null;
-  };
+  }, []);
 
-  const getDateKey = (value: unknown) => {
+  const getDateKey = useCallback((value: unknown) => {
     if (!value) return null;
     const text = String(value);
     if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
@@ -112,10 +258,10 @@ export function MetasDashboardClient() {
     const date = new Date(text);
     if (Number.isNaN(date.getTime())) return null;
     return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(date);
-  };
+  }, []);
 
   // Lógica principal de recalcular Status e Atraso zerando horas (Regra estrita)
-  const getMetasStatusAndAtraso = (record: MetasData) => {
+  const getMetasStatusAndAtraso = useCallback((record: MetasData) => {
     const d10 = getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT", "dtEntregaReal", "DT_ENTREGA_REAL");
     const dtPrev = getVal(record, "dtPrevisao", "DT_PREVISAO");
     const dataApres = getVal(record, "dataApresentado", "DATA_APRESENTADO");
@@ -139,8 +285,8 @@ export function MetasDashboardClient() {
     // 2. Se D10_ENTREGA (ou entrega real) já existe
     if (d10 && dtPrev) {
       try {
-        const d10Date = new Date(d10);
-        const prevDate = new Date(dtPrev);
+        const d10Date = new Date(String(d10));
+        const prevDate = new Date(String(dtPrev));
         if (!isNaN(d10Date.getTime()) && !isNaN(prevDate.getTime())) {
           d10Date.setHours(0, 0, 0, 0);
           prevDate.setHours(0, 0, 0, 0);
@@ -166,7 +312,7 @@ export function MetasDashboardClient() {
     // 3. Protocolos abertos (sem D10_ENTREGA): calcula diffDias = hoje - previsao (zerando horas)
     if (dtPrev) {
       try {
-        const prevDate = new Date(dtPrev);
+        const prevDate = new Date(String(dtPrev));
         if (!isNaN(prevDate.getTime())) {
           prevDate.setHours(0, 0, 0, 0);
 
@@ -193,13 +339,13 @@ export function MetasDashboardClient() {
       atrasoDias: 0,
       badge: { text: "Em dia", bgClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" }
     };
-  };
+  }, [getDateKey, getVal]);
 
   // Format date helper
-  const formatDate = (val: any) => {
+  const formatDate = (val: unknown) => {
     if (!val) return "-";
     try {
-      const d = new Date(val);
+      const d = new Date(String(val));
       if (isNaN(d.getTime())) return "-";
       return format(d, "dd/MM HH:mm", { locale: ptBR });
     } catch {
@@ -208,18 +354,18 @@ export function MetasDashboardClient() {
   };
 
   // Safe diff calculation in days (com Math.max(0, ...) para evitar dias negativos por datas invertidas)
-  const calculateDaysBetween = (startVal: any, endVal: any, givenDaysVal: any, isLastActivePhase: boolean = false) => {
+  const calculateDaysBetween = useCallback((startVal: unknown, endVal: unknown, givenDaysVal: unknown, isLastActivePhase: boolean = false) => {
     if (givenDaysVal !== null && givenDaysVal !== undefined) {
       return Math.max(0, Number(givenDaysVal));
     }
     if (!startVal) return null;
     
     try {
-      const dStart = new Date(startVal).getTime();
+      const dStart = new Date(String(startVal)).getTime();
       if (isNaN(dStart)) return null;
 
       if (endVal) {
-        const dEnd = new Date(endVal).getTime();
+        const dEnd = new Date(String(endVal)).getTime();
         if (isNaN(dEnd)) return null;
         return Math.max(0, Math.floor((dEnd - dStart) / (1000 * 60 * 60 * 24)));
       }
@@ -233,10 +379,10 @@ export function MetasDashboardClient() {
     } catch {
       return null;
     }
-  };
+  }, []);
 
   // Determine all 9 phase transitions & bottleneck for a given record
-  const getPhasesForRecord = (record: MetasData) => {
+  const getPhasesForRecord = useCallback((record: MetasData) => {
     const d1 = getVal(record, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT");
     const d1E = getVal(record, "d1Escaneamento", "D1_ESCANEAMENTO", "D1_ESCAN");
     const d2 = getVal(record, "d2Contraditorio", "D2_CONTRADITORIO", "D2_CONTRAD");
@@ -277,11 +423,11 @@ export function MetasDashboardClient() {
       }
     }
     return { phases, topGargalo: max };
-  };
+  }, [calculateDaysBetween, getVal]);
 
-  const getGargaloForRecord = (record: MetasData) => {
+  const getGargaloForRecord = useCallback((record: MetasData) => {
     return getPhasesForRecord(record).topGargalo;
-  };
+  }, [getPhasesForRecord]);
 
   // Calculate chart data & KPIs considerando as 9 transições completas
   const { chartData, kpis, statuses, gargaloTypes } = useMemo(() => {
@@ -307,7 +453,7 @@ export function MetasDashboardClient() {
     const gargaloCounts: Record<string, number> = {};
 
     data.forEach(item => {
-      const { status, atrasoDias, badge } = getMetasStatusAndAtraso(item);
+      const { status, badge } = getMetasStatusAndAtraso(item);
       statusSet.add(badge.text);
 
       if (status === "Atrasado") {
@@ -339,7 +485,7 @@ export function MetasDashboardClient() {
       }
     });
 
-    const chart = [
+    const chartBase = [
       { name: "D1->D1E", fullName: "Prot.->Escan.", label: "Protocolo -> Escaneamento", key: "D1_D1E", phaseName: "PROTOCOLO -> ESCANEAMENTO" },
       { name: "D1E->D2", fullName: "Escan.->Contrad.", label: "Escaneamento -> Contraditório", key: "D1E_D2", phaseName: "ESCANEAMENTO -> CONTRADITORIO" },
       { name: "D2->D3", fullName: "Contrad.->Extr.", label: "Contraditório -> Extrato", key: "D2_D3", phaseName: "CONTRADITORIO -> EXTRATO" },
@@ -354,10 +500,24 @@ export function MetasDashboardClient() {
       const avg = stats.count > 0 ? stats.sum / stats.count : 0;
       return {
         ...d,
-        dias: Math.round(Math.max(0, avg)),
+        dias: Number(Math.max(0, avg).toFixed(1)),
         count: stats.count
       };
     });
+
+    const bottleneck = chartBase.reduce((current, item) => (
+      item.dias > current.dias ? item : current
+    ), chartBase[0]);
+    const attentionThreshold = bottleneck.dias * 0.5;
+    const chart: PhaseChartDatum[] = chartBase.map((item) => ({
+      ...item,
+      isBottleneck: item.key === bottleneck.key && bottleneck.dias > 0,
+      status: item.key === bottleneck.key && bottleneck.dias > 0
+        ? "Principal gargalo"
+        : item.dias >= attentionThreshold && item.dias > 0
+          ? "Atenção"
+          : "Fluxo regular",
+    }));
 
     return {
       chartData: chart,
@@ -370,7 +530,11 @@ export function MetasDashboardClient() {
       statuses: Array.from(statusSet).sort(),
       gargaloTypes: Array.from(gargaloSet).sort(),
     };
-  }, [data]);
+  }, [data, getMetasStatusAndAtraso, getPhasesForRecord]);
+
+  const chartBottleneck = useMemo(() => (
+    chartData.find((item) => item.isBottleneck) || null
+  ), [chartData]);
 
   const handleChartClick = (phaseName: string) => {
     if (!phaseName) return;
@@ -400,8 +564,8 @@ export function MetasDashboardClient() {
     });
 
     return [...filtered].sort((a, b) => {
-      let valA: any = null;
-      let valB: any = null;
+      let valA: unknown = null;
+      let valB: unknown = null;
 
       switch (sortField) {
         case "protocolo":
@@ -466,7 +630,7 @@ export function MetasDashboardClient() {
 
       return sortOrder === "asc" ? res : -res;
     });
-  }, [data, search, statusFilter, gargaloFilter, sortField, sortOrder]);
+  }, [data, search, statusFilter, gargaloFilter, sortField, sortOrder, getGargaloForRecord, getMetasStatusAndAtraso, getVal]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -640,91 +804,124 @@ export function MetasDashboardClient() {
       </div>
 
       {/* Gráfico de Média de Dias por Fase (9 Transições) */}
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-        <h3 className="text-white font-semibold mb-2 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            Média de Dias por Fase 
-            <span className="text-xs font-normal text-white/50 bg-white/10 px-2 py-0.5 rounded-md">
-              9 Transições de Esteira
-            </span>
-          </div>
-          {gargaloFilter !== "ALL" && (
-            <div className="flex items-center gap-2 bg-purple-500/20 border border-purple-500/30 text-purple-200 text-xs px-3 py-1 rounded-full animate-in fade-in duration-200">
-              <span>Filtrado por: <strong>{gargaloFilter}</strong></span>
-              <button 
-                onClick={() => setGargaloFilter("ALL")} 
-                className="hover:text-white transition-colors cursor-pointer p-0.5 rounded-full hover:bg-white/10"
-                title="Remover filtro do gráfico"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+      <motion.section
+        className="overflow-hidden rounded-2xl border border-white/10 bg-[#0F1117]/95 p-5 shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-6"
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: prefersReducedMotion ? 0 : 0.35 }}
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h3 className="text-sm font-semibold text-white sm:text-base">Média de Dias por Fase</h3>
+              <span className="rounded-md border border-white/10 bg-white/[0.05] px-2 py-1 text-[10px] font-semibold uppercase text-white/55">
+                9 Transições de Esteira
+              </span>
             </div>
-          )}
-        </h3>
-        <p className="text-xs text-white/40 mb-4">
-          Clique em qualquer barra do gráfico para filtrar a lista de protocolos na tabela abaixo.
-        </p>
+            <p className="mt-2 text-xs text-white/40">
+              Clique em qualquer barra do gráfico para filtrar a lista de protocolos na tabela abaixo.
+            </p>
+          </div>
 
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart 
-              data={chartData} 
-              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-              onClick={(state: any) => {
-                if (state && state.activePayload && state.activePayload.length) {
-                  handleChartClick(state.activePayload[0].payload.phaseName);
-                }
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" vertical={false} />
-              <XAxis dataKey="fullName" stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} />
-              <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => String(Math.round(val))} />
-              <Tooltip 
-                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    const dataPoint = payload[0].payload;
-                    const isSelected = gargaloFilter === dataPoint.phaseName;
-                    return (
-                      <div className="bg-[#1E293B] border border-white/10 rounded-xl p-3 shadow-2xl text-xs space-y-1 text-white">
-                        <p className="font-bold text-blue-400">{dataPoint.label}</p>
-                        <p className="text-white/80">
-                          {dataPoint.name}: média <span className="font-bold text-white">{Math.round(dataPoint.dias)} dias</span> |{" "}
-                          <span className="text-white/60">{dataPoint.count?.toLocaleString("pt-BR") || 0} protocolos</span>
-                        </p>
-                        <p className="text-[10px] text-purple-300 pt-1 border-t border-white/10">
-                          {isSelected ? "Clique para desmarcar o filtro" : "Clique para filtrar este gargalo na tabela"}
-                        </p>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Bar dataKey="dias" radius={[4, 4, 0, 0]} className="cursor-pointer">
-                {chartData.map((entry, index) => {
-                  const isSelected = gargaloFilter === entry.phaseName;
-                  const isAnySelected = gargaloFilter !== "ALL";
-                  return (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleChartClick(entry.phaseName);
-                      }}
-                      fill={entry.dias > 3 ? '#ef4444' : entry.dias >= 1 ? '#f59e0b' : '#3b82f6'} 
-                      stroke={isSelected ? '#ffffff' : 'none'}
-                      strokeWidth={isSelected ? 2.5 : 0}
-                      opacity={isAnySelected && !isSelected ? 0.35 : 1}
-                      className="cursor-pointer transition-all duration-200"
-                    />
-                  );
-                })}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {chartBottleneck && (
+              <div className="inline-flex items-center gap-2 rounded-lg border border-amber-400/25 bg-amber-400/[0.08] px-3 py-2 text-[10px] font-semibold uppercase text-amber-200 shadow-lg shadow-amber-500/5">
+                <span className={`h-1.5 w-1.5 rounded-full bg-amber-400 ${prefersReducedMotion ? "" : "animate-pulse"}`} />
+                <span>Principal gargalo</span>
+                <span className="text-white/35">•</span>
+                <span className="normal-case text-white/70">
+                  {chartBottleneck.count.toLocaleString("pt-BR")} protocolos
+                </span>
+              </div>
+            )}
+
+            {gargaloFilter !== "ALL" && (
+              <div className="flex items-center gap-2 rounded-lg border border-violet-400/25 bg-violet-400/10 px-3 py-2 text-[10px] text-violet-200">
+                <span>Filtrado por: <strong>{gargaloFilter}</strong></span>
+                <button
+                  type="button"
+                  onClick={() => setGargaloFilter("ALL")}
+                  className="rounded p-0.5 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+                  title="Remover filtro do gráfico"
+                  aria-label="Remover filtro do gráfico"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+
+        <div className="mt-5 overflow-x-auto pb-2">
+          <div className="h-[310px] min-w-[820px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 34, right: 16, left: -12, bottom: 6 }}>
+                <defs>
+                  <linearGradient id="phaseGradient" x1="0" y1="1" x2="0" y2="0">
+                    <stop offset="0%" stopColor="#6366F1" />
+                    <stop offset="55%" stopColor="#8B5CF6" />
+                    <stop offset="100%" stopColor="#06B6D4" />
+                  </linearGradient>
+                  <linearGradient id="bottleneckGradient" x1="0" y1="1" x2="0" y2="0">
+                    <stop offset="0%" stopColor="#F97316" />
+                    <stop offset="100%" stopColor="#F59E0B" />
+                  </linearGradient>
+                  <filter id="bottleneckGlow" x="-60%" y="-30%" width="220%" height="180%">
+                    <feDropShadow dx="0" dy="0" stdDeviation="5" floodColor="#F59E0B" floodOpacity="0.45" />
+                  </filter>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.10)" vertical={false} />
+                <XAxis
+                  dataKey="fullName"
+                  stroke="rgba(255,255,255,0.45)"
+                  fontSize={10}
+                  fontWeight={500}
+                  interval={0}
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={10}
+                />
+                <YAxis
+                  stroke="rgba(255,255,255,0.38)"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `${Math.round(Number(value))}d`}
+                />
+                <Tooltip
+                  cursor={{ fill: "rgba(255,255,255,0.025)", radius: 8 }}
+                  content={(
+                    <PremiumChartTooltip
+                      totalProtocols={kpis?.total || 0}
+                      selectedPhase={gargaloFilter}
+                    />
+                  )}
+                />
+                <Bar
+                  dataKey="dias"
+                  maxBarSize={52}
+                  isAnimationActive={false}
+                  shape={(shapeProps) => (
+                    <PremiumBarShape
+                      x={Number(shapeProps.x) || 0}
+                      y={Number(shapeProps.y) || 0}
+                      width={Number(shapeProps.width) || 0}
+                      height={Number(shapeProps.height) || 0}
+                      index={Number(shapeProps.index) || 0}
+                      payload={shapeProps.payload as PhaseChartDatum}
+                      selectedPhase={gargaloFilter}
+                      reduceMotion={Boolean(prefersReducedMotion)}
+                      onSelect={handleChartClick}
+                    />
+                  )}
+                >
+                  <LabelList dataKey="dias" content={<ChartValueLabel />} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </motion.section>
 
       {/* Tabela Container */}
       <div ref={tableRef} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col scroll-mt-24">
@@ -938,8 +1135,8 @@ export function MetasDashboardClient() {
             </thead>
             <tbody>
               {paginatedData.map((row) => {
-                const prot = getVal(row, "protocolo", "PROTOCOLO");
-                const natVal = getVal(row, "natureza", "NATUREZA", "TIPO_DETALHADO", "tipo_detalhado");
+                const prot = String(getVal(row, "protocolo", "PROTOCOLO") || "");
+                const natVal = String(getVal(row, "natureza", "NATUREZA", "TIPO_DETALHADO", "tipo_detalhado") || "");
                 const { atrasoDias, badge } = getMetasStatusAndAtraso(row);
 
                 const gargalo = getGargaloForRecord(row);
@@ -1075,7 +1272,7 @@ export function MetasDashboardClient() {
 
       {/* MODAL / DRAWER LATERAL DIREITO - DETALHAMENTO DO PROTOCOLO */}
       {selectedProtocol && (() => {
-        const protNum = getVal(selectedProtocol, "protocolo", "PROTOCOLO");
+        const protNum = String(getVal(selectedProtocol, "protocolo", "PROTOCOLO") || "-");
         const { atrasoDias, badge } = getMetasStatusAndAtraso(selectedProtocol);
         const retrabalho = Number(getVal(selectedProtocol, "qtdRetrabalho", "QTD_RETRABALHO", "qtd_retrabalho") || 0);
 
