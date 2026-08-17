@@ -236,6 +236,8 @@ export function ImportacoesActions() {
     setIsImportingMetas(true);
     setMetasProgress({ current: 0, total: 0 });
 
+    let importMetaForFailure: Record<string, unknown> | null = null;
+
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
@@ -294,6 +296,7 @@ export function ImportacoesActions() {
             periodStart,
             periodEnd,
           };
+          importMetaForFailure = importMetaBase;
 
           const batchSize = 500;
           let importedTotal = 0;
@@ -303,14 +306,11 @@ export function ImportacoesActions() {
             const batchNumber = Math.floor(start / batchSize) + 1;
             const totalBatches = Math.ceil(totalRows / batchSize);
 
-            const controller = new AbortController();
-            const timeout = window.setTimeout(() => controller.abort(), 55000);
             const res = await fetch("/api/bi/metas/import", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
               },
-              signal: controller.signal,
               body: JSON.stringify({
                 rows: batch,
                 importMeta: {
@@ -320,7 +320,6 @@ export function ImportacoesActions() {
                 },
               }),
             });
-            window.clearTimeout(timeout);
 
             if (!res.ok) {
               const errData = await res.json().catch(() => ({ error: "Erro desconhecido" }));
@@ -339,6 +338,18 @@ export function ImportacoesActions() {
           router.refresh();
         } catch (err: any) {
           console.error("Erro na importação de metas:", err);
+          if (importMetaForFailure) {
+            await fetch("/api/bi/metas/import", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                action: "mark_failed",
+                importMeta: importMetaForFailure,
+              }),
+            }).catch(() => null);
+          }
           toast.error(`Erro ao salvar metas: ${err.message || "Erro desconhecido"}`);
         } finally {
           setIsImportingMetas(false);

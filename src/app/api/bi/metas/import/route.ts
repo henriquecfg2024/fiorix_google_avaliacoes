@@ -75,18 +75,17 @@ export async function POST(req: Request) {
     const { importKey, fileName, totalRows, importedBy, periodStart, periodEnd, batchNumber, totalBatches } = importMeta;
 
     const periodStr = periodStart && periodEnd ? `${periodStart}|${periodEnd}` : '';
-    const status = batchNumber === totalBatches ? 'Concluído' : 'Processando';
 
     await prisma.$executeRaw(
       Prisma.sql`
         INSERT INTO public.fiorix_metas_imports (
           tenant_id, import_key, arquivo, periodo, linhas, inseridas, importado_por, status
         ) VALUES (
-          ${user.tenantId}, ${importKey}, ${fileName}, ${periodStr}, ${totalRows}, 0, ${importedBy}, ${status}
+          ${user.tenantId}, ${importKey}, ${fileName}, ${periodStr}, ${totalRows}, 0, ${importedBy}, 'Processando'
         )
         ON CONFLICT (tenant_id, import_key) DO UPDATE SET
           linhas = EXCLUDED.linhas,
-          status = EXCLUDED.status;
+          status = 'Processando';
       `
     );
 
@@ -130,6 +129,8 @@ export async function POST(req: Request) {
         return isNaN(parsed) ? null : parsed;
       };
 
+      const rowsByProtocol = new Map<number, Prisma.Sql>();
+
       for (const row of rows) {
         const rowData = row as Record<string, unknown>;
         const p = parseIntSafe(row.PROTOCOLO);
@@ -144,21 +145,29 @@ export async function POST(req: Request) {
           ''
         ).trim().slice(0, 255);
 
-        await prisma.$executeRaw(
+        rowsByProtocol.set(
+          p,
+          Prisma.sql`(
+            ${user.tenantId}, ${p}, ${parseDate(row.DATA_APRESENTADO)}, ${parseDate(row.DT_PREVISAO)}, ${parseDate(row.DT_ENTREGA_REAL)},
+            ${statusClean}, ${naturezaClean}, ${parseIntSafe(row.ATRASO_DIAS)}, ${parseDate(row.D1_PROTOCOLO)}, ${parseDate(row.D1_ESCANEAMENTO)},
+            ${parseDate(row.D2_CONTRADITORIO)}, ${parseDate(row.D3_EXTRATO)}, ${parseDate(row.D4_QUALIFICACAO)}, ${parseDate(row.D5_CALCULO)},
+            ${parseDate(row.D8_IMPRESSAO)}, ${parseDate(row.D9_PREPARACAO)}, ${parseDate(row.D9_CONFERENCIA)}, ${parseDate(row.D10_ENTREGA)},
+            ${parseIntSafe(row.QTD_RETRABALHO)}, ${parseIntSafe(row.DIAS_D1_D2)}, ${parseIntSafe(row.DIAS_D2_D3)}, ${parseIntSafe(row.DIAS_D3_D4)},
+            ${parseIntSafe(row.DIAS_D4_D5)}, ${parseIntSafe(row.DIAS_D5_D8)}, ${parseIntSafe(row.DIAS_D8_D9)}, ${importId}
+          )`
+        );
+      }
+
+      const values = Array.from(rowsByProtocol.values());
+      if (values.length > 0) {
+        insertedCount = await prisma.$executeRaw(
           Prisma.sql`
             INSERT INTO public.fiorix_metas_dados (
               tenant_id, PROTOCOLO, DATA_APRESENTADO, DT_PREVISAO, DT_ENTREGA_REAL, STATUS, NATUREZA, ATRASO_DIAS,
               D1_PROTOCOLO, D1_ESCANEAMENTO, D2_CONTRADITORIO, D3_EXTRATO, D4_QUALIFICACAO, D5_CALCULO,
-              D8_IMPRESSAO, D9_PREPARACAO, D9_CONFERENCIA, D10_ENTREGA, QTD_RETRABALHO, 
+              D8_IMPRESSAO, D9_PREPARACAO, D9_CONFERENCIA, D10_ENTREGA, QTD_RETRABALHO,
               DIAS_D1_D2, DIAS_D2_D3, DIAS_D3_D4, DIAS_D4_D5, DIAS_D5_D8, DIAS_D8_D9, import_id
-            ) VALUES (
-              ${user.tenantId}, ${p}, ${parseDate(row.DATA_APRESENTADO)}, ${parseDate(row.DT_PREVISAO)}, ${parseDate(row.DT_ENTREGA_REAL)},
-              ${statusClean}, ${naturezaClean}, ${parseIntSafe(row.ATRASO_DIAS)}, ${parseDate(row.D1_PROTOCOLO)}, ${parseDate(row.D1_ESCANEAMENTO)},
-              ${parseDate(row.D2_CONTRADITORIO)}, ${parseDate(row.D3_EXTRATO)}, ${parseDate(row.D4_QUALIFICACAO)}, ${parseDate(row.D5_CALCULO)},
-              ${parseDate(row.D8_IMPRESSAO)}, ${parseDate(row.D9_PREPARACAO)}, ${parseDate(row.D9_CONFERENCIA)}, ${parseDate(row.D10_ENTREGA)},
-              ${parseIntSafe(row.QTD_RETRABALHO)}, ${parseIntSafe(row.DIAS_D1_D2)}, ${parseIntSafe(row.DIAS_D2_D3)}, ${parseIntSafe(row.DIAS_D3_D4)},
-              ${parseIntSafe(row.DIAS_D4_D5)}, ${parseIntSafe(row.DIAS_D5_D8)}, ${parseIntSafe(row.DIAS_D8_D9)}, ${importId}
-            )
+            ) VALUES ${Prisma.join(values)}
             ON CONFLICT (tenant_id, PROTOCOLO) DO UPDATE SET
               DATA_APRESENTADO = EXCLUDED.DATA_APRESENTADO,
               DT_PREVISAO = EXCLUDED.DT_PREVISAO,
@@ -186,13 +195,22 @@ export async function POST(req: Request) {
               import_id = EXCLUDED.import_id;
           `
         );
-        insertedCount++;
       }
-      
+
+      const importedRows: Array<{ count: bigint }> = await prisma.$queryRaw(
+        Prisma.sql`
+          SELECT COUNT(*)::bigint AS count
+          FROM public.fiorix_metas_dados
+          WHERE tenant_id = ${user.tenantId} AND import_id = ${importId}
+        `
+      );
+      const importedCount = Number(importedRows[0]?.count || 0);
+      const finalStatus = batchNumber === totalBatches ? 'Concluído' : 'Processando';
+
       await prisma.$executeRaw(
         Prisma.sql`
           UPDATE public.fiorix_metas_imports
-          SET inseridas = inseridas + ${insertedCount}
+          SET inseridas = ${importedCount}, status = ${finalStatus}
           WHERE id = ${importId} AND tenant_id = ${user.tenantId}
         `
       );
