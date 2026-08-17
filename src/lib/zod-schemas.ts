@@ -9,8 +9,26 @@ const nullableCsvInt = z.preprocess((value) => {
   return value;
 }, z.coerce.number().int().nullable());
 
+const normalizeProdutividadeRow = (value: unknown) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+
+  const row = value as Record<string, unknown>;
+  return {
+    pedido: row.pedido ?? row.PEDIDO,
+    data: row.data ?? row.DATA,
+    hora_num: row.hora_num ?? row.HORA_NUM,
+    dia_semana: row.dia_semana ?? row.DIA_SEMANA,
+    hora: row.hora ?? row.HORA,
+    nome: row.nome ?? row.NOME,
+    tipo: row.tipo ?? row.TIPO,
+    tipo_pedido: row.tipo_pedido ?? row.TIPO_PEDIDO,
+    tipo_detalhado: row.tipo_detalhado ?? row.TIPO_DETALHADO,
+    quantidade: row.quantidade ?? row.QUANTIDADE,
+  };
+};
+
 // Esquema para um item individual do lote de produtividade
-export const produtividadeRowSchema = z.object({
+const produtividadeRowBaseSchema = z.object({
   pedido: z.coerce.number().int().positive('Número do pedido inválido.'),
   data: z.string().min(1, 'A data é obrigatória.'),
   hora_num: z.coerce.number().int().min(0).max(23).default(0),
@@ -22,6 +40,11 @@ export const produtividadeRowSchema = z.object({
   tipo_detalhado: z.string().optional().default(''),
   quantidade: z.coerce.number().int().positive().optional().default(1),
 });
+
+export const produtividadeRowSchema = z.preprocess(
+  normalizeProdutividadeRow,
+  produtividadeRowBaseSchema
+);
 
 // Esquema para o payload completo da importação de produtividade
 export const produtividadeImportSchema = z.object({
