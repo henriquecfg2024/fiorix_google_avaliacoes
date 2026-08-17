@@ -229,6 +229,10 @@ export async function ensureMetasImportsTable() {
       import_id INT REFERENCES fiorix_metas_imports(id) ON DELETE CASCADE
     );
   `;
+  await prisma.$executeRaw`
+    CREATE UNIQUE INDEX IF NOT EXISTS fiorix_metas_dados_tenant_protocolo
+    ON public.fiorix_metas_dados (tenant_id, protocolo);
+  `;
 }
 
 export async function listMetasImportLogs(tenantId: string): Promise<UnifiedImportRecord[]> {
@@ -263,4 +267,3 @@ export async function listMetasImportLogs(tenantId: string): Promise<UnifiedImpo
     insertedCount: row.insertedCount !== null ? Number(row.insertedCount || 0) : null,
   }));
 }
-
