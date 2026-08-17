@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, Database, FileSpreadsheet, Layers3 } from "lucide-react";
+import { ArrowLeft, Database, FileSpreadsheet, Layers3, Target } from "lucide-react";
 
 import { auth } from "@/auth";
 import { requireAuth } from "@/lib/auth-helpers";
@@ -62,7 +62,7 @@ function formatPeriod(start: string | null, end: string | null) {
 }
 
 function statusBadge(record: UnifiedImportRecord) {
-  if (record.status === "FAILED") {
+  if (record.status === "FAILED" || record.status === "Falhou") {
     return (
       <Badge className="bg-red-500/15 text-red-300 border-red-500/30">
         Falhou
@@ -70,7 +70,7 @@ function statusBadge(record: UnifiedImportRecord) {
     );
   }
 
-  if (record.status === "PROCESSING") {
+  if (record.status === "PROCESSING" || record.status === "Processando" || record.status === "Processando...") {
     return (
       <Badge className="bg-blue-500/15 text-blue-300 border-blue-500/30">
         Processando
@@ -97,7 +97,7 @@ function sourceBadge(source: UnifiedImportRecord["source"]) {
   if (source === "BI") {
     return <Badge className="bg-[#2B7FFF]/15 text-[#6EA8FF] border-[#2B7FFF]/30">Módulo BI</Badge>;
   } else if (source === "METAS") {
-    return <Badge className="bg-[#8b5cf6]/15 text-[#8b5cf6] border-[#8b5cf6]/30">Metas</Badge>;
+    return <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">Metas</Badge>;
   }
   return <Badge className="bg-[#00C950]/15 text-[#00C950] border-[#00C950]/30">Produtividade</Badge>;
 }
@@ -138,40 +138,45 @@ function ImportTable({ rows }: { rows: UnifiedImportRecord[] }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={`${row.source}-${row.id}`} className="border-t border-white/10 align-top">
-                <td className="px-4 py-3">
-                  <div className="space-y-2">
-                    {sourceBadge(row.source)}
+            {rows.map((row) => {
+              const isMetasCompleted = row.source === "METAS" && (row.status === "Concluído" || row.status === "SUCCESS" || row.status === "COMPLETED");
+              return (
+                <tr key={`${row.source}-${row.id}`} className="border-t border-white/10 align-top">
+                  <td className="px-4 py-3">
+                    <div className="space-y-2">
+                      {sourceBadge(row.source)}
+                      {row.origin === "inferred" && (
+                        <div className="text-[11px] text-white/45">Histórico inferido pela base</div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-white">
+                    <div className="font-medium break-all">{displayReference(row)}</div>
                     {row.origin === "inferred" && (
-                      <div className="text-[11px] text-white/45">Histórico inferido pela base</div>
+                      <div className="mt-1 text-xs text-white/45 break-all">{row.fileName}</div>
                     )}
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-white">
-                  <div className="font-medium break-all">{displayReference(row)}</div>
-                  {row.origin === "inferred" && (
-                    <div className="mt-1 text-xs text-white/45 break-all">{row.fileName}</div>
-                  )}
-                  {row.errorMessage && (
-                    <div className="mt-1 text-xs text-red-300">{row.errorMessage}</div>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-white/75">{formatPeriod(row.periodStart, row.periodEnd)}</td>
-                <td className="px-4 py-3 text-white/75">{formatDateTime(row.importedAt)}</td>
-                <td className="px-4 py-3 text-white">{Number(row.rowsCount || 0).toLocaleString("pt-BR")}</td>
-                <td className="px-4 py-3 text-[#00C950] font-medium">
-                  {row.insertedCount !== null ? Number(row.insertedCount || 0).toLocaleString("pt-BR") : "-"}
-                </td>
-                <td className="px-4 py-3 text-white/65">{row.importedBy || "-"}</td>
-                <td className="px-4 py-3">{statusBadge(row)}</td>
-                <td className="px-4 py-3 text-right">
-                  {row.origin !== "inferred" && (
-                    <DeleteImportButton id={row.id} source={row.source as any} />
-                  )}
-                </td>
-              </tr>
-            ))}
+                    {row.errorMessage && (
+                      <div className="mt-1 text-xs text-red-300">{row.errorMessage}</div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-white/75">{formatPeriod(row.periodStart, row.periodEnd)}</td>
+                  <td className="px-4 py-3 text-white/75">{formatDateTime(row.importedAt)}</td>
+                  <td className={`px-4 py-3 ${isMetasCompleted ? "text-[#10B981] font-semibold" : "text-white"}`}>
+                    {Number(row.rowsCount || 0).toLocaleString("pt-BR")}
+                  </td>
+                  <td className={`px-4 py-3 font-medium ${isMetasCompleted ? "text-[#10B981]" : "text-[#00C950]"}`}>
+                    {row.insertedCount !== null ? Number(row.insertedCount || 0).toLocaleString("pt-BR") : "-"}
+                  </td>
+                  <td className="px-4 py-3 text-white/65">{row.importedBy || "-"}</td>
+                  <td className="px-4 py-3">{statusBadge(row)}</td>
+                  <td className="px-4 py-3 text-right">
+                    {row.origin !== "inferred" && (
+                      <DeleteImportButton id={row.id} source={row.source as any} />
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -282,7 +287,7 @@ export default async function BiImportacoesPage() {
           <ImportTable rows={unifiedRows} />
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-2">
               <FileSpreadsheet className="h-4 w-4 text-[#00C950]" />
@@ -304,6 +309,17 @@ export default async function BiImportacoesPage() {
               Essas entradas vêm da tabela `fiorix_bi_imports`, que já registra historicamente os uploads do módulo BI.
             </p>
             <ImportTable rows={biImports} />
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-2">
+              <Target className="h-4 w-4 text-[#8b5cf6]" />
+              <h2 className="text-lg font-semibold">Metas</h2>
+            </div>
+            <p className="text-sm text-white/55">
+              Essas entradas vêm da tabela `fiorix_metas_imports`, que já registra historicamente os uploads do módulo de metas.
+            </p>
+            <ImportTable rows={metasImports} />
           </div>
         </div>
       </main>
