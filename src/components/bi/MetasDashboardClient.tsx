@@ -7,10 +7,12 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LabelList
 } from "recharts";
 import { motion, useReducedMotion } from "framer-motion";
+import { toast } from "sonner";
 import { 
   Target, AlertCircle, Clock, TrendingUp, Search, Filter, Loader2, Download,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, FileSpreadsheet,
-  X, AlertTriangle, Calendar, Activity, ArrowUpDown, ArrowUp, ArrowDown
+  X, AlertTriangle, Calendar, Activity, ArrowUpDown, ArrowUp, ArrowDown,
+  ShieldAlert, CheckCircle2, XCircle
 } from "lucide-react";
 
 type SortField = 
@@ -27,6 +29,7 @@ type SortField =
   | "gargalo";
 
 type SortOrder = "asc" | "desc";
+type BalcaoFilter = "TODOS" | "SEM_REG" | "SEM_DEV";
 
 type MetasData = {
   protocolo: number;
@@ -46,6 +49,8 @@ type MetasData = {
   d9Preparacao?: string;
   d9Conferencia?: string;
   d10Entrega?: string;
+  dBalcaoRegistrado?: string;
+  dBalcaoDevolvido?: string;
   qtdRetrabalho?: number;
   diasD1D2?: number | null;
   diasD2D3?: number | null;
@@ -207,6 +212,7 @@ export function MetasDashboardClient() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [gargaloFilter, setGargaloFilter] = useState("ALL");
+  const [balcaoFilter, setBalcaoFilter] = useState<BalcaoFilter>("TODOS");
   const [sortField, setSortField] = useState<SortField>("protocolo");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
 
@@ -238,7 +244,7 @@ export function MetasDashboardClient() {
   // Reset page when filters or sorting change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, statusFilter, gargaloFilter, itemsPerPage, sortField, sortOrder]);
+  }, [search, statusFilter, gargaloFilter, balcaoFilter, itemsPerPage, sortField, sortOrder]);
 
   // Helper universal para pegar valor ignorando casing e aliases
   const getVal = useCallback((record: Record<string, unknown> | null | undefined, ...keys: string[]) => {
@@ -340,6 +346,21 @@ export function MetasDashboardClient() {
       badge: { text: "Em dia", bgClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" }
     };
   }, [getDateKey, getVal]);
+
+  const getBalcaoAuditState = useCallback((record: MetasData) => {
+    const d8Impressao = getVal(record, "d8Impressao", "D8_IMPRESSAO", "D8_IMP");
+    const d10Entrega = getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT");
+    const dBalcaoRegistrado = getVal(record, "dBalcaoRegistrado", "D_BALCAO_REGISTRADO");
+    const dBalcaoDevolvido = getVal(record, "dBalcaoDevolvido", "D_BALCAO_DEVOLVIDO");
+    const isAtrasado = getMetasStatusAndAtraso(record).status === "Atrasado";
+
+    return {
+      dBalcaoRegistrado,
+      dBalcaoDevolvido,
+      semRegistro: isAtrasado && Boolean(d8Impressao) && !d10Entrega && !dBalcaoRegistrado,
+      semDevolucao: isAtrasado && Boolean(dBalcaoRegistrado) && !dBalcaoDevolvido,
+    };
+  }, [getMetasStatusAndAtraso, getVal]);
 
   // Format date helper
   const formatDate = (val: unknown) => {
@@ -536,6 +557,27 @@ export function MetasDashboardClient() {
     chartData.find((item) => item.isBottleneck) || null
   ), [chartData]);
 
+  const balcaoAudit = useMemo(() => data.reduce((counts, item) => {
+    const audit = getBalcaoAuditState(item);
+    if (audit.semRegistro) counts.semRegistro++;
+    if (audit.semDevolucao) counts.semDevolucao++;
+    return counts;
+  }, { semRegistro: 0, semDevolucao: 0 }), [data, getBalcaoAuditState]);
+
+  const handleBalcaoFilter = (filter: Exclude<BalcaoFilter, "TODOS">) => {
+    const nextFilter = balcaoFilter === filter ? "TODOS" : filter;
+    setBalcaoFilter(nextFilter);
+
+    const count = filter === "SEM_REG" ? balcaoAudit.semRegistro : balcaoAudit.semDevolucao;
+    if (nextFilter === "TODOS") {
+      toast.info("Filtro de auditoria do balcão removido.");
+    } else {
+      const label = filter === "SEM_REG" ? "BALCÃO REGISTRADO (ID 76)" : "BALCÃO DEVOLVIDO (ID 75)";
+      toast.info(`Mostrando ${count.toLocaleString("pt-BR")} protocolos sem ${label}`);
+      window.setTimeout(() => tableRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    }
+  };
+
   const handleChartClick = (phaseName: string) => {
     if (!phaseName) return;
     if (gargaloFilter === phaseName) {
@@ -559,8 +601,14 @@ export function MetasDashboardClient() {
       const matchSearch = search ? (prot.includes(search) || nat.includes(searchLower)) : true;
       const matchStatus = statusFilter !== "ALL" ? badge.text === statusFilter : true;
       const matchGargalo = gargaloFilter !== "ALL" ? getGargaloForRecord(item).name === gargaloFilter : true;
+      const audit = getBalcaoAuditState(item);
+      const matchBalcao = balcaoFilter === "SEM_REG"
+        ? audit.semRegistro
+        : balcaoFilter === "SEM_DEV"
+          ? audit.semDevolucao
+          : true;
       
-      return matchSearch && matchStatus && matchGargalo;
+      return matchSearch && matchStatus && matchGargalo && matchBalcao;
     });
 
     return [...filtered].sort((a, b) => {
@@ -630,7 +678,7 @@ export function MetasDashboardClient() {
 
       return sortOrder === "asc" ? res : -res;
     });
-  }, [data, search, statusFilter, gargaloFilter, sortField, sortOrder, getGargaloForRecord, getMetasStatusAndAtraso, getVal]);
+  }, [data, search, statusFilter, gargaloFilter, balcaoFilter, sortField, sortOrder, getBalcaoAuditState, getGargaloForRecord, getMetasStatusAndAtraso, getVal]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -708,7 +756,8 @@ export function MetasDashboardClient() {
     const headers = [
       "PROTOCOLO", "NATUREZA", "STATUS", "ATRASO_DIAS", "DATA_APRESENTADO", "DT_PREVISAO", 
       "DT_ENTREGA_REAL", "D1_PROTOCOLO", "D3_EXTRATO", "D4_QUALIFICACAO", 
-      "D5_CALCULO", "D8_IMPRESSAO", "D10_ENTREGA", "GARGALO", "DIAS_GARGALO"
+      "D5_CALCULO", "D8_IMPRESSAO", "D10_ENTREGA", "D_BALCAO_REGISTRADO",
+      "D_BALCAO_DEVOLVIDO", "GARGALO", "DIAS_GARGALO"
     ];
 
     const rows = exportList.map(item => {
@@ -731,6 +780,8 @@ export function MetasDashboardClient() {
         `"${getVal(item, "d5Calculo", "D5_CALCULO", "D5_CALC") || ""}"`,
         `"${getVal(item, "d8Impressao", "D8_IMPRESSAO", "D8_IMP") || ""}"`,
         `"${getVal(item, "d10Entrega", "D10_ENTREGA", "D10_ENT") || ""}"`,
+        `"${getVal(item, "dBalcaoRegistrado", "D_BALCAO_REGISTRADO") || ""}"`,
+        `"${getVal(item, "dBalcaoDevolvido", "D_BALCAO_DEVOLVIDO") || ""}"`,
         `"${g.name}"`,
         g.dias !== null ? g.dias : 0
       ].join(",");
@@ -759,8 +810,7 @@ export function MetasDashboardClient() {
       
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-bl-full -mr-4 -mt-4"></div>
+        <div className="relative overflow-hidden rounded-lg border border-white/10 bg-[#15161E] p-5 shadow-xl">
           <p className="text-white/60 text-xs font-semibold mb-1 flex items-center gap-2">
             <Target className="w-4 h-4 text-blue-400" /> TOTAL
           </p>
@@ -769,8 +819,7 @@ export function MetasDashboardClient() {
           </h3>
         </div>
 
-        <div className="bg-white/5 border border-red-500/30 rounded-2xl p-5 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/10 rounded-bl-full -mr-4 -mt-4"></div>
+        <div className="relative overflow-hidden rounded-lg border border-red-500/30 bg-red-500/[0.07] p-5 shadow-xl">
           <p className="text-red-300 text-xs font-semibold mb-1 flex items-center gap-2">
             <AlertCircle className="w-4 h-4" /> ATRASADOS
           </p>
@@ -779,9 +828,8 @@ export function MetasDashboardClient() {
           </h3>
         </div>
 
-        <div className="bg-white/5 border border-orange-500/30 rounded-2xl p-5 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 rounded-bl-full -mr-4 -mt-4"></div>
-          <p className="text-orange-300 text-xs font-semibold mb-1 flex items-center gap-2">
+        <div className="relative overflow-hidden rounded-lg border border-emerald-500/25 bg-emerald-500/[0.07] p-5 shadow-xl">
+          <p className="text-emerald-300 text-xs font-semibold mb-1 flex items-center gap-2">
             <Clock className="w-4 h-4" /> ENTREGUE COM ATRASO
           </p>
           <h3 className="text-3xl font-bold text-white">
@@ -789,9 +837,8 @@ export function MetasDashboardClient() {
           </h3>
         </div>
 
-        <div className="bg-white/5 border border-purple-500/30 rounded-2xl p-5 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-bl-full -mr-4 -mt-4"></div>
-          <p className="text-purple-300 text-xs font-semibold mb-1 flex items-center gap-2 truncate pr-6" title="Gargalo Principal">
+        <div className="relative overflow-hidden rounded-lg border border-amber-500/30 bg-amber-500/[0.08] p-5 shadow-xl">
+          <p className="text-amber-300 text-xs font-semibold mb-1 flex items-center gap-2 truncate pr-6" title="Gargalo Principal">
             <TrendingUp className="w-4 h-4" /> PRINCIPAL GARGALO
           </p>
           <h3 className="text-lg font-bold text-white truncate pr-2 mt-2" title={kpis?.topGargalo?.name}>
@@ -804,6 +851,68 @@ export function MetasDashboardClient() {
       </div>
 
       {/* Gráfico de Média de Dias por Fase (9 Transições) */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => handleBalcaoFilter("SEM_REG")}
+          aria-pressed={balcaoFilter === "SEM_REG"}
+          className={`min-h-[104px] w-full rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 ${
+            balcaoFilter === "SEM_REG"
+              ? "border-amber-400/70 bg-amber-500/[0.13]"
+              : "border-amber-500/30 bg-amber-500/[0.08] hover:bg-amber-500/[0.12]"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-4">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-amber-400/25 bg-amber-500/15 text-amber-300">
+                <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs font-bold uppercase text-amber-300">Sem Balcão Registrado</p>
+                  <span className="rounded border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-200">ID 76</span>
+                </div>
+                <p className="mt-1 text-xs text-white/50">Protocolos atrasados e impressos sem baixa</p>
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="text-3xl font-bold text-amber-100">{balcaoAudit.semRegistro.toLocaleString("pt-BR")}</p>
+              <p className="mt-1 text-[10px] text-amber-300/70">protocolos</p>
+            </div>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleBalcaoFilter("SEM_DEV")}
+          aria-pressed={balcaoFilter === "SEM_DEV"}
+          className={`min-h-[104px] w-full rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
+            balcaoFilter === "SEM_DEV"
+              ? "border-red-400/70 bg-red-500/[0.13]"
+              : "border-red-500/30 bg-red-500/[0.08] hover:bg-red-500/[0.12]"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-4">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-red-400/25 bg-red-500/15 text-red-300">
+                <ShieldAlert className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs font-bold uppercase text-red-300">Sem Balcão Devolvido</p>
+                  <span className="rounded border border-red-400/30 bg-red-400/10 px-1.5 py-0.5 text-[9px] font-bold text-red-200">ID 75</span>
+                </div>
+                <p className="mt-1 text-xs text-white/50">Registrados e atrasados sem baixa de retirada</p>
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="text-3xl font-bold text-red-100">{balcaoAudit.semDevolucao.toLocaleString("pt-BR")}</p>
+              <p className="mt-1 text-[10px] text-red-300/70">protocolos</p>
+            </div>
+          </div>
+        </button>
+      </div>
+
       <motion.section
         className="overflow-hidden rounded-2xl border border-white/10 bg-[#0F1117]/95 p-5 shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-6"
         initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
@@ -967,6 +1076,17 @@ export function MetasDashboardClient() {
           </div>
 
           <div className="flex flex-wrap gap-3 items-center">
+            {balcaoFilter !== "TODOS" && (
+              <button
+                type="button"
+                onClick={() => setBalcaoFilter("TODOS")}
+                className="flex items-center gap-1.5 rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-1.5 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-400/15"
+              >
+                {balcaoFilter === "SEM_REG" ? "Sem registro ID 76" : "Sem devolução ID 75"}
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            )}
+
             {/* Filtro Status */}
             <div className="flex items-center gap-2 bg-[#0F172A] border border-white/10 rounded-lg px-3 py-1.5">
               <Filter className="h-3.5 w-3.5 text-white/40" />
@@ -1123,6 +1243,12 @@ export function MetasDashboardClient() {
                     D10 Ent {renderSortIcon("d10Entrega")}
                   </div>
                 </th>
+                <th className="px-4 py-3 font-semibold text-center bg-white/[0.01] whitespace-nowrap">
+                  Balcão Reg. <span className="text-amber-300/70">(76)</span>
+                </th>
+                <th className="px-4 py-3 font-semibold text-center bg-white/[0.01] whitespace-nowrap">
+                  Balcão Dev. <span className="text-red-300/70">(75)</span>
+                </th>
                 <th 
                   onClick={() => handleSort("gargalo")}
                   className="px-4 py-3 font-semibold cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
@@ -1147,13 +1273,17 @@ export function MetasDashboardClient() {
                 const d5Val = getVal(row, "d5Calculo", "D5_CALCULO", "D5_CALC");
                 const d8Val = getVal(row, "d8Impressao", "D8_IMPRESSAO", "D8_IMP");
                 const d10Val = getVal(row, "d10Entrega", "D10_ENTREGA", "D10_ENT");
+                const balcao = getBalcaoAuditState(row);
+                const hasAuditPending = balcao.semRegistro || balcao.semDevolucao;
 
                 return (
                   <tr 
                     key={prot} 
                     onClick={() => setSelectedProtocol(row)}
                     title="Clique para ver o detalhamento completo do protocolo"
-                    className="border-b border-white/5 hover:bg-white/[0.06] transition-colors cursor-pointer"
+                    className={`border-b border-white/5 transition-colors cursor-pointer ${
+                      hasAuditPending ? "bg-amber-500/[0.045] hover:bg-amber-500/[0.08]" : "hover:bg-white/[0.06]"
+                    }`}
                   >
                     <td className="px-4 py-3 font-medium text-blue-400 underline decoration-blue-400/30 underline-offset-4">{prot}</td>
                     <td className="px-4 py-3 text-xs text-white/80 max-w-[160px] truncate" title={natVal || "-"}>
@@ -1175,6 +1305,28 @@ export function MetasDashboardClient() {
                     <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(d5Val)}</td>
                     <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(d8Val)}</td>
                     <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(d10Val)}</td>
+                    <td className="px-4 py-3 text-[11px] text-center bg-white/[0.01]">
+                      {balcao.dBalcaoRegistrado ? (
+                        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-emerald-300">
+                          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> {formatDate(balcao.dBalcaoRegistrado)}
+                        </span>
+                      ) : (
+                        <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${balcao.semRegistro ? "font-semibold text-amber-300" : "text-white/35"}`}>
+                          <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> Pendente
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-[11px] text-center bg-white/[0.01]">
+                      {balcao.dBalcaoDevolvido ? (
+                        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-emerald-300">
+                          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> {formatDate(balcao.dBalcaoDevolvido)}
+                        </span>
+                      ) : (
+                        <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${balcao.semDevolucao ? "font-semibold text-red-300" : "text-white/35"}`}>
+                          <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> Pendente
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-[11px] font-medium text-purple-300">
                       {gargalo.name} ({gargalo.dias !== null ? `${gargalo.dias}d` : '0d'})
                     </td>

@@ -249,6 +249,8 @@ export async function ensureMetasImportsTable() {
       D9_PREPARACAO TIMESTAMP, 
       D9_CONFERENCIA TIMESTAMP, 
       D10_ENTREGA TIMESTAMP, 
+      D_BALCAO_REGISTRADO TIMESTAMP,
+      D_BALCAO_DEVOLVIDO TIMESTAMP,
       QTD_RETRABALHO INT, 
       DIAS_D1_D2 INT, 
       DIAS_D2_D3 INT, 
@@ -258,6 +260,11 @@ export async function ensureMetasImportsTable() {
       DIAS_D8_D9 INT, 
       import_id INT REFERENCES fiorix_metas_imports(id) ON DELETE CASCADE
     );
+  `;
+  await prisma.$executeRaw`
+    ALTER TABLE public.fiorix_metas_dados
+      ADD COLUMN IF NOT EXISTS D_BALCAO_REGISTRADO TIMESTAMP,
+      ADD COLUMN IF NOT EXISTS D_BALCAO_DEVOLVIDO TIMESTAMP;
   `;
   await prisma.$executeRaw`
     CREATE UNIQUE INDEX IF NOT EXISTS fiorix_metas_dados_tenant_protocolo

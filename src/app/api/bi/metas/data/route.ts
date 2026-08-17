@@ -127,6 +127,8 @@ export async function GET(request: Request) {
         d9Preparacao: getVal("D9_PREPARACAO", "d9_preparacao", "d9Preparacao", "D9_PREP"),
         d9Conferencia: getVal("D9_CONFERENCIA", "d9_conferencia", "d9Conferencia", "D9_CONF"),
         d10Entrega: getVal("D10_ENTREGA", "d10_entrega", "d10Entrega", "D10_ENT"),
+        dBalcaoRegistrado: getVal("D_BALCAO_REGISTRADO", "d_balcao_registrado", "dBalcaoRegistrado"),
+        dBalcaoDevolvido: getVal("D_BALCAO_DEVOLVIDO", "d_balcao_devolvido", "dBalcaoDevolvido"),
         
         qtdRetrabalho: Number(getVal("QTD_RETRABALHO", "qtd_retrabalho", "qtdRetrabalho") || 0),
         
@@ -161,6 +163,8 @@ export async function GET(request: Request) {
           d9Preparacao: null,
           d9Conferencia: null,
           d10Entrega: null,
+          dBalcaoRegistrado: null,
+          dBalcaoDevolvido: null,
           qtdRetrabalho: 0,
           diasD1D2: 0,
           diasD2D3: null,
@@ -187,6 +191,8 @@ export async function GET(request: Request) {
           d9Preparacao: new Date("2026-04-28T11:30:00Z"),
           d9Conferencia: new Date("2026-04-28T11:45:00Z"),
           d10Entrega: new Date("2026-04-28T12:00:00Z"),
+          dBalcaoRegistrado: new Date("2026-04-28T11:50:00Z"),
+          dBalcaoDevolvido: new Date("2026-04-28T12:00:00Z"),
           qtdRetrabalho: 1,
           diasD1D2: 1,
           diasD2D3: 1,
@@ -204,4 +210,3 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: false, error: "Erro ao consultar banco de dados" }, { status: 500 });
   }
 }
-

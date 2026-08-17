@@ -306,6 +306,8 @@ model FiorixMetasDados {
   d9Preparacao    DateTime? @map("d9_preparacao")
   d9Conferencia   DateTime? @map("d9_conferencia")
   d10Entrega      DateTime? @map("d10_entrega")
+  dBalcaoRegistrado DateTime? @map("d_balcao_registrado")
+  dBalcaoDevolvido  DateTime? @map("d_balcao_devolvido")
   qtdRetrabalho   Int?      @map("qtd_retrabalho")
   diasD1D2        Int?      @map("dias_d1_d2")
   diasD2D3        Int?      @map("dias_d2_d3")
@@ -331,5 +333,4 @@ model RateLimit {
 
   @@map("fiorix_rate_limits")
 }
-
 

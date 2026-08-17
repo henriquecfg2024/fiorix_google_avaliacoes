@@ -82,6 +82,8 @@ export const metasRowSchema = z.object({
   D9_PREPARACAO: z.string().nullable().optional(),
   D9_CONFERENCIA: z.string().nullable().optional(),
   D10_ENTREGA: z.string().nullable().optional(),
+  D_BALCAO_REGISTRADO: z.string().nullable().optional(),
+  D_BALCAO_DEVOLVIDO: z.string().nullable().optional(),
   QTD_RETRABALHO: nullableCsvInt,
   DIAS_D1_D2: nullableCsvInt,
   DIAS_D2_D3: nullableCsvInt,

@@ -152,6 +152,7 @@ export async function POST(req: Request) {
             ${statusClean}, ${naturezaClean}, ${parseIntSafe(row.ATRASO_DIAS)}, ${parseDate(row.D1_PROTOCOLO)}, ${parseDate(row.D1_ESCANEAMENTO)},
             ${parseDate(row.D2_CONTRADITORIO)}, ${parseDate(row.D3_EXTRATO)}, ${parseDate(row.D4_QUALIFICACAO)}, ${parseDate(row.D5_CALCULO)},
             ${parseDate(row.D8_IMPRESSAO)}, ${parseDate(row.D9_PREPARACAO)}, ${parseDate(row.D9_CONFERENCIA)}, ${parseDate(row.D10_ENTREGA)},
+            ${parseDate(row.D_BALCAO_REGISTRADO)}, ${parseDate(row.D_BALCAO_DEVOLVIDO)},
             ${parseIntSafe(row.QTD_RETRABALHO)}, ${parseIntSafe(row.DIAS_D1_D2)}, ${parseIntSafe(row.DIAS_D2_D3)}, ${parseIntSafe(row.DIAS_D3_D4)},
             ${parseIntSafe(row.DIAS_D4_D5)}, ${parseIntSafe(row.DIAS_D5_D8)}, ${parseIntSafe(row.DIAS_D8_D9)}, ${importId}
           )`
@@ -165,7 +166,8 @@ export async function POST(req: Request) {
             INSERT INTO public.fiorix_metas_dados (
               tenant_id, PROTOCOLO, DATA_APRESENTADO, DT_PREVISAO, DT_ENTREGA_REAL, STATUS, NATUREZA, ATRASO_DIAS,
               D1_PROTOCOLO, D1_ESCANEAMENTO, D2_CONTRADITORIO, D3_EXTRATO, D4_QUALIFICACAO, D5_CALCULO,
-              D8_IMPRESSAO, D9_PREPARACAO, D9_CONFERENCIA, D10_ENTREGA, QTD_RETRABALHO,
+              D8_IMPRESSAO, D9_PREPARACAO, D9_CONFERENCIA, D10_ENTREGA,
+              D_BALCAO_REGISTRADO, D_BALCAO_DEVOLVIDO, QTD_RETRABALHO,
               DIAS_D1_D2, DIAS_D2_D3, DIAS_D3_D4, DIAS_D4_D5, DIAS_D5_D8, DIAS_D8_D9, import_id
             ) VALUES ${Prisma.join(values)}
             ON CONFLICT (tenant_id, PROTOCOLO) DO UPDATE SET
@@ -185,6 +187,8 @@ export async function POST(req: Request) {
               D9_PREPARACAO = EXCLUDED.D9_PREPARACAO,
               D9_CONFERENCIA = EXCLUDED.D9_CONFERENCIA,
               D10_ENTREGA = EXCLUDED.D10_ENTREGA,
+              D_BALCAO_REGISTRADO = COALESCE(EXCLUDED.D_BALCAO_REGISTRADO, public.fiorix_metas_dados.D_BALCAO_REGISTRADO),
+              D_BALCAO_DEVOLVIDO = COALESCE(EXCLUDED.D_BALCAO_DEVOLVIDO, public.fiorix_metas_dados.D_BALCAO_DEVOLVIDO),
               QTD_RETRABALHO = EXCLUDED.QTD_RETRABALHO,
               DIAS_D1_D2 = EXCLUDED.DIAS_D1_D2,
               DIAS_D2_D3 = EXCLUDED.DIAS_D2_D3,
