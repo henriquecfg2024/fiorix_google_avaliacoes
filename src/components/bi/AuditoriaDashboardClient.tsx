@@ -617,7 +617,7 @@ export function AuditoriaDashboardClient() {
                         {renderHeader("fase", "Fase")}
                         {renderHeader("falta", "Andamento Ausente")}
                         {renderHeader("dias", "Dias Parado")}
-                        {renderHeader("setor", "Setor/Responsável")}
+                        {renderHeader("setor", "Setor")}
                         {renderHeader("dataUltAndamento", "Data Últ. Andamento")}
                       </>
                     );
@@ -666,7 +666,7 @@ export function AuditoriaDashboardClient() {
                         </td>
                         <td className="p-4 font-semibold text-amber-300">{p.dias}d</td>
                         <td className="p-4 text-white/70">
-                          {p.setor} / <span className="text-white/90 font-medium">{p.responsavel}</span>
+                          {p.setor}
                         </td>
                         <td className="p-4 text-white/55">{p.dataUltAndamento}</td>
                         <td className="p-4 text-right">
