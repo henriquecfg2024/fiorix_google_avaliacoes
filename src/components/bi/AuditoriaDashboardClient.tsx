@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   AreaChart,
   Area,
@@ -73,6 +73,31 @@ export function AuditoriaDashboardClient() {
   const [filtroFalta, setFiltroFalta] = useState<"todos" | "76" | "75" | "tarefa" | "semRetirada">("todos");
   const [filtroSetor, setFiltroSetor] = useState<"todos" | "Balcão" | "Conferência" | "Qualificação" | "Registro">("todos");
   const [filtroResponsavel, setFiltroResponsavel] = useState<string>("todos");
+  const [loading, setLoading] = useState(false);
+
+  const loadData = async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const res = await fetch("/api/fiorix/auditoria");
+      const json = await res.json();
+      if (json.success && json.protocolos) {
+        setProtocolos(json.protocolos.length > 0 ? json.protocolos : initialProtocolos);
+        if (!silent) {
+          toast.success("Auditoria recalculada!", {
+            description: `${json.protocolos.length} pendências reais encontradas.`
+          });
+        }
+      }
+    } catch (err) {
+      if (!silent) toast.error("Falha ao carregar auditoria.");
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData(true);
+  }, []);
 
   // Dynamic responsibles list
   const responsaveisList = useMemo(() => {
@@ -213,6 +238,15 @@ export function AuditoriaDashboardClient() {
           <span className="text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/15">
             98.4% precisão
           </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => loadData(false)}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-55 text-slate-950 rounded-lg text-xs font-bold transition cursor-pointer"
+          >
+            {loading ? "🔄 Rodando..." : "🔄 Nova Auditoria"}
+          </button>
         </div>
       </div>
 
