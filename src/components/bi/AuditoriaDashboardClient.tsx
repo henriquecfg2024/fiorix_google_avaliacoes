@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { CorrecaoModal } from "@/components/auditoria/CorrecaoModal";
+import { CorrecaoLoteModal } from "@/components/auditoria/CorrecaoLoteModal";
 import {
   AreaChart,
   Area,
@@ -73,6 +74,9 @@ export function AuditoriaDashboardClient() {
 
   const [selectedProtocoloModal, setSelectedProtocoloModal] = useState<any>(null);
   const [isCorrecaoModalOpen, setIsCorrecaoModalOpen] = useState(false);
+  const [isLoteModalOpen, setIsLoteModalOpen] = useState(false);
+
+
 
   // Selection handler
   const handleSelectAll = (checked: boolean) => {
@@ -129,36 +133,13 @@ export function AuditoriaDashboardClient() {
       toast.warning("Selecione pelo menos um protocolo para correção em lote.");
       return;
     }
-    const mode = dryRun ? "DRY-RUN (Simulação)" : "PRODUÇÃO";
-    toast.success(`[${mode}] Correção em lote aplicada para ${selectedProtocolos.length} protocolos.`, {
-      description: dryRun
-        ? "Simulado: Nenhum registro alterado no SQL Server."
-        : `Sucesso: ${selectedProtocolos.length} registros inseridos com sucesso via transação idempotente.`,
-    });
-
-    if (!dryRun) {
-      const idsToRemove = [...selectedProtocolos];
-      const itemsToRemove = sortedProtocolos.filter((p) => idsToRemove.includes(p.id));
-      
-      setProtocolos((prev) => prev.filter((p) => !idsToRemove.includes(p.id)));
-      setSelectedProtocolos([]);
-
-      setIntervencoes((prev) => [
-        ...itemsToRemove.map((p, idx) => ({
-          id: `batch-${Date.now()}-${idx}`,
-          data: new Date().toLocaleString("pt-BR"),
-          protocolo: Number(p.id),
-          tipo: "Auto-correção ID 76",
-          de: "Pendente",
-          para: "Balcão Registrado",
-          motivo: "Correção em lote via Painel",
-          risco: "Nenhum",
-          usuario: "FIORIX.CORRETOR",
-          aprovado: "Henrique Master",
-        })),
-        ...prev,
-      ]);
+    if (dryRun) {
+      toast.success(`[DRY-RUN (Simulação)] Correção em lote aplicada para ${selectedProtocolos.length} protocolos.`, {
+        description: "Simulado: Nenhum registro alterado no SQL Server."
+      });
+      return;
     }
+    setIsLoteModalOpen(true);
   };
 
   const handleReprocessarImport = (id: string) => {
@@ -175,6 +156,10 @@ export function AuditoriaDashboardClient() {
       return matchesSearch && matchesFalta;
     });
   }, [protocolos, searchTerm, filtroFalta]);
+
+  const selectedProtocolosObjects = useMemo(() => {
+    return sortedProtocolos.filter((p) => selectedProtocolos.includes(p.id));
+  }, [sortedProtocolos, selectedProtocolos]);
 
   return (
     <div className="space-y-6 font-[Inter,system-ui,sans-serif]">
@@ -769,6 +754,32 @@ export function AuditoriaDashboardClient() {
                 usuario: "FIORIX.CORRETOR",
                 aprovado: "Henrique Master",
               },
+              ...prev,
+            ]);
+          }}
+        />
+      )}
+      {isLoteModalOpen && (
+        <CorrecaoLoteModal
+          open={isLoteModalOpen}
+          onOpenChange={setIsLoteModalOpen}
+          protocolos={selectedProtocolosObjects}
+          onSuccess={(idsRemovidos) => {
+            setProtocolos((prev) => prev.filter((p) => !idsRemovidos.includes(p.id)));
+            setSelectedProtocolos([]);
+            setIntervencoes((prev) => [
+              ...selectedProtocolosObjects.map((p, idx) => ({
+                id: `batch-${Date.now()}-${idx}`,
+                data: new Date().toLocaleString("pt-BR"),
+                protocolo: Number(p.id),
+                tipo: `Auto-correção ID ${p.falta}`,
+                de: "Pendente",
+                para: "Balcão Registrado",
+                motivo: "Correção em lote via Painel",
+                risco: "Nenhum",
+                usuario: "FIORIX.CORRETOR",
+                aprovado: "Henrique Master",
+              })),
               ...prev,
             ]);
           }}
