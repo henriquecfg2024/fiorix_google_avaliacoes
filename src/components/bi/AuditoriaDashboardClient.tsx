@@ -571,7 +571,7 @@ export function AuditoriaDashboardClient() {
                                 toast.success(`Protocolo #${p.id} copiado!`, {
                                   description: "Cole na busca do WEBRI para fazer o lançamento do andamento."
                                 });
-                                window.open(`https://webri.com.br/protocolo/${p.id}`, '_blank');
+                                window.open(`http://srvsql/Siplan%20Informatica%20Ltda/Siplan%207RI/frmRecepcao.aspx?Protocolo=${p.id}`, '_blank');
                               }}
                               className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-bold text-white flex items-center gap-1 transition cursor-pointer"
                             >
