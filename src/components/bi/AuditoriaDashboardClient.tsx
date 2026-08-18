@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { CorrecaoModal } from "@/components/auditoria/CorrecaoModal";
 import {
   AreaChart,
   Area,
@@ -69,6 +70,9 @@ export function AuditoriaDashboardClient() {
   const [intervencoes, setIntervencoes] = useState(initialIntervencoes);
   const [searchTerm, setSearchTerm] = useState("");
   const [filtroFalta, setFiltroFalta] = useState<"todos" | "75" | "76">("todos");
+
+  const [selectedProtocoloModal, setSelectedProtocoloModal] = useState<any>(null);
+  const [isCorrecaoModalOpen, setIsCorrecaoModalOpen] = useState(false);
 
   // Selection handler
   const handleSelectAll = (checked: boolean) => {
@@ -488,20 +492,30 @@ export function AuditoriaDashboardClient() {
                             {p.setor} / <span className="text-white/90 font-medium">{p.responsavel}</span>
                           </td>
                           <td className="p-4 text-right flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => toast.info(`Relatório gerado para protocolo ${p.id}`)}
-                              className="p-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-md transition"
-                              title="Gerar PDF"
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleCorrigirFiorix(p.id, true)}
-                              className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-md transition text-[10px]"
-                            >
-                              Corrigir
-                            </button>
-                          </td>
+                             <button
+                               onClick={() => window.open(`/api/fiorix/relatorio-pdf?protocolo=${p.id}`, '_blank')}
+                               className="p-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-md transition"
+                               title="Gerar PDF"
+                             >
+                               <FileText className="w-3.5 h-3.5" />
+                             </button>
+                             <button
+                               onClick={() => {
+                                 setSelectedProtocoloModal({
+                                   numero: Number(p.id),
+                                   cliente: p.cliente,
+                                   fase: p.fase,
+                                   falta: p.falta,
+                                   dias: p.dias,
+                                   setor: `${p.setor} / ${p.responsavel}`
+                                 });
+                                 setIsCorrecaoModalOpen(true);
+                               }}
+                               className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-md transition text-[10px]"
+                             >
+                               Corrigir
+                             </button>
+                           </td>
                         </tr>
                       );
                     })
@@ -733,6 +747,32 @@ export function AuditoriaDashboardClient() {
             </table>
           </div>
         </div>
+      )}
+      {selectedProtocoloModal && (
+        <CorrecaoModal
+          open={isCorrecaoModalOpen}
+          onOpenChange={setIsCorrecaoModalOpen}
+          protocolo={selectedProtocoloModal}
+          onSuccess={() => {
+            const idStr = String(selectedProtocoloModal.numero);
+            setProtocolos((prev) => prev.filter((p) => p.id !== idStr));
+            setIntervencoes((prev) => [
+              {
+                id: `int-${Date.now()}`,
+                data: new Date().toLocaleString("pt-BR"),
+                protocolo: selectedProtocoloModal.numero,
+                tipo: `Auto-correção ID ${selectedProtocoloModal.falta}`,
+                de: "Pendente",
+                para: "Balcão Registrado",
+                motivo: "Correção pontual auditada via Painel",
+                risco: "Nenhum",
+                usuario: "FIORIX.CORRETOR",
+                aprovado: "Henrique Master",
+              },
+              ...prev,
+            ]);
+          }}
+        />
       )}
     </div>
   );
