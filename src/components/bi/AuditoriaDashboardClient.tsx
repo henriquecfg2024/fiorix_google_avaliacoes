@@ -571,12 +571,11 @@ export function AuditoriaDashboardClient() {
                                 toast.success(`Protocolo #${p.id} copiado!`, {
                                   description: "Cole na busca do WEBRI para fazer o lançamento do andamento."
                                 });
-                                window.open(`http://srvsql/Siplan Informatica Ltda/Siplan 7RI/frmRecepcao.aspx?Protocolo=${p.id}`, '_blank');
                               }}
                               className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-bold text-white flex items-center gap-1 transition cursor-pointer"
+                              title="Copiar número do protocolo"
                             >
-                              Ver no WEBRI
-                              <ExternalLink className="w-2.5 h-2.5" />
+                              📋 Copiar Protocolo
                             </button>
                             <span className="text-[9px] text-white/40">
                               Lançar ID {p.falta} no WEBRI &gt; Tarefas &gt; Andamentos
