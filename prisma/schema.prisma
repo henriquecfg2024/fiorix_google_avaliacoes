@@ -288,10 +288,9 @@ model FiorixMetasImport {
 }
 
 model FiorixMetasDados {
-  id              Int       @id @default(autoincrement())
+  protocolo       Int       @id @map("protocolo")
   tenantId        String    @default("") @map("tenant_id")
   tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  protocolo       Int       @map("protocolo")
   dataApresentado DateTime? @map("data_apresentado")
   dtPrevisao      DateTime? @map("dt_previsao")
   dtEntregaReal   DateTime? @map("dt_entrega_real")
@@ -321,7 +320,6 @@ model FiorixMetasDados {
   importId        Int?      @map("import_id")
   import          FiorixMetasImport? @relation(fields: [importId], references: [id], onDelete: Cascade)
 
-  @@unique([tenantId, protocolo], name: "fiorix_metas_dados_tenant_protocolo")
   @@index([tenantId], name: "idx_fiorix_metas_dados_tenant_id")
   @@index([importId], name: "idx_fiorix_metas_dados_import_id")
   @@map("fiorix_metas_dados")

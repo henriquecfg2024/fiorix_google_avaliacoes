@@ -6,9 +6,17 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
+    const sessionUser = await getCurrentUser();
+    if (!sessionUser) {
       return NextResponse.json({ success: false, error: "Não autorizado" }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: sessionUser.email }
+    });
+
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Usuário não encontrado" }, { status: 404 });
     }
 
     // Get all records from fiorix_metas_dados where dBalcaoRegistrado and dBalcaoDevolvido are both null
