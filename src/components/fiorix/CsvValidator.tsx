@@ -399,12 +399,7 @@ export function validarCSV(
         return;
       }
 
-      if (rowsLimpos.length < 10) {
-        onError(
-          `Arquivo com apenas ${rowsLimpos.length} linhas. Exporte novamente o resultado completo da pr_Fiorix_BI.`
-        );
-        return;
-      }
+
 
       const totalLinhas = rowsLimpos.length;
       const protocolosUnicos = new Set(rowsLimpos.map(r => r.protocolo)).size;
