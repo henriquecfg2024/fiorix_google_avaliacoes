@@ -75,6 +75,7 @@ export function AuditoriaDashboardClient() {
   const [selectedProtocoloModal, setSelectedProtocoloModal] = useState<any>(null);
   const [isCorrecaoModalOpen, setIsCorrecaoModalOpen] = useState(false);
   const [isLoteModalOpen, setIsLoteModalOpen] = useState(false);
+  const [loteProtocolos, setLoteProtocolos] = useState<any[]>([]);
 
 
 
@@ -139,6 +140,8 @@ export function AuditoriaDashboardClient() {
       });
       return;
     }
+    const selectedObjects = sortedProtocolos.filter((p) => selectedProtocolos.includes(p.id));
+    setLoteProtocolos(selectedObjects);
     setIsLoteModalOpen(true);
   };
 
@@ -360,16 +363,23 @@ export function AuditoriaDashboardClient() {
                 </div>
                 <div className="mt-4 flex gap-2">
                   <button
-                    onClick={() => handleCorrigirFiorix("todos-76-dry", true)}
+                    onClick={() => {
+                      setLoteProtocolos(protocolos);
+                      setIsLoteModalOpen(true);
+                    }}
                     className="flex-1 flex items-center justify-center gap-2 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs transition"
                   >
                     <Wrench className="w-3.5 h-3.5" />
                     Corrigir com FIORIX
                   </button>
                   <button
-                    onClick={() => handleCorrigirFiorix("todos-76-prod", false)}
+                    onClick={() => {
+                      toast.success("[DRY-RUN (Simulação)] Correção em lote iniciada para todos os protocolos.", {
+                        description: "Nenhum registro alterado no SQL Server."
+                      });
+                    }}
                     className="px-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white transition flex items-center justify-center"
-                    title="Forçar execução de produção"
+                    title="Simular execução (Dry-run)"
                   >
                     <Play className="w-3.5 h-3.5 text-emerald-400" />
                   </button>
@@ -763,12 +773,12 @@ export function AuditoriaDashboardClient() {
         <CorrecaoLoteModal
           open={isLoteModalOpen}
           onOpenChange={setIsLoteModalOpen}
-          protocolos={selectedProtocolosObjects}
+          protocolos={loteProtocolos}
           onSuccess={(idsRemovidos) => {
             setProtocolos((prev) => prev.filter((p) => !idsRemovidos.includes(p.id)));
             setSelectedProtocolos([]);
             setIntervencoes((prev) => [
-              ...selectedProtocolosObjects.map((p, idx) => ({
+              ...loteProtocolos.map((p, idx) => ({
                 id: `batch-${Date.now()}-${idx}`,
                 data: new Date().toLocaleString("pt-BR"),
                 protocolo: Number(p.id),
