@@ -565,15 +565,19 @@ export function AuditoriaDashboardClient() {
                         <td className="p-4 text-white/55">{p.dataUltAndamento}</td>
                         <td className="p-4 text-right">
                           <div className="flex flex-col items-end gap-1">
-                            <a
-                              href={`https://webri.com.br/protocolo/${p.id}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-bold text-white flex items-center gap-1 transition"
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(p.id);
+                                toast.success(`Protocolo #${p.id} copiado!`, {
+                                  description: "Cole na busca do WEBRI para fazer o lançamento do andamento."
+                                });
+                                window.open(`https://webri.com.br/protocolo/${p.id}`, '_blank');
+                              }}
+                              className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-bold text-white flex items-center gap-1 transition cursor-pointer"
                             >
                               Ver no WEBRI
                               <ExternalLink className="w-2.5 h-2.5" />
-                            </a>
+                            </button>
                             <span className="text-[9px] text-white/40">
                               Lançar ID {p.falta} no WEBRI &gt; Tarefas &gt; Andamentos
                             </span>
