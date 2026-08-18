@@ -99,6 +99,15 @@ export function AuditoriaDashboardClient() {
     loadData(true);
   }, []);
 
+  const [sortField, setSortField] = useState<string>("protocolo");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filtroFalta, filtroSetor, filtroResponsavel, searchTerm]);
+
   // Dynamic responsibles list
   const responsaveisList = useMemo(() => {
     const list = new Set(protocolos.map((p) => p.responsavel));
@@ -108,7 +117,7 @@ export function AuditoriaDashboardClient() {
   // Selection handlers
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedProtocolos(sortedProtocolos.map((p) => p.id));
+      setSelectedProtocolos(sortedAndFilteredProtocolos.map((p) => p.id));
     } else {
       setSelectedProtocolos([]);
     }
@@ -122,7 +131,6 @@ export function AuditoriaDashboardClient() {
     }
   };
 
-  // Filtered list logic
   const sortedProtocolos = useMemo(() => {
     return protocolos.filter((p) => {
       const matchesSearch = p.id.includes(searchTerm) || p.cliente.toLowerCase().includes(searchTerm.toLowerCase());
@@ -140,11 +148,44 @@ export function AuditoriaDashboardClient() {
     });
   }, [protocolos, searchTerm, filtroFalta, filtroSetor, filtroResponsavel]);
 
+  const sortedAndFilteredProtocolos = useMemo(() => {
+    return [...sortedProtocolos].sort((a, b) => {
+      let valA: any = a[sortField as keyof typeof a];
+      let valB: any = b[sortField as keyof typeof b];
+
+      if (sortField === "protocolo") {
+        valA = Number(a.id);
+        valB = Number(b.id);
+      } else if (sortField === "dias") {
+        valA = a.dias;
+        valB = b.dias;
+      } else if (sortField === "dataUltAndamento") {
+        const parseDate = (dStr: string) => {
+          const parts = dStr.split("/");
+          return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0])).getTime();
+        };
+        valA = parseDate(a.dataUltAndamento);
+        valB = parseDate(b.dataUltAndamento);
+      }
+
+      if (valA < valB) return sortDirection === "asc" ? -1 : 1;
+      if (valA > valB) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [sortedProtocolos, sortField, sortDirection]);
+
+  const totalPages = Math.ceil(sortedAndFilteredProtocolos.length / itemsPerPage) || 1;
+  
+  const paginatedProtocolos = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return sortedAndFilteredProtocolos.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedAndFilteredProtocolos, currentPage, itemsPerPage]);
+
   // Export CSV
   const handleExportCSV = () => {
     const targetList = selectedProtocolos.length > 0
-      ? sortedProtocolos.filter((p) => selectedProtocolos.includes(p.id))
-      : sortedProtocolos;
+      ? sortedAndFilteredProtocolos.filter((p) => selectedProtocolos.includes(p.id))
+      : sortedAndFilteredProtocolos;
 
     if (targetList.length === 0) {
       toast.warning("Nenhum protocolo disponível para exportar.");
@@ -195,8 +236,8 @@ export function AuditoriaDashboardClient() {
   // Copy List
   const handleCopyList = () => {
     const targetList = selectedProtocolos.length > 0
-      ? sortedProtocolos.filter((p) => selectedProtocolos.includes(p.id))
-      : sortedProtocolos;
+      ? sortedAndFilteredProtocolos.filter((p) => selectedProtocolos.includes(p.id))
+      : sortedAndFilteredProtocolos;
 
     if (targetList.length === 0) {
       toast.warning("Nenhum protocolo disponível para copiar.");
@@ -214,8 +255,8 @@ export function AuditoriaDashboardClient() {
   // Open Relatorio PDF / Imprimir Relatório
   const handleOpenPrintPreview = () => {
     const targetList = selectedProtocolos.length > 0
-      ? sortedProtocolos.filter((p) => selectedProtocolos.includes(p.id))
-      : sortedProtocolos;
+      ? sortedAndFilteredProtocolos.filter((p) => selectedProtocolos.includes(p.id))
+      : sortedAndFilteredProtocolos;
 
     if (targetList.length === 0) {
       toast.warning("Selecione ao menos um protocolo para imprimir.");
@@ -538,30 +579,61 @@ export function AuditoriaDashboardClient() {
                   <th className="p-4 w-12 text-center">
                     <input
                       type="checkbox"
-                      checked={selectedProtocolos.length === sortedProtocolos.length && sortedProtocolos.length > 0}
+                      checked={selectedProtocolos.length === sortedAndFilteredProtocolos.length && sortedAndFilteredProtocolos.length > 0}
                       onChange={(e) => handleSelectAll(e.target.checked)}
                       className="rounded border-white/20 bg-transparent text-amber-500 focus:ring-0"
                     />
                   </th>
-                  <th className="p-4">Protocolo</th>
-                  <th className="p-4">Cliente</th>
-                  <th className="p-4">Fase</th>
-                  <th className="p-4">Andamento Ausente</th>
-                  <th className="p-4">Dias Parado</th>
-                  <th className="p-4">Setor/Responsável</th>
-                  <th className="p-4">Data Últ. Andamento</th>
+                  {(() => {
+                    const renderHeader = (field: string, label: string) => {
+                      const isActive = sortField === field;
+                      return (
+                        <th
+                          onClick={() => {
+                            if (isActive) {
+                              setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+                            } else {
+                              setSortField(field);
+                              setSortDirection("asc");
+                            }
+                          }}
+                          className="p-4 cursor-pointer hover:bg-white/5 select-none"
+                        >
+                          <div className="flex items-center gap-1.5">
+                            {label}
+                            {isActive ? (
+                              <span className="text-amber-400 font-bold text-[9px]">{sortDirection === "asc" ? "▲" : "▼"}</span>
+                            ) : (
+                              <span className="opacity-20 text-[9px]">↕</span>
+                            )}
+                          </div>
+                        </th>
+                      );
+                    };
+                    return (
+                      <>
+                        {renderHeader("protocolo", "Protocolo")}
+                        {renderHeader("cliente", "Cliente")}
+                        {renderHeader("fase", "Fase")}
+                        {renderHeader("falta", "Andamento Ausente")}
+                        {renderHeader("dias", "Dias Parado")}
+                        {renderHeader("setor", "Setor/Responsável")}
+                        {renderHeader("dataUltAndamento", "Data Últ. Andamento")}
+                      </>
+                    );
+                  })()}
                   <th className="p-4 text-right">Ação WEBRI</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {sortedProtocolos.length === 0 ? (
+                {paginatedProtocolos.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="p-8 text-center text-white/30 text-xs">
                       Nenhuma pendência encontrada.
                     </td>
                   </tr>
                 ) : (
-                  sortedProtocolos.map((p) => {
+                  paginatedProtocolos.map((p) => {
                     const isSelected = selectedProtocolos.includes(p.id);
                     return (
                       <tr key={p.id} className={`hover:bg-white/[0.02] transition ${isSelected ? "bg-amber-500/[0.02]" : ""}`}>
@@ -623,6 +695,34 @@ export function AuditoriaDashboardClient() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {sortedAndFilteredProtocolos.length > 0 && (
+            <div className="p-4 bg-white/[0.01] border border-white/5 rounded-xl flex items-center justify-between text-xs text-white/60">
+              <div>
+                Exibindo <strong>{Math.min(sortedAndFilteredProtocolos.length, (currentPage - 1) * itemsPerPage + 1)}-{Math.min(sortedAndFilteredProtocolos.length, currentPage * itemsPerPage)}</strong> de <strong>{sortedAndFilteredProtocolos.length}</strong> pendências
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((c) => Math.max(1, c - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg disabled:opacity-40 transition cursor-pointer font-bold"
+                >
+                  Anterior
+                </button>
+                <span>
+                  Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong>
+                </span>
+                <button
+                  onClick={() => setCurrentPage((c) => Math.min(totalPages, c + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg disabled:opacity-40 transition cursor-pointer font-bold"
+                >
+                  Próxima
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* D. RODAPÉ DE TELA COM RESUMO */}
           {sortedProtocolos.length > 0 && (
