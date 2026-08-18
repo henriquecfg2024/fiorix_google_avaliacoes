@@ -15,6 +15,11 @@ async function main() {
   const beforeFunc = sql.substring(0, funcStart);
   const funcBody = sql.substring(funcStart);
 
+  // Drop old versions of the function to avoid duplicate/overloaded signatures
+  console.log('Dropping old function signatures...');
+  await prisma.$executeRawUnsafe('DROP FUNCTION IF EXISTS refresh_fiorix_bi_aggregates(text);');
+  await prisma.$executeRawUnsafe('DROP FUNCTION IF EXISTS refresh_fiorix_bi_aggregates(text, text);');
+
   // Execute the function creation only
   if (funcBody.trim().length > 0) {
     await prisma.$executeRawUnsafe(funcBody);

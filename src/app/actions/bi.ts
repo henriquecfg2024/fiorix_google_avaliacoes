@@ -69,11 +69,24 @@ export async function updateBiImportStatus(importId: string, status: 'SUCCESS' |
         }),
       ]);
     } else {
-      await refreshBiAggregatesForImport(importId, user.tenantId);
-      await prisma.fiorixBiImport.update({
-        where: { id: importId },
-        data: { status, errorMessage },
-      });
+      try {
+        await refreshBiAggregatesForImport(importId, user.tenantId);
+        await prisma.fiorixBiImport.update({
+          where: { id: importId },
+          data: { status, errorMessage },
+        });
+      } catch (aggError: any) {
+        console.error('Error refreshing aggregates, marking import as FAILED:', aggError);
+        const failMessage = aggError?.message || String(aggError);
+        await prisma.$transaction([
+          prisma.fiorixBiData.deleteMany({ where: { importId, tenantId: user.tenantId } }),
+          prisma.fiorixBiImport.update({
+            where: { id: importId },
+            data: { status: 'FAILED', errorMessage: `Erro de agregação: ${failMessage}` },
+          }),
+        ]);
+        return { success: false, error: `Erro de agregação: ${failMessage}` };
+      }
     }
     return { success: true };
   } catch (error: any) {

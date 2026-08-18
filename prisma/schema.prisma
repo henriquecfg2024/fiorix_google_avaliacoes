@@ -59,6 +59,8 @@ model Tenant {
   biData            FiorixBiData[]
   metasImports      FiorixMetasImport[]
   metasDados        FiorixMetasDados[]
+  intervencoes      FiorixIntervencao[]
+  relatorios        FiorixRelatorio[]
 }
 
 // ── USERS ─────────────────────────────────────────────────────────────
@@ -333,4 +335,39 @@ model RateLimit {
 
   @@map("fiorix_rate_limits")
 }
+
+model FiorixIntervencao {
+  id         String   @id @default(cuid())
+  tenantId   String   @map("tenant_id")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  data       DateTime @default(now())
+  protocolo  Int
+  tipo       String   @db.VarChar(100)
+  de         String   @db.VarChar(100)
+  para       String   @db.VarChar(100)
+  motivo     String   @db.Text
+  risco      String   @db.VarChar(50)
+  usuario    String   @db.VarChar(100)
+  aprovado   String   @db.VarChar(100)
+
+  @@index([tenantId])
+  @@index([tenantId, data])
+  @@map("fiorix_intervencoes")
+}
+
+model FiorixRelatorio {
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  data      DateTime @default(now())
+  arquivo   String   @db.VarChar(255)
+  setor     String   @db.VarChar(100)
+  status    String   @db.VarChar(50)
+  url       String?  @db.Text
+
+  @@index([tenantId])
+  @@index([tenantId, data])
+  @@map("fiorix_relatorios")
+}
+
 

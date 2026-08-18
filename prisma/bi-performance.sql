@@ -51,6 +51,9 @@ CREATE INDEX IF NOT EXISTS idx_fiorix_bi_return_note_import_day
 CREATE INDEX IF NOT EXISTS idx_fiorix_bi_return_note_tipo_day
   ON fiorix_bi_return_note_agg(tenant_id, tipo_prenotacao, day);
 
+DROP FUNCTION IF EXISTS refresh_fiorix_bi_aggregates(text);
+DROP FUNCTION IF EXISTS refresh_fiorix_bi_aggregates(text, text);
+
 CREATE OR REPLACE FUNCTION refresh_fiorix_bi_aggregates(p_import_id text, p_tenant_id text DEFAULT '')
 RETURNS TABLE(daily_rows bigint, note_rows bigint)
 LANGUAGE plpgsql
