@@ -23,6 +23,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
+type ImportRow = {
+  id: string;
+  importedAt: string;
+  fileName: string;
+  rowsCount?: number;
+  importedBy?: string | null;
+  status?: string;
+  errorMessage?: string | null;
+};
+
 export default function FiorixBiImportPage() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [previewStats, setPreviewStats] = useState<CsvStats | null>(null);
@@ -31,7 +41,7 @@ export default function FiorixBiImportPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [importStatusMsg, setImportStatusMsg] = useState('');
-  const [importsList, setImportsList] = useState<any[]>([]);
+  const [importsList, setImportsList] = useState<ImportRow[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchImports = useCallback(async () => {
@@ -145,9 +155,9 @@ export default function FiorixBiImportPage() {
         handleCancelUpload();
         fetchImports();
       }, 2000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao inserir importação BI:', error);
-      const errMsg = error?.message || String(error);
+      const errMsg = error instanceof Error ? error.message : String(error);
       await updateBiImportStatus(importId, 'FAILED', errMsg);
       toast.error("Falha na Importação", {
         description: errMsg,
@@ -173,19 +183,19 @@ export default function FiorixBiImportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-6">
+    <div className="fiorix-dark-page py-6">
       <main className="container mx-auto px-4 py-4 max-w-6xl space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-2xl font-bold tracking-tight text-white">
               Importador de Dados
             </h1>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="text-sm text-white/55 mt-1">
               Atualize a base do Supabase fazendo upload do CSV exportado da pr_Fiorix_BI.
             </p>
           </div>
           <Link href="/bi">
-            <Button variant="outline" className="flex items-center gap-2">
+            <Button variant="outline" className="flex items-center gap-2 border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]">
               <ArrowLeft size={16} /> Voltar para o Dashboard
             </Button>
           </Link>
@@ -193,19 +203,19 @@ export default function FiorixBiImportPage() {
 
         <div className="flex justify-end">
           <Link href="/bi/importacoes">
-            <Button variant="outline" className="flex items-center gap-2">
+            <Button variant="outline" className="flex items-center gap-2 border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]">
               Ver demonstrativo geral de importações
             </Button>
           </Link>
         </div>
 
-        <Card className="border-slate-200 shadow-sm">
+        <Card className="border-white/8 bg-[#0B1020]/78 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <FileSpreadsheet className="text-blue-600" size={20} />
+              <FileSpreadsheet className="text-amber-300" size={20} />
               <CardTitle className="text-lg">Nova Importação Manual (CSV)</CardTitle>
             </div>
-            <CardDescription>
+            <CardDescription className="text-white/55">
               Arraste seu arquivo CSV exportado do SSMS para atualizar os indicadores do BI.
             </CardDescription>
           </CardHeader>
@@ -225,14 +235,14 @@ export default function FiorixBiImportPage() {
               onClick={() => fileInputRef.current?.click()}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
-              className="border-2 border-dashed border-slate-300 rounded-xl p-10 text-center bg-slate-50 hover:bg-slate-100/50 transition-colors cursor-pointer flex flex-col items-center justify-center"
+              className="border-2 border-dashed border-white/10 rounded-xl p-10 text-center bg-white/[0.03] hover:bg-white/[0.05] transition-colors cursor-pointer flex flex-col items-center justify-center"
             >
-              <UploadCloud size={40} className="text-slate-400 mb-4" />
-              <h3 className="text-sm font-semibold text-slate-700 mb-2">
+              <UploadCloud size={40} className="text-amber-300 mb-4" />
+              <h3 className="text-sm font-semibold text-white mb-2">
                 Arraste seu arquivo CSV aqui ou clique para selecionar
               </h3>
-              <p className="text-xs text-slate-500 mb-6">
-                Suporta <code className="bg-slate-200 px-1 py-0.5 rounded text-slate-700">fiorix_bi_YYYY-MM-DD.csv</code> gerado via Save Results As...
+              <p className="text-xs text-white/55 mb-6">
+                Suporta <code className="bg-white/10 px-1 py-0.5 rounded text-white">fiorix_bi_YYYY-MM-DD.csv</code> gerado via Save Results As...
               </p>
 
               <Button
@@ -248,17 +258,17 @@ export default function FiorixBiImportPage() {
             </div>
 
             {validationError && (
-              <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4 text-red-800 flex items-start gap-3">
-                <XCircle size={20} className="mt-0.5 shrink-0 text-red-600" />
+              <div className="mt-4 rounded-lg border border-rose-500/20 bg-rose-500/10 p-4 text-rose-100 flex items-start gap-3">
+                <XCircle size={20} className="mt-0.5 shrink-0 text-rose-300" />
                 <div>
                   <h4 className="font-semibold text-sm">Erro na Validação do CSV</h4>
-                  <p className="text-xs mt-1 text-red-700">{validationError}</p>
+                  <p className="text-xs mt-1 text-rose-100/80">{validationError}</p>
                 </div>
               </div>
             )}
 
             {isParsing && (
-              <div className="mt-4 text-blue-600 text-sm flex items-center gap-2">
+              <div className="mt-4 text-amber-300 text-sm flex items-center gap-2">
                 <RefreshCw size={16} className="animate-spin" />
                 Analisando arquivo grande e validando colunas do CSV...
               </div>
@@ -277,22 +287,22 @@ export default function FiorixBiImportPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-slate-200 shadow-sm">
+        <Card className="border-white/8 bg-[#0B1020]/78 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
           <CardHeader>
             <CardTitle className="text-lg">Histórico de Importações</CardTitle>
-            <CardDescription>
+            <CardDescription className="text-white/55">
               Registro de todas as importações feitas para a tabela <code>fiorix_bi_imports</code> no Supabase.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {importsList.length === 0 ? (
-              <div className="text-center text-sm text-slate-500 py-10">
+              <div className="text-center text-sm text-white/55 py-10">
                 Nenhuma importação realizada ainda.
               </div>
             ) : (
-              <div className="rounded-md border border-slate-200 overflow-x-auto">
+              <div className="rounded-md border border-white/8 overflow-x-auto">
                 <Table>
-                  <TableHeader className="bg-slate-50">
+                  <TableHeader className="bg-white/[0.03]">
                     <TableRow>
                       <TableHead>Data/Hora</TableHead>
                       <TableHead>Nome do Arquivo CSV</TableHead>
@@ -312,15 +322,15 @@ export default function FiorixBiImportPage() {
                         <TableCell className="text-emerald-600 font-semibold">
                           {Number(item.rowsCount || 0).toLocaleString('pt-BR')} linhas
                         </TableCell>
-                        <TableCell className="text-slate-500 text-xs">{item.importedBy}</TableCell>
+                        <TableCell className="text-white/55 text-xs">{item.importedBy}</TableCell>
                         <TableCell className="text-center">
                           {item.status === 'SUCCESS' && (
-                            <Badge variant="default" className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none">
+                            <Badge variant="default" className="border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/10">
                               Concluído
                             </Badge>
                           )}
                           {item.status === 'PROCESSING' && (
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                            <Badge variant="outline" className="border border-cyan-500/20 bg-cyan-500/10 text-cyan-300">
                               Processando
                             </Badge>
                           )}
@@ -334,7 +344,7 @@ export default function FiorixBiImportPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="text-slate-400 hover:text-red-600 hover:bg-red-50"
+                            className="text-white/50 hover:text-rose-300 hover:bg-white/[0.05]"
                             onClick={() => handleDeleteImport(item.id)}
                             title="Excluir lote"
                           >

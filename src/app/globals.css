@@ -461,13 +461,33 @@
 
     .fiorix-dark-page {
       min-height: calc(100vh - 60px);
-      background: #0A0F1E;
+      position: relative;
+      isolation: isolate;
+      background:
+        radial-gradient(circle at top left, rgba(251,191,36,0.08), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(34,211,238,0.07), transparent 28%),
+        linear-gradient(180deg, #070A12 0%, #090E18 100%);
       color: #ffffff;
+    }
+
+    .fiorix-dark-page::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 18% 0%, rgba(251,191,36,0.08), transparent 20%),
+        radial-gradient(circle at 100% 100%, rgba(34,211,238,0.06), transparent 18%);
+      z-index: -1;
     }
 
     .fiorix-dark-page .bg-white,
     .fiorix-dark-page [class*="bg-slate-50"],
-    .fiorix-dark-page [class*="bg-slate-100"] {
+    .fiorix-dark-page [class*="bg-slate-100"],
+    .fiorix-dark-page [class*="bg-blue-50"],
+    .fiorix-dark-page [class*="bg-emerald-50"],
+    .fiorix-dark-page [class*="bg-amber-50"],
+    .fiorix-dark-page [class*="bg-red-50"] {
       background: #151C2F !important;
       backdrop-filter: blur(18px);
     }

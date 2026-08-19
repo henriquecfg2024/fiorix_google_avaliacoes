@@ -1,6 +1,5 @@
 import React from 'react';
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { requireAuth } from '@/lib/auth-helpers';
 
@@ -166,30 +165,30 @@ export default async function Dashboard({
   return (
     <div className="fiorix-dark-page w-full px-4 md:px-7 py-6 space-y-6">
       {syncError && (
-        <div className="bg-red-50 text-red-800 p-3.5 px-5 rounded-2xl text-sm border border-red-200 flex items-center gap-2">
-          <span>❌</span>
+        <div className="flex items-center gap-3 rounded-[20px] border border-rose-500/20 bg-[#0B1020]/80 px-5 py-4 text-sm text-rose-200 shadow-[0_18px_50px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-rose-500/20 bg-rose-500/10 text-base">⚠</span>
           <span><strong>Erro ao Sincronizar com o Google:</strong> {syncError}</span>
         </div>
       )}
 
       {syncedCount && (
-        <div className="bg-emerald-50 text-emerald-800 p-3.5 px-5 rounded-2xl text-sm border border-emerald-200 flex items-center gap-2">
-          <span>🎉</span>
+        <div className="flex items-center gap-3 rounded-[20px] border border-emerald-500/20 bg-[#0B1020]/80 px-5 py-4 text-sm text-emerald-200 shadow-[0_18px_50px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-base">✓</span>
           <span><strong>Sincronização Concluída:</strong> {syncedCount} novas avaliações importadas!</span>
         </div>
       )}
 
       {!isConnected && isDemo && (
-        <div className="bg-blue-50/80 text-blue-900 p-4 px-5 rounded-2xl text-sm border border-blue-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+        <div className="flex flex-col items-start justify-between gap-3 rounded-[20px] border border-amber-400/20 bg-[#0B1020]/80 px-5 py-4 text-sm text-amber-100 shadow-[0_18px_50px_rgba(0,0,0,0.22)] backdrop-blur-xl sm:flex-row sm:items-center">
           <div className="flex items-center gap-2">
-            <span>👋</span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-base">👋</span>
             <span>
               <strong>Modo Demonstração:</strong> Como você ainda não conectou o Google Meu Negócio, estamos exibindo dados de exemplo para demonstração do painel.
             </span>
           </div>
           <a
             href="/configuracoes"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap self-end sm:self-auto"
+            className="rounded-xl border border-amber-400/20 bg-amber-400/15 px-4 py-2 text-xs font-bold whitespace-nowrap text-amber-200 transition-colors hover:bg-amber-400/25 self-end sm:self-auto"
           >
             Conectar Google →
           </a>

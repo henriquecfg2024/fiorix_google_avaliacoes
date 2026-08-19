@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft, Database, FileSpreadsheet, Layers3, Target } from "lucide-react";
 
-import { auth } from "@/auth";
 import { requireAuth } from "@/lib/auth-helpers";
 import { ImportacoesActions } from "@/components/bi/ImportacoesActions";
 import { Badge } from "@/components/ui/badge";
@@ -171,7 +170,7 @@ function ImportTable({ rows }: { rows: UnifiedImportRecord[] }) {
                   <td className="px-4 py-3">{statusBadge(row)}</td>
                   <td className="px-4 py-3 text-right">
                     {row.origin !== "inferred" && (
-                      <DeleteImportButton id={row.id} source={row.source as any} />
+                      <DeleteImportButton id={row.id} source={row.source as UnifiedImportRecord["source"]} />
                     )}
                   </td>
                 </tr>
@@ -222,12 +221,12 @@ export default async function BiImportacoesPage() {
   const totalRows = unifiedRows.reduce((sum, row) => sum + Number(row.rowsCount || 0), 0);
 
   return (
-    <div className="min-h-screen bg-[#0A0F1E] text-white">
+    <div className="fiorix-dark-page text-white">
       <main className="container mx-auto px-4 lg:px-8 py-8 space-y-6">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl">
+        <div className="rounded-[28px] border border-white/8 bg-[#0B1020]/78 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
             <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-white/60">
+              <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs text-amber-200">
                 <Layers3 className="h-3.5 w-3.5" />
                 Demonstrativo Unificado de CSVs
               </div>
@@ -242,7 +241,7 @@ export default async function BiImportacoesPage() {
             <div className="flex flex-wrap gap-3">
               <ImportacoesActions />
               <Link href="/bi">
-                <Button variant="outline" className="bg-white/5 border-white/10 text-white hover:bg-white/10 gap-2">
+                <Button variant="outline" className="gap-2 border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]">
                   <ArrowLeft className="h-4 w-4" />
                   Voltar ao BI
                 </Button>
@@ -251,27 +250,27 @@ export default async function BiImportacoesPage() {
           </div>
 
           <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-            <div className="rounded-xl border border-white/10 bg-black/10 p-4">
+            <div className="rounded-2xl border border-cyan-500/15 bg-white/[0.03] p-4">
               <div className="text-[11px] uppercase tracking-wider text-white/45">Módulo BI</div>
-              <div className="mt-2 text-2xl font-bold text-[#2B7FFF]">{biCount}</div>
+              <div className="mt-2 text-2xl font-bold text-cyan-300">{biCount}</div>
               <div className="mt-1 text-xs text-white/50">importações registradas</div>
             </div>
-            <div className="rounded-xl border border-white/10 bg-black/10 p-4">
+            <div className="rounded-2xl border border-emerald-500/15 bg-white/[0.03] p-4">
               <div className="text-[11px] uppercase tracking-wider text-white/45">Produtividade</div>
-              <div className="mt-2 text-2xl font-bold text-[#00C950]">{produtividadeCount}</div>
+              <div className="mt-2 text-2xl font-bold text-emerald-300">{produtividadeCount}</div>
               <div className="mt-1 text-xs text-white/50">importações registradas</div>
             </div>
-            <div className="rounded-xl border border-white/10 bg-black/10 p-4">
+            <div className="rounded-2xl border border-violet-500/15 bg-white/[0.03] p-4">
               <div className="text-[11px] uppercase tracking-wider text-white/45">Metas</div>
-              <div className="mt-2 text-2xl font-bold text-[#8b5cf6]">{metasCount}</div>
+              <div className="mt-2 text-2xl font-bold text-violet-300">{metasCount}</div>
               <div className="mt-1 text-xs text-white/50">importações registradas</div>
             </div>
-            <div className="rounded-xl border border-white/10 bg-black/10 p-4">
+            <div className="rounded-2xl border border-amber-500/15 bg-white/[0.03] p-4">
               <div className="text-[11px] uppercase tracking-wider text-white/45">Períodos Inferidos</div>
               <div className="mt-2 text-2xl font-bold text-amber-300">{produtividadeInferredCount}</div>
               <div className="mt-1 text-xs text-white/50">detectados na base de produtividade</div>
             </div>
-            <div className="rounded-xl border border-white/10 bg-black/10 p-4">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <div className="text-[11px] uppercase tracking-wider text-white/45">Total de Linhas</div>
               <div className="mt-2 text-2xl font-bold text-white">{totalRows.toLocaleString("pt-BR")}</div>
               <div className="mt-1 text-xs text-white/50">somadas nas fontes exibidas</div>
@@ -279,30 +278,30 @@ export default async function BiImportacoesPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl space-y-4">
+        <div className="rounded-[28px] border border-white/8 bg-[#0B1020]/78 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl space-y-4">
           <div className="flex items-center gap-2">
-            <Database className="h-4 w-4 text-[#2B7FFF]" />
+            <Database className="h-4 w-4 text-cyan-300" />
             <h2 className="text-lg font-semibold">Histórico Unificado</h2>
           </div>
           <ImportTable rows={unifiedRows} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl space-y-4">
+          <div className="rounded-[28px] border border-white/8 bg-[#0B1020]/78 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl space-y-4">
             <div className="flex items-center gap-2">
-              <FileSpreadsheet className="h-4 w-4 text-[#00C950]" />
+              <FileSpreadsheet className="h-4 w-4 text-emerald-300" />
               <h2 className="text-lg font-semibold">Produtividade</h2>
             </div>
             <p className="text-sm text-white/55">
-              Entradas com status <span className="text-[#00C950]">Concluído</span> ou <span className="text-blue-300">Processando</span> são registros formais da tela de importação.
+              Entradas com status <span className="text-emerald-300">Concluído</span> ou <span className="text-cyan-300">Processando</span> são registros formais da tela de importação.
               Entradas <span className="text-amber-300">Inferido</span> foram reconstruídas a partir dos períodos já presentes em `fiorix_produtividade_dados`.
             </p>
             <ImportTable rows={[...produtividadeLogs, ...produtividadeInferredFiltered]} />
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl space-y-4">
+          <div className="rounded-[28px] border border-white/8 bg-[#0B1020]/78 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl space-y-4">
             <div className="flex items-center gap-2">
-              <Database className="h-4 w-4 text-[#2B7FFF]" />
+              <Database className="h-4 w-4 text-cyan-300" />
               <h2 className="text-lg font-semibold">Módulo BI</h2>
             </div>
             <p className="text-sm text-white/55">
@@ -311,9 +310,9 @@ export default async function BiImportacoesPage() {
             <ImportTable rows={biImports} />
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl space-y-4">
+          <div className="rounded-[28px] border border-white/8 bg-[#0B1020]/78 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl space-y-4">
             <div className="flex items-center gap-2">
-              <Target className="h-4 w-4 text-[#8b5cf6]" />
+              <Target className="h-4 w-4 text-violet-300" />
               <h2 className="text-lg font-semibold">Metas</h2>
             </div>
             <p className="text-sm text-white/55">
