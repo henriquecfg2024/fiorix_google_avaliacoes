@@ -1,8 +1,33 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/app/actions/auth";
+import { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
+
+type AuditoriaRow = {
+  protocolo: number;
+  dataApresentado: Date | null;
+  dtPrevisao: Date | null;
+  dtEntregaReal: Date | null;
+  status: string | null;
+  natureza: string | null;
+  atrasoDias: number | null;
+  d1Protocolo: Date | null;
+  d1Escaneamento: Date | null;
+  d2Contraditorio: Date | null;
+  d3Extrato: Date | null;
+  d4Qualificacao: Date | null;
+  d5Calculo: Date | null;
+  d8Impressao: Date | null;
+  d9Preparacao: Date | null;
+  d9Conferencia: Date | null;
+  d10Entrega: Date | null;
+  dBalcaoRegistrado: Date | null;
+  dBalcaoDevolvido: Date | null;
+  hasRegistro: boolean;
+  hasDevolucao: boolean;
+};
 
 export async function GET() {
   try {
@@ -19,17 +44,53 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Usuário não encontrado" }, { status: 404 });
     }
 
-    // Get records missing Balcao Registrado (ID 76) or Balcao Devolvido (ID 75)
-    const rawDados = await prisma.fiorixMetasDados.findMany({
-      where: {
-        tenantId: user.tenantId,
-        dBalcaoDevolvido: null,
-      },
-      orderBy: {
-        protocolo: "asc",
-      },
-      take: 500, // safety cap
-    });
+    const rawDados = await prisma.$queryRaw<AuditoriaRow[]>(
+      Prisma.sql`
+        WITH eventos_bi AS (
+          SELECT
+            b.tenant_id,
+            b."Protocolo" AS protocolo,
+            BOOL_OR(COALESCE(b."IsRegistrado", false)) AS has_registro,
+            BOOL_OR(COALESCE(b."IsDevolucao", false)) AS has_devolucao
+          FROM public.fiorix_bi_data b
+          WHERE b.tenant_id = ${user.tenantId}
+          GROUP BY b.tenant_id, b."Protocolo"
+        )
+        SELECT
+          m.protocolo,
+          m.data_apresentado AS "dataApresentado",
+          m.dt_previsao AS "dtPrevisao",
+          m.dt_entrega_real AS "dtEntregaReal",
+          m.status,
+          m.natureza,
+          m.atraso_dias AS "atrasoDias",
+          m.d1_protocolo AS "d1Protocolo",
+          m.d1_escaneamento AS "d1Escaneamento",
+          m.d2_contraditorio AS "d2Contraditorio",
+          m.d3_extrato AS "d3Extrato",
+          m.d4_qualificacao AS "d4Qualificacao",
+          m.d5_calculo AS "d5Calculo",
+          m.d8_impressao AS "d8Impressao",
+          m.d9_preparacao AS "d9Preparacao",
+          m.d9_conferencia AS "d9Conferencia",
+          m.d10_entrega AS "d10Entrega",
+          m.d_balcao_registrado AS "dBalcaoRegistrado",
+          m.d_balcao_devolvido AS "dBalcaoDevolvido",
+          e.has_registro AS "hasRegistro",
+          e.has_devolucao AS "hasDevolucao"
+        FROM public.fiorix_metas_dados m
+        JOIN eventos_bi e
+          ON e.tenant_id = m.tenant_id
+          AND e.protocolo = m.protocolo::text
+        WHERE m.tenant_id = ${user.tenantId}
+          AND (
+            (e.has_registro = true AND m.d_balcao_registrado IS NULL)
+            OR (e.has_devolucao = true AND m.d_balcao_devolvido IS NULL)
+          )
+        ORDER BY m.protocolo ASC
+        LIMIT 500
+      `
+    );
 
     const mapped = rawDados.map((d) => {
       // Map phase and sector dynamically based on milestones filled
@@ -99,7 +160,7 @@ export async function GET() {
         badge,
         cliente,
         fase,
-        falta: d.dBalcaoRegistrado ? 75 : 76,
+        falta: d.hasDevolucao && !d.dBalcaoDevolvido ? 75 : 76,
         dias,
         setor,
         responsavel,
