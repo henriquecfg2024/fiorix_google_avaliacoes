@@ -1,33 +1,152 @@
-import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/app/actions/auth";
+import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
+type RelatorioRow = {
+  protocolo: number;
+  dataApresentado: Date | null;
+  natureza: string | null;
+  d4Qualificacao: Date | null;
+  d8Impressao: Date | null;
+  d9Preparacao: Date | null;
+  d9Conferencia: Date | null;
+  dBalcaoDevolvido: Date | null;
+  hasDevolucao: boolean;
+};
+
+type RelatorioProtocolo = {
+  id: string;
+  cliente: string;
+  fase: string;
+  falta: 75 | 76;
+  dias: number;
+  setor: string;
+  responsavel: string;
+};
+
 export async function GET(request: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
+    const sessionUser = await getCurrentUser();
+    if (!sessionUser) {
       return new Response("Não autorizado", { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: sessionUser.email },
+    });
+
+    if (!user) {
+      return new Response("Usuário não encontrado", { status: 404 });
     }
 
     const { searchParams } = new URL(request.url);
     const protocolsRaw = searchParams.get("protocolos") || "";
-    const protocolIds = protocolsRaw.split(",").filter(Boolean);
+    const protocolIds = protocolsRaw
+      .split(",")
+      .map((value) => Number(value.trim()))
+      .filter((value) => Number.isInteger(value) && value > 0);
 
-    // Mock protocols list corresponding to active items
-    const allMockProtocolos: Record<string, any> = {
-      "642368": { id: "642368", badge: "IP-248", cliente: "Instrumento Particular", fase: "Exame Formal", falta: 76, dias: 5, setor: "Conferência", responsavel: "Maria" },
-      "642371": { id: "642371", badge: "CA-251", cliente: "Construtora Aurora Ltda", fase: "Registro", falta: 76, dias: 12, setor: "Conferência", responsavel: "João" },
-      "642389": { id: "642389", badge: "SA-309", cliente: "Silva & Andrade Imóveis", fase: "Conferência", falta: 76, dias: 27, setor: "Conferência", responsavel: "Maria" },
-      "642402": { id: "642402", badge: "BR-402", cliente: "Banco Regional S/A", fase: "Prenotação", falta: 76, dias: 8, setor: "Conferência", responsavel: "Carlos" },
-      "642415": { id: "642415", badge: "MRV-415", cliente: "MRV Engenharia", fase: "Exigência", falta: 76, dias: 3, setor: "Balcão", responsavel: "Ana" },
-      "642429": { id: "642429", badge: "CY-429", cliente: "Cyrela Construtora", fase: "Análise", falta: 76, dias: 19, setor: "Conferência", responsavel: "Maria" },
-    };
+    const rawProtocolos = protocolIds.length > 0
+      ? await prisma.$queryRaw<RelatorioRow[]>(
+        Prisma.sql`
+          WITH eventos_bi AS (
+            SELECT
+              b.tenant_id,
+              b."Protocolo" AS protocolo,
+              BOOL_OR(COALESCE(b."IsRegistrado", false)) AS has_registro,
+              BOOL_OR(COALESCE(b."IsDevolucao", false)) AS has_devolucao
+            FROM public.fiorix_bi_data b
+            WHERE b.tenant_id = ${user.tenantId}
+            GROUP BY b.tenant_id, b."Protocolo"
+          ),
+          eventos_prod AS (
+            SELECT
+              p.tenant_id,
+              p.pedido::text AS protocolo,
+              BOOL_OR(p.tipo_detalhado ILIKE '%Registrado%') AS has_registro,
+              BOOL_OR(
+                p.tipo_detalhado ILIKE '%Devolver%'
+                OR p.tipo_detalhado ILIKE '%Devolu%'
+              ) AS has_devolucao
+            FROM public.fiorix_produtividade_dados p
+            WHERE p.tenant_id = ${user.tenantId}
+            GROUP BY p.tenant_id, p.pedido
+          ),
+          eventos AS (
+            SELECT
+              tenant_id,
+              protocolo,
+              BOOL_OR(has_registro) AS has_registro,
+              BOOL_OR(has_devolucao) AS has_devolucao
+            FROM (
+              SELECT * FROM eventos_bi
+              UNION ALL
+              SELECT * FROM eventos_prod
+            ) fontes
+            GROUP BY tenant_id, protocolo
+          )
+          SELECT
+            m.protocolo,
+            m.data_apresentado AS "dataApresentado",
+            m.natureza,
+            m.d4_qualificacao AS "d4Qualificacao",
+            m.d8_impressao AS "d8Impressao",
+            m.d9_preparacao AS "d9Preparacao",
+            m.d9_conferencia AS "d9Conferencia",
+            m.d_balcao_devolvido AS "dBalcaoDevolvido",
+            e.has_devolucao AS "hasDevolucao"
+          FROM public.fiorix_metas_dados m
+          JOIN eventos e
+            ON e.tenant_id = m.tenant_id
+            AND e.protocolo = m.protocolo::text
+          WHERE m.tenant_id = ${user.tenantId}
+            AND m.protocolo IN (${Prisma.join(protocolIds)})
+            AND (
+              (e.has_registro = true AND m.d_balcao_registrado IS NULL)
+              OR (e.has_devolucao = true AND m.d_balcao_devolvido IS NULL)
+            )
+          ORDER BY m.protocolo ASC
+        `
+      )
+      : [];
 
-    const selectedProtocolos = protocolIds.map((id) => allMockProtocolos[id]).filter(Boolean);
+    const selectedProtocolos: RelatorioProtocolo[] = rawProtocolos.map((p) => {
+      let fase = "Apresentação";
+      let setor = "Qualificação";
+
+      if (p.d9Conferencia) {
+        fase = "Conferência";
+        setor = "Conferência";
+      } else if (p.d9Preparacao) {
+        fase = "Preparação";
+        setor = "Preparação";
+      } else if (p.d8Impressao) {
+        fase = "Impressão";
+        setor = "Impressão";
+      } else if (p.d4Qualificacao) {
+        fase = "Exame Formal";
+        setor = "Qualificação";
+      }
+
+      const start = p.dataApresentado ? new Date(p.dataApresentado) : new Date();
+      const diffTime = Math.abs(new Date().getTime() - start.getTime());
+      const dias = Math.min(60, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1);
+
+      return {
+        id: String(p.protocolo),
+        cliente: p.natureza || "Instrumento Particular",
+        fase,
+        falta: p.hasDevolucao && !p.dBalcaoDevolvido ? 75 : 76,
+        dias,
+        setor,
+        responsavel: setor,
+      };
+    });
 
     // Group by sector
-    const groupedBySetor: Record<string, any[]> = {};
+    const groupedBySetor: Record<string, RelatorioProtocolo[]> = {};
     selectedProtocolos.forEach((p) => {
       if (!groupedBySetor[p.setor]) {
         groupedBySetor[p.setor] = [];
@@ -338,7 +457,7 @@ export async function GET(request: Request) {
                 <td>${p.fase}</td>
                 <td>
                   <span class="badge-falta ${p.falta === 76 ? "badge-76" : "badge-75"}">
-                    ID ${p.falta} (${p.falta === 76 ? "BALCÃO REGISTRADO" : "BALCÃO DEVOLVIDO"})
+                    ${p.falta === 76 ? "Balcão registrado pendente" : "Balcão devolvido pendente"}
                   </span>
                 </td>
                 <td style="font-weight: 600;">${p.dias}d</td>
@@ -391,7 +510,8 @@ export async function GET(request: Request) {
         "Content-Type": "text/html; charset=utf-8",
       },
     });
-  } catch (err: any) {
-    return new Response(`Erro ao gerar relatório: ${err.message}`, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Erro desconhecido";
+    return new Response(`Erro ao gerar relatório: ${message}`, { status: 500 });
   }
 }
