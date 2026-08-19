@@ -32,7 +32,7 @@ export async function GET() {
       take: 500, // safety cap
     });
 
-    const mapped = rawDados.map((d: any) => {
+    const mapped = rawDados.map((d) => {
       // Map phase and sector dynamically based on milestones filled
       let fase = "Apresentação";
       let setor = "Qualificação";
@@ -57,6 +57,24 @@ export async function GET() {
       }
 
       // Compute days parado
+      const ultimoAndamento = [
+        { nome: "APRESENTAÇÃO", data: d.dataApresentado, ordem: 1 },
+        { nome: "QUALIFICAÇÃO", data: d.d4Qualificacao, ordem: 2 },
+        { nome: "IMPRESSÃO", data: d.d8Impressao, ordem: 3 },
+        { nome: "PREPARAÇÃO", data: d.d9Preparacao, ordem: 4 },
+        { nome: "CONFERÊNCIA", data: d.d9Conferencia, ordem: 5 },
+      ]
+        .filter((andamento) => andamento.data)
+        .sort(
+          (a, b) =>
+            new Date(b.data).getTime() - new Date(a.data).getTime() ||
+            b.ordem - a.ordem
+        )[0];
+
+      if (ultimoAndamento) {
+        setor = ultimoAndamento.nome;
+      }
+
       const start = d.dataApresentado ? new Date(d.dataApresentado) : new Date();
       const diffTime = Math.abs(new Date().getTime() - start.getTime());
       const dias = Math.min(60, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1);
@@ -94,8 +112,9 @@ export async function GET() {
       success: true,
       protocolos: mapped,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in auditoria API:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Erro interno";
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
