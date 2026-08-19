@@ -295,19 +295,18 @@ export async function GET(request: Request) {
     </div>
 
     <div>
-      <h2>Relatório de Pendências Inteligentes de Fluxo</h2>
-      <p style="color: #64748b; font-size: 13px;">Documento gerado em ${new Date().toLocaleString("pt-BR")} contendo ${selectedProtocolos.length} pendências para correção manual no WEBRI.</p>
+      <h2>Relatório Executivo de Pendências</h2>
+      <p style="color: #64748b; font-size: 13px;">Documento gerado em ${new Date().toLocaleString("pt-BR")} contendo ${selectedProtocolos.length} pendências para acompanhamento gerencial.</p>
     </div>
 
     <!-- ROTEIRO DE CORREÇÃO -->
     <div class="instruction-card">
-      <h3>📋 Instruções de Trabalho Obrigatórias</h3>
+      <h3>📋 Direcionamento de Acompanhamento</h3>
       <ol>
-        <li>Acessar o WEBRI &gt; Protocolo correspondente &gt; Andamentos &gt; Novo.</li>
-        <li>Lançar o tipo de andamento ausente (ID 76 ou 75) com a data atual e salvar.</li>
-        <li>No SSMS (SQL Server), rodar as procedures de integração: <code style="font-weight: bold;">EXEC sp_Fiorix_BI, sp_Fiorix_Produtividade, sp_Fiorix_Metas</code>.</li>
-        <li>Exportar as novas tabelas e carregar na aba <code style="font-weight: bold;">/bi/importacoes</code> do Painel Fiorix.</li>
-        <li>Validar no painel de Auditoria se as inconformidades foram resolvidas.</li>
+        <li>Priorizar os protocolos com maior tempo de permanência.</li>
+        <li>Encaminhar os itens aos setores responsáveis pela regularização.</li>
+        <li>Acompanhar a evolução das pendências na próxima auditoria.</li>
+        <li>Validar a redução dos riscos operacionais no painel FIORIX.</li>
       </ol>
     </div>
 

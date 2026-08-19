@@ -49,9 +49,9 @@ const chartData = [
 ];
 
 const initialHistoricoAuditorias = [
-  { id: "1", data: "18/08/2026 08:42", totalAuditado: "118.523", pendencias: "2 pendências ID 76", arquivo: "fiorix_bi_18_08.csv", status: "Pendente WEBRI" },
+  { id: "1", data: "18/08/2026 08:42", totalAuditado: "118.523", pendencias: "2 pendências", arquivo: "fiorix_bi_18_08.csv", status: "Pendente" },
   { id: "2", data: "17/08/2026 08:35", totalAuditado: "114.821", pendencias: "0 pendências", arquivo: "fiorix_bi_17_08.csv", status: "Validado" },
-  { id: "3", data: "16/08/2026 09:12", totalAuditado: "114.821", pendencias: "6 pendências ID 76", arquivo: "fiorix_bi_16_08.csv", status: "Corrigido WEBRI" },
+  { id: "3", data: "16/08/2026 09:12", totalAuditado: "114.821", pendencias: "6 pendências", arquivo: "fiorix_bi_16_08.csv", status: "Regularizado" },
 ];
 
 const importacoesMock = [
@@ -202,7 +202,7 @@ export function AuditoriaDashboardClient() {
       "Setor",
       "Responsavel",
       "Data_Importacao",
-      "Acao_WEBRI",
+      "Encaminhamento",
     ];
 
     const rows = targetList.map((p) => [
@@ -215,7 +215,7 @@ export function AuditoriaDashboardClient() {
       p.setor,
       p.responsavel,
       "18/08/2026",
-      `Lançar ID ${p.falta} em WEBRI > Andamentos > Novo`,
+      "Regularizar andamento pendente",
     ]);
 
     const csvContent =
@@ -230,7 +230,7 @@ export function AuditoriaDashboardClient() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success("CSV exportado com sucesso para importação no WEBRI.");
+    toast.success("Lista exportada com sucesso.");
   };
 
   // Copy List
@@ -315,7 +315,7 @@ export function AuditoriaDashboardClient() {
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-amber-400">Zerar 280</span>
           </div>
-          <p className="text-xs text-white/60 mt-1">SEM ID 76 em 48h • Setor Conf.</p>
+          <p className="text-xs text-white/60 mt-1">Regularização em até 48h • Conferência</p>
         </div>
 
         {/* Card 3 */}
@@ -393,15 +393,22 @@ export function AuditoriaDashboardClient() {
           {/* Card de Fluxo Recomendado */}
           <Card className="border-indigo-500/20 bg-indigo-500/[0.03] p-5 space-y-3 rounded-2xl">
             <h4 className="text-sm font-bold text-white flex items-center gap-2">
-              📋 Fluxo Recomendado de Correção Manual
+              📋 Plano de Regularização
             </h4>
-            <ol className="space-y-2 text-xs text-white/70 list-decimal list-inside pl-1">
-              <li>Exporte a lista CSV/PDF em &quot;Pendências Inteligentes de Fluxo&quot;.</li>
-              <li>Acesse o WEBRI e lance os andamentos ausentes manualmente (Andamentos &gt; Novo &gt; ID 75 ou 76).</li>
-              <li>No SSMS (SQL Server), rode as procedures de consolidação: <code className="bg-white/10 px-1 py-0.5 rounded text-white font-mono">EXEC sp_Fiorix_BI, sp_Fiorix_Produtividade, sp_Fiorix_Metas</code>.</li>
-              <li>Importe as novas planilhas consolidadas na aba <a href="/bi/importacoes" className="text-amber-400 hover:underline">Importações</a>.</li>
-              <li>Retorne à aba Auditoria para validar que as pendências foram zeradas.</li>
-            </ol>
+            <div className="grid gap-3 md:grid-cols-3 text-xs text-white/70">
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                <p className="font-bold text-white">1. Priorizar</p>
+                <p className="mt-1">Atuar primeiro nos protocolos com maior tempo de permanência e impacto no prazo.</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                <p className="font-bold text-white">2. Regularizar</p>
+                <p className="mt-1">Confirmar os andamentos pendentes junto às equipes responsáveis.</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                <p className="font-bold text-white">3. Validar</p>
+                <p className="mt-1">Acompanhar a próxima auditoria até a redução dos itens pendentes.</p>
+              </div>
+            </div>
           </Card>
 
           {/* Evolução Diária */}
@@ -479,8 +486,8 @@ export function AuditoriaDashboardClient() {
                 className="w-full bg-slate-900 border border-white/10 text-white rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-amber-500"
               >
                 <option value="todos">Todos</option>
-                <option value="76">Falta ID 76 (BALCÃO REGISTRADO)</option>
-                <option value="75">Falta ID 75 (BALCÃO DEVOLVIDO)</option>
+                <option value="76">Balcão registrado pendente</option>
+                <option value="75">Balcão devolvido pendente</option>
                 <option value="tarefa">Falta TAREFA</option>
                 <option value="semRetirada">Sem DtRetirada</option>
               </select>
@@ -559,7 +566,7 @@ export function AuditoriaDashboardClient() {
                 className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5 text-emerald-400" />
-                📊 Exportar CSV para WEBRI
+                📊 Exportar Lista
               </button>
               <button
                 onClick={handleCopyList}
@@ -622,7 +629,7 @@ export function AuditoriaDashboardClient() {
                       </>
                     );
                   })()}
-                  <th className="p-4 text-right">Ação WEBRI</th>
+                  <th className="p-4 text-right">Encaminhamento</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -656,11 +663,11 @@ export function AuditoriaDashboardClient() {
                         <td className="p-4">
                           {p.falta === 76 ? (
                             <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] rounded-full font-bold">
-                              ID 76 - BALCÃO REGISTRADO
+                              Balcão registrado pendente
                             </span>
                           ) : (
                             <span className="px-2 py-0.5 bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] rounded-full font-bold">
-                              ID 75 - BALCÃO DEVOLVIDO
+                              Balcão devolvido pendente
                             </span>
                           )}
                         </td>
@@ -675,7 +682,7 @@ export function AuditoriaDashboardClient() {
                               onClick={() => {
                                 navigator.clipboard.writeText(p.id);
                                 toast.success(`Protocolo #${p.id} copiado!`, {
-                                  description: "Cole na busca do WEBRI para fazer o lançamento do andamento."
+                                  description: "Use este número para localizar o protocolo na rotina interna."
                                 });
                               }}
                               className="px-2.5 py-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-bold text-white flex items-center gap-1 transition cursor-pointer"
@@ -684,7 +691,7 @@ export function AuditoriaDashboardClient() {
                               📋 Copiar Protocolo
                             </button>
                             <span className="text-[9px] text-white/40">
-                              Lançar ID {p.falta} no WEBRI &gt; Tarefas &gt; Andamentos
+                              Encaminhar para regularização do andamento pendente
                             </span>
                           </div>
                         </td>
@@ -741,7 +748,7 @@ export function AuditoriaDashboardClient() {
                   .map(([setor, count]) => `${setor} (${count})`)
                   .join(" • ")}
               <br />
-              <strong className="text-amber-400">Ação recomendada:</strong> Lançar o andamento ID correspondente no WEBRI para os protocolos pendentes. Após a correção manual, execute as procedures consolidadoras <code className="bg-white/10 px-1 py-0.5 rounded font-mono text-white">EXEC [dbo].[sp_Fiorix_BI], [sp_Fiorix_Produtividade], [sp_Fiorix_Metas]</code> no SSMS e carregue os novos arquivos na aba <a href="/bi/importacoes" className="text-amber-400 hover:underline">Importações</a>.
+              <strong className="text-amber-400">Ação recomendada:</strong> priorizar os protocolos pendentes por setor responsável e acompanhar a regularização na próxima auditoria.
             </div>
           )}
         </div>
@@ -753,7 +760,7 @@ export function AuditoriaDashboardClient() {
           <div>
             <h3 className="text-sm font-bold text-white">Histórico de Auditorias</h3>
             <p className="text-xs text-white/40 mt-1">
-              Histórico consolidado de auditorias e importações para acompanhamento de pendências do WEBRI
+              Histórico consolidado para acompanhamento da evolução das pendências
             </p>
           </div>
 
@@ -764,7 +771,7 @@ export function AuditoriaDashboardClient() {
                   <th className="p-4">Data/Hora Auditoria</th>
                   <th className="p-4">Total Auditado</th>
                   <th className="p-4">Pendências Encontradas</th>
-                  <th className="p-4">CSV Importado</th>
+                  <th className="p-4">Base auditada</th>
                   <th className="p-4 text-right">Status</th>
                 </tr>
               </thead>
@@ -780,7 +787,7 @@ export function AuditoriaDashboardClient() {
                         className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
                           i.status === "Validado"
                             ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                            : i.status === "Corrigido WEBRI"
+                            : i.status === "Regularizado"
                             ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
                             : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
                         }`}
