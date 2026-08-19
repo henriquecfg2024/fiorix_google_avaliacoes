@@ -19,11 +19,10 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Usuário não encontrado" }, { status: 404 });
     }
 
-    // Get all records from fiorix_metas_dados where dBalcaoRegistrado and dBalcaoDevolvido are both null
+    // Get records missing Balcao Registrado (ID 76) or Balcao Devolvido (ID 75)
     const rawDados = await prisma.fiorixMetasDados.findMany({
       where: {
         tenantId: user.tenantId,
-        dBalcaoRegistrado: null,
         dBalcaoDevolvido: null,
       },
       orderBy: {
@@ -100,7 +99,7 @@ export async function GET() {
         badge,
         cliente,
         fase,
-        falta: 76, // missing Balcão Registrado
+        falta: d.dBalcaoRegistrado ? 75 : 76,
         dias,
         setor,
         responsavel,
