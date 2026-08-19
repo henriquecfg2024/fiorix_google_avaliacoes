@@ -310,6 +310,25 @@ function parseDateValue(value?: string | null) {
   return parseDataFlexivel(String(value));
 }
 
+function assertArquivoBi(fileName: string, headers: string[]) {
+  const normalizedFileName = fileName.toLowerCase();
+  const normalizedHeaders = headers.map(normalizarCabecalho);
+  const hasBiServiceColumn = normalizedHeaders.includes('servico');
+  const hasMetasMilestones = [
+    'd1protocolo',
+    'd8impressao',
+    'd9preparacao',
+    'd9conferencia',
+    'd10entrega',
+  ].some((header) => normalizedHeaders.includes(header));
+
+  if (normalizedFileName.startsWith('fiorix_metas_') || (hasMetasMilestones && !hasBiServiceColumn)) {
+    throw new Error(
+      'Arquivo de Metas detectado. Use a importacao de Metas para fiorix_metas_*.csv; nesta tela envie apenas arquivos BI, como fiorix_bi_*.csv.'
+    );
+  }
+}
+
 function toPreviewDateString(value?: string | null) {
   const parsed = parseDateValue(value);
   return parsed ? parsed.toISOString().slice(0, 10) : null;
@@ -379,6 +398,13 @@ export function validarCSV(
 
       if (rawRows.length === 0) {
         onError('O arquivo CSV está vazio. Exporte novamente o resultado da pr_Fiorix_BI.');
+        return;
+      }
+
+      try {
+        assertArquivoBi(file.name, results.meta.fields || Object.keys(rawRows[0] || {}));
+      } catch (error) {
+        onError(error instanceof Error ? error.message : 'Arquivo invalido para o importador BI.');
         return;
       }
 
@@ -627,6 +653,8 @@ export async function importarCSVEmLotes({
         Promise.resolve()
           .then(async () => {
             const rawRows = (results.data as Record<string, any>[]) || [];
+
+            assertArquivoBi(file.name, results.meta.fields || Object.keys(rawRows[0] || {}));
 
             for (const rawRow of rawRows) {
               const normalizedRow = toBiCsvRow(rawRow);
