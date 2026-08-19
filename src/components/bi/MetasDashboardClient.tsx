@@ -700,9 +700,9 @@ export function MetasDashboardClient() {
       return <ArrowUpDown className="h-3 w-3 text-white/30 group-hover:text-white/70 transition-colors inline ml-1" />;
     }
     return sortOrder === "asc" ? (
-      <ArrowUp className="h-3 w-3 text-purple-400 inline ml-1" />
+      <ArrowUp className="h-3 w-3 text-amber-300 inline ml-1" />
     ) : (
-      <ArrowDown className="h-3 w-3 text-purple-400 inline ml-1" />
+      <ArrowDown className="h-3 w-3 text-amber-300 inline ml-1" />
     );
   };
 
@@ -816,17 +816,17 @@ export function MetasDashboardClient() {
       
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="relative overflow-hidden rounded-lg border border-white/10 bg-[#15161E] p-5 shadow-xl">
-          <p className="text-white/60 text-xs font-semibold mb-1 flex items-center gap-2">
-            <Target className="w-4 h-4 text-blue-400" /> TOTAL
+        <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)]">
+          <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-white/58">
+            <Target className="w-4 h-4 text-cyan-300" /> TOTAL
           </p>
           <h3 className="text-3xl font-bold text-white">
             {kpis?.total ? kpis.total.toLocaleString("pt-BR") : 0}
           </h3>
         </div>
 
-        <div className="relative overflow-hidden rounded-lg border border-red-500/30 bg-red-500/[0.07] p-5 shadow-xl">
-          <p className="text-red-300 text-xs font-semibold mb-1 flex items-center gap-2">
+        <div className="relative overflow-hidden rounded-2xl border border-red-500/20 bg-red-500/[0.08] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)]">
+          <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-red-300">
             <AlertCircle className="w-4 h-4" /> ATRASADOS
           </p>
           <h3 className="text-3xl font-bold text-white">
@@ -834,8 +834,8 @@ export function MetasDashboardClient() {
           </h3>
         </div>
 
-        <div className="relative overflow-hidden rounded-lg border border-emerald-500/25 bg-emerald-500/[0.07] p-5 shadow-xl">
-          <p className="text-emerald-300 text-xs font-semibold mb-1 flex items-center gap-2">
+        <div className="relative overflow-hidden rounded-2xl border border-emerald-500/18 bg-emerald-500/[0.08] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)]">
+          <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-emerald-300">
             <Clock className="w-4 h-4" /> ENTREGUE COM ATRASO
           </p>
           <h3 className="text-3xl font-bold text-white">
@@ -843,8 +843,8 @@ export function MetasDashboardClient() {
           </h3>
         </div>
 
-        <div className="relative overflow-hidden rounded-lg border border-amber-500/30 bg-amber-500/[0.08] p-5 shadow-xl">
-          <p className="text-amber-300 text-xs font-semibold mb-1 flex items-center gap-2 truncate pr-6" title="Gargalo Principal">
+        <div className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-amber-500/[0.08] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)]">
+          <p className="mb-1 flex items-center gap-2 truncate pr-6 text-xs font-semibold text-amber-300" title="Gargalo Principal">
             <TrendingUp className="w-4 h-4" /> PRINCIPAL GARGALO
           </p>
           <h3 className="text-lg font-bold text-white truncate pr-2 mt-2" title={kpis?.topGargalo?.name}>
@@ -862,10 +862,10 @@ export function MetasDashboardClient() {
           type="button"
           onClick={() => handleBalcaoFilter("SEM_REG")}
           aria-pressed={balcaoFilter === "SEM_REG"}
-          className={`min-h-[104px] w-full rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 ${
+          className={`min-h-[104px] w-full rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 ${
             balcaoFilter === "SEM_REG"
               ? "border-amber-400/70 bg-amber-500/[0.13]"
-              : "border-amber-500/30 bg-amber-500/[0.08] hover:bg-amber-500/[0.12]"
+              : "border-amber-500/20 bg-amber-500/[0.08] hover:bg-amber-500/[0.12]"
           }`}
         >
           <div className="flex items-center justify-between gap-4">
@@ -875,8 +875,8 @@ export function MetasDashboardClient() {
               </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-xs font-bold uppercase text-amber-300">Sem Balcão Registrado</p>
-                  <span className="rounded border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-200">ID 76</span>
+                  <p className="text-xs font-bold uppercase tracking-wider text-amber-300">Sem Balcão Registrado</p>
+                  <span className="rounded border border-amber-400/25 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-200">ID 76</span>
                 </div>
                 <p className="mt-1 text-xs text-white/50">Protocolos atrasados e impressos sem baixa</p>
               </div>
@@ -892,10 +892,10 @@ export function MetasDashboardClient() {
           type="button"
           onClick={() => handleBalcaoFilter("SEM_DEV")}
           aria-pressed={balcaoFilter === "SEM_DEV"}
-          className={`min-h-[104px] w-full rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
+          className={`min-h-[104px] w-full rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
             balcaoFilter === "SEM_DEV"
               ? "border-red-400/70 bg-red-500/[0.13]"
-              : "border-red-500/30 bg-red-500/[0.08] hover:bg-red-500/[0.12]"
+              : "border-red-500/20 bg-red-500/[0.08] hover:bg-red-500/[0.12]"
           }`}
         >
           <div className="flex items-center justify-between gap-4">
@@ -905,8 +905,8 @@ export function MetasDashboardClient() {
               </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-xs font-bold uppercase text-red-300">Sem Balcão Devolvido</p>
-                  <span className="rounded border border-red-400/30 bg-red-400/10 px-1.5 py-0.5 text-[9px] font-bold text-red-200">ID 75</span>
+                  <p className="text-xs font-bold uppercase tracking-wider text-red-300">Sem Balcão Devolvido</p>
+                  <span className="rounded border border-red-400/25 bg-red-400/10 px-1.5 py-0.5 text-[9px] font-bold text-red-200">ID 75</span>
                 </div>
                 <p className="mt-1 text-xs text-white/50">Registrados e atrasados sem baixa de retirada</p>
               </div>
@@ -920,7 +920,7 @@ export function MetasDashboardClient() {
       </div>
 
       <motion.section
-        className="overflow-hidden rounded-2xl border border-white/10 bg-[#0F1117]/95 p-5 shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-6"
+        className="overflow-hidden rounded-2xl border border-white/8 bg-[#0B1020]/72 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl sm:p-6"
         initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: prefersReducedMotion ? 0 : 0.35 }}
@@ -929,7 +929,7 @@ export function MetasDashboardClient() {
           <div>
             <div className="flex flex-wrap items-center gap-2.5">
               <h3 className="text-sm font-semibold text-white sm:text-base">Média de Dias por Fase</h3>
-              <span className="rounded-md border border-white/10 bg-white/[0.05] px-2 py-1 text-[10px] font-semibold uppercase text-white/55">
+              <span className="rounded-md border border-white/8 bg-white/[0.05] px-2 py-1 text-[10px] font-semibold uppercase text-white/55">
                 9 Transições de Esteira
               </span>
             </div>
@@ -940,7 +940,7 @@ export function MetasDashboardClient() {
 
           <div className="flex flex-wrap items-center justify-end gap-2">
             {chartBottleneck && (
-              <div className="inline-flex items-center gap-2 rounded-lg border border-amber-400/25 bg-amber-400/[0.08] px-3 py-2 text-[10px] font-semibold uppercase text-amber-200 shadow-lg shadow-amber-500/5">
+              <div className="inline-flex items-center gap-2 rounded-lg border border-amber-400/20 bg-amber-400/[0.08] px-3 py-2 text-[10px] font-semibold uppercase text-amber-200 shadow-lg shadow-amber-500/5">
                 <span className={`h-1.5 w-1.5 rounded-full bg-amber-400 ${prefersReducedMotion ? "" : "animate-pulse"}`} />
                 <span>Principal gargalo</span>
                 <span className="text-white/35">•</span>
@@ -951,7 +951,7 @@ export function MetasDashboardClient() {
             )}
 
             {gargaloFilter !== "ALL" && (
-              <div className="flex items-center gap-2 rounded-lg border border-violet-400/25 bg-violet-400/10 px-3 py-2 text-[10px] text-violet-200">
+            <div className="flex items-center gap-2 rounded-lg border border-violet-400/20 bg-violet-400/10 px-3 py-2 text-[10px] text-violet-200">
                 <span>Filtrado por: <strong>{gargaloFilter}</strong></span>
                 <button
                   type="button"
@@ -1039,10 +1039,10 @@ export function MetasDashboardClient() {
       </motion.section>
 
       {/* Tabela Container */}
-      <div ref={tableRef} className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col scroll-mt-24">
+      <div ref={tableRef} className="flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-[#0B1020]/72 shadow-[0_18px_50px_rgba(0,0,0,0.16)] scroll-mt-24">
         
         {/* Topo da Tabela: Informações e Itens por página */}
-        <div className="p-4 border-b border-white/10 flex flex-wrap gap-4 items-center justify-between bg-white/[0.03] text-xs text-white/70">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/8 bg-white/[0.03] p-4 text-xs text-white/70">
           <div>
             Mostrando <span className="font-semibold text-white">{totalFiltered > 0 ? startIndex + 1 : 0}</span>-
             <span className="font-semibold text-white">{endIndex}</span> de{" "}
@@ -1056,7 +1056,7 @@ export function MetasDashboardClient() {
             <select
               value={itemsPerPage}
               onChange={(e) => setItemsPerPage(Number(e.target.value))}
-              className="bg-[#0F172A] border border-white/10 text-white rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:border-purple-500"
+              className="rounded-lg border border-white/8 bg-[#0C1323] px-2.5 py-1 text-xs text-white focus:outline-none focus:border-amber-400"
             >
               <option value={50}>50</option>
               <option value={100}>100</option>
@@ -1067,7 +1067,7 @@ export function MetasDashboardClient() {
         </div>
 
         {/* Toolbar de Busca, Filtros e Exportação CSV */}
-        <div className="p-4 border-b border-white/10 flex flex-wrap gap-4 items-center justify-between bg-white/[0.01]">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/8 bg-white/[0.01] p-4">
           <div className="relative max-w-xs w-full">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-white/40" />
@@ -1075,7 +1075,7 @@ export function MetasDashboardClient() {
             <input
               type="text"
               placeholder="Buscar por Protocolo..."
-              className="w-full bg-[#0F172A] border border-white/10 text-white rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all placeholder:text-white/30"
+              className="w-full rounded-lg border border-white/8 bg-[#0C1323] pl-10 pr-4 py-2 text-sm text-white transition-all placeholder:text-white/30 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -1086,7 +1086,7 @@ export function MetasDashboardClient() {
               <button
                 type="button"
                 onClick={() => setBalcaoFilter("TODOS")}
-                className="flex items-center gap-1.5 rounded-lg border border-amber-400/25 bg-amber-400/10 px-3 py-1.5 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-400/15"
+                className="flex items-center gap-1.5 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-1.5 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-400/15"
               >
                 {balcaoFilter === "SEM_REG" ? "Sem registro ID 76" : "Sem devolução ID 75"}
                 <X className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1094,7 +1094,7 @@ export function MetasDashboardClient() {
             )}
 
             {/* Filtro Status */}
-            <div className="flex items-center gap-2 bg-[#0F172A] border border-white/10 rounded-lg px-3 py-1.5">
+            <div className="flex items-center gap-2 rounded-lg border border-white/8 bg-[#0C1323] px-3 py-1.5">
               <Filter className="h-3.5 w-3.5 text-white/40" />
               <select 
                 className="bg-transparent text-sm text-white focus:outline-none appearance-none pr-4"
@@ -1107,7 +1107,7 @@ export function MetasDashboardClient() {
             </div>
 
             {/* Filtro Gargalo */}
-            <div className="flex items-center gap-2 bg-[#0F172A] border border-white/10 rounded-lg px-3 py-1.5">
+            <div className="flex items-center gap-2 rounded-lg border border-white/8 bg-[#0C1323] px-3 py-1.5">
               <Filter className="h-3.5 w-3.5 text-white/40" />
               <select 
                 className="bg-transparent text-sm text-white focus:outline-none appearance-none pr-4 max-w-[150px] truncate"
@@ -1120,8 +1120,8 @@ export function MetasDashboardClient() {
             </div>
 
             {/* Ordenação */}
-            <div className="flex items-center gap-2 bg-[#0F172A] border border-white/10 rounded-lg px-3 py-1.5">
-              <ArrowUpDown className="h-3.5 w-3.5 text-purple-400" />
+            <div className="flex items-center gap-2 rounded-lg border border-white/8 bg-[#0C1323] px-3 py-1.5">
+              <ArrowUpDown className="h-3.5 w-3.5 text-amber-300" />
               <select 
                 className="bg-transparent text-sm text-white focus:outline-none appearance-none pr-4 max-w-[170px] truncate"
                 value={`${sortField}-${sortOrder}`}
@@ -1149,17 +1149,17 @@ export function MetasDashboardClient() {
             <button
               onClick={() => handleExportCSV(paginatedData, `metas_pagina_${currentPage}`)}
               title="Exportar registros visíveis na página atual para CSV"
-              className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/90 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer"
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/8 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/90 transition-all hover:bg-white/[0.08]"
             >
-              <Download className="w-3.5 h-3.5 text-blue-400" /> Exportar Página (CSV)
+              <Download className="w-3.5 h-3.5 text-cyan-300" /> Exportar Página (CSV)
             </button>
 
             <button
               onClick={() => handleExportCSV(filteredData, "metas_filtradas")}
               title="Exportar todos os registros filtrados para CSV"
-              className="flex items-center gap-1.5 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 text-purple-200 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer"
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-indigo-400/20 bg-indigo-500/10 px-3 py-1.5 text-xs font-medium text-indigo-200 transition-all hover:bg-indigo-500/16"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-purple-400" /> Exportar Filtrados (CSV)
+              <FileSpreadsheet className="w-3.5 h-3.5 text-amber-300" /> Exportar Filtrados (CSV)
             </button>
           </div>
         </div>
@@ -1167,11 +1167,11 @@ export function MetasDashboardClient() {
         {/* Tabela de Dados */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="text-xs text-white/60 bg-white/[0.03] uppercase select-none">
+            <thead className="select-none bg-white/[0.03] text-xs uppercase text-white/60">
               <tr>
                 <th 
                   onClick={() => handleSort("protocolo")}
-                  className="px-4 py-3 font-semibold cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                  className="group cursor-pointer px-4 py-3 font-semibold transition-colors hover:bg-white/8 hover:text-white"
                 >
                   <div className="flex items-center gap-1">
                     Protocolo {renderSortIcon("protocolo")}
@@ -1179,7 +1179,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("natureza")}
-                  className="px-4 py-3 font-semibold cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                  className="group cursor-pointer px-4 py-3 font-semibold transition-colors hover:bg-white/8 hover:text-white"
                 >
                   <div className="flex items-center gap-1">
                     Natureza {renderSortIcon("natureza")}
@@ -1187,7 +1187,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("status")}
-                  className="px-4 py-3 font-semibold cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                  className="group cursor-pointer px-4 py-3 font-semibold transition-colors hover:bg-white/8 hover:text-white"
                 >
                   <div className="flex items-center gap-1">
                     Status {renderSortIcon("status")}
@@ -1195,7 +1195,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("atraso")}
-                  className="px-4 py-3 font-semibold cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                  className="group cursor-pointer px-4 py-3 font-semibold transition-colors hover:bg-white/8 hover:text-white"
                 >
                   <div className="flex items-center gap-1">
                     Atraso {renderSortIcon("atraso")}
@@ -1203,7 +1203,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("d1Protocolo")}
-                  className="px-4 py-3 font-semibold text-center bg-white/[0.01] cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                  className="group cursor-pointer bg-white/[0.01] px-4 py-3 text-center font-semibold transition-colors hover:bg-white/8 hover:text-white"
                 >
                   <div className="flex items-center justify-center gap-1">
                     D1 Prot {renderSortIcon("d1Protocolo")}
@@ -1211,7 +1211,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("d3Extrato")}
-                  className="px-4 py-3 font-semibold text-center bg-white/[0.01] cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                  className="group cursor-pointer bg-white/[0.01] px-4 py-3 text-center font-semibold transition-colors hover:bg-white/8 hover:text-white"
                 >
                   <div className="flex items-center justify-center gap-1">
                     D3 Extr {renderSortIcon("d3Extrato")}
@@ -1219,7 +1219,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("d4Qualificacao")}
-                  className="px-4 py-3 font-semibold text-center bg-white/[0.01] cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                  className="group cursor-pointer bg-white/[0.01] px-4 py-3 text-center font-semibold transition-colors hover:bg-white/8 hover:text-white"
                 >
                   <div className="flex items-center justify-center gap-1">
                     D4 Quali {renderSortIcon("d4Qualificacao")}
@@ -1227,7 +1227,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("d5Calculo")}
-                  className="px-4 py-3 font-semibold text-center bg-white/[0.01] cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                  className="group cursor-pointer bg-white/[0.01] px-4 py-3 text-center font-semibold transition-colors hover:bg-white/8 hover:text-white"
                 >
                   <div className="flex items-center justify-center gap-1">
                     D5 Calc {renderSortIcon("d5Calculo")}
@@ -1235,7 +1235,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("d8Impressao")}
-                  className="px-4 py-3 font-semibold text-center bg-white/[0.01] cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                  className="group cursor-pointer bg-white/[0.01] px-4 py-3 text-center font-semibold transition-colors hover:bg-white/8 hover:text-white"
                 >
                   <div className="flex items-center justify-center gap-1">
                     D8 Imp {renderSortIcon("d8Impressao")}
@@ -1243,7 +1243,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("d10Entrega")}
-                  className="px-4 py-3 font-semibold text-center bg-white/[0.01] cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                  className="group cursor-pointer bg-white/[0.01] px-4 py-3 text-center font-semibold transition-colors hover:bg-white/8 hover:text-white"
                 >
                   <div className="flex items-center justify-center gap-1">
                     D10 Ent {renderSortIcon("d10Entrega")}
@@ -1257,7 +1257,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("gargalo")}
-                  className="px-4 py-3 font-semibold cursor-pointer hover:text-white hover:bg-white/10 transition-colors group"
+                  className="group cursor-pointer px-4 py-3 font-semibold transition-colors hover:bg-white/8 hover:text-white"
                 >
                   <div className="flex items-center gap-1">
                     Gargalo {renderSortIcon("gargalo")}
@@ -1287,11 +1287,11 @@ export function MetasDashboardClient() {
                     key={prot} 
                     onClick={() => setSelectedProtocol(row)}
                     title="Clique para ver o detalhamento completo do protocolo"
-                    className={`border-b border-white/5 transition-colors cursor-pointer ${
-                      hasAuditPending ? "bg-amber-500/[0.045] hover:bg-amber-500/[0.08]" : "hover:bg-white/[0.06]"
+                    className={`cursor-pointer border-b border-white/5 transition-colors ${
+                      hasAuditPending ? "bg-amber-500/[0.045] hover:bg-amber-500/[0.08]" : "hover:bg-white/[0.045]"
                     }`}
                   >
-                    <td className="px-4 py-3 font-medium text-blue-400 underline decoration-blue-400/30 underline-offset-4">{prot}</td>
+                    <td className="px-4 py-3 font-medium text-amber-300 underline decoration-amber-300/30 underline-offset-4">{prot}</td>
                     <td className="px-4 py-3 text-xs text-white/80 max-w-[160px] truncate" title={natVal || "-"}>
                       {natVal || "-"}
                     </td>
@@ -1333,7 +1333,7 @@ export function MetasDashboardClient() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-[11px] font-medium text-purple-300">
+                    <td className="px-4 py-3 text-[11px] font-medium text-amber-200">
                       {gargalo.name} ({gargalo.dias !== null ? `${gargalo.dias}d` : '0d'})
                     </td>
                   </tr>
@@ -1351,7 +1351,7 @@ export function MetasDashboardClient() {
 
         {/* Rodapé: Paginação */}
         {totalPages > 1 && (
-          <div className="p-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-4 bg-white/[0.02]">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/8 bg-white/[0.02] p-4">
             <div className="text-xs text-white/50">
               Página <span className="text-white font-semibold">{currentPage}</span> de{" "}
               <span className="text-white font-semibold">{totalPages}</span>
@@ -1362,7 +1362,7 @@ export function MetasDashboardClient() {
                 onClick={() => handlePageChange(1)}
                 disabled={currentPage === 1}
                 title="Primeira Página"
-                className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all cursor-pointer"
+                className="cursor-pointer rounded-lg border border-white/8 bg-white/[0.04] p-2 text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <ChevronsLeft className="w-4 h-4" />
               </button>
@@ -1371,7 +1371,7 @@ export function MetasDashboardClient() {
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
                 title="Página Anterior"
-                className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all cursor-pointer"
+                className="cursor-pointer rounded-lg border border-white/8 bg-white/[0.04] p-2 text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -1396,8 +1396,8 @@ export function MetasDashboardClient() {
                       }}
                       className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                         isCurrent
-                          ? "text-white shadow-lg shadow-purple-500/20 font-bold"
-                          : "bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
+                        ? "font-bold text-white shadow-lg shadow-amber-500/10"
+                        : "border border-white/8 bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white"
                       }`}
                     >
                       {page}
@@ -1410,7 +1410,7 @@ export function MetasDashboardClient() {
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
                 title="Próxima Página"
-                className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all cursor-pointer"
+                className="cursor-pointer rounded-lg border border-white/8 bg-white/[0.04] p-2 text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -1419,7 +1419,7 @@ export function MetasDashboardClient() {
                 onClick={() => handlePageChange(totalPages)}
                 disabled={currentPage === totalPages}
                 title="Última Página"
-                className="p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all cursor-pointer"
+                className="cursor-pointer rounded-lg border border-white/8 bg-white/[0.04] p-2 text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <ChevronsRight className="w-4 h-4" />
               </button>
@@ -1468,30 +1468,30 @@ export function MetasDashboardClient() {
             />
 
             {/* Painel Lateral */}
-            <div className="relative w-full max-w-lg bg-[#0F172A] border-l border-white/10 shadow-2xl h-full flex flex-col z-10 overflow-hidden animate-in slide-in-from-right duration-300">
+            <div className="relative z-10 flex h-full w-full max-w-lg flex-col overflow-hidden border-l border-white/8 bg-[#0B1020]/96 shadow-2xl shadow-black/30 animate-in slide-in-from-right duration-300">
               
               {/* Header do Drawer */}
-              <div className="p-6 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+              <div className="flex items-center justify-between border-b border-white/8 bg-white/[0.03] p-6">
                 <div>
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    Protocolo <span className="text-blue-400">{protNum}</span>
+                  <h2 className="flex items-center gap-2 text-xl font-bold text-white">
+                    Protocolo <span className="text-amber-300">{protNum}</span>
                   </h2>
-                  <p className="text-xs text-white/50 mt-0.5">Linha do Tempo e Detalhamento por Fase</p>
+                  <p className="mt-0.5 text-xs text-white/50">Linha do Tempo e Detalhamento por Fase</p>
                 </div>
 
                 <button
                   onClick={() => setSelectedProtocol(null)}
-                  className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+                  className="cursor-pointer rounded-xl bg-white/[0.05] p-2 text-white/70 transition-colors hover:bg-white/[0.1] hover:text-white"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Conteúdo com Scroll */}
-              <div className="p-6 overflow-y-auto space-y-6 flex-1">
+                <div className="flex-1 space-y-6 overflow-y-auto p-6">
                 
                 {/* Badges de Status & Atraso Sem Duplicidade */}
-                <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white/5 border border-white/10 rounded-xl">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.04] p-4">
                   <div>
                     <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1">Status do Pedido</p>
                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${badge.bgClass}`}>

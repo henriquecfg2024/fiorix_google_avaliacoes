@@ -6,16 +6,28 @@ export const metadata = {
 
 export default function MetasPage() {
   return (
-    <div className="min-h-screen bg-[#0A0F1E] text-white">
-      <div className="p-8 pb-20 max-w-[1600px] mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
-              Dashboard de Metas
-            </h1>
-            <p className="text-white/50 text-sm mt-1">
-              Acompanhamento de prazos, entregas e análise de gargalos nos protocolos.
-            </p>
+    <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </div>
+
+      <div className="relative mx-auto max-w-[1600px] px-5 py-6 pb-20 sm:px-8">
+        <div className="mb-8 rounded-[28px] border border-white/8 bg-[#0B1020]/70 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="max-w-[920px]">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-3xl sm:text-[2.1rem] font-black tracking-[0.02em] text-transparent bg-clip-text bg-gradient-to-r from-slate-50 via-white to-amber-300">
+                  Dashboard de Metas
+                </h1>
+                <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-amber-300">
+                  Compliance & acompanhamento de prazos
+                </span>
+              </div>
+              <p className="mt-2 max-w-[760px] text-sm leading-relaxed text-white/58">
+                Acompanhamento de prazos, entregas e análise de gargalos nos protocolos. Painel executivo para priorizar pendências, visualizar setores críticos e acompanhar a evolução do fluxo.
+              </p>
+            </div>
           </div>
         </div>
 
