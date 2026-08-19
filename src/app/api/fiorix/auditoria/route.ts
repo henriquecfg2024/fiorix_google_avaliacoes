@@ -55,6 +55,32 @@ export async function GET() {
           FROM public.fiorix_bi_data b
           WHERE b.tenant_id = ${user.tenantId}
           GROUP BY b.tenant_id, b."Protocolo"
+        ),
+        eventos_prod AS (
+          SELECT
+            p.tenant_id,
+            p.pedido::text AS protocolo,
+            BOOL_OR(p.tipo_detalhado ILIKE '%Registrado%') AS has_registro,
+            BOOL_OR(
+              p.tipo_detalhado ILIKE '%Devolver%'
+              OR p.tipo_detalhado ILIKE '%Devolu%'
+            ) AS has_devolucao
+          FROM public.fiorix_produtividade_dados p
+          WHERE p.tenant_id = ${user.tenantId}
+          GROUP BY p.tenant_id, p.pedido
+        ),
+        eventos AS (
+          SELECT
+            tenant_id,
+            protocolo,
+            BOOL_OR(has_registro) AS has_registro,
+            BOOL_OR(has_devolucao) AS has_devolucao
+          FROM (
+            SELECT * FROM eventos_bi
+            UNION ALL
+            SELECT * FROM eventos_prod
+          ) fontes
+          GROUP BY tenant_id, protocolo
         )
         SELECT
           m.protocolo,
