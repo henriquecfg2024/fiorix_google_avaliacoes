@@ -26,6 +26,172 @@ type RelatorioProtocolo = {
   responsavel: string;
 };
 
+const QR_VERSION = 3;
+const QR_SIZE = 17 + QR_VERSION * 4;
+const QR_DATA_CODEWORDS = 55;
+const QR_EC_CODEWORDS = 15;
+
+function toBits(value: number, length: number) {
+  return Array.from({ length }, (_, index) => (value >> (length - index - 1)) & 1);
+}
+
+function createGaloisTables() {
+  const exp = new Array<number>(512).fill(0);
+  const log = new Array<number>(256).fill(0);
+  let value = 1;
+
+  for (let index = 0; index < 255; index += 1) {
+    exp[index] = value;
+    log[value] = index;
+    value <<= 1;
+    if (value & 0x100) value ^= 0x11d;
+  }
+
+  for (let index = 255; index < 512; index += 1) {
+    exp[index] = exp[index - 255];
+  }
+
+  return { exp, log };
+}
+
+function multiplyGalois(a: number, b: number, exp: number[], log: number[]) {
+  if (a === 0 || b === 0) return 0;
+  return exp[log[a] + log[b]];
+}
+
+function createErrorCorrection(data: number[]) {
+  const { exp, log } = createGaloisTables();
+  let generator = [1];
+
+  for (let index = 0; index < QR_EC_CODEWORDS; index += 1) {
+    const next = new Array<number>(generator.length + 1).fill(0);
+    generator.forEach((coefficient, coefficientIndex) => {
+      next[coefficientIndex] ^= multiplyGalois(coefficient, exp[index], exp, log);
+      next[coefficientIndex + 1] ^= coefficient;
+    });
+    generator = next;
+  }
+
+  const result = new Array<number>(QR_EC_CODEWORDS).fill(0);
+  data.forEach((codeword) => {
+    const factor = codeword ^ result.shift()!;
+    result.push(0);
+    generator.slice(1).forEach((coefficient, index) => {
+      result[index] ^= multiplyGalois(coefficient, factor, exp, log);
+    });
+  });
+
+  return result;
+}
+
+function encodeQrData(text: string) {
+  const bytes = Array.from(new TextEncoder().encode(text.slice(0, 53)));
+  const bits = [
+    ...toBits(0b0100, 4),
+    ...toBits(bytes.length, 8),
+    ...bytes.flatMap((byte) => toBits(byte, 8)),
+  ];
+
+  const maxBits = QR_DATA_CODEWORDS * 8;
+  bits.push(...new Array(Math.min(4, maxBits - bits.length)).fill(0));
+  while (bits.length % 8 !== 0) bits.push(0);
+
+  const data = [];
+  for (let index = 0; index < bits.length; index += 8) {
+    data.push(parseInt(bits.slice(index, index + 8).join(""), 2));
+  }
+
+  while (data.length < QR_DATA_CODEWORDS) {
+    data.push(data.length % 2 === 0 ? 0xec : 0x11);
+  }
+
+  return [...data, ...createErrorCorrection(data)];
+}
+
+function createQrSvg(text: string) {
+  const modules = Array.from({ length: QR_SIZE }, () => new Array<boolean>(QR_SIZE).fill(false));
+  const reserved = Array.from({ length: QR_SIZE }, () => new Array<boolean>(QR_SIZE).fill(false));
+
+  const setModule = (row: number, col: number, value: boolean, isReserved = true) => {
+    if (row < 0 || col < 0 || row >= QR_SIZE || col >= QR_SIZE) return;
+    modules[row][col] = value;
+    if (isReserved) reserved[row][col] = true;
+  };
+
+  const addFinder = (row: number, col: number) => {
+    for (let r = -1; r <= 7; r += 1) {
+      for (let c = -1; c <= 7; c += 1) {
+        const rr = row + r;
+        const cc = col + c;
+        const isFinder = r >= 0 && r <= 6 && c >= 0 && c <= 6 && (r === 0 || r === 6 || c === 0 || c === 6 || (r >= 2 && r <= 4 && c >= 2 && c <= 4));
+        setModule(rr, cc, isFinder);
+      }
+    }
+  };
+
+  const addAlignment = (centerRow: number, centerCol: number) => {
+    for (let r = -2; r <= 2; r += 1) {
+      for (let c = -2; c <= 2; c += 1) {
+        const isDark = Math.max(Math.abs(r), Math.abs(c)) !== 1;
+        setModule(centerRow + r, centerCol + c, isDark);
+      }
+    }
+  };
+
+  addFinder(0, 0);
+  addFinder(0, QR_SIZE - 7);
+  addFinder(QR_SIZE - 7, 0);
+  addAlignment(22, 22);
+
+  for (let index = 8; index < QR_SIZE - 8; index += 1) {
+    setModule(6, index, index % 2 === 0);
+    setModule(index, 6, index % 2 === 0);
+  }
+  setModule(4 * QR_VERSION + 9, 8, true);
+
+  const codewordBits = encodeQrData(text).flatMap((byte) => toBits(byte, 8));
+  let bitIndex = 0;
+  let direction = -1;
+
+  for (let col = QR_SIZE - 1; col > 0; col -= 2) {
+    if (col === 6) col -= 1;
+    for (let step = 0; step < QR_SIZE; step += 1) {
+      const row = direction === -1 ? QR_SIZE - 1 - step : step;
+      for (let offset = 0; offset < 2; offset += 1) {
+        const currentCol = col - offset;
+        if (reserved[row][currentCol]) continue;
+
+        const rawBit = bitIndex < codewordBits.length ? codewordBits[bitIndex] === 1 : false;
+        const maskedBit = rawBit !== ((row + currentCol) % 2 === 0);
+        setModule(row, currentCol, maskedBit, false);
+        bitIndex += 1;
+      }
+    }
+    direction *= -1;
+  }
+
+  const formatBits = "111011111000100".split("").map((bit) => bit === "1");
+  const formatPositionsA = [[8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [8, 7], [8, 8], [7, 8], [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8]];
+  const formatPositionsB = [[QR_SIZE - 1, 8], [QR_SIZE - 2, 8], [QR_SIZE - 3, 8], [QR_SIZE - 4, 8], [QR_SIZE - 5, 8], [QR_SIZE - 6, 8], [QR_SIZE - 7, 8], [8, QR_SIZE - 8], [8, QR_SIZE - 7], [8, QR_SIZE - 6], [8, QR_SIZE - 5], [8, QR_SIZE - 4], [8, QR_SIZE - 3], [8, QR_SIZE - 2], [8, QR_SIZE - 1]];
+  formatBits.forEach((bit, index) => {
+    setModule(formatPositionsA[index][0], formatPositionsA[index][1], bit);
+    setModule(formatPositionsB[index][0], formatPositionsB[index][1], bit);
+  });
+
+  const scale = 3;
+  const quiet = 4;
+  const size = (QR_SIZE + quiet * 2) * scale;
+  const rects = modules
+    .flatMap((row, rowIndex) =>
+      row.map((isDark, colIndex) =>
+        isDark ? `<rect x="${(colIndex + quiet) * scale}" y="${(rowIndex + quiet) * scale}" width="${scale}" height="${scale}" />` : ""
+      )
+    )
+    .join("");
+
+  return `<svg width="96" height="96" viewBox="0 0 ${size} ${size}" role="img" aria-label="QR Code de verificacao"><rect width="${size}" height="${size}" fill="#ffffff" rx="6" /> <g fill="#111827">${rects}</g></svg>`;
+}
+
 export async function GET(request: Request) {
   try {
     const sessionUser = await getCurrentUser();
@@ -153,6 +319,14 @@ export async function GET(request: Request) {
       }
       groupedBySetor[p.setor].push(p);
     });
+
+    const verificationSeed = `${user.tenantId}|${selectedProtocolos.map((p) => p.id).join(",")}|${selectedProtocolos.length}`;
+    const verificationHash = Array.from(verificationSeed).reduce(
+      (hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) >>> 0,
+      0
+    );
+    const verificationCode = `FIORIX-AUD-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${selectedProtocolos.length}-${verificationHash.toString(36).toUpperCase()}`;
+    const qrSvg = createQrSvg(verificationCode);
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -486,15 +660,8 @@ export async function GET(request: Request) {
 
     <div class="footer">
       <div class="qr-placeholder">
-        <!-- SVG simulado de QR Code -->
-        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="2" y="2" width="6" height="6" />
-          <rect x="16" y="2" width="6" height="6" />
-          <rect x="2" y="16" width="6" height="6" />
-          <rect x="9" y="9" width="6" height="6" fill="currentColor" opacity="0.1" />
-          <path d="M9 2h3m0 4v3m4-4h3m-7 13h3m0-4v3" />
-        </svg>
-        <span>Código de Verificação de Auditoria</span>
+        ${qrSvg}
+        <span>Código de Verificação: ${verificationCode}</span>
       </div>
       FIORIX COMPLIANCE • Gerado por Henrique em ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}
       <br>
