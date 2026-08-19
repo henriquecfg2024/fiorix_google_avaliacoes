@@ -17,9 +17,52 @@ export async function GET(request: Request) {
     try {
       rawMetas = await prisma.$queryRaw(
         Prisma.sql`
-          SELECT * FROM public.fiorix_metas_dados 
-          WHERE tenant_id = ${user.tenantId}
-          ORDER BY COALESCE("DATA_APRESENTADO", data_apresentado) DESC 
+          WITH eventos_bi AS (
+            SELECT
+              b.tenant_id,
+              b."Protocolo" AS protocolo,
+              BOOL_OR(COALESCE(b."IsRegistrado", false)) AS has_registro,
+              BOOL_OR(COALESCE(b."IsDevolucao", false)) AS has_devolucao
+            FROM public.fiorix_bi_data b
+            WHERE b.tenant_id = ${user.tenantId}
+            GROUP BY b.tenant_id, b."Protocolo"
+          ),
+          eventos_prod AS (
+            SELECT
+              p.tenant_id,
+              p.pedido::text AS protocolo,
+              BOOL_OR(p.tipo_detalhado ILIKE '%Registrado%') AS has_registro,
+              BOOL_OR(
+                p.tipo_detalhado ILIKE '%Devolver%'
+                OR p.tipo_detalhado ILIKE '%Devolu%'
+              ) AS has_devolucao
+            FROM public.fiorix_produtividade_dados p
+            WHERE p.tenant_id = ${user.tenantId}
+            GROUP BY p.tenant_id, p.pedido
+          ),
+          eventos AS (
+            SELECT
+              tenant_id,
+              protocolo,
+              BOOL_OR(has_registro) AS has_registro,
+              BOOL_OR(has_devolucao) AS has_devolucao
+            FROM (
+              SELECT * FROM eventos_bi
+              UNION ALL
+              SELECT * FROM eventos_prod
+            ) fontes
+            GROUP BY tenant_id, protocolo
+          )
+          SELECT
+            m.*,
+            COALESCE(e.has_registro, false) AS "hasRegistro",
+            COALESCE(e.has_devolucao, false) AS "hasDevolucao"
+          FROM public.fiorix_metas_dados m
+          LEFT JOIN eventos e
+            ON e.tenant_id = m.tenant_id
+            AND e.protocolo = m.protocolo::text
+          WHERE m.tenant_id = ${user.tenantId}
+          ORDER BY m.data_apresentado DESC
           LIMIT 5000
         `
       );
@@ -129,6 +172,8 @@ export async function GET(request: Request) {
         d10Entrega: getVal("D10_ENTREGA", "d10_entrega", "d10Entrega", "D10_ENT"),
         dBalcaoRegistrado: getVal("D_BALCAO_REGISTRADO", "d_balcao_registrado", "dBalcaoRegistrado"),
         dBalcaoDevolvido: getVal("D_BALCAO_DEVOLVIDO", "d_balcao_devolvido", "dBalcaoDevolvido"),
+        hasRegistro: Boolean(getVal("hasRegistro", "has_registro")),
+        hasDevolucao: Boolean(getVal("hasDevolucao", "has_devolucao")),
         
         qtdRetrabalho: Number(getVal("QTD_RETRABALHO", "qtd_retrabalho", "qtdRetrabalho") || 0),
         

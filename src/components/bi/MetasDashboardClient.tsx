@@ -51,6 +51,8 @@ type MetasData = {
   d10Entrega?: string;
   dBalcaoRegistrado?: string;
   dBalcaoDevolvido?: string;
+  hasRegistro?: boolean;
+  hasDevolucao?: boolean;
   qtdRetrabalho?: number;
   diasD1D2?: number | null;
   diasD2D3?: number | null;
@@ -352,13 +354,17 @@ export function MetasDashboardClient() {
     const d10Entrega = getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT");
     const dBalcaoRegistrado = getVal(record, "dBalcaoRegistrado", "D_BALCAO_REGISTRADO");
     const dBalcaoDevolvido = getVal(record, "dBalcaoDevolvido", "D_BALCAO_DEVOLVIDO");
+    const hasRegistro = Boolean(getVal(record, "hasRegistro", "has_registro"));
+    const hasDevolucao = Boolean(getVal(record, "hasDevolucao", "has_devolucao"));
     const isAtrasado = getMetasStatusAndAtraso(record).status === "Atrasado";
 
     return {
       dBalcaoRegistrado,
       dBalcaoDevolvido,
-      semRegistro: isAtrasado && Boolean(d8Impressao) && !d10Entrega && !dBalcaoRegistrado,
-      semDevolucao: isAtrasado && Boolean(dBalcaoRegistrado) && !dBalcaoDevolvido,
+      semRegistro: hasRegistro
+        ? !dBalcaoRegistrado
+        : isAtrasado && Boolean(d8Impressao) && !d10Entrega && !dBalcaoRegistrado,
+      semDevolucao: hasDevolucao && !dBalcaoDevolvido,
     };
   }, [getMetasStatusAndAtraso, getVal]);
 
