@@ -150,7 +150,7 @@ export async function GET() {
         { nome: "PREPARAÇÃO", data: d.d9Preparacao, ordem: 4 },
         { nome: "CONFERÊNCIA", data: d.d9Conferencia, ordem: 5 },
       ]
-        .filter((andamento) => andamento.data)
+        .filter((andamento): andamento is typeof andamento & { data: Date } => Boolean(andamento.data))
         .sort(
           (a, b) =>
             new Date(b.data).getTime() - new Date(a.data).getTime() ||

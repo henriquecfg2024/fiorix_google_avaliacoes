@@ -30,6 +30,7 @@ export const HEADER_FIORIX_NOVO = [
   'TIPO',
   'STATUS',
   'ATRASO_DIAS',
+  'SERVICO',
 ];
 
 export const COLUNAS_OBRIGATORIAS = HEADER_FIORIX;
@@ -242,11 +243,15 @@ function normalizarLinha(row: Record<string, string>, useNewSchema: boolean): Bi
     const protocolo = getField(row, 'protocolo');
     const dataEntradaRaw = getField(row, 'data_entrada', 'data_protocolo', 'dt_protocolo', 'data', 'dataentrada');
     const statusRaw = getField(row, 'status').toUpperCase();
+    const servicoRaw = getField(row, 'servico', 'serviço').toUpperCase();
     const tipoRaw = getField(row, 'tipo', 'tipossolicitacao', 'tiposolicitacao', 'tipo_prenotacao', 'tipoprenotacao');
     const atrasoDias = parseInt(getField(row, 'atraso_dias', 'atraso', 'dias_atraso', 'diasatraso', 'atrasodias') || '0', 10);
 
-    const isDevolucao = statusRaw.includes('DEVOL');
-    const isRegistrado = statusRaw.includes('REGISTRAD') || statusRaw.includes('AVERBAD');
+    const isDevolucao = servicoRaw.includes('DEVOL') || statusRaw.includes('DEVOL');
+    const isRegistrado =
+      servicoRaw.includes('REGISTRAD') ||
+      statusRaw.includes('REGISTRAD') ||
+      statusRaw.includes('AVERBAD');
 
     let situacaoPrazo = 'NoPrazo';
     if (isDevolucao) {
@@ -378,20 +383,20 @@ export function validarCSV(
       }
 
       const rowsLimpos = rawRows.map(row => {
-        const statusRaw = get(row, 'STATUS', 'status', 'SituacaoPrazo', 'situacao', 'situacaoprazo').toUpperCase();
-        const tipoRaw = get(row, 'TIPO', 'tipo', 'TipoPrenotacao', 'TipoSolicitacao', 'Natureza');
-        const atrasoBruto = get(row, 'ATRASO_DIAS', 'ATRASO', 'DIAS', 'ATRASO_DIAS_CALCULADO', 'DiasAtraso', 'diasatraso');
-        const isDevolucaoField = get(row, 'IsDevolucao', 'isdevolucao');
+      const statusRaw = get(row, 'STATUS', 'status', 'SituacaoPrazo', 'situacao', 'situacaoprazo').toUpperCase();
+      const servicoRaw = get(row, 'SERVICO', 'servico', 'serviço').toUpperCase();
+      const tipoRaw = get(row, 'TIPO', 'tipo', 'TipoPrenotacao', 'TipoSolicitacao', 'Natureza');
+      const atrasoBruto = get(row, 'ATRASO_DIAS', 'ATRASO', 'DIAS', 'ATRASO_DIAS_CALCULADO', 'DiasAtraso', 'diasatraso');
+      const isDevolucaoField = get(row, 'IsDevolucao', 'isdevolucao');
+      const isDevolucao = servicoRaw.includes('DEVOL') || statusRaw.includes('DEVOL') || isDevolucaoField === '1' || isDevolucaoField.toLowerCase() === 'true' || isDevolucaoField.toLowerCase() === 'sim';
 
-        return {
-          protocolo: get(row, 'PROTOCOLO', 'protocolo'),
-          data: parseData(get(row, 'DATA_ENTRADA', 'DATA', 'DTRECEP', 'DtProtocolo', 'DataProtocolo', 'DtAndamento')),
-          status: (statusRaw.includes('DEVOL') || isDevolucaoField === '1' || isDevolucaoField.toLowerCase() === 'true' || isDevolucaoField.toLowerCase() === 'sim')
-            ? 'DEVOLVIDO'
-            : 'REGISTRADO',
-          atraso: parseInt(atrasoBruto.replace(/[^0-9\-]/g, '') || '0', 10),
-          tipo: tipoRaw,
-        };
+      return {
+        protocolo: get(row, 'PROTOCOLO', 'protocolo'),
+        data: parseData(get(row, 'DATA_ENTRADA', 'DATA', 'DTRECEP', 'DtProtocolo', 'DataProtocolo', 'DtAndamento')),
+        status: isDevolucao ? 'DEVOLVIDO' : 'REGISTRADO',
+        atraso: parseInt(atrasoBruto.replace(/[^0-9\-]/g, '') || '0', 10),
+        tipo: tipoRaw,
+      };
       }).filter(r => r.protocolo && r.protocolo !== '0' && normalizeKey(r.protocolo) !== 'protocolo');
 
       if (rowsLimpos.length === 0) {
@@ -570,12 +575,13 @@ export async function importarCSVEmLotes({
       }
 
       const statusRaw = get(row, 'STATUS', 'status', 'SituacaoPrazo', 'situacao').toUpperCase();
+      const servicoRaw = get(row, 'SERVICO', 'servico', 'serviço').toUpperCase();
       const tipoRaw = get(row, 'TIPO', 'tipo', 'TipoPrenotacao', 'TipoSolicitacao', 'Natureza');
       const atrasoBruto = get(row, 'ATRASO_DIAS', 'ATRASO', 'DIAS', 'DiasAtraso', 'diasatraso');
       const atrasoDias = parseInt(atrasoBruto.replace(/[^0-9\-]/g, '') || '0', 10);
       const isDevolucaoField = get(row, 'IsDevolucao', 'isdevolucao');
-      const isDevolucao = statusRaw.includes('DEVOL') || isDevolucaoField === '1' || isDevolucaoField.toLowerCase() === 'true' || isDevolucaoField.toLowerCase() === 'sim';
-      const isRegistrado = statusRaw.includes('REGISTRAD') || statusRaw.includes('AVERBAD') || (!isDevolucao);
+      const isDevolucao = servicoRaw.includes('DEVOL') || statusRaw.includes('DEVOL') || isDevolucaoField === '1' || isDevolucaoField.toLowerCase() === 'true' || isDevolucaoField.toLowerCase() === 'sim';
+      const isRegistrado = servicoRaw.includes('REGISTRAD') || statusRaw.includes('REGISTRAD') || statusRaw.includes('AVERBAD') || (!isDevolucao);
 
       let situacaoPrazo = 'NoPrazo';
       if (isDevolucao) {
@@ -595,7 +601,7 @@ export async function importarCSVEmLotes({
         CodProcessamento: getInt(get(row, 'CodProcessamento', 'codprocessamento')),
         DescAndamento: get(row, 'DescAndamento', 'descandamento') || null,
         Natureza: tipoRaw || get(row, 'Natureza', 'natureza') || null,
-        TipoPrenotacao: tipoRaw || get(row, 'TipoPrenotacao', 'tipoprenotacao') || null,
+        TipoPrenotacao: servicoRaw || tipoRaw || get(row, 'TipoPrenotacao', 'tipoprenotacao') || null,
         DiasPrometidos: getInt(get(row, 'DiasPrometidos', 'diasprometidos')),
         DiasCorridos: getInt(get(row, 'DiasCorridos', 'diascorridos')),
         DiasAtraso: isNaN(atrasoDias) ? null : atrasoDias,
