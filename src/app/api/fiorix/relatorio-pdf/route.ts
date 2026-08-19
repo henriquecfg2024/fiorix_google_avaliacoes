@@ -588,18 +588,21 @@ export async function GET(request: Request) {
     </div>
 
     <div>
-      <h2>Relatório Executivo de Pendências</h2>
-      <p style="color: #64748b; font-size: 13px;">Documento gerado em ${new Date().toLocaleString("pt-BR")} contendo ${selectedProtocolos.length} pendências para acompanhamento gerencial.</p>
+      <h2>Relatório Executivo de Andamentos WEBRI Pendentes</h2>
+      <p style="color: #64748b; font-size: 13px;">
+        Documento gerado em ${new Date().toLocaleString("pt-BR")} contendo ${selectedProtocolos.length} protocolo(s) sem o andamento WEBRI esperado:
+        <strong>BALCÃO REGISTRADO</strong> ou <strong>BALCÃO DEVOLVIDO</strong>.
+      </p>
     </div>
 
     <!-- ROTEIRO DE CORREÇÃO -->
     <div class="instruction-card">
       <h3>📋 Direcionamento de Acompanhamento</h3>
       <ol>
-        <li>Priorizar os protocolos com maior tempo de permanência.</li>
-        <li>Encaminhar os itens aos setores responsáveis pela regularização.</li>
-        <li>Acompanhar a evolução das pendências na próxima auditoria.</li>
-        <li>Validar a redução dos riscos operacionais no painel FIORIX.</li>
+        <li>Priorizar os protocolos com maior tempo de permanência sem andamento WEBRI.</li>
+        <li>Regularizar o andamento ausente: <strong>BALCÃO REGISTRADO</strong> ou <strong>BALCÃO DEVOLVIDO</strong>.</li>
+        <li>Encaminhar os itens aos setores responsáveis pela conferência e registro do andamento.</li>
+        <li>Acompanhar a redução das pendências no painel FIORIX após a regularização.</li>
       </ol>
     </div>
 
