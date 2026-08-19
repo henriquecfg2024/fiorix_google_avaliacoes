@@ -61,8 +61,13 @@ export function FiorixDashboardClient({
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0F1E] text-white selection:bg-blue-900 transition-colors duration-300">
-      <main className="container mx-auto px-4 lg:px-8 py-8 space-y-6">
+    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </div>
+
+      <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
         <div className="space-y-6 animate-in fade-in duration-700 slide-in-from-bottom-4">
           <FiorixHero />
 

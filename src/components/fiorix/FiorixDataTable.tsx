@@ -252,29 +252,29 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
 
   const getStatusBadge = (status: string) => {
     if (status === "Atrasado") {
-      return <Badge className="bg-red-500/10 border border-red-500/20 text-red-400 backdrop-blur-md font-semibold text-[11px]">Atrasado</Badge>;
+      return <Badge className="bg-red-500/10 border border-red-500/20 text-red-300 backdrop-blur-md font-semibold text-[11px]">Atrasado</Badge>;
     }
-    return <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 backdrop-blur-md font-semibold text-[11px]">Em dia</Badge>;
+    return <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 backdrop-blur-md font-semibold text-[11px]">Em dia</Badge>;
   };
 
   const getAtrasoBadge = (dias: number) => {
     if (dias === 0) {
-      return <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 backdrop-blur-md font-mono font-bold text-[11px]">0 dias</Badge>;
+      return <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 backdrop-blur-md font-mono font-bold text-[11px]">0 dias</Badge>;
     }
     if (dias >= 1 && dias <= 15) {
-      return <Badge className="bg-amber-500/10 border border-amber-500/20 text-amber-400 backdrop-blur-md font-mono font-bold text-[11px]">{dias} dias</Badge>;
+      return <Badge className="bg-amber-500/10 border border-amber-500/20 text-amber-300 backdrop-blur-md font-mono font-bold text-[11px]">{dias} dias</Badge>;
     }
     if (dias >= 16 && dias <= 30) {
-      return <Badge className="bg-orange-500/10 border border-orange-500/20 text-orange-400 backdrop-blur-md font-mono font-bold text-[11px]">{dias} dias</Badge>;
+      return <Badge className="bg-orange-500/10 border border-orange-500/20 text-orange-300 backdrop-blur-md font-mono font-bold text-[11px]">{dias} dias</Badge>;
     }
-    return <Badge className="bg-red-500/10 border border-red-500/20 text-red-400 backdrop-blur-md font-mono font-bold text-[11px]">{dias} dias</Badge>;
+    return <Badge className="bg-red-500/10 border border-red-500/20 text-red-300 backdrop-blur-md font-mono font-bold text-[11px]">{dias} dias</Badge>;
   };
 
   const getServicoBadge = (servico: string) => {
     if (servico === "REGISTRADO") {
-      return <Badge className="bg-blue-500/10 border border-blue-500/20 text-blue-400 backdrop-blur-md font-semibold text-[11px]">REGISTRADO</Badge>;
+      return <Badge className="bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 backdrop-blur-md font-semibold text-[11px]">REGISTRADO</Badge>;
     }
-    return <Badge className="bg-purple-500/10 border border-purple-500/20 text-purple-400 backdrop-blur-md font-semibold text-[11px]">DEVOLVIDO</Badge>;
+    return <Badge className="bg-amber-500/10 border border-amber-500/20 text-amber-300 backdrop-blur-md font-semibold text-[11px]">DEVOLVIDO</Badge>;
   };
 
   const totalOverallCount = totalAtrasadosCount || rangeCounts[0] || pagination.totalItems;
@@ -284,14 +284,14 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
   const endItem = Math.min(pagination.page * pagination.pageSize, pagination.totalItems);
 
   return (
-    <Card className="bg-[#151C2F] border-white/10 rounded-2xl shadow-lg mt-4 overflow-hidden text-white">
+    <Card className="mt-4 overflow-hidden rounded-2xl border border-white/8 bg-[#0B1020]/72 text-white shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
       {/* Abas Superiores */}
-      <div className="flex border-b border-white/10 bg-[#0F172A]">
+      <div className="flex border-b border-white/8 bg-[#0B1020]/92">
         <button
           onClick={() => handleToggleQueryMode('atrasado')}
           className={`flex-1 sm:flex-initial px-6 py-3.5 text-xs uppercase font-bold tracking-wider transition-colors border-b-2 ${
             queryMode === 'atrasado'
-              ? 'border-red-500 text-red-400 bg-white/[0.02]'
+              ? 'border-amber-400 text-amber-300 bg-white/[0.03]'
               : 'border-transparent text-white/50 hover:text-white/80'
           }`}
         >
@@ -301,7 +301,7 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
           onClick={() => handleToggleQueryMode('full')}
           className={`flex-1 sm:flex-initial px-6 py-3.5 text-xs uppercase font-bold tracking-wider transition-colors border-b-2 ${
             queryMode === 'full'
-              ? 'border-blue-500 text-blue-400 bg-white/[0.02]'
+              ? 'border-cyan-400 text-cyan-300 bg-white/[0.03]'
               : 'border-transparent text-white/50 hover:text-white/80'
           }`}
         >
@@ -309,13 +309,13 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
         </button>
       </div>
 
-      <CardHeader className="pb-4 border-b border-white/5 space-y-4">
+      <CardHeader className="space-y-4 border-b border-white/8 pb-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <CardTitle className="text-base font-semibold text-white">
               {queryMode === 'full' ? 'Consulta Geral (Todos os Títulos)' : 'Títulos em Atraso (Drill-down)'}
             </CardTitle>
-            <CardDescription className="text-white/50 text-xs">
+            <CardDescription className="text-xs text-white/50">
               {queryMode === 'full' 
                 ? 'Exibição completa de títulos e prazos registrados no sistema' 
                 : 'Detalhamento dos protocolos críticos com estouro de prazo legal'}
@@ -328,16 +328,16 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
               placeholder="Buscar protocolo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 bg-white/5 border-white/10 text-white rounded-xl shadow-sm text-xs focus:ring-0 focus:border-white/20"
+              className="pl-8 bg-[#0C1323] border-white/8 text-white rounded-xl shadow-sm text-xs focus:ring-0 focus:border-amber-400"
             />
             {isLoading && (
-              <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 text-emerald-400 animate-spin" />
+              <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 text-emerald-300 animate-spin" />
             )}
           </div>
         </div>
 
         {messagePrompt && (
-          <div className="bg-blue-500/10 border border-blue-500/20 text-blue-400 p-3 rounded-xl text-xs flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 p-3 text-xs text-cyan-300">
             <Info size={14} />
             <span>{messagePrompt}</span>
           </div>
@@ -351,11 +351,11 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
               <select
                 value={statusFilter}
                 onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-                className="bg-white/5 border border-white/10 text-white text-xs rounded-xl px-2 py-1.5 focus:border-white/20 outline-none"
+                className="rounded-xl border border-white/8 bg-[#0C1323] px-2 py-1.5 text-xs text-white outline-none focus:border-amber-400"
               >
-                <option value="ALL" className="bg-[#151C2F]">Todos os Status</option>
-                <option value="Em dia" className="bg-[#151C2F]">Em dia</option>
-                <option value="Atrasado" className="bg-[#151C2F]">Atrasado</option>
+                <option value="ALL" className="bg-[#0B1020]">Todos os Status</option>
+                <option value="Em dia" className="bg-[#0B1020]">Em dia</option>
+                <option value="Atrasado" className="bg-[#0B1020]">Atrasado</option>
               </select>
             </div>
 
@@ -364,11 +364,11 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
               <select
                 value={servicoFilter}
                 onChange={(e) => { setServicoFilter(e.target.value); setPage(1); }}
-                className="bg-white/5 border border-white/10 text-white text-xs rounded-xl px-2 py-1.5 focus:border-white/20 outline-none"
+                className="rounded-xl border border-white/8 bg-[#0C1323] px-2 py-1.5 text-xs text-white outline-none focus:border-amber-400"
               >
-                <option value="ALL" className="bg-[#151C2F]">Todos os Serviços</option>
-                <option value="REGISTRADO" className="bg-[#151C2F]">REGISTRADO</option>
-                <option value="DEVOLVIDO" className="bg-[#151C2F]">DEVOLVIDO</option>
+                <option value="ALL" className="bg-[#0B1020]">Todos os Serviços</option>
+                <option value="REGISTRADO" className="bg-[#0B1020]">REGISTRADO</option>
+                <option value="DEVOLVIDO" className="bg-[#0B1020]">DEVOLVIDO</option>
               </select>
             </div>
 
@@ -377,14 +377,14 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
               <select
                 value={tipoFilter}
                 onChange={(e) => { setTipoFilter(e.target.value); setPage(1); }}
-                className="bg-white/5 border border-white/10 text-white text-xs rounded-xl px-2 py-1.5 focus:border-white/20 outline-none"
+                className="rounded-xl border border-white/8 bg-[#0C1323] px-2 py-1.5 text-xs text-white outline-none focus:border-amber-400"
               >
-                <option value="ALL" className="bg-[#151C2F]">Todos os Tipos</option>
-                <option value="PRENOTADO" className="bg-[#151C2F]">PRENOTADO</option>
-                <option value="INTIMACAO" className="bg-[#151C2F]">INTIMACAO</option>
-                <option value="INTIMACAO ONLINE" className="bg-[#151C2F]">INTIMACAO ONLINE</option>
-                <option value="OFICIO - INDISPONIBILIDADE" className="bg-[#151C2F]">OFICIO - INDISPONIBILIDADE</option>
-                <option value="REGULARIZACAO FUNDIARIA" className="bg-[#151C2F]">REGULARIZACAO FUNDIARIA</option>
+                <option value="ALL" className="bg-[#0B1020]">Todos os Tipos</option>
+                <option value="PRENOTADO" className="bg-[#0B1020]">PRENOTADO</option>
+                <option value="INTIMACAO" className="bg-[#0B1020]">INTIMACAO</option>
+                <option value="INTIMACAO ONLINE" className="bg-[#0B1020]">INTIMACAO ONLINE</option>
+                <option value="OFICIO - INDISPONIBILIDADE" className="bg-[#0B1020]">OFICIO - INDISPONIBILIDADE</option>
+                <option value="REGULARIZACAO FUNDIARIA" className="bg-[#0B1020]">REGULARIZACAO FUNDIARIA</option>
               </select>
             </div>
           </div>
@@ -402,9 +402,9 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
                   key={r.label}
                   variant={activeRange === r.index ? "default" : "outline"}
                   size="sm"
-                  className={`h-7 text-xs rounded-full px-3 transition-all border-white/10 ${
+                  className={`h-7 rounded-full border border-white/8 px-3 text-xs transition-all ${
                     activeRange === r.index
-                      ? "bg-white text-slate-900 hover:bg-white/90 shadow-sm font-medium"
+                      ? "bg-gradient-to-r from-indigo-500 to-amber-400 font-medium text-white shadow-sm"
                       : "text-white/70 hover:bg-white/5"
                   }`}
                   onClick={() => handleRangeChange(r.index)}
@@ -424,31 +424,31 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
         )}
       </CardHeader>
       
-      <div className="overflow-x-auto relative max-h-[600px] overflow-y-auto">
+      <div className="relative max-h-[600px] overflow-x-auto overflow-y-auto">
         {isLoading && (
-          <div className="absolute inset-0 bg-[#151C2F]/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
-            <div className="flex items-center gap-2 bg-[#151C2F] border border-white/10 px-4 py-2 rounded-xl shadow-md text-xs text-white/60">
-              <Loader2 className="h-4 w-4 text-emerald-400 animate-spin" />
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#0B1020]/55 backdrop-blur-[1px]">
+            <div className="flex items-center gap-2 rounded-xl border border-white/8 bg-[#0B1020] px-4 py-2 text-xs text-white/60 shadow-md">
+              <Loader2 className="h-4 w-4 animate-spin text-emerald-300" />
               <span>Carregando dados...</span>
             </div>
           </div>
         )}
         
         <Table>
-          <TableHeader className="sticky top-0 z-20 bg-[#0F172A]">
-            <TableRow className="border-white/5 bg-[#0F172A]">
-              <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60 bg-[#0F172A] sticky top-0 z-20">Protocolo</TableHead>
-              <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60 bg-[#0F172A] sticky top-0 z-20">Tipo</TableHead>
-              <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60 bg-[#0F172A] sticky top-0 z-20">Status</TableHead>
-              <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60 bg-[#0F172A] sticky top-0 z-20">Atraso Dias</TableHead>
-              <TableHead className="font-semibold text-xs tracking-wider uppercase text-white/60 text-right bg-[#0F172A] sticky top-0 z-20">Serviço</TableHead>
+          <TableHeader className="sticky top-0 z-20 bg-[#0B1020]">
+            <TableRow className="border-white/8 bg-[#0B1020]">
+              <TableHead className="sticky top-0 z-20 bg-[#0B1020] text-xs font-semibold uppercase tracking-wider text-white/58">Protocolo</TableHead>
+              <TableHead className="sticky top-0 z-20 bg-[#0B1020] text-xs font-semibold uppercase tracking-wider text-white/58">Tipo</TableHead>
+              <TableHead className="sticky top-0 z-20 bg-[#0B1020] text-xs font-semibold uppercase tracking-wider text-white/58">Status</TableHead>
+              <TableHead className="sticky top-0 z-20 bg-[#0B1020] text-xs font-semibold uppercase tracking-wider text-white/58">Atraso Dias</TableHead>
+              <TableHead className="sticky top-0 z-20 bg-[#0B1020] text-right text-xs font-semibold uppercase tracking-wider text-white/58">Serviço</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {items.map((row) => (
-              <TableRow key={row.id} className="border-white/5 hover:bg-white/[0.04] text-white/80 transition-colors">
-                <TableCell className="font-semibold text-white">{row.protocolo}</TableCell>
-                <TableCell className="text-white/60 font-medium">{row.tipo}</TableCell>
+              <TableRow key={row.id} className="border-white/5 text-white/80 transition-colors hover:bg-white/[0.035]">
+                <TableCell className="font-semibold text-amber-200">{row.protocolo}</TableCell>
+                <TableCell className="font-medium text-white/64">{row.tipo}</TableCell>
                 <TableCell>{getStatusBadge(row.status)}</TableCell>
                 <TableCell>{getAtrasoBadge(row.atraso)}</TableCell>
                 <TableCell className="text-right">{getServicoBadge(row.servico)}</TableCell>
@@ -473,7 +473,7 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
       </div>
 
       {/* Rodapé com Barra de Paginação Completa */}
-      <div className="px-6 py-3.5 border-t border-white/5 bg-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="flex flex-col items-center justify-between gap-4 border-t border-white/8 bg-white/[0.03] px-6 py-3.5 sm:flex-row">
         {/* Informação de intervalo */}
         <div className="text-xs text-white/60 text-center sm:text-left">
           Exibindo <strong className="text-white">{startItem.toLocaleString("pt-BR")}</strong> a{" "}
@@ -489,14 +489,14 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
           {/* Seletor de Tamanho de Página */}
           <div className="flex items-center gap-1.5 text-xs text-white/60">
             <span>Exibir:</span>
-            <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-white/10">
+            <div className="flex items-center gap-1 rounded-lg border border-white/8 bg-white/[0.04] p-0.5">
               {PAGE_SIZE_OPTIONS.map((size) => (
                 <button
                   key={size}
                   onClick={() => handlePageSizeChange(size)}
                   className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
                     pageSize === size
-                      ? "bg-white text-slate-900 shadow-xs"
+                      ? "bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-xs"
                       : "text-white/60 hover:text-white"
                   }`}
                 >
@@ -511,7 +511,7 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8 rounded-lg border-white/10 bg-white/5 text-white hover:bg-white/10"
+              className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
               disabled={page <= 1 || isLoading}
               onClick={() => setPage(1)}
               title="Primeira Página"
@@ -521,7 +521,7 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8 rounded-lg border-white/10 bg-white/5 text-white hover:bg-white/10"
+              className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
               disabled={page <= 1 || isLoading}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               title="Página Anterior"
@@ -536,7 +536,7 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8 rounded-lg border-white/10 bg-white/5 text-white hover:bg-white/10"
+              className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
               disabled={page >= pagination.totalPages || isLoading}
               onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
               title="Próxima Página"
@@ -546,7 +546,7 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8 rounded-lg border-white/10 bg-white/5 text-white hover:bg-white/10"
+              className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
               disabled={page >= pagination.totalPages || isLoading}
               onClick={() => setPage(pagination.totalPages)}
               title="Última Página"

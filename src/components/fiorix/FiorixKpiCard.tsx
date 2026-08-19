@@ -24,23 +24,23 @@ interface FiorixKpiCardProps {
 const variantStyles: Record<KpiVariant, { text: string; icon: string; border: string }> = {
   default: {
     text: "text-white",
-    icon: "text-white/70",
-    border: "border-l-4 border-l-blue-500",
+    icon: "text-cyan-300",
+    border: "border-l-4 border-l-cyan-400",
   },
   success: {
-    text: "text-emerald-400",
-    icon: "text-emerald-400",
-    border: "border-l-4 border-l-emerald-500",
+    text: "text-emerald-300",
+    icon: "text-emerald-300",
+    border: "border-l-4 border-l-emerald-400",
   },
   danger: {
-    text: "text-red-400",
-    icon: "text-red-400",
-    border: "border-l-4 border-l-red-500",
+    text: "text-red-300",
+    icon: "text-red-300",
+    border: "border-l-4 border-l-red-400",
   },
   warning: {
-    text: "text-amber-400",
-    icon: "text-amber-400",
-    border: "border-l-4 border-l-amber-500",
+    text: "text-amber-300",
+    icon: "text-amber-300",
+    border: "border-l-4 border-l-amber-400",
   },
 };
 
@@ -48,13 +48,13 @@ export function FiorixKpiCard({ title, value, subtitle, variant, icon: Icon, tre
   const styles = variantStyles[variant];
 
   return (
-    <Card className={`relative p-5 rounded-2xl shadow-lg bg-white/[0.05] backdrop-blur-xl border border-white/10 ${styles.border} hover:bg-white/[0.08] transition-all group flex flex-col justify-between min-h-[145px] text-white`}>
+    <Card className={`relative flex min-h-[145px] flex-col justify-between rounded-2xl border border-white/8 bg-[#0B1020]/78 p-5 text-white shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:border-white/12 hover:bg-[#0B1020]/84 ${styles.border}`}>
       
       <div className="flex justify-between items-start w-full">
-        <h3 className="text-xs uppercase tracking-widest font-bold text-white/60 w-[80%]">
+        <h3 className="w-[80%] text-xs font-bold uppercase tracking-widest text-white/52">
           {title}
         </h3>
-        <div className="p-2 rounded-lg bg-white/5">
+        <div className="rounded-lg border border-white/8 bg-white/[0.04] p-2">
           <Icon className={`w-4 h-4 ${styles.icon}`} />
         </div>
       </div>
@@ -66,7 +66,7 @@ export function FiorixKpiCard({ title, value, subtitle, variant, icon: Icon, tre
           </span>
           {trend && (
             <div className="flex items-center gap-1 mt-1 text-[11px] font-semibold">
-              <span className={trend.isGood ? "text-emerald-400" : "text-red-400"}>
+              <span className={trend.isGood ? "text-emerald-300" : "text-red-300"}>
                 {trend.isUp ? "↑" : "↓"} {trend.value}
               </span>
               <span className="text-white/40">vs mês anterior</span>
@@ -76,11 +76,11 @@ export function FiorixKpiCard({ title, value, subtitle, variant, icon: Icon, tre
         
         <Tooltip>
           <TooltipTrigger asChild>
-            <button className="text-white/40 hover:text-white/70 transition-colors p-1">
+            <button className="p-1 text-white/40 transition-colors hover:text-white/80">
               <Info className="w-4 h-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent className="max-w-[200px] text-xs leading-relaxed text-center bg-[#151C2F] text-white border-white/10">
+          <TooltipContent className="max-w-[200px] border-white/8 bg-[#0B1020] text-center text-xs leading-relaxed text-white">
             {subtitle}
           </TooltipContent>
         </Tooltip>

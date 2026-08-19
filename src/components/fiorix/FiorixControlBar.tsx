@@ -34,16 +34,16 @@ export function FiorixControlBar({
 
   return (
     <div className="space-y-3">
-      <Card className="flex flex-col sm:flex-row items-center justify-between p-4 rounded-xl shadow-sm border-gray-100 dark:border-border gap-4">
+      <Card className="flex flex-col gap-4 rounded-2xl border border-white/8 bg-[#0B1020]/72 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
         {/* Left Status */}
         <div className="flex items-center gap-3 w-full sm:w-auto text-sm">
-          <span className="font-semibold text-foreground">Gráficos exibidos</span>
-          <span className="text-muted-foreground hidden md:inline">
-            <strong className="text-foreground">{activeCount}</strong> de 3 gráficos ativos.
+          <span className="font-semibold text-white">Gráficos exibidos</span>
+          <span className="hidden text-white/52 md:inline">
+            <strong className="text-white">{activeCount}</strong> de 3 gráficos ativos.
           </span>
           <button
             onClick={() => setIsManagerOpen(!isManagerOpen)}
-            className="text-blue-600 hover:text-blue-700 font-medium ml-2 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 text-sm underline-offset-4 hover:underline"
+            className="ml-2 flex items-center gap-1 text-sm font-medium text-amber-300 underline-offset-4 hover:underline"
           >
             {isManagerOpen ? (
               <>Fechar painel <ChevronUp size={14} /></>
@@ -59,19 +59,19 @@ export function FiorixControlBar({
             variant="outline"
             size="sm"
             onClick={onResetCharts}
-            className="w-full sm:w-auto shadow-sm text-xs font-medium"
+            className="w-full border-white/8 bg-white/[0.04] text-xs font-medium text-white shadow-sm hover:bg-white/[0.08] sm:w-auto"
             title="Restaurar visualização dos 3 gráficos padrão"
           >
-            <RotateCcw className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5 text-white/60" />
             Restaurar padrão
           </Button>
           <Button
             size="sm"
             onClick={() => setIsManagerOpen(!isManagerOpen)}
-            className={`w-full sm:w-auto text-xs font-semibold shadow-sm transition-all ${
-              isManagerOpen 
-                ? "bg-slate-900 text-white hover:bg-slate-800" 
-                : "bg-blue-600 hover:bg-blue-700 text-white"
+            className={`w-full text-xs font-semibold shadow-sm transition-all sm:w-auto ${
+              isManagerOpen
+                ? "border border-white/8 bg-white/[0.06] text-white hover:bg-white/[0.1]"
+                : "border border-amber-400/20 bg-gradient-to-r from-indigo-500 to-amber-400 text-white hover:brightness-105"
             }`}
           >
             <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />
@@ -82,16 +82,16 @@ export function FiorixControlBar({
 
       {/* Expandable Chart Manager Panel */}
       {isManagerOpen && (
-        <Card className="p-4 rounded-xl shadow-sm border-blue-100 bg-blue-50/30 dark:bg-accent/40 animate-in fade-in duration-200">
+        <Card className="animate-in fade-in rounded-2xl border border-white/8 bg-white/[0.03] p-4 shadow-[0_16px_45px_rgba(0,0,0,0.12)] duration-200">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-white/70">
               Selecione os gráficos visíveis no Dashboard:
             </h4>
             <Button
               variant="ghost"
               size="sm"
               onClick={onResetCharts}
-              className="text-xs text-blue-600 hover:text-blue-800 h-6 px-2"
+              className="h-6 px-2 text-xs text-amber-300 hover:bg-white/[0.05] hover:text-white"
             >
               Marcar todos
             </Button>
@@ -105,24 +105,24 @@ export function FiorixControlBar({
                   onClick={() => onToggleChart(item.key)}
                   className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all select-none ${
                     isChecked
-                      ? "bg-white dark:bg-card border-blue-500 shadow-sm ring-1 ring-blue-500/20"
-                      : "bg-gray-50/80 dark:bg-card/50 border-gray-200 dark:border-border text-muted-foreground opacity-75 hover:opacity-100"
+                      ? "border-amber-400/20 bg-white/[0.05] shadow-sm ring-1 ring-amber-400/15"
+                      : "border-white/8 bg-white/[0.03] text-white/58 opacity-80 hover:opacity-100"
                   }`}
                 >
                   <div
                     className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
                       isChecked
-                        ? "bg-blue-600 border-blue-600 text-white"
-                        : "border-gray-300 dark:border-gray-600 bg-white dark:bg-transparent"
+                        ? "border-amber-400 bg-amber-400 text-slate-950"
+                        : "border-white/15 bg-transparent"
                     }`}
                   >
                     {isChecked && <Check className="h-3 w-3" />}
                   </div>
                   <div>
-                    <span className="text-xs font-bold block text-slate-900 dark:text-slate-100">
+                    <span className="block text-xs font-bold text-white">
                       {item.name}
                     </span>
-                    <span className="text-[11px] text-muted-foreground block mt-0.5 leading-tight">
+                    <span className="mt-0.5 block text-[11px] leading-tight text-white/48">
                       {item.desc}
                     </span>
                   </div>
