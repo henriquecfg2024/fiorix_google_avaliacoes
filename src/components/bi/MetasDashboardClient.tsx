@@ -270,6 +270,9 @@ export function MetasDashboardClient() {
 
   // Lógica principal de recalcular Status e Atraso zerando horas (Regra estrita)
   const getMetasStatusAndAtraso = useCallback((record: MetasData) => {
+    const rawStatus = String(getVal(record, "status", "STATUS") || "").trim();
+    const rawStatusLower = rawStatus.toLowerCase();
+
     const d10 = getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT", "dtEntregaReal", "DT_ENTREGA_REAL");
     const dtPrev = getVal(record, "dtPrevisao", "DT_PREVISAO");
     const dataApres = getVal(record, "dataApresentado", "DATA_APRESENTADO");
@@ -278,6 +281,16 @@ export function MetasDashboardClient() {
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
     const hojeKey = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+
+    // Se o status da planilha/banco for expressamente "Entregue com Atraso"
+    if (rawStatusLower.includes("entregue") && rawStatusLower.includes("atraso")) {
+      const atrasoVal = Number(getVal(record, "atrasoDias", "ATRASO_DIAS") || 0);
+      return {
+        status: "Entregue com Atraso",
+        atrasoDias: atrasoVal > 0 ? atrasoVal : 1,
+        badge: { text: "Entregue com Atraso", bgClass: "bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md" }
+      };
+    }
 
     // 1. Protocolos apresentados hoje nunca podem ser Atrasados -> Sempre Em dia 0d
     if ([dataApres, d1Protocolo].some((value) => getDateKey(value) === hojeKey)) {
