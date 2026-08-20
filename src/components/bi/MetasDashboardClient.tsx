@@ -309,17 +309,23 @@ export function MetasDashboardClient() {
     const dtPrev = getVal(record, "dtPrevisao", "DT_PREVISAO", "dt_previsao");
     const dataApres = getVal(record, "dataApresentado", "DATA_APRESENTADO", "data_apresentado");
     const d1Protocolo = getVal(record, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT", "d1_protocolo");
+    const atrasoDiasRaw = Number(getVal(record, "atrasoDias", "ATRASO_DIAS", "atraso_dias") || 0);
 
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
     const hojeKey = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
 
-    // Se o status da planilha/banco for expressamente "Entregue com Atraso"
-    if (rawStatusLower.includes("entregue") && rawStatusLower.includes("atraso")) {
-      const atrasoVal = Number(getVal(record, "atrasoDias", "ATRASO_DIAS") || 0);
+    // Se o status da planilha/banco for expressamente "Entregue com Atraso" ou concluído com atraso
+    if (
+      (rawStatusLower.includes("entregue") && rawStatusLower.includes("atraso")) ||
+      (rawStatusLower.includes("concluid") && rawStatusLower.includes("atraso")) ||
+      (rawStatusLower.includes("finaliz") && rawStatusLower.includes("atraso")) ||
+      (rawStatusLower.includes("devolv") && rawStatusLower.includes("atraso")) ||
+      (atrasoDiasRaw > 0 && (rawStatusLower.includes("entregue") || rawStatusLower.includes("devolv") || rawStatusLower.includes("concluid") || rawStatusLower.includes("finaliz")))
+    ) {
       return {
         status: "Entregue com Atraso",
-        atrasoDias: atrasoVal > 0 ? atrasoVal : 1,
+        atrasoDias: atrasoDiasRaw > 0 ? atrasoDiasRaw : 1,
         badge: { text: "Entregue com Atraso", bgClass: "bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md" }
       };
     }
