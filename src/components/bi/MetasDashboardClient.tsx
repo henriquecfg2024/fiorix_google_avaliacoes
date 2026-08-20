@@ -1039,10 +1039,10 @@ export function MetasDashboardClient() {
       </motion.section>
 
       {/* Tabela Container */}
-      <div ref={tableRef} className="flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-[#0B1020]/72 shadow-[0_18px_50px_rgba(0,0,0,0.16)] scroll-mt-24">
+      <div ref={tableRef} className="flex flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#0B1020]/72 shadow-[0_20px_60px_rgba(0,0,0,0.20)] scroll-mt-24">
         
         {/* Topo da Tabela: Informações e Itens por página */}
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/8 bg-white/[0.03] p-4 text-xs text-white/70">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-white/[0.025] p-4 text-xs text-white/70">
           <div>
             Mostrando <span className="font-semibold text-white">{totalFiltered > 0 ? startIndex + 1 : 0}</span>-
             <span className="font-semibold text-white">{endIndex}</span> de{" "}
@@ -1056,7 +1056,7 @@ export function MetasDashboardClient() {
             <select
               value={itemsPerPage}
               onChange={(e) => setItemsPerPage(Number(e.target.value))}
-              className="rounded-lg border border-white/8 bg-[#0C1323] px-2.5 py-1 text-xs text-white focus:outline-none focus:border-amber-400"
+              className="rounded-lg border border-white/10 bg-[#0C1323] px-2.5 py-1 text-xs text-white focus:outline-none focus:border-amber-400"
             >
               <option value={50}>50</option>
               <option value={100}>100</option>
@@ -1075,7 +1075,7 @@ export function MetasDashboardClient() {
             <input
               type="text"
               placeholder="Buscar por Protocolo..."
-              className="w-full rounded-lg border border-white/8 bg-[#0C1323] pl-10 pr-4 py-2 text-sm text-white transition-all placeholder:text-white/30 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
+              className="w-full rounded-lg border border-white/10 bg-[#0C1323] pl-10 pr-4 py-2 text-sm text-white transition-all placeholder:text-white/30 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -1094,7 +1094,7 @@ export function MetasDashboardClient() {
             )}
 
             {/* Filtro Status */}
-            <div className="flex items-center gap-2 rounded-lg border border-white/8 bg-[#0C1323] px-3 py-1.5">
+            <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#0C1323] px-3 py-1.5">
               <Filter className="h-3.5 w-3.5 text-white/40" />
               <select 
                 className="bg-transparent text-sm text-white focus:outline-none appearance-none pr-4"
@@ -1107,7 +1107,7 @@ export function MetasDashboardClient() {
             </div>
 
             {/* Filtro Gargalo */}
-            <div className="flex items-center gap-2 rounded-lg border border-white/8 bg-[#0C1323] px-3 py-1.5">
+            <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#0C1323] px-3 py-1.5">
               <Filter className="h-3.5 w-3.5 text-white/40" />
               <select 
                 className="bg-transparent text-sm text-white focus:outline-none appearance-none pr-4 max-w-[150px] truncate"
@@ -1120,7 +1120,7 @@ export function MetasDashboardClient() {
             </div>
 
             {/* Ordenação */}
-            <div className="flex items-center gap-2 rounded-lg border border-white/8 bg-[#0C1323] px-3 py-1.5">
+            <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#0C1323] px-3 py-1.5">
               <ArrowUpDown className="h-3.5 w-3.5 text-amber-300" />
               <select 
                 className="bg-transparent text-sm text-white focus:outline-none appearance-none pr-4 max-w-[170px] truncate"
@@ -1171,7 +1171,7 @@ export function MetasDashboardClient() {
               <tr>
                 <th 
                   onClick={() => handleSort("protocolo")}
-                  className="group cursor-pointer px-4 py-3 font-semibold transition-colors hover:bg-white/8 hover:text-white"
+                  className="group cursor-pointer px-4 py-3 font-semibold transition-colors hover:bg-white/[0.05] hover:text-white"
                 >
                   <div className="flex items-center gap-1">
                     Protocolo {renderSortIcon("protocolo")}
@@ -1179,7 +1179,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("natureza")}
-                  className="group cursor-pointer px-4 py-3 font-semibold transition-colors hover:bg-white/8 hover:text-white"
+                  className="group cursor-pointer px-4 py-3 font-semibold transition-colors hover:bg-white/[0.05] hover:text-white"
                 >
                   <div className="flex items-center gap-1">
                     Natureza {renderSortIcon("natureza")}
@@ -1187,7 +1187,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("status")}
-                  className="group cursor-pointer px-4 py-3 font-semibold transition-colors hover:bg-white/8 hover:text-white"
+                  className="group cursor-pointer px-4 py-3 font-semibold transition-colors hover:bg-white/[0.05] hover:text-white"
                 >
                   <div className="flex items-center gap-1">
                     Status {renderSortIcon("status")}
@@ -1195,7 +1195,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("atraso")}
-                  className="group cursor-pointer px-4 py-3 font-semibold transition-colors hover:bg-white/8 hover:text-white"
+                  className="group cursor-pointer px-4 py-3 font-semibold transition-colors hover:bg-white/[0.05] hover:text-white"
                 >
                   <div className="flex items-center gap-1">
                     Atraso {renderSortIcon("atraso")}
@@ -1203,7 +1203,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("d1Protocolo")}
-                  className="group cursor-pointer bg-white/[0.01] px-4 py-3 text-center font-semibold transition-colors hover:bg-white/8 hover:text-white"
+                  className="group cursor-pointer bg-white/[0.01] px-4 py-3 text-center font-semibold transition-colors hover:bg-white/[0.05] hover:text-white"
                 >
                   <div className="flex items-center justify-center gap-1">
                     D1 Prot {renderSortIcon("d1Protocolo")}
@@ -1211,7 +1211,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("d3Extrato")}
-                  className="group cursor-pointer bg-white/[0.01] px-4 py-3 text-center font-semibold transition-colors hover:bg-white/8 hover:text-white"
+                  className="group cursor-pointer bg-white/[0.01] px-4 py-3 text-center font-semibold transition-colors hover:bg-white/[0.05] hover:text-white"
                 >
                   <div className="flex items-center justify-center gap-1">
                     D3 Extr {renderSortIcon("d3Extrato")}
@@ -1219,7 +1219,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("d4Qualificacao")}
-                  className="group cursor-pointer bg-white/[0.01] px-4 py-3 text-center font-semibold transition-colors hover:bg-white/8 hover:text-white"
+                  className="group cursor-pointer bg-white/[0.01] px-4 py-3 text-center font-semibold transition-colors hover:bg-white/[0.05] hover:text-white"
                 >
                   <div className="flex items-center justify-center gap-1">
                     D4 Quali {renderSortIcon("d4Qualificacao")}
@@ -1227,7 +1227,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("d5Calculo")}
-                  className="group cursor-pointer bg-white/[0.01] px-4 py-3 text-center font-semibold transition-colors hover:bg-white/8 hover:text-white"
+                  className="group cursor-pointer bg-white/[0.01] px-4 py-3 text-center font-semibold transition-colors hover:bg-white/[0.05] hover:text-white"
                 >
                   <div className="flex items-center justify-center gap-1">
                     D5 Calc {renderSortIcon("d5Calculo")}
@@ -1235,7 +1235,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("d8Impressao")}
-                  className="group cursor-pointer bg-white/[0.01] px-4 py-3 text-center font-semibold transition-colors hover:bg-white/8 hover:text-white"
+                  className="group cursor-pointer bg-white/[0.01] px-4 py-3 text-center font-semibold transition-colors hover:bg-white/[0.05] hover:text-white"
                 >
                   <div className="flex items-center justify-center gap-1">
                     D8 Imp {renderSortIcon("d8Impressao")}
@@ -1257,7 +1257,7 @@ export function MetasDashboardClient() {
                 </th>
                 <th 
                   onClick={() => handleSort("gargalo")}
-                  className="group cursor-pointer px-4 py-3 font-semibold transition-colors hover:bg-white/8 hover:text-white"
+                  className="group cursor-pointer px-4 py-3 font-semibold transition-colors hover:bg-white/[0.05] hover:text-white"
                 >
                   <div className="flex items-center gap-1">
                     Gargalo {renderSortIcon("gargalo")}
@@ -1471,7 +1471,7 @@ export function MetasDashboardClient() {
             <div className="relative z-10 flex h-full w-full max-w-lg flex-col overflow-hidden border-l border-white/8 bg-[#0B1020]/96 shadow-2xl shadow-black/30 animate-in slide-in-from-right duration-300">
               
               {/* Header do Drawer */}
-              <div className="flex items-center justify-between border-b border-white/8 bg-white/[0.03] p-6">
+              <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.025] p-6">
                 <div>
                   <h2 className="flex items-center gap-2 text-xl font-bold text-white">
                     Protocolo <span className="text-amber-300">{protNum}</span>
