@@ -816,8 +816,8 @@ export function MetasDashboardClient() {
       
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)]">
-          <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-white/58">
+        <div className="relative overflow-hidden rounded-[24px] border border-white/8 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+          <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-white/60">
             <Target className="w-4 h-4 text-cyan-300" /> TOTAL
           </p>
           <h3 className="text-3xl font-bold text-white">
@@ -862,7 +862,7 @@ export function MetasDashboardClient() {
           type="button"
           onClick={() => handleBalcaoFilter("SEM_REG")}
           aria-pressed={balcaoFilter === "SEM_REG"}
-          className={`min-h-[104px] w-full rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 ${
+          className={`min-h-[104px] w-full rounded-[24px] border p-4 text-left transition-all shadow-[0_12px_35px_rgba(0,0,0,0.15)] backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 ${
             balcaoFilter === "SEM_REG"
               ? "border-amber-400/70 bg-amber-500/[0.13]"
               : "border-amber-500/20 bg-amber-500/[0.08] hover:bg-amber-500/[0.12]"
@@ -920,7 +920,7 @@ export function MetasDashboardClient() {
       </div>
 
       <motion.section
-        className="overflow-hidden rounded-2xl border border-white/8 bg-[#0B1020]/72 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl sm:p-6"
+        className="overflow-hidden rounded-[28px] border border-white/8 bg-[#0B1020]/72 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl sm:p-6"
         initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: prefersReducedMotion ? 0 : 0.35 }}
@@ -940,7 +940,7 @@ export function MetasDashboardClient() {
 
           <div className="flex flex-wrap items-center justify-end gap-2">
             {chartBottleneck && (
-              <div className="inline-flex items-center gap-2 rounded-lg border border-amber-400/20 bg-amber-400/[0.08] px-3 py-2 text-[10px] font-semibold uppercase text-amber-200 shadow-lg shadow-amber-500/5">
+              <div className="inline-flex items-center gap-2 rounded-lg border border-amber-400/20 bg-amber-400/[0.08] px-3 py-2 text-[10px] font-semibold uppercase text-amber-200 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
                 <span className={`h-1.5 w-1.5 rounded-full bg-amber-400 ${prefersReducedMotion ? "" : "animate-pulse"}`} />
                 <span>Principal gargalo</span>
                 <span className="text-white/35">•</span>
