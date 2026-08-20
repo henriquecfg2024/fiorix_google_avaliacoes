@@ -120,7 +120,7 @@ export function HeatmapChart({ data }: HeatmapChartProps) {
 
                       <div className="pointer-events-none absolute bottom-full left-1/2 z-25 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-white/10 bg-[#0B1020]/95 px-3 py-1.5 text-center text-[11px] shadow-[0_20px_60px_rgba(0,0,0,0.28)] group-hover:block">
                         <p className="font-semibold text-white">
-                          {daysOfWeekPt[dIdx]}, {hour}h
+                          {DAYS_OF_WEEK_PT[dIdx]}, {hour}h
                         </p>
                         <p className="mt-0.5 font-bold text-cyan-300">{value.toLocaleString("pt-BR")} autenticações</p>
                         {isMonday7h && (

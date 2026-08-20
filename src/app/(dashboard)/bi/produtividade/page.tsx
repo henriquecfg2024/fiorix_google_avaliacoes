@@ -31,8 +31,17 @@ const isDigital = (nome: string) =>
 
 type FiltroCaixa = "todos" | "digital" | "presencial";
 
+type ProdutividadeRow = {
+  [key: string]: unknown;
+  DATA?: string;
+  TIPO?: string;
+  TIPO_PEDIDO?: string;
+  NOME?: string;
+  QUANTIDADE?: number;
+};
+
 export default function ProdutividadePage() {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<ProdutividadeRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [startDate, setStartDate] = useState("2026-08-01");
@@ -86,12 +95,12 @@ export default function ProdutividadePage() {
 
         const result = await dataRes.json();
         if (result.success && Array.isArray(result.data)) {
-          setData(result.data);
+          setData(result.data.filter(Boolean) as ProdutividadeRow[]);
         } else {
           setData([]);
         }
-      } catch (error: any) {
-        console.warn("Erro ao buscar dados de produtividade:", error.message);
+      } catch (error: unknown) {
+        console.warn("Erro ao buscar dados de produtividade:", error instanceof Error ? error.message : error);
       } finally {
         setLoading(false);
       }
@@ -102,6 +111,7 @@ export default function ProdutividadePage() {
 
   const baseFilteredData = useMemo(() => {
     return data.filter((row) => {
+      if (!row || !row.DATA) return false;
       if (row.DATA < startDate || row.DATA > endDate) return false;
       if (tipo !== "ALL" && row.TIPO !== tipo) return false;
       if (tipoPedido !== "ALL" && row.TIPO_PEDIDO !== tipoPedido) return false;
@@ -131,6 +141,7 @@ export default function ProdutividadePage() {
     const nomes = new Set<string>();
 
     baseFilteredData.forEach((row) => {
+      if (!row) return;
       if (row.TIPO_PEDIDO) tiposPedidos.add(row.TIPO_PEDIDO);
       if (row.NOME) nomes.add(row.NOME);
     });
@@ -460,12 +471,12 @@ export default function ProdutividadePage() {
           {(chartsVisible.heatmap || chartsVisible.donut) && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {chartsVisible.heatmap && (
-                <div className={chartsVisible.donut ? "lg:col-span-8" : "lg:col-span-12"}>
+                <div className={`${chartsVisible.donut ? "lg:col-span-8" : "lg:col-span-12"} min-w-0`}>
                   <HeatmapChart data={filteredData} />
                 </div>
               )}
               {chartsVisible.donut && (
-                <div className={chartsVisible.heatmap ? "lg:col-span-4" : "lg:col-span-12"}>
+                <div className={`${chartsVisible.heatmap ? "lg:col-span-4" : "lg:col-span-12"} min-w-0`}>
                   <DonutChart data={filteredData} />
                 </div>
               )}
