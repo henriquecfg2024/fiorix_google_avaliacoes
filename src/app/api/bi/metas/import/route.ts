@@ -223,6 +223,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, count: insertedCount });
   } catch (error: any) {
     console.error("Metas import error:", error);
-    return NextResponse.json({ error: "Erro durante importação de metas" }, { status: 500 });
+    return NextResponse.json(
+      { error: `Erro durante importação de metas: ${error?.message || String(error)}` },
+      { status: 500 }
+    );
   }
 }

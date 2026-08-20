@@ -48,6 +48,12 @@ export async function ensureProdutividadeImportsTable() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `;
+  await prisma.$executeRaw`
+    ALTER TABLE public.fiorix_produtividade_imports
+      ADD COLUMN IF NOT EXISTS period_start DATE,
+      ADD COLUMN IF NOT EXISTS period_end DATE,
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+  `;
 }
 
 export async function ensureProdutividadeDataTable() {
@@ -225,6 +231,18 @@ export async function ensureMetasImportsTable() {
     );
   `;
   await prisma.$executeRaw`
+    ALTER TABLE public.fiorix_metas_imports
+      ADD COLUMN IF NOT EXISTS import_key VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(100) NOT NULL DEFAULT '',
+      ADD COLUMN IF NOT EXISTS arquivo VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS periodo VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS data_hora TIMESTAMP DEFAULT NOW(),
+      ADD COLUMN IF NOT EXISTS linhas INT,
+      ADD COLUMN IF NOT EXISTS inseridas INT,
+      ADD COLUMN IF NOT EXISTS importado_por VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS status VARCHAR(20);
+  `;
+  await prisma.$executeRaw`
     CREATE UNIQUE INDEX IF NOT EXISTS fiorix_metas_imports_tenant_import_key
     ON public.fiorix_metas_imports (tenant_id, import_key);
   `;
@@ -263,6 +281,7 @@ export async function ensureMetasImportsTable() {
   `;
   await prisma.$executeRaw`
     ALTER TABLE public.fiorix_metas_dados
+      ADD COLUMN IF NOT EXISTS import_id INT,
       ADD COLUMN IF NOT EXISTS D_BALCAO_REGISTRADO TIMESTAMP,
       ADD COLUMN IF NOT EXISTS D_BALCAO_DEVOLVIDO TIMESTAMP;
   `;

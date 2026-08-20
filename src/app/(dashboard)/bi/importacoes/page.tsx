@@ -26,10 +26,22 @@ export default async function BiImportacoesPage() {
   const tenantId = user.tenantId;
 
   const [biImports, produtividadeLogs, produtividadeInferred, metasImports] = await Promise.all([
-    listBiImports(tenantId),
-    listProdutividadeImportLogs(tenantId),
-    listProdutividadeInferredPeriods(tenantId),
-    listMetasImportLogs(tenantId),
+    listBiImports(tenantId).catch((err) => {
+      console.error("listBiImports error:", err);
+      return [];
+    }),
+    listProdutividadeImportLogs(tenantId).catch((err) => {
+      console.error("listProdutividadeImportLogs error:", err);
+      return [];
+    }),
+    listProdutividadeInferredPeriods(tenantId).catch((err) => {
+      console.error("listProdutividadeInferredPeriods error:", err);
+      return [];
+    }),
+    listMetasImportLogs(tenantId).catch((err) => {
+      console.error("listMetasImportLogs error:", err);
+      return [];
+    }),
   ]);
 
   const loggedPeriods = new Set(
