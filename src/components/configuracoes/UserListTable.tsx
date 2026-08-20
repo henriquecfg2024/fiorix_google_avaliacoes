@@ -123,32 +123,32 @@ export function UserListTable({
 
   return (
     <>
-      <div style={{ overflowX: 'auto' }}>
-        <table className="user-management-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'left' }}>
+      <div className="overflow-x-auto rounded-2xl border border-white/12">
+        <table className="w-full min-w-[640px] border-collapse text-left text-xs">
           <thead>
-            <tr style={{ fontSize: '12px', textTransform: 'uppercase' }}>
-              <th style={{ padding: '12px 16px' }}>Nome</th>
-              <th style={{ padding: '12px 16px' }}>E-mail</th>
-              <th style={{ padding: '12px 16px' }}>Função</th>
-              <th style={{ padding: '12px 16px' }}>Data de Cadastro</th>
-              <th style={{ padding: '12px 16px', textAlign: 'right' }}>Ações</th>
+            <tr className="border-b border-white/12 bg-[#0B1020] text-[11px] font-bold uppercase tracking-[0.16em] text-white/58">
+              <th className="p-3 pl-5 sm:p-4">Nome</th>
+              <th className="p-3 sm:p-4">E-mail</th>
+              <th className="p-3 sm:p-4">Função</th>
+              <th className="p-3 sm:p-4">Data de Cadastro</th>
+              <th className="p-3 pr-5 text-right sm:p-4">Ações</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-white/8 font-medium text-white/80">
             {usuarios.map((u) => {
               const isMasterTarget = u.role === 'MASTER';
               const canModifyMaster = currentUserRole === 'MASTER';
               const isProtected = isMasterTarget && !canModifyMaster;
 
               return (
-                <tr key={u.id}>
-                  <td className="user-name-cell" style={{ padding: '14px 16px', fontWeight: '600' }}>
+                <tr key={u.id} className="hover:bg-white/[0.03] transition-colors">
+                  <td className="p-3 pl-5 font-bold text-white sm:p-4">
                     {u.name || 'Sem nome'}
                   </td>
-                  <td className="user-email-cell" style={{ padding: '14px 16px' }}>{u.email}</td>
-                  <td style={{ padding: '14px 16px' }}>
+                  <td className="p-3 sm:p-4 text-white/70">{u.email}</td>
+                  <td className="p-3 sm:p-4">
                     {isMasterTarget ? (
-                      <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}>
+                      <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-amber-300">
                         MASTER
                       </span>
                     ) : (
@@ -156,68 +156,32 @@ export function UserListTable({
                         value={u.role}
                         disabled={updatingRoleId === u.id}
                         onChange={(e) => handleRoleChange(u.id, e.target.value as 'ADMIN' | 'USER')}
-                        style={{
-                          padding: '6px 10px',
-                          borderRadius: '8px',
-                          fontSize: '13px',
-                          fontWeight: '600',
-                          background: u.role === 'ADMIN' ? '#dbeafe' : '#f1f5f9',
-                          color: u.role === 'ADMIN' ? '#1e40af' : '#334155',
-                          border: u.role === 'ADMIN' ? '1px solid #bfdbfe' : '1px solid #cbd5e1',
-                          cursor: 'pointer',
-                          outline: 'none'
-                        }}
+                        className="rounded-lg border border-white/12 bg-[#0A0F1E] px-2.5 py-1 text-xs font-semibold text-white focus:outline-hidden focus:border-amber-400/50"
                       >
                         <option value="USER">USER (Usuário)</option>
                         <option value="ADMIN">ADMIN (Administrador)</option>
                       </select>
                     )}
                   </td>
-                  <td className="user-date-cell" style={{ padding: '14px 16px' }}>
+                  <td className="p-3 sm:p-4 text-white/60">
                     {new Date(u.createdAt).toLocaleDateString('pt-BR')}
                   </td>
-                  <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                  <td className="p-3 pr-5 text-right sm:p-4">
                     {isProtected ? (
-                      <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic', background: '#f8fafc', padding: '6px 10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                      <span className="rounded-lg border border-white/12 bg-white/[0.04] px-2.5 py-1 text-xs italic text-white/50">
                         🔒 Protegido (MASTER)
                       </span>
                     ) : (
-                      <div style={{ display: 'inline-flex', gap: '8px', justifyContent: 'flex-end' }}>
+                      <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleOpenNameModal(u)}
-                          style={{
-                            background: '#f8fafc',
-                            color: '#475569',
-                            border: '1px solid #cbd5e1',
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            fontSize: '13px',
-                            fontWeight: '500',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            transition: 'all 0.2s'
-                          }}
+                          className="rounded-xl border border-white/12 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-white/[0.08]"
                         >
                           ✏️ Editar Nome
                         </button>
                         <button
                           onClick={() => handleOpenModal(u)}
-                          style={{
-                            background: '#eff6ff',
-                            color: '#2563eb',
-                            border: '1px solid #bfdbfe',
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            fontSize: '13px',
-                            fontWeight: '500',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            transition: 'all 0.2s'
-                          }}
+                          className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 transition-colors hover:bg-cyan-500/18"
                         >
                           🔑 Resetar Senha
                         </button>
