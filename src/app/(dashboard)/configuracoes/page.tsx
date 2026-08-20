@@ -79,7 +79,7 @@ export default async function ConfiguracoesPage({
         </div>
 
         {isUserOnly ? (
-          <section className="rounded-2xl border border-white/10 bg-[#151C2F] p-5">
+          <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
             <h2 className="text-lg font-semibold text-white">🔑 Segurança e Alteração de Senha</h2>
             <p className="mt-1 text-sm text-white/55">
               Atualize a sua senha de acesso ao painel do FIORIX a qualquer momento.
@@ -91,7 +91,7 @@ export default async function ConfiguracoesPage({
           </section>
         ) : (
           <>
-            <section className="rounded-2xl border border-white/10 bg-[#151C2F] p-5">
+            <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
               <h2 className="text-lg font-semibold text-white">Histórico de sincronizações</h2>
               <p className="mt-1 text-sm text-white/55">
                 Acompanhe as últimas consultas feitas ao Google.
@@ -100,9 +100,9 @@ export default async function ConfiguracoesPage({
               {syncLogs.length === 0 ? (
                 <div className="mt-4 text-sm text-white/55">Nenhuma sincronização registrada ainda.</div>
               ) : (
-                <div className="mt-4 overflow-x-auto rounded-xl border border-white/10">
+                <div className="mt-4 overflow-x-auto rounded-2xl border border-white/12">
                   <table className="w-full min-w-[780px] text-sm">
-                    <thead className="bg-white/[0.03] text-white/55">
+                    <thead className="bg-[#0B1020] text-xs uppercase tracking-wider text-white/58 border-b border-white/12">
                       <tr>
                         <th className="px-4 py-3 text-left font-medium">Data</th>
                         <th className="px-4 py-3 text-left font-medium">Status</th>
@@ -112,7 +112,7 @@ export default async function ConfiguracoesPage({
                         <th className="px-4 py-3 text-left font-medium">Detalhe</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-white/8 font-medium text-white/80">
                       {syncLogs.map((log) => {
                         const statusLabel =
                           {
@@ -130,7 +130,7 @@ export default async function ConfiguracoesPage({
                               : 'text-red-300';
 
                         return (
-                          <tr key={log.id} className="border-t border-white/10 text-white/80">
+                          <tr key={log.id} className="text-white/80 hover:bg-white/[0.03] transition-colors">
                             <td className="px-4 py-3 whitespace-nowrap">
                               {new Date(log.createdAt).toLocaleString('pt-BR')}
                             </td>
@@ -152,7 +152,7 @@ export default async function ConfiguracoesPage({
               )}
             </section>
 
-            <section className="rounded-2xl border border-white/10 bg-[#151C2F] p-5">
+            <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
               <h2 className="text-lg font-semibold text-white">🌐 Integração com Google Meu Negócio</h2>
               <p className="mt-1 text-sm text-white/55">
                 Conecte sua conta do Google para buscar avaliações automaticamente e permitir respostas diretas pelo painel do FIORIX.
@@ -174,7 +174,7 @@ export default async function ConfiguracoesPage({
                   className={`rounded-xl border px-3 py-2 text-sm font-semibold ${
                     isConnected
                       ? 'border-emerald-500/30 bg-emerald-500/10 text-[#10d9a0]'
-                      : 'border-white/10 bg-white/5 text-white/70'
+                      : 'border-white/12 bg-white/[0.04] text-white/70'
                   }`}
                 >
                   Status: {isConnected ? '✅ Conectado' : '❌ Não conectado'}
@@ -186,7 +186,7 @@ export default async function ConfiguracoesPage({
                     {userRole === 'MASTER' ? (
                       <GoogleAuthButton label="Reconectar Conta Google" />
                     ) : (
-                      <span className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm italic text-white/55">
+                      <span className="rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2 text-sm italic text-white/55">
                         🔒 Conexão gerenciada pelo MASTER
                       </span>
                     )}
@@ -194,14 +194,14 @@ export default async function ConfiguracoesPage({
                 ) : userRole === 'MASTER' ? (
                   <GoogleAuthButton label="Conectar Conta Google" />
                 ) : (
-                  <span className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm italic text-white/55">
+                  <span className="rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2 text-sm italic text-white/55">
                     🔒 Conexão gerenciada pelo MASTER
                   </span>
                 )}
               </div>
             </section>
 
-            <section className="rounded-2xl border border-white/10 bg-[#151C2F] p-5">
+            <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
               <h2 className="text-lg font-semibold text-white">👥 Gestão de Colaboradores</h2>
               <p className="mt-1 text-sm text-white/55">
                 Cadastre os colaboradores do cartório e seus respectivos apelidos/variações de nome para monitoramento e análise de menções em resenhas.
@@ -209,13 +209,13 @@ export default async function ConfiguracoesPage({
 
               <Link
                 href="/configuracoes/colaboradores"
-                className="mt-5 inline-flex rounded-xl border border-white/10 bg-[#111827] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/5"
+                className="mt-5 inline-flex rounded-xl border border-white/12 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
               >
                 Gerenciar Colaboradores →
               </Link>
             </section>
 
-            <section className="rounded-2xl border border-white/10 bg-[#151C2F] p-5">
+            <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
               <h2 className="text-lg font-semibold text-white">👤 Gestão de Usuários do Cartório</h2>
               <p className="mt-1 text-sm text-white/55">
                 Cadastre novos usuários (funcionários/equipe) para acessar o painel do FIORIX neste cartório.
@@ -223,14 +223,14 @@ export default async function ConfiguracoesPage({
 
               <Link
                 href="/configuracoes/usuarios"
-                className="mt-5 inline-flex rounded-xl border border-white/10 bg-[#111827] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/5"
+                className="mt-5 inline-flex rounded-xl border border-white/12 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
               >
                 Gerenciar Usuários →
               </Link>
             </section>
 
             {userRole === 'MASTER' && (
-              <section className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-5">
+              <section className="rounded-[28px] border border-emerald-500/25 bg-emerald-500/10 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
                 <h2 className="text-lg font-semibold text-[#10d9a0]">
                   🏢 Gestão de Cartórios Clientes (Exclusivo Master)
                 </h2>
@@ -247,7 +247,7 @@ export default async function ConfiguracoesPage({
               </section>
             )}
 
-            <section className="rounded-2xl border border-white/10 bg-[#151C2F] p-5">
+            <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
               <h2 className="text-lg font-semibold text-white">🔑 Segurança e Alteração de Senha</h2>
               <p className="mt-1 text-sm text-white/55">
                 Atualize a sua senha de acesso ao painel do FIORIX a qualquer momento.
