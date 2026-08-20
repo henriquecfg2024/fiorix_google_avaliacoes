@@ -113,7 +113,7 @@ export default async function RelatoriosPage() {
   const top3 = colaboradoresList[2];
   const totalElogiosSum = colaboradoresList.reduce((acc, c) => acc + c.elogios, 0);
 
-  const surfaceCard = 'rounded-2xl border border-white/10 bg-slate-900/80 shadow-[0_12px_30px_rgba(2,6,23,0.2)]';
+  const surfaceCard = 'rounded-[28px] border border-white/12 bg-[#0B1020]/72 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl';
 
   return (
     <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
@@ -149,19 +149,19 @@ export default async function RelatoriosPage() {
         <div className={`${surfaceCard} space-y-5 p-6`}>
           <div>
             <h2 className="text-lg font-extrabold tracking-tight text-white">Relatórios Avançados & Exportação de Dados</h2>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-white/45">
               Gere relatórios impressos consolidados ou exporte a base bruta de avaliações em CSV e JSON.
             </p>
           </div>
 
         <div className="grid grid-cols-1 gap-4 pt-1 md:grid-cols-2">
-          <div className="flex flex-col justify-between space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-all hover:border-white/15">
+          <div className="flex flex-col justify-between space-y-4 rounded-2xl border border-white/12 bg-[#0B1020]/80 p-5 transition-all hover:border-white/20">
             <div className="space-y-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/12 text-blue-300">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/12 text-cyan-300">
                 <BarChart3 className="h-5 w-5" />
               </div>
               <h4 className="text-sm font-bold text-white">Relatório Mensal de Reputação</h4>
-              <p className="text-xs leading-relaxed text-slate-400">
+              <p className="text-xs leading-relaxed text-white/60">
                 Resumo consolidado do volume de notas, nota média e evolução mensal do cartório em folha A4.
               </p>
             </div>
@@ -169,20 +169,20 @@ export default async function RelatoriosPage() {
               href="/relatorios/imprimir-mensal"
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 self-start rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-blue-500"
+              className="inline-flex items-center gap-1.5 self-start rounded-xl bg-gradient-to-r from-indigo-500 to-amber-400 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-colors hover:brightness-105"
             >
               <Printer className="h-4 w-4" />
               <span>Gerar PDF Mensal</span>
             </a>
           </div>
 
-          <div className="flex flex-col justify-between space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-all hover:border-white/15">
+          <div className="flex flex-col justify-between space-y-4 rounded-2xl border border-white/12 bg-[#0B1020]/80 p-5 transition-all hover:border-white/20">
             <div className="space-y-2">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-violet-500/20 bg-violet-500/12 text-violet-300">
                 <Download className="h-5 w-5" />
               </div>
               <h4 className="text-sm font-bold text-white">Exportação de Dados Brutos</h4>
-              <p className="text-xs leading-relaxed text-slate-400">
+              <p className="text-xs leading-relaxed text-white/60">
                 Exporte todas as {totalReviews} avaliações para planilha Excel (CSV) ou estrutura de dados JSON.
               </p>
             </div>
@@ -191,14 +191,14 @@ export default async function RelatoriosPage() {
               <a
                 href="/api/export?format=csv"
                 download
-                className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.05] px-3.5 py-2.5 text-xs font-bold text-slate-100 transition-colors hover:bg-white/[0.09]"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.04] px-3.5 py-2.5 text-xs font-bold text-white transition-colors hover:bg-white/[0.08]"
               >
                 <span>📄 Exportar CSV</span>
               </a>
               <a
                 href="/api/export?format=json"
                 download
-                className="inline-flex items-center gap-1.5 rounded-xl border border-blue-500/20 bg-blue-500/10 px-3.5 py-2.5 text-xs font-bold text-blue-300 transition-colors hover:bg-blue-500/16"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-3.5 py-2.5 text-xs font-bold text-cyan-300 transition-colors hover:bg-cyan-500/16"
               >
                 <span>{'{ }'} Exportar JSON</span>
               </a>
@@ -209,11 +209,11 @@ export default async function RelatoriosPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className={`${surfaceCard} flex items-center gap-3 p-4`}>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/12 text-blue-300">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/12 text-cyan-300">
             <Users className="h-5 w-5" />
           </div>
           <div>
-            <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Colaboradores</span>
+            <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-white/45">Colaboradores</span>
             <div className="text-lg font-black text-white">{colaboradoresList.length} escreventes</div>
           </div>
         </div>
@@ -223,7 +223,7 @@ export default async function RelatoriosPage() {
             <Sparkles className="h-5 w-5" />
           </div>
           <div>
-            <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Total de Elogios</span>
+            <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-white/45">Total de Elogios</span>
             <div className="text-lg font-black text-emerald-300">{totalElogiosSum} elogios</div>
           </div>
         </div>
@@ -233,7 +233,7 @@ export default async function RelatoriosPage() {
             <Award className="h-5 w-5" />
           </div>
           <div>
-            <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Top Destaque</span>
+            <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-white/45">Top Destaque</span>
             <div className="truncate text-sm font-black text-white">{top1 ? `${top1.nome} (🥇 1º)` : 'N/A'}</div>
           </div>
         </div>
@@ -241,7 +241,7 @@ export default async function RelatoriosPage() {
 
       {colaboradoresList.length >= 3 && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="relative space-y-2 overflow-hidden rounded-2xl border border-amber-500/20 bg-[linear-gradient(135deg,rgba(245,158,11,0.10),rgba(30,41,59,0.94))] p-5 shadow-[0_10px_28px_rgba(2,6,23,0.18)]">
+          <div className="relative space-y-2 overflow-hidden rounded-2xl border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
             <div className="flex items-center justify-between">
               <span className="text-2xl">🥇</span>
               <span className="rounded-full border border-amber-500/20 bg-amber-500/12 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-amber-300">1º Lugar • Ouro</span>
@@ -250,12 +250,12 @@ export default async function RelatoriosPage() {
               <h3 className="text-base font-extrabold text-white">{top1.nome}</h3>
               <p className="text-xs font-semibold text-amber-300">{top1.elogios} Elogios Diretos ({top1.notaMedia} ★)</p>
             </div>
-            <div className="text-[11px] font-medium text-slate-300">
+            <div className="text-[11px] font-medium text-white/70">
               Taxa de Aprovação: <strong className="text-amber-200">100% Positivo</strong>
             </div>
           </div>
 
-          <div className="relative space-y-2 overflow-hidden rounded-2xl border border-slate-500/20 bg-[linear-gradient(135deg,rgba(148,163,184,0.12),rgba(30,41,59,0.94))] p-5 shadow-[0_10px_28px_rgba(2,6,23,0.18)]">
+          <div className="relative space-y-2 overflow-hidden rounded-2xl border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
             <div className="flex items-center justify-between">
               <span className="text-2xl">🥈</span>
               <span className="rounded-full border border-slate-400/20 bg-slate-400/12 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-slate-200">2º Lugar • Prata</span>
@@ -264,12 +264,12 @@ export default async function RelatoriosPage() {
               <h3 className="text-base font-extrabold text-white">{top2.nome}</h3>
               <p className="text-xs font-semibold text-slate-300">{top2.elogios} Elogios Diretos ({top2.notaMedia} ★)</p>
             </div>
-            <div className="text-[11px] font-medium text-slate-300">
+            <div className="text-[11px] font-medium text-white/70">
               Taxa de Aprovação: <strong className="text-slate-100">{((top2.elogios / top2.mencoes) * 100).toFixed(1)}% Positivo</strong>
             </div>
           </div>
 
-          <div className="relative space-y-2 overflow-hidden rounded-2xl border border-orange-500/20 bg-[linear-gradient(135deg,rgba(249,115,22,0.10),rgba(30,41,59,0.94))] p-5 shadow-[0_10px_28px_rgba(2,6,23,0.18)]">
+          <div className="relative space-y-2 overflow-hidden rounded-2xl border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
             <div className="flex items-center justify-between">
               <span className="text-2xl">🥉</span>
               <span className="rounded-full border border-orange-500/20 bg-orange-500/12 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-orange-300">3º Lugar • Bronze</span>
@@ -278,7 +278,7 @@ export default async function RelatoriosPage() {
               <h3 className="text-base font-extrabold text-white">{top3.nome}</h3>
               <p className="text-xs font-semibold text-orange-300">{top3.elogios} Elogios Diretos ({top3.notaMedia} ★)</p>
             </div>
-            <div className="text-[11px] font-medium text-slate-300">
+            <div className="text-[11px] font-medium text-white/70">
               Taxa de Aprovação: <strong className="text-orange-200">100% Positivo</strong>
             </div>
           </div>
@@ -286,13 +286,13 @@ export default async function RelatoriosPage() {
       )}
 
       <div className={`${surfaceCard} space-y-4 overflow-hidden p-6`}>
-        <div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-5 md:flex-row md:items-center">
+        <div className="flex flex-col justify-between gap-4 border-b border-white/8 pb-5 md:flex-row md:items-center">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-lg">👥</span>
               <h3 className="text-base font-extrabold tracking-tight text-white">Desempenho & Elogios por Colaborador</h3>
             </div>
-            <p className="mt-0.5 text-xs text-slate-400">
+            <p className="mt-0.5 text-xs text-white/45">
               Clique nas ações para filtrar as avaliações nominais correspondentes de cada escrevente.
             </p>
           </div>
@@ -301,17 +301,17 @@ export default async function RelatoriosPage() {
             href="/relatorios/imprimir-colaboradores"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 self-start rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-xs font-bold text-blue-300 transition-colors hover:bg-blue-500/16 md:self-auto"
+            className="inline-flex items-center gap-1.5 self-start rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-2 text-xs font-bold text-cyan-300 transition-colors hover:bg-cyan-500/16 md:self-auto"
           >
             <Printer className="h-4 w-4" />
             <span>Imprimir / Versão PDF</span>
           </a>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-white/10">
+        <div className="overflow-x-auto rounded-2xl border border-white/12">
           <table className="min-w-[640px] w-full border-collapse text-left text-xs">
             <thead>
-              <tr className="border-b border-white/10 bg-white/[0.03] text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+              <tr className="border-b border-white/12 bg-[#0B1020] text-[11px] font-bold uppercase tracking-[0.16em] text-white/58">
                 <th className="w-12 p-3 pl-5 sm:w-16 sm:p-4">Rank</th>
                 <th className="p-3 sm:p-4">Colaborador</th>
                 <th className="p-3 text-center sm:p-4">Elogios Diretos</th>
@@ -321,7 +321,7 @@ export default async function RelatoriosPage() {
                 <th className="whitespace-nowrap p-3 pr-5 text-right sm:p-4">Ação</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/10 font-medium text-slate-300">
+            <tbody className="divide-y divide-white/8 font-medium text-white/80">
               {colaboradoresList.map((col, idx) => {
                 const rankMedal = idx === 0 ? '🥇 #1' : idx === 1 ? '🥈 #2' : idx === 2 ? '🥉 #3' : `#${idx + 1}`;
                 const rowBg =
@@ -342,10 +342,10 @@ export default async function RelatoriosPage() {
 
                     <td className="p-3 sm:p-4">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-amber-500 text-xs font-bold text-white">
                           {col.nome[0].toUpperCase()}
                         </div>
-                        <Link href={searchUrl} className="text-xs font-bold text-white transition-colors hover:text-blue-300">
+                        <Link href={searchUrl} className="text-xs font-bold text-white transition-colors hover:text-amber-300">
                           {col.nome}
                         </Link>
                       </div>
@@ -361,9 +361,9 @@ export default async function RelatoriosPage() {
                       </Link>
                     </td>
 
-                    <td className="p-3 text-center font-bold text-slate-300 sm:p-4">{col.mencoes}</td>
+                    <td className="p-3 text-center font-bold text-white/80 sm:p-4">{col.mencoes}</td>
 
-                    <td className="p-3 text-center font-bold text-slate-200 sm:p-4">{pctPositiva}%</td>
+                    <td className="p-3 text-center font-bold text-white/80 sm:p-4">{pctPositiva}%</td>
 
                     <td className="p-3 text-center sm:p-4">
                       <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-amber-500/20 bg-amber-500/12 px-2 py-1 text-[10px] font-extrabold text-amber-300 sm:px-2.5 sm:text-xs">
@@ -375,11 +375,11 @@ export default async function RelatoriosPage() {
                     <td className="p-3 text-right sm:p-4">
                       <Link
                         href={searchUrl}
-                        className="inline-flex items-center gap-1 whitespace-nowrap rounded-xl border border-blue-500/20 bg-blue-500/10 px-2.5 py-1.5 text-[10px] font-bold text-blue-300 transition-colors hover:bg-blue-500/16 sm:px-3 sm:text-xs"
+                        className="inline-flex items-center gap-1 whitespace-nowrap rounded-xl border border-white/12 bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-bold text-white transition-colors hover:bg-white/[0.08] sm:px-3 sm:text-xs"
                       >
                         <span className="hidden sm:inline">Ver avaliações</span>
                         <span className="sm:hidden">Ver</span>
-                        <ExternalLink className="h-3 w-3 text-blue-300 sm:h-3.5 sm:w-3.5" />
+                        <ExternalLink className="h-3 w-3 text-white/80 sm:h-3.5 sm:w-3.5" />
                       </Link>
                     </td>
                   </tr>
