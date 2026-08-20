@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Upload, Sparkles, ChevronRight, LayoutGrid, RotateCcw } from "lucide-react";
+import { RefreshCw, Upload, Sparkles, ChevronRight, LayoutGrid, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ export function ProdutividadeClient() {
 
   const [data, setData] = useState<ProdutividadeRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
 
   // Filters State
@@ -59,6 +60,40 @@ export function ProdutividadeClient() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    toast.info("Iniciando sincronização com SQL Server...");
+    try {
+      const res = await fetch("/api/bi/produtividade/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ startDate, endDate }),
+      });
+
+      const contentType = res.headers.get("content-type");
+      if (!res.ok || !contentType || !contentType.includes("application/json")) {
+        throw new Error(`Falha no servidor (Status ${res.status}). Verifique as credenciais ou a rota de API.`);
+      }
+
+      const result = await res.json();
+      if (result.success) {
+        toast.success(`Sincronização concluída! ${result.inserted} registros atualizados.`);
+        fetchData();
+      } else {
+        throw new Error(result.error || "Erro desconhecido ao sincronizar.");
+      }
+    } catch (error: unknown) {
+      console.error("Erro na sincronização:", error);
+      const message = error instanceof Error ? error.message : "Erro de conexão.";
+      const cleanMsg = typeof message === "string" && message.includes("<")
+        ? "Erro no servidor ao processar resposta."
+        : message;
+      toast.error(`Erro na sincronização: ${cleanMsg}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Distinct Lists for Select dropdowns based on raw data
   const selectOptions = useMemo(() => {
@@ -127,6 +162,14 @@ export function ProdutividadeClient() {
 
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-3">
+          <Button
+            onClick={handleSync}
+            disabled={isSyncing}
+            className="gap-2 border border-white/10 bg-white/5 font-semibold text-white hover:bg-white/10"
+          >
+            <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
+            {isSyncing ? "Sincronizando..." : "Sincronizar"}
+          </Button>
           <Button
             onClick={() => setIsImportOpen(true)}
             className="gap-2 border border-cyan-500/20 bg-cyan-500/15 font-semibold text-cyan-100 hover:bg-cyan-500/20"
