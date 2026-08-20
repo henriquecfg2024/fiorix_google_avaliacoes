@@ -487,6 +487,13 @@ export function MetasDashboardClient() {
 
   // Determine all 9 phase transitions & bottleneck for a given record
   const getPhasesForRecord = useCallback((record: MetasData) => {
+    if (!record) {
+      return {
+        phases: [],
+        topGargalo: { key: "NONE", label: "-", name: "Nenhum", dias: 0 }
+      };
+    }
+
     const d1 = getVal(record, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT");
     const d1E = getVal(record, "d1Escaneamento", "D1_ESCANEAMENTO", "D1_ESCAN");
     const d2 = getVal(record, "d2Contraditorio", "D2_CONTRADITORIO", "D2_CONTRAD");
@@ -520,22 +527,28 @@ export function MetasDashboardClient() {
       { key: "D9C_D10", label: "Conf. -> Entrega", name: "CONFERENCIA -> ENTREGA", dias: d10 ? calculateDaysBetween(d9C, d10, getVal(record, "diasD9CD10", "DIAS_D9CONF_D10"), false) : null },
     ];
 
-    let max = phases[0];
+    let max = phases[0] || { key: "NONE", label: "-", name: "Nenhum", dias: 0 };
     for (const phase of phases) {
-      if ((phase.dias || 0) > (max.dias || 0)) {
+      if (phase && (phase.dias || 0) > (max.dias || 0)) {
         max = phase;
       }
     }
-    return { phases, topGargalo: max };
+    return { phases, topGargalo: max || { key: "NONE", label: "-", name: "Nenhum", dias: 0 } };
   }, [calculateDaysBetween, getVal]);
 
   const getGargaloForRecord = useCallback((record: MetasData) => {
-    return getPhasesForRecord(record).topGargalo;
+    return getPhasesForRecord(record)?.topGargalo || { key: "NONE", label: "-", name: "Nenhum", dias: 0 };
   }, [getPhasesForRecord]);
 
   // Calculate chart data & KPIs considerando as 9 transições completas
   const { chartData, kpis, statuses, gargaloTypes } = useMemo(() => {
-    if (data.length === 0) return { chartData: [], kpis: null, statuses: [], gargaloTypes: [] };
+    const emptyKpis = {
+      total: 0,
+      atrasados: 0,
+      entregueComAtraso: 0,
+      topGargalo: { name: "Nenhum", count: 0 }
+    };
+    if (!data || data.length === 0) return { chartData: [], kpis: emptyKpis, statuses: [], gargaloTypes: [] };
 
     let atrasados = 0;
     let entregueComAtraso = 0;
@@ -557,8 +570,11 @@ export function MetasDashboardClient() {
     const gargaloCounts: Record<string, number> = {};
 
     data.forEach(item => {
+      if (!item) return;
       const { status, statusMeta, badge } = getMetasStatusAndAtraso(item);
-      statusSet.add(badge.text);
+      if (badge && badge.text) {
+        statusSet.add(badge.text);
+      }
 
       if (statusMeta === "ATRASADO - PENDENTE" || status === "Atrasado") {
         atrasados++;
@@ -567,11 +583,13 @@ export function MetasDashboardClient() {
       }
 
       const { phases, topGargalo } = getPhasesForRecord(item);
-      gargaloSet.add(topGargalo.name);
-      gargaloCounts[topGargalo.name] = (gargaloCounts[topGargalo.name] || 0) + 1;
+      if (topGargalo && topGargalo.name) {
+        gargaloSet.add(topGargalo.name);
+        gargaloCounts[topGargalo.name] = (gargaloCounts[topGargalo.name] || 0) + 1;
+      }
 
-      phases.forEach(p => {
-        if (p.dias !== null && p.dias !== undefined) {
+      (phases || []).forEach(p => {
+        if (p && p.dias !== null && p.dias !== undefined) {
           if (phaseSums[p.key]) {
             phaseSums[p.key].sum += Math.max(0, p.dias);
             phaseSums[p.key].count++;
