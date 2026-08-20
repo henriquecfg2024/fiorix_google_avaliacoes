@@ -268,15 +268,47 @@ export function MetasDashboardClient() {
     return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(date);
   }, []);
 
+  const parseDateSafe = useCallback((value: unknown): Date | null => {
+    if (!value) return null;
+    if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+
+    const str = String(value).trim();
+    if (!str || str.toUpperCase() === "NULL" || str === "undefined") return null;
+
+    if (str.includes("/")) {
+      const parts = str.split(" ");
+      const dateParts = parts[0].split("/");
+      const timePart = parts[1] || "00:00:00";
+      if (dateParts.length === 3) {
+        const isoStr = `${dateParts[2]}-${dateParts[1].padStart(2, "0")}-${dateParts[0].padStart(2, "0")}T${timePart}`;
+        const dt = new Date(isoStr);
+        if (!Number.isNaN(dt.getTime())) return dt;
+      }
+    }
+
+    const dt = new Date(str);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+  }, []);
+
   // Lógica principal de recalcular Status e Atraso zerando horas (Regra estrita)
   const getMetasStatusAndAtraso = useCallback((record: MetasData) => {
     const rawStatus = String(getVal(record, "status", "STATUS") || "").trim();
     const rawStatusLower = rawStatus.toLowerCase();
 
-    const d10 = getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT", "dtEntregaReal", "DT_ENTREGA_REAL");
-    const dtPrev = getVal(record, "dtPrevisao", "DT_PREVISAO");
-    const dataApres = getVal(record, "dataApresentado", "DATA_APRESENTADO");
-    const d1Protocolo = getVal(record, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT");
+    const d10 = getVal(
+      record,
+      "d10Entrega",
+      "D10_ENTREGA",
+      "D10_ENT",
+      "dtEntregaReal",
+      "DT_ENTREGA_REAL",
+      "dBalcaoDevolvido",
+      "D_BALCAO_DEVOLVIDO",
+      "d_balcao_devolvido"
+    );
+    const dtPrev = getVal(record, "dtPrevisao", "DT_PREVISAO", "dt_previsao");
+    const dataApres = getVal(record, "dataApresentado", "DATA_APRESENTADO", "data_apresentado");
+    const d1Protocolo = getVal(record, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT", "d1_protocolo");
 
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
@@ -303,56 +335,48 @@ export function MetasDashboardClient() {
       } catch {}
     }
 
-    // 2. Se D10_ENTREGA (ou entrega real) já existe
-    if (d10 && dtPrev) {
-      try {
-        const d10Date = new Date(String(d10));
-        const prevDate = new Date(String(dtPrev));
-        if (!isNaN(d10Date.getTime()) && !isNaN(prevDate.getTime())) {
-          d10Date.setHours(0, 0, 0, 0);
-          prevDate.setHours(0, 0, 0, 0);
+    const d10Date = parseDateSafe(d10);
+    const prevDate = parseDateSafe(dtPrev);
 
-          const diffEnt = Math.floor((d10Date.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
-          if (diffEnt <= 0) {
-            return {
-              status: "Em dia",
-              atrasoDias: 0,
-              badge: { text: "Em dia", bgClass: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 backdrop-blur-md" }
-            };
-          } else {
-            return {
-              status: "Entregue com Atraso",
-              atrasoDias: diffEnt,
-              badge: { text: "Entregue com Atraso", bgClass: "bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md" }
-            };
-          }
-        }
-      } catch {}
+    // 2. Se D10_ENTREGA / D_BALCAO_DEVOLVIDO (entrega real ou devolução) já existe
+    if (d10Date && prevDate) {
+      d10Date.setHours(0, 0, 0, 0);
+      prevDate.setHours(0, 0, 0, 0);
+
+      const diffEnt = Math.floor((d10Date.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffEnt <= 0) {
+        return {
+          status: "Em dia",
+          atrasoDias: 0,
+          badge: { text: "Em dia", bgClass: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 backdrop-blur-md" }
+        };
+      } else {
+        return {
+          status: "Entregue com Atraso",
+          atrasoDias: diffEnt,
+          badge: { text: "Entregue com Atraso", bgClass: "bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md" }
+        };
+      }
     }
 
-    // 3. Protocolos abertos (sem D10_ENTREGA): calcula diffDias = hoje - previsao (zerando horas)
-    if (dtPrev) {
-      try {
-        const prevDate = new Date(String(dtPrev));
-        if (!isNaN(prevDate.getTime())) {
-          prevDate.setHours(0, 0, 0, 0);
+    // 3. Protocolos abertos (sem D10_ENTREGA / D_BALCAO_DEVOLVIDO): calcula diffDias = hoje - previsao
+    if (prevDate) {
+      prevDate.setHours(0, 0, 0, 0);
 
-          const diffDias = Math.floor((hoje.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
-          if (diffDias <= 0) {
-            return {
-              status: "Em dia",
-              atrasoDias: 0,
-              badge: { text: "Em dia", bgClass: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 backdrop-blur-md" }
-            };
-          } else {
-            return {
-              status: "Atrasado",
-              atrasoDias: diffDias,
-              badge: { text: "Atrasado", bgClass: "bg-red-500/10 text-red-300 border border-red-500/20 backdrop-blur-md" }
-            };
-          }
-        }
-      } catch {}
+      const diffDias = Math.floor((hoje.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDias <= 0) {
+        return {
+          status: "Em dia",
+          atrasoDias: 0,
+          badge: { text: "Em dia", bgClass: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 backdrop-blur-md" }
+        };
+      } else {
+        return {
+          status: "Atrasado",
+          atrasoDias: diffDias,
+          badge: { text: "Atrasado", bgClass: "bg-red-500/10 text-red-300 border border-red-500/20 backdrop-blur-md" }
+        };
+      }
     }
 
     return {
@@ -360,7 +384,7 @@ export function MetasDashboardClient() {
       atrasoDias: 0,
       badge: { text: "Em dia", bgClass: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 backdrop-blur-md" }
     };
-  }, [getDateKey, getVal]);
+  }, [getDateKey, getVal, parseDateSafe]);
 
   const getBalcaoAuditState = useCallback((record: MetasData) => {
     const d8Impressao = getVal(record, "d8Impressao", "D8_IMPRESSAO", "D8_IMP");
