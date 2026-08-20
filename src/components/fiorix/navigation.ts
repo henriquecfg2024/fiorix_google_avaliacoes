@@ -8,7 +8,6 @@ import {
   Star,
   TrendingUp,
   FileText,
-  MessageCircle,
   Settings,
   Upload,
   Settings2,
@@ -63,12 +62,6 @@ export const navigationGroups = {
       { label: "Avaliações", href: "/avaliacoes", icon: Star },
       { label: "Estatísticas", href: "/estatisticas", icon: TrendingUp },
       { label: "Relatórios", href: "/relatorios", icon: FileText },
-      {
-        label: "Respostas Google",
-        href: "/respostas-google",
-        icon: MessageCircle,
-        badge: "G",
-      },
     ],
   },
   sistema: {
