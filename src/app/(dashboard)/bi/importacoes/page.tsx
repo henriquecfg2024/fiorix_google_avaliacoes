@@ -96,30 +96,30 @@ export default async function BiImportacoesPage() {
           </div>
 
           <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-            <div className="rounded-2xl border border-cyan-500/15 bg-white/[0.03] p-4">
-              <div className="text-[11px] uppercase tracking-wider text-white/45">Módulo BI</div>
+            <div className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55">Módulo BI</div>
               <div className="mt-2 text-2xl font-bold text-cyan-300">{biCount}</div>
-              <div className="mt-1 text-xs text-white/50">importações registradas</div>
+              <div className="mt-1 text-xs text-white/45">importações registradas</div>
             </div>
-            <div className="rounded-2xl border border-emerald-500/15 bg-white/[0.03] p-4">
-              <div className="text-[11px] uppercase tracking-wider text-white/45">Produtividade</div>
+            <div className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55">Produtividade</div>
               <div className="mt-2 text-2xl font-bold text-emerald-300">{produtividadeCount}</div>
-              <div className="mt-1 text-xs text-white/50">importações registradas</div>
+              <div className="mt-1 text-xs text-white/45">importações registradas</div>
             </div>
-            <div className="rounded-2xl border border-violet-500/15 bg-white/[0.03] p-4">
-              <div className="text-[11px] uppercase tracking-wider text-white/45">Metas</div>
+            <div className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55">Metas</div>
               <div className="mt-2 text-2xl font-bold text-violet-300">{metasCount}</div>
-              <div className="mt-1 text-xs text-white/50">importações registradas</div>
+              <div className="mt-1 text-xs text-white/45">importações registradas</div>
             </div>
-            <div className="rounded-2xl border border-amber-500/15 bg-white/[0.03] p-4">
-              <div className="text-[11px] uppercase tracking-wider text-white/45">Períodos Inferidos</div>
+            <div className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55">Períodos Inferidos</div>
               <div className="mt-2 text-2xl font-bold text-amber-300">{produtividadeInferredCount}</div>
-              <div className="mt-1 text-xs text-white/50">detectados na base de produtividade</div>
+              <div className="mt-1 text-xs text-white/45">detectados na base de produtividade</div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="text-[11px] uppercase tracking-wider text-white/45">Total de Linhas</div>
+            <div className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55">Total de Linhas</div>
               <div className="mt-2 text-2xl font-bold text-white">{totalRows.toLocaleString("pt-BR")}</div>
-              <div className="mt-1 text-xs text-white/50">somadas nas fontes exibidas</div>
+              <div className="mt-1 text-xs text-white/45">somadas nas fontes exibidas</div>
             </div>
           </div>
         </div>
