@@ -70,6 +70,7 @@ export const metasRowSchema = z.object({
   DataDoTituloApresentado: z.string().nullable().optional(),
   DT_PREVISAO: z.string().nullable().optional(),
   DtPrevisaoEntrega: z.string().nullable().optional(),
+  DATA_PREVISTAFINAL: z.string().nullable().optional(),
   DT_ENTREGA_REAL: z.string().nullable().optional(),
   STATUS: z.string().max(100).nullable().optional(),
   STATUS_META: z.string().max(100).nullable().optional(),

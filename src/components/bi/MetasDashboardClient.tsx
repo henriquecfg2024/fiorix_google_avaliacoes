@@ -222,18 +222,29 @@ export function MetasDashboardClient() {
     async function fetchData() {
       try {
         const res = await fetch("/api/bi/metas/data");
+        if (!res.ok) {
+          console.warn("Metas API HTTP error:", res.status);
+          setData([]);
+          return;
+        }
         const json = await res.json();
-        if (json.success) {
+        if (json && json.success && Array.isArray(json.data)) {
           setData(json.data);
+        } else {
+          console.warn("Metas API returned non-array:", json);
+          setData([]);
         }
       } catch (error) {
         console.error("Failed to load metas data:", error);
+        setData([]);
       } finally {
         setLoading(false);
       }
     }
     fetchData();
   }, []);
+
+  const safeData = useMemo(() => (Array.isArray(data) ? data : []), [data]);
 
   // Reset page when filters or sorting change
   useEffect(() => {
@@ -548,7 +559,7 @@ export function MetasDashboardClient() {
       entregueComAtraso: 0,
       topGargalo: { name: "Nenhum", count: 0 }
     };
-    if (!data || data.length === 0) return { chartData: [], kpis: emptyKpis, statuses: [], gargaloTypes: [] };
+    if (!safeData || safeData.length === 0) return { chartData: [], kpis: emptyKpis, statuses: [], gargaloTypes: [] };
 
     let atrasados = 0;
     let entregueComAtraso = 0;
@@ -569,7 +580,7 @@ export function MetasDashboardClient() {
     const gargaloSet = new Set<string>();
     const gargaloCounts: Record<string, number> = {};
 
-    data.forEach(item => {
+    safeData.forEach(item => {
       if (!item) return;
       const { status, statusMeta, badge } = getMetasStatusAndAtraso(item);
       if (badge && badge.text) {
@@ -644,7 +655,7 @@ export function MetasDashboardClient() {
     return {
       chartData: chart,
       kpis: {
-        total: data.length,
+        total: safeData.length,
         atrasados,
         entregueComAtraso,
         topGargalo: { name: topGargaloName, count: topGargaloCount }
@@ -652,18 +663,19 @@ export function MetasDashboardClient() {
       statuses: Array.from(statusSet).sort(),
       gargaloTypes: Array.from(gargaloSet).sort(),
     };
-  }, [data, getMetasStatusAndAtraso, getPhasesForRecord]);
+  }, [safeData, getMetasStatusAndAtraso, getPhasesForRecord]);
 
   const chartBottleneck = useMemo(() => (
     chartData.find((item) => item.isBottleneck) || null
   ), [chartData]);
 
-  const balcaoAudit = useMemo(() => data.reduce((counts, item) => {
+  const balcaoAudit = useMemo(() => safeData.reduce((counts, item) => {
+    if (!item) return counts;
     const audit = getBalcaoAuditState(item);
     if (audit.semRegistro) counts.semRegistro++;
     if (audit.semDevolucao) counts.semDevolucao++;
     return counts;
-  }, { semRegistro: 0, semDevolucao: 0 }), [data, getBalcaoAuditState]);
+  }, { semRegistro: 0, semDevolucao: 0 }), [safeData, getBalcaoAuditState]);
 
   const handleBalcaoFilter = (filter: Exclude<BalcaoFilter, "TODOS">) => {
     const nextFilter = balcaoFilter === filter ? "TODOS" : filter;
@@ -693,7 +705,8 @@ export function MetasDashboardClient() {
 
   // Filtering & Sorting
   const filteredData = useMemo(() => {
-    const filtered = data.filter(item => {
+    const filtered = safeData.filter(item => {
+      if (!item) return false;
       const prot = String(getVal(item, "protocolo", "PROTOCOLO") || "");
       const nat = String(getVal(item, "natureza", "NATUREZA") || "").toLowerCase();
       const { badge, statusMeta } = getMetasStatusAndAtraso(item);

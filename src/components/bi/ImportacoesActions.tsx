@@ -25,13 +25,18 @@ const aliases: Record<string, string[]> = {
     "data_protocolo",
     "dt_protocolo",
     "DataDoTituloApresentado",
-    "d1_protocolo",
   ],
-  DT_PREVISAO: ["dt_previsao", "dt_previsao_entrega", "data_previsao", "data_previsao_entrega"],
-  DT_ENTREGA_REAL: ["dt_entrega_real", "dt_entrega", "data_entrega", "data_entrega_real", "DtRetirada"],
+  DT_PREVISAO: ["dt_previsao", "dt_previsao_entrega", "data_previsao", "data_previsao_entrega", "DATA_PREVISTAFINAL", "data_previstafinal", "DtPrevisaoEntrega"],
+  DT_ENTREGA_REAL: ["dt_entrega_real", "dt_entrega", "data_entrega", "data_entrega_real", "DtRetirada", "D10_ENTREGA", "d10_entrega"],
   STATUS: ["status", "situacao", "status_protocolo"],
-  NATUREZA: ["natureza", "naturezatitulo", "natureza_titulo", "tipo_detalhado", "tipo", "especie", "Natureza"],
+  STATUS_META: ["status_meta", "statusmeta", "status_da_meta"],
+  NATUREZA: ["natureza", "naturezatitulo", "natureza_titulo", "tipo_detalhado", "especie", "Natureza"],
+  TIPO: ["tipo", "tipo_prenotacao"],
+  ID_NATUREZA: ["id_natureza", "idnatureza"],
+  MAGNETICO: ["magnetico"],
   ATRASO_DIAS: ["atraso_dias", "dias_atraso", "atraso"],
+  DIAS_ATRASO: ["dias_atraso", "atraso_dias", "atraso"],
+  DIAS_CORRIDOS: ["dias_corridos", "diascorridos"],
 };
 
 const canonicalHeader = (header: string) => {

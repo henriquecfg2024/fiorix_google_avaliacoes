@@ -143,22 +143,32 @@ export async function POST(req: Request) {
         const naturezaClean = String(
           row.NATUREZA ||
           rowData.natureza ||
-          rowData.TIPO ||
-          rowData.tipo ||
           ''
         ).trim().slice(0, 255);
+        const tipoClean = String(
+          row.TIPO ||
+          rowData.tipo ||
+          ''
+        ).trim().slice(0, 100);
+        const idNaturezaVal = parseIntSafe(row.ID_NATUREZA ?? rowData.id_natureza);
+        const magneticoClean = String(
+          row.MAGNETICO ||
+          rowData.magnetico ||
+          ''
+        ).trim().slice(0, 50);
 
-        const dataApresDate = parseDate(row.DATA_APRESENTADO || rowData.DataDoTituloApresentado);
-        const dtPrevDate = parseDate(row.DT_PREVISAO || rowData.DtPrevisaoEntrega);
-        const d10EntregaDate = parseDate(row.D10_ENTREGA || row.DT_ENTREGA_REAL);
-        const diasAtrasoVal = parseIntSafe(row.DIAS_ATRASO ?? row.ATRASO_DIAS);
-        const diasCorridosVal = parseIntSafe(row.DIAS_CORRIDOS);
+        const dataApresDate = parseDate(row.DATA_APRESENTADO || rowData.DataDoTituloApresentado || rowData.data_apresentado);
+        const dtPrevDate = parseDate(row.DT_PREVISAO || rowData.DtPrevisaoEntrega || rowData.DATA_PREVISTAFINAL || rowData.dt_previsao);
+        const d10EntregaDate = parseDate(row.D10_ENTREGA || row.DT_ENTREGA_REAL || rowData.d10_entrega);
+        const diasAtrasoVal = parseIntSafe(row.DIAS_ATRASO ?? row.ATRASO_DIAS ?? rowData.dias_atraso);
+        const diasCorridosVal = parseIntSafe(row.DIAS_CORRIDOS ?? rowData.dias_corridos);
 
         rowsByProtocol.set(
           p,
           Prisma.sql`(
             ${user.tenantId}, ${p}, ${dataApresDate}, ${dtPrevDate}, ${d10EntregaDate},
-            ${statusClean}, ${statusMetaClean}, ${naturezaClean}, ${diasAtrasoVal}, ${diasAtrasoVal}, ${diasCorridosVal}, ${parseDate(row.D1_PROTOCOLO)}, ${parseDate(row.D1_ESCANEAMENTO)},
+            ${statusClean}, ${statusMetaClean}, ${naturezaClean}, ${tipoClean}, ${idNaturezaVal}, ${magneticoClean},
+            ${diasAtrasoVal}, ${diasAtrasoVal}, ${diasCorridosVal}, ${parseDate(row.D1_PROTOCOLO)}, ${parseDate(row.D1_ESCANEAMENTO)},
             ${parseDate(row.D2_CONTRADITORIO)}, ${parseDate(row.D3_EXTRATO)}, ${parseDate(row.D4_QUALIFICACAO)}, ${parseDate(row.D5_CALCULO)},
             ${parseDate(row.D8_IMPRESSAO)}, ${parseDate(row.D9_PREPARACAO)}, ${parseDate(row.D9_CONFERENCIA)}, ${d10EntregaDate},
             ${parseDate(row.D_BALCAO_REGISTRADO)}, ${parseDate(row.D_BALCAO_DEVOLVIDO)},
@@ -173,7 +183,7 @@ export async function POST(req: Request) {
         insertedCount = await prisma.$executeRaw(
           Prisma.sql`
             INSERT INTO public.fiorix_metas_dados (
-              tenant_id, PROTOCOLO, DATA_APRESENTADO, DT_PREVISAO, DT_ENTREGA_REAL, STATUS, STATUS_META, NATUREZA, ATRASO_DIAS, DIAS_ATRASO, DIAS_CORRIDOS,
+              tenant_id, PROTOCOLO, DATA_APRESENTADO, DT_PREVISAO, DT_ENTREGA_REAL, STATUS, STATUS_META, NATUREZA, TIPO, ID_NATUREZA, MAGNETICO, ATRASO_DIAS, DIAS_ATRASO, DIAS_CORRIDOS,
               D1_PROTOCOLO, D1_ESCANEAMENTO, D2_CONTRADITORIO, D3_EXTRATO, D4_QUALIFICACAO, D5_CALCULO,
               D8_IMPRESSAO, D9_PREPARACAO, D9_CONFERENCIA, D10_ENTREGA,
               D_BALCAO_REGISTRADO, D_BALCAO_DEVOLVIDO, QTD_RETRABALHO,
@@ -186,6 +196,9 @@ export async function POST(req: Request) {
               STATUS = EXCLUDED.STATUS,
               STATUS_META = EXCLUDED.STATUS_META,
               NATUREZA = EXCLUDED.NATUREZA,
+              TIPO = EXCLUDED.TIPO,
+              ID_NATUREZA = EXCLUDED.ID_NATUREZA,
+              MAGNETICO = EXCLUDED.MAGNETICO,
               ATRASO_DIAS = EXCLUDED.ATRASO_DIAS,
               DIAS_ATRASO = EXCLUDED.DIAS_ATRASO,
               DIAS_CORRIDOS = EXCLUDED.DIAS_CORRIDOS,

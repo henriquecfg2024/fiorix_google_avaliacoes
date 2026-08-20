@@ -131,7 +131,7 @@ export async function GET(request: Request) {
         return null;
       };
 
-      const dataApresentado = getVal("DATA_APRESENTADO", "data_apresentado", "dataApresentado");
+      const dataApresentado = getVal("DATA_APRESENTADO", "data_apresentado", "dataApresentado", "DataDoTituloApresentado");
       const d1Protocolo = getVal("D1_PROTOCOLO", "d1_protocolo", "d1Protocolo", "D1_PROT");
 
       const dateKey = (value: unknown) => {
@@ -159,9 +159,11 @@ export async function GET(request: Request) {
         protocolo: Number(getVal("PROTOCOLO", "protocolo", "Protocolo")),
         natureza: getVal("NATUREZA", "natureza", "Natureza", "TIPO_DETALHADO", "tipo_detalhado") || "",
         tipo: getVal("TIPO", "tipo", "Tipo") || "",
+        idNatureza: getVal("ID_NATUREZA", "id_natureza", "idNatureza"),
+        magnetico: getVal("MAGNETICO", "magnetico", "Magnetico"),
         dataApresentado,
-        dtPrevisao: getVal("DT_PREVISAO", "dt_previsao", "dtPrevisao", "DtPrevisaoEntrega"),
-        dtEntregaReal: getVal("DT_ENTREGA_REAL", "dt_entrega_real", "dtEntregaReal"),
+        dtPrevisao: getVal("DT_PREVISAO", "dt_previsao", "dtPrevisao", "DtPrevisaoEntrega", "DATA_PREVISTAFINAL"),
+        dtEntregaReal: getVal("DT_ENTREGA_REAL", "dt_entrega_real", "dtEntregaReal", "D10_ENTREGA", "d10_entrega"),
         status: isProtocolOfToday ? "Em dia" : (getVal("STATUS", "status", "Status") || "No Prazo"),
         statusMeta: statusMeta || null,
         atrasoDias: isProtocolOfToday ? 0 : Number(diasAtrasoVal || 0),
@@ -177,7 +179,7 @@ export async function GET(request: Request) {
         d8Impressao: getVal("D8_IMPRESSAO", "d8_impressao", "d8Impressao", "D8_IMP"),
         d9Preparacao: getVal("D9_PREPARACAO", "d9_preparacao", "d9Preparacao", "D9_PREP"),
         d9Conferencia: getVal("D9_CONFERENCIA", "d9_conferencia", "d9Conferencia", "D9_CONF"),
-        d10Entrega: getVal("D10_ENTREGA", "d10_entrega", "d10Entrega", "D10_ENT"),
+        d10Entrega: getVal("D10_ENTREGA", "d10_entrega", "d10Entrega", "D10_ENT", "DT_ENTREGA_REAL", "dt_entrega_real"),
         dBalcaoRegistrado: getVal("D_BALCAO_REGISTRADO", "d_balcao_registrado", "dBalcaoRegistrado"),
         dBalcaoDevolvido: getVal("D_BALCAO_DEVOLVIDO", "d_balcao_devolvido", "dBalcaoDevolvido"),
         hasRegistro: Boolean(getVal("hasRegistro", "has_registro")),
