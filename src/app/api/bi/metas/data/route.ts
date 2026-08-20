@@ -259,7 +259,12 @@ export async function GET(request: Request) {
       ];
     }
 
-    return NextResponse.json({ success: true, data: metas });
+    // Sanitize BigInt values that Prisma $queryRaw may return for SERIAL/INTEGER columns
+    const safeData = JSON.parse(
+      JSON.stringify(metas, (_, v) => (typeof v === "bigint" ? Number(v) : v))
+    );
+
+    return NextResponse.json({ success: true, data: safeData });
   } catch (error: any) {
     console.error("Metas API Error:", error);
     return NextResponse.json({ success: false, error: "Erro ao consultar banco de dados" }, { status: 500 });

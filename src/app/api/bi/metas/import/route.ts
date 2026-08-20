@@ -99,7 +99,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Falha ao criar/localizar registro de importação" }, { status: 500 });
     }
 
-    const importId = importRecords[0].id;
+    const importId = Number(importRecords[0].id);
     let insertedCount = 0;
 
     if (rows.length > 0) {
