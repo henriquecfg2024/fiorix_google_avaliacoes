@@ -46,6 +46,15 @@ const nextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: '/respostas-google',
+        destination: '/avaliacoes',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
