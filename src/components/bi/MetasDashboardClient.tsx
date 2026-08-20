@@ -285,7 +285,7 @@ export function MetasDashboardClient() {
         return {
           status: "Em dia",
           atrasoDias: 0,
-          badge: { text: "Em dia", bgClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" }
+          badge: { text: "Em dia", bgClass: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 backdrop-blur-md" }
         };
       } catch {}
     }
@@ -304,13 +304,13 @@ export function MetasDashboardClient() {
             return {
               status: "Em dia",
               atrasoDias: 0,
-              badge: { text: "Em dia", bgClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" }
+              badge: { text: "Em dia", bgClass: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 backdrop-blur-md" }
             };
           } else {
             return {
               status: "Entregue com Atraso",
               atrasoDias: diffEnt,
-              badge: { text: "Entregue com Atraso", bgClass: "bg-orange-500/20 text-orange-400 border border-orange-500/30" }
+              badge: { text: "Entregue com Atraso", bgClass: "bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md" }
             };
           }
         }
@@ -329,13 +329,13 @@ export function MetasDashboardClient() {
             return {
               status: "Em dia",
               atrasoDias: 0,
-              badge: { text: "Em dia", bgClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" }
+              badge: { text: "Em dia", bgClass: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 backdrop-blur-md" }
             };
           } else {
             return {
               status: "Atrasado",
               atrasoDias: diffDias,
-              badge: { text: "Atrasado", bgClass: "bg-rose-500/20 text-rose-300 border border-rose-500/30" }
+              badge: { text: "Atrasado", bgClass: "bg-red-500/10 text-red-300 border border-red-500/20 backdrop-blur-md" }
             };
           }
         }
@@ -345,7 +345,7 @@ export function MetasDashboardClient() {
     return {
       status: "Em dia",
       atrasoDias: 0,
-      badge: { text: "Em dia", bgClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" }
+      badge: { text: "Em dia", bgClass: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 backdrop-blur-md" }
     };
   }, [getDateKey, getVal]);
 
@@ -1039,32 +1039,7 @@ export function MetasDashboardClient() {
       </motion.section>
 
       {/* Tabela Container */}
-      <div ref={tableRef} className="flex flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#0B1020]/72 shadow-[0_20px_60px_rgba(0,0,0,0.20)] scroll-mt-24">
-        
-        {/* Topo da Tabela: Informações e Itens por página */}
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-white/[0.025] p-4 text-xs text-white/70">
-          <div>
-            Mostrando <span className="font-semibold text-white">{totalFiltered > 0 ? startIndex + 1 : 0}</span>-
-            <span className="font-semibold text-white">{endIndex}</span> de{" "}
-            <span className="font-semibold text-white">{totalFiltered.toLocaleString("pt-BR")}</span> | Página{" "}
-            <span className="font-semibold text-white">{currentPage}</span> de{" "}
-            <span className="font-semibold text-white">{totalPages}</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span>Itens por página:</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => setItemsPerPage(Number(e.target.value))}
-              className="rounded-lg border border-white/10 bg-[#0C1323] px-2.5 py-1 text-xs text-white focus:outline-none focus:border-amber-400"
-            >
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-              <option value={200}>200</option>
-              <option value={500}>500</option>
-            </select>
-          </div>
-        </div>
+      <div ref={tableRef} className="flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-[#0B1020]/72 text-white shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl scroll-mt-24">
 
         {/* Toolbar de Busca, Filtros e Exportação CSV */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/8 bg-white/[0.01] p-4">
@@ -1349,83 +1324,85 @@ export function MetasDashboardClient() {
           )}
         </div>
 
-        {/* Rodapé: Paginação */}
-        {totalPages > 1 && (
-          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-white/8 bg-white/[0.02] p-4">
-            <div className="text-xs text-white/50">
-              Página <span className="text-white font-semibold">{currentPage}</span> de{" "}
-              <span className="text-white font-semibold">{totalPages}</span>
+        {/* Rodapé com Barra de Paginação Completa */}
+        <div className="flex flex-col items-center justify-between gap-4 border-t border-white/8 bg-white/[0.03] px-6 py-3.5 sm:flex-row">
+          {/* Informação de intervalo */}
+          <div className="text-xs text-white/60 text-center sm:text-left">
+            Exibindo <strong className="text-white">{totalFiltered > 0 ? (startIndex + 1).toLocaleString("pt-BR") : "0"}</strong> a{" "}
+            <strong className="text-white">{endIndex.toLocaleString("pt-BR")}</strong> de{" "}
+            <strong className="text-white">{totalFiltered.toLocaleString("pt-BR")}</strong> registros
+          </div>
+
+          {/* Controles de Paginação & Itens Por Página */}
+          <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
+            {/* Seletor de Tamanho de Página */}
+            <div className="flex items-center gap-1.5 text-xs text-white/60">
+              <span>Exibir:</span>
+              <div className="flex items-center gap-1 rounded-lg border border-white/8 bg-white/[0.04] p-0.5">
+                {[10, 20, 50, 100].map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => { setItemsPerPage(size); setCurrentPage(1); }}
+                    className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
+                      itemsPerPage === size
+                        ? "bg-gradient-to-r from-indigo-500 to-amber-400 font-semibold text-white shadow-xs"
+                        : "text-white/60 hover:text-white"
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="flex items-center gap-1.5">
+            {/* Navegação de Páginas */}
+            <div className="flex items-center gap-1">
               <button
+                type="button"
                 onClick={() => handlePageChange(1)}
-                disabled={currentPage === 1}
+                disabled={currentPage <= 1}
                 title="Primeira Página"
-                className="cursor-pointer rounded-lg border border-white/8 bg-white/[0.04] p-2 text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
               >
-                <ChevronsLeft className="w-4 h-4" />
+                <ChevronsLeft size={15} />
               </button>
 
               <button
+                type="button"
                 onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
+                disabled={currentPage <= 1}
                 title="Página Anterior"
-                className="cursor-pointer rounded-lg border border-white/8 bg-white/[0.04] p-2 text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft size={15} />
               </button>
 
-              <div className="flex items-center gap-1 mx-1">
-                {paginationRange.map((page, index) => {
-                  if (typeof page === "string") {
-                    return (
-                      <span key={`dots-${index}`} className="px-2 text-white/40 text-xs select-none">
-                        ...
-                      </span>
-                    );
-                  }
-
-                  const isCurrent = page === currentPage;
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => handlePageChange(page)}
-                      style={{
-                        backgroundColor: isCurrent ? "#8b5cf6" : undefined,
-                      }}
-                      className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                        isCurrent
-                        ? "font-bold text-white shadow-lg shadow-amber-500/10"
-                        : "border border-white/8 bg-white/[0.04] text-white/70 hover:bg-white/[0.08] hover:text-white"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  );
-                })}
-              </div>
+              <span className="text-xs px-2 font-medium text-white min-w-[90px] text-center">
+                Página {currentPage.toLocaleString("pt-BR")} de {totalPages.toLocaleString("pt-BR")}
+              </span>
 
               <button
+                type="button"
                 onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
+                disabled={currentPage >= totalPages}
                 title="Próxima Página"
-                className="cursor-pointer rounded-lg border border-white/8 bg-white/[0.04] p-2 text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
               >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight size={15} />
               </button>
 
               <button
+                type="button"
                 onClick={() => handlePageChange(totalPages)}
-                disabled={currentPage === totalPages}
+                disabled={currentPage >= totalPages}
                 title="Última Página"
-                className="cursor-pointer rounded-lg border border-white/8 bg-white/[0.04] p-2 text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
               >
-                <ChevronsRight className="w-4 h-4" />
+                <ChevronsRight size={15} />
               </button>
             </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* MODAL / DRAWER LATERAL DIREITO - DETALHAMENTO DO PROTOCOLO */}
