@@ -151,14 +151,22 @@ export async function GET(request: Request) {
       const isProtocolOfToday = [dataApresentado, d1Protocolo]
         .some((value) => dateKey(value) === todayKey);
 
+      const statusMeta = getVal("STATUS_META", "status_meta", "statusMeta");
+      const diasAtrasoVal = getVal("DIAS_ATRASO", "dias_atraso", "diasAtraso", "ATRASO_DIAS", "atraso_dias");
+      const diasCorridosVal = getVal("DIAS_CORRIDOS", "dias_corridos", "diasCorridos");
+
       return {
         protocolo: Number(getVal("PROTOCOLO", "protocolo", "Protocolo")),
         natureza: getVal("NATUREZA", "natureza", "Natureza", "TIPO_DETALHADO", "tipo_detalhado") || "",
+        tipo: getVal("TIPO", "tipo", "Tipo") || "",
         dataApresentado,
-        dtPrevisao: getVal("DT_PREVISAO", "dt_previsao", "dtPrevisao"),
+        dtPrevisao: getVal("DT_PREVISAO", "dt_previsao", "dtPrevisao", "DtPrevisaoEntrega"),
         dtEntregaReal: getVal("DT_ENTREGA_REAL", "dt_entrega_real", "dtEntregaReal"),
         status: isProtocolOfToday ? "Em dia" : (getVal("STATUS", "status", "Status") || "No Prazo"),
-        atrasoDias: isProtocolOfToday ? 0 : Number(getVal("ATRASO_DIAS", "atraso_dias", "atrasoDias") || 0),
+        statusMeta: statusMeta || null,
+        atrasoDias: isProtocolOfToday ? 0 : Number(diasAtrasoVal || 0),
+        diasAtraso: diasAtrasoVal !== null && diasAtrasoVal !== undefined ? Number(diasAtrasoVal) : null,
+        diasCorridos: diasCorridosVal !== null && diasCorridosVal !== undefined ? Number(diasCorridosVal) : null,
         
         d1Protocolo,
         d1Escaneamento: getVal("D1_ESCANEAMENTO", "d1_escaneamento", "d1Escaneamento", "D1_ESCAN"),

@@ -34,11 +34,15 @@ type BalcaoFilter = "TODOS" | "SEM_REG" | "SEM_DEV";
 type MetasData = {
   protocolo: number;
   natureza?: string;
+  tipo?: string;
   dataApresentado?: string;
   dtPrevisao?: string;
   dtEntregaReal?: string;
   status?: string;
+  statusMeta?: string | null;
   atrasoDias?: number;
+  diasAtraso?: number | null;
+  diasCorridos?: number | null;
   d1Protocolo?: string;
   d1Escaneamento?: string;
   d2Contraditorio?: string;
@@ -104,60 +108,58 @@ function PremiumBarShape({
   if (!payload || width <= 0 || height <= 0) return null;
 
   const isSelected = selectedPhase === payload.phaseName;
-  const hasSelection = selectedPhase !== "ALL";
-  const fill = payload.isBottleneck ? "url(#bottleneckGradient)" : "url(#phaseGradient)";
+  const isBottleneck = payload.isBottleneck;
+  const fillUrl = isBottleneck ? "url(#bottleneckGradient)" : "url(#phaseGradient)";
 
   return (
-    <motion.rect
-      x={x}
-      y={y}
-      width={width}
-      height={height}
-      rx={Math.min(12, width / 2)}
-      fill={fill}
-      stroke={isSelected ? "#ffffff" : payload.isBottleneck ? "#fbbf24" : "rgba(255,255,255,0.12)"}
-      strokeWidth={isSelected ? 2.5 : 1}
-      opacity={hasSelection && !isSelected ? 0.3 : 1}
-      filter={payload.isBottleneck ? "url(#bottleneckGlow)" : undefined}
-      role="button"
+    <g
+      onClick={() => onSelect(payload.phaseName)}
+      className="cursor-pointer transition-opacity hover:opacity-90"
       tabIndex={0}
-      aria-pressed={isSelected}
-      aria-label={`${payload.label}: média de ${formatDays(payload.dias)}, ${payload.count.toLocaleString("pt-BR")} protocolos. ${payload.status}.`}
-      className="cursor-pointer outline-none transition-opacity focus-visible:stroke-cyan-300"
-      initial={reduceMotion ? false : { scaleY: 0, opacity: 0 }}
-      animate={{ scaleY: 1, opacity: hasSelection && !isSelected ? 0.3 : 1 }}
-      transition={{ duration: reduceMotion ? 0 : 0.48, delay: reduceMotion ? 0 : index * 0.065, ease: "easeOut" }}
-      style={{ transformBox: "fill-box", transformOrigin: "center bottom" }}
-      onClick={(event) => {
-        event.stopPropagation();
-        onSelect(payload.phaseName);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
+      role="button"
+      aria-label={`${payload.label}: ${formatDays(payload.dias)}`}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
           onSelect(payload.phaseName);
         }
       }}
-    />
+    >
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        rx={6}
+        ry={6}
+        fill={fillUrl}
+        filter={isBottleneck ? "url(#bottleneckGlow)" : undefined}
+        stroke={isSelected ? "#F59E0B" : isBottleneck ? "rgba(245, 158, 11, 0.8)" : "none"}
+        strokeWidth={isSelected ? 2 : isBottleneck ? 1.5 : 0}
+      />
+    </g>
   );
 }
 
-function ChartValueLabel({ x = 0, y = 0, width = 0, value = 0 }: {
+function ChartValueLabel(props: {
   x?: number;
   y?: number;
   width?: number;
   value?: number;
 }) {
+  const { x = 0, y = 0, width = 0, value = 0 } = props;
+  if (value === undefined || value === null) return null;
+
   return (
     <text
       x={x + width / 2}
-      y={Math.max(12, y - 8)}
-      fill="#e2e8f0"
+      y={y - 8}
+      fill="rgba(255, 255, 255, 0.9)"
       textAnchor="middle"
-      fontSize={11}
-      fontWeight={600}
+      fontSize={10}
+      fontWeight={700}
     >
-      {formatDays(Number(value) || 0)}
+      {formatDays(Number(value))}
     </text>
   );
 }
@@ -169,33 +171,22 @@ function PremiumChartTooltip({
   selectedPhase,
 }: {
   active?: boolean;
-  payload?: ReadonlyArray<{ payload?: PhaseChartDatum }>;
+  payload?: Array<{ payload: PhaseChartDatum }>;
   totalProtocols: number;
   selectedPhase: string;
 }) {
-  const dataPoint = payload?.[0]?.payload;
-  if (!active || !dataPoint) return null;
-
+  if (!active || !payload || !payload.length) return null;
+  const dataPoint = payload[0].payload;
   const percentage = totalProtocols > 0 ? (dataPoint.count / totalProtocols) * 100 : 0;
   const isSelected = selectedPhase === dataPoint.phaseName;
 
   return (
-    <div className="min-w-[250px] rounded-xl border border-white/8 bg-[#0B1020] p-3.5 text-xs text-white shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-      <div className="mb-2 flex items-start justify-between gap-4">
-        <p className="font-semibold text-white">{dataPoint.label}</p>
-        <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
-          dataPoint.isBottleneck
-            ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
-            : dataPoint.status === "Atenção"
-              ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
-              : "border-cyan-400/25 bg-cyan-400/10 text-cyan-300"
-        }`}>
-          {dataPoint.status}
-        </span>
+    <div className="rounded-xl border border-white/12 bg-[#0C1324]/95 p-3 text-xs text-white shadow-2xl backdrop-blur-xl">
+      <div className="flex items-center gap-2 font-bold text-amber-300">
+        <span>{dataPoint.label}</span>
       </div>
-      <p className="text-sm font-semibold text-white">
-        {formatDays(dataPoint.dias)}
-        <span className="ml-1 font-normal text-white/55">de média</span>
+      <p className="mt-1 text-sm font-extrabold text-white">
+        Média: {formatDays(dataPoint.dias)}
       </p>
       <p className="mt-1 text-white/65">
         {dataPoint.count.toLocaleString("pt-BR")} protocolos • Afeta {percentage.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% da base
@@ -213,6 +204,7 @@ export function MetasDashboardClient() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [metaFilter, setMetaFilter] = useState("ALL");
   const [gargaloFilter, setGargaloFilter] = useState("ALL");
   const [balcaoFilter, setBalcaoFilter] = useState<BalcaoFilter>("TODOS");
   const [sortField, setSortField] = useState<SortField>("protocolo");
@@ -246,7 +238,7 @@ export function MetasDashboardClient() {
   // Reset page when filters or sorting change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, statusFilter, gargaloFilter, balcaoFilter, itemsPerPage, sortField, sortOrder]);
+  }, [search, statusFilter, metaFilter, gargaloFilter, balcaoFilter, itemsPerPage, sortField, sortOrder]);
 
   // Helper universal para pegar valor ignorando casing e aliases
   const getVal = useCallback((record: Record<string, unknown> | null | undefined, ...keys: string[]) => {
@@ -290,11 +282,51 @@ export function MetasDashboardClient() {
     return Number.isNaN(dt.getTime()) ? null : dt;
   }, []);
 
-  // Lógica principal de recalcular Status e Atraso zerando horas (Regra estrita)
+  // Lógica principal de recalcular Status e Atraso com mapeamento oficial da procedure pr_Fiorix_BI_METAS
   const getMetasStatusAndAtraso = useCallback((record: MetasData) => {
+    const rawStatusMeta = String(getVal(record, "statusMeta", "STATUS_META", "status_meta") || "").trim().toUpperCase();
+    const diasAtrasoVal = getVal(record, "diasAtraso", "DIAS_ATRASO", "atrasoDias", "ATRASO_DIAS");
+    const parsedAtraso = diasAtrasoVal !== null && diasAtrasoVal !== undefined ? Number(diasAtrasoVal) : null;
+
+    if (rawStatusMeta === "NO PRAZO - PENDENTE") {
+      return {
+        status: "Em dia",
+        statusMeta: "NO PRAZO - PENDENTE",
+        atrasoDias: parsedAtraso !== null && parsedAtraso < 0 ? parsedAtraso : 0,
+        badge: { text: "Em dia", bgClass: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 backdrop-blur-md" }
+      };
+    }
+
+    if (rawStatusMeta === "ATRASADO - PENDENTE") {
+      return {
+        status: "Atrasado",
+        statusMeta: "ATRASADO - PENDENTE",
+        atrasoDias: parsedAtraso !== null && parsedAtraso > 0 ? parsedAtraso : 1,
+        badge: { text: "Atrasado", bgClass: "bg-red-500/10 text-red-300 border border-red-500/20 backdrop-blur-md" }
+      };
+    }
+
+    if (rawStatusMeta === "META ESTOURADA") {
+      return {
+        status: "Entregue com Atraso",
+        statusMeta: "META ESTOURADA",
+        atrasoDias: parsedAtraso !== null && parsedAtraso > 0 ? parsedAtraso : 1,
+        badge: { text: "Entregue com atraso", bgClass: "bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md" }
+      };
+    }
+
+    if (rawStatusMeta === "META BATIDA") {
+      return {
+        status: "Em dia",
+        statusMeta: "META BATIDA",
+        atrasoDias: parsedAtraso !== null && parsedAtraso < 0 ? parsedAtraso : 0,
+        badge: { text: "No prazo", bgClass: "bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 backdrop-blur-md" }
+      };
+    }
+
+    // Fallback gracioso para cargas sem STATUS_META
     const rawStatus = String(getVal(record, "status", "STATUS") || "").trim();
     const rawStatusLower = rawStatus.toLowerCase();
-
     const d10 = getVal(
       record,
       "d10Entrega",
@@ -306,8 +338,8 @@ export function MetasDashboardClient() {
       "D_BALCAO_DEVOLVIDO",
       "d_balcao_devolvido"
     );
-    const dtPrev = getVal(record, "dtPrevisao", "DT_PREVISAO", "dt_previsao");
-    const dataApres = getVal(record, "dataApresentado", "DATA_APRESENTADO", "data_apresentado");
+    const dtPrev = getVal(record, "dtPrevisao", "DT_PREVISAO", "dt_previsao", "DtPrevisaoEntrega");
+    const dataApres = getVal(record, "dataApresentado", "DATA_APRESENTADO", "data_apresentado", "DataDoTituloApresentado");
     const d1Protocolo = getVal(record, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT", "d1_protocolo");
     const atrasoDiasRaw = Number(getVal(record, "atrasoDias", "ATRASO_DIAS", "atraso_dias") || 0);
 
@@ -315,7 +347,6 @@ export function MetasDashboardClient() {
     hoje.setHours(0, 0, 0, 0);
     const hojeKey = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
 
-    // Se o status da planilha/banco for expressamente "Entregue com Atraso" ou concluído com atraso
     if (
       (rawStatusLower.includes("entregue") && rawStatusLower.includes("atraso")) ||
       (rawStatusLower.includes("concluid") && rawStatusLower.includes("atraso")) ||
@@ -325,16 +356,17 @@ export function MetasDashboardClient() {
     ) {
       return {
         status: "Entregue com Atraso",
+        statusMeta: "META ESTOURADA",
         atrasoDias: atrasoDiasRaw > 0 ? atrasoDiasRaw : 1,
-        badge: { text: "Entregue com Atraso", bgClass: "bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md" }
+        badge: { text: "Entregue com atraso", bgClass: "bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md" }
       };
     }
 
-    // 1. Protocolos apresentados hoje nunca podem ser Atrasados -> Sempre Em dia 0d
     if ([dataApres, d1Protocolo].some((value) => getDateKey(value) === hojeKey)) {
       try {
         return {
           status: "Em dia",
+          statusMeta: "NO PRAZO - PENDENTE",
           atrasoDias: 0,
           badge: { text: "Em dia", bgClass: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 backdrop-blur-md" }
         };
@@ -344,7 +376,6 @@ export function MetasDashboardClient() {
     const d10Date = parseDateSafe(d10);
     const prevDate = parseDateSafe(dtPrev);
 
-    // 2. Se D10_ENTREGA / D_BALCAO_DEVOLVIDO (entrega real ou devolução) já existe
     if (d10Date && prevDate) {
       d10Date.setHours(0, 0, 0, 0);
       prevDate.setHours(0, 0, 0, 0);
@@ -353,19 +384,20 @@ export function MetasDashboardClient() {
       if (diffEnt <= 0) {
         return {
           status: "Em dia",
-          atrasoDias: 0,
-          badge: { text: "Em dia", bgClass: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 backdrop-blur-md" }
+          statusMeta: "META BATIDA",
+          atrasoDias: diffEnt,
+          badge: { text: "No prazo", bgClass: "bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 backdrop-blur-md" }
         };
       } else {
         return {
           status: "Entregue com Atraso",
+          statusMeta: "META ESTOURADA",
           atrasoDias: diffEnt,
-          badge: { text: "Entregue com Atraso", bgClass: "bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md" }
+          badge: { text: "Entregue com atraso", bgClass: "bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md" }
         };
       }
     }
 
-    // 3. Protocolos abertos (sem D10_ENTREGA / D_BALCAO_DEVOLVIDO): calcula diffDias = hoje - previsao
     if (prevDate) {
       prevDate.setHours(0, 0, 0, 0);
 
@@ -373,12 +405,14 @@ export function MetasDashboardClient() {
       if (diffDias <= 0) {
         return {
           status: "Em dia",
-          atrasoDias: 0,
+          statusMeta: "NO PRAZO - PENDENTE",
+          atrasoDias: diffDias,
           badge: { text: "Em dia", bgClass: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 backdrop-blur-md" }
         };
       } else {
         return {
           status: "Atrasado",
+          statusMeta: "ATRASADO - PENDENTE",
           atrasoDias: diffDias,
           badge: { text: "Atrasado", bgClass: "bg-red-500/10 text-red-300 border border-red-500/20 backdrop-blur-md" }
         };
@@ -387,6 +421,7 @@ export function MetasDashboardClient() {
 
     return {
       status: "Em dia",
+      statusMeta: "NO PRAZO - PENDENTE",
       atrasoDias: 0,
       badge: { text: "Em dia", bgClass: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 backdrop-blur-md" }
     };
@@ -411,13 +446,12 @@ export function MetasDashboardClient() {
     };
   }, [getMetasStatusAndAtraso, getVal]);
 
-  // Format date helper
-  const formatDate = (val: unknown) => {
+  const formatDateFull = (val: unknown) => {
     if (!val) return "-";
     try {
-      const d = new Date(String(val));
-      if (isNaN(d.getTime())) return "-";
-      return format(d, "dd/MM HH:mm", { locale: ptBR });
+      const d = parseDateSafe(val);
+      if (!d || isNaN(d.getTime())) return "-";
+      return format(d, "dd/MM/yyyy HH:mm:ss", { locale: ptBR });
     } catch {
       return "-";
     }
@@ -462,7 +496,7 @@ export function MetasDashboardClient() {
     const d8 = getVal(record, "d8Impressao", "D8_IMPRESSAO", "D8_IMP");
     const d9 = getVal(record, "d9Preparacao", "D9_PREPARACAO", "D9_PREP");
     const d9C = getVal(record, "d9Conferencia", "D9_CONFERENCIA", "D9_CONF");
-    const d10 = getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT");
+    const d10 = getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT", "dtEntregaReal", "DT_ENTREGA_REAL");
 
     const isP1Active = Boolean(d1 && !d1E);
     const isP2Active = Boolean(d1E && !d2);
@@ -483,7 +517,7 @@ export function MetasDashboardClient() {
       { key: "D5_D8", label: "Calc. -> Impres.", name: "CALCULO -> IMPRESSAO", dias: calculateDaysBetween(d5, d8, getVal(record, "diasD5D8", "DIAS_D5_D8"), isP6Active) },
       { key: "D8_D9", label: "Impres. -> Prep.", name: "IMPRESSAO -> PREPARACAO", dias: calculateDaysBetween(d8, d9, getVal(record, "diasD8D9", "DIAS_D8_D9"), isP7Active) },
       { key: "D9_D9C", label: "Prep. -> Conf.", name: "PREPARACAO -> CONFERENCIA", dias: calculateDaysBetween(d9, d9C, getVal(record, "diasD9D9C", "DIAS_D9PREP_D9CONF"), isP8Active) },
-      { key: "D9C_D10", label: "Conf. -> Entrega", name: "CONFERENCIA -> ENTREGA", dias: calculateDaysBetween(d9C, d10, getVal(record, "diasD9CD10", "DIAS_D9CONF_D10"), isP9Active) },
+      { key: "D9C_D10", label: "Conf. -> Entrega", name: "CONFERENCIA -> ENTREGA", dias: d10 ? calculateDaysBetween(d9C, d10, getVal(record, "diasD9CD10", "DIAS_D9CONF_D10"), false) : null },
     ];
 
     let max = phases[0];
@@ -523,12 +557,12 @@ export function MetasDashboardClient() {
     const gargaloCounts: Record<string, number> = {};
 
     data.forEach(item => {
-      const { status, badge } = getMetasStatusAndAtraso(item);
+      const { status, statusMeta, badge } = getMetasStatusAndAtraso(item);
       statusSet.add(badge.text);
 
-      if (status === "Atrasado") {
+      if (statusMeta === "ATRASADO - PENDENTE" || status === "Atrasado") {
         atrasados++;
-      } else if (status === "Entregue com Atraso") {
+      } else if (statusMeta === "META ESTOURADA" || status === "Entregue com Atraso") {
         entregueComAtraso++;
       }
 
@@ -565,18 +599,18 @@ export function MetasDashboardClient() {
       { name: "D8->D9", fullName: "Impres.->Prep.", label: "Impressão -> Preparação", key: "D8_D9", phaseName: "IMPRESSAO -> PREPARACAO" },
       { name: "D9->D9C", fullName: "Prep.->Conf.", label: "Preparação -> Conferência", key: "D9_D9C", phaseName: "PREPARACAO -> CONFERENCIA" },
       { name: "D9C->D10", fullName: "Conf.->Entrega", label: "Conferência -> Entrega", key: "D9C_D10", phaseName: "CONFERENCIA -> ENTREGA" },
-    ].map(d => {
-      const stats = phaseSums[d.key];
-      const avg = stats.count > 0 ? stats.sum / stats.count : 0;
+    ].map((item) => {
+      const stats = phaseSums[item.key] || { sum: 0, count: 0 };
+      const dias = stats.count > 0 ? stats.sum / stats.count : 0;
       return {
-        ...d,
-        dias: Number(Math.max(0, avg).toFixed(1)),
-        count: stats.count
+        ...item,
+        dias: Number(dias.toFixed(1)),
+        count: stats.count,
       };
     });
 
-    const bottleneck = chartBase.reduce((current, item) => (
-      item.dias > current.dias ? item : current
+    const bottleneck = chartBase.reduce((prev, curr) => (
+      curr.dias > prev.dias ? curr : prev
     ), chartBase[0]);
     const attentionThreshold = bottleneck.dias * 0.5;
     const chart: PhaseChartDatum[] = chartBase.map((item) => ({
@@ -644,11 +678,14 @@ export function MetasDashboardClient() {
     const filtered = data.filter(item => {
       const prot = String(getVal(item, "protocolo", "PROTOCOLO") || "");
       const nat = String(getVal(item, "natureza", "NATUREZA") || "").toLowerCase();
-      const { badge } = getMetasStatusAndAtraso(item);
+      const { badge, statusMeta } = getMetasStatusAndAtraso(item);
       
       const searchLower = search.toLowerCase();
       const matchSearch = search ? (prot.includes(search) || nat.includes(searchLower)) : true;
       const matchStatus = statusFilter !== "ALL" ? badge.text === statusFilter : true;
+      const matchMeta = metaFilter !== "ALL"
+        ? (statusMeta === metaFilter || String(getVal(item, "statusMeta", "STATUS_META") || "").toUpperCase() === metaFilter)
+        : true;
       const matchGargalo = gargaloFilter !== "ALL" ? getGargaloForRecord(item).name === gargaloFilter : true;
       const audit = getBalcaoAuditState(item);
       const matchBalcao = balcaoFilter === "SEM_REG"
@@ -657,7 +694,7 @@ export function MetasDashboardClient() {
           ? audit.semDevolucao
           : true;
       
-      return matchSearch && matchStatus && matchGargalo && matchBalcao;
+      return matchSearch && matchStatus && matchMeta && matchGargalo && matchBalcao;
     });
 
     return [...filtered].sort((a, b) => {
@@ -803,9 +840,9 @@ export function MetasDashboardClient() {
     if (exportList.length === 0) return;
 
     const headers = [
-      "PROTOCOLO", "NATUREZA", "STATUS", "ATRASO_DIAS", "DATA_APRESENTADO", "DT_PREVISAO", 
-      "DT_ENTREGA_REAL", "D1_PROTOCOLO", "D3_EXTRATO", "D4_QUALIFICACAO", 
-      "D5_CALCULO", "D8_IMPRESSAO", "D10_ENTREGA", "D_BALCAO_REGISTRADO",
+      "PROTOCOLO", "NATUREZA", "STATUS_META", "STATUS", "DIAS_ATRASO", "DIAS_CORRIDOS", "DATA_APRESENTADO", "DT_PREVISAO", 
+      "D10_ENTREGA", "D1_PROTOCOLO", "D3_EXTRATO", "D4_QUALIFICACAO", 
+      "D5_CALCULO", "D8_IMPRESSAO", "D_BALCAO_REGISTRADO",
       "D_BALCAO_DEVOLVIDO", "GARGALO", "DIAS_GARGALO"
     ];
 
@@ -813,22 +850,25 @@ export function MetasDashboardClient() {
       const g = getGargaloForRecord(item);
       const prot = getVal(item, "protocolo", "PROTOCOLO");
       const nat = getVal(item, "natureza", "NATUREZA") || "";
-      const { status, atrasoDias } = getMetasStatusAndAtraso(item);
+      const { status, statusMeta, atrasoDias } = getMetasStatusAndAtraso(item);
+      const diasCorridosVal = getVal(item, "diasCorridos", "DIAS_CORRIDOS");
+      const d10Val = getVal(item, "d10Entrega", "D10_ENTREGA", "D10_ENT", "dtEntregaReal", "DT_ENTREGA_REAL");
 
       return [
         prot,
         `"${String(nat).replace(/"/g, '""')}"`,
+        `"${String(statusMeta || "").replace(/"/g, '""')}"`,
         `"${status.replace(/"/g, '""')}"`,
-        atrasoDias || 0,
+        atrasoDias !== undefined && atrasoDias !== null ? atrasoDias : 0,
+        diasCorridosVal !== null && diasCorridosVal !== undefined ? diasCorridosVal : "",
         `"${getVal(item, "dataApresentado", "DATA_APRESENTADO") || ""}"`,
         `"${getVal(item, "dtPrevisao", "DT_PREVISAO") || ""}"`,
-        `"${getVal(item, "dtEntregaReal", "DT_ENTREGA_REAL") || ""}"`,
+        `"${d10Val || ""}"`,
         `"${getVal(item, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT") || ""}"`,
         `"${getVal(item, "d3Extrato", "D3_EXTRATO", "D3_EXTR") || ""}"`,
         `"${getVal(item, "d4Qualificacao", "D4_QUALIFICACAO", "D4_QUALI") || ""}"`,
         `"${getVal(item, "d5Calculo", "D5_CALCULO", "D5_CALC") || ""}"`,
         `"${getVal(item, "d8Impressao", "D8_IMPRESSAO", "D8_IMP") || ""}"`,
-        `"${getVal(item, "d10Entrega", "D10_ENTREGA", "D10_ENT") || ""}"`,
         `"${getVal(item, "dBalcaoRegistrado", "D_BALCAO_REGISTRADO") || ""}"`,
         `"${getVal(item, "dBalcaoDevolvido", "D_BALCAO_DEVOLVIDO") || ""}"`,
         `"${g.name}"`,
@@ -1124,6 +1164,22 @@ export function MetasDashboardClient() {
               </select>
             </div>
 
+            {/* Filtro Meta (STATUS_META) */}
+            <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#0C1323] px-3 py-1.5">
+              <Target className="h-3.5 w-3.5 text-cyan-300" />
+              <select 
+                className="bg-transparent text-sm text-white focus:outline-none appearance-none pr-4 max-w-[170px] truncate"
+                value={metaFilter}
+                onChange={(e) => setMetaFilter(e.target.value)}
+              >
+                <option value="ALL">Todas as Metas</option>
+                <option value="NO PRAZO - PENDENTE">No Prazo (Pendente)</option>
+                <option value="ATRASADO - PENDENTE">Atrasado (Pendente)</option>
+                <option value="META BATIDA">Meta Batida</option>
+                <option value="META ESTOURADA">Meta Estourada</option>
+              </select>
+            </div>
+
             {/* Filtro Gargalo */}
             <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#0C1323] px-3 py-1.5">
               <Filter className="h-3.5 w-3.5 text-white/40" />
@@ -1287,7 +1343,7 @@ export function MetasDashboardClient() {
               {paginatedData.map((row) => {
                 const prot = String(getVal(row, "protocolo", "PROTOCOLO") || "");
                 const natVal = String(getVal(row, "natureza", "NATUREZA", "TIPO_DETALHADO", "tipo_detalhado") || "");
-                const { atrasoDias, badge } = getMetasStatusAndAtraso(row);
+                const { atrasoDias, badge, statusMeta } = getMetasStatusAndAtraso(row);
 
                 const gargalo = getGargaloForRecord(row);
                 
@@ -1296,7 +1352,7 @@ export function MetasDashboardClient() {
                 const d4Val = getVal(row, "d4Qualificacao", "D4_QUALIFICACAO", "D4_QUALI");
                 const d5Val = getVal(row, "d5Calculo", "D5_CALCULO", "D5_CALC");
                 const d8Val = getVal(row, "d8Impressao", "D8_IMPRESSAO", "D8_IMP");
-                const d10Val = getVal(row, "d10Entrega", "D10_ENTREGA", "D10_ENT");
+                const d10Val = getVal(row, "d10Entrega", "D10_ENTREGA", "D10_ENT", "dtEntregaReal", "DT_ENTREGA_REAL");
                 const balcao = getBalcaoAuditState(row);
                 const hasAuditPending = balcao.semRegistro || balcao.semDevolucao;
 
@@ -1314,21 +1370,26 @@ export function MetasDashboardClient() {
                       {natVal || "-"}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${badge.bgClass}`}>
+                      <span 
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${badge.bgClass}`}
+                        title={statusMeta ? `Status ERP: ${statusMeta}` : `Status: ${badge.text}`}
+                      >
                         {badge.text}
                       </span>
                     </td>
-                    <td className={`px-4 py-3 font-medium ${atrasoDias > 0 ? 'text-rose-300' : 'text-white/50'}`}>
+                    <td className={`px-4 py-3 font-medium ${atrasoDias > 0 ? 'text-red-400 font-bold' : 'text-emerald-400 font-medium'}`}>
                       {atrasoDias > 0 ? `${atrasoDias}d` : '0d'}
                     </td>
-                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(d1Val)}</td>
-                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(d3Val)}</td>
-                    <td className={`px-4 py-3 text-[11px] text-center bg-white/[0.01] ${gargalo.name.includes("EXTRATO -> QUALIFICACAO") ? "text-orange-400 font-bold" : "text-white/70"}`}>
+                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]" title={d1Val ? formatDateFull(d1Val) : "-"}>{formatDate(d1Val)}</td>
+                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]" title={d3Val ? formatDateFull(d3Val) : "-"}>{formatDate(d3Val)}</td>
+                    <td className={`px-4 py-3 text-[11px] text-center bg-white/[0.01] ${gargalo.name.includes("EXTRATO -> QUALIFICACAO") ? "text-orange-400 font-bold" : "text-white/70"}`} title={d4Val ? formatDateFull(d4Val) : "-"}>
                       {formatDate(d4Val)}
                     </td>
-                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(d5Val)}</td>
-                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(d8Val)}</td>
-                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(d10Val)}</td>
+                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]" title={d5Val ? formatDateFull(d5Val) : "-"}>{formatDate(d5Val)}</td>
+                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]" title={d8Val ? formatDateFull(d8Val) : "-"}>{formatDate(d8Val)}</td>
+                    <td className={`px-4 py-3 text-[11px] text-center bg-white/[0.01] ${d10Val ? "text-white/90 font-medium" : "text-white/30"}`} title={d10Val ? formatDateFull(d10Val) : "-"}>
+                      {d10Val ? formatDate(d10Val) : "-"}
+                    </td>
                     <td className="px-4 py-3 text-[11px] text-center bg-white/[0.01]">
                       {balcao.dBalcaoRegistrado ? (
                         <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-emerald-300">
