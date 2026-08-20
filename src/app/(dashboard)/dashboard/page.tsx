@@ -118,7 +118,7 @@ export default async function Dashboard({
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const startOfQuarter = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
-  const getColabRank = (fromDate?: Date) => {
+  function getColabRank(fromDate?: Date) {
     const nameMap = new Map<string, number>();
     dbColaboradores.forEach((colab) => {
       const namesToSearch = [colab.name, ...(colab.aliases || [])].map(n => n.trim().toLowerCase()).filter(Boolean);
@@ -150,7 +150,7 @@ export default async function Dashboard({
       .map(([nome, elogios]) => ({ nome, elogios }))
       .sort((a, b) => b.elogios - a.elogios)
       .slice(0, 5);
-  };
+  }
 
   const monthColaboradores = getColabRank(startOfMonth);
   const quarterColaboradores = getColabRank(startOfQuarter);
@@ -163,17 +163,43 @@ export default async function Dashboard({
   const syncedCount = Array.isArray(rawSynced) ? rawSynced[0] : rawSynced;
 
   return (
-    <div className="fiorix-dark-page w-full px-4 md:px-7 py-6 space-y-6">
+    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </div>
+
+      <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
+        <div className="rounded-[28px] border border-white/8 bg-[#0B1020]/72 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl space-y-3">
+          <div className="flex items-center gap-2 text-xs font-medium text-white/42">
+            <span>Dashboard</span>
+            <span className="text-white/20">/</span>
+            <span>Visão Geral</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl sm:text-[2.15rem] font-black tracking-[0.01em] text-transparent bg-clip-text bg-gradient-to-r from-slate-50 via-white to-amber-300">
+              FIORIX Dashboard - Visão Consolidada
+            </h1>
+            <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 font-mono text-xs text-emerald-300">
+              PAINEL EXECUTIVO
+            </span>
+          </div>
+
+          <p className="max-w-4xl text-sm leading-relaxed text-white/58">
+            Visão consolidada das avaliações do Google, desempenho dos colaboradores, saúde da reputação e insights inteligentes.
+          </p>
+        </div>
       {syncError && (
         <div className="flex items-center gap-3 rounded-[20px] border border-rose-500/20 bg-[#0B1020]/80 px-5 py-4 text-sm text-rose-200 shadow-[0_18px_50px_rgba(0,0,0,0.22)] backdrop-blur-xl">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-rose-500/20 bg-rose-500/10 text-base">⚠</span>
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-rose-500/20 bg-rose-500/10 text-base">!</span>
           <span><strong>Erro ao Sincronizar com o Google:</strong> {syncError}</span>
         </div>
       )}
 
       {syncedCount && (
         <div className="flex items-center gap-3 rounded-[20px] border border-emerald-500/20 bg-[#0B1020]/80 px-5 py-4 text-sm text-emerald-200 shadow-[0_18px_50px_rgba(0,0,0,0.22)] backdrop-blur-xl">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-base">✓</span>
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-base">v</span>
           <span><strong>Sincronização Concluída:</strong> {syncedCount} novas avaliações importadas!</span>
         </div>
       )}
@@ -181,7 +207,7 @@ export default async function Dashboard({
       {!isConnected && isDemo && (
         <div className="flex flex-col items-start justify-between gap-3 rounded-[20px] border border-amber-400/20 bg-[#0B1020]/80 px-5 py-4 text-sm text-amber-100 shadow-[0_18px_50px_rgba(0,0,0,0.22)] backdrop-blur-xl sm:flex-row sm:items-center">
           <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-base">👋</span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-base">i</span>
             <span>
               <strong>Modo Demonstração:</strong> Como você ainda não conectou o Google Meu Negócio, estamos exibindo dados de exemplo para demonstração do painel.
             </span>
@@ -190,7 +216,7 @@ export default async function Dashboard({
             href="/configuracoes"
             className="rounded-xl border border-amber-400/20 bg-amber-400/15 px-4 py-2 text-xs font-bold whitespace-nowrap text-amber-200 transition-colors hover:bg-amber-400/25 self-end sm:self-auto"
           >
-            Conectar Google →
+            Conectar Google &rarr;
           </a>
         </div>
       )}
@@ -225,6 +251,7 @@ export default async function Dashboard({
           <InsightCard />
         </div>
       </div>
+      </main>
     </div>
   );
 }

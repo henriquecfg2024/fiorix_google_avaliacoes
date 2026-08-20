@@ -198,27 +198,38 @@ export default function ProdutividadePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0A0F1E] text-white p-4 lg:p-8 space-y-6">
-      <div className="border-b border-white/5 pb-6 space-y-4">
-        <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-xs text-white/40 mb-1.5 font-medium">
-              <span>Dashboard</span>
-              <ChevronRight className="h-3 w-3" />
-              <span>BI</span>
-              <ChevronRight className="h-3 w-3" />
-              <span className="text-[#00C950]">Produtividade</span>
-            </div>
+    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight text-white">Produtividade - Caixa</h1>
-              {!loading && data.length > 0 && (
-                <Badge className="bg-[#00C950]/15 text-[#00C950] border-[#00C950]/30 hover:bg-[#00C950]/20 font-mono text-xs">
-                  {data.length.toLocaleString("pt-BR")} registros
-                </Badge>
-              )}
+      <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
+        <div className="rounded-[28px] border border-white/8 bg-[#0B1020]/72 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl space-y-3">
+          <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4">
+            <div className="min-w-0 space-y-2">
+              <div className="flex items-center gap-2 text-xs font-medium text-white/42">
+                <span>Dashboard</span>
+                <ChevronRight className="h-3 w-3" />
+                <span>BI</span>
+                <ChevronRight className="h-3 w-3" />
+                <span className="text-amber-300">Produtividade</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-2xl sm:text-[2.15rem] font-black tracking-[0.01em] text-transparent bg-clip-text bg-gradient-to-r from-slate-50 via-white to-amber-300">
+                  FIORIX BI - Produtividade de Caixa
+                </h1>
+                {!loading && data.length > 0 && (
+                  <Badge className="rounded-full border border-emerald-500/20 bg-emerald-500/10 font-mono text-xs text-emerald-300">
+                    {data.length.toLocaleString("pt-BR")} registros
+                  </Badge>
+                )}
+              </div>
+              <p className="max-w-4xl text-sm leading-relaxed text-white/58">
+                Análise detalhada de produtividade presencial e digital por colaborador, faixas horárias e modalidades de pedido.
+              </p>
             </div>
-          </div>
 
           <div className="flex flex-wrap items-center gap-3 xl:justify-end">
             <Popover>
@@ -502,6 +513,7 @@ export default function ProdutividadePage() {
           )}
         </div>
       )}
+      </main>
     </div>
   );
 }

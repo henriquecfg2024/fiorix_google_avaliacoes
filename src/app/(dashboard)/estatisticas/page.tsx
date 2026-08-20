@@ -8,6 +8,38 @@ import { Target, ExternalLink, ArrowRight, Lightbulb, Sparkles, ShieldAlert } fr
 
 export const dynamic = 'force-dynamic';
 
+const zoneBadgeClass = {
+  green: 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-300',
+  blue: 'border border-blue-500/20 bg-blue-500/10 text-blue-300',
+  amber: 'border border-amber-500/20 bg-amber-500/10 text-amber-300',
+  red: 'border border-red-500/20 bg-red-500/10 text-red-300',
+};
+
+function renderMetricCard(
+  ind: { icon: string; nome: string; score: number; desc: string },
+  tone: 'green' | 'blue' | 'amber' | 'red'
+) {
+  return (
+    <div className="space-y-2 rounded-2xl border border-white/10 bg-slate-900/78 p-4 shadow-[0_10px_28px_rgba(2,6,23,0.18)] transition-all hover:border-white/15">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-bold text-white">
+          <span>{ind.icon}</span> {ind.nome}
+        </span>
+        <span className={`rounded-lg px-2 py-0.5 text-xs font-extrabold ${zoneBadgeClass[tone]}`}>{ind.score}%</span>
+      </div>
+      <p className="text-[11px] leading-relaxed text-slate-400">{ind.desc}</p>
+      <div className="h-1.5 overflow-hidden rounded-full bg-slate-700/80">
+        <div
+          className={`h-full rounded-full ${
+            tone === 'green' ? 'bg-emerald-500' : tone === 'blue' ? 'bg-blue-500' : tone === 'amber' ? 'bg-amber-500' : 'bg-red-500'
+          }`}
+          style={{ width: `${ind.score}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default async function EstatisticasPage() {
   let user;
   try {
@@ -41,63 +73,62 @@ export default async function EstatisticasPage() {
   const getPercent = (count: number) => (totalReviews > 0 ? ((count / totalReviews) * 100).toFixed(1) : '0.0');
 
   const grupoExcelencia = [
-    { icon: '🕘', nome: 'Horário de Atendimento', score: 96, desc: 'Cumprimento dos horários de abertura, atendimento contínuo e pontualidade' },
-    { icon: '💳', nome: 'Pagamento', score: 93, desc: 'Opções de pagamento como PIX, cartão de débito/crédito e agilidade no caixa' },
-    { icon: '🤝', nome: 'Qualidade de Atendimento', score: 91, desc: 'Cordialidade, empatia e presteza da equipe de escreventes na recepção' },
-    { icon: '💡', nome: 'Clareza de Informações', score: 88, desc: 'Orientação precisa ao cliente sobre requisitos e documentos necessários' },
+    { icon: 'Horario', nome: 'Horário de Atendimento', score: 96, desc: 'Cumprimento dos horários de abertura, atendimento contínuo e pontualidade' },
+    { icon: 'Pagamento', nome: 'Pagamento', score: 93, desc: 'Opções de pagamento como PIX, cartão de débito/crédito e agilidade no caixa' },
+    { icon: 'Atendimento', nome: 'Qualidade de Atendimento', score: 91, desc: 'Cordialidade, empatia e presteza da equipe de escreventes na recepção' },
+    { icon: 'Informacoes', nome: 'Clareza de Informações', score: 88, desc: 'Orientação precisa ao cliente sobre requisitos e documentos necessários' },
   ];
 
   const grupoExperiencia = [
-    { icon: '🌟', nome: 'Índice de Recomendação (NPS)', score: 85, desc: 'Porcentagem de clientes promotores que elogiam ativamente a serventia' },
-    { icon: '🎯', nome: 'Resolução no Primeiro Contato', score: 82, desc: 'Capacidade de resolver o ato sem exigir retornos adicionais desnecessários' },
+    { icon: 'NPS', nome: 'Índice de Recomendação (NPS)', score: 85, desc: 'Porcentagem de clientes promotores que elogiam ativamente a serventia' },
+    { icon: 'Resolucao', nome: 'Resolução no Primeiro Contato', score: 82, desc: 'Capacidade de resolver o ato sem exigir retornos adicionais desnecessários' },
   ];
 
   const grupoAtencao = [
-    { icon: '📄', nome: 'Documentação', score: 59, desc: 'Clareza na exigência e conferência prévia da documentação apresentada' },
-    { icon: '🌐', nome: 'Site / Agendamento', score: 42, desc: 'Disponibilidade e facilidade de agendamento presencial no portal online' },
+    { icon: 'Doc', nome: 'Documentação', score: 59, desc: 'Clareza na exigência e conferência prévia da documentação apresentada' },
+    { icon: 'Site', nome: 'Site / Agendamento', score: 42, desc: 'Disponibilidade e facilidade de agendamento presencial no portal online' },
   ];
 
   const grupoCritico = [
-    { icon: '⏱️', nome: 'Prazo de Entrega', score: 22, query: 'prazo', desc: 'Cumprimento do prazo prometido para devolução de títulos e certidões' },
-    { icon: '🕐', nome: 'Fila / Espera', score: 18, query: 'fila', desc: 'Tempo de espera na fila de triagem e atendimento presencial' },
+    { icon: 'Prazo', nome: 'Prazo de Entrega', score: 22, query: 'prazo', desc: 'Cumprimento do prazo prometido para devolução de títulos e certidões' },
+    { icon: 'Fila', nome: 'Fila / Espera', score: 18, query: 'fila', desc: 'Tempo de espera na fila de triagem e atendimento presencial' },
   ];
 
   const somaScore = 96 + 93 + 91 + 88 + 85 + 82 + 59 + 42 + 22 + 18;
   const mediaSaudeReputacao = Math.round(somaScore / 10);
 
-  const zoneBadgeClass = {
-    green: 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-300',
-    blue: 'border border-blue-500/20 bg-blue-500/10 text-blue-300',
-    amber: 'border border-amber-500/20 bg-amber-500/10 text-amber-300',
-    red: 'border border-red-500/20 bg-red-500/10 text-red-300',
-  };
-
-  const metricCard = (
-    ind: { icon: string; nome: string; score: number; desc: string },
-    tone: 'green' | 'blue' | 'amber' | 'red',
-  ) => (
-    <div className="space-y-2 rounded-2xl border border-white/10 bg-slate-900/78 p-4 shadow-[0_10px_28px_rgba(2,6,23,0.18)] transition-all hover:border-white/15">
-      <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-xs font-bold text-white">
-          <span>{ind.icon}</span> {ind.nome}
-        </span>
-        <span className={`rounded-lg px-2 py-0.5 text-xs font-extrabold ${zoneBadgeClass[tone]}`}>{ind.score}%</span>
-      </div>
-      <p className="text-[11px] leading-relaxed text-slate-400">{ind.desc}</p>
-      <div className="h-1.5 overflow-hidden rounded-full bg-slate-700/80">
-        <div
-          className={`h-full rounded-full ${
-            tone === 'green' ? 'bg-emerald-500' : tone === 'blue' ? 'bg-blue-500' : tone === 'amber' ? 'bg-amber-500' : 'bg-red-500'
-          }`}
-          style={{ width: `${ind.score}%` }}
-        />
-      </div>
-    </div>
-  );
-
   return (
-    <div className="fiorix-dark-page w-full space-y-6 px-4 py-6 md:px-7">
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </div>
+
+      <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
+        <div className="rounded-[28px] border border-white/8 bg-[#0B1020]/72 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl space-y-3">
+          <div className="flex items-center gap-2 text-xs font-medium text-white/42">
+            <span>Dashboard</span>
+            <span className="text-white/20">/</span>
+            <span>Gestão</span>
+            <span className="text-white/20">/</span>
+            <span className="text-amber-300">Estatísticas</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl sm:text-[2.15rem] font-black tracking-[0.01em] text-transparent bg-clip-text bg-gradient-to-r from-slate-50 via-white to-amber-300">
+              FIORIX Gestão - Estatísticas de Desempenho
+            </h1>
+            <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 font-mono text-xs text-emerald-300">
+              SAÚDE DA REPUTAÇÃO
+            </span>
+          </div>
+
+          <p className="max-w-4xl text-sm leading-relaxed text-white/58">
+            Análise aprofundada dos 10 indicadores de saúde da reputação, distribuição de notas do Google e simulações operacionais.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div className="space-y-4 rounded-2xl border border-white/10 bg-slate-900/80 p-5 shadow-[0_12px_30px_rgba(2,6,23,0.2)]">
           <div>
             <h3 className="text-base font-bold text-white">Distribuição de Notas</h3>
@@ -238,7 +269,7 @@ export default async function EstatisticasPage() {
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {grupoExcelencia.map((ind, idx) => (
-                <div key={idx}>{metricCard(ind, 'green')}</div>
+                <div key={idx}>{renderMetricCard(ind, 'green')}</div>
               ))}
             </div>
           </div>
@@ -254,7 +285,7 @@ export default async function EstatisticasPage() {
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {grupoExperiencia.map((ind, idx) => (
-                <div key={idx}>{metricCard(ind, 'blue')}</div>
+                <div key={idx}>{renderMetricCard(ind, 'blue')}</div>
               ))}
             </div>
           </div>
@@ -270,7 +301,7 @@ export default async function EstatisticasPage() {
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {grupoAtencao.map((ind, idx) => (
-                <div key={idx}>{metricCard(ind, 'amber')}</div>
+                <div key={idx}>{renderMetricCard(ind, 'amber')}</div>
               ))}
             </div>
           </div>
@@ -325,6 +356,7 @@ export default async function EstatisticasPage() {
             </div>
           </div>
         </div>
+      </div>
 
         <div className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-500/20 bg-[linear-gradient(135deg,rgba(245,158,11,0.08),rgba(30,41,59,0.9))] p-5">
           <Lightbulb className="mt-0.5 h-6 w-6 shrink-0 text-amber-400" />
@@ -335,7 +367,7 @@ export default async function EstatisticasPage() {
             </p>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

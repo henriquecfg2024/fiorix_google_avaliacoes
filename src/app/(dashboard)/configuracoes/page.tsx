@@ -48,12 +48,33 @@ export default async function ConfiguracoesPage({
   const errorDetails = Array.isArray(rawDetails) ? rawDetails[0] : rawDetails;
 
   return (
-    <div className="fiorix-dark-page px-4 md:px-7 py-6">
-      <div className="mx-auto max-w-7xl space-y-6 rounded-3xl border border-white/10 bg-[#111827] p-5 md:p-6 shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
-        <div className="space-y-1">
-          <h1 className="text-xl font-bold text-white">Configurações Gerais</h1>
-          <p className="text-sm text-white/55">
-            Integrações, usuários, cartórios e preferências do sistema
+    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </div>
+
+      <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
+        <div className="rounded-[28px] border border-white/8 bg-[#0B1020]/72 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl space-y-3">
+          <div className="flex items-center gap-2 text-xs font-medium text-white/42">
+            <span>Dashboard</span>
+            <span className="text-white/20">/</span>
+            <span>Sistema</span>
+            <span className="text-white/20">/</span>
+            <span className="text-amber-300">Configurações</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl sm:text-[2.15rem] font-black tracking-[0.01em] text-transparent bg-clip-text bg-gradient-to-r from-slate-50 via-white to-amber-300">
+              FIORIX Sistema - Configurações Gerais
+            </h1>
+            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 font-mono text-xs text-amber-300">
+              PREFERÊNCIAS & INTEGRAÇÕES
+            </span>
+          </div>
+
+          <p className="max-w-4xl text-sm leading-relaxed text-white/58">
+            Gerencie integrações com o Google Meu Negócio, acompanhe sincronizações e altere credenciais do sistema.
           </p>
         </div>
 
@@ -238,7 +259,7 @@ export default async function ConfiguracoesPage({
             </section>
           </>
         )}
-      </div>
+      </main>
     </div>
   );
 }

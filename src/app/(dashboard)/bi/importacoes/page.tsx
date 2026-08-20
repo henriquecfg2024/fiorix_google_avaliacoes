@@ -221,27 +221,41 @@ export default async function BiImportacoesPage() {
   const totalRows = unifiedRows.reduce((sum, row) => sum + Number(row.rowsCount || 0), 0);
 
   return (
-    <div className="fiorix-dark-page text-white">
-      <main className="container mx-auto px-4 lg:px-8 py-8 space-y-6">
-        <div className="rounded-[28px] border border-white/8 bg-[#0B1020]/78 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </div>
+
+      <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
+        <div className="rounded-[28px] border border-white/8 bg-[#0B1020]/72 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl space-y-3">
+          <div className="flex items-center gap-2 text-xs font-medium text-white/42">
+            <span>Dashboard</span>
+            <span className="text-white/20">/</span>
+            <span>Sistema</span>
+            <span className="text-white/20">/</span>
+            <span className="text-amber-300">Importações</span>
+          </div>
+
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-            <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs text-amber-200">
-                <Layers3 className="h-3.5 w-3.5" />
-                Demonstrativo Unificado de CSVs
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-2xl sm:text-[2.15rem] font-black tracking-[0.01em] text-transparent bg-clip-text bg-gradient-to-r from-slate-50 via-white to-amber-300">
+                  FIORIX BI - Gestão de Importações
+                </h1>
+                <Badge className="rounded-full border border-amber-500/20 bg-amber-500/10 font-mono text-xs text-amber-300">
+                  HISTÓRICO DE CARGAS
+                </Badge>
               </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">Importações de CSV</h1>
-                <p className="mt-1 text-sm text-white/55">
-                  Visão única das importações do Módulo BI e da Produtividade, incluindo períodos inferidos já existentes na base.
-                </p>
-              </div>
+              <p className="max-w-4xl text-sm leading-relaxed text-white/58">
+                Visão unificada das cargas efetuadas no Módulo BI, Produtividade e Metas, incluindo inferências de períodos gravados na base.
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-3">
               <ImportacoesActions />
               <Link href="/bi">
-                <Button variant="outline" className="gap-2 border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]">
+                <Button variant="outline" className="gap-2 border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]">
                   <ArrowLeft className="h-4 w-4" />
                   Voltar ao BI
                 </Button>
