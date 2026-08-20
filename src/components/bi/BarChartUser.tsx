@@ -36,7 +36,7 @@ export function BarChartUser({ data }: BarChartUserProps) {
     if (active && payload && payload.length) {
       const item = payload[0];
       return (
-        <div className="rounded-xl border border-white/10 bg-[#0B1020] p-3 text-xs text-white shadow-2xl">
+        <div className="rounded-xl border border-white/10 bg-[#0B1020]/95 p-3 text-xs text-white shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
           <p className="font-semibold text-white/80">{item.name}</p>
           <p className="mt-1 font-bold text-cyan-300">{item.value.toLocaleString("pt-BR")} autenticações</p>
         </div>
@@ -46,7 +46,7 @@ export function BarChartUser({ data }: BarChartUserProps) {
   };
 
   return (
-    <div className="flex h-[350px] min-h-0 flex-col overflow-hidden rounded-[24px] border border-white/8 bg-[#0B1020]/78 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+    <div className="flex h-[350px] min-h-0 flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
       <div>
         <h3 className="text-base font-bold tracking-tight text-white">Ranking por Usuário</h3>
         <p className="text-xs text-white/40">Colaboradores com maior volume de processamento</p>

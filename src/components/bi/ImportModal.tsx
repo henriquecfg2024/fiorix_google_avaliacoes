@@ -5,7 +5,6 @@ import Papa from "papaparse";
 import { Upload, X, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
 
 interface ImportModalProps {
   isOpen: boolean;
@@ -13,10 +12,23 @@ interface ImportModalProps {
   onSuccess: () => void;
 }
 
+type CsvRow = {
+  DATA: string;
+  HORA_NUM: number;
+  DIA_SEMANA: string;
+  HORA: string;
+  PEDIDO: number;
+  NOME: string;
+  TIPO: string;
+  TIPO_PEDIDO: string;
+  TIPO_DETALHADO: string;
+  QUANTIDADE: number;
+};
+
 export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<any[]>([]);
-  const [parsedData, setParsedData] = useState<any[]>([]);
+  const [preview, setPreview] = useState<CsvRow[]>([]);
+  const [parsedData, setParsedData] = useState<CsvRow[]>([]);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -59,7 +71,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
         }
 
         // Map and validate columns
-        const dbRows = rawRows.map((row: any) => {
+        const dbRows = (rawRows as Record<string, unknown>[]).map((row) => {
           const getVal = (col: string) => {
             if (row[col] !== undefined && row[col] !== null) return String(row[col]).trim();
             const key = Object.keys(row).find(
@@ -144,11 +156,12 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
       setFile(null);
       setPreview([]);
       setParsedData([]);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro na importação:", error);
-      const cleanMsg = typeof error?.message === "string" && error.message.includes("<")
+      const message = error instanceof Error ? error.message : "";
+      const cleanMsg = typeof message === "string" && message.includes("<")
         ? "Erro no servidor ao importar CSV."
-        : error?.message || "Erro de conexão ao salvar.";
+        : message || "Erro de conexão ao salvar.";
       toast.error(`Erro ao salvar no banco: ${cleanMsg}`);
     } finally {
       setIsImporting(false);
@@ -156,11 +169,11 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-4xl rounded-xl border border-white/10 bg-[#0A0F1E] p-6 shadow-2xl animate-in zoom-in-95 duration-250 text-white">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#05070D]/80 backdrop-blur-sm p-4">
+      <div className="relative w-full max-w-4xl rounded-[28px] border border-white/10 bg-[#0B1020]/92 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.28)] animate-in zoom-in-95 duration-250 text-white">
         
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
+        <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-4">
           <h2 className="text-xl font-bold tracking-tight">Importar Dados de Produtividade</h2>
           <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full text-white/60 hover:text-white hover:bg-white/10">
             <X className="h-5 w-5" />
@@ -173,7 +186,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className="flex flex-col items-center justify-center border-2 border-dashed border-white/20 hover:border-[#00C950]/50 rounded-lg p-10 cursor-pointer bg-white/[0.01] hover:bg-white/[0.03] transition-all group"
+            className="group flex cursor-pointer flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-white/15 bg-white/[0.02] p-10 transition-all hover:border-cyan-400/35 hover:bg-white/[0.04]"
           >
             <input
               type="file"
@@ -182,21 +195,21 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
               accept=".csv"
               className="hidden"
             />
-            <div className="p-4 rounded-full bg-white/[0.03] border border-white/10 group-hover:border-[#00C950]/30 transition-all mb-4">
-              <Upload className="h-8 w-8 text-white/60 group-hover:text-[#00C950] transition-colors" />
+            <div className="mb-4 rounded-full border border-white/10 bg-white/[0.03] p-4 transition-all group-hover:border-cyan-400/30">
+              <Upload className="h-8 w-8 text-white/60 transition-colors group-hover:text-cyan-300" />
             </div>
             <p className="text-sm font-semibold mb-1 text-white">Arraste e solte o arquivo CSV aqui</p>
             <p className="text-xs text-white/40">ou clique para selecionar do computador</p>
-            <div className="mt-4 text-xs text-white/50 bg-white/5 px-3 py-1.5 rounded border border-white/10">
+            <div className="mt-4 rounded border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/50">
               Colunas esperadas: DATA, HORA_NUM, DIA_SEMANA, HORA, PEDIDO, NOME, TIPO, TIPO_PEDIDO, QUANTIDADE
             </div>
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex items-center justify-between bg-white/[0.02] border border-white/10 p-3 rounded-lg">
+            <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded bg-[#00C950]/10 border border-[#00C950]/20">
-                  <Check className="h-5 w-5 text-[#00C950]" />
+                <div className="rounded bg-cyan-500/10 border border-cyan-500/20 p-2">
+                  <Check className="h-5 w-5 text-cyan-300" />
                 </div>
                 <div>
                   <p className="text-sm font-medium">{file.name}</p>
@@ -220,9 +233,9 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
             {/* Preview Table */}
             <div>
               <p className="text-xs font-semibold text-white/60 uppercase tracking-wider mb-2">Preview (Primeiras 10 linhas)</p>
-              <div className="overflow-x-auto rounded border border-white/10 max-h-[300px]">
+              <div className="max-h-[300px] overflow-x-auto rounded-xl border border-white/10">
                 <table className="w-full text-xs text-left">
-                  <thead className="bg-white/5 text-white/80 sticky top-0">
+                  <thead className="sticky top-0 bg-white/5 text-white/80">
                     <tr>
                       <th className="p-2 border-b border-white/10">Pedido</th>
                       <th className="p-2 border-b border-white/10">Data</th>
@@ -264,7 +277,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
               </Button>
               <Button
                 onClick={handleConfirmImport}
-                className="bg-[#00C950] text-black hover:bg-[#00A842] font-semibold"
+                className="bg-cyan-400 text-[#07111F] hover:bg-cyan-300 font-semibold"
                 disabled={isImporting || parsedData.length === 0}
               >
                 {isImporting ? (

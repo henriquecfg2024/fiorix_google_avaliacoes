@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { RefreshCw, Upload, Sparkles, ChevronRight, LayoutGrid, RotateCcw } from "lucide-react";
+import { Upload, Sparkles, ChevronRight, LayoutGrid, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -18,9 +18,16 @@ import { DataTablePremium } from "./DataTablePremium";
 import { FiorixSkeleton } from "@/components/fiorix/FiorixSkeleton";
 
 export function ProdutividadeClient() {
-  const [data, setData] = useState<any[]>([]);
+  type ProdutividadeRow = {
+    [key: string]: unknown;
+    DATA?: string;
+    TIPO?: string;
+    TIPO_PEDIDO?: string;
+    NOME?: string;
+  };
+
+  const [data, setData] = useState<ProdutividadeRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
 
   // Filters State
@@ -40,9 +47,10 @@ export function ProdutividadeClient() {
 
       if (error) throw error;
       setData(dbData || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro ao buscar dados do Supabase:", error);
-      toast.error(`Erro ao carregar dados: ${error.message}`);
+      const message = error instanceof Error ? error.message : "Erro ao carregar dados.";
+      toast.error(`Erro ao carregar dados: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -51,39 +59,6 @@ export function ProdutividadeClient() {
   useEffect(() => {
     fetchData();
   }, []);
-
-  const handleSync = async () => {
-    setIsSyncing(true);
-    toast.info("Iniciando sincronização com SQL Server...");
-    try {
-      const res = await fetch("/api/bi/produtividade/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ startDate, endDate }),
-      });
-
-      const contentType = res.headers.get("content-type");
-      if (!res.ok || !contentType || !contentType.includes("application/json")) {
-        throw new Error(`Falha no servidor (Status ${res.status}). Verifique as credenciais ou a rota de API.`);
-      }
-
-      const result = await res.json();
-      if (result.success) {
-        toast.success(`Sincronização concluída! ${result.inserted} registros atualizados.`);
-        fetchData();
-      } else {
-        throw new Error(result.error || "Erro desconhecido ao sincronizar.");
-      }
-    } catch (error: any) {
-      console.error("Erro na sincronização:", error);
-      const cleanMsg = typeof error?.message === "string" && error.message.includes("<")
-        ? "Erro no servidor ao processar resposta."
-        : error?.message || "Erro de conexão.";
-      toast.error(`Erro na sincronização: ${cleanMsg}`);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   // Distinct Lists for Select dropdowns based on raw data
   const selectOptions = useMemo(() => {
@@ -105,7 +80,7 @@ export function ProdutividadeClient() {
   const filteredData = useMemo(() => {
     return data.filter((row) => {
       // 1. Date filter
-      if (row.DATA < startDate || row.DATA > endDate) return false;
+      if (!row.DATA || row.DATA < startDate || row.DATA > endDate) return false;
       
       // 2. TIPO filter
       if (tipo !== "ALL" && row.TIPO !== tipo) return false;
@@ -130,21 +105,21 @@ export function ProdutividadeClient() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0F1E] text-white p-4 lg:p-8 space-y-6">
+    <div className="min-h-screen bg-[#05070D] text-white p-4 lg:p-8 space-y-6">
       
       {/* Breadcrumb Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 rounded-[28px] border border-white/10 bg-[#0B1020]/72 px-5 py-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
         <div>
           <div className="flex items-center gap-2 text-xs text-white/40 mb-1.5 font-medium">
             <span>Dashboard</span>
             <ChevronRight className="h-3 w-3" />
             <span>BI</span>
             <ChevronRight className="h-3 w-3" />
-            <span className="text-[#00C950]">Produtividade</span>
+            <span className="text-cyan-300">Produtividade</span>
           </div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold tracking-tight text-white">Produtividade - Caixa</h1>
-            <Badge className="bg-[#00C950]/15 text-[#00C950] border-[#00C950]/30 hover:bg-[#00C950]/20 font-mono text-xs">
+            <Badge className="border-cyan-500/20 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/15 font-mono text-xs">
               {data.length.toLocaleString("pt-BR")} registros
             </Badge>
           </div>
@@ -154,7 +129,7 @@ export function ProdutividadeClient() {
         <div className="flex flex-wrap gap-3">
           <Button
             onClick={() => setIsImportOpen(true)}
-            className="bg-[#00C950] hover:bg-[#00A844] text-white font-semibold gap-2"
+            className="gap-2 border border-cyan-500/20 bg-cyan-500/15 font-semibold text-cyan-100 hover:bg-cyan-500/20"
           >
             <Upload className="h-4 w-4" />
             Importar CSV
@@ -163,9 +138,9 @@ export function ProdutividadeClient() {
       </div>
 
       {/* Date Picker Row */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5 shadow-2xl space-y-4">
+      <div className="rounded-[28px] border border-white/10 bg-[#0B1020]/72 backdrop-blur-xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] space-y-4">
         <div className="flex items-center gap-2 text-white/80 font-bold text-sm">
-          <LayoutGrid className="h-4 w-4 text-[#00C950]" />
+          <LayoutGrid className="h-4 w-4 text-cyan-300" />
           <span>Filtros do Painel de Produtividade</span>
         </div>
         
@@ -177,7 +152,7 @@ export function ProdutividadeClient() {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="bg-white/5 border-white/10 text-white focus:border-[#00C950]/50"
+              className="bg-white/5 border-white/10 text-white focus:border-cyan-400/50"
             />
           </div>
 
@@ -188,7 +163,7 @@ export function ProdutividadeClient() {
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="bg-white/5 border-white/10 text-white focus:border-[#00C950]/50"
+              className="bg-white/5 border-white/10 text-white focus:border-cyan-400/50"
             />
           </div>
 
@@ -196,10 +171,10 @@ export function ProdutividadeClient() {
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] uppercase tracking-wider text-white/50 font-bold">Tipo</label>
             <Select value={tipo} onValueChange={(val) => setTipo(val || "ALL")}>
-              <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-[#00C950]/50">
+              <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-cyan-400/50">
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
-              <SelectContent className="bg-[#0A0F1E] border-white/10 text-white">
+              <SelectContent className="bg-[#0B1020] border-white/10 text-white">
                 <SelectItem value="ALL">Todos</SelectItem>
                 <SelectItem value="TÍTULO">TÍTULO</SelectItem>
                 <SelectItem value="CERTIDÃO">CERTIDÃO</SelectItem>
@@ -211,10 +186,10 @@ export function ProdutividadeClient() {
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] uppercase tracking-wider text-white/50 font-bold">Tipo Pedido</label>
             <Select value={tipoPedido} onValueChange={(val) => setTipoPedido(val || "ALL")}>
-              <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-[#00C950]/50">
+              <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-cyan-400/50">
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
-              <SelectContent className="bg-[#0A0F1E] border-white/10 text-white">
+              <SelectContent className="bg-[#0B1020] border-white/10 text-white">
                 <SelectItem value="ALL">Todos</SelectItem>
                 {selectOptions.tiposPedidos.map((tp) => (
                   <SelectItem key={tp} value={tp}>
@@ -229,10 +204,10 @@ export function ProdutividadeClient() {
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] uppercase tracking-wider text-white/50 font-bold">Nome Colaborador</label>
             <Select value={nome} onValueChange={(val) => setNome(val || "ALL")}>
-              <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-[#00C950]/50">
+              <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-cyan-400/50">
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
-              <SelectContent className="bg-[#0A0F1E] border-white/10 text-white">
+              <SelectContent className="bg-[#0B1020] border-white/10 text-white">
                 <SelectItem value="ALL">Todos</SelectItem>
                 {selectOptions.nomes.map((n) => (
                   <SelectItem key={n} value={n}>
@@ -248,7 +223,7 @@ export function ProdutividadeClient() {
           <Button
             variant="ghost"
             onClick={clearFilters}
-            className="text-white/60 hover:text-white gap-2 text-xs"
+            className="gap-2 text-xs text-white/60 hover:text-white"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Limpar Filtros
@@ -259,14 +234,14 @@ export function ProdutividadeClient() {
       {loading ? (
         <FiorixSkeleton />
       ) : data.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-white/20 bg-white/[0.02] p-12 text-center flex flex-col items-center justify-center space-y-4">
-          <Sparkles className="h-10 w-10 text-[#00C950] animate-pulse" />
+        <div className="flex flex-col items-center justify-center space-y-4 rounded-[28px] border border-dashed border-white/15 bg-[#0B1020]/72 p-12 text-center shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+          <Sparkles className="h-10 w-10 animate-pulse text-cyan-300" />
           <div>
             <h3 className="text-lg font-bold">Nenhum dado cadastrado no Supabase</h3>
             <p className="text-sm text-white/50 mt-1">Faça o upload de um arquivo CSV para começar.</p>
           </div>
           <div className="flex gap-4">
-            <Button onClick={() => setIsImportOpen(true)} className="bg-[#00C950] hover:bg-[#00A844] text-white font-semibold gap-2">
+            <Button onClick={() => setIsImportOpen(true)} className="gap-2 border border-cyan-500/20 bg-cyan-500/15 font-semibold text-cyan-100 hover:bg-cyan-500/20">
               <Upload className="h-4 w-4" />
               Importar CSV
             </Button>

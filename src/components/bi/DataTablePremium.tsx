@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 interface DataTablePremiumProps {
-  data: any[];
+  data: Array<Record<string, unknown>>;
 }
 
 export function DataTablePremium({ data }: DataTablePremiumProps) {
@@ -119,18 +119,18 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
   const getTipoPedidoBadgeStyle = (tipo: string) => {
     switch (tipo) {
       case "PRENOTADO":
-        return "bg-blue-500/10 text-[#2B7FFF] border-blue-500/20";
+    return "bg-cyan-500/10 text-cyan-300 border-cyan-500/20";
       case "Consulta Eletrônica (CE)":
-        return "bg-[#00C950]/10 text-[#00C950] border-[#00C950]/20";
+        return "bg-emerald-500/10 text-emerald-300 border-emerald-500/20";
       case "Consulta Eletrônica (VM)":
-        return "bg-purple-500/10 text-purple-400 border-purple-500/20";
+        return "bg-violet-500/10 text-violet-300 border-violet-500/20";
       default:
         return "bg-amber-500/10 text-amber-400 border-amber-500/20";
     }
   };
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-6 shadow-2xl space-y-4">
+    <div className="rounded-[28px] border border-white/10 bg-[#0B1020]/72 backdrop-blur-xl p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] space-y-4">
       {/* Controls Header */}
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
         <div className="relative w-full sm:w-80">
@@ -142,7 +142,7 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
               setSearchTerm(e.target.value);
               setCurrentPage(1);
             }}
-            className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#00C950]/50"
+            className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-cyan-400/50"
           />
         </div>
 
@@ -156,7 +156,7 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
       </div>
 
       {/* Table Container */}
-      <div className="overflow-x-auto rounded-lg border border-white/5">
+      <div className="overflow-x-auto rounded-xl border border-white/10">
         <table className="w-full text-sm text-left">
           <thead className="bg-white/5 text-white/80 select-none">
             <tr>

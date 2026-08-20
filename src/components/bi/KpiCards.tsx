@@ -144,7 +144,7 @@ export function KpiCards({ data }: KpiCardsProps) {
         return (
           <div
             key={idx}
-            className="group relative overflow-hidden rounded-[24px] border border-white/8 bg-[#0B1020]/78 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl transition-all hover:border-white/15"
+            className="group relative overflow-hidden rounded-[28px] border border-white/10 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-white/15"
           >
             <div className="mb-4 flex items-center justify-between">
               <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">
@@ -172,7 +172,7 @@ export function KpiCards({ data }: KpiCardsProps) {
               <div className="absolute right-6 top-6">
                 <Badge
                   variant="destructive"
-                  className="border border-white/10 bg-rose-500/90 text-[10px] font-bold text-white shadow-lg shadow-rose-500/20"
+                  className="border border-white/10 bg-rose-500/85 text-[10px] font-bold text-white shadow-lg shadow-rose-500/20"
                 >
                   {card.badge}
                 </Badge>

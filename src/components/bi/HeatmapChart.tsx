@@ -69,7 +69,7 @@ export function HeatmapChart({ data }: HeatmapChartProps) {
   };
 
   return (
-    <div className="space-y-6 rounded-[24px] border border-white/8 bg-[#0B1020]/78 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+    <div className="space-y-6 rounded-[28px] border border-white/10 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="flex items-center gap-2 text-base font-bold tracking-tight text-white">
@@ -77,7 +77,7 @@ export function HeatmapChart({ data }: HeatmapChartProps) {
           </h3>
           <p className="text-xs text-white/40">Visualização de produtividade por faixa horária de Domingo a Sábado</p>
         </div>
-        <div className="flex items-center gap-1.5 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs text-amber-300">
+        <div className="flex items-center gap-1.5 rounded-lg border border-amber-400/18 bg-amber-400/8 px-3 py-1 text-xs text-amber-300">
           <Info className="h-3.5 w-3.5" />
           <span>Fila crítica: Segunda 7h</span>
         </div>
@@ -118,7 +118,7 @@ export function HeatmapChart({ data }: HeatmapChartProps) {
                     >
                       {isMonday7h && <span className="absolute h-2 w-2 rounded-full bg-amber-300 shadow-[0_0_6px_rgba(251,191,36,0.8)]" />}
 
-                      <div className="pointer-events-none absolute bottom-full left-1/2 z-25 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-white/10 bg-[#0B1020] px-3 py-1.5 text-center text-[11px] shadow-2xl group-hover:block">
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-25 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-white/10 bg-[#0B1020]/95 px-3 py-1.5 text-center text-[11px] shadow-[0_20px_60px_rgba(0,0,0,0.28)] group-hover:block">
                         <p className="font-semibold text-white">
                           {daysOfWeekPt[dIdx]}, {hour}h
                         </p>
