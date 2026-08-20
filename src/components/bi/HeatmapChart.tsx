@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { Component, useMemo, type ReactNode } from "react";
 import { Info } from "lucide-react";
 
 interface HeatmapChartProps {
@@ -15,10 +15,38 @@ const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "F
 const DAYS_OF_WEEK_PT = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
-export function HeatmapChart({ data }: HeatmapChartProps) {
-  const normalizeDay = (d: string) => {
+/* ── Error Boundary ────────────────────────────────────────────────── */
+class HeatmapErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; message: string }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, message: "" };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, message: error?.message || "Erro desconhecido" };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-[28px] border border-white/10 bg-[#0B1020]/72 p-6 text-center text-white/60">
+          <p className="text-sm font-semibold text-rose-400">Erro ao renderizar Heatmap</p>
+          <p className="mt-1 text-xs text-white/40">{this.state.message}</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+/* ── Inner Heatmap (pode lançar erros que o boundary captura) ────── */
+function HeatmapChartInner({ data }: HeatmapChartProps) {
+  const normalizeDay = (d: string | undefined | null): string => {
     if (!d) return "Sunday";
-    const lower = d.toLowerCase();
+    const lower = String(d).toLowerCase();
     if (lower.includes("domingo") || lower === "sunday" || lower === "0") return "Sunday";
     if (lower.includes("segunda") || lower === "monday" || lower === "1") return "Monday";
     if (lower.includes("terça") || lower.includes("terca") || lower === "tuesday" || lower === "2") return "Tuesday";
@@ -38,9 +66,11 @@ export function HeatmapChart({ data }: HeatmapChartProps) {
       });
     });
 
-    data.forEach((row) => {
+    (data ?? []).forEach((row) => {
+      if (!row) return;
       const day = normalizeDay(row.DIA_SEMANA);
       const hour = Number(row.HORA_NUM);
+      if (!Number.isFinite(hour) || hour < 0 || hour > 23) return;
       const quantity = Number(row.QUANTIDADE ?? 1);
       if (grid[day] !== undefined && grid[day][hour] !== undefined) {
         grid[day][hour] += Number.isFinite(quantity) ? quantity : 1;
@@ -60,7 +90,7 @@ export function HeatmapChart({ data }: HeatmapChartProps) {
   }, [data]);
 
   const getColorIntensity = (value: number) => {
-    if (value === 0) return "rgba(11, 16, 32, 0.85)";
+    if (!value || value === 0) return "rgba(11, 16, 32, 0.85)";
     const ratio = value / heatmapData.maxVal;
     const r = Math.round(11 + (45 - 11) * ratio);
     const g = Math.round(16 + (212 - 16) * ratio);
@@ -77,7 +107,7 @@ export function HeatmapChart({ data }: HeatmapChartProps) {
           </h3>
           <p className="text-xs text-white/40">Visualização de produtividade por faixa horária de Domingo a Sábado</p>
         </div>
-        <div className="flex items-center gap-1.5 rounded-lg border border-amber-400/18 bg-amber-400/8 px-3 py-1 text-xs text-amber-300">
+        <div className="flex items-center gap-1.5 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs text-amber-300">
           <Info className="h-3.5 w-3.5" />
           <span>Fila crítica: Segunda 7h</span>
         </div>
@@ -104,7 +134,7 @@ export function HeatmapChart({ data }: HeatmapChartProps) {
 
               <div className="grid flex-1 grid-cols-[repeat(24,minmax(0,1fr))] gap-[2px]">
                 {HOURS.map((hour) => {
-                  const value = heatmapData.grid[day][hour];
+                  const value = heatmapData.grid[day]?.[hour] ?? 0;
                   const color = getColorIntensity(value);
                   const isMonday7h = day === "Monday" && hour === 7;
 
@@ -118,11 +148,11 @@ export function HeatmapChart({ data }: HeatmapChartProps) {
                     >
                       {isMonday7h && <span className="absolute h-2 w-2 rounded-full bg-amber-300 shadow-[0_0_6px_rgba(251,191,36,0.8)]" />}
 
-                      <div className="pointer-events-none absolute bottom-full left-1/2 z-25 hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-white/10 bg-[#0B1020]/95 px-3 py-1.5 text-center text-[11px] shadow-[0_20px_60px_rgba(0,0,0,0.28)] group-hover:block">
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-[25] hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-white/10 bg-[#0B1020]/95 px-3 py-1.5 text-center text-[11px] shadow-[0_20px_60px_rgba(0,0,0,0.28)] group-hover:block">
                         <p className="font-semibold text-white">
                           {DAYS_OF_WEEK_PT[dIdx]}, {hour}h
                         </p>
-                        <p className="mt-0.5 font-bold text-cyan-300">{value.toLocaleString("pt-BR")} autenticações</p>
+                        <p className="mt-0.5 font-bold text-cyan-300">{(value ?? 0).toLocaleString("pt-BR")} autenticações</p>
                         {isMonday7h && (
                           <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-rose-300">
                             Indicador Crítico (Fila/Espera)
@@ -149,5 +179,14 @@ export function HeatmapChart({ data }: HeatmapChartProps) {
         <span>Mais ativo</span>
       </div>
     </div>
+  );
+}
+
+/* ── Exportação pública com Error Boundary ──────────────────────── */
+export function HeatmapChart({ data }: HeatmapChartProps) {
+  return (
+    <HeatmapErrorBoundary>
+      <HeatmapChartInner data={data} />
+    </HeatmapErrorBoundary>
   );
 }
