@@ -75,7 +75,7 @@ export function DonutChart({ data }: DonutChartProps) {
   };
 
   return (
-    <div className="flex h-full min-h-[350px] min-w-0 flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+    <div className="flex h-full min-h-[350px] min-w-0 flex-col overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
       <div>
         <h3 className="text-base font-bold tracking-tight text-white">Distribuição por Tipo de Pedido</h3>
         <p className="text-xs text-white/40">Proporção dos serviços executados</p>

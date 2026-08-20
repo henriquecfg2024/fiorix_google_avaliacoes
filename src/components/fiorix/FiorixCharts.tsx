@@ -60,7 +60,7 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
     <div className="space-y-4">
       {/* Top Row: Main Trend / Evolution Chart (if active) */}
       {visibleCharts.chart1 && (
-        <Card className="rounded-2xl border border-white/8 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+        <Card className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
           <CardHeader className="p-0 pb-4">
             <CardTitle className="text-base font-semibold text-white">Gráfico 1: Evolução Diária do Prazo de Entrega</CardTitle>
             <CardDescription className="text-xs text-white/50">Comparativo contínuo entre títulos entregues no prazo e em atraso</CardDescription>
@@ -110,7 +110,7 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
         <div className={`grid grid-cols-1 ${visibleCharts.chart2 && visibleCharts.chart3 ? "lg:grid-cols-2" : "grid-cols-1"} gap-4`}>
           {/* Chart 2: Delay Severity */}
           {visibleCharts.chart2 && (
-            <Card className="rounded-2xl border border-white/8 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+            <Card className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
               <CardHeader className="p-0 pb-4">
                 <CardTitle className="text-base font-semibold text-white">Gráfico 2: Severidade do Atraso</CardTitle>
                 <CardDescription className="text-xs text-white/50">Distribuição dos títulos fora do prazo por faixas de dias de atraso</CardDescription>
@@ -147,7 +147,7 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
 
           {/* Chart 3: Pie / Donut Chart */}
           {visibleCharts.chart3 && (
-            <Card className="rounded-2xl border border-white/8 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+            <Card className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
               <CardHeader className="p-0 pb-4">
                 <CardTitle className="text-base font-semibold text-white">Gráfico 3: Distribuição Geral</CardTitle>
                 <CardDescription className="text-xs text-white/50">Visão macro da proporção de títulos no prazo, atrasos e exigências</CardDescription>

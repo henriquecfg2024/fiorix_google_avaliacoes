@@ -63,7 +63,7 @@ export function AreaChartVolume({ data }: AreaChartVolumeProps) {
   };
 
   return (
-    <div className="flex h-[350px] min-h-0 min-w-0 flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+    <div className="flex h-[350px] min-h-0 min-w-0 flex-col overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
       <div>
         <h3 className="text-base font-bold tracking-tight text-white">Volume por Hora</h3>
         <p className="text-xs text-white/40">Comparação horária entre Títulos e Certidões</p>
