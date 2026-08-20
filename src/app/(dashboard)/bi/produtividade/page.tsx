@@ -429,10 +429,10 @@ export default function ProdutividadePage() {
 
           {filtroCaixa === "todos" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-6 shadow-2xl">
+              <div className="relative overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-sm font-medium text-white/60">Digital ONR</span>
-                  <div className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/70">
+                  <div className="rounded-lg border border-white/12 bg-white/[0.04] px-2.5 py-1 text-xs text-white/70">
                     RIDigital
                   </div>
                 </div>
@@ -452,10 +452,10 @@ export default function ProdutividadePage() {
                 <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#00C950] to-[#2B7FFF] opacity-70" />
               </div>
 
-              <div className="relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-6 shadow-2xl">
+              <div className="relative overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-sm font-medium text-white/60">Presencial</span>
-                  <div className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/70">
+                  <div className="rounded-lg border border-white/12 bg-white/[0.04] px-2.5 py-1 text-xs text-white/70">
                     Recepção
                   </div>
                 </div>
