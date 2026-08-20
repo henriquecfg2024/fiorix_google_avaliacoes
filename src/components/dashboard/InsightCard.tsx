@@ -3,7 +3,7 @@ import { Bot, AlertTriangle, Sparkles, Calendar, ThumbsUp, Zap } from 'lucide-re
 
 export function InsightCard() {
   return (
-    <div className="space-y-4 rounded-[28px] border border-white/10 bg-[linear-gradient(135deg,rgba(11,16,32,0.98),rgba(6,10,20,0.98))] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl">
+    <div className="space-y-4 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
       <div className="flex items-center gap-2 text-cyan-300">
         <Bot className="h-5 w-5 text-cyan-300" />
         <h3 className="text-xs font-bold uppercase tracking-[0.22em]">INSIGHTS DA IA</h3>

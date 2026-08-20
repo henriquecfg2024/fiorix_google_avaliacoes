@@ -28,8 +28,8 @@ export function HealthCard() {
   const strokeDashoffset = circumference - (saudeReputacao / 100) * circumference;
 
   return (
-    <div className="rounded-[28px] border border-white/10 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl transition-all">
-      <div className="mb-6 flex items-center justify-between border-b border-white/10 pb-5">
+    <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
+      <div className="mb-6 flex items-center justify-between border-b border-white/8 pb-5">
         <div className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-cyan-400" />
           <h2 className="text-xs font-bold uppercase tracking-[0.22em] text-slate-300">SAÚDE DA REPUTAÇÃO</h2>
