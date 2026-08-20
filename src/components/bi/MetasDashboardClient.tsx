@@ -816,7 +816,7 @@ export function MetasDashboardClient() {
       
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="relative overflow-hidden rounded-[24px] border border-white/8 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+        <div className="relative overflow-hidden rounded-[28px] border border-white/8 bg-[#0B1020]/78 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
           <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-white/60">
             <Target className="w-4 h-4 text-cyan-300" /> TOTAL
           </p>
@@ -825,7 +825,7 @@ export function MetasDashboardClient() {
           </h3>
         </div>
 
-        <div className="relative overflow-hidden rounded-[24px] border border-rose-500/20 bg-rose-500/[0.08] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+        <div className="relative overflow-hidden rounded-[28px] border border-white/8 bg-[#0B1020]/78 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
           <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-rose-300">
             <AlertCircle className="w-4 h-4" /> ATRASADOS
           </p>
@@ -834,7 +834,7 @@ export function MetasDashboardClient() {
           </h3>
         </div>
 
-        <div className="relative overflow-hidden rounded-[24px] border border-emerald-500/18 bg-emerald-500/[0.08] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+        <div className="relative overflow-hidden rounded-[28px] border border-white/8 bg-[#0B1020]/78 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
           <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-emerald-300">
             <Clock className="w-4 h-4" /> ENTREGUE COM ATRASO
           </p>
@@ -843,7 +843,7 @@ export function MetasDashboardClient() {
           </h3>
         </div>
 
-        <div className="relative overflow-hidden rounded-[24px] border border-amber-500/20 bg-amber-500/[0.08] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+        <div className="relative overflow-hidden rounded-[28px] border border-white/8 bg-[#0B1020]/78 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
           <p className="mb-1 flex items-center gap-2 truncate pr-6 text-xs font-semibold text-amber-300" title="Gargalo Principal">
             <TrendingUp className="w-4 h-4" /> PRINCIPAL GARGALO
           </p>
@@ -862,21 +862,21 @@ export function MetasDashboardClient() {
           type="button"
           onClick={() => handleBalcaoFilter("SEM_REG")}
           aria-pressed={balcaoFilter === "SEM_REG"}
-          className={`min-h-[104px] w-full rounded-[24px] border p-4 text-left transition-all shadow-[0_12px_35px_rgba(0,0,0,0.15)] backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 ${
+          className={`min-h-[104px] w-full rounded-[28px] border p-4 text-left transition-all shadow-[0_14px_45px_rgba(0,0,0,0.18)] backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 ${
             balcaoFilter === "SEM_REG"
-              ? "border-amber-400/70 bg-amber-500/[0.13]"
-              : "border-amber-500/20 bg-amber-500/[0.08] hover:bg-amber-500/[0.12]"
+              ? "border-amber-400/45 bg-[#0B1020]/84"
+              : "border-white/8 bg-[#0B1020]/78 hover:bg-[#0B1020]/82"
           }`}
         >
           <div className="flex items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-4">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-amber-400/25 bg-amber-500/15 text-amber-300">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-amber-400/20 bg-amber-400/10 text-amber-300">
                 <AlertTriangle className="h-5 w-5" aria-hidden="true" />
               </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-xs font-bold uppercase tracking-wider text-amber-300">Sem Balcão Registrado</p>
-                  <span className="rounded border border-amber-400/25 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-200">ID 76</span>
+                  <span className="rounded border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-200">ID 76</span>
                 </div>
                 <p className="mt-1 text-xs text-white/50">Protocolos atrasados e impressos sem baixa</p>
               </div>
@@ -892,21 +892,21 @@ export function MetasDashboardClient() {
           type="button"
           onClick={() => handleBalcaoFilter("SEM_DEV")}
           aria-pressed={balcaoFilter === "SEM_DEV"}
-          className={`min-h-[104px] w-full rounded-[24px] border p-4 text-left transition-all shadow-[0_12px_35px_rgba(0,0,0,0.15)] backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 ${
+          className={`min-h-[104px] w-full rounded-[28px] border p-4 text-left transition-all shadow-[0_14px_45px_rgba(0,0,0,0.18)] backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 ${
             balcaoFilter === "SEM_DEV"
-              ? "border-rose-400/70 bg-rose-500/[0.13]"
-              : "border-rose-500/20 bg-rose-500/[0.08] hover:bg-rose-500/[0.12]"
+              ? "border-rose-400/45 bg-[#0B1020]/84"
+              : "border-white/8 bg-[#0B1020]/78 hover:bg-[#0B1020]/82"
           }`}
         >
           <div className="flex items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-4">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-rose-400/25 bg-rose-500/15 text-rose-300">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-rose-400/20 bg-rose-400/10 text-rose-300">
                 <ShieldAlert className="h-5 w-5" aria-hidden="true" />
               </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-xs font-bold uppercase tracking-wider text-rose-300">Sem Balcão Devolvido</p>
-                  <span className="rounded border border-rose-400/25 bg-rose-400/10 px-1.5 py-0.5 text-[9px] font-bold text-rose-200">ID 75</span>
+                  <span className="rounded border border-rose-400/20 bg-rose-400/10 px-1.5 py-0.5 text-[9px] font-bold text-rose-200">ID 75</span>
                 </div>
                 <p className="mt-1 text-xs text-white/50">Registrados e atrasados sem baixa de retirada</p>
               </div>
