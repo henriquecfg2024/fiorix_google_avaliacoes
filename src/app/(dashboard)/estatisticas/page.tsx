@@ -20,18 +20,18 @@ function renderMetricCard(
   tone: 'green' | 'blue' | 'amber' | 'red'
 ) {
   return (
-    <div className="space-y-2 rounded-2xl border border-white/10 bg-slate-900/78 p-4 shadow-[0_10px_28px_rgba(2,6,23,0.18)] transition-all hover:border-white/15">
+    <div className="space-y-2 rounded-2xl border border-white/12 bg-[#0B1020]/72 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-xs font-bold text-white">
           <span>{ind.icon}</span> {ind.nome}
         </span>
         <span className={`rounded-lg px-2 py-0.5 text-xs font-extrabold ${zoneBadgeClass[tone]}`}>{ind.score}%</span>
       </div>
-      <p className="text-[11px] leading-relaxed text-slate-400">{ind.desc}</p>
+      <p className="text-[11px] leading-relaxed text-white/60">{ind.desc}</p>
       <div className="h-1.5 overflow-hidden rounded-full bg-slate-700/80">
         <div
           className={`h-full rounded-full ${
-            tone === 'green' ? 'bg-emerald-500' : tone === 'blue' ? 'bg-blue-500' : tone === 'amber' ? 'bg-amber-500' : 'bg-red-500'
+            tone === 'green' ? 'bg-emerald-500' : tone === 'blue' ? 'bg-cyan-400' : tone === 'amber' ? 'bg-amber-400' : 'bg-red-500'
           }`}
           style={{ width: `${ind.score}%` }}
         />
@@ -129,22 +129,22 @@ export default async function EstatisticasPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <div className="space-y-4 rounded-2xl border border-white/10 bg-slate-900/80 p-5 shadow-[0_12px_30px_rgba(2,6,23,0.2)]">
+        <div className="space-y-4 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
           <div>
             <h3 className="text-base font-bold text-white">Distribuição de Notas</h3>
-            <p className="text-xs text-slate-400">Volume de avaliações separadas por número de estrelas</p>
+            <p className="text-xs text-white/45">Volume de avaliações separadas por número de estrelas</p>
           </div>
 
           <div className="space-y-3 pt-1">
             {[
               { label: '5 Estrelas', count: fiveStars, color: 'bg-emerald-500' },
-              { label: '4 Estrelas', count: fourStars, color: 'bg-blue-500' },
+              { label: '4 Estrelas', count: fourStars, color: 'bg-cyan-400' },
               { label: '3 Estrelas', count: threeStars, color: 'bg-amber-400' },
               { label: '2 Estrelas', count: twoStars, color: 'bg-amber-500' },
               { label: '1 Estrela', count: oneStar, color: 'bg-red-500' },
             ].map((item, idx) => (
               <div key={idx} className="grid grid-cols-12 items-center gap-2 text-xs">
-                <span className="col-span-3 font-semibold text-slate-200">{item.label}</span>
+                <span className="col-span-3 font-semibold text-white/80">{item.label}</span>
                 <div className="col-span-6 h-2 overflow-hidden rounded-full bg-slate-700/80">
                   <div className={`${item.color} h-full transition-all duration-500`} style={{ width: `${getPercent(item.count)}%` }} />
                 </div>
@@ -156,10 +156,10 @@ export default async function EstatisticasPage() {
           </div>
         </div>
 
-        <div className="space-y-4 rounded-2xl border border-white/10 bg-slate-900/80 p-5 shadow-[0_12px_30px_rgba(2,6,23,0.2)]">
+        <div className="space-y-4 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
           <div>
             <h3 className="text-base font-bold text-white">Análise Qualitativa por IA</h3>
-            <p className="text-xs text-slate-400">Fatores operacionais mais citados nas resenhas</p>
+            <p className="text-xs text-white/45">Fatores operacionais mais citados nas resenhas</p>
           </div>
 
           <div className="space-y-3 pt-1">
@@ -183,8 +183,8 @@ export default async function EstatisticasPage() {
                 className: 'border-red-500/20 bg-red-500/10 text-red-300',
               },
             ].map((topic, idx) => (
-              <div key={idx} className={`flex items-center justify-between rounded-xl border-l-4 p-3 text-xs ${topic.className}`}>
-                <span className="font-semibold text-slate-100">{topic.topic}</span>
+              <div key={idx} className={`flex items-center justify-between rounded-xl border border-white/12 border-l-4 p-3 text-xs ${topic.className}`}>
+                <span className="font-semibold text-white/90">{topic.topic}</span>
                 <span className="font-extrabold">{topic.sentiment} ({topic.score})</span>
               </div>
             ))}
@@ -192,42 +192,42 @@ export default async function EstatisticasPage() {
         </div>
       </div>
 
-      <div className="space-y-5 rounded-2xl border border-white/10 bg-slate-900/80 p-6 shadow-[0_14px_35px_rgba(2,6,23,0.22)]">
-        <div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-5 md:flex-row md:items-center">
+      <div className="space-y-5 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+        <div className="flex flex-col justify-between gap-4 border-b border-white/8 pb-5 md:flex-row md:items-center">
           <div>
             <div className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-blue-400" />
+              <Target className="h-5 w-5 text-cyan-300" />
               <h2 className="text-lg font-extrabold tracking-tight text-white">Metodologia da Saúde da Reputação (10 Indicadores)</h2>
             </div>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-white/45">
               Composição detalhada do Score da Saúde da Reputação, abrangendo Saúde Operacional e Qualidade Percebida.
             </p>
           </div>
 
-          <div className="self-start rounded-2xl border border-blue-500/20 bg-blue-500/10 p-3 px-5 text-center md:self-auto">
-            <span className="block text-[10px] font-extrabold uppercase tracking-[0.18em] text-blue-300">SAÚDE GLOBAL CALCULADA</span>
-            <div className="text-2xl font-black text-blue-300">
-              {mediaSaudeReputacao} <span className="text-xs font-semibold text-blue-400">pts</span>
+          <div className="self-start rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-3 px-5 text-center md:self-auto">
+            <span className="block text-[10px] font-extrabold uppercase tracking-[0.18em] text-cyan-300">SAÚDE GLOBAL CALCULADA</span>
+            <div className="text-2xl font-black text-cyan-300">
+              {mediaSaudeReputacao} <span className="text-xs font-semibold text-cyan-400">pts</span>
             </div>
           </div>
         </div>
 
-        <div className="space-y-3 rounded-2xl border border-white/10 bg-[linear-gradient(135deg,rgba(15,23,42,0.92),rgba(30,41,59,0.9),rgba(37,99,235,0.08))] p-5">
+        <div className="space-y-3 rounded-2xl border border-white/12 bg-[#0B1020]/80 p-5">
           <h4 className="flex items-center gap-2 text-sm font-bold text-white">
             <span>📐</span> Como é Calculado o Score Final da Saúde da Reputação?
           </h4>
-          <p className="text-xs leading-relaxed text-slate-300">
+          <p className="text-xs leading-relaxed text-white/80">
             O score global é a <strong>média exata da soma dos 10 indicadores avaliados</strong> (incluindo os 6 pilares de Saúde Operacional):
           </p>
-          <div className="inline-block rounded-xl border border-white/10 bg-slate-950/80 px-4 py-2 font-mono text-xs font-bold text-slate-200">
-            Saúde da Reputação = ({somaScore}) ÷ 10 = <span className="text-blue-400">{mediaSaudeReputacao} Pontos</span>
+          <div className="inline-block rounded-xl border border-white/12 bg-white/[0.04] px-4 py-2 font-mono text-xs font-bold text-white">
+            Saúde da Reputação = ({somaScore}) ÷ 10 = <span className="text-cyan-300">{mediaSaudeReputacao} Pontos</span>
           </div>
         </div>
 
-        <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-200">
+        <div className="space-y-2 rounded-2xl border border-white/12 bg-[#0B1020]/80 p-4">
+          <div className="flex items-center justify-between text-xs font-bold text-white/80">
             <span>Média de Performance por Zona de Saúde</span>
-            <span className="text-[11px] text-slate-500">4 Seções Agrupadas</span>
+            <span className="text-[11px] text-white/40">4 Seções Agrupadas</span>
           </div>
           <div className="grid grid-cols-4 gap-2 text-center text-xs font-bold">
             <div className={`rounded-xl p-2 ${zoneBadgeClass.green}`}>🟢 Excelência: 92%</div>
@@ -237,20 +237,20 @@ export default async function EstatisticasPage() {
           </div>
         </div>
 
-        <div className="flex flex-col justify-between gap-4 rounded-2xl border border-blue-500/20 bg-[linear-gradient(90deg,rgba(29,78,216,0.18),rgba(49,46,129,0.24),rgba(15,23,42,0.92))] p-5 md:flex-row md:items-center">
+        <div className="flex flex-col justify-between gap-4 rounded-2xl border border-white/12 bg-[#0B1020]/80 p-5 md:flex-row md:items-center">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-blue-200">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-cyan-300">
               <Sparkles className="h-4 w-4 text-amber-300" />
               <span>Simulação de Impacto Operacional</span>
             </div>
             <h3 className="text-sm font-bold text-white">Resolvendo os 2 fatores críticos (Prazo e Fila), o Score salta de 68 ➜ 80 pts!</h3>
-            <p className="text-xs text-slate-300">
+            <p className="text-xs text-white/60">
               Elevar o Prazo de 22% ➜ 80% e a Fila de 18% ➜ 70% colocará o cartório na Zona Verde de Excelência.
             </p>
           </div>
           <Link
             href="/bi"
-            className="flex shrink-0 items-center gap-1.5 rounded-xl border border-blue-500/20 bg-blue-500/12 px-4 py-2.5 text-xs font-extrabold text-blue-200 transition-colors hover:bg-blue-500/20"
+            className="flex shrink-0 items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.04] px-4 py-2.5 text-xs font-extrabold text-white transition-colors hover:bg-white/[0.08]"
           >
             <span>Ver Ações no BI</span>
             <ArrowRight className="h-4 w-4" />
@@ -277,7 +277,7 @@ export default async function EstatisticasPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="flex items-center gap-2 text-sm font-bold text-white">
-                <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+                <span className="h-2.5 w-2.5 rounded-full bg-cyan-400" />
                 🔵 Experiência e Resolução (Média 83%)
               </h3>
               <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${zoneBadgeClass.blue}`}>2 Indicadores</span>
@@ -293,7 +293,7 @@ export default async function EstatisticasPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="flex items-center gap-2 text-sm font-bold text-white">
-                <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
                 🟡 Pontos de Atenção (Média 50%)
               </h3>
               <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${zoneBadgeClass.amber}`}>2 Indicadores</span>
@@ -319,7 +319,7 @@ export default async function EstatisticasPage() {
               {grupoCritico.map((ind, idx) => (
                 <div
                   key={idx}
-                  className="space-y-3 rounded-2xl border border-red-500/20 bg-[linear-gradient(135deg,rgba(127,29,29,0.12),rgba(30,41,59,0.9))] p-4 shadow-[0_10px_28px_rgba(2,6,23,0.18)] transition-all"
+                  className="space-y-3 rounded-2xl border border-white/12 bg-[#0B1020]/80 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] transition-all hover:border-white/20"
                 >
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1.5 text-xs font-bold text-white">
@@ -328,7 +328,7 @@ export default async function EstatisticasPage() {
                     <span className={`rounded-lg px-2 py-0.5 text-xs font-extrabold ${zoneBadgeClass.red}`}>{ind.score}%</span>
                   </div>
 
-                  <p className="text-[11px] leading-relaxed text-slate-300">{ind.desc}</p>
+                  <p className="text-[11px] leading-relaxed text-white/70">{ind.desc}</p>
 
                   <div className="h-2 overflow-hidden rounded-full bg-red-950/40">
                     <div className="h-full rounded-full bg-red-500" style={{ width: `${ind.score}%` }} />
@@ -337,7 +337,7 @@ export default async function EstatisticasPage() {
                   <div className="flex items-center gap-2 pt-1">
                     <Link
                       href="/bi"
-                      className="flex items-center gap-1 rounded-xl bg-red-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-red-500"
+                      className="flex items-center gap-1 rounded-xl bg-gradient-to-r from-indigo-500 to-amber-400 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition-colors hover:brightness-105"
                     >
                       <span>Ver no BI</span>
                       <ArrowRight className="h-3.5 w-3.5" />
@@ -358,11 +358,11 @@ export default async function EstatisticasPage() {
         </div>
       </div>
 
-        <div className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-500/20 bg-[linear-gradient(135deg,rgba(245,158,11,0.08),rgba(30,41,59,0.9))] p-5">
-          <Lightbulb className="mt-0.5 h-6 w-6 shrink-0 text-amber-400" />
-          <div className="space-y-1 text-xs text-slate-300">
-            <h4 className="text-sm font-bold text-amber-200">Por que a "Taxa de Resposta" NÃO entra no cálculo de Saúde da Reputação?</h4>
-            <p className="leading-relaxed text-slate-300">
+        <div className="mt-6 flex items-start gap-3 rounded-2xl border border-white/12 bg-[#0B1020]/72 p-5 backdrop-blur-xl">
+          <Lightbulb className="mt-0.5 h-6 w-6 shrink-0 text-amber-300" />
+          <div className="space-y-1 text-xs text-white/80">
+            <h4 className="text-sm font-bold text-amber-300">Por que a "Taxa de Resposta" NÃO entra no cálculo de Saúde da Reputação?</h4>
+            <p className="leading-relaxed text-white/70">
               A <em>Taxa de Resposta</em> é um indicador de SLA administrativo interno (produtividade em dar retorno). A <strong>Saúde da Reputação</strong> mede exclusivamente os 10 fatores que impactam a experiência real do cidadão no cartório.
             </p>
           </div>
