@@ -180,14 +180,14 @@ function PremiumChartTooltip({
   const isSelected = selectedPhase === dataPoint.phaseName;
 
   return (
-    <div className="min-w-[250px] rounded-lg border border-white/10 bg-[#1A1D27] p-3.5 text-xs text-white shadow-2xl shadow-black/40">
+    <div className="min-w-[250px] rounded-xl border border-white/8 bg-[#0B1020] p-3.5 text-xs text-white shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl">
       <div className="mb-2 flex items-start justify-between gap-4">
         <p className="font-semibold text-white">{dataPoint.label}</p>
         <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
           dataPoint.isBottleneck
             ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
             : dataPoint.status === "Atenção"
-              ? "border-violet-400/30 bg-violet-400/10 text-violet-300"
+              ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
               : "border-cyan-400/25 bg-cyan-400/10 text-cyan-300"
         }`}>
           {dataPoint.status}
@@ -335,7 +335,7 @@ export function MetasDashboardClient() {
             return {
               status: "Atrasado",
               atrasoDias: diffDias,
-              badge: { text: "Atrasado", bgClass: "bg-red-500/20 text-red-400 border border-red-500/30" }
+              badge: { text: "Atrasado", bgClass: "bg-rose-500/20 text-rose-300 border border-rose-500/30" }
             };
           }
         }
@@ -825,8 +825,8 @@ export function MetasDashboardClient() {
           </h3>
         </div>
 
-        <div className="relative overflow-hidden rounded-2xl border border-red-500/20 bg-red-500/[0.08] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)]">
-          <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-red-300">
+        <div className="relative overflow-hidden rounded-[24px] border border-rose-500/20 bg-rose-500/[0.08] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+          <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-rose-300">
             <AlertCircle className="w-4 h-4" /> ATRASADOS
           </p>
           <h3 className="text-3xl font-bold text-white">
@@ -834,7 +834,7 @@ export function MetasDashboardClient() {
           </h3>
         </div>
 
-        <div className="relative overflow-hidden rounded-2xl border border-emerald-500/18 bg-emerald-500/[0.08] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)]">
+        <div className="relative overflow-hidden rounded-[24px] border border-emerald-500/18 bg-emerald-500/[0.08] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
           <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-emerald-300">
             <Clock className="w-4 h-4" /> ENTREGUE COM ATRASO
           </p>
@@ -843,7 +843,7 @@ export function MetasDashboardClient() {
           </h3>
         </div>
 
-        <div className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-amber-500/[0.08] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)]">
+        <div className="relative overflow-hidden rounded-[24px] border border-amber-500/20 bg-amber-500/[0.08] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
           <p className="mb-1 flex items-center gap-2 truncate pr-6 text-xs font-semibold text-amber-300" title="Gargalo Principal">
             <TrendingUp className="w-4 h-4" /> PRINCIPAL GARGALO
           </p>
@@ -892,28 +892,28 @@ export function MetasDashboardClient() {
           type="button"
           onClick={() => handleBalcaoFilter("SEM_DEV")}
           aria-pressed={balcaoFilter === "SEM_DEV"}
-          className={`min-h-[104px] w-full rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${
+          className={`min-h-[104px] w-full rounded-[24px] border p-4 text-left transition-all shadow-[0_12px_35px_rgba(0,0,0,0.15)] backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 ${
             balcaoFilter === "SEM_DEV"
-              ? "border-red-400/70 bg-red-500/[0.13]"
-              : "border-red-500/20 bg-red-500/[0.08] hover:bg-red-500/[0.12]"
+              ? "border-rose-400/70 bg-rose-500/[0.13]"
+              : "border-rose-500/20 bg-rose-500/[0.08] hover:bg-rose-500/[0.12]"
           }`}
         >
           <div className="flex items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-4">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-red-400/25 bg-red-500/15 text-red-300">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-rose-400/25 bg-rose-500/15 text-rose-300">
                 <ShieldAlert className="h-5 w-5" aria-hidden="true" />
               </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-xs font-bold uppercase tracking-wider text-red-300">Sem Balcão Devolvido</p>
-                  <span className="rounded border border-red-400/25 bg-red-400/10 px-1.5 py-0.5 text-[9px] font-bold text-red-200">ID 75</span>
+                  <p className="text-xs font-bold uppercase tracking-wider text-rose-300">Sem Balcão Devolvido</p>
+                  <span className="rounded border border-rose-400/25 bg-rose-400/10 px-1.5 py-0.5 text-[9px] font-bold text-rose-200">ID 75</span>
                 </div>
                 <p className="mt-1 text-xs text-white/50">Registrados e atrasados sem baixa de retirada</p>
               </div>
             </div>
             <div className="shrink-0 text-right">
-              <p className="text-3xl font-bold text-red-100">{balcaoAudit.semDevolucao.toLocaleString("pt-BR")}</p>
-              <p className="mt-1 text-[10px] text-red-300/70">protocolos</p>
+              <p className="text-3xl font-bold text-rose-100">{balcaoAudit.semDevolucao.toLocaleString("pt-BR")}</p>
+              <p className="mt-1 text-[10px] text-rose-300/70">protocolos</p>
             </div>
           </div>
         </button>
@@ -951,12 +951,12 @@ export function MetasDashboardClient() {
             )}
 
             {gargaloFilter !== "ALL" && (
-            <div className="flex items-center gap-2 rounded-lg border border-violet-400/20 bg-violet-400/10 px-3 py-2 text-[10px] text-violet-200">
+            <div className="flex items-center gap-2 rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-[10px] text-cyan-200">
                 <span>Filtrado por: <strong>{gargaloFilter}</strong></span>
                 <button
                   type="button"
                   onClick={() => setGargaloFilter("ALL")}
-                  className="rounded p-0.5 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
+                  className="rounded p-0.5 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
                   title="Remover filtro do gráfico"
                   aria-label="Remover filtro do gráfico"
                 >
@@ -973,9 +973,9 @@ export function MetasDashboardClient() {
               <BarChart data={chartData} margin={{ top: 34, right: 16, left: -12, bottom: 6 }}>
                 <defs>
                   <linearGradient id="phaseGradient" x1="0" y1="1" x2="0" y2="0">
-                    <stop offset="0%" stopColor="#6366F1" />
-                    <stop offset="55%" stopColor="#8B5CF6" />
-                    <stop offset="100%" stopColor="#06B6D4" />
+                    <stop offset="0%" stopColor="#14B8A6" />
+                    <stop offset="55%" stopColor="#38BDF8" />
+                    <stop offset="100%" stopColor="#F59E0B" />
                   </linearGradient>
                   <linearGradient id="bottleneckGradient" x1="0" y1="1" x2="0" y2="0">
                     <stop offset="0%" stopColor="#F97316" />
@@ -1157,7 +1157,7 @@ export function MetasDashboardClient() {
             <button
               onClick={() => handleExportCSV(filteredData, "metas_filtradas")}
               title="Exportar todos os registros filtrados para CSV"
-              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-indigo-400/20 bg-indigo-500/10 px-3 py-1.5 text-xs font-medium text-indigo-200 transition-all hover:bg-indigo-500/16"
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-200 transition-all hover:bg-cyan-500/16"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-amber-300" /> Exportar Filtrados (CSV)
             </button>
@@ -1253,7 +1253,7 @@ export function MetasDashboardClient() {
                   Balcão Reg. <span className="text-amber-300/70">(76)</span>
                 </th>
                 <th className="px-4 py-3 font-semibold text-center bg-white/[0.01] whitespace-nowrap">
-                  Balcão Dev. <span className="text-red-300/70">(75)</span>
+                  Balcão Dev. <span className="text-rose-300/70">(75)</span>
                 </th>
                 <th 
                   onClick={() => handleSort("gargalo")}
@@ -1300,7 +1300,7 @@ export function MetasDashboardClient() {
                         {badge.text}
                       </span>
                     </td>
-                    <td className={`px-4 py-3 font-medium ${atrasoDias > 0 ? 'text-red-400' : 'text-white/50'}`}>
+                    <td className={`px-4 py-3 font-medium ${atrasoDias > 0 ? 'text-rose-300' : 'text-white/50'}`}>
                       {atrasoDias > 0 ? `${atrasoDias}d` : '0d'}
                     </td>
                     <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]">{formatDate(d1Val)}</td>
@@ -1328,7 +1328,7 @@ export function MetasDashboardClient() {
                           <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> {formatDate(balcao.dBalcaoDevolvido)}
                         </span>
                       ) : (
-                        <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${balcao.semDevolucao ? "font-semibold text-red-300" : "text-white/35"}`}>
+                        <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${balcao.semDevolucao ? "font-semibold text-rose-300" : "text-white/35"}`}>
                           <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> Pendente
                         </span>
                       )}
@@ -1463,7 +1463,7 @@ export function MetasDashboardClient() {
           <div className="fixed inset-0 z-50 flex justify-end">
             {/* Backdrop */}
             <div 
-              className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity animate-in fade-in"
+              className="fixed inset-0 bg-[#05070D]/75 backdrop-blur-sm transition-opacity animate-in fade-in"
               onClick={() => setSelectedProtocol(null)}
             />
 
@@ -1501,7 +1501,7 @@ export function MetasDashboardClient() {
 
                   <div className="text-right">
                     <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1">Dias de Atraso</p>
-                    <span className={`text-sm font-bold ${atrasoDias > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                    <span className={`text-sm font-bold ${atrasoDias > 0 ? 'text-rose-300' : 'text-emerald-400'}`}>
                       {atrasoDias > 0 ? `${atrasoDias}d` : '0d'}
                     </span>
                   </div>
@@ -1553,11 +1553,11 @@ export function MetasDashboardClient() {
                         <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02]">
                           <span className="text-white/70 font-medium">{phase.label}</span>
                           <div className="flex items-center gap-2">
-                            <span className={`font-bold ${isGargalo ? "text-red-400" : hasDays ? "text-white" : "text-white/30"}`}>
+                            <span className={`font-bold ${isGargalo ? "text-rose-300" : hasDays ? "text-white" : "text-white/30"}`}>
                               {hasDays ? `${phase.dias}d` : "-"}
                             </span>
                             {isGargalo && (
-                              <span className="px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/30 text-[10px] font-bold">
+                              <span className="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold">
                                 Gargalo
                               </span>
                             )}
