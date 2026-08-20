@@ -144,7 +144,7 @@ export function KpiCards({ data }: KpiCardsProps) {
         return (
           <div
             key={idx}
-            className="group relative overflow-hidden rounded-[28px] border border-white/10 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-white/15"
+            className="group relative overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20"
           >
             <div className="mb-4 flex items-center justify-between">
               <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">

@@ -294,10 +294,10 @@ export default function ProdutividadePage() {
                   onClick={() => setFiltroCaixa(item.key)}
                   aria-pressed={active}
                   className={[
-                    "min-w-[160px] flex-1 md:flex-none rounded-2xl border px-4 py-3 text-left transition-all",
+                    "min-w-[160px] flex-1 md:flex-none rounded-2xl border px-4 py-3 text-left transition-all backdrop-blur-xl",
                     active
-                      ? "border-white/15 bg-[#10182D] text-white shadow-[0_10px_30px_rgba(0,0,0,0.24)]"
-                      : "border-white/10 bg-white/[0.03] text-white/70 hover:border-white/15 hover:bg-white/[0.05] hover:text-white",
+                      ? "border-amber-400/40 bg-[#0B1020]/90 text-white shadow-[0_18px_50px_rgba(0,0,0,0.20)]"
+                      : "border-white/12 bg-[#0B1020]/72 text-white/70 hover:border-white/20 hover:bg-[#0B1020]/85 hover:text-white",
                   ].join(" ")}
                 >
                   <div className="mb-2 flex items-center gap-2">
@@ -329,7 +329,7 @@ export default function ProdutividadePage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5 shadow-2xl space-y-4">
+          <div className="rounded-2xl border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] space-y-4">
             <div className="flex items-center gap-2 text-white/80 font-bold text-sm">
               <LayoutGrid className="h-4 w-4 text-[#00C950]" />
               <span>Filtros do Painel de Produtividade</span>
