@@ -26,7 +26,7 @@ export default function AuditoriaPage() {
             <div className="max-w-[920px]">
               <div className="flex flex-wrap items-center gap-3">
                 <h1 className="text-2xl sm:text-[2.15rem] font-black tracking-[0.01em] text-transparent bg-clip-text bg-gradient-to-r from-slate-50 via-white to-amber-300">
-                  FIORIX BI - Módulo de Auditoria Operacional
+                  Módulo de Auditoria Operacional
                 </h1>
                 <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-amber-300">
                   Compliance & Correções

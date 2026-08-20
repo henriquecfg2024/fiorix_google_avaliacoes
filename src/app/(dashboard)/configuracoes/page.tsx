@@ -66,7 +66,7 @@ export default async function ConfiguracoesPage({
 
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl sm:text-[2.15rem] font-black tracking-[0.01em] text-transparent bg-clip-text bg-gradient-to-r from-slate-50 via-white to-amber-300">
-              FIORIX Sistema - Configurações Gerais
+              Configurações Gerais
             </h1>
             <span className="rounded-full border border-amber-500/20 bg-amber-500/10 font-mono text-xs text-amber-300">
               PREFERÊNCIAS & INTEGRAÇÕES
