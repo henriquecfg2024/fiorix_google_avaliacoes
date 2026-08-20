@@ -3,6 +3,12 @@
 import React, { useState } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
+type TrendTooltipProps = {
+  active?: boolean;
+  payload?: Array<{ value?: number }>;
+  label?: string | number;
+};
+
 export function TrendChart() {
   const [period, setPeriod] = useState<'7d' | '30d' | '90d' | '1a'>('30d');
 
@@ -39,16 +45,16 @@ export function TrendChart() {
 
   const currentData = dataMap[period];
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: TrendTooltipProps) => {
     if (active && payload && payload.length) {
       return (
-        <div className="space-y-1 rounded-xl border border-slate-700 bg-slate-950/95 p-3 text-xs text-white shadow-xl backdrop-blur-sm">
-          <p className="border-b border-slate-800 pb-1 font-bold text-slate-300">{label}</p>
-          <div className="flex items-center justify-between gap-4 font-semibold text-blue-400">
+        <div className="space-y-1 rounded-xl border border-white/10 bg-[#0B1020]/95 p-3 text-xs text-white shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+          <p className="border-b border-white/10 pb-1 font-bold text-slate-200">{label}</p>
+          <div className="flex items-center justify-between gap-4 font-semibold text-cyan-300">
             <span>⭐ Nota Média:</span>
             <span>{payload[0]?.value}</span>
           </div>
-          <div className="flex items-center justify-between gap-4 font-semibold text-violet-400">
+          <div className="flex items-center justify-between gap-4 font-semibold text-amber-300">
             <span>📊 Volume:</span>
             <span>{payload[1]?.value} avaliações</span>
           </div>
@@ -59,7 +65,7 @@ export function TrendChart() {
   };
 
   return (
-    <div className="space-y-4 rounded-2xl border border-white/10 bg-slate-900/80 p-6 shadow-[0_12px_30px_rgba(2,6,23,0.22)] transition-all">
+    <div className="space-y-4 rounded-[28px] border border-white/10 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
           <h3 className="text-base font-bold text-white">Tendência de Avaliações</h3>
@@ -72,7 +78,7 @@ export function TrendChart() {
               key={tab}
               onClick={() => setPeriod(tab)}
               className={`rounded-lg px-3 py-1.5 transition-all ${
-                period === tab ? 'bg-blue-600 font-bold text-white shadow-sm' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+              period === tab ? 'bg-cyan-500/15 font-bold text-cyan-200 shadow-sm' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
               }`}
             >
               {tab}
@@ -86,12 +92,12 @@ export function TrendChart() {
           <AreaChart data={currentData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="colorNota" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                <stop offset="5%" stopColor="#22D3EE" stopOpacity={0.34} />
+                <stop offset="95%" stopColor="#22D3EE" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="colorVolume" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
+                <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.25} />
+                <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
               </linearGradient>
             </defs>
 
@@ -112,14 +118,14 @@ export function TrendChart() {
 
             <Tooltip content={<CustomTooltip />} />
 
-            <Area yAxisId="left" type="monotone" dataKey="nota" name="Nota Média" stroke="#3B82F6" strokeWidth={3} fillOpacity={1} fill="url(#colorNota)" />
+            <Area yAxisId="left" type="monotone" dataKey="nota" name="Nota Média" stroke="#22D3EE" strokeWidth={3} fillOpacity={1} fill="url(#colorNota)" />
 
             <Area
               yAxisId="right"
               type="monotone"
               dataKey="volume"
               name="Volume"
-              stroke="#8B5CF6"
+              stroke="#F59E0B"
               strokeWidth={2}
               strokeDasharray="4 4"
               fillOpacity={1}

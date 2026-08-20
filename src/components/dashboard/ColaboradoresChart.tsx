@@ -8,6 +8,11 @@ export interface ColaboradorRankData {
   elogios: number;
 }
 
+type ColaboradorTooltipProps = {
+  active?: boolean;
+  payload?: Array<{ payload?: ColaboradorRankData }>;
+};
+
 interface ColaboradoresChartProps {
   monthData?: ColaboradorRankData[];
   quarterData?: ColaboradorRankData[];
@@ -64,13 +69,13 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
 
   const chartData = [...currentList].reverse();
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: ColaboradorTooltipProps) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="rounded-xl border border-slate-700 bg-slate-950/95 p-2.5 text-xs text-white shadow-xl backdrop-blur-sm">
+        <div className="rounded-xl border border-white/10 bg-[#0B1020]/95 p-2.5 text-xs text-white shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl">
           <p className="font-bold text-slate-200">{data.nome}</p>
-          <p className="mt-0.5 font-semibold text-emerald-400">👏 {data.elogios} elogios registrados</p>
+          <p className="mt-0.5 font-semibold text-emerald-300">👏 {data.elogios} elogios registrados</p>
         </div>
       );
     }
@@ -78,7 +83,7 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
   };
 
   return (
-    <div className="space-y-4 rounded-2xl border border-white/10 bg-slate-900/80 p-6 shadow-[0_12px_30px_rgba(2,6,23,0.22)] transition-all">
+    <div className="space-y-4 rounded-[28px] border border-white/10 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
           <h3 className="text-base font-bold text-white">Ranking dos Colaboradores</h3>
@@ -95,7 +100,7 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
           <button
             onClick={() => setPeriod('month')}
             className={`rounded-lg px-3 py-1.5 transition-all ${
-              period === 'month' ? 'bg-blue-600 font-bold text-white shadow-sm' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+              period === 'month' ? 'bg-cyan-500/15 font-bold text-cyan-200 shadow-sm' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
             }`}
           >
             Este mês
@@ -103,7 +108,7 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
           <button
             onClick={() => setPeriod('quarter')}
             className={`rounded-lg px-3 py-1.5 transition-all ${
-              period === 'quarter' ? 'bg-blue-600 font-bold text-white shadow-sm' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+              period === 'quarter' ? 'bg-cyan-500/15 font-bold text-cyan-200 shadow-sm' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
             }`}
           >
             Trimestre
@@ -111,7 +116,7 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
           <button
             onClick={() => setPeriod('total')}
             className={`rounded-lg px-3 py-1.5 transition-all ${
-              period === 'total' ? 'bg-blue-600 font-bold text-white shadow-sm' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+              period === 'total' ? 'bg-cyan-500/15 font-bold text-cyan-200 shadow-sm' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
             }`}
           >
             Geral
@@ -128,12 +133,12 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
             <div
               key={idx}
               className={`flex flex-col items-center justify-center rounded-xl border p-2.5 text-center transition-all ${
-                isTop ? 'border-blue-500/25 bg-blue-500/12 shadow-sm' : 'border-white/8 bg-white/[0.03] hover:bg-white/[0.05]'
+                isTop ? 'border-cyan-500/20 bg-cyan-500/[0.06] shadow-sm' : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.05]'
               }`}
             >
               <span className="text-[10px] font-bold uppercase text-slate-400">{medal} Rank</span>
               <span className="mt-0.5 max-w-full truncate text-xs font-bold text-white">{col.nome}</span>
-              <span className="mt-1 text-xs font-extrabold text-emerald-400">{col.elogios} 👏</span>
+              <span className="mt-1 text-xs font-extrabold text-emerald-300">{col.elogios} 👏</span>
             </div>
           );
         })}
@@ -155,7 +160,7 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
             <Bar dataKey="elogios" radius={[0, 8, 8, 0]} barSize={20}>
               {chartData.map((entry, index) => {
                 const isTop1 = entry.nome === currentList[0]?.nome;
-                return <Cell key={`cell-${index}`} fill={isTop1 ? '#2563EB' : '#1D4ED8'} />;
+                return <Cell key={`cell-${index}`} fill={isTop1 ? '#22D3EE' : '#0EA5E9'} />;
               })}
             </Bar>
           </BarChart>

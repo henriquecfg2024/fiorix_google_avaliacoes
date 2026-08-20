@@ -32,7 +32,7 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
 
   if (!reviews || reviews.length === 0) {
     return (
-      <div className="rounded-2xl border border-white/10 bg-slate-900/80 p-6 shadow-[0_12px_30px_rgba(2,6,23,0.22)]">
+      <div className="rounded-[28px] border border-white/10 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
         <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-4">
           <h3 className="text-base font-bold text-white">Últimas Avaliações</h3>
         </div>
@@ -48,10 +48,10 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
   };
 
   return (
-    <div className="space-y-4 rounded-2xl border border-white/10 bg-slate-900/80 p-6 shadow-[0_12px_30px_rgba(2,6,23,0.22)] transition-all">
+    <div className="space-y-4 rounded-[28px] border border-white/10 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
       <div className="flex items-center justify-between border-b border-white/10 pb-4">
         <h3 className="text-base font-bold text-white">Últimas Avaliações</h3>
-        <Link href="/avaliacoes" className="text-xs font-semibold text-blue-400 transition-colors hover:text-blue-300 hover:underline">
+        <Link href="/avaliacoes" className="text-xs font-semibold text-cyan-300 transition-colors hover:text-cyan-200 hover:underline">
           Ver todas →
         </Link>
       </div>
@@ -68,13 +68,13 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
               key={rev.id}
               className={`rounded-xl border p-3.5 transition-all ${
                 isLowRating
-                  ? 'border-l-4 border-l-amber-400 border-amber-400/40 bg-amber-500/8'
-                  : 'border-white/8 bg-white/[0.03] hover:bg-white/[0.05]'
+                  ? 'border-l-4 border-l-amber-400 border-amber-400/35 bg-amber-500/[0.05]'
+                  : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.05]'
               }`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-xs font-bold text-white">
                     {rev.reviewerName ? rev.reviewerName[0].toUpperCase() : 'A'}
                   </div>
                   <div>
@@ -91,9 +91,9 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
               </div>
 
               <div className="mt-2 text-xs leading-relaxed text-slate-300">
-                <p className={!isExpanded && isLong ? 'line-clamp-2' : ''}>"{cleanedText}"</p>
+                <p className={!isExpanded && isLong ? 'line-clamp-2' : ''}>&quot;{cleanedText}&quot;</p>
                 {isLong && (
-                  <button onClick={() => toggleExpand(rev.id)} className="mt-1 inline-block cursor-pointer text-[11px] font-bold text-blue-400 hover:underline">
+                  <button onClick={() => toggleExpand(rev.id)} className="mt-1 inline-block cursor-pointer text-[11px] font-bold text-cyan-300 hover:underline">
                     {isExpanded ? 'Ver menos ↑' : 'Ver mais →'}
                   </button>
                 )}
@@ -101,11 +101,11 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
 
               <div className="mt-2.5 flex items-center justify-between border-t border-white/10 pt-2">
                 {rev.status === 'RESPONDED' ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/12 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
                     <span>✓</span> Respondida
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/12 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300">
                     <span>⏳</span> Aguardando resposta
                   </span>
                 )}

@@ -27,7 +27,7 @@ function KpiCard({
   badgeText: React.ReactNode;
 }) {
   return (
-    <div className={`flex flex-col justify-between space-y-3 rounded-2xl border bg-slate-900/75 p-5 shadow-[0_12px_30px_rgba(2,6,23,0.22)] ${borderClass}`}>
+    <div className={`flex flex-col justify-between space-y-3 rounded-[28px] border bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl ${borderClass}`}>
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{title}</span>
         <div className={`rounded-xl border p-2 ${iconClass}`}>{icon}</div>
@@ -55,8 +55,8 @@ export function KpiRow({ notaMedia, totalAvaliacoes, pendentes, respondidasHoje 
         title="Nota Média"
         value={formattedNota}
         icon={<Star className="h-4 w-4 fill-current" />}
-        borderClass="border-blue-500/20"
-        iconClass="border-blue-500/20 bg-blue-500/12 text-blue-400"
+        borderClass="border-cyan-500/18"
+        iconClass="border-cyan-500/18 bg-cyan-500/10 text-cyan-300"
         badgeClass="border-emerald-500/20 bg-emerald-500/12 font-bold text-emerald-300"
         badgeText={
           <>
@@ -70,8 +70,8 @@ export function KpiRow({ notaMedia, totalAvaliacoes, pendentes, respondidasHoje 
         title="Total Avaliações"
         value={totalDisplay}
         icon={<MessageSquare className="h-4 w-4" />}
-        borderClass="border-emerald-500/20"
-        iconClass="border-emerald-500/20 bg-emerald-500/12 text-emerald-400"
+        borderClass="border-emerald-500/18"
+        iconClass="border-emerald-500/18 bg-emerald-500/10 text-emerald-300"
         badgeClass="border-emerald-500/20 bg-emerald-500/12 font-bold text-emerald-300"
         badgeText={
           <>
@@ -85,9 +85,9 @@ export function KpiRow({ notaMedia, totalAvaliacoes, pendentes, respondidasHoje 
         title="Aguardando"
         value={pendentesDisplay}
         icon={<Clock className="h-4 w-4" />}
-        borderClass="border-violet-500/20"
-        iconClass="border-violet-500/20 bg-violet-500/12 text-violet-400"
-        badgeClass="border-violet-500/20 bg-violet-500/12 font-bold text-violet-300"
+        borderClass="border-amber-500/18"
+        iconClass="border-amber-500/18 bg-amber-500/10 text-amber-300"
+        badgeClass="border-amber-500/20 bg-amber-500/10 font-bold text-amber-300"
         badgeText={
           <>
             <span>↓ 3</span>
@@ -100,9 +100,9 @@ export function KpiRow({ notaMedia, totalAvaliacoes, pendentes, respondidasHoje 
         title="Respondidas Hoje"
         value={respondidasDisplay}
         icon={<CheckCircle className="h-4 w-4" />}
-        borderClass="border-slate-500/20"
-        iconClass="border-white/10 bg-slate-700/40 text-slate-200"
-        badgeClass="border-white/10 bg-slate-700/40 font-bold text-slate-200"
+        borderClass="border-white/10"
+        iconClass="border-white/10 bg-white/[0.04] text-slate-200"
+        badgeClass="border-white/10 bg-white/[0.04] font-bold text-slate-200"
         badgeText={
           <>
             <span>↗ 8</span>
