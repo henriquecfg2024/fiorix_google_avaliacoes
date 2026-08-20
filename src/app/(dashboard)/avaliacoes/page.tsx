@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireAuth } from '@/lib/auth-helpers';
 import { ReviewItemCard } from '@/components/avaliacoes/ReviewItemCard';
-import { MessageSquare, CheckCircle, Clock, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MessageSquare, CheckCircle, Clock, Search, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -350,63 +350,74 @@ export default async function AvaliacoesPage({
         </div>
       )}
 
-      <div className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-900/80 p-4 px-6 text-xs font-medium text-slate-400 shadow-[0_12px_30px_rgba(2,6,23,0.18)] sm:flex-row">
-        <div>
-          Mostrando <strong className="text-white">{startItemIndex}-{endItemIndex}</strong> de <strong className="text-white">{effectiveTotalCount}</strong> avaliações
-          {totalPages > 1 && <span className="ml-1 text-slate-500">(Página {currentPage} de {totalPages})</span>}
+      {/* Unified Pagination Footer */}
+      <div className="flex flex-col items-center justify-between gap-4 rounded-2xl border border-white/12 bg-[#0B1020]/72 px-6 py-3.5 text-white shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl sm:flex-row">
+        {/* Interval text */}
+        <div className="text-xs text-white/60 text-center sm:text-left">
+          Exibindo <strong className="text-white">{startItemIndex.toLocaleString("pt-BR")}</strong> a{" "}
+          <strong className="text-white">{endItemIndex.toLocaleString("pt-BR")}</strong> de{" "}
+          <strong className="text-white">{effectiveTotalCount.toLocaleString("pt-BR")}</strong> avaliações
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Page Controls */}
+        <div className="flex items-center gap-1">
           {currentPage > 1 ? (
             <Link
-              href={buildPageUrl(currentPage - 1)}
-              className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-slate-200 transition-colors hover:bg-white/[0.08]"
+              href={buildPageUrl(1)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08]"
+              title="Primeira Página"
             >
-              <ChevronLeft className="h-4 w-4" />
-              Anterior
+              <ChevronsLeft size={15} />
             </Link>
           ) : (
-            <button disabled className="flex cursor-not-allowed items-center gap-1 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-1.5 text-xs font-bold text-slate-500">
-              <ChevronLeft className="h-4 w-4" />
-              Anterior
+            <button disabled className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white/30 cursor-not-allowed">
+              <ChevronsLeft size={15} />
             </button>
           )}
 
-          {totalPages > 1 && (
-            <div className="flex items-center gap-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let p = i + 1;
-                if (totalPages > 5 && currentPage > 3) {
-                  p = currentPage - 2 + i;
-                  if (p > totalPages) p = totalPages - (4 - i);
-                }
-                return (
-                  <Link
-                    key={p}
-                    href={buildPageUrl(p)}
-                    className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold transition-all ${
-                      currentPage === p ? 'bg-blue-600 text-white shadow-xs' : 'bg-white/[0.05] text-slate-300 hover:bg-white/[0.08]'
-                    }`}
-                  >
-                    {p}
-                  </Link>
-                );
-              })}
-            </div>
+          {currentPage > 1 ? (
+            <Link
+              href={buildPageUrl(currentPage - 1)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08]"
+              title="Página Anterior"
+            >
+              <ChevronLeft size={15} />
+            </Link>
+          ) : (
+            <button disabled className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white/30 cursor-not-allowed">
+              <ChevronLeft size={15} />
+            </button>
           )}
+
+          <span className="text-xs px-2 font-medium text-white min-w-[90px] text-center">
+            Página {currentPage.toLocaleString("pt-BR")} de {totalPages.toLocaleString("pt-BR")}
+          </span>
 
           {currentPage < totalPages ? (
             <Link
               href={buildPageUrl(currentPage + 1)}
-              className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-bold text-slate-200 transition-colors hover:bg-white/[0.08]"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08]"
+              title="Próxima Página"
             >
-              Próxima
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight size={15} />
             </Link>
           ) : (
-            <button disabled className="flex cursor-not-allowed items-center gap-1 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-1.5 text-xs font-bold text-slate-500">
-              Próxima
-              <ChevronRight className="h-4 w-4" />
+            <button disabled className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white/30 cursor-not-allowed">
+              <ChevronRight size={15} />
+            </button>
+          )}
+
+          {currentPage < totalPages ? (
+            <Link
+              href={buildPageUrl(totalPages)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08]"
+              title="Última Página"
+            >
+              <ChevronsRight size={15} />
+            </Link>
+          ) : (
+            <button disabled className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white/30 cursor-not-allowed">
+              <ChevronsRight size={15} />
             </button>
           )}
         </div>

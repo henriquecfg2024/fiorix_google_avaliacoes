@@ -180,22 +180,22 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
   return (
     <>
       <div
-        className={`space-y-3.5 rounded-2xl border p-5 shadow-[0_12px_30px_rgba(2,6,23,0.18)] transition-all ${
+        className={`space-y-3.5 rounded-2xl border p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all ${
           isLowRating
-            ? 'border-red-500/35 border-l-4 border-l-red-500 bg-red-500/[0.04]'
+            ? 'border-red-500/35 border-l-4 border-l-red-500 bg-[#0B1020]/72'
             : isMidRating
-              ? 'border-amber-500/30 border-l-4 border-l-amber-400 bg-amber-500/[0.035]'
-              : 'border-white/10 bg-slate-900/78 hover:border-white/15'
+              ? 'border-amber-500/30 border-l-4 border-l-amber-400 bg-[#0B1020]/72'
+              : 'border-white/12 bg-[#0B1020]/72 hover:border-white/18'
         }`}
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm font-bold text-white shadow-xs">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-amber-400 text-sm font-bold text-white shadow-xs">
               {review.reviewerName ? review.reviewerName[0].toUpperCase() : 'A'}
             </div>
             <div>
               <h4 className="text-sm font-semibold leading-tight text-white">{review.reviewerName}</h4>
-              <span className="text-xs text-slate-400">{formatDate(review.publishedAt)}</span>
+              <span className="text-xs text-white/40">{formatDate(review.publishedAt)}</span>
             </div>
           </div>
 
@@ -239,16 +239,16 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
           </div>
         )}
 
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5 text-sm leading-relaxed text-slate-200">
+        <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3.5 text-sm leading-relaxed text-white/90">
           {!cleanedComment ? (
-            <p className="italic text-slate-400">Sem comentário por extenso.</p>
+            <p className="italic text-white/40">Sem comentário por extenso.</p>
           ) : (
             <div>
               <p className={!isExpanded && isLong ? 'line-clamp-3' : ''}>"{renderCommentWithPills(cleanedComment)}"</p>
               {isLong && (
                 <button
                   onClick={() => setIsExpanded(!isExpanded)}
-                  className="mt-1 inline-block cursor-pointer text-xs font-bold text-blue-400 hover:underline"
+                  className="mt-1 inline-block cursor-pointer text-xs font-bold text-amber-300 hover:underline"
                 >
                   {isExpanded ? 'Ver menos ↑' : 'Ler completo →'}
                 </button>
@@ -258,7 +258,7 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
         </div>
 
         {review.status === 'RESPONDED' && review.response?.content && (
-          <div className="space-y-1.5 rounded-xl border border-emerald-500/15 bg-[linear-gradient(135deg,rgba(16,185,129,0.11),rgba(59,130,246,0.08))] p-4">
+          <div className="space-y-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.18em] text-emerald-300">
                 <CheckCircle className="h-4 w-4 text-emerald-400" />
@@ -272,18 +272,18 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
                 <span>{copiedResponse ? 'Copiado!' : 'Copiar'}</span>
               </button>
             </div>
-            <p className="text-sm leading-relaxed text-slate-200">{review.response.content}</p>
+            <p className="text-sm leading-relaxed text-white/90">{review.response.content}</p>
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/8 pt-2">
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleOpenModal}
-              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all ${
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-white/8 px-3.5 py-1.5 text-xs font-bold transition-all ${
                 review.status === 'RESPONDED'
-                  ? 'border border-blue-500/20 bg-blue-500/12 text-blue-300 hover:bg-blue-500/20'
-                  : 'bg-blue-600 text-white shadow-sm hover:bg-blue-500'
+                  ? 'bg-white/[0.04] text-white hover:bg-white/[0.08]'
+                  : 'bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-xs hover:brightness-105'
               }`}
             >
               {review.status === 'RESPONDED' ? (
