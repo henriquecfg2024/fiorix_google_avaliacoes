@@ -503,11 +503,6 @@ export default function ProdutividadePage() {
 
           {chartsVisible.dataTable && (
             <div className="pt-2">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-bold text-white uppercase tracking-wider">
-                  Tabela de Registros
-                </h3>
-              </div>
               <DataTablePremium data={filteredData} />
             </div>
           )}

@@ -13,10 +13,9 @@ interface DataTablePremiumProps {
 export function DataTablePremium({ data }: DataTablePremiumProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [sortField, setSortField] = useState("DATA");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
-
-  const pageSize = 50;
 
   // Filter & Sort
   const processedData = useMemo(() => {
@@ -59,11 +58,15 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
   }, [data, searchTerm, sortField, sortDirection]);
 
   // Pagination
-  const totalPages = Math.ceil(processedData.length / pageSize) || 1;
+  const totalItems = processedData.length;
+  const totalPages = Math.ceil(totalItems / pageSize) || 1;
+  const startIndex = totalItems > 0 ? (currentPage - 1) * pageSize + 1 : 0;
+  const endIndex = Math.min(totalItems, currentPage * pageSize);
+
   const paginatedData = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    return processedData.slice(startIndex, startIndex + pageSize);
-  }, [processedData, currentPage]);
+    const start = (currentPage - 1) * pageSize;
+    return processedData.slice(start, start + pageSize);
+  }, [processedData, currentPage, pageSize]);
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -75,10 +78,14 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
     setCurrentPage(1);
   };
 
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+  };
+
   const sanitizeCsvField = (value: string | null | undefined): string => {
     if (!value) return '';
     const str = String(value);
-    // Se começar com caracteres perigosos de fórmula CSV/Excel/Calc, adiciona apóstrofo
     if (/^[=+\-@\t\r]/.test(str)) {
       return `'${str.replace(/"/g, '""').replace(/\n/g, ' ')}`;
     }
@@ -97,10 +104,10 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
           row.HORA,
           row.DIA_SEMANA,
           row.PEDIDO,
-          `"${sanitizeCsvField(row.NOME)}"`,
+          `"${sanitizeCsvField(String(row.NOME))}"`,
           row.TIPO,
-          `"${sanitizeCsvField(row.TIPO_PEDIDO)}"`,
-          `"${sanitizeCsvField(row.TIPO_DETALHADO)}"`,
+          `"${sanitizeCsvField(String(row.TIPO_PEDIDO))}"`,
+          `"${sanitizeCsvField(String(row.TIPO_DETALHADO))}"`,
           row.QUANTIDADE,
         ].join(";")
       ),
@@ -119,20 +126,20 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
   const getTipoPedidoBadgeStyle = (tipo: string) => {
     switch (tipo) {
       case "PRENOTADO":
-    return "bg-cyan-500/10 text-cyan-300 border-cyan-500/20";
+        return "bg-cyan-500/10 text-cyan-300 border-cyan-500/20";
       case "Consulta Eletrônica (CE)":
         return "bg-emerald-500/10 text-emerald-300 border-emerald-500/20";
       case "Consulta Eletrônica (VM)":
         return "bg-violet-500/10 text-violet-300 border-violet-500/20";
       default:
-        return "bg-amber-500/10 text-amber-400 border-amber-500/20";
+        return "bg-amber-500/10 text-amber-300 border-amber-500/20";
     }
   };
 
   return (
-    <div className="rounded-[28px] border border-white/10 bg-[#0B1020]/72 backdrop-blur-xl p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] space-y-4">
-      {/* Controls Header */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-white/12 bg-[#0B1020]/72 text-white shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+      {/* Controls Header Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/8 bg-white/[0.01] p-4">
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/40" />
           <Input
@@ -142,80 +149,80 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
               setSearchTerm(e.target.value);
               setCurrentPage(1);
             }}
-            className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-cyan-400/50"
+            className="pl-9 rounded-lg border border-white/8 bg-white/[0.04] text-xs text-white placeholder:text-white/40 focus:border-amber-400 focus:outline-none focus:ring-0"
           />
         </div>
 
         <Button
           onClick={exportToCSV}
-          className="w-full sm:w-auto bg-white/5 hover:bg-white/10 border border-white/10 text-white gap-2 font-semibold"
+          className="w-full sm:w-auto rounded-lg border border-white/8 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white transition-all hover:bg-white/[0.08] gap-2"
         >
           <Download className="h-4 w-4" />
-          Exportar Filtros ({processedData.length})
+          Exportar Filtros ({processedData.length.toLocaleString("pt-BR")})
         </Button>
       </div>
 
       {/* Table Container */}
-      <div className="overflow-x-auto rounded-xl border border-white/10">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-white/5 text-white/80 select-none">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs">
+          <thead className="select-none bg-[#0B1020] text-xs uppercase tracking-wider text-white/58 border-b border-white/8">
             <tr>
-              <th onClick={() => handleSort("DATA")} className="p-3 border-b border-white/10 cursor-pointer hover:bg-white/5">
+              <th onClick={() => handleSort("DATA")} className="px-4 py-3.5 font-semibold cursor-pointer hover:text-white transition-colors">
                 Data {sortField === "DATA" && (sortDirection === "asc" ? "▲" : "▼")}
               </th>
-              <th onClick={() => handleSort("HORA")} className="p-3 border-b border-white/10 cursor-pointer hover:bg-white/5">
+              <th onClick={() => handleSort("HORA")} className="px-4 py-3.5 font-semibold cursor-pointer hover:text-white transition-colors">
                 Hora {sortField === "HORA" && (sortDirection === "asc" ? "▲" : "▼")}
               </th>
-              <th onClick={() => handleSort("DIA_SEMANA")} className="p-3 border-b border-white/10 cursor-pointer hover:bg-white/5">
+              <th onClick={() => handleSort("DIA_SEMANA")} className="px-4 py-3.5 font-semibold cursor-pointer hover:text-white transition-colors">
                 Dia Semana {sortField === "DIA_SEMANA" && (sortDirection === "asc" ? "▲" : "▼")}
               </th>
-              <th onClick={() => handleSort("PEDIDO")} className="p-3 border-b border-white/10 cursor-pointer hover:bg-white/5">
+              <th onClick={() => handleSort("PEDIDO")} className="px-4 py-3.5 font-semibold cursor-pointer hover:text-white transition-colors">
                 Pedido {sortField === "PEDIDO" && (sortDirection === "asc" ? "▲" : "▼")}
               </th>
-              <th onClick={() => handleSort("NOME")} className="p-3 border-b border-white/10 cursor-pointer hover:bg-white/5">
+              <th onClick={() => handleSort("NOME")} className="px-4 py-3.5 font-semibold cursor-pointer hover:text-white transition-colors">
                 Nome {sortField === "NOME" && (sortDirection === "asc" ? "▲" : "▼")}
               </th>
-              <th onClick={() => handleSort("TIPO")} className="p-3 border-b border-white/10 cursor-pointer hover:bg-white/5">
+              <th onClick={() => handleSort("TIPO")} className="px-4 py-3.5 font-semibold cursor-pointer hover:text-white transition-colors">
                 Tipo {sortField === "TIPO" && (sortDirection === "asc" ? "▲" : "▼")}
               </th>
-              <th onClick={() => handleSort("TIPO_PEDIDO")} className="p-3 border-b border-white/10 cursor-pointer hover:bg-white/5">
+              <th onClick={() => handleSort("TIPO_PEDIDO")} className="px-4 py-3.5 font-semibold cursor-pointer hover:text-white transition-colors">
                 Tipo Pedido {sortField === "TIPO_PEDIDO" && (sortDirection === "asc" ? "▲" : "▼")}
               </th>
-              <th onClick={() => handleSort("TIPO_DETALHADO")} className="p-3 border-b border-white/10 cursor-pointer hover:bg-white/5">
+              <th onClick={() => handleSort("TIPO_DETALHADO")} className="px-4 py-3.5 font-semibold cursor-pointer hover:text-white transition-colors">
                 Detalhado {sortField === "TIPO_DETALHADO" && (sortDirection === "asc" ? "▲" : "▼")}
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5 bg-white/[0.01]">
+          <tbody className="divide-y divide-white/5 bg-transparent">
             {paginatedData.length > 0 ? (
               paginatedData.map((row, idx) => (
-                <tr key={idx} className="hover:bg-white/[0.02] transition-colors text-white/80">
-                  <td className="p-3">{row.DATA}</td>
-                  <td className="p-3 font-mono">{row.HORA}</td>
-                  <td className="p-3">{row.DIA_SEMANA}</td>
-                  <td className="p-3 font-semibold text-[#2B7FFF]">
+                <tr key={idx} className="transition-colors hover:bg-white/[0.03] text-white/80">
+                  <td className="px-4 py-3 font-medium text-white">{String(row.DATA || "-")}</td>
+                  <td className="px-4 py-3 font-mono text-white/70">{String(row.HORA || "-")}</td>
+                  <td className="px-4 py-3 text-white/70">{String(row.DIA_SEMANA || "-")}</td>
+                  <td className="px-4 py-3 font-bold text-cyan-300">
                     <a href={`/bi/pedidos/${row.PEDIDO}`} className="hover:underline">
-                      {row.PEDIDO}
+                      {String(row.PEDIDO || "-")}
                     </a>
                   </td>
-                  <td className="p-3 font-medium text-white">{row.NOME}</td>
-                  <td className="p-3">
-                    <Badge variant="outline" className={row.TIPO === "TÍTULO" ? "border-emerald-500/30 text-[#00C950] bg-emerald-500/5" : "border-[#2B7FFF]/30 text-[#2B7FFF] bg-[#2B7FFF]/5"}>
-                      {row.TIPO}
+                  <td className="px-4 py-3 font-medium text-white">{String(row.NOME || "-")}</td>
+                  <td className="px-4 py-3">
+                    <Badge variant="outline" className={row.TIPO === "TÍTULO" ? "border-emerald-500/20 text-emerald-300 bg-emerald-500/10 font-semibold" : "border-cyan-500/20 text-cyan-300 bg-cyan-500/10 font-semibold"}>
+                      {String(row.TIPO || "-")}
                     </Badge>
                   </td>
-                  <td className="p-3">
-                    <Badge variant="outline" className={getTipoPedidoBadgeStyle(row.TIPO_PEDIDO)}>
-                      {row.TIPO_PEDIDO}
+                  <td className="px-4 py-3">
+                    <Badge variant="outline" className={`font-semibold ${getTipoPedidoBadgeStyle(String(row.TIPO_PEDIDO || ""))}`}>
+                      {String(row.TIPO_PEDIDO || "-")}
                     </Badge>
                   </td>
-                  <td className="p-3 text-xs text-white/50">{row.TIPO_DETALHADO}</td>
+                  <td className="px-4 py-3 text-xs text-white/50">{String(row.TIPO_DETALHADO || "-")}</td>
                 </tr>
               ))
             ) : (
               <tr>
                 <td colSpan={8} className="p-8 text-center text-white/40">
-                  Nenhum registro encontrado.
+                  Nenhum registro encontrado com os filtros atuais.
                 </td>
               </tr>
             )}
@@ -223,54 +230,81 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
         </table>
       </div>
 
-      {/* Pagination Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between text-xs text-white/60">
-        <div>
-          Mostrando <span className="font-semibold text-white">{Math.min(processedData.length, (currentPage - 1) * pageSize + 1)}-{Math.min(processedData.length, currentPage * pageSize)}</span> de <span className="font-semibold text-white">{processedData.length}</span> registros
+      {/* Unified Pagination Footer */}
+      <div className="flex flex-col items-center justify-between gap-4 border-t border-white/8 bg-white/[0.03] px-6 py-3.5 sm:flex-row">
+        {/* Interval text */}
+        <div className="text-xs text-white/60 text-center sm:text-left">
+          Exibindo <strong className="text-white">{startIndex.toLocaleString("pt-BR")}</strong> a{" "}
+          <strong className="text-white">{endIndex.toLocaleString("pt-BR")}</strong> de{" "}
+          <strong className="text-white">{totalItems.toLocaleString("pt-BR")}</strong> registros
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCurrentPage(1)}
-            disabled={currentPage === 1}
-            className="h-8 w-8 rounded-md hover:bg-white/5 hover:text-white"
-          >
-            <ChevronsLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCurrentPage(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="h-8 w-8 rounded-md hover:bg-white/5 hover:text-white"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
+        {/* Page Controls & Size Selector */}
+        <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
+          <div className="flex items-center gap-1.5 text-xs text-white/60">
+            <span>Exibir:</span>
+            <div className="flex items-center gap-1 rounded-lg border border-white/8 bg-white/[0.04] p-0.5">
+              {[10, 20, 50, 100].map((size) => (
+                <button
+                  key={size}
+                  onClick={() => handlePageSizeChange(size)}
+                  className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
+                    pageSize === size
+                      ? "bg-gradient-to-r from-indigo-500 to-amber-400 font-semibold text-white shadow-xs"
+                      : "text-white/60 hover:text-white"
+                  }`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          </div>
 
-          <span className="px-3 text-sm">
-            Página <span className="font-semibold text-white">{currentPage}</span> de <span className="font-semibold text-white">{totalPages}</span>
-          </span>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCurrentPage(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="h-8 w-8 rounded-md hover:bg-white/5 hover:text-white"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCurrentPage(totalPages)}
-            disabled={currentPage === totalPages}
-            className="h-8 w-8 rounded-md hover:bg-white/5 hover:text-white"
-          >
-            <ChevronsRight className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage(1)}
+              title="Primeira Página"
+            >
+              <ChevronsLeft size={15} />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => p - 1)}
+              title="Página Anterior"
+            >
+              <ChevronLeft size={15} />
+            </Button>
+            <span className="text-xs px-2 font-medium text-white min-w-[90px] text-center">
+              Página {currentPage.toLocaleString("pt-BR")} de {totalPages.toLocaleString("pt-BR")}
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => p + 1)}
+              title="Próxima Página"
+            >
+              <ChevronRight size={15} />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(totalPages)}
+              title="Última Página"
+            >
+              <ChevronsRight size={15} />
+            </Button>
+          </div>
         </div>
       </div>
     </div>
