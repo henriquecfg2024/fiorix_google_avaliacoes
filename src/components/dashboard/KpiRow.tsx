@@ -87,11 +87,11 @@ export function KpiRow({ notaMedia, totalAvaliacoes, pendentes, respondidasHoje 
         icon={<Clock className="h-4 w-4" />}
         borderClass="border-amber-500/18"
         iconClass="border-amber-500/18 bg-amber-500/10 text-amber-300"
-        badgeClass="border-amber-500/20 bg-amber-500/10 font-bold text-amber-300"
+        badgeClass="border-amber-500/20 bg-amber-500/10 font-bold text-amber-200"
         badgeText={
           <>
             <span>↓ 3</span>
-            <span className="font-normal text-violet-200/80">vs ontem</span>
+            <span className="font-normal text-amber-200/80">vs ontem</span>
           </>
         }
       />

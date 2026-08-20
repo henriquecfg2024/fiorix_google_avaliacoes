@@ -28,7 +28,7 @@ export function HealthCard() {
   const strokeDashoffset = circumference - (saudeReputacao / 100) * circumference;
 
   return (
-    <div className="rounded-[28px] border border-white/10 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
+    <div className="rounded-[28px] border border-white/10 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.20)] backdrop-blur-xl transition-all">
       <div className="mb-6 flex items-center justify-between border-b border-white/10 pb-5">
         <div className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-cyan-400" />
@@ -40,7 +40,7 @@ export function HealthCard() {
       </div>
 
       <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-12">
-        <div className="lg:col-span-4 flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
+        <div className="lg:col-span-4 flex flex-col items-center justify-center rounded-2xl border border-white/8 bg-white/[0.02] p-4 text-center">
           <div className="relative flex h-36 w-36 items-center justify-center">
             <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 140 140">
               <circle cx="70" cy="70" r={radius} className="text-slate-700" strokeWidth="12" stroke="currentColor" fill="transparent" />
@@ -85,7 +85,7 @@ export function HealthCard() {
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {saudaveis.map((ind, idx) => (
-                <div key={idx} className="space-y-1.5 rounded-xl border border-emerald-500/12 bg-emerald-500/[0.03] p-2.5">
+                <div key={idx} className="space-y-1.5 rounded-xl border border-emerald-500/10 bg-emerald-500/[0.025] p-2.5">
                   <div className="flex items-center justify-between text-xs font-semibold text-slate-200">
                     <span className="flex items-center gap-1.5 truncate">
                       <span>{ind.icon}</span>
@@ -112,7 +112,7 @@ export function HealthCard() {
               {atencao.map((ind, idx) => {
                 const isBlue = ind.badgeColor === 'blue';
                 return (
-                  <div key={idx} className="space-y-1.5 rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
+                <div key={idx} className="space-y-1.5 rounded-xl border border-white/8 bg-white/[0.025] p-2.5">
                     <div className="flex items-center justify-between text-xs font-semibold text-slate-200">
                       <span className="flex items-center gap-1.5 truncate">
                         <span>{ind.icon}</span>
@@ -140,7 +140,7 @@ export function HealthCard() {
               <span>🔴</span>
               <span>Indicadores Críticos</span>
             </div>
-            <div className="space-y-2.5 rounded-2xl border border-rose-500/18 bg-rose-500/[0.04] p-3">
+            <div className="space-y-2.5 rounded-2xl border border-rose-500/14 bg-rose-500/[0.03] p-3">
               {criticos.map((ind, idx) => (
                 <div key={idx} className="space-y-1">
                   <div className="flex items-center justify-between text-xs font-semibold text-slate-100">
