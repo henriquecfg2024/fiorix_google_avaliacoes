@@ -28,7 +28,8 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
         (item) =>
           String(item.PEDIDO).toLowerCase().includes(term) ||
           String(item.NOME).toLowerCase().includes(term) ||
-          String(item.TIPO_PEDIDO).toLowerCase().includes(term)
+          String(item.TIPO_PEDIDO).toLowerCase().includes(term) ||
+          String(item.TIPO_DETALHADO).toLowerCase().includes(term)
       );
     }
 

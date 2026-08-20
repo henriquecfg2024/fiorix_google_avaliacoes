@@ -48,6 +48,7 @@ export default function ProdutividadePage() {
   const [endDate, setEndDate] = useState("2026-08-11");
   const [tipo, setTipo] = useState("ALL");
   const [tipoPedido, setTipoPedido] = useState("ALL");
+  const [tipoDetalhado, setTipoDetalhado] = useState("ALL");
   const [nome, setNome] = useState("ALL");
   const [filtroCaixa, setFiltroCaixa] = useState<FiltroCaixa>("todos");
 
@@ -115,21 +116,22 @@ export default function ProdutividadePage() {
       if (row.DATA < startDate || row.DATA > endDate) return false;
       if (tipo !== "ALL" && row.TIPO !== tipo) return false;
       if (tipoPedido !== "ALL" && row.TIPO_PEDIDO !== tipoPedido) return false;
+      if (tipoDetalhado !== "ALL" && row.TIPO_DETALHADO !== tipoDetalhado) return false;
       if (nome !== "ALL" && row.NOME !== nome) return false;
       return true;
     });
-  }, [data, startDate, endDate, tipo, tipoPedido, nome]);
+  }, [data, startDate, endDate, tipo, tipoPedido, tipoDetalhado, nome]);
 
   const digitalCount = useMemo(() => {
     return baseFilteredData.reduce((acc, row) => {
-      if (!isDigital(row.NOME)) return acc;
+      if (!isDigital(String(row.NOME || ""))) return acc;
       return acc + Number(row.QUANTIDADE || 0);
     }, 0);
   }, [baseFilteredData]);
 
   const presencialCount = useMemo(() => {
     return baseFilteredData.reduce((acc, row) => {
-      if (isDigital(row.NOME)) return acc;
+      if (isDigital(String(row.NOME || ""))) return acc;
       return acc + Number(row.QUANTIDADE || 0);
     }, 0);
   }, [baseFilteredData]);
@@ -138,27 +140,30 @@ export default function ProdutividadePage() {
 
   const selectOptions = useMemo(() => {
     const tiposPedidos = new Set<string>();
+    const tiposDetalhados = new Set<string>();
     const nomes = new Set<string>();
 
     baseFilteredData.forEach((row) => {
       if (!row) return;
-      if (row.TIPO_PEDIDO) tiposPedidos.add(row.TIPO_PEDIDO);
-      if (row.NOME) nomes.add(row.NOME);
+      if (row.TIPO_PEDIDO) tiposPedidos.add(String(row.TIPO_PEDIDO));
+      if (row.TIPO_DETALHADO) tiposDetalhados.add(String(row.TIPO_DETALHADO));
+      if (row.NOME) nomes.add(String(row.NOME));
     });
 
     return {
       tiposPedidos: Array.from(tiposPedidos).sort(),
+      tiposDetalhados: Array.from(tiposDetalhados).sort(),
       nomes: Array.from(nomes).sort(),
     };
   }, [baseFilteredData]);
 
   const filteredData = useMemo(() => {
     if (filtroCaixa === "digital") {
-      return baseFilteredData.filter((row) => isDigital(row.NOME));
+      return baseFilteredData.filter((row) => isDigital(String(row.NOME || "")));
     }
 
     if (filtroCaixa === "presencial") {
-      return baseFilteredData.filter((row) => !isDigital(row.NOME));
+      return baseFilteredData.filter((row) => !isDigital(String(row.NOME || "")));
     }
 
     return baseFilteredData;
@@ -169,6 +174,7 @@ export default function ProdutividadePage() {
     setEndDate("2026-08-11");
     setTipo("ALL");
     setTipoPedido("ALL");
+    setTipoDetalhado("ALL");
     setNome("ALL");
     toast.success("Filtros limpos com sucesso.");
   };
@@ -335,7 +341,7 @@ export default function ProdutividadePage() {
               <span>Filtros do Painel de Produtividade</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 items-end">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] uppercase tracking-wider text-white/50 font-bold">
                   Data Inicial
@@ -389,6 +395,25 @@ export default function ProdutividadePage() {
                     {selectOptions.tiposPedidos.map((tp) => (
                       <SelectItem key={tp} value={tp}>
                         {tp}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] uppercase tracking-wider text-white/50 font-bold">
+                  Tipo Detalhado
+                </label>
+                <Select value={tipoDetalhado} onValueChange={(val) => setTipoDetalhado(val || "ALL")}>
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-[#00C950]/50 truncate">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#0A0F1E] border-white/10 text-white max-w-[320px]">
+                    <SelectItem value="ALL">Todos</SelectItem>
+                    {selectOptions.tiposDetalhados.map((td) => (
+                      <SelectItem key={td} value={td} className="text-xs">
+                        {td}
                       </SelectItem>
                     ))}
                   </SelectContent>
