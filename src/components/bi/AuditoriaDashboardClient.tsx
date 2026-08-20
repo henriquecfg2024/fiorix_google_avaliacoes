@@ -19,6 +19,10 @@ import {
   RotateCcw,
   Copy,
   Printer,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
@@ -97,7 +101,7 @@ export function AuditoriaDashboardClient() {
   const [sortField, setSortField] = useState<string>("protocolo");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -574,178 +578,211 @@ export function AuditoriaDashboardClient() {
           </div>
 
           {/* C. TABELA DE AUDITORIA */}
-          <div className="overflow-x-auto rounded-xl border border-white/8 bg-[#0A1020]/70">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-white/8 bg-white/[0.02] font-bold text-white/48">
-                  <th className="p-4 w-12 text-center">
-                    <input
-                      type="checkbox"
-                      checked={selectedProtocolos.length === sortedAndFilteredProtocolos.length && sortedAndFilteredProtocolos.length > 0}
-                      onChange={(e) => handleSelectAll(e.target.checked)}
-                      className="rounded border-white/20 bg-transparent text-amber-400 focus:ring-0"
-                    />
-                  </th>
-                  {(() => {
-                    const renderHeader = (field: string, label: string) => {
-                      const isActive = sortField === field;
-                      return (
-                        <th
-                          onClick={() => {
-                            if (isActive) {
-                              setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
-                            } else {
-                              setSortField(field);
-                              setSortDirection("asc");
-                            }
-                          }}
-                          className="cursor-pointer select-none p-4 hover:bg-white/5"
-                        >
-                          <div className="flex items-center gap-1.5">
-                            {label}
-                            {isActive ? (
-                              <span className="text-[9px] font-bold text-amber-300">{sortDirection === "asc" ? "▲" : "▼"}</span>
-                            ) : (
-                              <span className="opacity-20 text-[9px]">↕</span>
-                            )}
-                          </div>
-                        </th>
-                      );
-                    };
-                    return (
-                      <>
-                        {renderHeader("protocolo", "Protocolo")}
-                        {renderHeader("cliente", "Cliente")}
-                        {renderHeader("fase", "Fase")}
-                        {renderHeader("falta", "Andamento Ausente")}
-                        {renderHeader("dias", "Dias Parado")}
-                        {renderHeader("setor", "Setor")}
-                        {renderHeader("dataUltAndamento", "Data Últ. Andamento")}
-                      </>
-                    );
-                  })()}
-                  <th className="p-4 text-right">Encaminhamento</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {paginatedProtocolos.length === 0 ? (
+          <div className="flex flex-col overflow-hidden rounded-2xl border border-white/12 bg-[#0B1020]/72 text-white shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="select-none bg-[#0B1020] text-xs uppercase tracking-wider text-white/58 border-b border-white/8">
                   <tr>
-                    <td colSpan={9} className="p-8 text-center text-xs text-white/30">
-                      Nenhuma pendência encontrada.
-                    </td>
+                    <th className="p-4 w-12 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedProtocolos.length === sortedAndFilteredProtocolos.length && sortedAndFilteredProtocolos.length > 0}
+                        onChange={(e) => handleSelectAll(e.target.checked)}
+                        className="rounded border-white/20 bg-transparent text-amber-400 focus:ring-0"
+                      />
+                    </th>
+                    {(() => {
+                      const renderHeader = (field: string, label: string) => {
+                        const isActive = sortField === field;
+                        return (
+                          <th
+                            onClick={() => {
+                              if (isActive) {
+                                setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+                              } else {
+                                setSortField(field);
+                                setSortDirection("asc");
+                              }
+                            }}
+                            className="cursor-pointer select-none p-4 hover:text-white transition-colors"
+                          >
+                            <div className="flex items-center gap-1.5 font-semibold">
+                              {label}
+                              {isActive ? (
+                                <span className="text-[9px] font-bold text-amber-300">{sortDirection === "asc" ? "▲" : "▼"}</span>
+                              ) : (
+                                <span className="opacity-20 text-[9px]">↕</span>
+                              )}
+                            </div>
+                          </th>
+                        );
+                      };
+                      return (
+                        <>
+                          {renderHeader("protocolo", "Protocolo")}
+                          {renderHeader("cliente", "Cliente")}
+                          {renderHeader("fase", "Fase")}
+                          {renderHeader("falta", "Andamento Ausente")}
+                          {renderHeader("dias", "Dias Parado")}
+                          {renderHeader("setor", "Setor")}
+                          {renderHeader("dataUltAndamento", "Data Últ. Andamento")}
+                        </>
+                      );
+                    })()}
+                    <th className="p-4 text-right font-semibold">Encaminhamento</th>
                   </tr>
-                ) : (
-                  paginatedProtocolos.map((p) => {
-                    const isSelected = selectedProtocolos.includes(p.id);
-                    return (
-                      <tr key={p.id} className={`transition hover:bg-white/[0.03] ${isSelected ? "bg-amber-500/[0.03]" : ""}`}>
-                        <td className="p-4 text-center">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={(e) => handleSelectOne(p.id, e.target.checked)}
-                            className="rounded border-white/20 bg-transparent text-amber-400 focus:ring-0"
-                          />
-                        </td>
-                        <td className="p-4 font-bold text-white">
-                          {p.id}
-                          <span className="ml-2 rounded-md border border-white/8 bg-white/5 px-1.5 py-0.5 text-[9px] font-medium text-white/72">
-                            {p.badge}
-                          </span>
-                        </td>
-                        <td className="p-4 text-white/80">{p.cliente}</td>
-                        <td className="p-4 text-white/60">{p.fase}</td>
-                        <td className="p-4">
-                          {p.falta === 76 ? (
-                            <span className="rounded-full border border-amber-500/20 bg-amber-500/12 px-2 py-0.5 text-[10px] font-bold text-amber-200">
-                              Balcão registrado pendente
+                </thead>
+                <tbody className="divide-y divide-white/5 bg-transparent">
+                  {paginatedProtocolos.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="p-8 text-center text-xs text-white/30">
+                        Nenhuma pendência encontrada.
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedProtocolos.map((p) => {
+                      const isSelected = selectedProtocolos.includes(p.id);
+                      return (
+                        <tr key={p.id} className={`transition hover:bg-white/[0.03] text-white/80 ${isSelected ? "bg-amber-500/[0.03]" : ""}`}>
+                          <td className="p-4 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => handleSelectOne(p.id, e.target.checked)}
+                              className="rounded border-white/20 bg-transparent text-amber-400 focus:ring-0"
+                            />
+                          </td>
+                          <td className="p-4 font-bold text-white">
+                            {p.id}
+                            <span className="ml-2 rounded-md border border-white/8 bg-white/5 px-1.5 py-0.5 text-[9px] font-medium text-white/72">
+                              {p.badge}
                             </span>
-                          ) : (
-                            <span className="rounded-full border border-red-500/20 bg-red-500/12 px-2 py-0.5 text-[10px] font-bold text-red-200">
-                              Balcão devolvido pendente
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-4 font-semibold text-amber-200">{p.dias}d</td>
-                        <td className="p-4 text-white/70">
-                          {p.setor}
-                        </td>
-                        <td className="p-4 text-white/55">{p.dataUltAndamento}</td>
-                        <td className="p-4 text-right">
-                          <div className="flex flex-col items-end gap-1">
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(p.id);
-                                toast.success(`Protocolo #${p.id} copiado!`, {
-                                  description: "Use este número para localizar o protocolo na rotina interna."
-                                });
-                              }}
-                              className="flex cursor-pointer items-center gap-1 rounded-md border border-white/8 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-white transition hover:bg-white/[0.08]"
-                              title="Copiar número do protocolo"
-                            >
-                              📋 Copiar Protocolo
-                            </button>
-                            <span className="text-[9px] text-white/42">
-                              Encaminhar para regularização do andamento pendente
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                          </td>
+                          <td className="p-4 text-white/80">{p.cliente}</td>
+                          <td className="p-4 text-white/60">{p.fase}</td>
+                          <td className="p-4">
+                            {p.falta === 76 ? (
+                              <span className="rounded-full border border-amber-500/20 bg-amber-500/12 px-2 py-0.5 text-[10px] font-bold text-amber-200">
+                                Balcão registrado pendente
+                              </span>
+                            ) : (
+                              <span className="rounded-full border border-red-500/20 bg-red-500/12 px-2 py-0.5 text-[10px] font-bold text-red-200">
+                                Balcão devolvido pendente
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-4 font-semibold text-amber-200">{p.dias}d</td>
+                          <td className="p-4 text-white/70">
+                            {p.setor}
+                          </td>
+                          <td className="p-4 text-white/55">{p.dataUltAndamento}</td>
+                          <td className="p-4 text-right">
+                            <div className="flex flex-col items-end gap-1">
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(p.id);
+                                  toast.success(`Protocolo #${p.id} copiado!`, {
+                                    description: "Use este número para localizar o protocolo na rotina interna."
+                                  });
+                                }}
+                                className="flex cursor-pointer items-center gap-1 rounded-md border border-white/8 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-white transition hover:bg-white/[0.08]"
+                                title="Copiar número do protocolo"
+                              >
+                                📋 Copiar Protocolo
+                              </button>
+                              <span className="text-[9px] text-white/42">
+                                Encaminhar para regularização do andamento pendente
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Rodapé com Barra de Paginação Completa */}
+            <div className="flex flex-col items-center justify-between gap-4 border-t border-white/8 bg-white/[0.03] px-6 py-3.5 sm:flex-row">
+              {/* Informação de intervalo */}
+              <div className="text-xs text-white/60 text-center sm:text-left">
+                Exibindo <strong className="text-white">{sortedAndFilteredProtocolos.length > 0 ? (Math.min(sortedAndFilteredProtocolos.length, (currentPage - 1) * itemsPerPage + 1)).toLocaleString("pt-BR") : "0"}</strong> a{" "}
+                <strong className="text-white">{Math.min(sortedAndFilteredProtocolos.length, currentPage * itemsPerPage).toLocaleString("pt-BR")}</strong> de{" "}
+                <strong className="text-white">{sortedAndFilteredProtocolos.length.toLocaleString("pt-BR")}</strong> pendências
+              </div>
+
+              {/* Controles de Paginação & Itens Por Página */}
+              <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
+                {/* Seletor de Tamanho de Página */}
+                <div className="flex items-center gap-1.5 text-xs text-white/60">
+                  <span>Exibir:</span>
+                  <div className="flex items-center gap-1 rounded-lg border border-white/8 bg-white/[0.04] p-0.5">
+                    {[10, 20, 50, 100].map((size) => (
+                      <button
+                        key={size}
+                        onClick={() => { setItemsPerPage(size); setCurrentPage(1); }}
+                        className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
+                          itemsPerPage === size
+                            ? "bg-gradient-to-r from-indigo-500 to-amber-400 font-semibold text-white shadow-xs"
+                            : "text-white/60 hover:text-white"
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Navegação de Páginas */}
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage <= 1}
+                    title="Primeira Página"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <ChevronsLeft size={15} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((c) => Math.max(1, c - 1))}
+                    disabled={currentPage <= 1}
+                    title="Página Anterior"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <ChevronLeft size={15} />
+                  </button>
+
+                  <span className="text-xs px-2 font-medium text-white min-w-[90px] text-center">
+                    Página {currentPage.toLocaleString("pt-BR")} de {totalPages.toLocaleString("pt-BR")}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((c) => Math.min(totalPages, c + 1))}
+                    disabled={currentPage >= totalPages}
+                    title="Próxima Página"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <ChevronRight size={15} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage >= totalPages}
+                    title="Última Página"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <ChevronsRight size={15} />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-
-          {/* Pagination Controls */}
-          {sortedAndFilteredProtocolos.length > 0 && (
-            <div className="flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] p-4 text-xs text-white/60">
-              <div>
-                Exibindo <strong>{Math.min(sortedAndFilteredProtocolos.length, (currentPage - 1) * itemsPerPage + 1)}-{Math.min(sortedAndFilteredProtocolos.length, currentPage * itemsPerPage)}</strong> de <strong>{sortedAndFilteredProtocolos.length}</strong> pendências
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage((c) => Math.max(1, c - 1))}
-                  disabled={currentPage === 1}
-                  className="cursor-pointer rounded-lg border border-white/8 bg-white/[0.04] px-3 py-1 font-bold transition hover:bg-white/[0.08] disabled:opacity-40"
-                >
-                  Anterior
-                </button>
-                <span>
-                  Página <strong>{currentPage}</strong> de <strong>{totalPages}</strong>
-                </span>
-                <button
-                  onClick={() => setCurrentPage((c) => Math.min(totalPages, c + 1))}
-                  disabled={currentPage === totalPages}
-                  className="cursor-pointer rounded-lg border border-white/8 bg-white/[0.04] px-3 py-1 font-bold transition hover:bg-white/[0.08] disabled:opacity-40"
-                >
-                  Próxima
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* D. RODAPÉ DE TELA COM RESUMO */}
-          {sortedProtocolos.length > 0 && (
-            <div className="rounded-xl border border-white/8 bg-white/[0.03] p-4 text-xs leading-relaxed text-white/60">
-              💡 <strong>{sortedProtocolos.length} protocolos listados</strong> - Setor{" "}
-              {sortedProtocolos.map((p) => p.setor).reduce((acc, curr) => {
-                acc[curr] = (acc[curr] || 0) + 1;
-                return acc;
-              }, {} as Record<string, number>) &&
-                Object.entries(
-                  sortedProtocolos.map((p) => p.setor).reduce((acc, curr) => {
-                    acc[curr] = (acc[curr] || 0) + 1;
-                    return acc;
-                  }, {} as Record<string, number>)
-                )
-                  .map(([setor, count]) => `${setor} (${count})`)
-                  .join(" • ")}
-              <br />
-              <strong className="text-amber-300">Ação recomendada:</strong> priorizar os protocolos pendentes por setor responsável e acompanhar a regularização na próxima auditoria.
-            </div>
-          )}
         </div>
       )}
 
