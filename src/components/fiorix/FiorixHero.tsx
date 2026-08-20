@@ -13,7 +13,7 @@ export function FiorixHero() {
 
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl sm:text-[2.15rem] font-black tracking-[0.01em] text-transparent bg-clip-text bg-gradient-to-r from-slate-50 via-white to-amber-300">
-          FIORIX BI - Módulo de Inteligência & Prazos
+          Módulo de Inteligência & Prazos
         </h1>
         <Badge className="rounded-full border border-emerald-500/20 bg-emerald-500/10 font-mono text-xs text-emerald-300">
           SUPABASE ONLINE
