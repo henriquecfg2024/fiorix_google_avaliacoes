@@ -193,7 +193,7 @@ export function AuditoriaDashboardClient() {
 
     const headers = [
       "Protocolo",
-      "Cliente",
+      "Natureza",
       "Fase",
       "Andamento_Faltante_ID",
       "Andamento_Faltante_Nome",
@@ -244,7 +244,7 @@ export function AuditoriaDashboardClient() {
     }
 
     const text = targetList
-      .map((p) => `Protocolo: ${p.id} | Cliente: ${p.cliente} | Falta ID: ${p.falta} | Setor: ${p.setor}`)
+      .map((p) => `Protocolo: ${p.id} | Natureza: ${p.cliente} | Falta ID: ${p.falta} | Setor: ${p.setor}`)
       .join("\n");
 
     navigator.clipboard.writeText(text);
@@ -620,7 +620,7 @@ export function AuditoriaDashboardClient() {
                       return (
                         <>
                           {renderHeader("protocolo", "Protocolo")}
-                          {renderHeader("cliente", "Cliente")}
+                          {renderHeader("cliente", "Natureza")}
                           {renderHeader("fase", "Fase")}
                           {renderHeader("falta", "Andamento Ausente")}
                           {renderHeader("dias", "Dias Parado")}

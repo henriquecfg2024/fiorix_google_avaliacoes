@@ -618,7 +618,7 @@ export async function GET(request: Request) {
             <tr>
               <th class="col-check">OK</th>
               <th>Protocolo</th>
-              <th>Cliente</th>
+              <th>Natureza</th>
               <th>Fase Atual</th>
               <th>Andamento Ausente</th>
               <th>Parado</th>
