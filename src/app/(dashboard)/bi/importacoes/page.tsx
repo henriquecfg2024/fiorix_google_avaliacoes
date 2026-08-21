@@ -90,10 +90,10 @@ export default async function BiImportacoesPage() {
               </Badge>
             </div>
           </div>
+        </div>
 
-          <div className="flex flex-wrap gap-3">
-            <ImportacoesActions />
-          </div>
+        <div className="flex flex-wrap gap-3">
+          <ImportacoesActions />
         </div>
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
           <div className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
