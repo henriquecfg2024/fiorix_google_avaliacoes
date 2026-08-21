@@ -56,8 +56,8 @@ export default async function CartoriosConfigPage() {
             <span>Cadastrar Novo Cartório</span>
           </h4>
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-            <div className="md:col-span-4 space-y-1.5">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
+            <div className="lg:col-span-4 space-y-1.5">
               <label className="text-[11px] font-semibold uppercase tracking-wider text-white/70">
                 Nome do Cartório *
               </label>
@@ -70,7 +70,7 @@ export default async function CartoriosConfigPage() {
               />
             </div>
 
-            <div className="md:col-span-4 space-y-1.5">
+            <div className="lg:col-span-3 space-y-1.5">
               <label className="text-[11px] font-semibold uppercase tracking-wider text-white/70">
                 E-mail do Administrador *
               </label>
@@ -83,7 +83,7 @@ export default async function CartoriosConfigPage() {
               />
             </div>
 
-            <div className="md:col-span-2 space-y-1.5">
+            <div className="lg:col-span-2 space-y-1.5">
               <label className="text-[11px] font-semibold uppercase tracking-wider text-white/70">
                 Senha Inicial *
               </label>
@@ -96,10 +96,10 @@ export default async function CartoriosConfigPage() {
               />
             </div>
 
-            <div className="md:col-span-2">
+            <div className="lg:col-span-3">
               <Button
                 type="submit"
-                className="w-full bg-emerald-600 hover:bg-emerald-500 font-bold text-white shadow-xs transition-colors"
+                className="w-full h-10 px-4 text-xs sm:text-sm font-bold whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors rounded-lg flex items-center justify-center gap-1.5"
               >
                 Cadastrar Cartório
               </Button>
