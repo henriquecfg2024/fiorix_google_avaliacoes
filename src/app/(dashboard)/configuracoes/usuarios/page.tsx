@@ -118,7 +118,6 @@ export default async function UsuariosConfigPage() {
               </div>
             </div>
           </form>
-        </div>
 
         <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
           <div className="flex items-center gap-2">

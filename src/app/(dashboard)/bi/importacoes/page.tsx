@@ -96,7 +96,8 @@ export default async function BiImportacoesPage() {
           </div>
         </div>
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55">Módulo BI</div>
+          <div className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55">Módulo BI</div>
               <div className="mt-2 text-2xl font-bold text-cyan-300">{biCount}</div>
               <div className="mt-1 text-xs text-white/45">importações registradas</div>
             </div>
@@ -121,7 +122,6 @@ export default async function BiImportacoesPage() {
               <div className="mt-1 text-xs text-white/45">somadas nas fontes exibidas</div>
             </div>
           </div>
-        </div>
 
         <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
           <div className="flex items-center gap-2">

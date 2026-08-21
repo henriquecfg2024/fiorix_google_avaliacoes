@@ -307,7 +307,6 @@ export default async function AvaliacoesPage({
             </button>
           </div>
         </form>
-      </div>
 
       {(searchQuery || ratingFilter || colabFilter || statusFilter) && (
         <div className="flex items-center justify-between rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 px-4 text-xs text-blue-100">
