@@ -81,15 +81,14 @@ export default async function BiImportacoesPage() {
               <span className="text-slate-600">/</span>
               <span className="text-amber-300">Importações</span>
             </div>
-            <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                Gestão de Importações
-              </h1>
-              <Badge className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-amber-300">
-                HISTÓRICO DE CARGAS
-              </Badge>
-            </div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white mt-1">
+              Gestão de Importações
+            </h1>
           </div>
+
+          <Badge className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 font-sans text-xs font-semibold text-amber-300 self-start sm:self-center">
+            HISTÓRICO DE CARGAS
+          </Badge>
         </div>
 
         <div className="flex flex-wrap gap-3">
