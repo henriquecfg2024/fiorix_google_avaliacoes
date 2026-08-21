@@ -220,15 +220,10 @@ export default function ProdutividadePage() {
               <ChevronRight className="h-3 w-3 text-slate-600" />
               <span className="text-amber-300">Produtividade</span>
             </div>
-            <div className="flex items-center gap-3 mt-1">
+            <div className="mt-1">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
                 Produtividade de Caixa
               </h1>
-              {!loading && data.length > 0 && (
-                <Badge className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
-                  {data.length.toLocaleString("pt-BR")} registros
-                </Badge>
-              )}
             </div>
           </div>
 
