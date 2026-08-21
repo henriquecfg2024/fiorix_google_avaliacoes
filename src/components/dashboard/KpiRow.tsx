@@ -27,13 +27,13 @@ function KpiCard({
   return (
     <div className="flex flex-col justify-between space-y-3 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/50">{title}</span>
+        <span className="text-kpi-label text-slate-400 font-semibold">{title}</span>
         <div className={`rounded-xl border p-2 ${iconClass}`}>{icon}</div>
       </div>
 
       <div>
         <div className="text-3xl font-extrabold tracking-tight text-white">{value}</div>
-        <div className={`mt-2 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${badgeClass}`}>
+        <div className={`mt-2 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-badge whitespace-nowrap ${badgeClass}`}>
           {badgeText}
         </div>
       </div>

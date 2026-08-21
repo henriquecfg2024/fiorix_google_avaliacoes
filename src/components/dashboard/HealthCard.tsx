@@ -32,10 +32,10 @@ export function HealthCard() {
       <div className="mb-6 flex items-center justify-between border-b border-white/8 pb-5">
         <div className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-cyan-400" />
-          <h2 className="text-xs font-bold uppercase tracking-[0.22em] text-slate-300">SAÚDE DA REPUTAÇÃO</h2>
+          <h2 className="text-kpi-label font-bold text-slate-300">Saúde da Reputação</h2>
         </div>
-        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs font-semibold text-slate-200">
-          10 INDICADORES
+        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-badge font-semibold text-slate-200">
+          10 Indicadores
         </span>
       </div>
 
@@ -79,19 +79,19 @@ export function HealthCard() {
 
         <div className="space-y-4 lg:col-span-8">
           <div className="space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.16em] text-emerald-300">
+            <div className="flex items-center gap-1.5 text-kpi-label text-emerald-300 font-semibold">
               <span>🟢</span>
               <span>Indicadores Saudáveis</span>
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {saudaveis.map((ind, idx) => (
                 <div key={idx} className="space-y-1.5 rounded-xl border border-white/12 bg-[#0B1020]/80 p-2.5 shadow-xs">
-                  <div className="flex items-center justify-between text-xs font-semibold text-slate-200">
-                    <span className="flex items-center gap-1.5 truncate">
+                  <div className="flex items-center justify-between text-indicator-label text-white font-medium min-w-0">
+                    <span className="flex items-center gap-1.5 truncate min-w-0">
                       <span>{ind.icon}</span>
                       <span className="truncate">{ind.nome}</span>
                     </span>
-                    <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-bold text-emerald-300">
+                    <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-indicator-value font-bold text-emerald-300 shrink-0">
                       {ind.pct}%
                     </span>
                   </div>
@@ -104,7 +104,7 @@ export function HealthCard() {
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.16em] text-amber-300">
+            <div className="flex items-center gap-1.5 text-kpi-label text-amber-300 font-semibold">
               <span>🟡</span>
               <span>Pontos de Atenção</span>
             </div>
@@ -113,13 +113,13 @@ export function HealthCard() {
                 const isBlue = ind.badgeColor === 'blue';
                 return (
                   <div key={idx} className="space-y-1.5 rounded-xl border border-white/12 bg-[#0B1020]/80 p-2.5 shadow-xs">
-                    <div className="flex items-center justify-between text-xs font-semibold text-slate-200">
-                      <span className="flex items-center gap-1.5 truncate">
+                    <div className="flex items-center justify-between text-indicator-label text-white font-medium min-w-0">
+                      <span className="flex items-center gap-1.5 truncate min-w-0">
                         <span>{ind.icon}</span>
                         <span className="truncate">{ind.nome}</span>
                       </span>
                       <span
-                        className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${
+                        className={`rounded px-1.5 py-0.5 text-indicator-value font-bold shrink-0 ${
                           isBlue ? 'border border-cyan-500/20 bg-cyan-500/10 text-cyan-300' : 'border border-amber-500/20 bg-amber-500/10 text-amber-300'
                         }`}
                       >
@@ -136,27 +136,27 @@ export function HealthCard() {
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.16em] text-rose-300">
+            <div className="flex items-center gap-1.5 text-kpi-label text-rose-300 font-semibold">
               <span>🔴</span>
               <span>Indicadores Críticos</span>
             </div>
             <div className="space-y-2.5 rounded-2xl border border-white/12 bg-[#0B1020]/80 p-3 shadow-xs">
               {criticos.map((ind, idx) => (
                 <div key={idx} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs font-semibold text-slate-100">
-                    <span className="flex items-center gap-1.5">
+                  <div className="flex items-center justify-between text-indicator-label text-white font-medium min-w-0">
+                    <span className="flex items-center gap-1.5 truncate min-w-0">
                       <span>{ind.icon}</span>
-                      <span>{ind.nome}</span>
+                      <span className="truncate">{ind.nome}</span>
                       {ind.isBi && (
                         <Link
                           href={ind.biPath || '/bi'}
-                          className="rounded border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-[10px] font-extrabold text-rose-300 transition-colors hover:bg-rose-500/18"
+                          className="rounded border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-badge font-bold text-rose-300 transition-colors hover:bg-rose-500/18 shrink-0"
                         >
                           VER BI →
                         </Link>
                       )}
                     </span>
-                    <span className="rounded border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-[11px] font-extrabold text-rose-300">
+                    <span className="rounded border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-indicator-value font-bold text-rose-300 shrink-0">
                       {ind.pct}%
                     </span>
                   </div>

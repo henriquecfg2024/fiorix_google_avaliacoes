@@ -186,7 +186,7 @@ export default async function Dashboard({
             </span>
           </div>
 
-          <p className="max-w-4xl text-sm leading-relaxed text-white/58">
+          <p className="max-w-4xl text-body-reading text-slate-300">
             Visão consolidada das avaliações do Google, desempenho dos colaboradores, saúde da reputação e insights inteligentes.
           </p>
         </div>

@@ -50,8 +50,8 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
   return (
     <div className="space-y-4 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all">
       <div className="flex items-center justify-between border-b border-white/8 pb-4">
-        <h3 className="text-base font-bold text-white">Últimas Avaliações</h3>
-        <Link href="/avaliacoes" className="text-xs font-semibold text-amber-300 transition-colors hover:text-amber-200 hover:underline">
+        <h3 className="text-card-title font-bold text-white">Últimas Avaliações</h3>
+        <Link href="/avaliacoes" className="text-badge font-semibold text-amber-300 transition-colors hover:text-amber-200 hover:underline">
           Ver todas →
         </Link>
       </div>
@@ -81,22 +81,22 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
                     {rev.reviewerName ? rev.reviewerName[0].toUpperCase() : 'A'}
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold leading-tight text-white">{rev.reviewerName}</h4>
-                    <span className="text-[11px] text-white/40">
+                    <h4 className="text-indicator-label font-bold leading-tight text-white">{rev.reviewerName}</h4>
+                    <span className="text-badge text-white/50">
                       {new Date(rev.publishedAt).toLocaleDateString('pt-BR')}
                     </span>
                   </div>
                 </div>
 
-                <div className={`text-xs font-bold tracking-tight ${rev.rating >= 4 ? 'text-emerald-400' : rev.rating === 3 ? 'text-amber-400' : 'text-red-400'}`}>
+                <div className={`text-indicator-label font-bold tracking-tight ${rev.rating >= 4 ? 'text-emerald-400' : rev.rating === 3 ? 'text-amber-400' : 'text-red-400'}`}>
                   {renderStars(rev.rating)}
                 </div>
               </div>
 
-              <div className="mt-2 text-xs leading-relaxed text-white/80">
+              <div className="mt-2 text-body-reading text-[#E5E7EB]">
                 <p className={!isExpanded && isLong ? 'line-clamp-2' : ''}>&quot;{cleanedText}&quot;</p>
                 {isLong && (
-                  <button onClick={() => toggleExpand(rev.id)} className="mt-1 inline-block cursor-pointer text-[11px] font-bold text-amber-300 hover:underline">
+                  <button onClick={() => toggleExpand(rev.id)} className="mt-1 inline-block cursor-pointer text-badge font-bold text-amber-300 hover:underline">
                     {isExpanded ? 'Ver menos ↑' : 'Ver mais →'}
                   </button>
                 )}
@@ -104,11 +104,11 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
 
               <div className="mt-2.5 flex items-center justify-between border-t border-white/8 pt-2">
                 {rev.status === 'RESPONDED' ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-badge font-bold text-emerald-300">
                     <span>✓</span> Respondida
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-badge font-bold text-amber-300">
                     <span>⏳</span> Aguardando resposta
                   </span>
                 )}

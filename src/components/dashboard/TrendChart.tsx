@@ -68,11 +68,11 @@ export function TrendChart() {
     <div className="space-y-4 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <h3 className="text-base font-bold text-white">Tendência de Avaliações</h3>
-          <p className="mt-0.5 text-xs text-slate-400">Evolução da nota média e volume acumulado</p>
+          <h3 className="text-card-title font-bold text-white">Tendência de Avaliações</h3>
+          <p className="mt-0.5 text-badge text-slate-400">Evolução da nota média e volume acumulado</p>
         </div>
 
-        <div className="inline-flex self-start gap-1 rounded-xl border border-white/10 bg-white/[0.04] p-1 text-xs font-semibold sm:self-auto">
+        <div className="inline-flex self-start gap-1 rounded-xl border border-white/10 bg-white/[0.04] p-1 text-badge font-semibold sm:self-auto">
           {(['7d', '30d', '90d', '1a'] as const).map((tab) => (
             <button
               key={tab}
@@ -103,18 +103,18 @@ export function TrendChart() {
 
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.18)" opacity={0.8} />
 
-            <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 12, fontWeight: 500 }} />
+            <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 11.5, fontWeight: 500 }} />
 
             <YAxis
               yAxisId="left"
               domain={[3.0, 5.0]}
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#94A3B8', fontSize: 11 }}
+              tick={{ fill: '#94A3B8', fontSize: 11.5 }}
               tickFormatter={(v) => v.toFixed(1)}
             />
 
-            <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#64748B', fontSize: 11 }} />
+            <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#64748B', fontSize: 11.5 }} />
 
             <Tooltip content={<CustomTooltip />} />
 
