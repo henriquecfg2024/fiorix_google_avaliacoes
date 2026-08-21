@@ -24,6 +24,7 @@ type RelatorioProtocolo = {
   dias: number;
   setor: string;
   responsavel: string;
+  dataUltAndamento: string;
 };
 
 const QR_VERSION = 3;
@@ -300,6 +301,18 @@ export async function GET(request: Request) {
       const diffTime = Math.abs(new Date().getTime() - start.getTime());
       const dias = Math.min(60, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1);
 
+      const lastDate = p.d9Conferencia || p.d9Preparacao || p.d8Impressao || p.d4Qualificacao || p.dataApresentado;
+      let dataUltAndamento = "-";
+      if (lastDate) {
+        const d = new Date(lastDate);
+        if (!isNaN(d.getTime())) {
+          const day = String(d.getDate()).padStart(2, "0");
+          const month = String(d.getMonth() + 1).padStart(2, "0");
+          const year = d.getFullYear();
+          dataUltAndamento = `${day}/${month}/${year}`;
+        }
+      }
+
       return {
         id: String(p.protocolo),
         cliente: p.natureza || "Instrumento Particular",
@@ -308,6 +321,7 @@ export async function GET(request: Request) {
         dias,
         setor,
         responsavel: setor,
+        dataUltAndamento,
       };
     });
 
@@ -622,7 +636,7 @@ export async function GET(request: Request) {
               <th>Fase Atual</th>
               <th>Andamento Ausente</th>
               <th>Parado</th>
-              <th>Responsável</th>
+              <th>Data Últ. Andamento</th>
             </tr>
           </thead>
           <tbody>
@@ -638,7 +652,7 @@ export async function GET(request: Request) {
                   </span>
                 </td>
                 <td style="font-weight: 600;">${p.dias}d</td>
-                <td>${p.responsavel}</td>
+                <td>${p.dataUltAndamento}</td>
               </tr>
             `).join("")}
           </tbody>
