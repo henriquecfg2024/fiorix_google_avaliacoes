@@ -277,6 +277,7 @@ export default function ProdutividadePage() {
               </PopoverContent>
             </Popover>
           </div>
+        </div>
 
         <div className="space-y-1.5">
           <span className="px-1 text-[10px] font-bold uppercase tracking-[0.24em] text-white/35">
@@ -313,7 +314,6 @@ export default function ProdutividadePage() {
             })}
           </div>
         </div>
-      </div>
 
       {loading ? (
         <FiorixSkeleton />
