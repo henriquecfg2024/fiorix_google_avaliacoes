@@ -468,6 +468,17 @@ export function MetasDashboardClient() {
     }
   };
 
+  const formatDate = (val: unknown) => {
+    if (!val) return "-";
+    try {
+      const d = parseDateSafe(val);
+      if (!d || isNaN(d.getTime())) return "-";
+      return format(d, "dd/MM/yyyy", { locale: ptBR });
+    } catch {
+      return "-";
+    }
+  };
+
   // Safe diff calculation in days (com Math.max(0, ...) para evitar dias negativos por datas invertidas)
   const calculateDaysBetween = useCallback((startVal: unknown, endVal: unknown, givenDaysVal: unknown, isLastActivePhase: boolean = false) => {
     if (givenDaysVal !== null && givenDaysVal !== undefined) {
