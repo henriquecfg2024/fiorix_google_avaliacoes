@@ -211,40 +211,35 @@ export default function ProdutividadePage() {
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="rounded-[28px] border border-white/8 bg-[#0B1020]/72 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl space-y-3">
-          <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4">
-            <div className="min-w-0 space-y-2">
-              <div className="flex items-center gap-2 text-xs font-medium text-white/42">
-                <span>Dashboard</span>
-                <ChevronRight className="h-3 w-3" />
-                <span>BI</span>
-                <ChevronRight className="h-3 w-3" />
-                <span className="text-amber-300">Produtividade</span>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-2xl sm:text-[2.15rem] font-black tracking-[0.01em] text-transparent bg-clip-text bg-gradient-to-r from-slate-50 via-white to-amber-300">
-                  Produtividade de Caixa
-                </h1>
-                {!loading && data.length > 0 && (
-                  <Badge className="rounded-full border border-emerald-500/20 bg-emerald-500/10 font-mono text-xs text-emerald-300">
-                    {data.length.toLocaleString("pt-BR")} registros
-                  </Badge>
-                )}
-              </div>
-              <p className="max-w-4xl text-sm leading-relaxed text-white/58">
-                Análise detalhada de produtividade presencial e digital por colaborador, faixas horárias e modalidades de pedido.
-              </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+              <span>Dashboard</span>
+              <ChevronRight className="h-3 w-3 text-slate-600" />
+              <span>BI</span>
+              <ChevronRight className="h-3 w-3 text-slate-600" />
+              <span className="text-amber-300">Produtividade</span>
             </div>
+            <div className="flex items-center gap-3 mt-1">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                Produtividade de Caixa
+              </h1>
+              {!loading && data.length > 0 && (
+                <Badge className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
+                  {data.length.toLocaleString("pt-BR")} registros
+                </Badge>
+              )}
+            </div>
+          </div>
 
-          <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+          <div className="flex flex-wrap items-center gap-3">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="bg-white/5 border-white/10 text-white hover:bg-white/10 font-semibold gap-2"
+                  className="bg-white/5 border-white/10 text-white hover:bg-white/10 font-semibold gap-2 text-xs"
                 >
-                  <Eye className="h-4 w-4" />
+                  <Eye className="h-3.5 w-3.5" />
                   Gerenciar Gráficos
                 </Button>
               </PopoverTrigger>
@@ -280,7 +275,6 @@ export default function ProdutividadePage() {
                   </div>
                 </div>
               </PopoverContent>
-            </Popover>
           </div>
         </div>
 

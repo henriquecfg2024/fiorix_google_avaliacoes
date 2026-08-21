@@ -72,43 +72,30 @@ export default async function BiImportacoesPage() {
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="rounded-[28px] border border-white/8 bg-[#0B1020]/72 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl space-y-3">
-          <div className="flex items-center gap-2 text-xs font-medium text-white/42">
-            <span>Dashboard</span>
-            <span className="text-white/20">/</span>
-            <span>Sistema</span>
-            <span className="text-white/20">/</span>
-            <span className="text-amber-300">Importações</span>
-          </div>
-
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-2xl sm:text-[2.15rem] font-black tracking-[0.01em] text-transparent bg-clip-text bg-gradient-to-r from-slate-50 via-white to-amber-300">
-                  Gestão de Importações
-                </h1>
-                <Badge className="rounded-full border border-amber-500/20 bg-amber-500/10 font-mono text-xs text-amber-300">
-                  HISTÓRICO DE CARGAS
-                </Badge>
-              </div>
-              <p className="max-w-4xl text-sm leading-relaxed text-white/58">
-                Visão unificada das cargas efetuadas no Módulo BI, Produtividade e Metas, incluindo inferências de períodos gravados na base.
-              </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+              <span>Dashboard</span>
+              <span className="text-slate-600">/</span>
+              <span>Sistema</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-amber-300">Importações</span>
             </div>
-
-            <div className="flex flex-wrap gap-3">
-              <ImportacoesActions />
-              <Link href="/bi">
-                <Button variant="outline" className="gap-2 border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]">
-                  <ArrowLeft className="h-4 w-4" />
-                  Voltar ao BI
-                </Button>
-              </Link>
+            <div className="flex items-center gap-3 mt-1">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                Gestão de Importações
+              </h1>
+              <Badge className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-amber-300">
+                HISTÓRICO DE CARGAS
+              </Badge>
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-            <div className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
+          <div className="flex flex-wrap gap-3">
+            <ImportacoesActions />
+          </div>
+        </div>
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
               <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55">Módulo BI</div>
               <div className="mt-2 text-2xl font-bold text-cyan-300">{biCount}</div>
               <div className="mt-1 text-xs text-white/45">importações registradas</div>

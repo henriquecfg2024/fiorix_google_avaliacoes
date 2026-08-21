@@ -189,31 +189,26 @@ export default async function AvaliacoesPage({
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="rounded-[28px] border border-white/8 bg-[#0B1020]/72 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl space-y-3">
-          <div className="flex items-center gap-2 text-xs font-medium text-white/42">
-            <span>Dashboard</span>
-            <span className="text-white/20">/</span>
-            <span>Gestão</span>
-            <span className="text-white/20">/</span>
-            <span className="text-amber-300">Avaliações</span>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+              <span>Dashboard</span>
+              <span className="text-slate-600">/</span>
+              <span>Gestão</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-amber-300">Avaliações</span>
+            </div>
+            <div className="flex items-center gap-3 mt-1">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                Avaliações do Google
+              </h1>
+              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
+                GOOGLE MY BUSINESS
+              </span>
+            </div>
           </div>
 
-          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-2xl sm:text-[2.15rem] font-black tracking-[0.01em] text-transparent bg-clip-text bg-gradient-to-r from-slate-50 via-white to-amber-300">
-                  Avaliações do Google
-                </h1>
-                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 font-mono text-xs text-emerald-300">
-                  GOOGLE MY BUSINESS
-                </span>
-              </div>
-              <p className="max-w-4xl text-sm leading-relaxed text-white/58">
-                Gerencie, monitore e responda às avaliações recebidas pelo 7º Cartório de Imóveis de SP com respostas com IA e controle de SLA.
-              </p>
-            </div>
-
-            <div className="inline-flex flex-wrap gap-1 self-start rounded-xl border border-white/8 bg-white/[0.04] p-1 text-xs font-semibold md:self-auto">
+          <div className="inline-flex flex-wrap gap-1 self-start rounded-xl border border-white/8 bg-white/[0.04] p-1 text-xs font-semibold sm:self-auto">
               <Link
                 href="/avaliacoes"
                 className={`rounded-lg px-3.5 py-1.5 transition-all ${
@@ -247,7 +242,7 @@ export default async function AvaliacoesPage({
                 </span>
               </Link>
             </div>
-          </div>
+        </div>
 
         <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
           <div className="flex items-center justify-between text-xs font-bold text-slate-200">

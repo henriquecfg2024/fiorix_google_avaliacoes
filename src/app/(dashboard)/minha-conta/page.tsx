@@ -31,25 +31,22 @@ export default async function MinhaContaPage() {
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="rounded-[28px] border border-white/8 bg-[#0B1020]/72 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl space-y-3">
-          <div className="flex items-center gap-2 text-xs font-medium text-white/42">
-            <span>Dashboard</span>
-            <span className="text-white/20">/</span>
-            <span className="text-amber-300">Minha Conta</span>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+              <span>Dashboard</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-amber-300">Minha Conta</span>
+            </div>
+            <div className="flex items-center gap-3 mt-1">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                Minha Conta & Perfil
+              </h1>
+              <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-amber-300">
+                SEGURANÇA & ACESSO
+              </span>
+            </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl sm:text-[2.15rem] font-black tracking-[0.01em] text-transparent bg-clip-text bg-gradient-to-r from-slate-50 via-white to-amber-300">
-              Minha Conta & Perfil
-            </h1>
-            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 font-mono text-xs text-amber-300">
-              SEGURANÇA & ACESSO
-            </span>
-          </div>
-
-          <p className="max-w-4xl text-sm leading-relaxed text-white/58">
-            Gerencie seus dados de acesso e atualize sua senha com segurança.
-          </p>
         </div>
 
         <section className="rounded-3xl border border-white/10 bg-[#111827] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.25)] md:p-6">
