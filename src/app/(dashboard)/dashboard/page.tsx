@@ -170,25 +170,22 @@ export default async function Dashboard({
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="rounded-[28px] border border-white/8 bg-[#0B1020]/72 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl space-y-3">
-          <div className="flex items-center gap-2 text-xs font-medium text-white/42">
-            <span>Dashboard</span>
-            <span className="text-white/20">/</span>
-            <span>Visão Geral</span>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+              <span>Dashboard</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-slate-300">Visão Geral</span>
+            </div>
+            <div className="flex items-center gap-3 mt-1">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                Visão Consolidada
+              </h1>
+              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
+                PAINEL EXECUTIVO
+              </span>
+            </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl sm:text-[2.15rem] font-black tracking-[0.01em] text-transparent bg-clip-text bg-gradient-to-r from-slate-50 via-white to-amber-300">
-              Visão Consolidada
-            </h1>
-            <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 font-mono text-xs text-emerald-300">
-              PAINEL EXECUTIVO
-            </span>
-          </div>
-
-          <p className="max-w-4xl text-body-reading text-slate-300">
-            Visão consolidada das avaliações do Google, desempenho dos colaboradores, saúde da reputação e insights inteligentes.
-          </p>
         </div>
       {syncError && (
         <div className="flex items-center gap-3 rounded-[20px] border border-rose-500/20 bg-[#0B1020]/80 px-5 py-4 text-sm text-rose-200 shadow-[0_18px_50px_rgba(0,0,0,0.22)] backdrop-blur-xl">
