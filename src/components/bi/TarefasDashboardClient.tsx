@@ -5,6 +5,10 @@ import {
   AlertTriangle,
   Calendar,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Clock,
   Download,
   Filter,
@@ -67,6 +71,8 @@ export function TarefasDashboardClient() {
   const [selectedResponsavel, setSelectedResponsavel] = useState<string>("ALL");
   const [selectedRisco, setSelectedRisco] = useState<string>("ALL");
   const [selectedStatusPrevisao, setSelectedStatusPrevisao] = useState<string>("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -320,6 +326,19 @@ export function TarefasDashboardClient() {
       return true;
     });
   }, [tarefas, searchQuery, selectedTarefa, selectedResponsavel, selectedRisco, selectedStatusPrevisao]);
+
+  const totalPages = Math.max(1, Math.ceil(tarefasFiltradas.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startItem = tarefasFiltradas.length > 0 ? (safeCurrentPage - 1) * pageSize + 1 : 0;
+  const endItem = Math.min(safeCurrentPage * pageSize, tarefasFiltradas.length);
+  const tarefasPaginadas = useMemo(
+    () => tarefasFiltradas.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize),
+    [tarefasFiltradas, safeCurrentPage, pageSize]
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedTarefa, selectedResponsavel, selectedRisco, selectedStatusPrevisao, pageSize]);
 
   // Exportação CSV
   const handleExportCSV = () => {
@@ -700,7 +719,7 @@ export function TarefasDashboardClient() {
                   </td>
                 </tr>
               ) : (
-                tarefasFiltradas.slice(0, 100).map((row, idx) => {
+                tarefasPaginadas.map((row, idx) => {
                   const isAtrasado = (row.statusPrevisao || "").toUpperCase().includes("ATRASAD");
                   const isCritico = (row.nivelRisco || "").toUpperCase().includes("CRITIC");
 
@@ -745,14 +764,80 @@ export function TarefasDashboardClient() {
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between border-t border-white/8 bg-white/[0.03] px-6 py-3.5 text-xs text-white/60">
+        <div className="flex flex-col items-center justify-between gap-4 border-t border-white/8 bg-white/[0.03] px-6 py-3.5 text-xs text-white/60 sm:flex-row">
           <span>
-            Exibindo <strong className="text-white">{Math.min(tarefasFiltradas.length, 100)}</strong> de{" "}
-            <strong className="text-white">{tarefasFiltradas.length}</strong> registros filtrados
+            Exibindo <strong className="text-white">{startItem}</strong> a{" "}
+            <strong className="text-white">{endItem}</strong> de{" "}
+            <strong className="text-white">{tarefasFiltradas.length}</strong> registros
           </span>
-          {tarefasFiltradas.length > 100 && (
-            <span className="text-white/40">Refine os filtros para visualizar registros específicos.</span>
-          )}
+
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:justify-end">
+            <div className="flex items-center gap-1.5">
+              <span>Exibir:</span>
+              <div className="flex items-center gap-1 rounded-lg border border-white/8 bg-white/[0.04] p-0.5">
+                {[10, 20, 50, 100].map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => setPageSize(size)}
+                    className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-all ${
+                      pageSize === size
+                        ? "bg-purple-500/25 text-purple-100"
+                        : "text-white/60 hover:text-white"
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-lg border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+                disabled={safeCurrentPage <= 1}
+                onClick={() => setCurrentPage(1)}
+                title="Primeira página"
+              >
+                <ChevronsLeft className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-lg border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+                disabled={safeCurrentPage <= 1}
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                title="Página anterior"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+              <span className="min-w-[90px] px-2 text-center font-medium text-white">
+                Página {safeCurrentPage} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-lg border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+                disabled={safeCurrentPage >= totalPages}
+                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                title="Próxima página"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 rounded-lg border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+                disabled={safeCurrentPage >= totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+                title="Última página"
+              >
+                <ChevronsRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
         </div>
       </section>
     </div>
