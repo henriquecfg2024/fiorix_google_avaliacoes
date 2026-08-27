@@ -398,7 +398,7 @@ export function TarefasDashboardClient() {
           onClick={fetchData}
           disabled={isLoading}
           variant="outline"
-          className="border-white/10 bg-white/5 text-xs text-white hover:bg-white/10 gap-2"
+          className="h-9 gap-2 rounded-xl border-white/8 bg-white/[0.04] text-xs font-medium text-white shadow-sm hover:bg-white/[0.08]"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
           Atualizar Previsões
@@ -455,24 +455,24 @@ export function TarefasDashboardClient() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Gráfico 1: Previsão por Dia */}
         <section className={`${taskPanelClass} space-y-4`}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <h2 className="flex items-center gap-2 text-base font-semibold text-white">
                 <Calendar className="h-4 w-4 text-purple-400" />
                 Previsão de Protocolos por Dia
               </h2>
               <p className="text-xs text-white/50">Volume previsto de entregas de recepção</p>
             </div>
 
-            <div className="flex items-center gap-1.5 bg-white/5 p-1 rounded-xl border border-white/10">
+            <div className="flex items-center gap-1 rounded-xl border border-white/8 bg-white/[0.04] p-1">
               {[7, 15, 30].map((days) => (
                 <button
                   key={days}
                   onClick={() => setFilterRangeDays(days)}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
+                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
                     filterRangeDays === days
-                      ? "bg-purple-600 text-white shadow"
-                      : "text-white/60 hover:text-white hover:bg-white/5"
+                      ? "bg-purple-500/25 text-purple-100 shadow-sm"
+                      : "text-white/60 hover:bg-white/[0.06] hover:text-white"
                   }`}
                 >
                   {days}d
@@ -481,7 +481,7 @@ export function TarefasDashboardClient() {
             </div>
           </div>
 
-          <div className="h-64 w-full pt-4">
+          <div className="h-64 w-full min-w-0 pt-4">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartPrevisaoPorDia}>
                 <defs>
@@ -519,14 +519,14 @@ export function TarefasDashboardClient() {
         {/* Gráfico 2: Carga por Tarefa */}
         <section className={`${taskPanelClass} space-y-4`}>
           <div>
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-white">
               <Layers className="h-4 w-4 text-cyan-400" />
               Carga Atual por Tarefa
             </h2>
             <p className="text-xs text-white/50">Distribuição de tarefas abertas por fase</p>
           </div>
 
-          <div className="h-64 w-full pt-4">
+          <div className="h-64 w-full min-w-0 pt-4">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartCargaPorTarefa} layout="horizontal">
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
@@ -551,25 +551,25 @@ export function TarefasDashboardClient() {
       {/* Seção Sintética: Carga por Responsável */}
       <section className={`${taskPanelClass} space-y-4`}>
         <div className="flex items-center gap-2">
-          <Users className="h-5 w-5 text-amber-400" />
-          <h2 className="text-base font-bold text-white">Carga por Responsável</h2>
+          <Users className="h-4 w-4 text-amber-300" />
+          <h2 className="text-base font-semibold text-white">Carga por Responsável</h2>
         </div>
 
         <div className="overflow-x-auto rounded-xl border border-white/8 bg-[#0B1020]/72">
           <table className="w-full text-left text-xs">
-            <thead className="bg-white/5 text-slate-300 font-semibold border-b border-white/10">
+            <thead className="select-none border-b border-white/8 bg-[#0B1020] text-[11px] uppercase tracking-wider text-white/58">
               <tr>
-                <th className="py-3 px-4">Responsável</th>
-                <th className="py-3 px-4 text-center">Tarefas Abertas</th>
-                <th className="py-3 px-4 text-center">Protocolos Distintos</th>
-                <th className="py-3 px-4 text-center">Vencem Hoje</th>
-                <th className="py-3 px-4 text-center">Vencem Amanhã</th>
-                <th className="py-3 px-4 text-center">Risco Crítico</th>
+                <th className="px-4 py-3.5 font-semibold">Responsável</th>
+                <th className="px-4 py-3.5 text-center font-semibold">Tarefas Abertas</th>
+                <th className="px-4 py-3.5 text-center font-semibold">Protocolos Distintos</th>
+                <th className="px-4 py-3.5 text-center font-semibold">Vencem Hoje</th>
+                <th className="px-4 py-3.5 text-center font-semibold">Vencem Amanhã</th>
+                <th className="px-4 py-3.5 text-center font-semibold">Risco Crítico</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 text-slate-200">
               {cargaPorResponsavel.slice(0, 10).map((row, idx) => (
-                <tr key={idx} className="hover:bg-white/5 transition-colors">
+                <tr key={idx} className="transition-colors hover:bg-white/[0.035]">
                   <td className="py-3 px-4 font-semibold text-white">{row.responsavel}</td>
                   <td className="py-3 px-4 text-center font-bold text-cyan-300">{row.tarefasCount}</td>
                   <td className="py-3 px-4 text-center text-purple-300">{row.protocolos}</td>
@@ -605,19 +605,19 @@ export function TarefasDashboardClient() {
       <section className="overflow-hidden rounded-2xl border border-white/12 bg-[#0B1020]/72 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
         <div className="flex flex-col gap-4 border-b border-white/8 px-6 py-5 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-white">
               <Filter className="h-4 w-4 text-purple-400" />
               Detalhamento de Tarefas e Previsões
             </h2>
             <p className="text-xs text-white/50">
-              Exibindo {tarefasFiltradas.length} de {tarefas.length} tarefas encontradas
+              Exibindo {tarefasFiltradas.length.toLocaleString("pt-BR")} de {tarefas.length.toLocaleString("pt-BR")} tarefas encontradas
             </p>
           </div>
 
           <Button
             onClick={handleExportCSV}
             variant="outline"
-            className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 text-xs gap-2 self-start md:self-auto"
+            className="h-9 gap-2 self-start rounded-xl border-emerald-500/20 bg-emerald-500/10 text-xs font-medium text-emerald-300 shadow-sm hover:bg-emerald-500/15 md:self-auto"
           >
             <Download className="h-3.5 w-3.5" />
             Exportar Filtrados (CSV)
@@ -628,13 +628,13 @@ export function TarefasDashboardClient() {
         <div className="grid grid-cols-1 gap-3 border-b border-white/8 bg-[#0B1020]/92 px-6 py-4 sm:grid-cols-2 lg:grid-cols-5">
           {/* Busca por Protocolo / Texto */}
           <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/40" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
             <input
               type="text"
               placeholder="Buscar protocolo, responsável..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-white/5 pl-9 pr-3 py-2 text-xs text-white placeholder-white/40 focus:border-purple-500 focus:outline-none"
+              className="h-10 w-full rounded-xl border border-white/8 bg-[#0C1323] pl-9 pr-3 text-xs text-white shadow-sm placeholder:text-white/40 focus:border-purple-400 focus:outline-none"
             />
           </div>
 
@@ -642,7 +642,7 @@ export function TarefasDashboardClient() {
           <select
             value={selectedTarefa}
             onChange={(e) => setSelectedTarefa(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-[#0B1020] px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+            className="h-10 w-full rounded-xl border border-white/8 bg-[#0C1323] px-3 text-xs text-white shadow-sm focus:border-purple-400 focus:outline-none"
           >
             <option value="ALL">Todas as Tarefas</option>
             {listaTarefasUnicas.map((tar) => (
@@ -656,7 +656,7 @@ export function TarefasDashboardClient() {
           <select
             value={selectedResponsavel}
             onChange={(e) => setSelectedResponsavel(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-[#0B1020] px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+            className="h-10 w-full rounded-xl border border-white/8 bg-[#0C1323] px-3 text-xs text-white shadow-sm focus:border-purple-400 focus:outline-none"
           >
             <option value="ALL">Todos os Responsáveis</option>
             {listaResponsaveisUnicos.map((resp) => (
@@ -670,7 +670,7 @@ export function TarefasDashboardClient() {
           <select
             value={selectedStatusPrevisao}
             onChange={(e) => setSelectedStatusPrevisao(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-[#0B1020] px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+            className="h-10 w-full rounded-xl border border-white/8 bg-[#0C1323] px-3 text-xs text-white shadow-sm focus:border-purple-400 focus:outline-none"
           >
             <option value="ALL">Todos os Status</option>
             <option value="ATRASADO">Somente Atrasados</option>
@@ -681,7 +681,7 @@ export function TarefasDashboardClient() {
           <select
             value={selectedRisco}
             onChange={(e) => setSelectedRisco(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-[#0B1020] px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+            className="h-10 w-full rounded-xl border border-white/8 bg-[#0C1323] px-3 text-xs text-white shadow-sm focus:border-purple-400 focus:outline-none"
           >
             <option value="ALL">Todos os Riscos</option>
             <option value="CRITICO">Risco Crítico / Alto</option>
@@ -690,21 +690,21 @@ export function TarefasDashboardClient() {
         </div>
 
         {/* Tabela de Dados */}
-        <div className="max-h-[600px] overflow-auto bg-[#0B1020]/72">
+        <div className="max-h-[600px] overflow-auto bg-[#0B1020]/72 [scrollbar-color:rgba(148,163,184,0.55)_transparent] [scrollbar-width:thin]">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-10 border-b border-white/10 bg-[#0B1020] font-semibold text-slate-300 shadow-[0_1px_0_rgba(255,255,255,0.08)]">
+            <thead className="sticky top-0 z-10 select-none border-b border-white/8 bg-[#0B1020] text-[11px] uppercase tracking-wider text-white/58 shadow-[0_1px_0_rgba(255,255,255,0.08)]">
               <tr>
-                <th className="py-3 px-4">Protocolo</th>
-                <th className="py-3 px-4">Previsão</th>
-                <th className="py-3 px-4 text-center">Status Previsão</th>
-                <th className="py-3 px-4 text-center">Nível Risco</th>
-                <th className="py-3 px-4">Tarefa</th>
-                <th className="py-3 px-4">Responsável</th>
-                <th className="py-3 px-4">Situação</th>
-                <th className="py-3 px-4">Tipo / Natureza</th>
+                <th className="px-4 py-3.5 font-semibold">Protocolo</th>
+                <th className="px-4 py-3.5 font-semibold">Previsão</th>
+                <th className="px-4 py-3.5 text-center font-semibold">Status Previsão</th>
+                <th className="px-4 py-3.5 text-center font-semibold">Nível Risco</th>
+                <th className="px-4 py-3.5 font-semibold">Tarefa</th>
+                <th className="px-4 py-3.5 font-semibold">Responsável</th>
+                <th className="px-4 py-3.5 font-semibold">Situação</th>
+                <th className="px-4 py-3.5 font-semibold">Tipo / Natureza</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5 text-slate-200">
+            <tbody className="divide-y divide-white/5 text-white/80">
               {isLoading ? (
                 <tr>
                   <td colSpan={8} className="py-8 text-center text-white/50">
@@ -724,7 +724,7 @@ export function TarefasDashboardClient() {
                   const isCritico = (row.nivelRisco || "").toUpperCase().includes("CRITIC");
 
                   return (
-                    <tr key={idx} className="hover:bg-white/5 transition-colors">
+                    <tr key={`${row.idTarefa}-${row.protocolo}-${idx}`} className="transition-colors hover:bg-white/[0.035]">
                       <td className="py-3 px-4 font-bold text-white">#{row.protocolo}</td>
                       <td className="py-3 px-4 font-medium text-slate-300">
                         {row.dtPrevisao ? new Date(row.dtPrevisao).toLocaleDateString("pt-BR") : "-"}
@@ -742,7 +742,7 @@ export function TarefasDashboardClient() {
                       </td>
                       <td className="py-3 px-4 text-center">
                         {isCritico ? (
-                          <Badge className="bg-red-600/30 text-red-200 border-red-500 animate-pulse">
+                          <Badge className="border-red-500/30 bg-red-500/15 font-semibold text-red-200">
                             CRÍTICO
                           </Badge>
                         ) : (
