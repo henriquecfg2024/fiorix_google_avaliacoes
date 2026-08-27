@@ -765,10 +765,10 @@ export function TarefasDashboardClient() {
           </table>
         </div>
         <div className="flex flex-col items-center justify-between gap-4 border-t border-white/8 bg-white/[0.03] px-6 py-3.5 text-xs text-white/60 sm:flex-row">
-          <span>
-            Exibindo <strong className="text-white">{startItem}</strong> a{" "}
-            <strong className="text-white">{endItem}</strong> de{" "}
-            <strong className="text-white">{tarefasFiltradas.length}</strong> registros
+          <span className="text-center sm:text-left">
+            Exibindo <strong className="text-white">{startItem.toLocaleString("pt-BR")}</strong> a{" "}
+            <strong className="text-white">{endItem.toLocaleString("pt-BR")}</strong> de{" "}
+            <strong className="text-white">{tarefasFiltradas.length.toLocaleString("pt-BR")}</strong> registros
           </span>
 
           <div className="flex flex-wrap items-center justify-center gap-4 sm:justify-end">
@@ -782,7 +782,7 @@ export function TarefasDashboardClient() {
                     onClick={() => setPageSize(size)}
                     className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-all ${
                       pageSize === size
-                        ? "bg-purple-500/25 text-purple-100"
+                        ? "bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-xs"
                         : "text-white/60 hover:text-white"
                     }`}
                   >
@@ -796,7 +796,7 @@ export function TarefasDashboardClient() {
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8 rounded-lg border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+                className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
                 disabled={safeCurrentPage <= 1}
                 onClick={() => setCurrentPage(1)}
                 title="Primeira página"
@@ -806,7 +806,7 @@ export function TarefasDashboardClient() {
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8 rounded-lg border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+                className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
                 disabled={safeCurrentPage <= 1}
                 onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
                 title="Página anterior"
@@ -814,12 +814,12 @@ export function TarefasDashboardClient() {
                 <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
               <span className="min-w-[90px] px-2 text-center font-medium text-white">
-                Página {safeCurrentPage} de {totalPages}
+                Página {safeCurrentPage.toLocaleString("pt-BR")} de {totalPages.toLocaleString("pt-BR")}
               </span>
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8 rounded-lg border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+                className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
                 disabled={safeCurrentPage >= totalPages}
                 onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
                 title="Próxima página"
@@ -829,7 +829,7 @@ export function TarefasDashboardClient() {
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8 rounded-lg border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+                className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
                 disabled={safeCurrentPage >= totalPages}
                 onClick={() => setCurrentPage(totalPages)}
                 title="Última página"
