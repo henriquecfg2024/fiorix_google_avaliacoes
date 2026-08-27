@@ -382,66 +382,66 @@ export function TarefasDashboardClient() {
         </Button>
       </div>
 
-      {/* 6 KPI Cards Flutuantes */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      {/* 6 KPI Cards — 3 colunas × 2 fileiras */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* 1. VENCEM HOJE */}
-        <div className="rounded-2xl border border-red-500/30 bg-[#0B1020]/80 p-4 shadow-[0_0_20px_rgba(239,68,68,0.15)] backdrop-blur-xl transition-all hover:border-red-500/50">
+        <div className="rounded-2xl border border-white/8 border-l-4 border-l-red-500 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:border-white/12 hover:shadow-[0_0_24px_rgba(239,68,68,0.12)]">
           <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-red-300">
             <span>Vencem Hoje</span>
             <Clock className="h-4 w-4 text-red-400" />
           </div>
-          <div className="mt-2 text-3xl font-extrabold text-red-400">{kpis.vencemHoje}</div>
-          <div className="mt-1 text-[11px] text-white/50">protocolos distintos</div>
+          <div className="mt-3 text-3xl font-extrabold text-red-400">{kpis.vencemHoje}</div>
+          <div className="mt-1.5 text-[11px] text-white/50">protocolos distintos</div>
         </div>
 
         {/* 2. VENCEM AMANHÃ */}
-        <div className="rounded-2xl border border-amber-500/30 bg-[#0B1020]/80 p-4 shadow-[0_0_20px_rgba(245,158,11,0.15)] backdrop-blur-xl transition-all hover:border-amber-500/50">
+        <div className="rounded-2xl border border-white/8 border-l-4 border-l-amber-500 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:border-white/12 hover:shadow-[0_0_24px_rgba(245,158,11,0.12)]">
           <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-amber-300">
             <span>Vencem Amanhã</span>
             <Calendar className="h-4 w-4 text-amber-400" />
           </div>
-          <div className="mt-2 text-3xl font-extrabold text-amber-400">{kpis.vencemAmanha}</div>
-          <div className="mt-1 text-[11px] text-white/50">protocolos distintos</div>
+          <div className="mt-3 text-3xl font-extrabold text-amber-400">{kpis.vencemAmanha}</div>
+          <div className="mt-1.5 text-[11px] text-white/50">protocolos distintos</div>
         </div>
 
         {/* 3. PRÓXIMOS 3 DIAS */}
-        <div className="rounded-2xl border border-cyan-500/30 bg-[#0B1020]/80 p-4 shadow-[0_0_20px_rgba(6,182,212,0.15)] backdrop-blur-xl transition-all hover:border-cyan-500/50">
+        <div className="rounded-2xl border border-white/8 border-l-4 border-l-cyan-500 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:border-white/12 hover:shadow-[0_0_24px_rgba(6,182,212,0.12)]">
           <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-cyan-300">
             <span>Próximos 3 Dias</span>
             <Layers className="h-4 w-4 text-cyan-400" />
           </div>
-          <div className="mt-2 text-3xl font-extrabold text-cyan-400">{kpis.prox3Dias}</div>
-          <div className="mt-1 text-[11px] text-white/50">protocolos distintos</div>
+          <div className="mt-3 text-3xl font-extrabold text-cyan-400">{kpis.prox3Dias}</div>
+          <div className="mt-1.5 text-[11px] text-white/50">protocolos distintos</div>
         </div>
 
         {/* 4. ATRASADOS */}
-        <div className="rounded-2xl border border-rose-600/40 bg-[#0B1020]/80 p-4 shadow-[0_0_25px_rgba(225,29,72,0.2)] backdrop-blur-xl transition-all hover:border-rose-500">
+        <div className="rounded-2xl border border-white/8 border-l-4 border-l-rose-500 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:border-white/12 hover:shadow-[0_0_24px_rgba(225,29,72,0.12)]">
           <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-rose-300">
             <span>Atrasados</span>
             <AlertTriangle className="h-4 w-4 text-rose-400" />
           </div>
-          <div className="mt-2 text-3xl font-extrabold text-rose-400">{kpis.atrasados}</div>
-          <div className="mt-1 text-[11px] text-white/50">previsão estourada</div>
+          <div className="mt-3 text-3xl font-extrabold text-rose-400">{kpis.atrasados}</div>
+          <div className="mt-1.5 text-[11px] text-white/50">previsão estourada</div>
         </div>
 
         {/* 5. RISCO CRÍTICO */}
-        <div className="rounded-2xl border border-red-600/60 bg-red-950/20 p-4 shadow-[0_0_30px_rgba(239,68,68,0.25)] backdrop-blur-xl transition-all hover:border-red-500">
+        <div className="rounded-2xl border border-white/8 border-l-4 border-l-red-600 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:border-white/12 hover:shadow-[0_0_24px_rgba(239,68,68,0.15)]">
           <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-red-200">
             <span>Risco Crítico</span>
             <AlertTriangle className="h-4 w-4 text-red-500 animate-pulse" />
           </div>
-          <div className="mt-2 text-3xl font-extrabold text-red-500">{kpis.riscoCritico}</div>
-          <div className="mt-1 text-[11px] text-white/50">atenção imediata</div>
+          <div className="mt-3 text-3xl font-extrabold text-red-500">{kpis.riscoCritico}</div>
+          <div className="mt-1.5 text-[11px] text-white/50">atenção imediata</div>
         </div>
 
         {/* 6. TAREFAS EM ANDAMENTO */}
-        <div className="rounded-2xl border border-emerald-500/30 bg-[#0B1020]/80 p-4 shadow-[0_0_20px_rgba(16,185,129,0.15)] backdrop-blur-xl transition-all hover:border-emerald-500/50">
+        <div className="rounded-2xl border border-white/8 border-l-4 border-l-emerald-500 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:border-white/12 hover:shadow-[0_0_24px_rgba(16,185,129,0.12)]">
           <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-emerald-300">
             <span>Em Andamento</span>
             <CheckCircle2 className="h-4 w-4 text-emerald-400" />
           </div>
-          <div className="mt-2 text-3xl font-extrabold text-emerald-400">{kpis.tarefasEmAndamento}</div>
-          <div className="mt-1 text-[11px] text-white/50">tarefas ativas</div>
+          <div className="mt-3 text-3xl font-extrabold text-emerald-400">{kpis.tarefasEmAndamento}</div>
+          <div className="mt-1.5 text-[11px] text-white/50">tarefas ativas</div>
         </div>
       </div>
 
