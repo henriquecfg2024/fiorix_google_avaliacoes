@@ -23,23 +23,23 @@ interface FiorixKpiCardProps {
 
 const variantStyles: Record<KpiVariant, { text: string; icon: string; border: string }> = {
   default: {
-    text: "text-white",
-    icon: "text-cyan-300",
+    text: "text-cyan-400",
+    icon: "text-cyan-400",
     border: "border-l-4 border-l-cyan-400",
   },
   success: {
-    text: "text-emerald-300",
-    icon: "text-emerald-300",
+    text: "text-emerald-400",
+    icon: "text-emerald-400",
     border: "border-l-4 border-l-emerald-400",
   },
   danger: {
-    text: "text-red-300",
-    icon: "text-red-300",
-    border: "border-l-4 border-l-red-400",
+    text: "text-red-400",
+    icon: "text-red-400",
+    border: "border-l-4 border-l-red-500",
   },
   warning: {
-    text: "text-amber-300",
-    icon: "text-amber-300",
+    text: "text-amber-400",
+    icon: "text-amber-400",
     border: "border-l-4 border-l-amber-400",
   },
 };
@@ -61,7 +61,7 @@ export function FiorixKpiCard({ title, value, subtitle, variant, icon: Icon, tre
 
       <div className="mt-3 flex items-end justify-between">
         <div className="flex flex-col">
-          <span className={`text-2xl font-black ${styles.text} tracking-tight`}>
+          <span className={`text-3xl font-extrabold ${styles.text} tracking-tight`}>
             {value}
           </span>
           {trend && (
