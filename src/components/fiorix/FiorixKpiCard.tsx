@@ -26,29 +26,29 @@ const variantStyles: Record<KpiVariant, { text: string; icon: string; color: str
     text: "text-cyan-400",
     icon: "text-cyan-400",
     color: "from-cyan-400 to-blue-500",
-    border: "border-cyan-400/50",
-    hoverBorder: "hover:border-cyan-400",
+    border: "border-cyan-400",
+    hoverBorder: "hover:border-cyan-300",
   },
   success: {
     text: "text-emerald-400",
     icon: "text-emerald-400",
     color: "from-emerald-400 to-teal-500",
-    border: "border-emerald-400/50",
-    hoverBorder: "hover:border-emerald-400",
+    border: "border-emerald-400",
+    hoverBorder: "hover:border-emerald-300",
   },
   danger: {
     text: "text-red-400",
     icon: "text-red-400",
     color: "from-red-500 to-rose-500",
-    border: "border-red-400/50",
-    hoverBorder: "hover:border-red-400",
+    border: "border-red-400",
+    hoverBorder: "hover:border-red-300",
   },
   warning: {
     text: "text-amber-400",
     icon: "text-amber-400",
     color: "from-amber-400 to-orange-500",
-    border: "border-amber-400/50",
-    hoverBorder: "hover:border-amber-400",
+    border: "border-amber-400",
+    hoverBorder: "hover:border-amber-300",
   },
 };
 
@@ -94,7 +94,6 @@ export function FiorixKpiCard({ title, value, subtitle, variant, icon: Icon, tre
         </Tooltip>
       </div>
 
-      <div className={`absolute bottom-0 left-0 right-0 h-[3px] bg-gradient-to-r ${styles.color} opacity-80`} />
     </Card>
   );
 }
