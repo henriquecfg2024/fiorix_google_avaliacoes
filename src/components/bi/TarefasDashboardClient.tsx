@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Search,
   Users,
+  X,
 } from "lucide-react";
 import {
   Area,
@@ -59,6 +60,23 @@ interface TarefaRecord {
   natureza: string;
 }
 
+type KpiFilter =
+  | "VENCEM_HOJE"
+  | "VENCEM_AMANHA"
+  | "PROXIMOS_3_DIAS"
+  | "ATRASADOS"
+  | "RISCO_CRITICO"
+  | "EM_ANDAMENTO";
+
+const kpiFilterLabels: Record<KpiFilter, string> = {
+  VENCEM_HOJE: "Vencem Hoje",
+  VENCEM_AMANHA: "Vencem Amanhã",
+  PROXIMOS_3_DIAS: "Próximos 3 Dias",
+  ATRASADOS: "Atrasados",
+  RISCO_CRITICO: "Risco Crítico",
+  EM_ANDAMENTO: "Em Andamento",
+};
+
 const taskPanelClass =
   "rounded-2xl border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)]";
 
@@ -73,6 +91,7 @@ export function TarefasDashboardClient() {
   const [selectedStatusPrevisao, setSelectedStatusPrevisao] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [activeKpiFilter, setActiveKpiFilter] = useState<KpiFilter | null>(null);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -283,6 +302,11 @@ export function TarefasDashboardClient() {
 
   // Tabela Filtrada de Tarefas
   const tarefasFiltradas = useMemo(() => {
+    const dNow = new Date();
+    dNow.setHours(0, 0, 0, 0);
+    const d3DaysLater = new Date(dNow);
+    d3DaysLater.setDate(d3DaysLater.getDate() + 3);
+
     return tarefas.filter((t) => {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -323,9 +347,58 @@ export function TarefasDashboardClient() {
         if (selectedStatusPrevisao === "NO_PRAZO" && s.includes("ATRASAD")) return false;
       }
 
+      if (activeKpiFilter) {
+        const situacao = (t.situacaoTarefa || "").trim().toUpperCase();
+        const statusPrev = (t.statusPrevisao || "").trim().toUpperCase();
+        const risco = (t.nivelRisco || "").trim().toUpperCase();
+        const dtStr = t.dtPrevisao?.split("T")[0] || "";
+
+        if (activeKpiFilter === "VENCEM_HOJE" && dtStr !== todayStr) return false;
+        if (activeKpiFilter === "VENCEM_AMANHA" && dtStr !== tomorrowStr) return false;
+
+        if (activeKpiFilter === "PROXIMOS_3_DIAS") {
+          if (!t.dtPrevisao) return false;
+          const dPrev = new Date(t.dtPrevisao);
+          dPrev.setHours(0, 0, 0, 0);
+          if (dPrev < dNow || dPrev > d3DaysLater) return false;
+        }
+
+        if (activeKpiFilter === "ATRASADOS" && statusPrev !== "ATRASADO" && statusPrev !== "ESTOURADO") {
+          return false;
+        }
+
+        if (
+          activeKpiFilter === "RISCO_CRITICO" &&
+          risco !== "CRITICO" &&
+          risco !== "CRÍTICO" &&
+          risco !== "ALTO"
+        ) {
+          return false;
+        }
+
+        if (
+          activeKpiFilter === "EM_ANDAMENTO" &&
+          situacao !== "EM ANDAMENTO" &&
+          situacao !== "ABERTA" &&
+          situacao !== "PENDENTE"
+        ) {
+          return false;
+        }
+      }
+
       return true;
     });
-  }, [tarefas, searchQuery, selectedTarefa, selectedResponsavel, selectedRisco, selectedStatusPrevisao]);
+  }, [
+    tarefas,
+    searchQuery,
+    selectedTarefa,
+    selectedResponsavel,
+    selectedRisco,
+    selectedStatusPrevisao,
+    activeKpiFilter,
+    todayStr,
+    tomorrowStr,
+  ]);
 
   const totalPages = Math.max(1, Math.ceil(tarefasFiltradas.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -338,7 +411,23 @@ export function TarefasDashboardClient() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedTarefa, selectedResponsavel, selectedRisco, selectedStatusPrevisao, pageSize]);
+  }, [searchQuery, selectedTarefa, selectedResponsavel, selectedRisco, selectedStatusPrevisao, activeKpiFilter, pageSize]);
+
+  const handleKpiFilter = (filter: KpiFilter) => {
+    const nextFilter = activeKpiFilter === filter ? null : filter;
+    setActiveKpiFilter(nextFilter);
+    if (nextFilter) {
+      setSearchQuery("");
+      setSelectedTarefa("ALL");
+      setSelectedResponsavel("ALL");
+      setSelectedRisco("ALL");
+      setSelectedStatusPrevisao("ALL");
+    }
+    setCurrentPage(1);
+    window.requestAnimationFrame(() => {
+      document.getElementById("tarefas-detalhamento")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
 
   // Exportação CSV
   const handleExportCSV = () => {
@@ -413,6 +502,8 @@ export function TarefasDashboardClient() {
           subtitle="Protocolos com previsão de entrega hoje"
           variant="danger"
           icon={Clock}
+          onClick={() => handleKpiFilter("VENCEM_HOJE")}
+          isActive={activeKpiFilter === "VENCEM_HOJE"}
         />
         <FiorixKpiCard
           title="Vencem Amanhã"
@@ -420,6 +511,8 @@ export function TarefasDashboardClient() {
           subtitle="Protocolos com previsão de entrega amanhã"
           variant="warning"
           icon={Calendar}
+          onClick={() => handleKpiFilter("VENCEM_AMANHA")}
+          isActive={activeKpiFilter === "VENCEM_AMANHA"}
         />
         <FiorixKpiCard
           title="Próximos 3 Dias"
@@ -427,6 +520,8 @@ export function TarefasDashboardClient() {
           subtitle="Protocolos com entrega nos próximos 3 dias"
           variant="default"
           icon={Layers}
+          onClick={() => handleKpiFilter("PROXIMOS_3_DIAS")}
+          isActive={activeKpiFilter === "PROXIMOS_3_DIAS"}
         />
         <FiorixKpiCard
           title="Atrasados"
@@ -434,6 +529,8 @@ export function TarefasDashboardClient() {
           subtitle="Protocolos com previsão de entrega estourada"
           variant="danger"
           icon={AlertTriangle}
+          onClick={() => handleKpiFilter("ATRASADOS")}
+          isActive={activeKpiFilter === "ATRASADOS"}
         />
         <FiorixKpiCard
           title="Risco Crítico"
@@ -441,6 +538,8 @@ export function TarefasDashboardClient() {
           subtitle="Tarefas com nível de risco crítico"
           variant="danger"
           icon={AlertTriangle}
+          onClick={() => handleKpiFilter("RISCO_CRITICO")}
+          isActive={activeKpiFilter === "RISCO_CRITICO"}
         />
         <FiorixKpiCard
           title="Em Andamento"
@@ -448,6 +547,8 @@ export function TarefasDashboardClient() {
           subtitle="Total de tarefas operacionais ativas"
           variant="success"
           icon={CheckCircle2}
+          onClick={() => handleKpiFilter("EM_ANDAMENTO")}
+          isActive={activeKpiFilter === "EM_ANDAMENTO"}
         />
       </div>
 
@@ -602,16 +703,32 @@ export function TarefasDashboardClient() {
       </section>
 
       {/* Tabela Detalhada com Filtros */}
-      <section className="overflow-hidden rounded-2xl border border-white/12 bg-[#0B1020]/72 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+      <section
+        id="tarefas-detalhamento"
+        className="scroll-mt-24 overflow-hidden rounded-2xl border border-white/12 bg-[#0B1020]/72 shadow-[0_18px_50px_rgba(0,0,0,0.16)]"
+      >
         <div className="flex flex-col gap-4 border-b border-white/8 px-6 py-5 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="flex items-center gap-2 text-base font-semibold text-white">
               <Filter className="h-4 w-4 text-purple-400" />
               Detalhamento de Tarefas e Previsões
             </h2>
-            <p className="text-xs text-white/50">
-              Exibindo {tarefasFiltradas.length.toLocaleString("pt-BR")} de {tarefas.length.toLocaleString("pt-BR")} tarefas encontradas
-            </p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2">
+              <p className="text-xs text-white/50">
+                Exibindo {tarefasFiltradas.length.toLocaleString("pt-BR")} de {tarefas.length.toLocaleString("pt-BR")} tarefas encontradas
+              </p>
+              {activeKpiFilter && (
+                <button
+                  type="button"
+                  onClick={() => setActiveKpiFilter(null)}
+                  className="inline-flex items-center gap-1 rounded-full border border-purple-400/20 bg-purple-400/10 px-2 py-0.5 text-[10px] font-semibold text-purple-200 transition-colors hover:bg-purple-400/15"
+                  title="Remover filtro rápido"
+                >
+                  Filtro: {kpiFilterLabels[activeKpiFilter]}
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
           </div>
 
           <Button

@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { Info } from "lucide-react";
 import {
   Tooltip,
@@ -19,6 +20,8 @@ interface FiorixKpiCardProps {
     isUp: boolean;
     isGood: boolean;
   };
+  onClick?: () => void;
+  isActive?: boolean;
 }
 
 const variantStyles: Record<KpiVariant, { text: string; icon: string; color: string; border: string; hoverBorder: string }> = {
@@ -52,11 +55,38 @@ const variantStyles: Record<KpiVariant, { text: string; icon: string; color: str
   },
 };
 
-export function FiorixKpiCard({ title, value, subtitle, variant, icon: Icon, trend }: FiorixKpiCardProps) {
+export function FiorixKpiCard({
+  title,
+  value,
+  subtitle,
+  variant,
+  icon: Icon,
+  trend,
+  onClick,
+  isActive = false,
+}: FiorixKpiCardProps) {
   const styles = variantStyles[variant];
 
   return (
-    <Card className={`group relative overflow-hidden rounded-[28px] border ${styles.border} bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all ${styles.hoverBorder} flex min-h-[145px] flex-col justify-between`}>
+    <Card
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-pressed={onClick ? isActive : undefined}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (onClick && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      className={cn(
+        "group relative flex min-h-[145px] flex-col justify-between overflow-hidden rounded-[28px] border bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all",
+        styles.border,
+        styles.hoverBorder,
+        onClick && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070A12]",
+        isActive && "-translate-y-0.5 ring-2 ring-white/70 ring-offset-2 ring-offset-[#070A12] shadow-[0_20px_60px_rgba(0,0,0,0.28)]"
+      )}
+    >
       
       <div className="flex justify-between items-start w-full mb-4">
         <h3 className="w-[80%] text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">
@@ -84,7 +114,10 @@ export function FiorixKpiCard({ title, value, subtitle, variant, icon: Icon, tre
         
         <Tooltip>
           <TooltipTrigger asChild>
-            <button className="p-1 text-white/40 transition-colors hover:text-white/80">
+            <button
+              className="p-1 text-white/40 transition-colors hover:text-white/80"
+              onClick={(event) => event.stopPropagation()}
+            >
               <Info className="w-4 h-4" />
             </button>
           </TooltipTrigger>
