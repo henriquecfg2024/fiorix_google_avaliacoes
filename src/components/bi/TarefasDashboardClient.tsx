@@ -583,8 +583,8 @@ export function TarefasDashboardClient() {
       </section>
 
       {/* Tabela Detalhada com Filtros */}
-      <section className={`${taskPanelClass} space-y-4`}>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <section className="overflow-hidden rounded-2xl border border-white/12 bg-[#0B1020]/72 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+        <div className="flex flex-col gap-4 border-b border-white/8 px-6 py-5 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <Filter className="h-4 w-4 text-purple-400" />
@@ -606,7 +606,7 @@ export function TarefasDashboardClient() {
         </div>
 
         {/* Barra de Filtros */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-2">
+        <div className="grid grid-cols-1 gap-3 border-b border-white/8 bg-[#0B1020]/92 px-6 py-4 sm:grid-cols-2 lg:grid-cols-5">
           {/* Busca por Protocolo / Texto */}
           <div className="relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/40" />
@@ -671,9 +671,9 @@ export function TarefasDashboardClient() {
         </div>
 
         {/* Tabela de Dados */}
-        <div className="overflow-x-auto rounded-xl border border-white/8 bg-[#0B1020]/72">
+        <div className="max-h-[600px] overflow-auto bg-[#0B1020]/72">
           <table className="w-full text-left text-xs">
-            <thead className="bg-white/5 text-slate-300 font-semibold border-b border-white/10">
+            <thead className="sticky top-0 z-10 border-b border-white/10 bg-[#0B1020] font-semibold text-slate-300 shadow-[0_1px_0_rgba(255,255,255,0.08)]">
               <tr>
                 <th className="py-3 px-4">Protocolo</th>
                 <th className="py-3 px-4">Previsão</th>
@@ -744,6 +744,15 @@ export function TarefasDashboardClient() {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="flex items-center justify-between border-t border-white/8 bg-white/[0.03] px-6 py-3.5 text-xs text-white/60">
+          <span>
+            Exibindo <strong className="text-white">{Math.min(tarefasFiltradas.length, 100)}</strong> de{" "}
+            <strong className="text-white">{tarefasFiltradas.length}</strong> registros filtrados
+          </span>
+          {tarefasFiltradas.length > 100 && (
+            <span className="text-white/40">Refine os filtros para visualizar registros específicos.</span>
+          )}
         </div>
       </section>
     </div>
