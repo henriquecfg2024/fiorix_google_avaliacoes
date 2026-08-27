@@ -310,7 +310,7 @@ export function MetasDashboardClient() {
       getVal(record, "d2Contraditorio", "D2_CONTRADITORIO", "D2_CONTRAD"),
       getVal(record, "d3Extrato", "D3_EXTRATO", "D3_EXTR"),
       getVal(record, "d4Qualificacao", "D4_QUALIFICACAO", "D4_QUALI"),
-      getVal(record, "d5Calculo", "D5_CALCULO", "D5_CALC"),
+      getVal(record, "d5Calculo", "D5_CALCULO", "D5_CALC", "CALCULO_DE_CUSTAS", "CALCULO", "d5Custas", "D5_CUSTAS", "CALCULO_CUSTAS", "calculo_custas"),
       getVal(record, "d8Impressao", "D8_IMPRESSAO", "D8_IMP"),
       getVal(record, "d9Preparacao", "D9_PREPARACAO", "D9_PREP"),
       getVal(record, "d9Conferencia", "D9_CONFERENCIA", "D9_CONF"),
@@ -361,7 +361,7 @@ export function MetasDashboardClient() {
       return "PENDENTE";
     }
 
-    return "NAO REGISTRADA";
+    return "SEM_DATA";
   }, [getVal]);
 
   // Lógica principal de recalcular Status e Atraso com mapeamento oficial da procedure pr_Fiorix_BI_METAS
@@ -1497,7 +1497,7 @@ export function MetasDashboardClient() {
                 const d1Val = getVal(row, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT");
                 const d3Val = getVal(row, "d3Extrato", "D3_EXTRATO", "D3_EXTR");
                 const d4Val = getVal(row, "d4Qualificacao", "D4_QUALIFICACAO", "D4_QUALI");
-                const d5Val = getVal(row, "d5Calculo", "D5_CALCULO", "D5_CALC");
+                const d5Val = getVal(row, "d5Calculo", "D5_CALCULO", "D5_CALC", "CALCULO_DE_CUSTAS", "CALCULO", "d5Custas", "D5_CUSTAS", "CALCULO_CUSTAS", "calculo_custas");
                 const d8Val = getVal(row, "d8Impressao", "D8_IMPRESSAO", "D8_IMP");
                 const d10Val = getVal(row, "d10Entrega", "D10_ENTREGA", "D10_ENT", "dtEntregaReal", "DT_ENTREGA_REAL");
                 const balcao = getBalcaoAuditState(row);
@@ -1669,7 +1669,7 @@ export function MetasDashboardClient() {
           { label: "D2_CONTRADITORIO", val: getVal(selectedProtocol, "d2Contraditorio", "D2_CONTRADITORIO", "D2_CONTRAD") },
           { label: "D3_EXTRATO", val: getVal(selectedProtocol, "d3Extrato", "D3_EXTRATO", "D3_EXTR") },
           { label: "D4_QUALIFICACAO", val: getVal(selectedProtocol, "d4Qualificacao", "D4_QUALIFICACAO", "D4_QUALI") },
-          { label: "D5_CALCULO", val: getVal(selectedProtocol, "d5Calculo", "D5_CALCULO", "D5_CALC") },
+          { label: "D5_CALCULO", val: getVal(selectedProtocol, "d5Calculo", "D5_CALCULO", "D5_CALC", "CALCULO_DE_CUSTAS", "CALCULO", "d5Custas", "D5_CUSTAS", "CALCULO_CUSTAS", "calculo_custas") },
           { label: "D8_IMPRESSAO", val: getVal(selectedProtocol, "d8Impressao", "D8_IMPRESSAO", "D8_IMP") },
           { label: "D9_PREPARACAO", val: getVal(selectedProtocol, "d9Preparacao", "D9_PREPARACAO", "D9_PREP") },
           { label: "D9_CONFERENCIA", val: getVal(selectedProtocol, "d9Conferencia", "D9_CONFERENCIA", "D9_CONF") },

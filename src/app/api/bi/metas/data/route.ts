@@ -175,7 +175,7 @@ export async function GET(request: Request) {
         d2Contraditorio: getVal("D2_CONTRADITORIO", "d2_contraditorio", "d2Contraditorio", "D2_CONTRAD"),
         d3Extrato: getVal("D3_EXTRATO", "d3_extrato", "d3Extrato", "D3_EXTR"),
         d4Qualificacao: getVal("D4_QUALIFICACAO", "d4_qualificacao", "d4Qualificacao", "D4_QUALI"),
-        d5Calculo: getVal("D5_CALCULO", "d5_calculo", "d5Calculo", "D5_CALC"),
+        d5Calculo: getVal("D5_CALCULO", "d5_calculo", "d5Calculo", "D5_CALC", "CALCULO_DE_CUSTAS", "CALCULO", "d5Custas", "D5_CUSTAS", "CALCULO_CUSTAS", "calculo_custas"),
         d8Impressao: getVal("D8_IMPRESSAO", "d8_impressao", "d8Impressao", "D8_IMP"),
         d9Preparacao: getVal("D9_PREPARACAO", "d9_preparacao", "d9Preparacao", "D9_PREP"),
         d9Conferencia: getVal("D9_CONFERENCIA", "d9_conferencia", "d9Conferencia", "D9_CONF"),
