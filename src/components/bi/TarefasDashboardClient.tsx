@@ -55,6 +55,9 @@ interface TarefaRecord {
   natureza: string;
 }
 
+const taskPanelClass =
+  "rounded-2xl border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)]";
+
 export function TarefasDashboardClient() {
   const [tarefas, setTarefas] = useState<TarefaRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -430,9 +433,9 @@ export function TarefasDashboardClient() {
       </div>
 
       {/* Painel Duplo de Gráficos Analíticos */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Gráfico 1: Previsão por Dia */}
-        <div className="rounded-[28px] border border-white/10 bg-[#0B1020]/75 p-6 shadow-2xl backdrop-blur-xl space-y-4">
+        <section className={`${taskPanelClass} space-y-4`}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -492,10 +495,10 @@ export function TarefasDashboardClient() {
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </section>
 
         {/* Gráfico 2: Carga por Tarefa */}
-        <div className="rounded-[28px] border border-white/10 bg-[#0B1020]/75 p-6 shadow-2xl backdrop-blur-xl space-y-4">
+        <section className={`${taskPanelClass} space-y-4`}>
           <div>
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <Layers className="h-4 w-4 text-cyan-400" />
@@ -523,17 +526,17 @@ export function TarefasDashboardClient() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </section>
       </div>
 
       {/* Seção Sintética: Carga por Responsável */}
-      <div className="rounded-[28px] border border-white/10 bg-[#0B1020]/75 p-6 shadow-2xl backdrop-blur-xl space-y-4">
+      <section className={`${taskPanelClass} space-y-4`}>
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-amber-400" />
           <h2 className="text-base font-bold text-white">Carga por Responsável</h2>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-white/10">
+        <div className="overflow-x-auto rounded-xl border border-white/8 bg-[#0B1020]/72">
           <table className="w-full text-left text-xs">
             <thead className="bg-white/5 text-slate-300 font-semibold border-b border-white/10">
               <tr>
@@ -577,10 +580,10 @@ export function TarefasDashboardClient() {
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
 
       {/* Tabela Detalhada com Filtros */}
-      <div className="rounded-[28px] border border-white/10 bg-[#0B1020]/75 p-6 shadow-2xl backdrop-blur-xl space-y-4">
+      <section className={`${taskPanelClass} space-y-4`}>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -668,7 +671,7 @@ export function TarefasDashboardClient() {
         </div>
 
         {/* Tabela de Dados */}
-        <div className="overflow-x-auto rounded-xl border border-white/10">
+        <div className="overflow-x-auto rounded-xl border border-white/8 bg-[#0B1020]/72">
           <table className="w-full text-left text-xs">
             <thead className="bg-white/5 text-slate-300 font-semibold border-b border-white/10">
               <tr>
@@ -742,7 +745,7 @@ export function TarefasDashboardClient() {
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
