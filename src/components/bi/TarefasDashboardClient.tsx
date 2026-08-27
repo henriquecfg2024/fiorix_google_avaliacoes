@@ -385,7 +385,10 @@ export function TarefasDashboardClient() {
       {/* 6 KPI Cards — 3 colunas × 2 fileiras */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {/* 1. VENCEM HOJE */}
-        <div className="rounded-2xl border border-white/8 border-l-4 border-l-red-500 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:border-white/12 hover:shadow-[0_0_24px_rgba(239,68,68,0.12)]">
+        <div
+          className="rounded-2xl bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:shadow-[0_0_24px_rgba(239,68,68,0.12)]"
+          style={{ border: '1px solid rgba(255,255,255,0.10)', borderLeft: '4px solid #ef4444' }}
+        >
           <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-red-300">
             <span>Vencem Hoje</span>
             <Clock className="h-4 w-4 text-red-400" />
@@ -395,7 +398,10 @@ export function TarefasDashboardClient() {
         </div>
 
         {/* 2. VENCEM AMANHÃ */}
-        <div className="rounded-2xl border border-white/8 border-l-4 border-l-amber-500 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:border-white/12 hover:shadow-[0_0_24px_rgba(245,158,11,0.12)]">
+        <div
+          className="rounded-2xl bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:shadow-[0_0_24px_rgba(245,158,11,0.12)]"
+          style={{ border: '1px solid rgba(255,255,255,0.10)', borderLeft: '4px solid #f59e0b' }}
+        >
           <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-amber-300">
             <span>Vencem Amanhã</span>
             <Calendar className="h-4 w-4 text-amber-400" />
@@ -405,7 +411,10 @@ export function TarefasDashboardClient() {
         </div>
 
         {/* 3. PRÓXIMOS 3 DIAS */}
-        <div className="rounded-2xl border border-white/8 border-l-4 border-l-cyan-500 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:border-white/12 hover:shadow-[0_0_24px_rgba(6,182,212,0.12)]">
+        <div
+          className="rounded-2xl bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:shadow-[0_0_24px_rgba(6,182,212,0.12)]"
+          style={{ border: '1px solid rgba(255,255,255,0.10)', borderLeft: '4px solid #06b6d4' }}
+        >
           <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-cyan-300">
             <span>Próximos 3 Dias</span>
             <Layers className="h-4 w-4 text-cyan-400" />
@@ -415,7 +424,10 @@ export function TarefasDashboardClient() {
         </div>
 
         {/* 4. ATRASADOS */}
-        <div className="rounded-2xl border border-white/8 border-l-4 border-l-rose-500 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:border-white/12 hover:shadow-[0_0_24px_rgba(225,29,72,0.12)]">
+        <div
+          className="rounded-2xl bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:shadow-[0_0_24px_rgba(225,29,72,0.12)]"
+          style={{ border: '1px solid rgba(255,255,255,0.10)', borderLeft: '4px solid #f43f5e' }}
+        >
           <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-rose-300">
             <span>Atrasados</span>
             <AlertTriangle className="h-4 w-4 text-rose-400" />
@@ -425,7 +437,10 @@ export function TarefasDashboardClient() {
         </div>
 
         {/* 5. RISCO CRÍTICO */}
-        <div className="rounded-2xl border border-white/8 border-l-4 border-l-red-600 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:border-white/12 hover:shadow-[0_0_24px_rgba(239,68,68,0.15)]">
+        <div
+          className="rounded-2xl bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:shadow-[0_0_24px_rgba(239,68,68,0.15)]"
+          style={{ border: '1px solid rgba(255,255,255,0.10)', borderLeft: '4px solid #dc2626' }}
+        >
           <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-red-200">
             <span>Risco Crítico</span>
             <AlertTriangle className="h-4 w-4 text-red-500 animate-pulse" />
@@ -435,7 +450,10 @@ export function TarefasDashboardClient() {
         </div>
 
         {/* 6. TAREFAS EM ANDAMENTO */}
-        <div className="rounded-2xl border border-white/8 border-l-4 border-l-emerald-500 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:border-white/12 hover:shadow-[0_0_24px_rgba(16,185,129,0.12)]">
+        <div
+          className="rounded-2xl bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl transition-all hover:shadow-[0_0_24px_rgba(16,185,129,0.12)]"
+          style={{ border: '1px solid rgba(255,255,255,0.10)', borderLeft: '4px solid #10b981' }}
+        >
           <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-emerald-300">
             <span>Em Andamento</span>
             <CheckCircle2 className="h-4 w-4 text-emerald-400" />
