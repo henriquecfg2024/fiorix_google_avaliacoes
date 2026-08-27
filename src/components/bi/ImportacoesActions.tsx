@@ -368,6 +368,47 @@ export function ImportacoesActions() {
     });
   };
 
+  const [isClearingProd, setIsClearingProd] = useState(false);
+  const [isClearingMetas, setIsClearingMetas] = useState(false);
+
+  const handleClearProdutividade = async () => {
+    if (!confirm("Tem certeza que deseja apagar TODO o histórico de produtividade (incluindo períodos inferidos)? Essa ação não pode ser desfeita.")) {
+      return;
+    }
+    setIsClearingProd(true);
+    try {
+      const res = await clearAllProdutividadeData();
+      if (res.error) toast.error(res.error);
+      else {
+        toast.success("Base de Produtividade limpa com sucesso.");
+        router.refresh();
+      }
+    } catch (err: any) {
+      toast.error(`Erro ao limpar produtividade: ${err.message}`);
+    } finally {
+      setIsClearingProd(false);
+    }
+  };
+
+  const handleClearMetas = async () => {
+    if (!confirm("Tem certeza que deseja apagar TODO o histórico de metas? Essa ação não pode ser desfeita.")) {
+      return;
+    }
+    setIsClearingMetas(true);
+    try {
+      const res = await clearAllMetasData();
+      if (res.error) toast.error(res.error);
+      else {
+        toast.success("Base de Metas limpa com sucesso.");
+        router.refresh();
+      }
+    } catch (err: any) {
+      toast.error(`Erro ao limpar metas: ${err.message}`);
+    } finally {
+      setIsClearingMetas(false);
+    }
+  };
+
   const [isImportingTarefas, setIsImportingTarefas] = useState(false);
   const [tarefasProgress, setTarefasProgress] = useState({ current: 0, total: 0 });
   const [isClearingTarefas, setIsClearingTarefas] = useState(false);
