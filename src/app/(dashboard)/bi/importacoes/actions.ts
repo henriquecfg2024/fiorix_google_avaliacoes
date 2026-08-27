@@ -5,11 +5,18 @@ import { requireRole } from "@/lib/auth-helpers";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 
-export async function deleteImportRecord(id: string, source: "BI" | "PRODUTIVIDADE" | "METAS") {
+export async function deleteImportRecord(id: string, source: "BI" | "PRODUTIVIDADE" | "METAS" | "TAREFAS") {
   try {
     const user = await requireRole("ADMIN", "MASTER");
 
-    if (source === "METAS") {
+    if (source === "TAREFAS") {
+      const numericId = parseInt(id, 10);
+      if (!isNaN(numericId)) {
+        await prisma.$executeRaw(
+          Prisma.sql`DELETE FROM public.fiorix_tarefas_imports WHERE id = ${numericId} AND tenant_id = ${user.tenantId}`
+        );
+      }
+    } else if (source === "METAS") {
       if (id.startsWith("inferred-")) {
         const ym = id.replace("inferred-", "");
         await prisma.$executeRaw(
@@ -53,6 +60,7 @@ export async function deleteImportRecord(id: string, source: "BI" | "PRODUTIVIDA
     revalidatePath("/bi/importacoes");
     revalidatePath("/bi/produtividade");
     revalidatePath("/bi/metas");
+    revalidatePath("/bi/tarefas");
     revalidatePath("/bi");
     return { success: true };
   } catch (error: any) {
@@ -96,6 +104,25 @@ export async function clearAllMetasData() {
   } catch (error: any) {
     console.error("Failed to clear metas data:", error);
     return { error: "Erro ao limpar dados de metas" };
+  }
+}
+
+export async function clearAllTarefasData() {
+  try {
+    const user = await requireRole("ADMIN", "MASTER");
+    await prisma.$executeRaw(
+      Prisma.sql`DELETE FROM public.fiorix_tarefas_dados WHERE tenant_id = ${user.tenantId}`
+    );
+    await prisma.$executeRaw(
+      Prisma.sql`DELETE FROM public.fiorix_tarefas_imports WHERE tenant_id = ${user.tenantId}`
+    );
+
+    revalidatePath("/bi/importacoes");
+    revalidatePath("/bi/tarefas");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to clear tarefas data:", error);
+    return { error: "Erro ao limpar dados de tarefas" };
   }
 }
 

@@ -1,12 +1,19 @@
 import React from 'react';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
+import { redirect } from 'next/navigation';
+import { requireAuth } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ImprimirMensalPage() {
-  const session = await auth();
-  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
+  let user;
+  try {
+    user = await requireAuth();
+  } catch {
+    redirect('/login');
+  }
+  const tenantId = user.tenantId;
 
   let total = 0;
   let fiveStars = 0;
@@ -17,13 +24,13 @@ export default async function ImprimirMensalPage() {
   let responded = 0;
 
   try {
-    total = await prisma.review.count({ where: { tenantId } });
-    fiveStars = await prisma.review.count({ where: { tenantId, rating: 5 } });
-    fourStars = await prisma.review.count({ where: { tenantId, rating: 4 } });
-    threeStars = await prisma.review.count({ where: { tenantId, rating: 3 } });
-    twoStars = await prisma.review.count({ where: { tenantId, rating: 2 } });
-    oneStar = await prisma.review.count({ where: { tenantId, rating: 1 } });
-    responded = await prisma.review.count({ where: { tenantId, status: 'RESPONDED' } });
+    total = await prisma.review.count({ where: { tenantId, deletedFromGoogle: false } });
+    fiveStars = await prisma.review.count({ where: { tenantId, rating: 5, deletedFromGoogle: false } });
+    fourStars = await prisma.review.count({ where: { tenantId, rating: 4, deletedFromGoogle: false } });
+    threeStars = await prisma.review.count({ where: { tenantId, rating: 3, deletedFromGoogle: false } });
+    twoStars = await prisma.review.count({ where: { tenantId, rating: 2, deletedFromGoogle: false } });
+    oneStar = await prisma.review.count({ where: { tenantId, rating: 1, deletedFromGoogle: false } });
+    responded = await prisma.review.count({ where: { tenantId, status: 'RESPONDED', deletedFromGoogle: false } });
   } catch (err) {
     console.error('Error in ImprimirMensalPage:', err);
   }

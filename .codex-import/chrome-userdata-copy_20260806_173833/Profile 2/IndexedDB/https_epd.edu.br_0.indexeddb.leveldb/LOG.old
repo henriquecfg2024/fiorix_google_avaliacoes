@@ -1,0 +1,6 @@
+2026/07/31-15:54:18.056 44f4 Creating DB C:\Users\henrique\AppData\Local\Google\Chrome\User Data\Profile 2\IndexedDB\https_epd.edu.br_0.indexeddb.leveldb since it was missing.
+2026/07/31-15:54:18.059 44f4 Reusing MANIFEST C:\Users\henrique\AppData\Local\Google\Chrome\User Data\Profile 2\IndexedDB\https_epd.edu.br_0.indexeddb.leveldb/MANIFEST-000001
+2026/07/31-15:54:20.076 44f4 Level-0 table #5: started
+2026/07/31-15:54:20.078 44f4 Level-0 table #5: 878 bytes OK
+2026/07/31-15:54:20.079 44f4 Delete type=0 #3
+2026/07/31-15:54:20.079 44f4 Manual compaction at level-0 from (begin) .. (end); will stop at (end)

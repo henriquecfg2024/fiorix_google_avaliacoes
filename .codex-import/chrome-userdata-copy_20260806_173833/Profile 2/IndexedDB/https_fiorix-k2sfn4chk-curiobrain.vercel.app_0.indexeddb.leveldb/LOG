@@ -1,0 +1,6 @@
+2026/07/14-16:58:42.202 440 Creating DB C:\Users\henrique\AppData\Local\Google\Chrome\User Data\Profile 2\IndexedDB\https_fiorix-k2sfn4chk-curiobrain.vercel.app_0.indexeddb.leveldb since it was missing.
+2026/07/14-16:58:42.206 440 Reusing MANIFEST C:\Users\henrique\AppData\Local\Google\Chrome\User Data\Profile 2\IndexedDB\https_fiorix-k2sfn4chk-curiobrain.vercel.app_0.indexeddb.leveldb/MANIFEST-000001
+2026/07/14-17:06:22.411 2bec Level-0 table #5: started
+2026/07/14-17:06:22.412 2bec Level-0 table #5: 17413 bytes OK
+2026/07/14-17:06:22.414 2bec Delete type=0 #3
+2026/07/14-17:06:22.414 2bec Manual compaction at level-0 from (begin) .. (end); will stop at (end)

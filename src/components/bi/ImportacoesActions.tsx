@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Trash2, Upload, UploadCloud } from "lucide-react";
 import Papa from "papaparse";
 import { toast } from "sonner";
-import { clearAllMetasData, clearAllProdutividadeData } from "@/app/(dashboard)/bi/importacoes/actions";
+import { clearAllMetasData, clearAllProdutividadeData, clearAllTarefasData } from "@/app/(dashboard)/bi/importacoes/actions";
 
 import { Button } from "@/components/ui/button";
 
@@ -368,44 +368,150 @@ export function ImportacoesActions() {
     });
   };
 
-  const [isClearingProd, setIsClearingProd] = useState(false);
-  const [isClearingMetas, setIsClearingMetas] = useState(false);
+  const [isImportingTarefas, setIsImportingTarefas] = useState(false);
+  const [tarefasProgress, setTarefasProgress] = useState({ current: 0, total: 0 });
+  const [isClearingTarefas, setIsClearingTarefas] = useState(false);
+  const tarefasInputRef = useRef<HTMLInputElement>(null);
 
-  const handleClearProdutividade = async () => {
-    if (!confirm("Tem certeza que deseja apagar TODO o histórico de produtividade (incluindo períodos inferidos)? Essa ação não pode ser desfeita.")) {
+  const handleImportTarefas = async (file: File) => {
+    if (!file.name.endsWith(".csv")) {
+      toast.error("Por favor, selecione um arquivo CSV válido para Tarefas.");
       return;
     }
-    setIsClearingProd(true);
-    try {
-      const res = await clearAllProdutividadeData();
-      if (res.error) toast.error(res.error);
-      else {
-        toast.success("Base de Produtividade limpa com sucesso.");
-        router.refresh();
-      }
-    } catch (err: any) {
-      toast.error(`Erro ao limpar produtividade: ${err.message}`);
-    } finally {
-      setIsClearingProd(false);
-    }
+
+    setIsImportingTarefas(true);
+    setTarefasProgress({ current: 0, total: 0 });
+
+    let importMetaForFailure: Record<string, unknown> | null = null;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      encoding: "UTF-8",
+      transformHeader: (header) => header.replace(/^\uFEFF/, "").trim(),
+      complete: async (results) => {
+        try {
+          const rawRows = (results.data as Record<string, any>[]).map((row) => {
+            const normalizedRow: Record<string, any> = { ...row };
+            Object.entries(row).forEach(([header, value]) => {
+              const canonical = canonicalHeader(header);
+              if (canonical !== header && normalizedRow[canonical] === undefined) {
+                normalizedRow[canonical] = value;
+              }
+              const upperClean = header.replace(/^\uFEFF/, "").trim().toUpperCase();
+              if (normalizedRow[upperClean] === undefined) {
+                normalizedRow[upperClean] = value;
+              }
+            });
+            return normalizedRow;
+          });
+
+          if (rawRows.length === 0) {
+            toast.error("O arquivo CSV de Tarefas está vazio.");
+            return;
+          }
+
+          const totalRows = rawRows.length;
+          setTarefasProgress({ current: 0, total: totalRows });
+          const importKey = crypto.randomUUID();
+
+          const dates = rawRows
+            .map((r: any) => r.DT_PREVISAO || r.DATA_ENTRADA)
+            .filter(Boolean)
+            .sort();
+          const periodStart = dates[0] || null;
+          const periodEnd = dates[dates.length - 1] || null;
+
+          const importMetaBase = {
+            importKey,
+            fileName: file.name,
+            totalRows,
+            importedBy: "Manual CSV (Tarefas)",
+            periodStart,
+            periodEnd,
+          };
+          importMetaForFailure = importMetaBase;
+
+          const batchSize = 500;
+          let importedTotal = 0;
+
+          for (let start = 0; start < totalRows; start += batchSize) {
+            const batch = rawRows.slice(start, start + batchSize);
+            const batchNumber = Math.floor(start / batchSize) + 1;
+            const totalBatches = Math.ceil(totalRows / batchSize);
+
+            const res = await fetch("/api/bi/tarefas/import", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                rows: batch,
+                importMeta: {
+                  ...importMetaBase,
+                  batchNumber,
+                  totalBatches,
+                },
+              }),
+            });
+
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({ error: "Erro desconhecido" }));
+              throw new Error(errData.error || `Falha no lote ${batchNumber}/${totalBatches}`);
+            }
+
+            const result = await res.json().catch(() => ({ success: true, count: batch.length }));
+            importedTotal += Number(result.count ?? batch.length);
+            setTarefasProgress({
+              current: Math.min(start + batch.length, totalRows),
+              total: totalRows,
+            });
+          }
+
+          toast.success(`Importação de ${importedTotal.toLocaleString("pt-BR")} tarefas concluída!`);
+          router.refresh();
+        } catch (err: any) {
+          console.error("Erro na importação de tarefas:", err);
+          if (importMetaForFailure) {
+            await fetch("/api/bi/tarefas/import", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                action: "mark_failed",
+                importMeta: importMetaForFailure,
+              }),
+            }).catch(() => null);
+          }
+          toast.error(`Erro ao salvar tarefas: ${err.message || "Erro desconhecido"}`);
+        } finally {
+          setIsImportingTarefas(false);
+        }
+      },
+      error: (error) => {
+        toast.error(`Erro ao ler CSV de Tarefas: ${error.message}`);
+        setIsImportingTarefas(false);
+      },
+    });
   };
 
-  const handleClearMetas = async () => {
-    if (!confirm("Tem certeza que deseja apagar TODO o histórico de metas? Essa ação não pode ser desfeita.")) {
+  const handleClearTarefas = async () => {
+    if (!confirm("Tem certeza que deseja apagar TODO o histórico de tarefas? Essa ação não pode ser desfeita.")) {
       return;
     }
-    setIsClearingMetas(true);
+    setIsClearingTarefas(true);
     try {
-      const res = await clearAllMetasData();
+      const res = await clearAllTarefasData();
       if (res.error) toast.error(res.error);
       else {
-        toast.success("Base de Metas limpa com sucesso.");
+        toast.success("Base de Tarefas limpa com sucesso.");
         router.refresh();
       }
     } catch (err: any) {
-      toast.error(`Erro ao limpar metas: ${err.message}`);
+      toast.error(`Erro ao limpar tarefas: ${err.message}`);
     } finally {
-      setIsClearingMetas(false);
+      setIsClearingTarefas(false);
     }
   };
 
@@ -478,6 +584,36 @@ export function ImportacoesActions() {
         )}
       </Button>
 
+      <input
+        type="file"
+        ref={tarefasInputRef}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleImportTarefas(file);
+          e.currentTarget.value = "";
+        }}
+        accept=".csv"
+        className="hidden"
+      />
+
+      <Button
+        onClick={() => tarefasInputRef.current?.click()}
+        disabled={isImportingTarefas}
+        className="bg-[#00C950] hover:bg-[#00A844] text-white gap-2"
+      >
+        {isImportingTarefas ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Importando Tarefas ({Math.round((tarefasProgress.current / (tarefasProgress.total || 1)) * 100)}%)
+          </>
+        ) : (
+          <>
+            <Upload className="h-4 w-4" />
+            Importar Tarefas
+          </>
+        )}
+      </Button>
+
       <Button
         variant="outline"
         onClick={handleClearProdutividade}
@@ -498,6 +634,17 @@ export function ImportacoesActions() {
       >
         {isClearingMetas ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
         Limpar Metas
+      </Button>
+
+      <Button
+        variant="outline"
+        onClick={handleClearTarefas}
+        disabled={isClearingTarefas}
+        className="border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 hover:text-red-200 gap-2"
+        title="Apagar todo o histórico de tarefas da base"
+      >
+        {isClearingTarefas ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+        Limpar Tarefas
       </Button>
     </div>
   );

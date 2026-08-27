@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── ENUMS ─────────────────────────────────────────────────────────────
+
+enum Role {
+  MASTER
+  ADMIN
+  USER
+}
+
+enum Sentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+}
+
+enum Language {
+  PT
+  EN
+  ES
+}
+
+enum ReviewStatus {
+  PENDING
+  RESPONDED
+  IGNORED
+}
+
+// ── MULTI-TENANT ──────────────────────────────────────────────────────
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users             User[]
+  colaboradores     Colaborador[]
+  categories        Category[]
+  templates         Template[]
+  reviews           Review[]
+  googleConnections GoogleConnection[]
+}
+
+// ── USERS ─────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(USER)
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// ── CARTÓRIO DATA (DYNAMIC) ───────────────────────────────────────────
+
+model Colaborador {
+  id        String   @id @default(cuid())
+  name      String
+  aliases   String[] // Aliases for fuzzy matching (e.g. ["Fernandinho"])
+  active    Boolean  @default(true)
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  mentions  ReviewMention[]
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   // e.g. "Fila / Espera", "Site", "Atendimento"
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  mentions  ReviewMention[]
+}
+
+model Template {
+  id        String   @id @default(cuid())
+  name      String
+  content   String   // The text of the template with placeholders
+  language  Language @default(PT)
+  minRating Int      @default(1) // Can configure template for specific ratings (e.g. 5 only)
+  maxRating Int      @default(5)
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ── REVIEWS & AI DATA ─────────────────────────────────────────────────
+
+model Review {
+  id            String       @id @default(cuid())
+  googleId      String?      @unique
+  reviewerName  String
+  rating        Int
+  comment       String?
+  language      Language     @default(PT)
+  publishedAt   DateTime
+  status        ReviewStatus @default(PENDING)
+  
+  // AI Extracted Data
+  aiSummary     String?
+  aiSentiment   Sentiment?
+
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  mentions      ReviewMention[]
+  response      Response?
+}
+
+model ReviewMention {
+  id            String       @id @default(cuid())
+  reviewId      String
+  review        Review       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  
+  colaboradorId String?
+  colaborador   Colaborador? @relation(fields: [colaboradorId], references: [id], onDelete: SetNull)
+  
+  categoryId    String?
+  category      Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  
+  sentiment     Sentiment    // Sentiment specific to this mention (e.g. they praised the Escrevente but complained about Category)
+
+  createdAt     DateTime     @default(now())
+}
+
+model Response {
+  id          String   @id @default(cuid())
+  reviewId    String   @unique
+  review      Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  
+  content     String
+  isAiDraft   Boolean  @default(false)
+  sentAt      DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ── GOOGLE API ────────────────────────────────────────────────────────
+
+model GoogleConnection {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  accountId    String   // Google Business Account ID
+  locationId   String   // Specific Location ID
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

@@ -1,0 +1,46 @@
+{
+   "action": {
+      "default_icon": {
+         "128": "icon-128-grayscale.png",
+         "16": "icon-16-grayscale.png",
+         "32": "icon-32-grayscale.png",
+         "48": "icon-48-grayscale.png"
+      },
+      "default_popup": "main.html",
+      "default_title": "Assinatura Digital no Navegador"
+   },
+   "background": {
+      "service_worker": "background.bundle.js"
+   },
+   "content_scripts": [ {
+      "all_frames": true,
+      "js": [ "backwardCompatibility-extension-api-out.js" ],
+      "matches": [ "\u003Call_urls>" ],
+      "run_at": "document_start",
+      "world": "MAIN"
+   }, {
+      "all_frames": true,
+      "css": [ "sweetalert2.min.css", "bry.css" ],
+      "js": [ "react.bundle.js", "sweetalert2.bundle.js", "content_script.bundle.js" ],
+      "matches": [ "\u003Call_urls>" ],
+      "run_at": "document_start"
+   } ],
+   "description": "Esta extensão é projetada para ser utilizada em conjunto com outras soluções e não funciona de forma isolada para a assinatura.",
+   "devtools_page": "devtools.html",
+   "icons": {
+      "128": "icon-128.png",
+      "16": "icon-16.png",
+      "32": "icon-32.png",
+      "48": "icon-48.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmky1milkQAdn5rsmSN0ftYnu6OzRRv2X3I1Fn0i3KYia1MTybR7Nihhbr6Hs091rBkmJ1EgP6QJUxGL4J02W4ovzFQsiCAJRA704oXwH1i++GrRXID1F9B76eENUZt4fsiNg4Ly0BbzMf9rx3JAkhe4mdIVOamZ0p7l0mewTp8F4EPrQ8JeyA64GhrNdB9IRGnGCaJP8QYP1uqD7faapKyMwkHSBn8cqfUDs5knNwrZLWOXB2tWHS+218tD1u3WEyfq1WVE+bVEXu2Q26HhbK+L4hTtmu2e3QE+cMrsjlAaU7S02jNdKX06Igi5pojPX6rDIc/0hXauL2aTxImBb+wIDAQAB",
+   "manifest_version": 3,
+   "name": "Assinatura Digital no Navegador",
+   "permissions": [ "nativeMessaging", "storage" ],
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "2.2.3",
+   "web_accessible_resources": [ {
+      "matches": [ "\u003Call_urls>" ],
+      "resources": [ "firefox-downloaded-file.png", "chrome-downloaded-file.png", "first-twosteps.png", "second-twosteps.png", "trash.png", "download-arrow.png", "ok.png", "loading.gif", "brand.png", "icon-128.png", "script.bundle.js", "backwardCompatibility-extension-api-out.js" ]
+   } ]
+}

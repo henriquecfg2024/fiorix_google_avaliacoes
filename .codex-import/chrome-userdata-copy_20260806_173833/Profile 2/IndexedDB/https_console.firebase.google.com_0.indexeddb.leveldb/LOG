@@ -1,0 +1,31 @@
+2026/08/03-22:28:39.887 60d8 Creating DB C:\Users\henrique\AppData\Local\Google\Chrome\User Data\Profile 2\IndexedDB\https_console.firebase.google.com_0.indexeddb.leveldb since it was missing.
+2026/08/03-22:28:39.892 60d8 Reusing MANIFEST C:\Users\henrique\AppData\Local\Google\Chrome\User Data\Profile 2\IndexedDB\https_console.firebase.google.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/08/03-22:28:39.909 1c8c Level-0 table #5: started
+2026/08/03-22:28:39.911 1c8c Level-0 table #5: 757 bytes OK
+2026/08/03-22:28:39.911 1c8c Delete type=0 #3
+2026/08/03-22:28:39.912 60d8 Manual compaction at level-0 from '\x00\x01\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x02\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/08/03-22:54:50.389 1c8c Level-0 table #7: started
+2026/08/03-22:54:50.390 1c8c Level-0 table #7: 6774 bytes OK
+2026/08/03-22:54:50.391 1c8c Delete type=0 #4
+2026/08/03-22:54:50.391 dd0 Manual compaction at level-0 from '\x00\x04\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x05\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/08/03-22:56:16.810 1c8c Level-0 table #9: started
+2026/08/03-22:56:16.811 1c8c Level-0 table #9: 2082 bytes OK
+2026/08/03-22:56:16.812 1c8c Delete type=0 #6
+2026/08/03-22:56:16.813 60d8 Manual compaction at level-0 from '\x00\x05\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x06\x00\x00\x00' @ 0 : 0; will stop at '\x00\x05\x00\x00\x05' @ 317 : 1
+2026/08/03-22:56:16.813 60d8 Compacting 1@0 + 1@1 files
+2026/08/03-22:56:16.814 60d8 Generated table #10@0: 129 keys, 2537 bytes
+2026/08/03-22:56:16.814 60d8 Compacted 1@0 + 1@1 files => 2537 bytes
+2026/08/03-22:56:16.815 60d8 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/08/03-22:56:16.815 60d8 Delete type=2 #9
+2026/08/03-22:56:16.815 60d8 Manual compaction at level-0 from '\x00\x05\x00\x00\x05' @ 317 : 1 .. '\x00\x06\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/08/03-22:56:28.804 1c8c Level-0 table #12: started
+2026/08/03-22:56:28.806 1c8c Level-0 table #12: 2079 bytes OK
+2026/08/03-22:56:28.807 1c8c Delete type=2 #7
+2026/08/03-22:56:28.807 1c8c Delete type=0 #8
+2026/08/03-22:56:28.808 dd0 Manual compaction at level-0 from '\x00\x06\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x07\x00\x00\x00' @ 0 : 0; will stop at '\x00\x06\x00\x00\x05' @ 360 : 1
+2026/08/03-22:56:28.808 dd0 Compacting 1@0 + 1@1 files
+2026/08/03-22:56:28.809 dd0 Generated table #13@0: 141 keys, 2638 bytes
+2026/08/03-22:56:28.809 dd0 Compacted 1@0 + 1@1 files => 2638 bytes
+2026/08/03-22:56:28.809 dd0 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/08/03-22:56:28.810 dd0 Delete type=2 #12
+2026/08/03-22:56:28.810 dd0 Manual compaction at level-0 from '\x00\x06\x00\x00\x05' @ 360 : 1 .. '\x00\x07\x00\x00\x00' @ 0 : 0; will stop at (end)

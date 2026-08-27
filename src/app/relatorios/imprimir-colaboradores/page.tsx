@@ -1,6 +1,8 @@
 import React from 'react';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
+import { redirect } from 'next/navigation';
+import { requireAuth } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,14 +39,16 @@ function getDemoMetric(name: string, aliases: string[]) {
 }
 
 export default async function ImprimirColaboradoresPage() {
-  let tenantId = 'cartorio-7ri-sp';
+  let user;
+  try {
+    user = await requireAuth();
+  } catch {
+    redirect('/login');
+  }
+  let tenantId = user.tenantId;
   let tenantName = '7º Cartório de Registro de Imóveis de São Paulo';
   
   try {
-    const session = await auth();
-    if (session?.user?.tenantId) {
-      tenantId = session.user.tenantId;
-    }
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (tenant?.name) {
       tenantName = tenant.name;

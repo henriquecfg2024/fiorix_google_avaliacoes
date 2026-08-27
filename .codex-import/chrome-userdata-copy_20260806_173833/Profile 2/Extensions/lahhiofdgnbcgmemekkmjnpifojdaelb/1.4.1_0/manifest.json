@@ -1,0 +1,37 @@
+{
+   "action": {
+      "default_title": "Vercel"
+   },
+   "background": {
+      "service_worker": "src/background.js"
+   },
+   "content_scripts": [ {
+      "all_frames": true,
+      "js": [ "src/content/toolbar.js" ],
+      "matches": [ "http://localhost/_next-live/feedback/feedback.html", "http://localhost/_next-live/feedback/feedback.html?*", "https://vercel.live/_next-live/feedback/feedback.html", "https://vercel.live/_next-live/feedback/feedback.html?*", "https://*.vercel.sh/_next-live/feedback/feedback.html", "https://*.vercel.sh/_next-live/feedback/feedback.html?*" ],
+      "run_at": "document_start"
+   }, {
+      "js": [ "src/content/toolbar-injector.js" ],
+      "matches": [ "\u003Call_urls>" ],
+      "run_at": "document_start"
+   }, {
+      "all_frames": true,
+      "js": [ "src/content/vercel-site.js" ],
+      "matches": [ "*://vercel.com/*", "*://*.vercel.sh/*" ],
+      "run_at": "document_end"
+   } ],
+   "description": "Use the Vercel Toolbar on production deployments",
+   "host_permissions": [ "\u003Call_urls>" ],
+   "icons": {
+      "128": "icons/icon_128.png",
+      "16": "icons/icon_16.png",
+      "32": "icons/icon_32.png",
+      "48": "icons/icon_48.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAno/kkoA/6hN27DiPeWjbyvB65Azhmk3foGTYzvU0aEISwKsl57flagQ53nBtkFEsmHrb9xVz76PHw9s/6i/62My+HIFdwb0RmBtpCP2OjRf/y2lsE6qcEIhmT0nD301RwaX7bMId/9+B1aSwPqgBBUvOb/kv3Vklg5xdyoA7cobykZdBTlZ+83rKiuAu7kGNMmnp7X7IDOddywR5tLPEwKVlIKdvXtEMZfm0BKZNpnkuH9YIzH3TBSQSxDjMjQ8U2GRhlNV6JNG1cqnNSapro9jLPUMBOIxTYSSStk9knHCUkLlbUIgcG14S56lgPZ+ErmyZs4TeEyhmNvVCdQ4QvwIDAQAB",
+   "manifest_version": 3,
+   "name": "Vercel",
+   "permissions": [ "alarms", "storage", "webRequest" ],
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "1.4.1"
+}

@@ -1,0 +1,15 @@
+2026/08/06-13:22:05.287 a5f8 Reusing MANIFEST C:\Users\henrique\AppData\Local\Google\Chrome\User Data\Profile 2\IndexedDB\https_supabase.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/08/06-13:22:05.296 a5f8 Recovering log #7
+2026/08/06-13:22:05.296 a5f8 Reusing old log C:\Users\henrique\AppData\Local\Google\Chrome\User Data\Profile 2\IndexedDB\https_supabase.com_0.indexeddb.leveldb/000007.log 
+2026/08/06-13:22:19.009 a5f8 Level-0 table #12: started
+2026/08/06-13:22:19.011 a5f8 Level-0 table #12: 3790 bytes OK
+2026/08/06-13:22:19.011 a5f8 Delete type=0 #7
+2026/08/06-13:22:19.012 a5f8 Manual compaction at level-0 from (begin) .. (end); will stop at (end)
+2026/08/06-13:22:19.012 a5f8 Manual compaction at level-1 from (begin) .. (end); will stop at '\x00\x01\x01\x02\x01\x14\x00x\x00r\x00e\x00z\x00e\x00s\x00q\x00k\x00h\x00p\x00i\x00a\x00x\x00c\x00a\x00s\x00a\x00y\x00x\x00z' @ 309 : 1
+2026/08/06-13:22:19.012 a5f8 Compacting 1@1 + 1@2 files
+2026/08/06-13:22:19.014 a5f8 Generated table #13@1: 27 keys, 1297 bytes
+2026/08/06-13:22:19.014 a5f8 Compacted 1@1 + 1@2 files => 1297 bytes
+2026/08/06-13:22:19.015 a5f8 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/08/06-13:22:19.015 a5f8 Delete type=2 #9
+2026/08/06-13:22:19.015 a5f8 Delete type=2 #12
+2026/08/06-13:22:19.015 a5f8 Manual compaction at level-1 from '\x00\x01\x01\x02\x01\x14\x00x\x00r\x00e\x00z\x00e\x00s\x00q\x00k\x00h\x00p\x00i\x00a\x00x\x00c\x00a\x00s\x00a\x00y\x00x\x00z' @ 309 : 1 .. (end); will stop at (end)

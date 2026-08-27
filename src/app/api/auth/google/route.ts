@@ -1,16 +1,22 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+import { requireRole } from '@/lib/auth-helpers';
 import { getGoogleAuthUrl } from '@/lib/google';
 
 export async function GET() {
-  const session = await auth();
-  
-  if (!session?.user?.tenantId || !session?.user?.role || session.user.role !== 'MASTER') {
-    return NextResponse.json({ error: 'Apenas o usuário MASTER pode conectar ou reconectar a conta do Google.' }, { status: 403 });
-  }
+  const user = await requireRole('MASTER');
 
-  const tenantId = session.user.tenantId as string;
-  const url = getGoogleAuthUrl(tenantId);
-  
-  return NextResponse.redirect(url);
+  const { url, nonce } = getGoogleAuthUrl(user.tenantId);
+
+  const response = NextResponse.redirect(url);
+
+  // Cookie HttpOnly com nonce para validação CSRF no callback
+  response.cookies.set('google_oauth_state', nonce, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 300, // 5 minutos
+    path: '/api/auth/callback/google',
+  });
+
+  return response;
 }

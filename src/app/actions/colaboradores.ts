@@ -1,22 +1,20 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { auth } from '@/auth';
+import { requireAuth, requireRole } from '@/lib/auth-helpers';
 import { revalidatePath } from 'next/cache';
 
 export async function getColaboradores() {
-  const session = await auth();
-  if (!session?.user?.tenantId) return [];
+  const user = await requireAuth();
 
   return prisma.colaborador.findMany({
-    where: { tenantId: session.user.tenantId },
+    where: { tenantId: user.tenantId },
     orderBy: { createdAt: 'desc' }
   });
 }
 
 export async function addColaborador(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.tenantId) throw new Error('Não autorizado');
+  const user = await requireRole('ADMIN', 'MASTER');
 
   const name = formData.get('name') as string;
   const aliasesRaw = formData.get('aliases') as string;
@@ -33,7 +31,7 @@ export async function addColaborador(formData: FormData) {
     data: {
       name,
       aliases,
-      tenantId: session.user.tenantId,
+      tenantId: user.tenantId,
     }
   });
 
@@ -41,24 +39,25 @@ export async function addColaborador(formData: FormData) {
 }
 
 export async function toggleColaboradorActive(id: string, currentStatus: boolean) {
-  const session = await auth();
-  if (!session?.user?.tenantId) throw new Error('Não autorizado');
+  const user = await requireRole('ADMIN', 'MASTER');
 
-  await prisma.colaborador.update({
-    where: { id },
+  const updateResult = await prisma.colaborador.updateMany({
+    where: { id, tenantId: user.tenantId },
     data: { active: !currentStatus }
   });
+  if (updateResult.count === 0) throw new Error('Colaborador não encontrado.');
 
   revalidatePath('/configuracoes/colaboradores');
 }
 
 export async function deleteColaborador(id: string) {
-  const session = await auth();
-  if (!session?.user?.tenantId) throw new Error('Não autorizado');
+  const user = await requireRole('ADMIN', 'MASTER');
 
-  await prisma.colaborador.delete({
-    where: { id }
+  const deleteResult = await prisma.colaborador.deleteMany({
+    where: { id, tenantId: user.tenantId }
   });
+  if (deleteResult.count === 0) throw new Error('Colaborador não encontrado.');
 
   revalidatePath('/configuracoes/colaboradores');
 }
+

@@ -88,6 +88,8 @@ function sourceBadge(source: UnifiedImportRecord["source"]) {
     return <Badge className="bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-semibold">Módulo BI</Badge>;
   } else if (source === "METAS") {
     return <Badge className="bg-violet-500/10 text-violet-300 border border-violet-500/20 font-semibold">Metas</Badge>;
+  } else if (source === "TAREFAS") {
+    return <Badge className="bg-purple-500/10 text-purple-300 border border-purple-500/20 font-semibold">Tarefas</Badge>;
   }
   return <Badge className="bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-semibold">Produtividade</Badge>;
 }
