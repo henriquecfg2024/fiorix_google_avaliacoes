@@ -1,7 +1,0 @@
-2026/07/10-17:27:48.753 bc64 Reusing MANIFEST C:\Users\henrique\AppData\Local\Google\Chrome\User Data\Profile 2\IndexedDB\https_site-hcfg-v3.vercel.app_0.indexeddb.leveldb/MANIFEST-000001
-2026/07/10-17:27:48.754 bc64 Recovering log #3
-2026/07/10-17:27:48.762 bc64 Reusing old log C:\Users\henrique\AppData\Local\Google\Chrome\User Data\Profile 2\IndexedDB\https_site-hcfg-v3.vercel.app_0.indexeddb.leveldb/000003.log 
-2026/07/10-18:16:26.307 b414 Level-0 table #5: started
-2026/07/10-18:16:26.313 b414 Level-0 table #5: 323962 bytes OK
-2026/07/10-18:16:26.314 b414 Delete type=0 #3
-2026/07/10-18:16:26.315 b414 Manual compaction at level-0 from (begin) .. (end); will stop at (end)

@@ -2,150 +2,78 @@ import React from 'react';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { requireAuth } from '@/lib/auth-helpers';
-import { Target, ExternalLink, ArrowRight, Lightbulb, Sparkles, ShieldAlert } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-const zoneBadgeClass = {
-  green: 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-300',
-  blue: 'border border-blue-500/20 bg-blue-500/10 text-blue-300',
-  amber: 'border border-amber-500/20 bg-amber-500/10 text-amber-300',
-  red: 'border border-red-500/20 bg-red-500/10 text-red-300',
-};
-
-function renderMetricCard(
-  ind: { icon: string; nome: string; score: number; desc: string },
-  tone: 'green' | 'blue' | 'amber' | 'red'
-) {
-  return (
-    <div className="space-y-2 rounded-2xl border border-white/12 bg-[#0B1020]/72 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
-      <div className="flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-xs font-bold text-white">
-          <span>{ind.icon}</span> {ind.nome}
-        </span>
-        <span className={`rounded-lg px-2 py-0.5 text-xs font-extrabold ${zoneBadgeClass[tone]}`}>{ind.score}%</span>
-      </div>
-      <p className="text-[11px] leading-relaxed text-white/60">{ind.desc}</p>
-      <div className="h-1.5 overflow-hidden rounded-full bg-slate-700/80">
-        <div
-          className={`h-full rounded-full ${
-            tone === 'green' ? 'bg-emerald-500' : tone === 'blue' ? 'bg-cyan-400' : tone === 'amber' ? 'bg-amber-400' : 'bg-red-500'
-          }`}
-          style={{ width: `${ind.score}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
 export default async function EstatisticasPage() {
-  let user;
-  try {
-    user = await requireAuth();
-  } catch {
-    redirect('/login');
-  }
-  const tenantId = user.tenantId;
+  const session = await auth();
+  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
 
-  let totalReviews = 547;
-  let fiveStars = 436;
-  let fourStars = 32;
-  let threeStars = 11;
-  let twoStars = 10;
-  let oneStar = 58;
+  let totalReviews = 0;
+  let fiveStars = 0;
+  let fourStars = 0;
+  let threeStars = 0;
+  let twoStars = 0;
+  let oneStar = 0;
 
   try {
-    const dbTotal = await prisma.review.count({ where: { tenantId, deletedFromGoogle: false } });
-    if (dbTotal > 0) {
-      totalReviews = dbTotal;
-      fiveStars = await prisma.review.count({ where: { tenantId, rating: 5, deletedFromGoogle: false } });
-      fourStars = await prisma.review.count({ where: { tenantId, rating: 4, deletedFromGoogle: false } });
-      threeStars = await prisma.review.count({ where: { tenantId, rating: 3, deletedFromGoogle: false } });
-      twoStars = await prisma.review.count({ where: { tenantId, rating: 2, deletedFromGoogle: false } });
-      oneStar = await prisma.review.count({ where: { tenantId, rating: 1, deletedFromGoogle: false } });
-    }
+    totalReviews = await prisma.review.count({ where: { tenantId } });
+    fiveStars = await prisma.review.count({ where: { tenantId, rating: 5 } });
+    fourStars = await prisma.review.count({ where: { tenantId, rating: 4 } });
+    threeStars = await prisma.review.count({ where: { tenantId, rating: 3 } });
+    twoStars = await prisma.review.count({ where: { tenantId, rating: 2 } });
+    oneStar = await prisma.review.count({ where: { tenantId, rating: 1 } });
   } catch (err) {
     console.error('Error loading estatisticas:', err);
   }
 
   const getPercent = (count: number) => (totalReviews > 0 ? ((count / totalReviews) * 100).toFixed(1) : '0.0');
 
-  const grupoExcelencia = [
-    { icon: 'Horario', nome: 'Horário de Atendimento', score: 96, desc: 'Cumprimento dos horários de abertura, atendimento contínuo e pontualidade' },
-    { icon: 'Pagamento', nome: 'Pagamento', score: 93, desc: 'Opções de pagamento como PIX, cartão de débito/crédito e agilidade no caixa' },
-    { icon: 'Atendimento', nome: 'Qualidade de Atendimento', score: 91, desc: 'Cordialidade, empatia e presteza da equipe de escreventes na recepção' },
-    { icon: 'Informacoes', nome: 'Clareza de Informações', score: 88, desc: 'Orientação precisa ao cliente sobre requisitos e documentos necessários' },
+  // Os 10 Indicadores da Saúde da Reputação (Incluindo os 6 pilares de Saúde Operacional + 4 pilares de Satisfação)
+  const indicadores = [
+    { icon: '🕘', nome: 'Horário de Atendimento', score: 96, status: 'Excelente', color: '#10b981', desc: 'Cumprimento dos horários de abertura, atendimento contínuo e pontualidade' },
+    { icon: '💳', nome: 'Pagamento', score: 93, status: 'Excelente', color: '#10b981', desc: 'Opções de pagamento como PIX, cartão de débito/crédito e agilidade no caixa' },
+    { icon: '🤝', nome: 'Qualidade de Atendimento', score: 91, status: 'Excelente', color: '#10b981', desc: 'Cordialidade, empatia e presteza da equipe de escreventes na recepção' },
+    { icon: '💡', nome: 'Clareza de Informações', score: 88, status: 'Excelente', color: '#10b981', desc: 'Orientação precisa ao cliente sobre requisitos e documentos necessários' },
+    { icon: '🌟', nome: 'Índice de Recomendação (NPS)', score: 85, status: 'Muito Bom', color: '#3b82f6', desc: 'Porcentagem de clientes promotores que elogiam ativamente a serventia' },
+    { icon: '🎯', nome: 'Resolução no Primeiro Contato', score: 82, status: 'Muito Bom', color: '#3b82f6', desc: 'Capacidade de resolver o ato sem exigir retornos adicionais desnecessários' },
+    { icon: '📄', nome: 'Documentação', score: 59, status: 'Regular', color: '#3b82f6', desc: 'Clareza na exigência e conferência prévia da documentação apresentada' },
+    { icon: '🌐', nome: 'Site / Agendamento', score: 42, status: 'Atenção', color: '#f59e0b', desc: 'Disponibilidade e facilidade de agendamento presencial no portal online' },
+    { icon: '⏱️', nome: 'Prazo de Entrega', score: 22, status: 'Crítico', color: '#ef4444', desc: 'Cumprimento do prazo prometido para devolução de títulos e certidões' },
+    { icon: '🕐', nome: 'Fila / Espera', score: 18, status: 'Crítico', color: '#ef4444', desc: 'Tempo de espera na fila de triagem e atendimento presencial' },
   ];
 
-  const grupoExperiencia = [
-    { icon: 'NPS', nome: 'Índice de Recomendação (NPS)', score: 85, desc: 'Porcentagem de clientes promotores que elogiam ativamente a serventia' },
-    { icon: 'Resolucao', nome: 'Resolução no Primeiro Contato', score: 82, desc: 'Capacidade de resolver o ato sem exigir retornos adicionais desnecessários' },
-  ];
-
-  const grupoAtencao = [
-    { icon: 'Doc', nome: 'Documentação', score: 59, desc: 'Clareza na exigência e conferência prévia da documentação apresentada' },
-    { icon: 'Site', nome: 'Site / Agendamento', score: 42, desc: 'Disponibilidade e facilidade de agendamento presencial no portal online' },
-  ];
-
-  const grupoCritico = [
-    { icon: 'Prazo', nome: 'Prazo de Entrega', score: 22, query: 'prazo', desc: 'Cumprimento do prazo prometido para devolução de títulos e certidões' },
-    { icon: 'Fila', nome: 'Fila / Espera', score: 18, query: 'fila', desc: 'Tempo de espera na fila de triagem e atendimento presencial' },
-  ];
-
-  const somaScore = 96 + 93 + 91 + 88 + 85 + 82 + 59 + 42 + 22 + 18;
-  const mediaSaudeReputacao = Math.round(somaScore / 10);
+  const somaScore = indicadores.reduce((acc, curr) => acc + curr.score, 0);
+  const mediaSaudeReputacao = Math.round(somaScore / indicadores.length);
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-      </div>
-
-      <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-              <span>Dashboard</span>
-              <span className="text-slate-600">/</span>
-              <span>Gestão</span>
-              <span className="text-slate-600">/</span>
-              <span className="text-amber-300">Estatísticas</span>
-            </div>
-            <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                Estatísticas de Desempenho
-              </h1>
-              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
-                SAÚDE DA REPUTAÇÃO
-              </span>
+    <div className="layout" style={{ gridTemplateColumns: '1fr', gap: '24px' }}>
+      
+      {/* 📊 SEÇÃO SUPERIOR: DISTRIBUIÇÃO E ANÁLISE QUALITATIVA */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+        {/* Distribuição de Notas */}
+        <div className="chart-card">
+          <div className="chart-header">
+            <div>
+              <div className="chart-title">Distribuição de Notas</div>
+              <div className="chart-sub">Volume de avaliações separadas por número de estrelas</div>
             </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <div className="space-y-4 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
-          <div>
-            <h3 className="text-base font-bold text-white">Distribuição de Notas</h3>
-            <p className="text-xs text-white/45">Volume de avaliações separadas por número de estrelas</p>
-          </div>
-
-          <div className="space-y-3 pt-1">
+          <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {[
-              { label: '5 Estrelas', count: fiveStars, color: 'bg-emerald-500' },
-              { label: '4 Estrelas', count: fourStars, color: 'bg-cyan-400' },
-              { label: '3 Estrelas', count: threeStars, color: 'bg-amber-400' },
-              { label: '2 Estrelas', count: twoStars, color: 'bg-amber-500' },
-              { label: '1 Estrela', count: oneStar, color: 'bg-red-500' },
+              { label: '5 Estrelas', count: fiveStars, color: '#22c55e' },
+              { label: '4 Estrelas', count: fourStars, color: '#3b82f6' },
+              { label: '3 Estrelas', count: threeStars, color: '#f59e0b' },
+              { label: '2 Estrelas', count: twoStars, color: '#fb923c' },
+              { label: '1 Estrela', count: oneStar, color: '#ef4444' },
             ].map((item, idx) => (
-              <div key={idx} className="grid grid-cols-12 items-center gap-2 text-xs">
-                <span className="col-span-3 font-semibold text-white/80">{item.label}</span>
-                <div className="col-span-6 h-2 overflow-hidden rounded-full bg-slate-700/80">
-                  <div className={`${item.color} h-full transition-all duration-500`} style={{ width: `${getPercent(item.count)}%` }} />
+              <div key={idx} style={{ display: 'grid', gridTemplateColumns: '85px 1fr 100px', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>{item.label}</span>
+                <div style={{ background: '#f1f5f9', borderRadius: '6px', height: '10px', overflow: 'hidden' }}>
+                  <div style={{ background: item.color, height: '100%', width: `${getPercent(item.count)}%`, transition: 'width 0.3s' }} />
                 </div>
-                <span className="col-span-3 text-right font-bold text-white">
+                <span style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b', textAlign: 'right', whiteSpace: 'nowrap' }}>
                   {item.count} ({getPercent(item.count)}%)
                 </span>
               </div>
@@ -153,218 +81,120 @@ export default async function EstatisticasPage() {
           </div>
         </div>
 
-        <div className="space-y-4 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
-          <div>
-            <h3 className="text-base font-bold text-white">Análise Qualitativa por IA</h3>
-            <p className="text-xs text-white/45">Fatores operacionais mais citados nas resenhas</p>
+        {/* Análise Qualitativa por IA */}
+        <div className="chart-card">
+          <div className="chart-header">
+            <div>
+              <div className="chart-title">Análise Qualitativa por IA</div>
+              <div className="chart-sub">Fatores operacionais mais citados nas resenhas</div>
+            </div>
           </div>
 
-          <div className="space-y-3 pt-1">
+          <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {[
-              {
-                topic: 'Horário de Atendimento e Cortesia',
-                score: '96%',
-                sentiment: 'Excelente',
-                className: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300',
-              },
-              {
-                topic: 'Formas de Pagamento e PIX',
-                score: '93%',
-                sentiment: 'Excelente',
-                className: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300',
-              },
-              {
-                topic: 'Tempo de Espera na Fila',
-                score: '18%',
-                sentiment: 'Crítico',
-                className: 'border-red-500/20 bg-red-500/10 text-red-300',
-              },
+              { topic: 'Horário de Atendimento e Cortesia', score: '96%', sentiment: 'Excelente', color: '#22c55e' },
+              { topic: 'Formas de Pagamento e PIX', score: '93%', sentiment: 'Excelente', color: '#22c55e' },
+              { topic: 'Tempo de Espera na Fila', score: '18%', sentiment: 'Crítico', color: '#ef4444' },
+              { topic: 'Prazo de Entrega de Certidões', score: '22%', sentiment: 'Crítico', color: '#ef4444' },
             ].map((topic, idx) => (
-              <div key={idx} className={`flex items-center justify-between rounded-xl border border-white/12 border-l-4 p-3 text-xs ${topic.className}`}>
-                <span className="font-semibold text-white/90">{topic.topic}</span>
-                <span className="font-extrabold">{topic.sentiment} ({topic.score})</span>
+              <div key={idx} style={{ padding: '12px 16px', background: '#f8fafc', borderRadius: '8px', borderLeft: `4px solid ${topic.color}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: '600', fontSize: '14px', color: '#1e293b' }}>{topic.topic}</span>
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: topic.color }}>{topic.sentiment} ({topic.score})</span>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="space-y-5 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
-        <div className="flex flex-col justify-between gap-4 border-b border-white/8 pb-5 md:flex-row md:items-center">
+      {/* ═══ CONTAINER DETALHADO DA METODOLOGIA (10 INDICADORES) ═══ */}
+      <div id="metodologia-reputacao" className="chart-card" style={{ padding: '32px' }}>
+        <div className="chart-header" style={{ marginBottom: '20px' }}>
           <div>
-            <div className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-cyan-300" />
-              <h2 className="text-lg font-extrabold tracking-tight text-white">Metodologia da Saúde da Reputação (10 Indicadores)</h2>
+            <div className="chart-title" style={{ fontSize: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span>🎯</span> Metodologia da Saúde da Reputação (10 Indicadores)
             </div>
-            <p className="mt-1 text-xs text-white/45">
+            <div className="chart-sub" style={{ fontSize: '14px', marginTop: '4px' }}>
               Composição detalhada do Score da Saúde da Reputação, abrangendo Saúde Operacional e Qualidade Percebida.
-            </p>
-          </div>
-
-          <div className="self-start rounded-2xl border border-cyan-500/20 bg-cyan-500/10 p-3 px-5 text-center md:self-auto">
-            <span className="block text-[10px] font-extrabold uppercase tracking-[0.18em] text-cyan-300">SAÚDE GLOBAL CALCULADA</span>
-            <div className="text-2xl font-black text-cyan-300">
-              {mediaSaudeReputacao} <span className="text-xs font-semibold text-cyan-400">pts</span>
             </div>
+          </div>
+          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '10px 18px', borderRadius: '10px', textAlign: 'right' }}>
+            <span style={{ fontSize: '11px', textTransform: 'uppercase', color: '#3b82f6', fontWeight: '700', letterSpacing: '0.5px' }}>Saúde Global Calculada</span>
+            <div style={{ fontSize: '24px', fontWeight: '800', color: '#1d4ed8' }}>{mediaSaudeReputacao} <span style={{ fontSize: '14px', fontWeight: '600', color: '#64748b' }}>pts</span></div>
           </div>
         </div>
 
-        <div className="space-y-3 rounded-2xl border border-white/12 bg-[#0B1020]/80 p-5">
-          <h4 className="flex items-center gap-2 text-sm font-bold text-white">
-            <span>📐</span> Como é Calculado o Score Final da Saúde da Reputação?
+        {/* Banner com Fórmula Explicativa */}
+        <div style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)', border: '1px solid #cbd5e1', borderRadius: '12px', padding: '20px', marginBottom: '24px' }}>
+          <h4 style={{ margin: '0 0 8px 0', fontSize: '15px', fontWeight: '700', color: '#0f172a' }}>
+            📐 Como é Calculado o Score Final da Saúde da Reputação?
           </h4>
-          <p className="text-xs leading-relaxed text-white/80">
+          <p style={{ margin: '0 0 12px 0', fontSize: '13.5px', color: '#334155', lineHeight: '1.6' }}>
             O score global é a <strong>média exata da soma dos 10 indicadores avaliados</strong> (incluindo os 6 pilares de Saúde Operacional):
           </p>
-          <div className="inline-block rounded-xl border border-white/12 bg-white/[0.04] px-4 py-2 font-mono text-xs font-bold text-white">
-            Saúde da Reputação = ({somaScore}) ÷ 10 = <span className="text-cyan-300">{mediaSaudeReputacao} Pontos</span>
+          <div style={{ background: 'white', padding: '12px 18px', borderRadius: '8px', border: '1px solid #cbd5e1', fontFamily: 'monospace', fontSize: '13.5px', color: '#1e293b', display: 'inline-block' }}>
+            Saúde da Reputação = ({somaScore}) ÷ 10 = <strong>{mediaSaudeReputacao} Pontos</strong>
           </div>
         </div>
 
-        <div className="space-y-2 rounded-2xl border border-white/12 bg-[#0B1020]/80 p-4">
-          <div className="flex items-center justify-between text-xs font-bold text-white/80">
-            <span>Média de Performance por Zona de Saúde</span>
-            <span className="text-[11px] text-white/40">4 Seções Agrupadas</span>
-          </div>
-          <div className="grid grid-cols-4 gap-2 text-center text-xs font-bold">
-            <div className={`rounded-xl p-2 ${zoneBadgeClass.green}`}>🟢 Excelência: 92%</div>
-            <div className={`rounded-xl p-2 ${zoneBadgeClass.blue}`}>🔵 Experiência: 83%</div>
-            <div className={`rounded-xl p-2 ${zoneBadgeClass.amber}`}>🟡 Atenção: 50%</div>
-            <div className={`rounded-xl p-2 ${zoneBadgeClass.red}`}>🔴 Críticos: 20%</div>
-          </div>
-        </div>
-
-        <div className="flex flex-col justify-between gap-4 rounded-2xl border border-white/12 bg-[#0B1020]/80 p-5 md:flex-row md:items-center">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-cyan-300">
-              <Sparkles className="h-4 w-4 text-amber-300" />
-              <span>Simulação de Impacto Operacional</span>
-            </div>
-            <h3 className="text-sm font-bold text-white">Resolvendo os 2 fatores críticos (Prazo e Fila), o Score salta de 68 ➜ 80 pts!</h3>
-            <p className="text-xs text-white/60">
-              Elevar o Prazo de 22% ➜ 80% e a Fila de 18% ➜ 70% colocará o cartório na Zona Verde de Excelência.
-            </p>
-          </div>
-          <Link
-            href="/bi"
-            className="flex shrink-0 items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.04] px-4 py-2.5 text-xs font-extrabold text-white transition-colors hover:bg-white/[0.08]"
-          >
-            <span>Ver Ações no BI</span>
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
-
-        <div className="space-y-6 pt-2">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-white">
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                🟢 Excelência Operacional (Média 92%)
-              </h3>
-              <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${zoneBadgeClass.green}`}>4 Indicadores</span>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {grupoExcelencia.map((ind, idx) => (
-                <div key={idx}>{renderMetricCard(ind, 'green')}</div>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-white">
-                <span className="h-2.5 w-2.5 rounded-full bg-cyan-400" />
-                🔵 Experiência e Resolução (Média 83%)
-              </h3>
-              <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${zoneBadgeClass.blue}`}>2 Indicadores</span>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {grupoExperiencia.map((ind, idx) => (
-                <div key={idx}>{renderMetricCard(ind, 'blue')}</div>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-white">
-                <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-                🟡 Pontos de Atenção (Média 50%)
-              </h3>
-              <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${zoneBadgeClass.amber}`}>2 Indicadores</span>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {grupoAtencao.map((ind, idx) => (
-                <div key={idx}>{renderMetricCard(ind, 'amber')}</div>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="flex items-center gap-2 text-sm font-bold text-red-300">
-                <ShieldAlert className="h-4 w-4 text-red-400" />
-                🔴 Críticos - Ação Imediata (Média 20%)
-              </h3>
-              <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${zoneBadgeClass.red}`}>Requer Intervenção Urgente</span>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {grupoCritico.map((ind, idx) => (
-                <div
-                  key={idx}
-                  className="space-y-3 rounded-2xl border border-white/12 bg-[#0B1020]/80 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] transition-all hover:border-white/20"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-xs font-bold text-white">
-                      <span>{ind.icon}</span> {ind.nome}
-                    </span>
-                    <span className={`rounded-lg px-2 py-0.5 text-xs font-extrabold ${zoneBadgeClass.red}`}>{ind.score}%</span>
-                  </div>
-
-                  <p className="text-[11px] leading-relaxed text-white/70">{ind.desc}</p>
-
-                  <div className="h-2 overflow-hidden rounded-full bg-red-950/40">
-                    <div className="h-full rounded-full bg-red-500" style={{ width: `${ind.score}%` }} />
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-1">
-                    <Link
-                      href="/bi"
-                      className="flex items-center gap-1 rounded-xl bg-gradient-to-r from-indigo-500 to-amber-400 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition-colors hover:brightness-105"
-                    >
-                      <span>Ver no BI</span>
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Link>
-
-                    <Link
-                      href={`/avaliacoes?search=${ind.query}`}
-                      className="flex items-center gap-1 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-300 transition-colors hover:bg-red-500/16"
-                    >
-                      <span>Ver Avaliações ({ind.query})</span>
-                      <ExternalLink className="h-3.5 w-3.5 text-red-300" />
-                    </Link>
-                  </div>
+        {/* Grid com os 10 Indicadores */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+          {indicadores.map((ind, idx) => (
+            <div 
+              key={idx} 
+              style={{ 
+                background: 'white', 
+                border: '1px solid #e2e8f0', 
+                borderRadius: '12px', 
+                padding: '16px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                display: 'flex',
+                flexDirection: 'column',
+                justify: 'space-between'
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '14.5px', fontWeight: '700', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>{ind.icon}</span> {ind.nome}
+                  </span>
+                  <span style={{ 
+                    fontSize: '13.5px', 
+                    fontWeight: '800', 
+                    color: ind.color,
+                    background: `${ind.color}15`,
+                    padding: '2px 10px',
+                    borderRadius: '6px'
+                  }}>
+                    {ind.score}%
+                  </span>
                 </div>
-              ))}
+                <p style={{ fontSize: '12.5px', color: '#64748b', margin: 0, lineHeight: '1.4' }}>
+                  {ind.desc}
+                </p>
+              </div>
+
+              <div style={{ marginTop: '12px' }}>
+                <div style={{ background: '#f1f5f9', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
+                  <div style={{ background: ind.color, height: '100%', width: `${ind.score}%` }} />
+                </div>
+              </div>
             </div>
+          ))}
+        </div>
+
+        {/* Esclarecimento sobre Taxa de Resposta */}
+        <div style={{ padding: '16px 20px', background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: '10px', color: '#722ed1', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+          <span style={{ fontSize: '20px' }}>💡</span>
+          <div style={{ fontSize: '13px', lineHeight: '1.5', color: '#531dab' }}>
+            <strong>Por que a "Taxa de Resposta" NÃO entra no cálculo de Saúde da Reputação?</strong><br />
+            A <em>Taxa de Resposta</em> é um indicador de SLA administrativo interno (produtividade em dar retorno). A <strong>Saúde da Reputação</strong> mede exclusivamente os 10 fatores que impactam a experiência real do cidadão no cartório.
           </div>
         </div>
+
       </div>
 
-        <div className="mt-6 flex items-start gap-3 rounded-2xl border border-white/12 bg-[#0B1020]/72 p-5 backdrop-blur-xl">
-          <Lightbulb className="mt-0.5 h-6 w-6 shrink-0 text-amber-300" />
-          <div className="space-y-1 text-xs text-white/80">
-            <h4 className="text-sm font-bold text-amber-300">Por que a "Taxa de Resposta" NÃO entra no cálculo de Saúde da Reputação?</h4>
-            <p className="leading-relaxed text-white/70">
-              A <em>Taxa de Resposta</em> é um indicador de SLA administrativo interno (produtividade em dar retorno). A <strong>Saúde da Reputação</strong> mede exclusivamente os 10 fatores que impactam a experiência real do cidadão no cartório.
-            </p>
-          </div>
-        </div>
-      </main>
     </div>
   );
 }

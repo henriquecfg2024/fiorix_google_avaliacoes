@@ -1,139 +1,90 @@
 'use client';
+import React from 'react';
+import dynamic from 'next/dynamic';
+import { ApexOptions } from 'apexcharts';
 
-import React, { useState } from 'react';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-
-type TrendTooltipProps = {
-  active?: boolean;
-  payload?: Array<{ value?: number }>;
-  label?: string | number;
-};
+// Dynamically import ApexCharts to avoid SSR issues
+const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
 
 export function TrendChart() {
-  const [period, setPeriod] = useState<'7d' | '30d' | '90d' | '1a'>('30d');
-
-  const dataMap = {
-    '7d': [
-      { month: 'Seg', nota: 4.5, volume: 22 },
-      { month: 'Ter', nota: 4.6, volume: 28 },
-      { month: 'Qua', nota: 4.4, volume: 19 },
-      { month: 'Qui', nota: 4.7, volume: 35 },
-      { month: 'Sex', nota: 4.5, volume: 30 },
-      { month: 'Sáb', nota: 4.8, volume: 15 },
-      { month: 'Dom', nota: 4.6, volume: 12 },
+  const options: ApexOptions = {
+    chart: {
+      type: 'area',
+      fontFamily: 'inherit',
+      toolbar: { show: false },
+      zoom: { enabled: false },
+      animations: {
+        enabled: true,
+        easing: 'easeinout',
+        speed: 800,
+        animateGradually: { enabled: true, delay: 150 },
+        dynamicAnimation: { enabled: true, speed: 350 }
+      },
+      dropShadow: {
+        enabled: true,
+        color: '#3b82f6',
+        top: 18,
+        left: 0,
+        blur: 5,
+        opacity: 0.1
+      }
+    },
+    colors: ['#3b82f6', '#8b5cf6'],
+    dataLabels: { enabled: false },
+    stroke: { curve: 'smooth', width: 3 },
+    fill: {
+      type: 'gradient',
+      gradient: {
+        shadeIntensity: 1,
+        opacityFrom: 0.4,
+        opacityTo: 0.05,
+        stops: [0, 100],
+        colorStops: [
+          [
+            { offset: 0, color: 'rgba(59,130,246,0.4)', opacity: 1 },
+            { offset: 100, color: 'rgba(59,130,246,0.01)', opacity: 1 }
+          ],
+          [
+            { offset: 0, color: 'rgba(139,92,246,0.3)', opacity: 1 },
+            { offset: 100, color: 'rgba(139,92,246,0.01)', opacity: 1 }
+          ]
+        ]
+      }
+    },
+    grid: {
+      borderColor: 'rgba(148,163,184,0.1)',
+      strokeDashArray: 4,
+      xaxis: { lines: { show: true } },
+      yaxis: { lines: { show: true } }
+    },
+    xaxis: {
+      categories: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
+      labels: { style: { colors: '#94a3b8', fontSize: '12px' } },
+      axisBorder: { show: false },
+      axisTicks: { show: false }
+    },
+    yaxis: [
+      {
+        min: 3, max: 5,
+        labels: { formatter: (v) => v.toFixed(1), style: { colors: '#94a3b8', fontSize: '12px' } }
+      },
+      {
+        opposite: true,
+        min: 0, max: 200,
+        labels: { style: { colors: '#94a3b8', fontSize: '12px' } }
+      }
     ],
-    '30d': [
-      { month: 'Jan', nota: 4.2, volume: 120 },
-      { month: 'Fev', nota: 4.3, volume: 150 },
-      { month: 'Mar', nota: 4.1, volume: 95 },
-      { month: 'Abr', nota: 4.5, volume: 180 },
-      { month: 'Mai', nota: 4.4, volume: 160 },
-      { month: 'Jun', nota: 4.7, volume: 190 },
-    ],
-    '90d': [
-      { month: 'Abril', nota: 4.3, volume: 420 },
-      { month: 'Maio', nota: 4.5, volume: 490 },
-      { month: 'Junho', nota: 4.7, volume: 540 },
-    ],
-    '1a': [
-      { month: 'Q1', nota: 4.2, volume: 1200 },
-      { month: 'Q2', nota: 4.4, volume: 1450 },
-      { month: 'Q3', nota: 4.5, volume: 1600 },
-      { month: 'Q4', nota: 4.7, volume: 1850 },
-    ],
-  };
-
-  const currentData = dataMap[period];
-
-  const CustomTooltip = ({ active, payload, label }: TrendTooltipProps) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="space-y-1 rounded-xl border border-white/10 bg-[#0B1020]/95 p-3 text-xs text-white shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-          <p className="border-b border-white/10 pb-1 font-bold text-slate-200">{label}</p>
-          <div className="flex items-center justify-between gap-4 font-semibold text-cyan-300">
-            <span>⭐ Nota Média:</span>
-            <span>{payload[0]?.value}</span>
-          </div>
-          <div className="flex items-center justify-between gap-4 font-semibold text-amber-300">
-            <span>📊 Volume:</span>
-            <span>{payload[1]?.value} avaliações</span>
-          </div>
-        </div>
-      );
+    legend: { show: false },
+    tooltip: {
+      theme: 'dark',
+      y: { formatter: (val) => val.toString() }
     }
-    return null;
   };
 
-  return (
-    <div className="space-y-4 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-        <div>
-          <h3 className="text-card-title font-bold text-white">Tendência de Avaliações</h3>
-          <p className="mt-0.5 text-badge text-slate-400">Evolução da nota média e volume acumulado</p>
-        </div>
+  const series = [
+    { name: 'Nota Média', data: [4.2, 4.3, 4.1, 4.5, 4.4, 4.7] },
+    { name: 'Volume', data: [120, 150, 95, 180, 160, 190] }
+  ];
 
-        <div className="inline-flex self-start gap-1 rounded-xl border border-white/10 bg-white/[0.04] p-1 text-badge font-semibold sm:self-auto">
-          {(['7d', '30d', '90d', '1a'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setPeriod(tab)}
-              className={`rounded-lg px-3 py-1.5 transition-all ${
-              period === tab ? 'bg-cyan-500/15 font-bold text-cyan-200 shadow-sm' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="h-[220px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={currentData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <defs>
-              <linearGradient id="colorNota" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#22D3EE" stopOpacity={0.34} />
-                <stop offset="95%" stopColor="#22D3EE" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="colorVolume" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.25} />
-                <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.18)" opacity={0.8} />
-
-            <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 11.5, fontWeight: 500 }} />
-
-            <YAxis
-              yAxisId="left"
-              domain={[3.0, 5.0]}
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: '#94A3B8', fontSize: 11.5 }}
-              tickFormatter={(v) => v.toFixed(1)}
-            />
-
-            <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#64748B', fontSize: 11.5 }} />
-
-            <Tooltip content={<CustomTooltip />} />
-
-            <Area yAxisId="left" type="monotone" dataKey="nota" name="Nota Média" stroke="#22D3EE" strokeWidth={3} fillOpacity={1} fill="url(#colorNota)" />
-
-            <Area
-              yAxisId="right"
-              type="monotone"
-              dataKey="volume"
-              name="Volume"
-              stroke="#F59E0B"
-              strokeWidth={2}
-              strokeDasharray="4 4"
-              fillOpacity={1}
-              fill="url(#colorVolume)"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
+  return <Chart options={options} series={series} type="area" height={240} width="100%" />;
 }

@@ -40,6 +40,15 @@ type MetasData = {
   dtEntregaReal?: string;
   status?: string;
   statusMeta?: string | null;
+  statusMedicao?: string | null;
+  statusD1Protocolo?: string | null;
+  statusD1Escaneamento?: string | null;
+  statusD2Contraditorio?: string | null;
+  statusD3Extrato?: string | null;
+  statusD4Qualificacao?: string | null;
+  statusD5Calculo?: string | null;
+  statusD8Impressao?: string | null;
+  statusD9Preparacao?: string | null;
   atrasoDias?: number;
   diasAtraso?: number | null;
   diasCorridos?: number | null;
@@ -293,13 +302,92 @@ export function MetasDashboardClient() {
     return Number.isNaN(dt.getTime()) ? null : dt;
   }, []);
 
+  // Helper para determinar se uma etapa está NAO REGISTRADA, CONCLUIDA ou PENDENTE (Regras 4, 6 e 8)
+  const getStepStatusInfo = useCallback((record: MetasData, stepIdx: number) => {
+    const dates = [
+      getVal(record, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT"),
+      getVal(record, "d1Escaneamento", "D1_ESCANEAMENTO", "D1_ESCAN"),
+      getVal(record, "d2Contraditorio", "D2_CONTRADITORIO", "D2_CONTRAD"),
+      getVal(record, "d3Extrato", "D3_EXTRATO", "D3_EXTR"),
+      getVal(record, "d4Qualificacao", "D4_QUALIFICACAO", "D4_QUALI"),
+      getVal(record, "d5Calculo", "D5_CALCULO", "D5_CALC"),
+      getVal(record, "d8Impressao", "D8_IMPRESSAO", "D8_IMP"),
+      getVal(record, "d9Preparacao", "D9_PREPARACAO", "D9_PREP"),
+      getVal(record, "d9Conferencia", "D9_CONFERENCIA", "D9_CONF"),
+      getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT", "dtEntregaReal", "DT_ENTREGA_REAL")
+    ];
+
+    const procStatuses = [
+      getVal(record, "statusD1Protocolo", "STATUS_D1_PROTOCOLO"),
+      getVal(record, "statusD1Escaneamento", "STATUS_D1_ESCANEAMENTO"),
+      getVal(record, "statusD2Contraditorio", "STATUS_D2_CONTRADITORIO"),
+      getVal(record, "statusD3Extrato", "STATUS_D3_EXTRATO"),
+      getVal(record, "statusD4Qualificacao", "STATUS_D4_QUALIFICACAO"),
+      getVal(record, "statusD5Calculo", "STATUS_D5_CALCULO"),
+      getVal(record, "statusD8Impressao", "STATUS_D8_IMPRESSAO"),
+      getVal(record, "statusD9Preparacao", "STATUS_D9_PREPARACAO"),
+      null,
+      null
+    ];
+
+    // Regra 6: Respeitar status fornecido pela procedure se indicar NAO REGISTRADA
+    const procStatus = procStatuses[stepIdx];
+    if (procStatus && String(procStatus).toUpperCase().includes("NAO REGISTRADA")) {
+      return "NAO REGISTRADA";
+    }
+
+    const currentDate = dates[stepIdx];
+    if (currentDate) {
+      return "CONCLUIDA";
+    }
+
+    // Regra 4 & Regra 8: Se a etapa estiver sem data, mas existir QUALQUER etapa posterior (stepIdx + 1 até 9) preenchida -> NAO REGISTRADA
+    const hasSubsequentFilledDate = dates.slice(stepIdx + 1).some(d => Boolean(d));
+    if (hasSubsequentFilledDate) {
+      return "NAO REGISTRADA";
+    }
+
+    // Verificar se a medição já finalizou (D9, D9C ou D10 preenchido ou statusMedicao = FINALIZADA)
+    const isMedicaoFinalizada = Boolean(dates[7] || dates[8] || dates[9]) || 
+      String(getVal(record, "statusMedicao", "STATUS_MEDICAO") || "").toUpperCase().includes("FINALIZAD");
+
+    if (isMedicaoFinalizada) {
+      return "NAO REGISTRADA";
+    }
+
+    // Apenas a primeira etapa não alcançada pode ser considerada PENDENTE
+    const firstUnfilledIdx = dates.findIndex((d, idx) => !d && !(procStatuses[idx] && String(procStatuses[idx]).toUpperCase().includes("NAO REGISTRADA")));
+    if (firstUnfilledIdx === stepIdx) {
+      return "PENDENTE";
+    }
+
+    return "NAO REGISTRADA";
+  }, [getVal]);
+
   // Lógica principal de recalcular Status e Atraso com mapeamento oficial da procedure pr_Fiorix_BI_METAS
   const getMetasStatusAndAtraso = useCallback((record: MetasData) => {
     const rawStatusMeta = String(getVal(record, "statusMeta", "STATUS_META", "status_meta") || "").trim().toUpperCase();
+    const statusMedicao = String(getVal(record, "statusMedicao", "STATUS_MEDICAO", "status_medicao") || "").trim().toUpperCase();
     const diasAtrasoVal = getVal(record, "diasAtraso", "DIAS_ATRASO", "atrasoDias", "ATRASO_DIAS");
     const parsedAtraso = diasAtrasoVal !== null && diasAtrasoVal !== undefined ? Number(diasAtrasoVal) : null;
 
+    const d9 = getVal(record, "d9Preparacao", "D9_PREPARACAO", "D9_PREP");
+    const d9C = getVal(record, "d9Conferencia", "D9_CONFERENCIA", "D9_CONF");
+    const d10 = getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT", "dtEntregaReal", "DT_ENTREGA_REAL");
+
+    // Regra 8: se D9_PREPARACAO possuir data OU se D9_CONFERENCIA / D10_ENTREGA possuir data -> Medição FINALIZADA
+    const isMedicaoFinalizada = Boolean(d9 || d9C || d10) || 
+      statusMedicao.includes("FINALIZAD") || statusMedicao.includes("CONCLUID");
+
     if (rawStatusMeta === "NO PRAZO - PENDENTE") {
+      if (isMedicaoFinalizada) {
+        return {
+          status: "Em dia",
+          statusMeta: "META BATIDA",
+          atrasoDias: 0,
+          badge: { text: "No prazo", bgClass: "bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 backdrop-blur-md" }
+        };
+      }
       return {
         status: "Em dia",
         statusMeta: "NO PRAZO - PENDENTE",
@@ -309,6 +397,14 @@ export function MetasDashboardClient() {
     }
 
     if (rawStatusMeta === "ATRASADO - PENDENTE") {
+      if (isMedicaoFinalizada) {
+        return {
+          status: "Entregue com Atraso",
+          statusMeta: "META ESTOURADA",
+          atrasoDias: parsedAtraso !== null && parsedAtraso > 0 ? parsedAtraso : 1,
+          badge: { text: "Entregue com atraso", bgClass: "bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md" }
+        };
+      }
       return {
         status: "Atrasado",
         statusMeta: "ATRASADO - PENDENTE",
@@ -336,91 +432,33 @@ export function MetasDashboardClient() {
     }
 
     // Fallback gracioso para cargas sem STATUS_META
-    const rawStatus = String(getVal(record, "status", "STATUS") || "").trim();
-    const rawStatusLower = rawStatus.toLowerCase();
-    const d10 = getVal(
-      record,
-      "d10Entrega",
-      "D10_ENTREGA",
-      "D10_ENT",
-      "dtEntregaReal",
-      "DT_ENTREGA_REAL",
-      "dBalcaoDevolvido",
-      "D_BALCAO_DEVOLVIDO",
-      "d_balcao_devolvido"
-    );
-    const dtPrev = getVal(record, "dtPrevisao", "DT_PREVISAO", "dt_previsao", "DtPrevisaoEntrega");
-    const dataApres = getVal(record, "dataApresentado", "DATA_APRESENTADO", "data_apresentado", "DataDoTituloApresentado");
-    const d1Protocolo = getVal(record, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT", "d1_protocolo");
     const atrasoDiasRaw = Number(getVal(record, "atrasoDias", "ATRASO_DIAS", "atraso_dias") || 0);
-
+    const dtPrev = getVal(record, "dtPrevisao", "DT_PREVISAO", "dt_previsao", "DtPrevisaoEntrega");
+    const prevDate = parseDateSafe(dtPrev);
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
-    const hojeKey = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
 
-    if (
-      (rawStatusLower.includes("entregue") && rawStatusLower.includes("atraso")) ||
-      (rawStatusLower.includes("concluid") && rawStatusLower.includes("atraso")) ||
-      (rawStatusLower.includes("finaliz") && rawStatusLower.includes("atraso")) ||
-      (rawStatusLower.includes("devolv") && rawStatusLower.includes("atraso")) ||
-      (atrasoDiasRaw > 0 && (rawStatusLower.includes("entregue") || rawStatusLower.includes("devolv") || rawStatusLower.includes("concluid") || rawStatusLower.includes("finaliz")))
-    ) {
-      return {
-        status: "Entregue com Atraso",
-        statusMeta: "META ESTOURADA",
-        atrasoDias: atrasoDiasRaw > 0 ? atrasoDiasRaw : 1,
-        badge: { text: "Entregue com atraso", bgClass: "bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md" }
-      };
-    }
-
-    if ([dataApres, d1Protocolo].some((value) => getDateKey(value) === hojeKey)) {
-      try {
-        return {
-          status: "Em dia",
-          statusMeta: "NO PRAZO - PENDENTE",
-          atrasoDias: 0,
-          badge: { text: "Em dia", bgClass: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 backdrop-blur-md" }
-        };
-      } catch {}
-    }
-
-    const d10Date = parseDateSafe(d10);
-    const prevDate = parseDateSafe(dtPrev);
-
-    if (d10Date && prevDate) {
-      d10Date.setHours(0, 0, 0, 0);
-      prevDate.setHours(0, 0, 0, 0);
-
-      const diffEnt = Math.floor((d10Date.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffEnt <= 0) {
-        return {
-          status: "Em dia",
-          statusMeta: "META BATIDA",
-          atrasoDias: diffEnt,
-          badge: { text: "No prazo", bgClass: "bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 backdrop-blur-md" }
-        };
-      } else {
+    if (isMedicaoFinalizada) {
+      if (atrasoDiasRaw > 0) {
         return {
           status: "Entregue com Atraso",
           statusMeta: "META ESTOURADA",
-          atrasoDias: diffEnt,
+          atrasoDias: atrasoDiasRaw,
           badge: { text: "Entregue com atraso", bgClass: "bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md" }
         };
       }
+      return {
+        status: "Em dia",
+        statusMeta: "META BATIDA",
+        atrasoDias: 0,
+        badge: { text: "No prazo", bgClass: "bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 backdrop-blur-md" }
+      };
     }
 
     if (prevDate) {
       prevDate.setHours(0, 0, 0, 0);
-
       const diffDias = Math.floor((hoje.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDias <= 0) {
-        return {
-          status: "Em dia",
-          statusMeta: "NO PRAZO - PENDENTE",
-          atrasoDias: diffDias,
-          badge: { text: "Em dia", bgClass: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 backdrop-blur-md" }
-        };
-      } else {
+      if (diffDias > 0) {
         return {
           status: "Atrasado",
           statusMeta: "ATRASADO - PENDENTE",
@@ -436,7 +474,7 @@ export function MetasDashboardClient() {
       atrasoDias: 0,
       badge: { text: "Em dia", bgClass: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 backdrop-blur-md" }
     };
-  }, [getDateKey, getVal, parseDateSafe]);
+  }, [getVal, parseDateSafe]);
 
   const getBalcaoAuditState = useCallback((record: MetasData) => {
     const d8Impressao = getVal(record, "d8Impressao", "D8_IMPRESSAO", "D8_IMP");
@@ -507,7 +545,7 @@ export function MetasDashboardClient() {
     }
   }, []);
 
-  // Determine all 9 phase transitions & bottleneck for a given record
+  // Determine all 9 phase transitions & bottleneck for a given record (Regras 1, 3, 4, 7)
   const getPhasesForRecord = useCallback((record: MetasData) => {
     if (!record) {
       return {
@@ -516,53 +554,118 @@ export function MetasDashboardClient() {
       };
     }
 
-    const d1 = getVal(record, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT");
-    const d1E = getVal(record, "d1Escaneamento", "D1_ESCANEAMENTO", "D1_ESCAN");
-    const d2 = getVal(record, "d2Contraditorio", "D2_CONTRADITORIO", "D2_CONTRAD");
-    const d3 = getVal(record, "d3Extrato", "D3_EXTRATO", "D3_EXTR");
-    const d4 = getVal(record, "d4Qualificacao", "D4_QUALIFICACAO", "D4_QUALI");
-    const d5 = getVal(record, "d5Calculo", "D5_CALCULO", "D5_CALC");
-    const d8 = getVal(record, "d8Impressao", "D8_IMPRESSAO", "D8_IMP");
-    const d9 = getVal(record, "d9Preparacao", "D9_PREPARACAO", "D9_PREP");
-    const d9C = getVal(record, "d9Conferencia", "D9_CONFERENCIA", "D9_CONF");
-    const d10 = getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT", "dtEntregaReal", "DT_ENTREGA_REAL");
-
-    const isP1Active = Boolean(d1 && !d1E);
-    const isP2Active = Boolean(d1E && !d2);
-    const isP3Active = Boolean(d2 && !d3);
-    const isP4Active = Boolean(d3 && !d4);
-    const isP5Active = Boolean(d4 && !d5);
-    const isP6Active = Boolean(d5 && !d8);
-    const isP7Active = Boolean(d8 && !d9);
-    const isP8Active = Boolean(d9 && !d9C);
-    const isP9Active = Boolean(d9C && !d10);
-
-    const phases = [
-      { key: "D1_D1E", label: "Prot. -> Escan.", name: "PROTOCOLO -> ESCANEAMENTO", dias: calculateDaysBetween(d1, d1E, getVal(record, "diasD1D1E", "DIAS_D1_D1ESCAN"), isP1Active) },
-      { key: "D1E_D2", label: "Escan. -> Contrad.", name: "ESCANEAMENTO -> CONTRADITORIO", dias: calculateDaysBetween(d1E, d2, getVal(record, "diasD1ED2", "DIAS_D1ESCAN_D2"), isP2Active) },
-      { key: "D2_D3", label: "Contrad. -> Extr.", name: "CONTRADITORIO -> EXTRATO", dias: calculateDaysBetween(d2, d3, getVal(record, "diasD2D3", "DIAS_D2_D3"), isP3Active) },
-      { key: "D3_D4", label: "Extr. -> Qualif.", name: "EXTRATO -> QUALIFICACAO", dias: calculateDaysBetween(d3, d4, getVal(record, "diasD3D4", "DIAS_D3_D4"), isP4Active) },
-      { key: "D4_D5", label: "Qualif. -> Calc.", name: "QUALIFICACAO -> CALCULO", dias: calculateDaysBetween(d4, d5, getVal(record, "diasD4D5", "DIAS_D4_D5"), isP5Active) },
-      { key: "D5_D8", label: "Calc. -> Impres.", name: "CALCULO -> IMPRESSAO", dias: calculateDaysBetween(d5, d8, getVal(record, "diasD5D8", "DIAS_D5_D8"), isP6Active) },
-      { key: "D8_D9", label: "Impres. -> Prep.", name: "IMPRESSAO -> PREPARACAO", dias: calculateDaysBetween(d8, d9, getVal(record, "diasD8D9", "DIAS_D8_D9"), isP7Active) },
-      { key: "D9_D9C", label: "Prep. -> Conf.", name: "PREPARACAO -> CONFERENCIA", dias: calculateDaysBetween(d9, d9C, getVal(record, "diasD9D9C", "DIAS_D9PREP_D9CONF"), isP8Active) },
-      { key: "D9C_D10", label: "Conf. -> Entrega", name: "CONFERENCIA -> ENTREGA", dias: d10 ? calculateDaysBetween(d9C, d10, getVal(record, "diasD9CD10", "DIAS_D9CONF_D10"), false) : null },
+    const dates = [
+      getVal(record, "d1Protocolo", "D1_PROTOCOLO", "D1_PROT"),
+      getVal(record, "d1Escaneamento", "D1_ESCANEAMENTO", "D1_ESCAN"),
+      getVal(record, "d2Contraditorio", "D2_CONTRADITORIO", "D2_CONTRAD"),
+      getVal(record, "d3Extrato", "D3_EXTRATO", "D3_EXTR"),
+      getVal(record, "d4Qualificacao", "D4_QUALIFICACAO", "D4_QUALI"),
+      getVal(record, "d5Calculo", "D5_CALCULO", "D5_CALC"),
+      getVal(record, "d8Impressao", "D8_IMPRESSAO", "D8_IMP"),
+      getVal(record, "d9Preparacao", "D9_PREPARACAO", "D9_PREP"),
+      getVal(record, "d9Conferencia", "D9_CONFERENCIA", "D9_CONF"),
+      getVal(record, "d10Entrega", "D10_ENTREGA", "D10_ENT", "dtEntregaReal", "DT_ENTREGA_REAL")
     ];
 
-    let max = phases[0] || { key: "NONE", label: "-", name: "Nenhum", dias: 0 };
+    const givenDays = [
+      getVal(record, "diasD1D1E", "DIAS_D1_D1ESCAN"),
+      getVal(record, "diasD1ED2", "DIAS_D1ESCAN_D2"),
+      getVal(record, "diasD2D3", "DIAS_D2_D3"),
+      getVal(record, "diasD3D4", "DIAS_D3_D4"),
+      getVal(record, "diasD4D5", "DIAS_D4_D5"),
+      getVal(record, "diasD5D8", "DIAS_D5_D8"),
+      getVal(record, "diasD8D9", "DIAS_D8_D9"),
+      getVal(record, "diasD9D9C", "DIAS_D9PREP_D9CONF"),
+      getVal(record, "diasD9CD10", "DIAS_D9CONF_D10")
+    ];
+
+    const stepStatuses = dates.map((_, idx) => getStepStatusInfo(record, idx));
+
+    const phaseDefs = [
+      { key: "D1_D1E", label: "Prot. -> Escan.", name: "PROTOCOLO -> ESCANEAMENTO", startIdx: 0, endIdx: 1, official: true },
+      { key: "D1E_D2", label: "Escan. -> Contrad.", name: "ESCANEAMENTO -> CONTRADITORIO", startIdx: 1, endIdx: 2, official: true },
+      { key: "D2_D3", label: "Contrad. -> Extr.", name: "CONTRADITORIO -> EXTRATO", startIdx: 2, endIdx: 3, official: true },
+      { key: "D3_D4", label: "Extr. -> Qualif.", name: "EXTRATO -> QUALIFICACAO", startIdx: 3, endIdx: 4, official: true },
+      { key: "D4_D5", label: "Qualif. -> Calc.", name: "QUALIFICACAO -> CALCULO", startIdx: 4, endIdx: 5, official: true },
+      { key: "D5_D8", label: "Calc. -> Impres.", name: "CALCULO -> IMPRESSAO", startIdx: 5, endIdx: 6, official: true },
+      { key: "D8_D9", label: "Impres. -> Prep.", name: "IMPRESSAO -> PREPARACAO", startIdx: 6, endIdx: 7, official: true },
+      { key: "D9_D9C", label: "Prep. -> Conf.", name: "PREPARACAO -> CONFERENCIA", startIdx: 7, endIdx: 8, official: false },
+      { key: "D9C_D10", label: "Conf. -> Entrega", name: "CONFERENCIA -> ENTREGA", startIdx: 8, endIdx: 9, official: false }
+    ];
+
+    const isMedicaoFinalizada = Boolean(dates[7] || dates[8] || dates[9]) || 
+      String(getVal(record, "statusMedicao", "STATUS_MEDICAO") || "").toUpperCase().includes("FINALIZAD");
+
+    const phases = phaseDefs.map((def, idx) => {
+      const startVal = dates[def.startIdx];
+      const endVal = dates[def.endIdx];
+      const startStatus = stepStatuses[def.startIdx];
+      const endStatus = stepStatuses[def.endIdx];
+
+      // Regra 3 & 7: Se a etapa final ou inicial for NAO REGISTRADA, a fase é ignorada em gargalos/atrasos
+      if (endStatus === "NAO REGISTRADA" || startStatus === "NAO REGISTRADA") {
+        return {
+          key: def.key,
+          label: def.label,
+          name: def.name,
+          dias: null,
+          official: def.official,
+          status: "NAO REGISTRADA"
+        };
+      }
+
+      // Se ambas as datas existem
+      if (startVal && endVal) {
+        const d = calculateDaysBetween(startVal, endVal, givenDays[idx], false);
+        return {
+          key: def.key,
+          label: def.label,
+          name: def.name,
+          dias: d,
+          official: def.official,
+          status: "CONCLUIDA"
+        };
+      }
+
+      // Se a data inicial existe, mas a final é NULL e é uma etapa pendente válida
+      if (startVal && !endVal && endStatus === "PENDENTE" && !isMedicaoFinalizada && def.official) {
+        const d = calculateDaysBetween(startVal, null, givenDays[idx], true);
+        return {
+          key: def.key,
+          label: def.label,
+          name: def.name,
+          dias: d,
+          official: def.official,
+          status: "PENDENTE"
+        };
+      }
+
+      return {
+        key: def.key,
+        label: def.label,
+        name: def.name,
+        dias: null,
+        official: def.official,
+        status: endStatus
+      };
+    });
+
+    // Regra 1, 3, 4, 7: O gargalo é calculado APENAS sobre as fases oficiais (D1_D1E até D8_D9)
+    // E APENAS para fases que NÃO são "NAO REGISTRADA" e possuem dias > 0
+    let max = { key: "NONE", label: "-", name: "Nenhum", dias: 0 };
     for (const phase of phases) {
-      if (phase && (phase.dias || 0) > (max.dias || 0)) {
-        max = phase;
+      if (phase.official && phase.dias !== null && phase.dias > (max.dias || 0)) {
+        max = { key: phase.key, label: phase.label, name: phase.name, dias: phase.dias };
       }
     }
-    return { phases, topGargalo: max || { key: "NONE", label: "-", name: "Nenhum", dias: 0 } };
-  }, [calculateDaysBetween, getVal]);
+    return { phases, topGargalo: max };
+  }, [calculateDaysBetween, getStepStatusInfo, getVal]);
 
   const getGargaloForRecord = useCallback((record: MetasData) => {
     return getPhasesForRecord(record)?.topGargalo || { key: "NONE", label: "-", name: "Nenhum", dias: 0 };
   }, [getPhasesForRecord]);
 
-  // Calculate chart data & KPIs considerando as 9 transições completas
+  // Calculate chart data & KPIs considerando as 9 transições completas (Regras 1, 2, 3, 7)
   const { chartData, kpis, statuses, gargaloTypes } = useMemo(() => {
     const emptyKpis = {
       total: 0,
@@ -605,7 +708,7 @@ export function MetasDashboardClient() {
       }
 
       const { phases, topGargalo } = getPhasesForRecord(item);
-      if (topGargalo && topGargalo.name) {
+      if (topGargalo && topGargalo.name && topGargalo.key !== "NONE") {
         gargaloSet.add(topGargalo.name);
         gargaloCounts[topGargalo.name] = (gargaloCounts[topGargalo.name] || 0) + 1;
       }
@@ -630,15 +733,15 @@ export function MetasDashboardClient() {
     });
 
     const chartBase = [
-      { name: "D1->D1E", fullName: "Prot.->Escan.", label: "Protocolo -> Escaneamento", key: "D1_D1E", phaseName: "PROTOCOLO -> ESCANEAMENTO" },
-      { name: "D1E->D2", fullName: "Escan.->Contrad.", label: "Escaneamento -> Contraditório", key: "D1E_D2", phaseName: "ESCANEAMENTO -> CONTRADITORIO" },
-      { name: "D2->D3", fullName: "Contrad.->Extr.", label: "Contraditório -> Extrato", key: "D2_D3", phaseName: "CONTRADITORIO -> EXTRATO" },
-      { name: "D3->D4", fullName: "Extr.->Qualif.", label: "Extrato -> Qualificação", key: "D3_D4", phaseName: "EXTRATO -> QUALIFICACAO" },
-      { name: "D4->D5", fullName: "Qualif.->Calc.", label: "Qualificação -> Cálculo", key: "D4_D5", phaseName: "QUALIFICACAO -> CALCULO" },
-      { name: "D5->D8", fullName: "Calc.->Impres.", label: "Cálculo -> Impressão", key: "D5_D8", phaseName: "CALCULO -> IMPRESSAO" },
-      { name: "D8->D9", fullName: "Impres.->Prep.", label: "Impressão -> Preparação", key: "D8_D9", phaseName: "IMPRESSAO -> PREPARACAO" },
-      { name: "D9->D9C", fullName: "Prep.->Conf.", label: "Preparação -> Conferência", key: "D9_D9C", phaseName: "PREPARACAO -> CONFERENCIA" },
-      { name: "D9C->D10", fullName: "Conf.->Entrega", label: "Conferência -> Entrega", key: "D9C_D10", phaseName: "CONFERENCIA -> ENTREGA" },
+      { name: "D1->D1E", fullName: "Prot.->Escan.", label: "Protocolo -> Escaneamento", key: "D1_D1E", phaseName: "PROTOCOLO -> ESCANEAMENTO", official: true },
+      { name: "D1E->D2", fullName: "Escan.->Contrad.", label: "Escaneamento -> Contraditório", key: "D1E_D2", phaseName: "ESCANEAMENTO -> CONTRADITORIO", official: true },
+      { name: "D2->D3", fullName: "Contrad.->Extr.", label: "Contraditório -> Extrato", key: "D2_D3", phaseName: "CONTRADITORIO -> EXTRATO", official: true },
+      { name: "D3->D4", fullName: "Extr.->Qualif.", label: "Extrato -> Qualificação", key: "D3_D4", phaseName: "EXTRATO -> QUALIFICACAO", official: true },
+      { name: "D4->D5", fullName: "Qualif.->Calc.", label: "Qualificação -> Cálculo", key: "D4_D5", phaseName: "QUALIFICACAO -> CALCULO", official: true },
+      { name: "D5->D8", fullName: "Calc.->Impres.", label: "Cálculo -> Impressão", key: "D5_D8", phaseName: "CALCULO -> IMPRESSAO", official: true },
+      { name: "D8->D9", fullName: "Impres.->Prep.", label: "Impressão -> Preparação", key: "D8_D9", phaseName: "IMPRESSAO -> PREPARACAO", official: true },
+      { name: "D9->D9C", fullName: "Prep.->Conf.", label: "Preparação -> Conferência (Histórico)", key: "D9_D9C", phaseName: "PREPARACAO -> CONFERENCIA", official: false },
+      { name: "D9C->D10", fullName: "Conf.->Entrega", label: "Conferência -> Entrega (Histórico)", key: "D9C_D10", phaseName: "CONFERENCIA -> ENTREGA", official: false },
     ].map((item) => {
       const stats = phaseSums[item.key] || { sum: 0, count: 0 };
       const dias = stats.count > 0 ? stats.sum / stats.count : 0;
@@ -649,16 +752,18 @@ export function MetasDashboardClient() {
       };
     });
 
-    const bottleneck = chartBase.reduce((prev, curr) => (
+    const officialChartBase = chartBase.filter(i => i.official);
+    const bottleneck = officialChartBase.reduce((prev, curr) => (
       curr.dias > prev.dias ? curr : prev
-    ), chartBase[0]);
-    const attentionThreshold = bottleneck.dias * 0.5;
+    ), officialChartBase[0] || chartBase[0]);
+    
+    const attentionThreshold = bottleneck ? bottleneck.dias * 0.5 : 0;
     const chart: PhaseChartDatum[] = chartBase.map((item) => ({
       ...item,
-      isBottleneck: item.key === bottleneck.key && bottleneck.dias > 0,
-      status: item.key === bottleneck.key && bottleneck.dias > 0
+      isBottleneck: item.official && bottleneck && item.key === bottleneck.key && bottleneck.dias > 0,
+      status: item.official && bottleneck && item.key === bottleneck.key && bottleneck.dias > 0
         ? "Principal gargalo"
-        : item.dias >= attentionThreshold && item.dias > 0
+        : item.official && item.dias >= attentionThreshold && item.dias > 0
           ? "Atenção"
           : "Fluxo regular",
     }));
@@ -1571,12 +1676,12 @@ export function MetasDashboardClient() {
           { label: "D10_ENTREGA", val: getVal(selectedProtocol, "d10Entrega", "D10_ENTREGA", "D10_ENT") },
         ];
 
-        // Seção 2: Cálculo dos Dias pelas 9 Transições
+        // Seção 2: Cálculo dos Dias pelas 9 Transições (Medição oficial considera apenas fases oficiais)
         const { phases } = getPhasesForRecord(selectedProtocol);
         let totalDiasSoma = 0;
         let temAlgumDia = false;
         phases.forEach(p => {
-          if (p.dias !== null && p.dias !== undefined) {
+          if (p.official && p.dias !== null && p.dias !== undefined) {
             totalDiasSoma += Math.max(0, p.dias);
             temAlgumDia = true;
           }
@@ -1650,14 +1755,29 @@ export function MetasDashboardClient() {
                   </h3>
                   
                   <div className="bg-white/5 border border-white/10 rounded-xl divide-y divide-white/5 text-xs">
-                    {datesMap.map((d, idx) => (
-                      <div key={idx} className="p-3 flex justify-between items-center">
-                        <span className="text-white/60 font-mono">{d.label}:</span>
-                        <span className={`font-medium ${d.val ? 'text-white' : 'text-white/30'}`}>
-                          {formatDate(d.val)}
-                        </span>
-                      </div>
-                    ))}
+                    {datesMap.map((d, idx) => {
+                      const stepStatus = getStepStatusInfo(selectedProtocol, idx);
+                      const isUnregistered = stepStatus === "NAO REGISTRADA";
+
+                      return (
+                        <div key={idx} className="p-3 flex justify-between items-center">
+                          <span className="text-white/60 font-mono">{d.label}:</span>
+                          {d.val ? (
+                            <span className="font-medium text-white">
+                              {formatDate(d.val)}
+                            </span>
+                          ) : isUnregistered ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white/10 text-white/50 border border-white/10">
+                              Não registrada
+                            </span>
+                          ) : (
+                            <span className="font-medium text-white/30">
+                              -
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -1670,15 +1790,27 @@ export function MetasDashboardClient() {
                   <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 text-xs">
                     {phases.map((phase, idx) => {
                       const hasDays = phase.dias !== null && phase.dias !== undefined;
-                      const isGargalo = hasDays && (phase.dias ?? 0) > 3;
+                      const isGargalo = phase.official && hasDays && (phase.dias ?? 0) > 3;
+                      const isUnregistered = phase.status === "NAO REGISTRADA";
 
                       return (
                         <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02]">
-                          <span className="text-white/70 font-medium">{phase.label}</span>
                           <div className="flex items-center gap-2">
-                            <span className={`font-bold ${isGargalo ? "text-rose-300" : hasDays ? "text-white" : "text-white/30"}`}>
-                              {hasDays ? `${phase.dias}d` : "-"}
-                            </span>
+                            <span className="text-white/70 font-medium">{phase.label}</span>
+                            {!phase.official && (
+                              <span className="text-[9px] text-white/40 border border-white/10 px-1.5 py-0.2 rounded">Demonstrativo</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {isUnregistered ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white/10 text-white/50 border border-white/10">
+                                Não registrada
+                              </span>
+                            ) : (
+                              <span className={`font-bold ${isGargalo ? "text-rose-300" : hasDays ? "text-white" : "text-white/30"}`}>
+                                {hasDays ? `${phase.dias}d` : "-"}
+                              </span>
+                            )}
                             {isGargalo && (
                               <span className="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold">
                                 Gargalo
@@ -1691,7 +1823,7 @@ export function MetasDashboardClient() {
 
                     {/* TOTAL */}
                     <div className="pt-3 border-t border-white/10 flex items-center justify-between font-bold text-sm text-white">
-                      <span className="text-purple-300">TOTAL DE DIAS NA ESTEIRA:</span>
+                      <span className="text-purple-300">TOTAL DE DIAS NA ESTEIRA (OFICIAL):</span>
                       <span className="text-purple-400 bg-purple-500/10 border border-purple-500/30 px-3 py-1 rounded-lg">
                         {temAlgumDia ? `${totalDiasSoma} dias` : '-'}
                       </span>

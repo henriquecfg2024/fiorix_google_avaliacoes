@@ -2,10 +2,7 @@ import React from 'react';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { requireAuth } from '@/lib/auth-helpers';
 import { ReviewItemCard } from '@/components/avaliacoes/ReviewItemCard';
-import { MessageSquare, CheckCircle, Clock, Search, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,433 +11,94 @@ export default async function AvaliacoesPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  let user;
-  try {
-    user = await requireAuth();
-  } catch {
-    redirect('/login');
-  }
-  const tenantId = user.tenantId;
+  const session = await auth();
+  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
 
   const rawStatus = Array.isArray(searchParams?.status) ? searchParams.status[0] : searchParams?.status;
   const statusFilter = typeof rawStatus === 'string' ? rawStatus : undefined;
 
   const rawRating = Array.isArray(searchParams?.rating) ? searchParams.rating[0] : searchParams?.rating;
   const parsedRating = typeof rawRating === 'string' ? parseInt(rawRating, 10) : undefined;
-  const ratingFilter = parsedRating && !isNaN(parsedRating) ? parsedRating : undefined;
-
-  const rawColab = Array.isArray(searchParams?.colaborador) ? searchParams.colaborador[0] : searchParams?.colaborador;
-  const colabFilter = typeof rawColab === 'string' ? rawColab : undefined;
-
+  const ratingFilter = (parsedRating && !isNaN(parsedRating)) ? parsedRating : undefined;
   const rawSearch = Array.isArray(searchParams?.search) ? searchParams.search[0] : searchParams?.search;
   const searchQuery = typeof rawSearch === 'string' ? rawSearch.trim() : undefined;
 
-  const whereClause: any = { tenantId, deletedFromGoogle: false };
+  const whereClause: any = { tenantId };
   if (statusFilter === 'PENDING') whereClause.status = 'PENDING';
   if (statusFilter === 'RESPONDED') whereClause.status = 'RESPONDED';
   if (ratingFilter) whereClause.rating = ratingFilter;
-  if (searchQuery) whereClause.comment = { contains: searchQuery, mode: 'insensitive' };
-  if (colabFilter) whereClause.comment = { contains: colabFilter, mode: 'insensitive' };
+  if (searchQuery) {
+    whereClause.comment = { contains: searchQuery, mode: 'insensitive' };
+  }
 
-  const rawPage = Array.isArray(searchParams?.page) ? searchParams.page[0] : searchParams?.page;
-  const currentPage = Math.max(1, parseInt(typeof rawPage === 'string' ? rawPage : '1', 10) || 1);
-  const rawLimit = Array.isArray(searchParams?.limit) ? searchParams.limit[0] : searchParams?.limit;
-  const pageSize = Math.max(10, parseInt(typeof rawLimit === 'string' ? rawLimit : '10', 10) || 10);
-  const skip = (currentPage - 1) * pageSize;
-
-  let dbReviews: any[] = [];
-  let totalCount = 547;
-  let totalFilteredCount = 547;
+  let reviews: any[] = [];
+  let totalCount = 0;
   let pendingCount = 0;
-  let respondedCount = 547;
+  let respondedCount = 0;
 
   try {
-    const dbTotal = await prisma.review.count({ where: { tenantId, deletedFromGoogle: false } });
-    if (dbTotal > 0) {
-      totalCount = dbTotal;
-      totalFilteredCount = await prisma.review.count({ where: whereClause });
-      pendingCount = await prisma.review.count({ where: { tenantId, status: 'PENDING', deletedFromGoogle: false } });
-      respondedCount = await prisma.review.count({ where: { tenantId, status: 'RESPONDED', deletedFromGoogle: false } });
+    reviews = await prisma.review.findMany({
+      where: whereClause,
+      include: {
+        response: true
+      },
+      orderBy: { publishedAt: 'desc' },
+    });
 
-      dbReviews = await prisma.review.findMany({
-        where: whereClause,
-        include: { response: true },
-        orderBy: { publishedAt: 'desc' },
-        skip,
-        take: pageSize,
-      });
-    }
+    totalCount = await prisma.review.count({ where: { tenantId } });
+    pendingCount = await prisma.review.count({ where: { tenantId, status: 'PENDING' } });
+    respondedCount = await prisma.review.count({ where: { tenantId, status: 'RESPONDED' } });
   } catch (err) {
     console.error('Error fetching reviews:', err);
   }
 
-  const mockReviewsSample = [
-    {
-      id: 'mock-1',
-      googleId: 'AbFv0qmQDBmHWPhr_sample1',
-      reviewerName: 'Daniel Costa',
-      rating: 5,
-      comment: null,
-      status: 'RESPONDED',
-      publishedAt: new Date('2026-08-07T15:23:00'),
-      response: {
-        content:
-          'Prezado Daniel Costa, agradecemos imensamente por sua avaliação 5 estrelas! Ficamos honrados em oferecer um atendimento de excelência no 7º Cartório de Imóveis de SP.',
-      },
-    },
-    {
-      id: 'mock-2',
-      googleId: 'AbFv0qmQDBmHWPhr_sample2',
-      reviewerName: 'Cleber A. Coutinho',
-      rating: 5,
-      comment: 'Muito bem atendido pelo Sr Edvan!! Parabéns a toda equipe pela recepção!!!',
-      status: 'RESPONDED',
-      publishedAt: new Date('2026-08-07T11:45:00'),
-      response: {
-        content:
-          'Prezado Cleber A. Coutinho, muito obrigado por registrar sua avaliação positiva! Repassaremos seus elogios diretamente ao escrevente Edvan e a toda nossa recepção.',
-      },
-    },
-    {
-      id: 'mock-3',
-      googleId: 'AbFv0qmQDBmHWPhr_sample3',
-      reviewerName: 'Reinaldo Kosmo',
-      rating: 1,
-      comment:
-        'Solicitei o cancelamento de alienação fiduciária em 21/07. O prazo informado foi de 10 dias úteis conforme prevê as normas da Corregedoria Geral da Justiça do TJ/SP. Hoje é dia 05/08, ultrapassou o prazo legal e o título continua em preparação sem nenhuma justificativa. Absurdo a falta de concorrência e o descaso no atendimento ao cliente.',
-      status: 'RESPONDED',
-      publishedAt: new Date('2026-08-05T09:12:00'),
-      response: {
-        content:
-          'Prezado Reinaldo Kosmo, lamentamos formalmente o transtorno e a demora no cancelamento de alienação fiduciária. Solicitamos que envie o número do seu protocolo para sac@7risp.com.br ou ligue para (11) 3218-0527 para priorizarmos a finalização do seu título imediatamente.',
-      },
-    },
-    {
-      id: 'mock-4',
-      googleId: 'AbFv0qmQDBmHWPhr_sample4',
-      reviewerName: 'Maria Santos',
-      rating: 3,
-      comment: 'Atendimento ok mas a fila estava absurda. Esperei 1h20min para ser chamada.',
-      status: 'RESPONDED',
-      publishedAt: new Date('2026-07-21T14:30:00'),
-      response: {
-        content:
-          'Prezada Maria Santos, agradecemos seu relato. Pedimos sinceras desculpas pelo tempo de espera excessivo em nossa recepção e informamos que já estamos implementando melhorias de triagem.',
-      },
-    },
-    {
-      id: 'mock-5',
-      googleId: 'AbFv0qmQDBmHWPhr_sample5',
-      reviewerName: 'Glória Gomes',
-      rating: 5,
-      comment: 'Gostaria de registrar meu agradecimento pelo excelente atendimento prestado pela Ana.',
-      status: 'RESPONDED',
-      publishedAt: new Date('2026-07-23T16:10:00'),
-      response: {
-        content:
-          'Olá Glória Gomes! Ficamos extremamente felizes com seu reconhecimento ao atendimento prestado pela escrevente Ana. Já repassamos seu elogio a ela. Conte sempre conosco!',
-      },
-    },
-  ];
-
-  let displayReviews = dbReviews.length > 0 ? dbReviews : mockReviewsSample;
-
-  if (dbReviews.length === 0) {
-    if (statusFilter === 'PENDING') displayReviews = displayReviews.filter((r) => r.status === 'PENDING');
-    else if (statusFilter === 'RESPONDED') displayReviews = displayReviews.filter((r) => r.status === 'RESPONDED');
-
-    if (ratingFilter) {
-      displayReviews = ratingFilter === 3 ? displayReviews.filter((r) => r.rating <= 3) : displayReviews.filter((r) => r.rating === ratingFilter);
-    }
-    if (searchQuery) {
-      displayReviews = displayReviews.filter(
-        (r) =>
-          (r.comment || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-          r.reviewerName.toLowerCase().includes(searchQuery.toLowerCase()),
-      );
-    }
-    if (colabFilter) {
-      displayReviews = displayReviews.filter((r) => (r.comment || '').toLowerCase().includes(colabFilter.toLowerCase()));
-    }
-    totalFilteredCount = displayReviews.length;
-  }
-
-  const effectiveTotalCount = dbReviews.length > 0 ? totalFilteredCount : displayReviews.length;
-  const totalPages = Math.max(1, Math.ceil(effectiveTotalCount / pageSize));
-  const startItemIndex = Math.min(skip + 1, effectiveTotalCount);
-  const endItemIndex = Math.min(skip + displayReviews.length, effectiveTotalCount);
-
-  const buildPageUrl = (newPage: number, newLimit?: number) => {
-    const params = new URLSearchParams();
-    if (statusFilter) params.set('status', statusFilter);
-    if (ratingFilter) params.set('rating', String(ratingFilter));
-    if (colabFilter) params.set('colaborador', colabFilter);
-    if (searchQuery) params.set('search', searchQuery);
-    params.set('page', String(newPage));
-    params.set('limit', String(newLimit || pageSize));
-    return `/avaliacoes?${params.toString()}`;
-  };
-
   return (
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-      </div>
-
-      <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-              <span>Dashboard</span>
-              <span className="text-slate-600">/</span>
-              <span>Gestão</span>
-              <span className="text-slate-600">/</span>
-              <span className="text-amber-300">Avaliações</span>
+    <div className="layout" style={{ gridTemplateColumns: '1fr' }}>
+      <div className="center-col">
+        <div className="chart-card">
+          <div className="chart-header">
+            <div>
+              <div className="chart-title">Avaliações do Google Meu Negócio</div>
+              <div className="chart-sub">Gerencie e responda às avaliações recebidas pelo cartório.</div>
             </div>
-            <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                Avaliações do Google
-              </h1>
-              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
-                GOOGLE MY BUSINESS
-              </span>
-            </div>
-          </div>
-
-          <div className="inline-flex flex-wrap gap-1 self-start rounded-xl border border-white/8 bg-white/[0.04] p-1 text-xs font-semibold sm:self-auto">
-              <Link
-                href="/avaliacoes"
-                className={`rounded-lg px-3.5 py-1.5 transition-all ${
-                  !statusFilter ? 'bg-amber-400 font-bold text-slate-950 shadow-sm' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
-                }`}
-              >
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <Link href="/avaliacoes" className={`period-tab ${!statusFilter && !searchQuery ? 'active' : ''}`}>
                 Todas ({totalCount})
               </Link>
-              <Link
-                href="/avaliacoes?status=PENDING"
-                className={`rounded-lg px-3.5 py-1.5 transition-all ${
-                  statusFilter === 'PENDING' ? 'bg-amber-500 font-bold text-slate-950 shadow-sm' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
-                }`}
-              >
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5" />
-                  Aguardando ({pendingCount})
-                </span>
+              <Link href="/avaliacoes?status=PENDING" className={`period-tab ${statusFilter === 'PENDING' ? 'active' : ''}`}>
+                ⏳ Aguardando resposta ({pendingCount})
               </Link>
-              <Link
-                href="/avaliacoes?status=RESPONDED"
-                className={`rounded-lg px-3.5 py-1.5 transition-all ${
-                  statusFilter === 'RESPONDED'
-                    ? 'bg-emerald-600 font-bold text-white shadow-sm'
-                    : 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/16'
-                }`}
-              >
-                <span className="flex items-center gap-1">
-                  <CheckCircle className="h-3.5 w-3.5" />
-                  Respondidas ({respondedCount})
-                </span>
+              <Link href="/avaliacoes?status=RESPONDED" className={`period-tab ${statusFilter === 'RESPONDED' ? 'active' : ''}`}>
+                ✅ Respondidas ({respondedCount})
               </Link>
             </div>
-        </div>
-
-        <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-200">
-            <span>Distribuição de Notas das Avaliações</span>
-            <span className="font-semibold text-slate-400">Nota Média: 4.4 ★</span>
-          </div>
-          <div className="flex h-2 w-full overflow-hidden rounded-full bg-slate-700/80">
-            <div className="h-full bg-emerald-500" style={{ width: '85%' }} title="5★ - 85%" />
-            <div className="h-full bg-emerald-400" style={{ width: '8%' }} title="4★ - 8%" />
-            <div className="h-full bg-amber-400" style={{ width: '3%' }} title="3★ - 3%" />
-            <div className="h-full bg-red-400" style={{ width: '4%' }} title="1-2★ - 4%" />
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold text-slate-400">
-            <span className="flex items-center gap-1 text-emerald-300">● 5★: 85%</span>
-            <span className="flex items-center gap-1 text-emerald-400">● 4★: 8%</span>
-            <span className="flex items-center gap-1 text-amber-300">● 3★: 3%</span>
-            <span className="flex items-center gap-1 text-red-300">● 1-2★: 4%</span>
-          </div>
-        </div>
-
-        <form action="/avaliacoes" method="GET" className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-12">
-          <div className="relative sm:col-span-6">
-            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 transform text-slate-400" />
-            <input
-              type="text"
-              name="search"
-              defaultValue={searchQuery || ''}
-              placeholder="Buscar por nome, comentário ou colaborador..."
-              className="w-full rounded-xl border border-white/10 bg-slate-950/60 py-2 pl-9 pr-4 text-xs text-slate-100 outline-none placeholder:text-slate-500 focus:border-blue-500/40 focus:ring-2 focus:ring-blue-500/30"
-            />
           </div>
 
-          <div className="sm:col-span-3">
-            <select
-              name="rating"
-              defaultValue={ratingFilter ? String(ratingFilter) : ''}
-              className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-xs font-medium text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/30"
-            >
-              <option value="">Todas as Estrelas</option>
-              <option value="5">5 Estrelas (★★★★★)</option>
-              <option value="4">4 Estrelas (★★★★☆)</option>
-              <option value="3">3 Estrelas ou menos (★-★★★)</option>
-            </select>
-          </div>
+          {searchQuery && (
+            <div style={{ marginTop: '16px', padding: '10px 16px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '13px', color: '#1d4ed8', fontWeight: '600' }}>
+                🔍 Filtrando avaliações mencionando: "{searchQuery}" ({reviews.length} resultado{reviews.length !== 1 ? 's' : ''})
+              </span>
+              <Link href="/avaliacoes" style={{ fontSize: '12px', color: '#3b82f6', textDecoration: 'none', fontWeight: '700' }}>
+                ✕ Limpar filtro
+              </Link>
+            </div>
+          )}
 
-          <div className="flex gap-2 sm:col-span-3">
-            <select
-              name="colaborador"
-              defaultValue={colabFilter || ''}
-              className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-xs font-medium text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/30"
-            >
-              <option value="">Todos Colaboradores</option>
-              <option value="Lucas">Lucas</option>
-              <option value="Ana">Ana</option>
-              <option value="Edvan">Edvan</option>
-              <option value="Juliana">Juliana</option>
-              <option value="Sarah">Sarah</option>
-            </select>
-
-            <button type="submit" className="shrink-0 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-blue-500">
-              Filtrar
-            </button>
-          </div>
-        </form>
-
-      {(searchQuery || ratingFilter || colabFilter || statusFilter) && (
-        <div className="flex items-center justify-between rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 px-4 text-xs text-blue-100">
-          <div className="flex items-center gap-2 font-semibold">
-            <Filter className="h-4 w-4 text-blue-400" />
-            <span>
-              Filtros ativos:{' '}
-              {[searchQuery && `Busca: "${searchQuery}"`, ratingFilter && `Nota: ${ratingFilter}★`, colabFilter && `Colaborador: ${colabFilter}`, statusFilter && `Status: ${statusFilter}`]
-                .filter(Boolean)
-                .join(' • ')}
-            </span>
-          </div>
-          <Link href="/avaliacoes" className="font-bold text-blue-300 hover:text-blue-200 hover:underline">
-            ✕ Limpar tudo
-          </Link>
-        </div>
-      )}
-
-      {!displayReviews || displayReviews.length === 0 ? (
-        <div className="space-y-3 rounded-2xl border border-white/10 bg-slate-900/80 p-12 text-center shadow-[0_12px_30px_rgba(2,6,23,0.18)]">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.05] text-slate-400">
-            <MessageSquare className="h-6 w-6" />
-          </div>
-          <h3 className="text-base font-bold text-white">Nenhuma avaliação encontrada</h3>
-          <p className="mx-auto max-w-sm text-xs text-slate-400">
-            Tente remover alguns filtros ou buscar por outro termo para encontrar o registro desejado.
-          </p>
-          <Link href="/avaliacoes" className="inline-block rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.08]">
-            Ver todas as avaliações
-          </Link>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {displayReviews.map((rev) => (
-            <ReviewItemCard key={rev.id} review={rev} />
-          ))}
-        </div>
-      )}
-
-      {/* Unified Pagination Footer */}
-      <div className="flex flex-col items-center justify-between gap-4 rounded-2xl border border-white/12 bg-[#0B1020]/72 px-6 py-3.5 text-white shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl sm:flex-row">
-        {/* Interval text */}
-        <div className="text-xs text-white/60 text-center sm:text-left">
-          Exibindo <strong className="text-white">{startItemIndex.toLocaleString("pt-BR")}</strong> a{" "}
-          <strong className="text-white">{endItemIndex.toLocaleString("pt-BR")}</strong> de{" "}
-          <strong className="text-white">{effectiveTotalCount.toLocaleString("pt-BR")}</strong> avaliações
-        </div>
-
-        {/* Page Controls & Size Selector */}
-        <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
-          {/* Seletor de Tamanho de Página */}
-          <div className="flex items-center gap-1.5 text-xs text-white/60">
-            <span>Exibir:</span>
-            <div className="flex items-center gap-1 rounded-lg border border-white/8 bg-white/[0.04] p-0.5">
-              {[10, 20, 50, 100].map((size) => (
-                <Link
-                  key={size}
-                  href={buildPageUrl(1, size)}
-                  className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
-                    pageSize === size
-                      ? "bg-gradient-to-r from-indigo-500 to-amber-400 font-semibold text-white shadow-xs"
-                      : "text-white/60 hover:text-white"
-                  }`}
-                >
-                  {size}
-                </Link>
+          {reviews.length === 0 ? (
+            <div style={{ marginTop: '20px', padding: '40px', textAlign: 'center', background: '#f8fafc', borderRadius: '12px', color: '#64748b' }}>
+              <p style={{ fontSize: '15px', fontWeight: '500', marginBottom: '8px' }}>Nenhuma avaliação encontrada com estes filtros.</p>
+              <p style={{ fontSize: '13px' }}>Acesse o Dashboard para sincronizar ou importar novas avaliações.</p>
+            </div>
+          ) : (
+            <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {reviews.map((rev) => (
+                <ReviewItemCard key={rev.id} review={rev} />
               ))}
             </div>
-          </div>
-
-          <div className="flex items-center gap-1">
-            {currentPage > 1 ? (
-              <Link
-                href={buildPageUrl(1)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08]"
-                title="Primeira Página"
-              >
-                <ChevronsLeft size={15} />
-              </Link>
-            ) : (
-              <button disabled className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white/30 cursor-not-allowed">
-                <ChevronsLeft size={15} />
-              </button>
-            )}
-
-            {currentPage > 1 ? (
-              <Link
-                href={buildPageUrl(currentPage - 1)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08]"
-                title="Página Anterior"
-              >
-                <ChevronLeft size={15} />
-              </Link>
-            ) : (
-              <button disabled className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white/30 cursor-not-allowed">
-                <ChevronLeft size={15} />
-              </button>
-            )}
-
-            <span className="text-xs px-2 font-medium text-white min-w-[90px] text-center">
-              Página {currentPage.toLocaleString("pt-BR")} de {totalPages.toLocaleString("pt-BR")}
-            </span>
-
-            {currentPage < totalPages ? (
-              <Link
-                href={buildPageUrl(currentPage + 1)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08]"
-                title="Próxima Página"
-              >
-                <ChevronRight size={15} />
-              </Link>
-            ) : (
-              <button disabled className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white/30 cursor-not-allowed">
-                <ChevronRight size={15} />
-              </button>
-            )}
-
-            {currentPage < totalPages ? (
-              <Link
-                href={buildPageUrl(totalPages)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08]"
-                title="Última Página"
-              >
-                <ChevronsRight size={15} />
-              </Link>
-            ) : (
-              <button disabled className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white/30 cursor-not-allowed">
-                <ChevronsRight size={15} />
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
-      </main>
     </div>
   );
 }

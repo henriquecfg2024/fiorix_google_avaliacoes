@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
+    serverComponentsExternalPackages: ['mssql', 'tedious', 'iconv-lite'],
     serverActions: {
       bodySizeLimit: '10mb',
     },

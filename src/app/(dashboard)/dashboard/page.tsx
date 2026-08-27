@@ -1,7 +1,6 @@
 import React from 'react';
 import { prisma } from '@/lib/prisma';
-import { redirect } from 'next/navigation';
-import { requireAuth } from '@/lib/auth-helpers';
+import { auth } from '@/auth';
 
 import { HealthCard } from '@/components/dashboard/HealthCard';
 import { InsightCard } from '@/components/dashboard/InsightCard';
@@ -15,16 +14,11 @@ export default async function Dashboard({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  let user;
-  try {
-    user = await requireAuth();
-  } catch {
-    redirect('/login');
-  }
-  const tenantId = user.tenantId;
+  const session = await auth();
+  const tenantId = (session?.user?.tenantId as string) || 'cartorio-7ri-sp';
 
   // Fetch real data from Prisma
-  const totalReviews = await prisma.review.count({ where: { tenantId, deletedFromGoogle: false } });
+  const totalReviews = await prisma.review.count({ where: { tenantId } });
   const googleConnection = await prisma.googleConnection.findFirst({ where: { tenantId } });
   
   const isConnected = !!googleConnection;
@@ -32,20 +26,19 @@ export default async function Dashboard({
 
   // Real KPI aggregation
   const avgRatingRes = await prisma.review.aggregate({
-    where: { tenantId, deletedFromGoogle: false },
+    where: { tenantId },
     _avg: { rating: true }
   });
   const notaMedia = avgRatingRes._avg.rating || 0;
 
   const pendentes = await prisma.review.count({
-    where: { tenantId, status: 'PENDING', deletedFromGoogle: false }
+    where: { tenantId, status: 'PENDING' }
   });
 
   const respondidasHoje = await prisma.review.count({
     where: {
       tenantId,
       status: 'RESPONDED',
-      deletedFromGoogle: false,
     }
   });
 
@@ -118,9 +111,8 @@ export default async function Dashboard({
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const startOfQuarter = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
-  function getColabRank(fromDate?: Date) {
-    const nameMap = new Map<string, number>();
-    dbColaboradores.forEach((colab) => {
+  const getColabRank = (fromDate?: Date) => {
+    return dbColaboradores.map((colab) => {
       const namesToSearch = [colab.name, ...(colab.aliases || [])].map(n => n.trim().toLowerCase()).filter(Boolean);
       const matchedReviews = allReviews.filter(rev => {
         if (!rev.comment) return false;
@@ -141,16 +133,12 @@ export default async function Dashboard({
       const uniqueReviews = Array.from(combinedReviewsMap.values());
       const elogios = uniqueReviews.filter(rev => rev.rating >= 4 || rev.aiSentiment === 'POSITIVE').length;
 
-      const normName = colab.name.trim();
-      const current = nameMap.get(normName) || 0;
-      nameMap.set(normName, Math.max(current, elogios));
-    });
-
-    return Array.from(nameMap.entries())
-      .map(([nome, elogios]) => ({ nome, elogios }))
-      .sort((a, b) => b.elogios - a.elogios)
-      .slice(0, 5);
-  }
+      return {
+        nome: colab.name,
+        elogios: uniqueReviews.length > 0 ? elogios : 0
+      };
+    }).sort((a, b) => b.elogios - a.elogios).slice(0, 5);
+  };
 
   const monthColaboradores = getColabRank(startOfMonth);
   const quarterColaboradores = getColabRank(startOfQuarter);
@@ -163,92 +151,91 @@ export default async function Dashboard({
   const syncedCount = Array.isArray(rawSynced) ? rawSynced[0] : rawSynced;
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-      </div>
-
-      <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-              <span>Dashboard</span>
-              <span className="text-slate-600">/</span>
-              <span className="text-slate-300">Visão Geral</span>
-            </div>
-            <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                Visão Consolidada
-              </h1>
-              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
-                PAINEL EXECUTIVO
-              </span>
-            </div>
-          </div>
-        </div>
+    <div className="layout">
       {syncError && (
-        <div className="flex items-center gap-3 rounded-[20px] border border-rose-500/20 bg-[#0B1020]/80 px-5 py-4 text-sm text-rose-200 shadow-[0_18px_50px_rgba(0,0,0,0.22)] backdrop-blur-xl">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-rose-500/20 bg-rose-500/10 text-base">!</span>
-          <span><strong>Erro ao Sincronizar com o Google:</strong> {syncError}</span>
+        <div style={{ gridColumn: '1 / -1', background: '#fee2e2', color: '#991b1b', padding: '12px 20px', borderRadius: '12px', fontSize: '14px', marginBottom: '10px', border: '1px solid #fca5a5' }}>
+          ❌ <strong>Erro ao Sincronizar com o Google:</strong> {syncError}
         </div>
       )}
 
       {syncedCount && (
-        <div className="flex items-center gap-3 rounded-[20px] border border-emerald-500/20 bg-[#0B1020]/80 px-5 py-4 text-sm text-emerald-200 shadow-[0_18px_50px_rgba(0,0,0,0.22)] backdrop-blur-xl">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-base">v</span>
-          <span><strong>Sincronização Concluída:</strong> {syncedCount} novas avaliações importadas!</span>
+        <div style={{ gridColumn: '1 / -1', background: '#dcfce7', color: '#166534', padding: '12px 20px', borderRadius: '12px', fontSize: '14px', marginBottom: '10px', border: '1px solid #86efac' }}>
+          🎉 <strong>Sincronização Concluída:</strong> {syncedCount} novas avaliações importadas!
         </div>
       )}
 
       {!isConnected && isDemo && (
-        <div className="flex flex-col items-start justify-between gap-3 rounded-[20px] border border-amber-400/20 bg-[#0B1020]/80 px-5 py-4 text-sm text-amber-100 shadow-[0_18px_50px_rgba(0,0,0,0.22)] backdrop-blur-xl sm:flex-row sm:items-center">
-          <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-base">i</span>
-            <span>
-              <strong>Modo Demonstração:</strong> Como você ainda não conectou o Google Meu Negócio, estamos exibindo dados de exemplo para demonstração do painel.
-            </span>
+        <div style={{ 
+          gridColumn: '1 / -1', 
+          background: '#eff6ff', 
+          color: '#1e3a8a', 
+          padding: '14px 20px', 
+          borderRadius: '12px', 
+          fontSize: '14px', 
+          fontWeight: '500', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          border: '1px solid #bfdbfe', 
+          marginBottom: '10px' 
+        }}>
+          <div>
+            👋 <strong>Modo Demonstração:</strong> Como você ainda não conectou o Google Meu Negócio, estamos exibindo dados fictícios para você conhecer o painel.
           </div>
-          <a
-            href="/configuracoes"
-            className="rounded-xl border border-amber-400/20 bg-amber-400/15 px-4 py-2 text-xs font-bold whitespace-nowrap text-amber-200 transition-colors hover:bg-amber-400/25 self-end sm:self-auto"
-          >
-            Conectar Google &rarr;
+          
+          <a href="/configuracoes" style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'none' }}>
+            Conectar Google
           </a>
         </div>
       )}
 
-      {/* HEALTH CARD TOP SECTION */}
-      <HealthCard />
+      {/* ═══ LEFT ═══ */}
+      <div className="left-col">
+        <HealthCard />
+      </div>
 
-      {/* KPI ROW */}
-      <KpiRow
-        isDemo={isDemo}
-        notaMedia={isDemo ? 4.4 : notaMedia}
-        totalAvaliacoes={isDemo ? 536 : totalReviews}
-        pendentes={isDemo ? 7 : pendentes}
-        respondidasHoje={isDemo ? 12 : respondidasHoje}
-      />
+      {/* ═══ CENTER ═══ */}
+      <div className="center-col">
+        <KpiRow 
+          isDemo={isDemo}
+          notaMedia={isDemo ? 4.4 : notaMedia}
+          totalAvaliacoes={isDemo ? 536 : totalReviews}
+          pendentes={isDemo ? 7 : pendentes}
+          respondidasHoje={isDemo ? 12 : respondidasHoje}
+        />
 
-      {/* MAIN CONTENT GRID: 2 COLUMNS ON DESKTOP */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT COLUMN (7 COLS): CHARTS */}
-        <div className="lg:col-span-7 space-y-6">
+        {/* AREA CHART */}
+        <div className="chart-card">
+          <div className="chart-header">
+            <div>
+              <div className="chart-title">Tendência de Avaliações</div>
+              <div className="chart-sub">Evolução da nota média e volume — últimos 6 meses</div>
+            </div>
+            <div className="period-tabs">
+              <button className="period-tab">7d</button>
+              <button className="period-tab active">30d</button>
+              <button className="period-tab">90d</button>
+              <button className="period-tab">1a</button>
+            </div>
+          </div>
           <TrendChart />
-          <ColaboradoresChart
-            monthData={monthColaboradores}
-            quarterData={quarterColaboradores}
-            totalData={totalColaboradores}
+        </div>
+
+        {/* COLABORADORES CHART */}
+        <div className="chart-card">
+          <ColaboradoresChart 
+            monthData={monthColaboradores} 
+            quarterData={quarterColaboradores} 
+            totalData={totalColaboradores} 
           />
         </div>
-
-        {/* RIGHT COLUMN (5 COLS): REVIEWS & INSIGHTS */}
-        <div className="lg:col-span-5 space-y-6">
-          <ReviewCard reviews={latestReviews} />
-          <InsightCard />
-        </div>
       </div>
-      </main>
+
+      {/* ═══ RIGHT ═══ */}
+      <div className="right-col">
+        <ReviewCard reviews={latestReviews} />
+        <InsightCard />
+      </div>
     </div>
   );
 }

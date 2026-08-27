@@ -3,10 +3,6 @@ import { getUsers, createUser } from '@/app/actions/admin';
 import Link from 'next/link';
 import { UserListTable } from '@/components/configuracoes/UserListTable';
 import { auth } from '@/auth';
-import { ArrowLeft, UserPlus, Users } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 
 export default async function UsuariosConfigPage() {
   const session = await auth();
@@ -14,122 +10,109 @@ export default async function UsuariosConfigPage() {
   const usuarios = await getUsers();
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-      </div>
-
-      <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-              <Link href="/configuracoes" className="hover:text-amber-300 transition-colors">
-                Configurações
-              </Link>
-              <span className="text-slate-600">/</span>
-              <span className="text-amber-300">Usuários</span>
-            </div>
-            <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                Gestão de Usuários do Cartório
-              </h1>
-              <Badge className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-amber-300">
-                CONTROLE DE ACESSO
-              </Badge>
-            </div>
-          </div>
-
-          <Link href="/configuracoes">
-            <Button variant="outline" className="gap-2 border-white/12 bg-white/[0.04] text-white hover:bg-white/[0.08] text-xs">
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Voltar para Configurações
-            </Button>
+    <div className="layout" style={{ gridTemplateColumns: '1fr' }}>
+      <div className="center-col">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+          <Link href="/configuracoes" style={{ fontSize: '14px', color: '#3b82f6', textDecoration: 'none', fontWeight: '500' }}>
+            ← Voltar para Configurações
           </Link>
         </div>
 
-          <form action={createUser} className="mt-4 rounded-2xl border border-white/12 bg-[#0B1020]/80 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] space-y-4">
-            <h4 className="flex items-center gap-2 text-sm font-bold text-white">
-              <UserPlus className="h-4 w-4 text-amber-300" />
-              <span>Cadastrar Novo Usuário</span>
-            </h4>
+        <div className="chart-card" style={{ marginBottom: '24px' }}>
+          <div className="chart-header">
+            <div>
+              <div className="chart-title">Gestão de Usuários do Cartório</div>
+              <div className="chart-sub">Cadastre novos usuários para acessar e operar o sistema FIORIX neste cartório.</div>
+            </div>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-              <div className="md:col-span-3 space-y-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-white/55">
+          <form action={createUser} style={{ marginTop: '20px', background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+            <h4 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '14px', color: '#1e293b' }}>
+              👤 Cadastrar Novo Usuário
+            </h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 150px auto', gap: '12px', alignItems: 'end' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#475569' }}>
                   Nome *
                 </label>
-                <Input
-                  type="text"
-                  name="name"
+                <input 
+                  type="text" 
+                  name="name" 
                   required
                   placeholder="Nome do usuário"
-                  className="border-white/12 bg-white/[0.04] text-white placeholder:text-white/30 focus:border-amber-400/50"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                 />
               </div>
 
-              <div className="md:col-span-3 space-y-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-white/55">
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#475569' }}>
                   E-mail de Acesso *
                 </label>
-                <Input
-                  type="email"
-                  name="email"
+                <input 
+                  type="email" 
+                  name="email" 
                   required
                   placeholder="usuario@cartorio.com.br"
-                  className="border-white/12 bg-white/[0.04] text-white placeholder:text-white/30 focus:border-amber-400/50"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                 />
               </div>
 
-              <div className="md:col-span-2 space-y-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-white/55">
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#475569' }}>
                   Senha Inicial *
                 </label>
-                <Input
-                  type="password"
-                  name="password"
+                <input 
+                  type="password" 
+                  name="password" 
                   required
                   placeholder="••••••••"
-                  className="border-white/12 bg-white/[0.04] text-white placeholder:text-white/30 focus:border-amber-400/50"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                 />
               </div>
 
-              <div className="md:col-span-2 space-y-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-white/55">
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#475569' }}>
                   Função *
                 </label>
                 <select
                   name="role"
                   defaultValue="USER"
-                  className="w-full h-10 px-3 rounded-md border border-white/12 bg-[#0A0F1E] text-sm text-white focus:outline-hidden focus:border-amber-400/50"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', background: 'white' }}
                 >
                   <option value="USER">Usuário (USER)</option>
                   <option value="ADMIN">Admin (ADMIN)</option>
                 </select>
               </div>
 
-              <div className="md:col-span-2">
-                <Button 
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-indigo-500 to-amber-400 font-bold text-white shadow-xs transition-colors hover:brightness-105"
-                >
-                  Cadastrar
-                </Button>
-              </div>
+              <button 
+                type="submit"
+                style={{
+                  background: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  padding: '9px 18px',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Cadastrar Usuário
+              </button>
             </div>
           </form>
+        </div>
 
-        <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-cyan-300" />
-            <h2 className="text-lg font-extrabold text-white">
-              Usuários Ativos ({usuarios.length})
-            </h2>
+        <div className="chart-card">
+          <div className="chart-header" style={{ marginBottom: '16px' }}>
+            <div className="chart-title">Usuários Ativos ({usuarios.length})</div>
           </div>
 
           <UserListTable usuarios={usuarios} currentUserRole={currentUserRole} />
         </div>
-      </main>
+      </div>
     </div>
   );
 }
+

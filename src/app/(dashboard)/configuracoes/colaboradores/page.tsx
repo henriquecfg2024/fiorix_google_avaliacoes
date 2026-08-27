@@ -1,165 +1,176 @@
 import React from 'react';
 import { getColaboradores, addColaborador, toggleColaboradorActive, deleteColaborador } from '@/app/actions/colaboradores';
 import Link from 'next/link';
-import { ArrowLeft, UserPlus, Users, Trash2, Power } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 
 export default async function ColaboradoresConfigPage() {
   const colaboradores = await getColaboradores();
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-      </div>
-
-      <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-              <Link href="/configuracoes" className="hover:text-amber-300 transition-colors">
-                Configurações
-              </Link>
-              <span className="text-slate-600">/</span>
-              <span className="text-amber-300">Colaboradores</span>
-            </div>
-            <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                Gestão de Colaboradores
-              </h1>
-              <Badge className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-amber-300">
-                MONITORAMENTO DE RESENHAS
-              </Badge>
-            </div>
-          </div>
-
-          <Link href="/configuracoes">
-            <Button variant="outline" className="gap-2 border-white/12 bg-white/[0.04] text-white hover:bg-white/[0.08] text-xs">
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Voltar para Configurações
-            </Button>
+    <div className="layout" style={{ gridTemplateColumns: '1fr' }}>
+      <div className="center-col">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+          <Link href="/configuracoes" style={{ fontSize: '14px', color: '#3b82f6', textDecoration: 'none', fontWeight: '500' }}>
+            ← Voltar para Configurações
           </Link>
         </div>
 
-          <form action={addColaborador} className="mt-4 rounded-2xl border border-white/12 bg-[#0B1020]/80 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] space-y-4">
-            <h4 className="flex items-center gap-2 text-sm font-bold text-white">
-              <UserPlus className="h-4 w-4 text-amber-300" />
-              <span>Cadastrar Novo Colaborador</span>
+        <div className="chart-card" style={{ marginBottom: '24px' }}>
+          <div className="chart-header">
+            <div>
+              <div className="chart-title">Gestão de Colaboradores</div>
+              <div className="chart-sub">Cadastre e gerencie todos os colaboradores ativos e inativos avaliados nas resenhas do Google.</div>
+            </div>
+          </div>
+
+          <form action={addColaborador} style={{ marginTop: '20px', background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+            <h4 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '14px', color: '#1e293b' }}>
+              ➕ Cadastrar Novo Colaborador
             </h4>
-            
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-              <div className="md:col-span-5 space-y-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-white/55">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#475569' }}>
                   Nome Completo / Exibição *
                 </label>
-                <Input
-                  type="text"
-                  name="name"
+                <input 
+                  type="text" 
+                  name="name" 
                   required
                   placeholder="Ex: Carlos Eduardo ou Maria Silva"
-                  className="border-white/12 bg-white/[0.04] text-white placeholder:text-white/30 focus:border-amber-400/50"
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
                 />
               </div>
 
-              <div className="md:col-span-5 space-y-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-wider text-white/55">
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#475569' }}>
                   Apelidos / Variações de Nome (separados por vírgula)
                 </label>
-                <Input
-                  type="text"
-                  name="aliases"
+                <input 
+                  type="text" 
+                  name="aliases" 
                   placeholder="Ex: Carlinhos, Cadu"
-                  className="border-white/12 bg-white/[0.04] text-white placeholder:text-white/30 focus:border-amber-400/50"
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
                 />
               </div>
 
-              <div className="md:col-span-2">
-                <Button 
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-indigo-500 to-amber-400 font-bold text-white shadow-xs transition-colors hover:brightness-105"
-                >
-                  Cadastrar
-                </Button>
-              </div>
+              <button 
+                type="submit"
+                style={{
+                  background: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  padding: '9px 18px',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Cadastrar Colaborador
+              </button>
             </div>
           </form>
+        </div>
 
-        <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-cyan-300" />
-            <h2 className="text-lg font-extrabold text-white">
-              Colaboradores Cadastrados ({colaboradores.length})
-            </h2>
+        <div className="chart-card">
+          <div className="chart-header" style={{ marginBottom: '16px' }}>
+            <div className="chart-title">Colaboradores Cadastrados ({colaboradores.length})</div>
           </div>
 
           {colaboradores.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-white/20 bg-white/[0.02] p-8 text-center text-sm text-white/50">
+            <div style={{ padding: '30px', textAlign: 'center', color: '#64748b', fontSize: '14px', background: '#f8fafc', borderRadius: '8px' }}>
               Nenhum colaborador cadastrado ainda. Preencha o formulário acima para adicionar o primeiro.
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-white/12">
-              <table className="w-full min-w-[640px] border-collapse text-left text-xs">
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'left' }}>
                 <thead>
-                  <tr className="border-b border-white/12 bg-[#0B1020] text-[11px] font-bold uppercase tracking-[0.16em] text-white/58">
-                    <th className="p-3 pl-5 sm:p-4">Nome</th>
-                    <th className="p-3 sm:p-4">Apelidos / Variações</th>
-                    <th className="p-3 sm:p-4">Status</th>
-                    <th className="p-3 pr-5 text-right sm:p-4">Ações</th>
+                  <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#64748b', fontSize: '12px', textTransform: 'uppercase' }}>
+                    <th style={{ padding: '12px 16px' }}>Nome</th>
+                    <th style={{ padding: '12px 16px' }}>Apelidos / Variações</th>
+                    <th style={{ padding: '12px 16px' }}>Status</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/8 font-medium text-white/80">
+                <tbody>
                   {colaboradores.map((colab) => (
-                    <tr key={colab.id} className="hover:bg-white/[0.03] transition-colors">
-                      <td className="p-3 pl-5 font-bold text-white sm:p-4">
+                    <tr key={colab.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '14px 16px', fontWeight: '600', color: '#1e293b' }}>
                         {colab.name}
                       </td>
-                      <td className="p-3 sm:p-4 text-white/60">
+                      <td style={{ padding: '14px 16px', color: '#64748b' }}>
                         {colab.aliases && colab.aliases.length > 0 ? (
-                          <div className="flex flex-wrap gap-1.5">
+                          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                             {colab.aliases.map((alias, i) => (
-                              <span key={i} className="rounded-lg border border-white/12 bg-white/[0.04] px-2 py-0.5 text-[11px] text-white/80">
+                              <span key={i} style={{ background: '#e2e8f0', color: '#334155', padding: '2px 8px', borderRadius: '4px', fontSize: '12px' }}>
                                 {alias}
                               </span>
                             ))}
                           </div>
                         ) : (
-                          <span className="italic text-white/40">Sem apelidos</span>
+                          <span style={{ fontStyle: 'italic', opacity: 0.6 }}>Sem apelidos</span>
                         )}
                       </td>
-                      <td className="p-3 sm:p-4">
-                        <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-extrabold uppercase ${
-                          colab.active
-                            ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
-                            : 'border-red-500/20 bg-red-500/10 text-red-300'
-                        }`}>
+                      <td style={{ padding: '14px 16px' }}>
+                        <span style={{
+                          padding: '4px 10px',
+                          borderRadius: '20px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          background: colab.active ? '#dcfce7' : '#fee2e2',
+                          color: colab.active ? '#166534' : '#991b1b',
+                        }}>
                           {colab.active ? 'Ativo' : 'Inativo'}
                         </span>
                       </td>
-                      <td className="p-3 pr-5 text-right sm:p-4">
-                        <div className="flex items-center justify-end gap-2">
+                      <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                           <form action={toggleColaboradorActive.bind(null, colab.id, colab.active)}>
-                            <Button
+                            <button
                               type="submit"
-                              variant="outline"
-                              size="sm"
-                              className="h-8 border-white/12 bg-white/[0.04] px-3 text-xs font-semibold text-white/80 hover:bg-white/[0.08] hover:text-white"
+                              style={{
+                                border: '1px solid #cbd5e1',
+                                background: 'white',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                color: '#475569'
+                              }}
                             >
                               {colab.active ? 'Desativar' : 'Ativar'}
-                            </Button>
+                            </button>
                           </form>
 
                           <form action={deleteColaborador.bind(null, colab.id)}>
-                            <Button
+                            <button
                               type="submit"
-                              variant="outline"
-                              size="sm"
-                              className="h-8 border-red-500/30 bg-red-500/10 px-3 text-xs font-semibold text-red-300 hover:bg-red-500/20 hover:text-red-200"
+                              style={{
+                                border: '1px solid #fca5a5',
+                                background: '#fef2f2',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                color: '#dc2626'
+                              }}
                             >
                               Excluir
-                            </Button>
+                            </button>
                           </form>
                         </div>
                       </td>
@@ -170,7 +181,7 @@ export default async function ColaboradoresConfigPage() {
             </div>
           )}
         </div>
-      </main>
+      </div>
     </div>
   );
 }

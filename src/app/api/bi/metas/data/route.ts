@@ -193,6 +193,16 @@ export async function GET(request: Request) {
         diasD4D5: getVal("DIAS_D4_D5", "dias_d4_d5", "diasD4D5") !== null ? Number(getVal("DIAS_D4_D5", "dias_d4_d5", "diasD4D5")) : null,
         diasD5D8: getVal("DIAS_D5_D8", "dias_d5_d8", "diasD5D8") !== null ? Number(getVal("DIAS_D5_D8", "dias_d5_d8", "diasD5D8")) : null,
         diasD8D9: getVal("DIAS_D8_D9", "dias_d8_d9", "diasD8D9") !== null ? Number(getVal("DIAS_D8_D9", "dias_d8_d9", "diasD8D9")) : null,
+        
+        statusD1Protocolo: getVal("STATUS_D1_PROTOCOLO", "status_d1_protocolo", "statusD1Protocolo"),
+        statusD1Escaneamento: getVal("STATUS_D1_ESCANEAMENTO", "status_d1_escaneamento", "statusD1Escaneamento"),
+        statusD2Contraditorio: getVal("STATUS_D2_CONTRADITORIO", "status_d2_contraditorio", "statusD2Contraditorio"),
+        statusD3Extrato: getVal("STATUS_D3_EXTRATO", "status_d3_extrato", "statusD3Extrato"),
+        statusD4Qualificacao: getVal("STATUS_D4_QUALIFICACAO", "status_d4_qualificacao", "statusD4Qualificacao"),
+        statusD5Calculo: getVal("STATUS_D5_CALCULO", "status_d5_calculo", "statusD5Calculo"),
+        statusD8Impressao: getVal("STATUS_D8_IMPRESSAO", "status_d8_impressao", "statusD8Impressao"),
+        statusD9Preparacao: getVal("STATUS_D9_PREPARACAO", "status_d9_preparacao", "statusD9Preparacao"),
+        statusMedicao: getVal("STATUS_MEDICAO", "status_medicao", "statusMedicao"),
       };
     };
 

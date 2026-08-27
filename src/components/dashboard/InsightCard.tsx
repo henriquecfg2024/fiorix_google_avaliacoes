@@ -1,57 +1,36 @@
 import React from 'react';
-import { Bot, AlertTriangle, Sparkles, Calendar, ThumbsUp, Zap } from 'lucide-react';
 
 export function InsightCard() {
   return (
-    <div className="space-y-4 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
-      <div className="flex items-center gap-2 text-cyan-300">
-        <Bot className="h-5 w-5 text-cyan-300" />
-        <h3 className="text-card-title font-bold">Insights da IA</h3>
+    <div className="insight-card" style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      <div className="insight-header">
+        <span className="insight-icon">🤖</span>
+        <span className="insight-label">INSIGHTS DA IA</span>
       </div>
-
-      <div className="space-y-1 rounded-xl border border-amber-500/14 bg-amber-500/[0.035] p-3.5 backdrop-blur-sm">
-        <div className="flex items-center gap-1.5 text-indicator-label font-bold text-amber-100">
-          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-300" />
-          <span>Alerta de Atendimento</span>
-        </div>
-        <p className="text-body-reading text-[#E5E7EB]">
-          Reclamações sobre tempo de espera na fila subiram{' '}
-          <strong className="font-extrabold text-rose-300">+40%</strong> este mês. Recomendamos otimizar a triagem
-          inicial na recepção.
-        </p>
+      
+      <div className="insight-text" style={{ fontSize: '13.5px', lineHeight: '1.6', marginBottom: '4px', background: '#ffffff', padding: '12px 14px', borderRadius: '10px', border: '1px solid #bfdbfe' }}>
+        📢 <strong>Alerta de Atendimento:</strong> As <strong>reclamações sobre tempo de espera na fila</strong> subiram <strong style={{ color: '#ef4444', fontWeight: '700' }}>+40%</strong> este mês. Recomendamos otimizar a triagem inicial na recepção.
       </div>
-
-      <div className="space-y-2">
-        <div className="flex items-start gap-2.5 rounded-lg border border-emerald-500/12 bg-emerald-500/[0.03] p-2.5">
-          <ThumbsUp className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
-          <p className="text-body-reading text-[#E5E7EB]">
-            <strong className="text-slate-100">Elogio Lucas:</strong> O escrevente <strong>Lucas</strong> foi citado com
-            elogios em <strong className="font-bold text-emerald-300">47 avaliações positivas</strong> este mês.
-          </p>
+      
+      <div className="insight-list" style={{ gap: '12px', display: 'flex', flexDirection: 'column' }}>
+        <div className="insight-item">
+          <div className="dot" style={{ background: '#10b981' }}></div>
+          <span>👏 <strong>Elogio em Destaque:</strong> O escrevente <strong>Lucas</strong> foi citado com <strong>elogios em 47 avaliações positivas</strong> este mês.</span>
         </div>
 
-        <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/12 bg-amber-500/[0.03] p-2.5">
-          <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
-          <p className="text-body-reading text-[#E5E7EB]">
-            <strong className="text-slate-100">Padrão Segunda:</strong> Notas dadas às <strong>segundas-feiras</strong>{' '}
-            são em média <strong className="font-bold text-amber-300">-0,4★ menores</strong> que nos outros dias.
-          </p>
+        <div className="insight-item">
+          <div className="dot" style={{ background: '#f59e0b' }}></div>
+          <span>📅 <strong>Padrão Semanal:</strong> As notas dadas pelos clientes às <strong>segundas-feiras</strong> são em média <strong>0,4★ menores</strong> que nos outros dias.</span>
         </div>
 
-        <div className="flex items-start gap-2.5 rounded-lg border border-rose-500/12 bg-rose-500/[0.03] p-2.5">
-          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
-          <p className="text-body-reading text-[#E5E7EB]">
-            <strong className="text-slate-100">Motivo Agendamento:</strong> Agendamento online foi a causa apontada em{' '}
-            <strong className="font-bold text-rose-300">70% das 3★</strong>.
-          </p>
+        <div className="insight-item">
+          <div className="dot" style={{ background: '#ef4444' }}></div>
+          <span>⚠️ <strong>Motivo de Insatisfação:</strong> Reclamações sobre o <strong>sistema de agendamento online</strong> foram a causa apontada em <strong>70% das avaliações de 3★</strong>.</span>
         </div>
 
-        <div className="flex items-start gap-2.5 rounded-lg border border-cyan-500/12 bg-cyan-500/[0.03] p-2.5">
-          <Zap className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />
-          <p className="text-body-reading text-[#E5E7EB]">
-            <strong className="text-slate-100">Impacto SLA:</strong> Respostas enviadas em &lt;24h elevam a satisfação em{' '}
-            <strong className="font-bold text-cyan-300">+35%</strong>.
-          </p>
+        <div className="insight-item">
+          <div className="dot" style={{ background: '#3b82f6' }}></div>
+          <span>💡 <strong>Impacto do SLA de Resposta:</strong> Respostas enviadas aos clientes em menos de 24 horas elevam a satisfação percebida em <strong>+35%</strong>.</span>
         </div>
       </div>
     </div>

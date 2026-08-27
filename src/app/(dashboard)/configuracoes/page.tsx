@@ -1,11 +1,8 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { ensureSyncLogTable } from '@/lib/sync-log-db';
-import { GoogleAuthButton } from '@/components/configuracoes/GoogleAuthButton';
+import { auth } from '@/auth';
 import { PasswordForm } from '@/components/configuracoes/PasswordForm';
-import { SyncButton } from '@/components/configuracoes/SyncButton';
+import { redirect } from 'next/navigation';
 
 export default async function ConfiguracoesPage({
   searchParams,
@@ -16,24 +13,15 @@ export default async function ConfiguracoesPage({
   const tenantId = session?.user?.tenantId as string | undefined;
   const userRole = session?.user?.role as string | undefined;
 
-  if (!userRole) {
+  if (!userRole || userRole === 'USER') {
     redirect('/dashboard');
   }
 
-  const isUserOnly = userRole === 'USER';
-
   let connection = null;
-  let syncLogs: Array<any> = [];
-  if (tenantId && !isUserOnly) {
+  if (tenantId) {
     try {
-      await ensureSyncLogTable();
       connection = await prisma.googleConnection.findFirst({
-        where: { tenantId },
-      });
-      syncLogs = await prisma.syncLog.findMany({
-        where: { tenantId },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
+        where: { tenantId }
       });
     } catch (e) {
       console.error('Error fetching google connection:', e);
@@ -48,215 +36,164 @@ export default async function ConfiguracoesPage({
   const errorDetails = Array.isArray(rawDetails) ? rawDetails[0] : rawDetails;
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-      </div>
-
-      <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-              <span>Dashboard</span>
-              <span className="text-slate-600">/</span>
-              <span>Sistema</span>
-              <span className="text-slate-600">/</span>
-              <span className="text-amber-300">Configurações</span>
-            </div>
-            <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                Configurações Gerais
-              </h1>
-              <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-amber-300">
-                PREFERÊNCIAS & INTEGRAÇÕES
-              </span>
+    <div className="layout" style={{ gridTemplateColumns: '1fr' }}>
+      <div className="center-col">
+        <div className="chart-card">
+          <div className="chart-header">
+            <div>
+              <div className="chart-title">Configurações Gerais</div>
+              <div className="chart-sub">Integrações, Usuários, Cartórios e Preferências do Sistema</div>
             </div>
           </div>
-        </div>
 
-        {isUserOnly ? (
-          <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-            <h2 className="text-lg font-semibold text-white">🔑 Segurança e Alteração de Senha</h2>
-            <p className="mt-1 text-sm text-white/55">
+          {/* GOOGLE INTEGRATION */}
+          <div style={{ marginTop: '20px', padding: '20px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#f8fafc' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px', color: '#1e293b' }}>
+              🌐 Integração com Google Meu Negócio
+            </h3>
+            <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '20px' }}>
+              Conecte sua conta do Google para buscar avaliações automaticamente e permitir respostas diretas pelo painel do FIORIX.
+            </p>
+
+            {errorMsg && (
+              <div style={{ marginBottom: '15px', padding: '10px', background: '#fee2e2', color: '#991b1b', borderRadius: '8px', fontSize: '14px' }}>
+                <strong>Erro na Autenticação:</strong> {errorMsg}
+                {errorDetails && <div style={{ marginTop: '5px', fontSize: '12px', opacity: 0.8 }}>{errorDetails}</div>}
+              </div>
+            )}
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ 
+                padding: '8px 12px', 
+                borderRadius: '8px', 
+                fontSize: '14px', 
+                fontWeight: '600',
+                background: isConnected ? '#dcfce7' : '#f1f5f9',
+                color: isConnected ? '#166534' : '#475569'
+              }}>
+                Status: {isConnected ? '✅ Conectado' : '❌ Não conectado'}
+              </div>
+
+              {isConnected ? (
+                <>
+                  <a href="/api/sync-reviews" style={{ 
+                    background: '#2563eb', color: 'white', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px'
+                  }}>
+                    🔄 Sincronizar Avaliações Agora
+                  </a>
+
+                  {userRole === 'MASTER' ? (
+                    <Link href="/api/auth/google" style={{ 
+                      background: '#f1f5f9', color: '#475569', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', textDecoration: 'none', border: '1px solid #cbd5e1'
+                    }}>
+                      Reconectar Conta Google
+                    </Link>
+                  ) : (
+                    <span style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic', background: '#e2e8f0', padding: '6px 12px', borderRadius: '8px' }}>
+                      🔒 Conexão gerenciada pelo MASTER
+                    </span>
+                  )}
+                </>
+              ) : (
+                userRole === 'MASTER' ? (
+                  <Link href="/api/auth/google" style={{ 
+                    background: '#3b82f6', color: 'white', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', fontWeight: '600', textDecoration: 'none'
+                  }}>
+                    Conectar Conta Google
+                  </Link>
+                ) : (
+                  <span style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic', background: '#e2e8f0', padding: '6px 12px', borderRadius: '8px' }}>
+                    🔒 Conexão gerenciada pelo MASTER
+                  </span>
+                )
+              )}
+            </div>
+          </div>
+
+          {/* GESTÃO DE COLABORADORES */}
+          <div style={{ marginTop: '20px', padding: '20px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#f8fafc' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px', color: '#1e293b' }}>
+              👥 Gestão de Colaboradores
+            </h3>
+            <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '20px' }}>
+              Cadastre os colaboradores do cartório e seus respectivos apelidos/variações de nome para monitoramento e análise de menções em resenhas.
+            </p>
+
+            <Link href="/configuracoes/colaboradores" style={{ 
+              display: 'inline-block',
+              background: '#0f172a', 
+              color: 'white', 
+              padding: '8px 16px', 
+              borderRadius: '8px', 
+              fontSize: '14px', 
+              fontWeight: '600', 
+              textDecoration: 'none'
+            }}>
+              Gerenciar Colaboradores →
+            </Link>
+          </div>
+
+          {/* GESTÃO DE USUÁRIOS */}
+          <div style={{ marginTop: '20px', padding: '20px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#f8fafc' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px', color: '#1e293b' }}>
+              👤 Gestão de Usuários do Cartório
+            </h3>
+            <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '20px' }}>
+              Cadastre novos usuários (funcionários/equipe) para acessar o painel do FIORIX neste cartório.
+            </p>
+
+            <Link href="/configuracoes/usuarios" style={{ 
+              display: 'inline-block',
+              background: '#0f172a', 
+              color: 'white', 
+              padding: '8px 16px', 
+              borderRadius: '8px', 
+              fontSize: '14px', 
+              fontWeight: '600', 
+              textDecoration: 'none'
+            }}>
+              Gerenciar Usuários →
+            </Link>
+          </div>
+
+          {/* GESTÃO DE CARTÓRIOS (MULTI-TENANT / MASTER ONLY) */}
+          {userRole === 'MASTER' && (
+            <div style={{ marginTop: '20px', padding: '20px', border: '1px solid #dcfce7', borderRadius: '12px', background: '#f0fdf4' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px', color: '#166534' }}>
+                🏢 Gestão de Cartórios Clientes (Exclusivo Master)
+              </h3>
+              <p style={{ fontSize: '14px', color: '#15803d', marginBottom: '20px' }}>
+                Cadastre novos Cartórios (Tenants) no sistema SaaS e defina a conta de usuário Administrador de cada um.
+              </p>
+
+              <Link href="/configuracoes/cartorios" style={{ 
+                display: 'inline-block',
+                background: '#16a34a', 
+                color: 'white', 
+                padding: '8px 16px', 
+                borderRadius: '8px', 
+                fontSize: '14px', 
+                fontWeight: '600', 
+                textDecoration: 'none'
+              }}>
+                Cadastrar Novos Cartórios →
+              </Link>
+            </div>
+          )}
+
+          {/* ALTERAÇÃO DE SENHA */}
+          <div style={{ marginTop: '20px', padding: '20px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#f8fafc' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px', color: '#1e293b' }}>
+              🔑 Segurança e Alteração de Senha
+            </h3>
+            <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '20px' }}>
               Atualize a sua senha de acesso ao painel do FIORIX a qualquer momento.
             </p>
 
-            <div className="mt-5">
-              <PasswordForm />
-            </div>
-          </section>
-        ) : (
-          <>
-            <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-              <h2 className="text-lg font-semibold text-white">Histórico de sincronizações</h2>
-              <p className="mt-1 text-sm text-white/55">
-                Acompanhe as últimas consultas feitas ao Google.
-              </p>
-
-              {syncLogs.length === 0 ? (
-                <div className="mt-4 text-sm text-white/55">Nenhuma sincronização registrada ainda.</div>
-              ) : (
-                <div className="mt-4 overflow-x-auto rounded-2xl border border-white/12">
-                  <table className="w-full min-w-[780px] text-sm">
-                    <thead className="bg-[#0B1020] text-xs uppercase tracking-wider text-white/58 border-b border-white/12">
-                      <tr>
-                        <th className="px-4 py-3 text-left font-medium">Data</th>
-                        <th className="px-4 py-3 text-left font-medium">Status</th>
-                        <th className="px-4 py-3 text-left font-medium">Encontradas</th>
-                        <th className="px-4 py-3 text-left font-medium">Importadas</th>
-                        <th className="px-4 py-3 text-left font-medium">Duração</th>
-                        <th className="px-4 py-3 text-left font-medium">Detalhe</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/8 font-medium text-white/80">
-                      {syncLogs.map((log) => {
-                        const statusLabel =
-                          {
-                            COMPLETED: 'Concluída',
-                            FAILED: 'Erro',
-                            TIMEOUT: 'Timeout',
-                            RUNNING: 'Em andamento',
-                          }[log.status as string] || log.status;
-
-                        const statusClass =
-                          log.status === 'COMPLETED'
-                            ? 'text-[#10d9a0]'
-                            : log.status === 'RUNNING'
-                              ? 'text-amber-300'
-                              : 'text-red-300';
-
-                        return (
-                          <tr key={log.id} className="text-white/80 hover:bg-white/[0.03] transition-colors">
-                            <td className="px-4 py-3 whitespace-nowrap">
-                              {new Date(log.createdAt).toLocaleString('pt-BR')}
-                            </td>
-                            <td className={`px-4 py-3 font-semibold ${statusClass}`}>{statusLabel}</td>
-                            <td className="px-4 py-3">{log.reviewsFetched}</td>
-                            <td className="px-4 py-3">{log.reviewsImported}</td>
-                            <td className="px-4 py-3">
-                              {log.durationMs ? `${(log.durationMs / 1000).toFixed(1)}s` : '—'}
-                            </td>
-                            <td className="px-4 py-3 max-w-[260px] text-white/55">
-                              {log.errorMessage || '—'}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-              <h2 className="text-lg font-semibold text-white">🌐 Integração com Google Meu Negócio</h2>
-              <p className="mt-1 text-sm text-white/55">
-                Conecte sua conta do Google para buscar avaliações automaticamente e permitir respostas diretas pelo painel do FIORIX.
-              </p>
-
-              {errorMsg && (
-                <div className="mt-4 rounded-xl border border-red-500/25 bg-red-500/10 p-3 text-sm text-red-200">
-                  <strong>Erro na autenticação:</strong> {typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)}
-                  {errorDetails && (
-                    <div className="mt-1 text-xs text-red-200/80">
-                      {typeof errorDetails === 'string' ? errorDetails : JSON.stringify(errorDetails)}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="mt-5 flex flex-wrap items-center gap-3">
-                <div
-                  className={`rounded-xl border px-3 py-2 text-sm font-semibold ${
-                    isConnected
-                      ? 'border-emerald-500/30 bg-emerald-500/10 text-[#10d9a0]'
-                      : 'border-white/12 bg-white/[0.04] text-white/70'
-                  }`}
-                >
-                  Status: {isConnected ? '✅ Conectado' : '❌ Não conectado'}
-                </div>
-
-                {isConnected ? (
-                  <>
-                    <SyncButton />
-                    {userRole === 'MASTER' ? (
-                      <GoogleAuthButton label="Reconectar Conta Google" />
-                    ) : (
-                      <span className="rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2 text-sm italic text-white/55">
-                        🔒 Conexão gerenciada pelo MASTER
-                      </span>
-                    )}
-                  </>
-                ) : userRole === 'MASTER' ? (
-                  <GoogleAuthButton label="Conectar Conta Google" />
-                ) : (
-                  <span className="rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2 text-sm italic text-white/55">
-                    🔒 Conexão gerenciada pelo MASTER
-                  </span>
-                )}
-              </div>
-            </section>
-
-            <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-              <h2 className="text-lg font-semibold text-white">👥 Gestão de Colaboradores</h2>
-              <p className="mt-1 text-sm text-white/55">
-                Cadastre os colaboradores do cartório e seus respectivos apelidos/variações de nome para monitoramento e análise de menções em resenhas.
-              </p>
-
-              <Link
-                href="/configuracoes/colaboradores"
-                className="mt-5 inline-flex rounded-xl border border-white/12 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
-              >
-                Gerenciar Colaboradores →
-              </Link>
-            </section>
-
-            <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-              <h2 className="text-lg font-semibold text-white">👤 Gestão de Usuários do Cartório</h2>
-              <p className="mt-1 text-sm text-white/55">
-                Cadastre novos usuários (funcionários/equipe) para acessar o painel do FIORIX neste cartório.
-              </p>
-
-              <Link
-                href="/configuracoes/usuarios"
-                className="mt-5 inline-flex rounded-xl border border-white/12 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
-              >
-                Gerenciar Usuários →
-              </Link>
-            </section>
-
-            {userRole === 'MASTER' && (
-              <section className="rounded-[28px] border border-emerald-500/25 bg-emerald-500/10 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-                <h2 className="text-lg font-semibold text-[#10d9a0]">
-                  🏢 Gestão de Cartórios Clientes (Exclusivo Master)
-                </h2>
-                <p className="mt-1 text-sm text-emerald-100/80">
-                  Cadastre novos cartórios (tenants) no sistema SaaS e defina a conta de usuário administrador de cada um.
-                </p>
-
-                <Link
-                  href="/configuracoes/cartorios"
-                  className="mt-5 inline-flex rounded-xl bg-[#00C950] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#00A844]"
-                >
-                  Cadastrar Novos Cartórios →
-                </Link>
-              </section>
-            )}
-
-            <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-              <h2 className="text-lg font-semibold text-white">🔑 Segurança e Alteração de Senha</h2>
-              <p className="mt-1 text-sm text-white/55">
-                Atualize a sua senha de acesso ao painel do FIORIX a qualquer momento.
-              </p>
-
-              <div className="mt-5">
-                <PasswordForm />
-              </div>
-            </section>
-          </>
-        )}
-      </main>
+            <PasswordForm />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

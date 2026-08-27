@@ -3,9 +3,6 @@ import { getTenants, createTenant } from '@/app/actions/admin';
 import Link from 'next/link';
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Building2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 
 export default async function CartoriosConfigPage() {
   const session = await auth();
@@ -16,124 +13,110 @@ export default async function CartoriosConfigPage() {
   const cartorios = await getTenants();
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-      </div>
-
-      <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-              <Link href="/configuracoes" className="hover:text-amber-300 transition-colors">
-                Configurações
-              </Link>
-              <span className="text-slate-600">/</span>
-              <span className="text-amber-300">Cartórios</span>
-            </div>
-            <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                Gestão de Cartórios (Multi-Tenant)
-              </h1>
-              <Badge className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-amber-300">
-                MASTER ADMIN
-              </Badge>
-            </div>
-          </div>
-
-          <Link href="/configuracoes">
-            <Button variant="outline" className="gap-2 border-white/12 bg-white/[0.04] text-white hover:bg-white/[0.08] text-xs">
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Voltar para Configurações
-            </Button>
+    <div className="layout" style={{ gridTemplateColumns: '1fr' }}>
+      <div className="center-col">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+          <Link href="/configuracoes" style={{ fontSize: '14px', color: '#3b82f6', textDecoration: 'none', fontWeight: '500' }}>
+            ← Voltar para Configurações
           </Link>
         </div>
 
-        <form action={createTenant} className="rounded-2xl border border-white/12 bg-[#0B1020]/80 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] space-y-4">
-          <h4 className="flex items-center gap-2 text-sm font-bold text-white">
-            <Building2 className="h-4 w-4 text-amber-300" />
-            <span>Cadastrar Novo Cartório</span>
-          </h4>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
-            <div className="lg:col-span-4 space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-white/70">
-                Nome do Cartório *
-              </label>
-              <input
-                type="text"
-                name="tenantName"
-                required
-                placeholder="Ex: 8º Cartório de Notas de SP"
-                className="w-full h-10 px-3 rounded-lg border border-white/16 bg-[#0A0F1E] text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-amber-400/70 focus:ring-1 focus:ring-amber-400/50"
-              />
+        <div className="chart-card" style={{ marginBottom: '24px' }}>
+          <div className="chart-header">
+            <div>
+              <div className="chart-title">Gestão de Cartórios (Multi-Tenant)</div>
+              <div className="chart-sub">Cadastre novos Cartórios clientes no sistema FIORIX e crie o usuário Administrador de cada um.</div>
             </div>
+          </div>
 
-            <div className="lg:col-span-3 space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-white/70">
-                E-mail do Administrador *
-              </label>
-              <input
-                type="email"
-                name="adminEmail"
-                required
-                placeholder="admin@8cartorio.com.br"
-                className="w-full h-10 px-3 rounded-lg border border-white/16 bg-[#0A0F1E] text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-amber-400/70 focus:ring-1 focus:ring-amber-400/50"
-              />
-            </div>
+          <form action={createTenant} style={{ marginTop: '20px', background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+            <h4 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '14px', color: '#1e293b' }}>
+              🏢 Cadastrar Novo Cartório
+            </h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '12px', alignItems: 'end' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#475569' }}>
+                  Nome do Cartório *
+                </label>
+                <input 
+                  type="text" 
+                  name="tenantName" 
+                  required
+                  placeholder="Ex: 8º Cartório de Notas de SP"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                />
+              </div>
 
-            <div className="lg:col-span-2 space-y-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-white/70">
-                Senha Inicial *
-              </label>
-              <input
-                type="password"
-                name="adminPassword"
-                required
-                placeholder="••••••••"
-                className="w-full h-10 px-3 rounded-lg border border-white/16 bg-[#0A0F1E] text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-amber-400/70 focus:ring-1 focus:ring-amber-400/50"
-              />
-            </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#475569' }}>
+                  E-mail do Administrador *
+                </label>
+                <input 
+                  type="email" 
+                  name="adminEmail" 
+                  required
+                  placeholder="admin@8cartorio.com.br"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                />
+              </div>
 
-            <div className="lg:col-span-3">
-              <Button
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: '#475569' }}>
+                  Senha Inicial *
+                </label>
+                <input 
+                  type="password" 
+                  name="adminPassword" 
+                  required
+                  placeholder="••••••••"
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                />
+              </div>
+
+              <button 
                 type="submit"
-                className="w-full h-10 px-4 text-xs sm:text-sm font-bold whitespace-nowrap bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors rounded-lg flex items-center justify-center gap-1.5"
+                style={{
+                  background: '#16a34a',
+                  color: 'white',
+                  border: 'none',
+                  padding: '9px 18px',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
+                }}
               >
                 Cadastrar Cartório
-              </Button>
+              </button>
             </div>
-          </div>
-        </form>
+          </form>
+        </div>
 
-        <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-          <div className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-cyan-300" />
-            <h2 className="text-lg font-extrabold text-white">
-              Cartórios Cadastrados ({cartorios.length})
-            </h2>
+        <div className="chart-card">
+          <div className="chart-header" style={{ marginBottom: '16px' }}>
+            <div className="chart-title">Cartórios Cadastrados ({cartorios.length})</div>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-white/12">
-            <table className="w-full min-w-[640px] border-collapse text-left text-xs">
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'left' }}>
               <thead>
-                <tr className="border-b border-white/12 bg-[#0B1020] text-[11px] font-bold uppercase tracking-[0.16em] text-white/58">
-                  <th className="p-3 pl-5 sm:p-4">Cartório</th>
-                  <th className="p-3 sm:p-4">Usuários</th>
-                  <th className="p-3 sm:p-4">Avaliações</th>
-                  <th className="p-3 sm:p-4">Colaboradores</th>
-                  <th className="p-3 pr-5 text-right sm:p-4">Data de Criação</th>
+                <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#64748b', fontSize: '12px', textTransform: 'uppercase' }}>
+                  <th style={{ padding: '12px 16px' }}>Cartório</th>
+                  <th style={{ padding: '12px 16px' }}>Usuários</th>
+                  <th style={{ padding: '12px 16px' }}>Avaliações</th>
+                  <th style={{ padding: '12px 16px' }}>Colaboradores</th>
+                  <th style={{ padding: '12px 16px' }}>Data de Criação</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/8 font-medium text-white/80">
+              <tbody>
                 {cartorios.map((c) => (
-                  <tr key={c.id} className="hover:bg-white/[0.03] transition-colors">
-                    <td className="p-3 pl-5 font-bold text-white sm:p-4">{c.name}</td>
-                    <td className="p-3 sm:p-4 text-cyan-300 font-semibold">{c._count.users}</td>
-                    <td className="p-3 sm:p-4 text-emerald-300 font-semibold">{c._count.reviews}</td>
-                    <td className="p-3 sm:p-4 text-amber-300 font-semibold">{c._count.colaboradores}</td>
-                    <td className="p-3 pr-5 text-right text-white/60 sm:p-4">
+                  <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '14px 16px', fontWeight: '600', color: '#1e293b' }}>{c.name}</td>
+                    <td style={{ padding: '14px 16px' }}>{c._count.users}</td>
+                    <td style={{ padding: '14px 16px' }}>{c._count.reviews}</td>
+                    <td style={{ padding: '14px 16px' }}>{c._count.colaboradores}</td>
+                    <td style={{ padding: '14px 16px', color: '#64748b' }}>
                       {new Date(c.createdAt).toLocaleDateString('pt-BR')}
                     </td>
                   </tr>
@@ -142,7 +125,7 @@ export default async function CartoriosConfigPage() {
             </table>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

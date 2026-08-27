@@ -1,34 +1,29 @@
 import { NextResponse } from 'next/server';
-import { requireRole } from '@/lib/auth-helpers';
+import { auth } from '@/auth';
 import { syncReviews } from '@/lib/google';
 
-export const maxDuration = 60; // Increase timeout on Vercel Pro
+async function handleSync(request: Request) {
+  const session = await auth();
+  
+  if (!session?.user?.tenantId) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  }
 
-export async function POST(request: Request) {
+  const tenantId = session.user.tenantId as string;
+
   try {
-    const user = await requireRole('ADMIN', 'MASTER');
-
-    const tenantId = user.tenantId;
-    const acceptHeader = request.headers.get('accept') || '';
-    const isJson = acceptHeader.includes('application/json');
-
-    const result = await syncReviews(tenantId, user.email || user.name || undefined);
-
-    if (isJson) {
-      return NextResponse.json({ success: true, count: result.count });
-    }
-
-    return NextResponse.redirect(new URL(`/configuracoes?synced=${result.count}`, request.url));
+    const result = await syncReviews(tenantId);
+    return NextResponse.redirect(new URL(`/dashboard?synced=${result.count}`, request.url));
   } catch (error: any) {
     console.error('Sync Error:', error);
-
-    const acceptHeader = request.headers.get('accept') || '';
-    const isJson = acceptHeader.includes('application/json');
-
-    if (isJson) {
-      return NextResponse.json({ success: false, error: 'Erro ao sincronizar avaliações.' }, { status: 500 });
-    }
-
-    return NextResponse.redirect(new URL('/configuracoes?syncError=Erro+ao+sincronizar', request.url));
+    return NextResponse.redirect(new URL(`/dashboard?syncError=${encodeURIComponent(error.message)}`, request.url));
   }
+}
+
+export async function POST(request: Request) {
+  return handleSync(request);
+}
+
+export async function GET(request: Request) {
+  return handleSync(request);
 }

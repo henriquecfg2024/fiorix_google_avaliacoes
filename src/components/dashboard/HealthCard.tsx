@@ -1,173 +1,112 @@
 import React from 'react';
 import Link from 'next/link';
+import { GaugeChart } from './GaugeChart';
 
 export function HealthCard() {
-  const saudeReputacao = 68;
-
-  const saudaveis = [
-    { icon: '🕘', nome: 'Horário de Atendimento', pct: 96 },
-    { icon: '💳', nome: 'Pagamento', pct: 93 },
-    { icon: '🤝', nome: 'Qualidade de Atendimento', pct: 91 },
-    { icon: '💡', nome: 'Clareza de Informações', pct: 88 },
+  // Os 10 Indicadores da Saúde da Reputação (ordenados por pontuação)
+  const indicadores = [
+    { icon: '🕘', nome: 'Horário de Atendimento', pct: 96, color: '#10b981', gradient: 'linear-gradient(90deg,#10b981,#3b82f6)' },
+    { icon: '💳', nome: 'Pagamento', pct: 93, color: '#10b981' },
+    { icon: '🤝', nome: 'Qualidade de Atendimento', pct: 91, color: '#10b981' },
+    { icon: '💡', nome: 'Clareza de Informações', pct: 88, color: '#10b981' },
+    { icon: '🌟', nome: 'Índice de Recomendação', pct: 85, color: '#2563eb' },
+    { icon: '🎯', nome: 'Resolução no 1º Contato', pct: 82, color: '#2563eb' },
+    { icon: '📄', nome: 'Documentação', pct: 59, color: '#2563eb' },
+    { icon: '🌐', nome: 'Site / Agendamento', pct: 42, color: '#d97706' },
+    { icon: '⏱️', nome: 'Prazo de Entrega', pct: 22, color: '#dc2626' },
+    { icon: '🕐', nome: 'Fila / Espera', pct: 18, color: '#dc2626' },
   ];
 
-  const atencao = [
-    { icon: '🌟', nome: 'Índice de Recomendação', pct: 85, badgeColor: 'blue' },
-    { icon: '🎯', nome: 'Resolução no 1º Contato', pct: 82, badgeColor: 'blue' },
-    { icon: '📄', nome: 'Documentação', pct: 59, badgeColor: 'amber' },
-    { icon: '🌐', nome: 'Site / Agendamento', pct: 42, badgeColor: 'amber' },
-  ];
+  const soma = indicadores.reduce((acc, curr) => acc + curr.pct, 0);
+  const saudeReputacao = Math.round(soma / indicadores.length); // 68
 
-  const criticos = [
-    { icon: '⏱️', nome: 'Prazo de Entrega', pct: 22, isBi: true },
-    { icon: '🕐', nome: 'Fila / Espera', pct: 18, isBi: true, biPath: '/bi/produtividade' },
-  ];
-
-  const radius = 58;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (saudeReputacao / 100) * circumference;
+  const getClassification = (score: number) => {
+    if (score >= 90) return 'Excelente';
+    if (score >= 80) return 'Muito Bom';
+    if (score >= 65) return 'Bom';
+    if (score >= 50) return 'Regular';
+    return 'Atenção Necessária';
+  };
 
   return (
-    <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
-      <div className="mb-6 flex items-center justify-between border-b border-white/8 pb-5">
-        <div className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-cyan-400" />
-          <h2 className="text-kpi-label font-bold text-slate-300">Saúde da Reputação</h2>
-        </div>
-        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-badge font-semibold text-slate-200">
-          10 Indicadores
-        </span>
+    <div className="health-card" style={{ padding: '24px 20px' }}>
+      <div className="health-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>Saúde da Reputação</span>
+        <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600', background: '#f1f5f9', padding: '2px 8px', borderRadius: '12px' }}>10 Indicadores</span>
+      </div>
+      
+      <GaugeChart score={saudeReputacao} />
+      
+      <div className="health-score-display">{saudeReputacao}</div>
+      <div className="health-score-label">
+        pontos de 100 — {getClassification(saudeReputacao)}
       </div>
 
-      <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-12">
-        <div className="lg:col-span-4 flex flex-col items-center justify-center rounded-2xl border border-white/12 bg-[#0B1020]/80 p-4 text-center">
-          <div className="relative flex h-36 w-36 items-center justify-center">
-            <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 140 140">
-              <circle cx="70" cy="70" r={radius} className="text-slate-700" strokeWidth="12" stroke="currentColor" fill="transparent" />
-              <circle
-                cx="70"
-                cy="70"
-                r={radius}
-                stroke="#22D3EE"
-                strokeWidth="12"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-                fill="transparent"
-                className="drop-shadow-[0_0_18px_rgba(34,211,238,0.25)] transition-all duration-1000 ease-out"
+      <div style={{ textAlign: 'center', marginTop: '8px', marginBottom: '20px' }}>
+        <Link 
+          href="/estatisticas#metodologia-reputacao" 
+          style={{ 
+            fontSize: '12px', 
+            color: '#2563eb', 
+            fontWeight: '600', 
+            textDecoration: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          ℹ️ Metodologia e Detalhes ({saudeReputacao} pts) →
+        </Link>
+      </div>
+
+      {/* ═══ LISTA PERFEITAMENTE ALINHADA DOS 10 INDICADORES ═══ */}
+      <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {indicadores.map((ind, idx) => (
+          <div 
+            key={idx} 
+            style={{ 
+              background: '#f8fafc', 
+              border: '1px solid #e2e8f0', 
+              borderRadius: '10px', 
+              padding: '10px 14px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            {/* Linha de Texto: Nome do Indicador na esquerda ... % com destaque na direita */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <span style={{ fontSize: '12.5px', fontWeight: '600', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>{ind.icon}</span>
+                <span>{ind.nome}</span>
+              </span>
+              <span style={{ 
+                fontSize: '12.5px', 
+                fontWeight: '800', 
+                color: ind.color,
+                background: `${ind.color}15`,
+                padding: '2px 8px',
+                borderRadius: '6px',
+                whiteSpace: 'nowrap'
+              }}>
+                {ind.pct}%
+              </span>
+            </div>
+
+            {/* Barra de Progresso */}
+            <div style={{ height: '6px', background: '#e2e8f0', borderRadius: '99px', overflow: 'hidden', width: '100%' }}>
+              <div 
+                style={{ 
+                  width: `${ind.pct}%`, 
+                  background: ind.gradient || ind.color,
+                  height: '100%',
+                  borderRadius: '99px'
+                }}
               />
-            </svg>
-            <div className="absolute flex flex-col items-center justify-center">
-              <span className="text-4xl font-extrabold tracking-tight text-white">{saudeReputacao}</span>
-              <span className="text-[11px] font-semibold text-slate-400">de 100</span>
             </div>
           </div>
-
-          <div className="mt-3">
-            <p className="text-sm font-bold text-slate-100">
-              {saudeReputacao} pontos de 100 — <span className="text-cyan-300">Bom</span>
-            </p>
-            <Link
-              href="/estatisticas#metodologia-reputacao"
-              className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-cyan-300 transition-colors hover:text-cyan-200 hover:underline"
-            >
-              <span>Metodologia e Detalhes ({saudeReputacao} pts)</span>
-              <span>→</span>
-            </Link>
-          </div>
-        </div>
-
-        <div className="space-y-4 lg:col-span-8">
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5 text-kpi-label text-emerald-300 font-semibold">
-              <span>🟢</span>
-              <span>Indicadores Saudáveis</span>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {saudaveis.map((ind, idx) => (
-                <div key={idx} className="space-y-1.5 rounded-xl border border-white/12 bg-[#0B1020]/80 p-2.5 shadow-xs">
-                  <div className="flex items-center justify-between text-indicator-label text-white font-medium min-w-0">
-                    <span className="flex items-center gap-1.5 truncate min-w-0">
-                      <span>{ind.icon}</span>
-                      <span className="truncate">{ind.nome}</span>
-                    </span>
-                    <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-indicator-value font-bold text-emerald-300 shrink-0">
-                      {ind.pct}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-700/70">
-                    <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${ind.pct}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5 text-kpi-label text-amber-300 font-semibold">
-              <span>🟡</span>
-              <span>Pontos de Atenção</span>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {atencao.map((ind, idx) => {
-                const isBlue = ind.badgeColor === 'blue';
-                return (
-                  <div key={idx} className="space-y-1.5 rounded-xl border border-white/12 bg-[#0B1020]/80 p-2.5 shadow-xs">
-                    <div className="flex items-center justify-between text-indicator-label text-white font-medium min-w-0">
-                      <span className="flex items-center gap-1.5 truncate min-w-0">
-                        <span>{ind.icon}</span>
-                        <span className="truncate">{ind.nome}</span>
-                      </span>
-                      <span
-                        className={`rounded px-1.5 py-0.5 text-indicator-value font-bold shrink-0 ${
-                          isBlue ? 'border border-cyan-500/20 bg-cyan-500/10 text-cyan-300' : 'border border-amber-500/20 bg-amber-500/10 text-amber-300'
-                        }`}
-                      >
-                        {ind.pct}%
-                      </span>
-                    </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-700/70">
-                      <div className={`h-full rounded-full transition-all duration-500 ${isBlue ? 'bg-cyan-400' : 'bg-amber-500'}`} style={{ width: `${ind.pct}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5 text-kpi-label text-rose-300 font-semibold">
-              <span>🔴</span>
-              <span>Indicadores Críticos</span>
-            </div>
-            <div className="space-y-2.5 rounded-2xl border border-white/12 bg-[#0B1020]/80 p-3 shadow-xs">
-              {criticos.map((ind, idx) => (
-                <div key={idx} className="space-y-1">
-                  <div className="flex items-center justify-between text-indicator-label text-white font-medium min-w-0">
-                    <span className="flex items-center gap-1.5 truncate min-w-0">
-                      <span>{ind.icon}</span>
-                      <span className="truncate">{ind.nome}</span>
-                      {ind.isBi && (
-                        <Link
-                          href={ind.biPath || '/bi'}
-                          className="rounded border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-badge font-bold text-rose-300 transition-colors hover:bg-rose-500/18 shrink-0"
-                        >
-                          VER BI →
-                        </Link>
-                      )}
-                    </span>
-                    <span className="rounded border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-indicator-value font-bold text-rose-300 shrink-0">
-                      {ind.pct}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-rose-950/40">
-                    <div className="h-full rounded-full bg-rose-500 transition-all duration-500" style={{ width: `${ind.pct}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
     </div>
   );

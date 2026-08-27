@@ -1,7 +1,0 @@
-2026/07/08-15:23:01.937 d48c Reusing MANIFEST C:\Users\henrique\AppData\Local\Google\Chrome\User Data\Profile 2\IndexedDB\https_nanobanana.org_0.indexeddb.leveldb/MANIFEST-000001
-2026/07/08-15:23:01.937 d48c Recovering log #3
-2026/07/08-15:23:01.938 d48c Reusing old log C:\Users\henrique\AppData\Local\Google\Chrome\User Data\Profile 2\IndexedDB\https_nanobanana.org_0.indexeddb.leveldb/000003.log 
-2026/07/08-15:23:04.471 8470 Level-0 table #5: started
-2026/07/08-15:23:04.473 8470 Level-0 table #5: 1658 bytes OK
-2026/07/08-15:23:04.474 8470 Delete type=0 #3
-2026/07/08-15:23:04.474 8470 Manual compaction at level-0 from (begin) .. (end); will stop at (end)

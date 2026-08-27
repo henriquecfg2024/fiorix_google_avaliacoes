@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Mail, Lock, LogIn, ShieldCheck } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -35,12 +36,14 @@ export default function LoginPage() {
     formData.append('redirectTo', '/dashboard');
 
     try {
+      // In Next.js Server Actions with NextAuth, signIn handles the redirect.
+      // We need to import our authenticate action. Let's use it.
       const { authenticate } = await import('@/app/actions/auth');
       const errorMessage = await authenticate(undefined, formData);
       if (errorMessage) {
         setError(errorMessage);
       }
-    } catch {
+    } catch (err) {
       setError('Ocorreu um erro ao tentar fazer login.');
     } finally {
       setIsLoading(false);
@@ -48,16 +51,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="login-shell">
-      <div className="login-glow login-glow-left" />
-      <div className="login-glow login-glow-right" />
-
+    <div className="login-container">
       <div className="login-card">
-        <div className="login-topline">
-          <ShieldCheck className="topline-icon" />
-          <span>Acesso seguro ao painel do cartório</span>
-        </div>
-
         <div className="login-header">
           <div className="login-logo">
             <div className="logo-icon">F</div>
@@ -69,37 +64,31 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="login-form">
           {error && <div className="login-error">{error}</div>}
-
+          
           <div className="form-group">
             <label htmlFor="email">E-mail</label>
-            <div className="input-wrap">
-              <Mail className="input-icon" />
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu@email.com"
-                required
-                disabled={isLoading}
-              />
-            </div>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="seu@email.com"
+              required
+              disabled={isLoading}
+            />
           </div>
 
           <div className="form-group">
             <label htmlFor="password">Senha</label>
-            <div className="input-wrap">
-              <Lock className="input-icon" />
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                disabled={isLoading}
-              />
-            </div>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              disabled={isLoading}
+            />
           </div>
 
           <div className="form-options">
@@ -125,141 +114,85 @@ export default function LoginPage() {
           </div>
 
           <button type="submit" className="login-button" disabled={isLoading}>
-            <LogIn className="button-icon" />
-            <span>{isLoading ? 'Entrando...' : 'Entrar no Painel'}</span>
+            {isLoading ? 'Entrando...' : 'Entrar no Painel'}
           </button>
         </form>
       </div>
 
       <style jsx>{`
-        .login-shell {
+        .login-container {
           min-height: 100vh;
           display: flex;
           align-items: center;
           justify-content: center;
-          position: relative;
-          overflow: hidden;
-          background:
-            radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 32%),
-            radial-gradient(circle at bottom right, rgba(139, 92, 246, 0.14), transparent 34%),
-            linear-gradient(135deg, #eff6ff 0%, #ecfeff 45%, #dbeafe 100%);
-          padding: 24px;
-        }
-
-        .login-glow {
-          position: absolute;
-          width: 420px;
-          height: 420px;
-          border-radius: 999px;
-          filter: blur(72px);
-          opacity: 0.28;
-          pointer-events: none;
-        }
-
-        .login-glow-left {
-          left: -120px;
-          top: -80px;
-          background: #60a5fa;
-        }
-
-        .login-glow-right {
-          right: -140px;
-          bottom: -100px;
-          background: #8b5cf6;
+          background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%);
+          padding: 20px;
         }
 
         .login-card {
-          position: relative;
-          z-index: 1;
+          background: rgba(255, 255, 255, 0.7);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.4);
+          border-radius: 24px;
+          padding: 40px;
           width: 100%;
-          max-width: 448px;
-          padding: 32px;
-          border-radius: 28px;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.78));
-          border: 1px solid rgba(255, 255, 255, 0.72);
-          box-shadow:
-            0 24px 70px rgba(15, 23, 42, 0.14),
-            inset 0 1px 0 rgba(255, 255, 255, 0.65);
-          backdrop-filter: blur(18px);
-          -webkit-backdrop-filter: blur(18px);
-        }
-
-        .login-topline {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          margin-bottom: 22px;
-          padding: 7px 12px;
-          border-radius: 999px;
-          background: rgba(59, 130, 246, 0.08);
-          border: 1px solid rgba(59, 130, 246, 0.14);
-          color: #335c9f;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.03em;
-        }
-
-        .topline-icon {
-          width: 14px;
-          height: 14px;
-          color: #3b82f6;
+          max-width: 420px;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
         }
 
         .login-header {
           text-align: center;
-          margin-bottom: 28px;
+          margin-bottom: 30px;
         }
 
         .login-logo {
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 12px;
-          margin-bottom: 18px;
+          gap: 10px;
+          margin-bottom: 20px;
         }
 
         .logo-icon {
-          width: 44px;
-          height: 44px;
+          width: 40px;
+          height: 40px;
           background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
           color: white;
-          border-radius: 14px;
+          border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-weight: 800;
-          font-size: 22px;
-          box-shadow: 0 10px 24px rgba(59, 130, 246, 0.24);
+          font-weight: 700;
+          font-size: 20px;
+          box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
         }
 
         .logo-text {
-          font-size: 28px;
-          font-weight: 900;
-          background: linear-gradient(135deg, #1e293b 0%, #3b82f6 65%, #6366f1 100%);
+          font-size: 24px;
+          font-weight: 800;
+          background: linear-gradient(135deg, #1e293b 0%, #3b82f6 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
-          letter-spacing: -0.04em;
+          letter-spacing: -0.5px;
         }
 
         .login-title {
-          font-size: 34px;
-          line-height: 1.05;
-          font-weight: 800;
+          font-size: 24px;
+          font-weight: 700;
           color: #0f172a;
-          margin-bottom: 10px;
-          letter-spacing: -0.04em;
+          margin-bottom: 8px;
         }
 
         .login-subtitle {
-          font-size: 15px;
+          font-size: 14px;
           color: #64748b;
-          line-height: 1.5;
         }
 
         .login-form {
           display: flex;
           flex-direction: column;
-          gap: 18px;
+          gap: 20px;
         }
 
         .form-group {
@@ -270,79 +203,29 @@ export default function LoginPage() {
 
         .form-group label {
           font-size: 13px;
-          font-weight: 700;
+          font-weight: 600;
           color: #334155;
         }
 
-        .input-wrap {
-          position: relative;
-        }
-
-        .input-icon {
-          position: absolute;
-          left: 14px;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 17px;
-          height: 17px;
-          color: #94a3b8;
-          pointer-events: none;
-          transition: color 0.2s ease;
-        }
-
         .form-group input {
-          width: 100%;
-          padding: 13px 16px 13px 44px;
-          border-radius: 14px;
-          border: 1px solid rgba(148, 163, 184, 0.26);
-          background: rgba(255, 255, 255, 0.88);
-          box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
+          padding: 12px 16px;
+          border-radius: 12px;
+          border: 1px solid rgba(148, 163, 184, 0.3);
+          background: rgba(255, 255, 255, 0.8);
           font-size: 15px;
-          color: #0f172a;
-          caret-color: #0f172a;
           outline: none;
-          transition: all 0.2s ease;
-        }
-
-        .form-group input::placeholder {
-          color: #94a3b8;
-        }
-
-        .form-group input:hover {
-          border-color: rgba(96, 165, 250, 0.4);
+          transition: all 0.2s;
         }
 
         .form-group input:focus {
           border-color: #3b82f6;
-          box-shadow:
-            0 0 0 4px rgba(59, 130, 246, 0.12),
-            inset 0 1px 2px rgba(15, 23, 42, 0.02);
-          background: rgba(255, 255, 255, 0.96);
-        }
-
-        .form-group input:focus + .input-icon {
-          color: #3b82f6;
-        }
-
-        .input-wrap:focus-within .input-icon {
-          color: #3b82f6;
-        }
-
-        .form-group input:-webkit-autofill,
-        .form-group input:-webkit-autofill:hover,
-        .form-group input:-webkit-autofill:focus,
-        .form-group input:-webkit-autofill:active {
-          -webkit-text-fill-color: #0f172a;
-          -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.94) inset;
-          box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.94) inset;
-          transition: background-color 9999s ease-in-out 0s;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
         .form-options {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 12px;
           font-size: 13px;
         }
 
@@ -353,7 +236,6 @@ export default function LoginPage() {
           color: #475569;
           cursor: pointer;
           user-select: none;
-          font-weight: 500;
         }
 
         .remember-me input {
@@ -364,44 +246,34 @@ export default function LoginPage() {
         }
 
         .forgot-password {
-          color: #2563eb;
+          color: #3b82f6;
           text-decoration: none;
-          font-weight: 600;
+          font-weight: 500;
           transition: color 0.2s;
         }
 
         .forgot-password:hover {
           text-decoration: underline;
-          color: #1d4ed8;
+          color: #2563eb;
         }
 
         .login-button {
-          margin-top: 6px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          width: 100%;
+          margin-top: 5px;
           background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
           color: white;
           border: none;
-          padding: 15px;
-          border-radius: 14px;
+          padding: 14px;
+          border-radius: 12px;
           font-size: 16px;
-          font-weight: 700;
+          font-weight: 600;
           cursor: pointer;
-          transition: all 0.22s ease;
-          box-shadow: 0 10px 26px rgba(79, 70, 229, 0.24);
-        }
-
-        .button-icon {
-          width: 18px;
-          height: 18px;
+          transition: all 0.2s;
+          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
         }
 
         .login-button:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 14px 30px rgba(79, 70, 229, 0.28);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
         }
 
         .login-button:disabled {
@@ -411,44 +283,16 @@ export default function LoginPage() {
         }
 
         .login-error {
-          padding: 12px 14px;
-          background: rgba(254, 226, 226, 0.88);
-          color: #dc2626;
-          border: 1px solid rgba(248, 113, 113, 0.28);
-          border-radius: 12px;
+          padding: 12px;
+          background: #fee2e2;
+          color: #ef4444;
+          border-radius: 10px;
           font-size: 14px;
           text-align: center;
-          font-weight: 600;
-        }
-
-        @media (max-width: 640px) {
-          .login-shell {
-            padding: 16px;
-          }
-
-          .login-card {
-            padding: 24px 20px;
-            border-radius: 22px;
-          }
-
-          .login-title {
-            font-size: 28px;
-          }
-
-          .logo-text {
-            font-size: 24px;
-          }
-
-          .form-options {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-
-          .forgot-password {
-            margin-left: 24px;
-          }
+          font-weight: 500;
         }
       `}</style>
     </div>
   );
 }
+
