@@ -645,7 +645,7 @@ export function TarefasDashboardClient() {
     const rows = tarefasOrdenadas
       .map(
         (row) => `<tr>
-          <td>#${escapePrintValue(row.protocolo)}</td>
+          <td>${escapePrintValue(row.protocolo)}</td>
           <td>${escapePrintValue(row.dtPrevisao ? new Date(row.dtPrevisao).toLocaleDateString("pt-BR") : "-")}</td>
           <td>${escapePrintValue(row.statusPrevisao)}</td>
           <td>${escapePrintValue(row.nivelRisco)}</td>
@@ -1135,7 +1135,7 @@ export function TarefasDashboardClient() {
 
                   return (
                     <tr key={`${row.idTarefa}-${row.protocolo}-${idx}`} className="transition-colors hover:bg-white/[0.035]">
-                      <td className="py-3 px-4 font-bold text-white">#{row.protocolo}</td>
+                      <td className="py-3 px-4 font-bold text-white">{row.protocolo}</td>
                       <td className="py-3 px-4 font-medium text-slate-300">
                         {row.dtPrevisao ? new Date(row.dtPrevisao).toLocaleDateString("pt-BR") : "-"}
                       </td>
@@ -1286,7 +1286,7 @@ export function TarefasDashboardClient() {
                 <tbody>
                   {tarefasOrdenadas.map((row, idx) => (
                     <tr key={`preview-${row.idTarefa}-${row.protocolo}-${idx}`} className="even:bg-slate-50">
-                      <td className="border border-slate-200 px-1.5 py-1.5 font-semibold">#{row.protocolo}</td>
+                      <td className="border border-slate-200 px-1.5 py-1.5 font-semibold">{row.protocolo}</td>
                       <td className="border border-slate-200 px-1.5 py-1.5">
                         {row.dtPrevisao ? new Date(row.dtPrevisao).toLocaleDateString("pt-BR") : "-"}
                       </td>
