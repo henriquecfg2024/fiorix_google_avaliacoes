@@ -159,6 +159,7 @@ export function TarefasDashboardClient() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTarefa, setSelectedTarefa] = useState<string>("ALL");
   const [selectedResponsavel, setSelectedResponsavel] = useState<string>("ALL");
+  const [selectedPrevisao, setSelectedPrevisao] = useState<string>("ALL");
   const [selectedRisco, setSelectedRisco] = useState<string>("ALL");
   const [selectedStatusPrevisao, setSelectedStatusPrevisao] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
@@ -324,6 +325,16 @@ export function TarefasDashboardClient() {
     return Array.from(setR).sort();
   }, [tarefas]);
 
+  const listaPrevisoesUnicas = useMemo(() => {
+    const setP = new Set<string>();
+    tarefas.forEach((t) => {
+      if (selectedResponsavel !== "ALL" && t.responsavel.trim() !== selectedResponsavel) return;
+      const previsao = t.dtPrevisao?.split("T")[0];
+      if (previsao) setP.add(previsao);
+    });
+    return Array.from(setP).sort();
+  }, [tarefas, selectedResponsavel]);
+
   // Tabela Sintética: Carga por Responsável
   const cargaPorResponsavel = useMemo(() => {
     const mapResp: Record<
@@ -410,6 +421,10 @@ export function TarefasDashboardClient() {
         return false;
       }
 
+      if (selectedPrevisao !== "ALL" && t.dtPrevisao?.split("T")[0] !== selectedPrevisao) {
+        return false;
+      }
+
       if (selectedRisco !== "ALL") {
         const r = (t.nivelRisco || "").toUpperCase();
         if (selectedRisco === "CRITICO" && !r.includes("CRITIC")) return false;
@@ -431,6 +446,7 @@ export function TarefasDashboardClient() {
     searchQuery,
     selectedTarefa,
     selectedResponsavel,
+    selectedPrevisao,
     selectedRisco,
     selectedStatusPrevisao,
     activeKpiFilter,
@@ -528,7 +544,7 @@ export function TarefasDashboardClient() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedTarefa, selectedResponsavel, selectedRisco, selectedStatusPrevisao, activeKpiFilter, pageSize]);
+  }, [searchQuery, selectedTarefa, selectedResponsavel, selectedPrevisao, selectedRisco, selectedStatusPrevisao, activeKpiFilter, pageSize]);
 
   const handleKpiFilter = (filter: KpiFilter) => {
     const nextFilter = activeKpiFilter === filter ? null : filter;
@@ -537,6 +553,7 @@ export function TarefasDashboardClient() {
       setSearchQuery("");
       setSelectedTarefa("ALL");
       setSelectedResponsavel("ALL");
+      setSelectedPrevisao("ALL");
       setSelectedRisco("ALL");
       setSelectedStatusPrevisao("ALL");
     }
@@ -602,6 +619,11 @@ export function TarefasDashboardClient() {
       : selectedRisco === "NORMAL"
         ? "Normal / Baixo"
         : "Todas as criticidades";
+  const printResponsavel = selectedResponsavel === "ALL" ? "Todos" : selectedResponsavel;
+  const printPrevisao =
+    selectedPrevisao === "ALL"
+      ? "Todas"
+      : new Date(`${selectedPrevisao}T12:00:00`).toLocaleDateString("pt-BR");
 
   const handleOpenPrintPreview = () => {
     if (tarefasFiltradas.length === 0) {
@@ -656,7 +678,7 @@ export function TarefasDashboardClient() {
         footer { margin-top: 12px; color: #64748b; font-size: 9px; }
       </style></head><body>
       <h1>Relatório de Tarefas por Criticidade</h1>
-      <p>Criticidade: <strong>${escapePrintValue(printCriticality)}</strong> · ${tarefasFiltradas.length.toLocaleString("pt-BR")} registros · Gerado em ${escapePrintValue(generatedAt.toLocaleString("pt-BR"))}</p>
+      <p>Responsável: <strong>${escapePrintValue(printResponsavel)}</strong> · Previsão: <strong>${escapePrintValue(printPrevisao)}</strong> · Criticidade: <strong>${escapePrintValue(printCriticality)}</strong> · ${tarefasFiltradas.length.toLocaleString("pt-BR")} registros · Gerado em ${escapePrintValue(generatedAt.toLocaleString("pt-BR"))}</p>
       <table><thead><tr><th>Protocolo</th><th>Previsão</th><th>Status</th><th>Nível de risco</th><th>Tarefa</th><th>Responsável</th><th>Situação</th><th>Tipo / Natureza</th></tr></thead><tbody>${rows}</tbody></table>
       <footer>FIORIX · Relatório gerado a partir dos filtros aplicados na tela Tarefas.</footer>
       </body></html>`);
@@ -963,7 +985,7 @@ export function TarefasDashboardClient() {
         </div>
 
         {/* Barra de Filtros */}
-        <div className="grid grid-cols-1 gap-3 border-b border-white/8 bg-[#0B1020]/92 px-6 py-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 border-b border-white/8 bg-[#0B1020]/92 px-6 py-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {/* Busca por Protocolo / Texto */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
@@ -993,13 +1015,31 @@ export function TarefasDashboardClient() {
           {/* Filtro por Responsável */}
           <select
             value={selectedResponsavel}
-            onChange={(e) => setSelectedResponsavel(e.target.value)}
+            onChange={(e) => {
+              setSelectedResponsavel(e.target.value);
+              setSelectedPrevisao("ALL");
+            }}
             className="h-10 w-full rounded-xl border border-white/8 bg-[#0C1323] px-3 text-xs text-white shadow-sm focus:border-purple-400 focus:outline-none"
           >
             <option value="ALL">Todos os Responsáveis</option>
             {listaResponsaveisUnicos.map((resp) => (
               <option key={resp} value={resp}>
                 {resp}
+              </option>
+            ))}
+          </select>
+
+          {/* Filtro por Data de Previsão */}
+          <select
+            value={selectedPrevisao}
+            onChange={(e) => setSelectedPrevisao(e.target.value)}
+            aria-label="Filtrar por data de previsão"
+            className="h-10 w-full rounded-xl border border-white/8 bg-[#0C1323] px-3 text-xs text-white shadow-sm focus:border-purple-400 focus:outline-none"
+          >
+            <option value="ALL">Todas as Previsões</option>
+            {listaPrevisoesUnicas.map((previsao) => (
+              <option key={previsao} value={previsao}>
+                {new Date(`${previsao}T12:00:00`).toLocaleDateString("pt-BR")}
               </option>
             ))}
           </select>
@@ -1227,7 +1267,7 @@ export function TarefasDashboardClient() {
             <article className="mx-auto min-w-[1100px] bg-white p-8 text-slate-900 shadow-lg">
               <h3 className="mb-1 text-xl font-bold">Relatório de Tarefas por Criticidade</h3>
               <p className="mb-4 text-xs text-slate-600">
-                Criticidade: <strong>{printCriticality}</strong> · {tarefasOrdenadas.length.toLocaleString("pt-BR")} registros · Gerado em {printPreviewGeneratedAt?.toLocaleString("pt-BR")}
+                Responsável: <strong>{printResponsavel}</strong> · Previsão: <strong>{printPrevisao}</strong> · Criticidade: <strong>{printCriticality}</strong> · {tarefasOrdenadas.length.toLocaleString("pt-BR")} registros · Gerado em {printPreviewGeneratedAt?.toLocaleString("pt-BR")}
               </p>
 
               <table className="w-full border-collapse text-[10px]">
