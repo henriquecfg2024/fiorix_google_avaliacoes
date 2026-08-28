@@ -15,6 +15,7 @@ import {
   Clock,
   Download,
   Eye,
+  EyeOff,
   Filter,
   Layers,
   Printer,
@@ -142,6 +143,7 @@ function matchesKpiFilter(
 
 const taskPanelClass =
   "rounded-2xl border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)]";
+const chartVisibilityStorageKey = "fiorix:tarefas:chart-visibility";
 
 function escapePrintValue(value: unknown) {
   return String(value ?? "-")
@@ -171,6 +173,10 @@ export function TarefasDashboardClient() {
   } | null>(null);
   const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
   const [printPreviewGeneratedAt, setPrintPreviewGeneratedAt] = useState<Date | null>(null);
+  const [visibleCharts, setVisibleCharts] = useState({
+    previsao: true,
+    cargaTarefa: true,
+  });
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -192,6 +198,29 @@ export function TarefasDashboardClient() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    try {
+      const savedVisibility = window.localStorage.getItem(chartVisibilityStorageKey);
+      if (!savedVisibility) return;
+
+      const parsedVisibility = JSON.parse(savedVisibility) as Partial<typeof visibleCharts>;
+      setVisibleCharts({
+        previsao: parsedVisibility.previsao !== false,
+        cargaTarefa: parsedVisibility.cargaTarefa !== false,
+      });
+    } catch {
+      // Mantém os dois gráficos visíveis quando a preferência não puder ser lida.
+    }
+  }, []);
+
+  const toggleChartVisibility = (chart: keyof typeof visibleCharts) => {
+    setVisibleCharts((current) => {
+      const next = { ...current, [chart]: !current[chart] };
+      window.localStorage.setItem(chartVisibilityStorageKey, JSON.stringify(next));
+      return next;
+    });
+  };
 
   // Datas de referência
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
@@ -764,9 +793,51 @@ export function TarefasDashboardClient() {
         />
       </div>
 
+      {/* Controles de Visibilidade dos Gráficos */}
+      <div className="flex flex-col gap-3 rounded-xl border border-white/8 bg-white/[0.025] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold text-white">Exibição dos gráficos</p>
+          <p className="text-[11px] text-white/45">Habilite ou desabilite cada gráfico conforme necessário.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => toggleChartVisibility("previsao")}
+            aria-pressed={visibleCharts.previsao}
+            className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-medium transition-colors ${
+              visibleCharts.previsao
+                ? "border-purple-400/30 bg-purple-500/15 text-purple-100 hover:bg-purple-500/20"
+                : "border-white/10 bg-white/[0.03] text-white/50 hover:bg-white/[0.07] hover:text-white/75"
+            }`}
+          >
+            {visibleCharts.previsao ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            Previsão por dia
+          </button>
+          <button
+            type="button"
+            onClick={() => toggleChartVisibility("cargaTarefa")}
+            aria-pressed={visibleCharts.cargaTarefa}
+            className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-medium transition-colors ${
+              visibleCharts.cargaTarefa
+                ? "border-cyan-400/30 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/20"
+                : "border-white/10 bg-white/[0.03] text-white/50 hover:bg-white/[0.07] hover:text-white/75"
+            }`}
+          >
+            {visibleCharts.cargaTarefa ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            Carga por tarefa
+          </button>
+        </div>
+      </div>
+
       {/* Painel Duplo de Gráficos Analíticos */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {(visibleCharts.previsao || visibleCharts.cargaTarefa) && (
+      <div
+        className={`grid grid-cols-1 gap-4 ${
+          visibleCharts.previsao && visibleCharts.cargaTarefa ? "lg:grid-cols-2" : ""
+        }`}
+      >
         {/* Gráfico 1: Previsão por Dia */}
+        {visibleCharts.previsao && (
         <section className={`${taskPanelClass} space-y-4`}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -828,8 +899,10 @@ export function TarefasDashboardClient() {
             </ResponsiveContainer>
           </div>
         </section>
+        )}
 
         {/* Gráfico 2: Carga por Tarefa */}
+        {visibleCharts.cargaTarefa && (
         <section className={`${taskPanelClass} space-y-4`}>
           <div>
             <h2 className="flex items-center gap-2 text-base font-semibold text-white">
@@ -859,7 +932,9 @@ export function TarefasDashboardClient() {
             </ResponsiveContainer>
           </div>
         </section>
+        )}
       </div>
+      )}
 
       {/* Seção Sintética: Carga por Responsável */}
       <section className={`${taskPanelClass} space-y-4`}>
