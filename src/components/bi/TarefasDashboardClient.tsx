@@ -13,6 +13,7 @@ import {
   Download,
   Filter,
   Layers,
+  Printer,
   RefreshCw,
   Search,
   Users,
@@ -112,6 +113,15 @@ function matchesKpiFilter(
 
 const taskPanelClass =
   "rounded-2xl border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)]";
+
+function escapePrintValue(value: unknown) {
+  return String(value ?? "-")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
 export function TarefasDashboardClient() {
   const [tarefas, setTarefas] = useState<TarefaRecord[]>([]);
@@ -472,6 +482,66 @@ export function TarefasDashboardClient() {
     toast.success("Relatório CSV de Tarefas exportado com sucesso!");
   };
 
+  const handlePrintReport = () => {
+    if (tarefasFiltradas.length === 0) {
+      toast.error("Nenhum registro para imprimir com os filtros atuais.");
+      return;
+    }
+
+    const criticality =
+      activeKpiFilter === "RISCO_CRITICO" || selectedRisco === "CRITICO"
+        ? "Crítico / Alto"
+        : selectedRisco === "NORMAL"
+          ? "Normal / Baixo"
+          : "Todas as criticidades";
+    const rows = tarefasFiltradas
+      .map(
+        (row) => `<tr>
+          <td>#${escapePrintValue(row.protocolo)}</td>
+          <td>${escapePrintValue(row.dtPrevisao ? new Date(row.dtPrevisao).toLocaleDateString("pt-BR") : "-")}</td>
+          <td>${escapePrintValue(row.statusPrevisao)}</td>
+          <td>${escapePrintValue(row.nivelRisco)}</td>
+          <td>${escapePrintValue(row.tarefa)}</td>
+          <td>${escapePrintValue(row.responsavel)}</td>
+          <td>${escapePrintValue(row.situacaoTarefa)}</td>
+          <td>${escapePrintValue(`${row.tipo}${row.natureza ? ` • ${row.natureza}` : ""}`)}</td>
+        </tr>`
+      )
+      .join("");
+
+    const printWindow = window.open("", "_blank", "width=1400,height=900");
+    if (!printWindow) {
+      toast.error("Permita pop-ups para imprimir o relatório.");
+      return;
+    }
+
+    printWindow.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8" />
+      <title>Relatório de Tarefas — ${escapePrintValue(criticality)}</title>
+      <style>
+        @page { size: landscape; margin: 12mm; }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: #111827; font: 10px Arial, sans-serif; }
+        h1 { margin: 0 0 4px; font-size: 18px; }
+        p { margin: 0 0 14px; color: #4b5563; font-size: 11px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { padding: 7px 6px; border: 1px solid #cbd5e1; background: #e5e7eb; text-align: left; font-size: 9px; text-transform: uppercase; }
+        td { padding: 6px; border: 1px solid #e5e7eb; vertical-align: top; }
+        tr:nth-child(even) { background: #f8fafc; }
+        footer { margin-top: 12px; color: #64748b; font-size: 9px; }
+      </style></head><body>
+      <h1>Relatório de Tarefas por Criticidade</h1>
+      <p>Criticidade: <strong>${escapePrintValue(criticality)}</strong> · ${tarefasFiltradas.length.toLocaleString("pt-BR")} registros · Gerado em ${escapePrintValue(new Date().toLocaleString("pt-BR"))}</p>
+      <table><thead><tr><th>Protocolo</th><th>Previsão</th><th>Status</th><th>Nível de risco</th><th>Tarefa</th><th>Responsável</th><th>Situação</th><th>Tipo / Natureza</th></tr></thead><tbody>${rows}</tbody></table>
+      <footer>FIORIX · Relatório gerado a partir dos filtros aplicados na tela Tarefas.</footer>
+      </body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    window.setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+
   return (
     <div className="space-y-6">
       {/* Botão de Atualizar */}
@@ -745,14 +815,24 @@ export function TarefasDashboardClient() {
             </div>
           </div>
 
-          <Button
-            onClick={handleExportCSV}
-            variant="outline"
-            className="h-9 gap-2 self-start rounded-xl border-emerald-500/20 bg-emerald-500/10 text-xs font-medium text-emerald-300 shadow-sm hover:bg-emerald-500/15 md:self-auto"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Exportar Filtrados (CSV)
-          </Button>
+          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+            <Button
+              onClick={handlePrintReport}
+              variant="outline"
+              className="h-9 gap-2 rounded-xl border-white/8 bg-white/[0.04] text-xs font-medium text-white shadow-sm hover:bg-white/[0.08]"
+            >
+              <Printer className="h-3.5 w-3.5" />
+              Imprimir Criticidade
+            </Button>
+            <Button
+              onClick={handleExportCSV}
+              variant="outline"
+              className="h-9 gap-2 rounded-xl border-emerald-500/20 bg-emerald-500/10 text-xs font-medium text-emerald-300 shadow-sm hover:bg-emerald-500/15"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Exportar Filtrados (CSV)
+            </Button>
+          </div>
         </div>
 
         {/* Barra de Filtros */}
