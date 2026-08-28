@@ -14,6 +14,7 @@ import {
   ChevronsRight,
   Clock,
   Download,
+  Eye,
   Filter,
   Layers,
   Printer,
@@ -36,6 +37,14 @@ import {
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { FiorixKpiCard } from "@/components/fiorix/FiorixKpiCard";
 
 interface TarefaRecord {
@@ -159,6 +168,8 @@ export function TarefasDashboardClient() {
     key: SortKey;
     direction: SortDirection;
   } | null>(null);
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState(false);
+  const [printPreviewGeneratedAt, setPrintPreviewGeneratedAt] = useState<Date | null>(null);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -585,18 +596,30 @@ export function TarefasDashboardClient() {
     toast.success("Relatório CSV de Tarefas exportado com sucesso!");
   };
 
+  const printCriticality =
+    activeKpiFilter === "RISCO_CRITICO" || selectedRisco === "CRITICO"
+      ? "Crítico / Alto"
+      : selectedRisco === "NORMAL"
+        ? "Normal / Baixo"
+        : "Todas as criticidades";
+
+  const handleOpenPrintPreview = () => {
+    if (tarefasFiltradas.length === 0) {
+      toast.error("Nenhum registro para visualizar com os filtros atuais.");
+      return;
+    }
+
+    setPrintPreviewGeneratedAt(new Date());
+    setIsPrintPreviewOpen(true);
+  };
+
   const handlePrintReport = () => {
     if (tarefasFiltradas.length === 0) {
       toast.error("Nenhum registro para imprimir com os filtros atuais.");
       return;
     }
 
-    const criticality =
-      activeKpiFilter === "RISCO_CRITICO" || selectedRisco === "CRITICO"
-        ? "Crítico / Alto"
-        : selectedRisco === "NORMAL"
-          ? "Normal / Baixo"
-          : "Todas as criticidades";
+    const generatedAt = printPreviewGeneratedAt || new Date();
     const rows = tarefasOrdenadas
       .map(
         (row) => `<tr>
@@ -619,7 +642,7 @@ export function TarefasDashboardClient() {
     }
 
     printWindow.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8" />
-      <title>Relatório de Tarefas — ${escapePrintValue(criticality)}</title>
+      <title>Relatório de Tarefas — ${escapePrintValue(printCriticality)}</title>
       <style>
         @page { size: landscape; margin: 12mm; }
         * { box-sizing: border-box; }
@@ -633,12 +656,13 @@ export function TarefasDashboardClient() {
         footer { margin-top: 12px; color: #64748b; font-size: 9px; }
       </style></head><body>
       <h1>Relatório de Tarefas por Criticidade</h1>
-      <p>Criticidade: <strong>${escapePrintValue(criticality)}</strong> · ${tarefasFiltradas.length.toLocaleString("pt-BR")} registros · Gerado em ${escapePrintValue(new Date().toLocaleString("pt-BR"))}</p>
+      <p>Criticidade: <strong>${escapePrintValue(printCriticality)}</strong> · ${tarefasFiltradas.length.toLocaleString("pt-BR")} registros · Gerado em ${escapePrintValue(generatedAt.toLocaleString("pt-BR"))}</p>
       <table><thead><tr><th>Protocolo</th><th>Previsão</th><th>Status</th><th>Nível de risco</th><th>Tarefa</th><th>Responsável</th><th>Situação</th><th>Tipo / Natureza</th></tr></thead><tbody>${rows}</tbody></table>
       <footer>FIORIX · Relatório gerado a partir dos filtros aplicados na tela Tarefas.</footer>
       </body></html>`);
     printWindow.document.close();
     printWindow.focus();
+    setIsPrintPreviewOpen(false);
     window.setTimeout(() => {
       printWindow.print();
       printWindow.close();
@@ -920,12 +944,12 @@ export function TarefasDashboardClient() {
 
           <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
             <Button
-              onClick={handlePrintReport}
+              onClick={handleOpenPrintPreview}
               variant="outline"
               className="h-9 gap-2 rounded-xl border-white/8 bg-white/[0.04] text-xs font-medium text-white shadow-sm hover:bg-white/[0.08]"
             >
-              <Printer className="h-3.5 w-3.5" />
-              Imprimir Criticidade
+              <Eye className="h-3.5 w-3.5" />
+              Visualizar Impressão
             </Button>
             <Button
               onClick={handleExportCSV}
@@ -1186,6 +1210,85 @@ export function TarefasDashboardClient() {
           </div>
         </div>
       </section>
+
+      <Dialog open={isPrintPreviewOpen} onOpenChange={setIsPrintPreviewOpen}>
+        <DialogContent className="h-[92vh] w-[calc(100vw-2rem)] max-w-none grid-rows-[auto_minmax(0,1fr)_auto] gap-4 border border-white/12 bg-[#080D19] p-5 text-white shadow-2xl sm:max-w-[95vw]">
+          <DialogHeader className="pr-10">
+            <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-white">
+              <Eye className="h-5 w-5 text-purple-300" />
+              Pré-visualização da impressão
+            </DialogTitle>
+            <DialogDescription className="text-xs text-white/55">
+              Confira abaixo os {tarefasOrdenadas.length.toLocaleString("pt-BR")} registros que serão impressos, respeitando os filtros e a ordenação atuais.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 overflow-auto rounded-lg bg-slate-200 p-3 [scrollbar-color:rgba(71,85,105,0.6)_transparent] [scrollbar-width:thin] sm:p-6">
+            <article className="mx-auto min-w-[1100px] bg-white p-8 text-slate-900 shadow-lg">
+              <h3 className="mb-1 text-xl font-bold">Relatório de Tarefas por Criticidade</h3>
+              <p className="mb-4 text-xs text-slate-600">
+                Criticidade: <strong>{printCriticality}</strong> · {tarefasOrdenadas.length.toLocaleString("pt-BR")} registros · Gerado em {printPreviewGeneratedAt?.toLocaleString("pt-BR")}
+              </p>
+
+              <table className="w-full border-collapse text-[10px]">
+                <thead className="sticky top-0 bg-slate-200 text-left text-[9px] uppercase">
+                  <tr>
+                    <th className="border border-slate-300 px-1.5 py-2">Protocolo</th>
+                    <th className="border border-slate-300 px-1.5 py-2">Previsão</th>
+                    <th className="border border-slate-300 px-1.5 py-2">Status</th>
+                    <th className="border border-slate-300 px-1.5 py-2">Nível de risco</th>
+                    <th className="border border-slate-300 px-1.5 py-2">Tarefa</th>
+                    <th className="border border-slate-300 px-1.5 py-2">Responsável</th>
+                    <th className="border border-slate-300 px-1.5 py-2">Situação</th>
+                    <th className="border border-slate-300 px-1.5 py-2">Tipo / Natureza</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tarefasOrdenadas.map((row, idx) => (
+                    <tr key={`preview-${row.idTarefa}-${row.protocolo}-${idx}`} className="even:bg-slate-50">
+                      <td className="border border-slate-200 px-1.5 py-1.5 font-semibold">#{row.protocolo}</td>
+                      <td className="border border-slate-200 px-1.5 py-1.5">
+                        {row.dtPrevisao ? new Date(row.dtPrevisao).toLocaleDateString("pt-BR") : "-"}
+                      </td>
+                      <td className="border border-slate-200 px-1.5 py-1.5">{row.statusPrevisao || "-"}</td>
+                      <td className="border border-slate-200 px-1.5 py-1.5">{row.nivelRisco || "-"}</td>
+                      <td className="border border-slate-200 px-1.5 py-1.5">{row.tarefa || "-"}</td>
+                      <td className="border border-slate-200 px-1.5 py-1.5">{row.responsavel || "-"}</td>
+                      <td className="border border-slate-200 px-1.5 py-1.5">{row.situacaoTarefa || "-"}</td>
+                      <td className="border border-slate-200 px-1.5 py-1.5">
+                        {row.tipo || "-"}{row.natureza ? ` • ${row.natureza}` : ""}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <p className="mt-3 text-[9px] text-slate-500">
+                FIORIX · Relatório gerado a partir dos filtros aplicados na tela Tarefas.
+              </p>
+            </article>
+          </div>
+
+          <DialogFooter className="-mx-5 -mb-5 border-white/10 bg-white/[0.03] px-5 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsPrintPreviewOpen(false)}
+              className="border-white/12 bg-transparent text-white hover:bg-white/[0.08]"
+            >
+              Voltar
+            </Button>
+            <Button
+              type="button"
+              onClick={handlePrintReport}
+              className="gap-2 bg-purple-600 text-white hover:bg-purple-500"
+            >
+              <Printer className="h-4 w-4" />
+              Imprimir agora
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
