@@ -3,6 +3,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   Calendar,
   CheckCircle2,
   ChevronLeft,
@@ -68,6 +71,23 @@ type KpiFilter =
   | "ATRASADOS"
   | "RISCO_CRITICO"
   | "EM_ANDAMENTO";
+
+type SortKey =
+  | "protocolo"
+  | "dtPrevisao"
+  | "statusPrevisao"
+  | "nivelRisco"
+  | "tarefa"
+  | "responsavel"
+  | "situacaoTarefa"
+  | "tipoNatureza";
+
+type SortDirection = "asc" | "desc";
+
+const tarefaCollator = new Intl.Collator("pt-BR", {
+  numeric: true,
+  sensitivity: "base",
+});
 
 const kpiFilterLabels: Record<KpiFilter, string> = {
   VENCEM_HOJE: "Vencem Hoje",
@@ -135,6 +155,10 @@ export function TarefasDashboardClient() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [activeKpiFilter, setActiveKpiFilter] = useState<KpiFilter | null>(null);
+  const [sortConfig, setSortConfig] = useState<{
+    key: SortKey;
+    direction: SortDirection;
+  } | null>(null);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -403,14 +427,93 @@ export function TarefasDashboardClient() {
     tomorrowStr,
   ]);
 
-  const totalPages = Math.max(1, Math.ceil(tarefasFiltradas.length / pageSize));
+  const tarefasOrdenadas = useMemo(() => {
+    if (!sortConfig) return tarefasFiltradas;
+
+    const getSortValue = (tarefa: TarefaRecord): string | number | null => {
+      switch (sortConfig.key) {
+        case "protocolo":
+          return tarefa.protocolo;
+        case "dtPrevisao": {
+          if (!tarefa.dtPrevisao) return null;
+          const timestamp = new Date(tarefa.dtPrevisao).getTime();
+          return Number.isNaN(timestamp) ? null : timestamp;
+        }
+        case "statusPrevisao":
+          return (tarefa.statusPrevisao || "").toUpperCase().includes("ATRASAD")
+            ? "ATRASADO"
+            : "NO PRAZO";
+        case "nivelRisco":
+          return (tarefa.nivelRisco || "").toUpperCase().includes("CRITIC")
+            ? "CRITICO"
+            : "NORMAL";
+        case "tarefa":
+          return tarefa.tarefa;
+        case "responsavel":
+          return tarefa.responsavel;
+        case "situacaoTarefa":
+          return tarefa.situacaoTarefa;
+        case "tipoNatureza":
+          return `${tarefa.tipo || ""} ${tarefa.natureza || ""}`.trim();
+      }
+    };
+
+    return tarefasFiltradas
+      .map((tarefa, originalIndex) => ({ tarefa, originalIndex }))
+      .sort((a, b) => {
+        const valueA = getSortValue(a.tarefa);
+        const valueB = getSortValue(b.tarefa);
+
+        const isEmptyA = valueA === null || valueA === "";
+        const isEmptyB = valueB === null || valueB === "";
+        if (isEmptyA && isEmptyB) return a.originalIndex - b.originalIndex;
+        if (isEmptyA) return 1;
+        if (isEmptyB) return -1;
+
+        const comparison =
+          typeof valueA === "number" && typeof valueB === "number"
+            ? valueA - valueB
+            : tarefaCollator.compare(String(valueA), String(valueB));
+
+        if (comparison === 0) return a.originalIndex - b.originalIndex;
+        return sortConfig.direction === "asc" ? comparison : -comparison;
+      })
+      .map(({ tarefa }) => tarefa);
+  }, [tarefasFiltradas, sortConfig]);
+
+  const totalPages = Math.max(1, Math.ceil(tarefasOrdenadas.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
-  const startItem = tarefasFiltradas.length > 0 ? (safeCurrentPage - 1) * pageSize + 1 : 0;
-  const endItem = Math.min(safeCurrentPage * pageSize, tarefasFiltradas.length);
+  const startItem = tarefasOrdenadas.length > 0 ? (safeCurrentPage - 1) * pageSize + 1 : 0;
+  const endItem = Math.min(safeCurrentPage * pageSize, tarefasOrdenadas.length);
   const tarefasPaginadas = useMemo(
-    () => tarefasFiltradas.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize),
-    [tarefasFiltradas, safeCurrentPage, pageSize]
+    () => tarefasOrdenadas.slice((safeCurrentPage - 1) * pageSize, safeCurrentPage * pageSize),
+    [tarefasOrdenadas, safeCurrentPage, pageSize]
   );
+
+  const handleSort = (key: SortKey) => {
+    setSortConfig((current) => ({
+      key,
+      direction: current?.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+    setCurrentPage(1);
+  };
+
+  const renderSortIcon = (key: SortKey) => {
+    if (sortConfig?.key !== key) {
+      return <ArrowUpDown className="h-3.5 w-3.5 text-white/30" aria-hidden="true" />;
+    }
+
+    return sortConfig.direction === "asc" ? (
+      <ArrowUp className="h-3.5 w-3.5 text-purple-300" aria-hidden="true" />
+    ) : (
+      <ArrowDown className="h-3.5 w-3.5 text-purple-300" aria-hidden="true" />
+    );
+  };
+
+  const getAriaSort = (key: SortKey): "ascending" | "descending" | "none" => {
+    if (sortConfig?.key !== key) return "none";
+    return sortConfig.direction === "asc" ? "ascending" : "descending";
+  };
 
   useEffect(() => {
     setCurrentPage(1);
@@ -455,7 +558,7 @@ export function TarefasDashboardClient() {
 
     const csvRows = [
       headers.join(";"),
-      ...tarefasFiltradas.map((r) =>
+      ...tarefasOrdenadas.map((r) =>
         [
           r.protocolo,
           r.seqTitulo,
@@ -494,7 +597,7 @@ export function TarefasDashboardClient() {
         : selectedRisco === "NORMAL"
           ? "Normal / Baixo"
           : "Todas as criticidades";
-    const rows = tarefasFiltradas
+    const rows = tarefasOrdenadas
       .map(
         (row) => `<tr>
           <td>#${escapePrintValue(row.protocolo)}</td>
@@ -905,14 +1008,46 @@ export function TarefasDashboardClient() {
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 z-10 select-none border-b border-white/8 bg-[#0B1020] text-[11px] uppercase tracking-wider text-white/58 shadow-[0_1px_0_rgba(255,255,255,0.08)]">
               <tr>
-                <th className="px-4 py-3.5 font-semibold">Protocolo</th>
-                <th className="px-4 py-3.5 font-semibold">Previsão</th>
-                <th className="px-4 py-3.5 text-center font-semibold">Status Previsão</th>
-                <th className="px-4 py-3.5 text-center font-semibold">Nível Risco</th>
-                <th className="px-4 py-3.5 font-semibold">Tarefa</th>
-                <th className="px-4 py-3.5 font-semibold">Responsável</th>
-                <th className="px-4 py-3.5 font-semibold">Situação</th>
-                <th className="px-4 py-3.5 font-semibold">Tipo / Natureza</th>
+                <th className="px-2 py-1.5 font-semibold" aria-sort={getAriaSort("protocolo")}>
+                  <button type="button" onClick={() => handleSort("protocolo")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por protocolo">
+                    Protocolo {renderSortIcon("protocolo")}
+                  </button>
+                </th>
+                <th className="px-2 py-1.5 font-semibold" aria-sort={getAriaSort("dtPrevisao")}>
+                  <button type="button" onClick={() => handleSort("dtPrevisao")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por previsão">
+                    Previsão {renderSortIcon("dtPrevisao")}
+                  </button>
+                </th>
+                <th className="px-2 py-1.5 font-semibold" aria-sort={getAriaSort("statusPrevisao")}>
+                  <button type="button" onClick={() => handleSort("statusPrevisao")} className="flex w-full items-center justify-center gap-1.5 rounded-md px-2 py-2 text-center transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por status da previsão">
+                    Status Previsão {renderSortIcon("statusPrevisao")}
+                  </button>
+                </th>
+                <th className="px-2 py-1.5 font-semibold" aria-sort={getAriaSort("nivelRisco")}>
+                  <button type="button" onClick={() => handleSort("nivelRisco")} className="flex w-full items-center justify-center gap-1.5 rounded-md px-2 py-2 text-center transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por nível de risco">
+                    Nível Risco {renderSortIcon("nivelRisco")}
+                  </button>
+                </th>
+                <th className="px-2 py-1.5 font-semibold" aria-sort={getAriaSort("tarefa")}>
+                  <button type="button" onClick={() => handleSort("tarefa")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por tarefa">
+                    Tarefa {renderSortIcon("tarefa")}
+                  </button>
+                </th>
+                <th className="px-2 py-1.5 font-semibold" aria-sort={getAriaSort("responsavel")}>
+                  <button type="button" onClick={() => handleSort("responsavel")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por responsável">
+                    Responsável {renderSortIcon("responsavel")}
+                  </button>
+                </th>
+                <th className="px-2 py-1.5 font-semibold" aria-sort={getAriaSort("situacaoTarefa")}>
+                  <button type="button" onClick={() => handleSort("situacaoTarefa")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por situação">
+                    Situação {renderSortIcon("situacaoTarefa")}
+                  </button>
+                </th>
+                <th className="px-2 py-1.5 font-semibold" aria-sort={getAriaSort("tipoNatureza")}>
+                  <button type="button" onClick={() => handleSort("tipoNatureza")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por tipo e natureza">
+                    Tipo / Natureza {renderSortIcon("tipoNatureza")}
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 text-white/80">
