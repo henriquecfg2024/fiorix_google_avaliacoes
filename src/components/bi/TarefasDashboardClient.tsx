@@ -77,6 +77,39 @@ const kpiFilterLabels: Record<KpiFilter, string> = {
   EM_ANDAMENTO: "Em Andamento",
 };
 
+function matchesKpiFilter(
+  tarefa: TarefaRecord,
+  filter: KpiFilter | null,
+  todayStr: string,
+  tomorrowStr: string
+) {
+  if (!filter) return true;
+
+  const situacao = (tarefa.situacaoTarefa || "").trim().toUpperCase();
+  const statusPrev = (tarefa.statusPrevisao || "").trim().toUpperCase();
+  const risco = (tarefa.nivelRisco || "").trim().toUpperCase();
+  const dtStr = tarefa.dtPrevisao?.split("T")[0] || "";
+
+  if (filter === "VENCEM_HOJE") return dtStr === todayStr;
+  if (filter === "VENCEM_AMANHA") return dtStr === tomorrowStr;
+
+  if (filter === "PROXIMOS_3_DIAS") {
+    if (!tarefa.dtPrevisao) return false;
+    const dNow = new Date();
+    dNow.setHours(0, 0, 0, 0);
+    const d3DaysLater = new Date(dNow);
+    d3DaysLater.setDate(d3DaysLater.getDate() + 3);
+    const dPrev = new Date(tarefa.dtPrevisao);
+    dPrev.setHours(0, 0, 0, 0);
+    return dPrev >= dNow && dPrev <= d3DaysLater;
+  }
+
+  if (filter === "ATRASADOS") return statusPrev === "ATRASADO" || statusPrev === "ESTOURADO";
+  if (filter === "RISCO_CRITICO") return risco === "CRITICO" || risco === "CRÍTICO" || risco === "ALTO";
+
+  return situacao === "EM ANDAMENTO" || situacao === "ABERTA" || situacao === "PENDENTE";
+}
+
 const taskPanelClass =
   "rounded-2xl border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)]";
 
@@ -260,7 +293,7 @@ export function TarefasDashboardClient() {
       }
     > = {};
 
-    tarefas.forEach((t) => {
+    tarefas.filter((t) => matchesKpiFilter(t, activeKpiFilter, todayStr, tomorrowStr)).forEach((t) => {
       const resp = (t.responsavel || "Não Atribuído").trim();
       if (!mapResp[resp]) {
         mapResp[resp] = {
@@ -298,15 +331,12 @@ export function TarefasDashboardClient() {
         riscoCritico: r.riscoCritico.size,
       }))
       .sort((a, b) => b.tarefasCount - a.tarefasCount);
-  }, [tarefas, todayStr, tomorrowStr]);
+  }, [tarefas, todayStr, tomorrowStr, activeKpiFilter]);
+
+  const responsaveisExibidos = activeKpiFilter ? cargaPorResponsavel : cargaPorResponsavel.slice(0, 10);
 
   // Tabela Filtrada de Tarefas
   const tarefasFiltradas = useMemo(() => {
-    const dNow = new Date();
-    dNow.setHours(0, 0, 0, 0);
-    const d3DaysLater = new Date(dNow);
-    d3DaysLater.setDate(d3DaysLater.getDate() + 3);
-
     return tarefas.filter((t) => {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -347,44 +377,7 @@ export function TarefasDashboardClient() {
         if (selectedStatusPrevisao === "NO_PRAZO" && s.includes("ATRASAD")) return false;
       }
 
-      if (activeKpiFilter) {
-        const situacao = (t.situacaoTarefa || "").trim().toUpperCase();
-        const statusPrev = (t.statusPrevisao || "").trim().toUpperCase();
-        const risco = (t.nivelRisco || "").trim().toUpperCase();
-        const dtStr = t.dtPrevisao?.split("T")[0] || "";
-
-        if (activeKpiFilter === "VENCEM_HOJE" && dtStr !== todayStr) return false;
-        if (activeKpiFilter === "VENCEM_AMANHA" && dtStr !== tomorrowStr) return false;
-
-        if (activeKpiFilter === "PROXIMOS_3_DIAS") {
-          if (!t.dtPrevisao) return false;
-          const dPrev = new Date(t.dtPrevisao);
-          dPrev.setHours(0, 0, 0, 0);
-          if (dPrev < dNow || dPrev > d3DaysLater) return false;
-        }
-
-        if (activeKpiFilter === "ATRASADOS" && statusPrev !== "ATRASADO" && statusPrev !== "ESTOURADO") {
-          return false;
-        }
-
-        if (
-          activeKpiFilter === "RISCO_CRITICO" &&
-          risco !== "CRITICO" &&
-          risco !== "CRÍTICO" &&
-          risco !== "ALTO"
-        ) {
-          return false;
-        }
-
-        if (
-          activeKpiFilter === "EM_ANDAMENTO" &&
-          situacao !== "EM ANDAMENTO" &&
-          situacao !== "ABERTA" &&
-          situacao !== "PENDENTE"
-        ) {
-          return false;
-        }
-      }
+      if (!matchesKpiFilter(t, activeKpiFilter, todayStr, tomorrowStr)) return false;
 
       return true;
     });
@@ -651,9 +644,23 @@ export function TarefasDashboardClient() {
 
       {/* Seção Sintética: Carga por Responsável */}
       <section className={`${taskPanelClass} space-y-4`}>
-        <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-amber-300" />
-          <h2 className="text-base font-semibold text-white">Carga por Responsável</h2>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-2">
+            <Users className="mt-0.5 h-4 w-4 text-amber-300" />
+            <div>
+              <h2 className="text-base font-semibold text-white">Carga por Responsável</h2>
+              {activeKpiFilter && (
+                <p className="mt-0.5 text-xs text-white/50">
+                  {cargaPorResponsavel.length.toLocaleString("pt-BR")} responsáveis afetados pelo filtro selecionado
+                </p>
+              )}
+            </div>
+          </div>
+          {activeKpiFilter && (
+            <span className="self-start rounded-full border border-amber-400/20 bg-amber-400/10 px-2.5 py-1 text-[10px] font-semibold text-amber-200 sm:self-auto">
+              {kpiFilterLabels[activeKpiFilter]}
+            </span>
+          )}
         </div>
 
         <div className="overflow-x-auto rounded-xl border border-white/8 bg-[#0B1020]/72">
@@ -669,7 +676,7 @@ export function TarefasDashboardClient() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 text-slate-200">
-              {cargaPorResponsavel.slice(0, 10).map((row, idx) => (
+              {responsaveisExibidos.map((row, idx) => (
                 <tr key={idx} className="transition-colors hover:bg-white/[0.035]">
                   <td className="py-3 px-4 font-semibold text-white">{row.responsavel}</td>
                   <td className="py-3 px-4 text-center font-bold text-cyan-300">{row.tarefasCount}</td>
@@ -697,6 +704,13 @@ export function TarefasDashboardClient() {
                   </td>
                 </tr>
               ))}
+              {responsaveisExibidos.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-10 text-center text-xs text-white/40">
+                    Nenhum responsável afetado pelo filtro selecionado.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
