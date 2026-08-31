@@ -411,8 +411,10 @@ model ConnectorSyncBatch {
   recordsReceived Int       @default(0)
   recordsInserted Int       @default(0)
   recordsUpdated  Int       @default(0)
-  durationMs      Int?
-  errorMessage    String?
+    durationMs      Int?
+    errorMessage    String?
+    chunkCount      Int       @default(1)
+    chunksReceived  Int       @default(1)
 
   @@unique([tenantId, connectorId, source, batchId])
   @@index([tenantId])
@@ -443,9 +445,12 @@ model ConnectorSyncStaging {
   connector   Connector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
   source      String
   batchId     String
-  records     Json      // Armazena payload em JSONB
-  createdAt   DateTime  @default(now())
+    records     Json      // Armazena payload em JSONB
+    chunkIndex  Int       @default(0)
+    chunkCount  Int       @default(1)
+    createdAt   DateTime  @default(now())
 
-  @@index([tenantId])
-}
+    @@index([tenantId])
+    @@unique([tenantId, connectorId, source, batchId, chunkIndex])
+  }
 

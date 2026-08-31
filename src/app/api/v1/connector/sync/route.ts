@@ -11,6 +11,12 @@ const syncPayloadSchema = z.object({
   batch_id: z.string(),
   generated_at: z.string().datetime(),
   records: z.array(z.any()), // Pode ser detalhado futuramente
+  chunk_index: z.number().int().nonnegative().optional().default(0),
+  chunk_count: z.number().int().positive().optional().default(1),
+}).superRefine(({ chunk_index, chunk_count }, ctx) => {
+  if (chunk_index >= chunk_count) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid chunk range', path: ['chunk_index'] });
+  }
 });
 
 export async function POST(req: Request) {
@@ -37,7 +43,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid payload schema', details: parsed.error.errors }, { status: 400 });
     }
 
-    const { tenant_id, connector_id, source, batch_id, generated_at, records } = parsed.data;
+    const { tenant_id, connector_id, source, batch_id, generated_at, records, chunk_index, chunk_count } = parsed.data;
 
     // Authenticate connector
     const authResult = await authenticateConnector(connector_id, secret);
@@ -69,61 +75,91 @@ export async function POST(req: Request) {
       data: { lastSeenAt: new Date() }
     });
 
-    // Check Idempotency
-    const existingBatch = await prisma.connectorSyncBatch.findUnique({
-      where: {
-        tenantId_connectorId_source_batchId: {
-          tenantId,
-          connectorId: connector_id,
-          source: source,
-          batchId: batch_id
-        }
-      }
-    });
-
-    if (existingBatch) {
-      console.info(`SYNC_DUPLICATE: Batch ${batch_id} already processed`);
-      return NextResponse.json({
-        success: true,
-        alreadyProcessed: true,
-        batch_id
-      });
-    }
-
-    // Process new batch in a transaction
+    // The request body is parsed before this point. The transaction only protects
+    // the chunk insert, counters and status update; it never serializes the full batch.
     const startTime = Date.now();
+    const result = await prisma.$transaction(async (tx) => {
+      let batch = await tx.connectorSyncBatch.findUnique({
+        where: {
+          tenantId_connectorId_source_batchId: {
+            tenantId,
+            connectorId: connector_id,
+            source,
+            batchId: batch_id,
+          }
+        }
+      });
 
-    await prisma.$transaction(async (tx) => {
-      // 1. Insert into Staging
+      if (!batch) {
+        batch = await tx.connectorSyncBatch.create({
+          data: {
+            tenantId,
+            connectorId: connector_id,
+            source,
+            batchId: batch_id,
+            generatedAt: new Date(generated_at),
+            status: 'receiving',
+            recordsReceived: 0,
+            recordsInserted: 0,
+            recordsUpdated: 0,
+            chunkCount: chunk_count,
+            chunksReceived: 0,
+          }
+        });
+      }
+
+      if (batch.chunkCount !== chunk_count) {
+        throw new Error('CHUNK_COUNT_MISMATCH');
+      }
+
+      const existingChunk = await tx.connectorSyncStaging.findUnique({
+        where: {
+          tenantId_connectorId_source_batchId_chunkIndex: {
+            tenantId,
+            connectorId: connector_id,
+            source,
+            batchId: batch_id,
+            chunkIndex: chunk_index,
+          }
+        }
+      });
+
+      if (existingChunk) {
+        return { alreadyProcessed: true, batch };
+      }
+
       await tx.connectorSyncStaging.create({
         data: {
           tenantId,
           connectorId: connector_id,
-          source: source,
+          source,
           batchId: batch_id,
-          records: records,
+          records,
+          chunkIndex: chunk_index,
+          chunkCount: chunk_count,
         }
       });
 
-      // 2. Insert Batch Log
-      await tx.connectorSyncBatch.create({
+      const incrementedBatch = await tx.connectorSyncBatch.update({
+        where: { id: batch.id },
         data: {
-          tenantId,
-          connectorId: connector_id,
-          source: source,
-          batchId: batch_id,
-          generatedAt: new Date(generated_at),
-          receivedAt: new Date(),
-          processedAt: new Date(),
-          status: 'processed',
-          recordsReceived: records.length,
-          recordsInserted: records.length, // For now, we just insert all to staging
-          recordsUpdated: 0,
-          durationMs: Date.now() - startTime,
+          chunksReceived: { increment: 1 },
+          recordsReceived: { increment: records.length },
+          recordsInserted: { increment: records.length },
         }
       });
 
-      // 3. Upsert Source Status
+      const completed = incrementedBatch.chunksReceived === chunk_count;
+      const status = completed ? 'completed' : 'partial';
+      const finalizedBatch = await tx.connectorSyncBatch.update({
+        where: { id: batch.id },
+        data: {
+          status,
+          processedAt: completed ? new Date() : null,
+          durationMs: completed ? Date.now() - startTime : null,
+        }
+      });
+
       const now = new Date();
       await tx.connectorSourceStatus.upsert({
         where: {
@@ -135,9 +171,9 @@ export async function POST(req: Request) {
         },
         update: {
           lastSyncAt: now,
-          lastSuccessAt: now,
-          recordsLastSync: records.length,
-          status: 'healthy',
+          lastSuccessAt: completed ? now : undefined,
+          recordsLastSync: finalizedBatch.recordsReceived,
+          status: completed ? 'healthy' : 'partial',
           lastError: null
         },
         create: {
@@ -145,12 +181,26 @@ export async function POST(req: Request) {
           connectorId: connector_id,
           source: source,
           lastSyncAt: now,
-          lastSuccessAt: now,
-          recordsLastSync: records.length,
-          status: 'healthy'
+          lastSuccessAt: completed ? now : null,
+          recordsLastSync: finalizedBatch.recordsReceived,
+          status: completed ? 'healthy' : 'partial'
         }
       });
-    });
+      return { alreadyProcessed: false, batch: finalizedBatch };
+    }, { timeout: 30000, maxWait: 5000 });
+
+    if (result.alreadyProcessed) {
+      console.info(`SYNC_DUPLICATE: Chunk ${chunk_index} of batch ${batch_id} already processed`);
+      return NextResponse.json({
+        success: true,
+        alreadyProcessed: true,
+        batch_id,
+        chunk_index,
+        chunk_count,
+        recordsReceived: result.batch.recordsReceived,
+        status: result.batch.status,
+      });
+    }
 
     console.info(`SYNC_SUCCESS: Batch ${batch_id} processed successfully`);
 
@@ -158,7 +208,10 @@ export async function POST(req: Request) {
       success: true,
       alreadyProcessed: false,
       batch_id,
-      recordsReceived: records.length
+      chunk_index,
+      chunk_count,
+      recordsReceived: result.batch.recordsReceived,
+      status: result.batch.status,
     });
 
   } catch (error) {

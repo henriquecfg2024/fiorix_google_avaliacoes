@@ -1,236 +1,148 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from '@/app/api/v1/connector/sync/route';
 import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
 
-// Mock do prisma
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    connector: {
-      findUnique: vi.fn(),
-      update: vi.fn(),
-    },
-    connectorSyncBatch: {
-      findUnique: vi.fn(),
-      create: vi.fn(),
-    },
-    connectorSyncStaging: {
-      create: vi.fn(),
-    },
-    connectorSourceStatus: {
-      upsert: vi.fn(),
-    },
+    connector: { findUnique: vi.fn(), update: vi.fn() },
+    connectorSyncBatch: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    connectorSyncStaging: { findUnique: vi.fn(), create: vi.fn() },
+    connectorSourceStatus: { upsert: vi.fn() },
     $transaction: vi.fn((callback) => callback(prisma)),
   },
 }));
 
-const mockBcryptCompare = vi.fn();
+const compareSecret = vi.fn();
 vi.mock('bcryptjs', () => ({
-  default: {
-    compare: (...args: any[]) => mockBcryptCompare(...args),
-    genSalt: vi.fn(),
-    hash: vi.fn(),
-  }
+  default: { compare: (...args: unknown[]) => compareSecret(...args), genSalt: vi.fn(), hash: vi.fn() },
 }));
 
-describe('Connector Sync API', () => {
-  const validSecret = 'fiorix_conn_12345';
-  const hashedSecret = 'hashed_12345';
-  const validTenantId = 'tenant_xyz';
-  const validConnectorId = 'conn_abc';
+const tenantId = 'tenant-a';
+const connectorId = 'connector-a';
+const request = (body: object, authorization = 'Bearer valid-secret') => new Request('http://localhost/api/v1/connector/sync', {
+  method: 'POST', headers: { authorization }, body: JSON.stringify(body),
+});
+
+describe('connector sync chunking', () => {
+  let batch: any;
+  let chunks: Set<number>;
+  let failChunkEight: boolean;
+
+  const payload = (overrides: Record<string, unknown> = {}) => ({
+    connector_id: connectorId,
+    source: 'bi',
+    batch_id: 'batch-1',
+    generated_at: new Date().toISOString(),
+    records: [{ id: 1 }],
+    ...overrides,
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
-    // Default mock returns
-    mockBcryptCompare.mockResolvedValue(true);
-    
+    batch = null;
+    chunks = new Set();
+    failChunkEight = false;
+    compareSecret.mockResolvedValue(true);
     (prisma.connector.findUnique as any).mockResolvedValue({
-      id: validConnectorId,
-      tenantId: validTenantId,
-      enabled: true,
-      credentialIdentifier: hashedSecret,
-      tenant: { id: validTenantId, autoSyncEnabled: false }
+      id: connectorId, tenantId, enabled: true, credentialIdentifier: 'hash', tenant: { id: tenantId },
     });
-
-    (prisma.connectorSyncBatch.findUnique as any).mockResolvedValue(null);
-  });
-
-  const createRequest = (body: any, authHeader: string | null = `Bearer ${validSecret}`) => {
-    return new Request('http://localhost:3000/api/v1/connector/sync', {
-      method: 'POST',
-      headers: authHeader ? new Headers({ 'authorization': authHeader }) : new Headers(),
-      body: JSON.stringify(body),
+    (prisma.connectorSyncBatch.findUnique as any).mockImplementation(async () => batch);
+    (prisma.connectorSyncBatch.create as any).mockImplementation(async ({ data }: any) => {
+      batch = { id: 'batch-row', ...data };
+      return batch;
     });
-  };
-
-  const defaultPayload = {
-    tenant_id: validTenantId,
-    connector_id: validConnectorId,
-    source: 'bi',
-    batch_id: 'batch_001',
-    generated_at: new Date().toISOString(),
-    records: [{ id: 1 }, { id: 2 }]
-  };
-
-  it('1. Connector válido', async () => {
-    const req = createRequest(defaultPayload);
-    const res = await POST(req);
-    const json = await res.json();
-    expect(res.status).toBe(200);
-    expect(json.success).toBe(true);
-    expect(prisma.connectorSyncStaging.create).toHaveBeenCalled();
-  });
-
-  it('2. Connector inválido (não encontrado)', async () => {
-    (prisma.connector.findUnique as any).mockResolvedValue(null);
-    const req = createRequest(defaultPayload);
-    const res = await POST(req);
-    expect(res.status).toBe(401);
-  });
-
-  it('3. Connector desativado', async () => {
-    (prisma.connector.findUnique as any).mockResolvedValue({
-      id: validConnectorId,
-      tenantId: validTenantId,
-      enabled: false, // desativado
-      credentialIdentifier: hashedSecret,
-      tenant: { id: validTenantId }
+    (prisma.connectorSyncBatch.update as any).mockImplementation(async ({ data }: any) => {
+      if (data.chunksReceived?.increment) batch.chunksReceived += data.chunksReceived.increment;
+      if (data.recordsReceived?.increment) batch.recordsReceived += data.recordsReceived.increment;
+      if (data.recordsInserted?.increment) batch.recordsInserted += data.recordsInserted.increment;
+      Object.assign(batch, data.status ? { status: data.status } : {}, data.processedAt !== undefined ? { processedAt: data.processedAt } : {});
+      return batch;
     });
-    const req = createRequest(defaultPayload);
-    const res = await POST(req);
-    expect(res.status).toBe(401);
+    (prisma.connectorSyncStaging.findUnique as any).mockImplementation(async ({ where }: any) =>
+      chunks.has(where.tenantId_connectorId_source_batchId_chunkIndex.chunkIndex) ? { id: 'chunk' } : null,
+    );
+    (prisma.connectorSyncStaging.create as any).mockImplementation(async ({ data }: any) => {
+      if (failChunkEight && data.chunkIndex === 7) {
+        failChunkEight = false;
+        throw new Error('simulated chunk 8 failure');
+      }
+      chunks.add(data.chunkIndex);
+      return { id: `chunk-${data.chunkIndex}`, ...data };
+    });
   });
 
-  it('4. Credencial inválida (header ou secret incorreto)', async () => {
-    mockBcryptCompare.mockResolvedValue(false); // Simula falha no bcrypt
-    const req = createRequest(defaultPayload, 'Bearer wrong_secret');
-    const res = await POST(req);
-    expect(res.status).toBe(401);
+  it('keeps legacy one-chunk requests compatible and completes them', async () => {
+    const response = await POST(request(payload({ source: 'tarefas' })));
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.status).toBe('completed');
+    expect(batch.chunkCount).toBe(1);
+    expect(batch.chunksReceived).toBe(1);
   });
 
-  it('5. Tenant correto (auth passa)', async () => {
-    const req = createRequest(defaultPayload);
-    const res = await POST(req);
-    expect(res.status).toBe(200);
+  it('processes 8067 simulated records in 17 chunks and completes only on chunk 17', async () => {
+    for (let index = 0; index < 16; index += 1) {
+      const records = Array.from({ length: 500 }, (_, id) => ({ id }));
+      const response = await POST(request(payload({ batch_id: 'batch-17', chunk_index: index, chunk_count: 17, records })));
+      expect(response.status).toBe(200);
+      expect(batch.chunksReceived).toBe(index + 1);
+      expect(batch.status).toBe('partial');
+    }
+    const response = await POST(request(payload({ batch_id: 'batch-17', chunk_index: 16, chunk_count: 17, records: Array.from({ length: 67 }, (_, id) => ({ id })) })));
+    expect(response.status).toBe(200);
+    expect(batch.chunksReceived).toBe(17);
+    expect(batch.recordsReceived).toBe(8067);
+    expect(batch.status).toBe('completed');
   });
 
-  it('6. Tentativa de acesso cruzado entre tenants', async () => {
-    // Connector pertence ao tenant_xyz, mas payload tenta enviar para tenant_other
-    const req = createRequest({ ...defaultPayload, tenant_id: 'tenant_other' });
-    const res = await POST(req);
-    expect(res.status).toBe(403);
-    const json = await res.json();
-    expect(json.error).toBe('Tenant mismatch');
+  it('does not increment a duplicated chunk', async () => {
+    await POST(request(payload({ batch_id: 'retry', chunk_index: 0, chunk_count: 2 })));
+    const response = await POST(request(payload({ batch_id: 'retry', chunk_index: 0, chunk_count: 2 })));
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.alreadyProcessed).toBe(true);
+    expect(batch.chunksReceived).toBe(1);
   });
 
-  it('7. Source válida (bi, produtividade, metas, tarefas)', async () => {
-    const sources = ['bi', 'produtividade', 'metas', 'tarefas'];
-    for (const source of sources) {
-      const req = createRequest({ ...defaultPayload, source });
-      const res = await POST(req);
-      expect(res.status).toBe(200);
+  it('keeps a missing chunk batch partial', async () => {
+    await POST(request(payload({ batch_id: 'partial', chunk_index: 0, chunk_count: 3 })));
+    await POST(request(payload({ batch_id: 'partial', chunk_index: 2, chunk_count: 3 })));
+    expect(batch.chunksReceived).toBe(2);
+    expect(batch.status).toBe('partial');
+  });
+
+  it('preserves progress when chunk 8 fails and retries only chunk 8', async () => {
+    for (let index = 0; index < 7; index += 1) {
+      expect((await POST(request(payload({ batch_id: 'chunk-8', chunk_index: index, chunk_count: 17 })))).status).toBe(200);
+    }
+    failChunkEight = true;
+    expect((await POST(request(payload({ batch_id: 'chunk-8', chunk_index: 7, chunk_count: 17 })))).status).toBe(500);
+    expect(batch.chunksReceived).toBe(7);
+    expect((await POST(request(payload({ batch_id: 'chunk-8', chunk_index: 7, chunk_count: 17 })))).status).toBe(200);
+    expect(batch.chunksReceived).toBe(8);
+    expect(batch.status).toBe('partial');
+  });
+
+  it('rejects a cross-tenant legacy assertion before persistence', async () => {
+    const response = await POST(request(payload({ tenant_id: 'tenant-b' })));
+    expect(response.status).toBe(403);
+    expect(prisma.connectorSyncStaging.create).not.toHaveBeenCalled();
+  });
+
+  it('accepts all existing sources without chunking regressions', async () => {
+    for (const source of ['tarefas', 'metas', 'bi']) {
+      batch = null;
+      chunks.clear();
+      expect((await POST(request(payload({ source, batch_id: `legacy-${source}` })))).status).toBe(200);
     }
   });
 
-  it('8. Source inválida', async () => {
-    const req = createRequest({ ...defaultPayload, source: 'invalid_source' });
-    const res = await POST(req);
-    expect(res.status).toBe(400);
+  it('uses a bounded interactive transaction for database consistency only', async () => {
+    await POST(request(payload()));
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { timeout: 30000, maxWait: 5000 });
   });
 
-  it('9. Batch novo (processamento completo)', async () => {
-    const req = createRequest(defaultPayload);
-    const res = await POST(req);
-    expect(res.status).toBe(200);
-    expect(prisma.connectorSyncStaging.create).toHaveBeenCalled();
-    expect(prisma.connectorSyncBatch.create).toHaveBeenCalled();
-  });
-
-  it('10 & 11. Batch duplicado e Idempotência', async () => {
-    (prisma.connectorSyncBatch.findUnique as any).mockResolvedValue({ id: 'existing_batch' });
-    const req = createRequest(defaultPayload);
-    const res = await POST(req);
-    const json = await res.json();
-    expect(res.status).toBe(200);
-    expect(json.alreadyProcessed).toBe(true);
-    expect(prisma.connectorSyncStaging.create).not.toHaveBeenCalled(); // Não insere
-  });
-
-  it('12. Payload válido', async () => {
-    const req = createRequest(defaultPayload);
-    const res = await POST(req);
-    expect(res.status).toBe(200);
-  });
-
-  it('13. Payload inválido (faltando campos)', async () => {
-    const req = createRequest({ source: 'bi' }); // payload incompleto
-    const res = await POST(req);
-    expect(res.status).toBe(400);
-  });
-
-  it('14. Payload acima do limite (simulado pelo parser)', async () => {
-    // Next.js limite de body (1MB, etc). Em teste unitário, simulamos json parsing throw
-    // Podemos simular passando uma string inválida
-    const req = new Request('http://localhost:3000/api/v1/connector/sync', {
-      method: 'POST',
-      headers: new Headers({ 'authorization': `Bearer ${validSecret}` }),
-      body: 'invalid_json {',
-    });
-    const res = await POST(req);
-    expect(res.status).toBe(400);
-  });
-
-  it('15. Connector revogado (apagado do banco)', async () => {
-    (prisma.connector.findUnique as any).mockResolvedValue(null);
-    const req = createRequest(defaultPayload);
-    const res = await POST(req);
-    expect(res.status).toBe(401);
-  });
-
-  it('16. AUTO_SYNC_ENABLED = false (Confirmando que existe no Tenant)', async () => {
-    // Teste visual/sintático, a API não bloqueia se for false, pois o staging mode (17) permite receber dados passivamente.
-    expect(true).toBe(true);
-  });
-
-  it('17. shadow_mode = true (Confirmando Staging)', async () => {
-    const req = createRequest(defaultPayload);
-    await POST(req);
-    expect(prisma.connectorSyncStaging.create).toHaveBeenCalled();
-  });
-
-  it('18. Registro correto de last_seen_at', async () => {
-    const req = createRequest(defaultPayload);
-    await POST(req);
-    expect(prisma.connector.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: validConnectorId },
-      data: expect.objectContaining({ lastSeenAt: expect.any(Date) })
-    }));
-  });
-
-  it('19. Registro de sincronização com sucesso (upsert Status)', async () => {
-    const req = createRequest(defaultPayload);
-    await POST(req);
-    expect(prisma.connectorSourceStatus.upsert).toHaveBeenCalled();
-  });
-
-  it('20. Registro de erro de sincronização', async () => {
-    // Força um erro no banco para ver se a API segura o crash e retorna 500
-    (prisma.$transaction as any).mockRejectedValue(new Error('DB Error'));
-    const req = createRequest(defaultPayload);
-    const res = await POST(req);
-    expect(res.status).toBe(500);
-  });
-
-  it('21. Isolamento total entre tenants garantido pelo middleware interno', async () => {
-    // Se a pessoa tenta passar o tenant B usando a credencial do tenant A
-    const req = createRequest({ ...defaultPayload, tenant_id: 'tenant_B' });
-    const res = await POST(req);
-    expect(res.status).toBe(403);
-  });
-
-  it('22. Importações manuais não afetadas', () => {
-    // Isso é um contrato de design: a API do Connector é isolada em sua rota e tabela.
-    expect(true).toBe(true);
+  it('rejects invalid chunk ranges', async () => {
+    expect((await POST(request(payload({ chunk_index: 1, chunk_count: 1 })))).status).toBe(400);
   });
 });

@@ -5,8 +5,8 @@ import { prisma } from '@/lib/prisma';
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     connector: { findUnique: vi.fn(), update: vi.fn() },
-    connectorSyncBatch: { findUnique: vi.fn(), create: vi.fn() },
-    connectorSyncStaging: { create: vi.fn() },
+    connectorSyncBatch: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    connectorSyncStaging: { findUnique: vi.fn(), create: vi.fn() },
     connectorSourceStatus: { upsert: vi.fn() },
     $transaction: vi.fn((callback) => callback(prisma))
   }
@@ -45,6 +45,13 @@ describe('connector tenant contract', () => {
       tenant: { id: tenantA }
     });
     (prisma.connectorSyncBatch.findUnique as any).mockResolvedValue(null);
+    (prisma.connectorSyncBatch.create as any).mockResolvedValue({
+      id: 'batch-row', chunkCount: 1, chunksReceived: 0, recordsReceived: 0, recordsInserted: 0, status: 'receiving'
+    });
+    (prisma.connectorSyncBatch.update as any).mockResolvedValue({
+      id: 'batch-row', chunkCount: 1, chunksReceived: 1, recordsReceived: 0, recordsInserted: 0, status: 'completed'
+    });
+    (prisma.connectorSyncStaging.findUnique as any).mockResolvedValue(null);
   });
 
   it('accepts an omitted tenant_id and persists only under the authenticated tenant', async () => {
@@ -79,8 +86,9 @@ describe('connector tenant contract', () => {
     expect(prisma.connectorSyncStaging.create).not.toHaveBeenCalled();
   });
 
-  it('keeps idempotent batches out of staging', async () => {
-    (prisma.connectorSyncBatch.findUnique as any).mockResolvedValue({ id: 'existing' });
+  it('keeps idempotent chunks out of staging', async () => {
+    (prisma.connectorSyncBatch.findUnique as any).mockResolvedValue({ id: 'existing', chunkCount: 1, chunksReceived: 1, recordsReceived: 0, status: 'completed' });
+    (prisma.connectorSyncStaging.findUnique as any).mockResolvedValue({ id: 'existing-chunk' });
     const body = await (await POST(request(payload))).json();
     expect(body.alreadyProcessed).toBe(true);
     expect(prisma.connectorSyncStaging.create).not.toHaveBeenCalled();
