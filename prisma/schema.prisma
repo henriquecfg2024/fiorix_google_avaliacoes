@@ -61,6 +61,12 @@ model Tenant {
   metasDados        FiorixMetasDados[]
   intervencoes      FiorixIntervencao[]
   relatorios        FiorixRelatorio[]
+
+  // Sincronização Automática - SaaS
+  autoSyncEnabled   Boolean                 @default(false)
+  connectors        Connector[]
+  syncBatches       ConnectorSyncBatch[]
+  sourceStatuses    ConnectorSourceStatus[]
 }
 
 // ── USERS ─────────────────────────────────────────────────────────────
@@ -368,4 +374,78 @@ model FiorixRelatorio {
   @@map("fiorix_relatorios")
 }
 
+// ── CONNECTOR & SYNC INFRASTRUCTURE ───────────────────────────────────
+
+model Connector {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                 String
+  status               String   @default("offline") // offline, online
+  version              String?
+  enabled              Boolean  @default(true)
+  credentialIdentifier String   // Hash bcrypt da credencial
+  lastSeenAt           DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  batches              ConnectorSyncBatch[]
+  sourceStatuses       ConnectorSourceStatus[]
+  staging              ConnectorSyncStaging[]
+
+  @@index([tenantId])
+}
+
+model ConnectorSyncBatch {
+  id              String    @id @default(cuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connectorId     String
+  connector       Connector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  source          String    // bi, produtividade, metas, tarefas
+  batchId         String
+  generatedAt     DateTime
+  receivedAt      DateTime  @default(now())
+  processedAt     DateTime?
+  status          String    // received, processed, error
+  recordsReceived Int       @default(0)
+  recordsInserted Int       @default(0)
+  recordsUpdated  Int       @default(0)
+  durationMs      Int?
+  errorMessage    String?
+
+  @@unique([tenantId, connectorId, source, batchId])
+  @@index([tenantId])
+}
+
+model ConnectorSourceStatus {
+  id              String    @id @default(cuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connectorId     String
+  connector       Connector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  source          String
+  lastSyncAt      DateTime?
+  lastSuccessAt   DateTime?
+  lastErrorAt     DateTime?
+  lastError       String?
+  recordsLastSync Int       @default(0)
+  status          String    @default("never_synced") // healthy, delayed, error, never_synced, disabled
+
+  @@unique([tenantId, connectorId, source])
+  @@index([tenantId])
+}
+
+model ConnectorSyncStaging {
+  id          String    @id @default(cuid())
+  tenantId    String
+  connectorId String
+  connector   Connector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  source      String
+  batchId     String
+  records     Json      // Armazena payload em JSONB
+  createdAt   DateTime  @default(now())
+
+  @@index([tenantId])
+}
 

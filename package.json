@@ -52,6 +52,8 @@
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
     "prisma": "5.22.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11",
+    "vitest-mock-extended": "^5.1.1"
   }
 }
