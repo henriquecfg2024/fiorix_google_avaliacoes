@@ -152,9 +152,40 @@ export default function ComunicadosPage() {
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       </div>
 
-      {/* Top Banner Urgente Sticky */}
-      <div className="sticky top-14 z-30 bg-[#160a0e]/95 border-b border-rose-500/35 backdrop-blur-md px-4 py-3 shadow-[0_10px_30px_rgba(244,63,94,0.15)]">
-        <div className="mx-auto max-w-[1600px] px-2 sm:px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="relative mx-auto max-w-[1600px] px-5 py-6 sm:px-8 space-y-6">
+        {/* Breadcrumb + Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-white/6">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+              <span>Dashboard</span>
+              <span className="text-slate-600">/</span>
+              <span>Pessoas</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-rose-400">Comunicados</span>
+            </div>
+            <div className="flex items-center gap-3 mt-1.5">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                COMUNICADOS INTERNOS
+              </h1>
+              <span className="rounded-full border border-rose-500/25 bg-rose-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-rose-300">
+                CIÊNCIA & AUDITORIA
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              Fique por dentro de todas as informações, diretrizes e avisos importantes da Serventia.
+            </p>
+          </div>
+
+          <Link href="/sistema/pessoas">
+            <Button className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-90 text-white font-bold text-xs gap-1.5 rounded-xl shadow-lg shadow-indigo-500/20">
+              <Plus className="w-4 h-4" />
+              <span>Novo Comunicado</span>
+            </Button>
+          </Link>
+        </div>
+
+        {/* Banner Urgente de Notificação */}
+        <div className="rounded-[22px] border border-rose-500/35 bg-[#180a10]/90 backdrop-blur-xl p-4 shadow-[0_15px_35px_rgba(244,63,94,0.18)] flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-400 shrink-0 shadow-[0_0_15px_rgba(244,63,94,0.25)]">
               <AlertTriangle className="w-5 h-5 animate-pulse" />
@@ -177,9 +208,7 @@ export default function ComunicadosPage() {
             <span>Ver todos urgentes</span>
           </Button>
         </div>
-      </div>
 
-      <div className="relative mx-auto max-w-[1600px] px-5 py-6 sm:px-8 space-y-6">
         {/* Top KPIs Row */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           {/* Card 1: Não Lidos */}
@@ -236,24 +265,6 @@ export default function ComunicadosPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Coluna Principal: COMUNICADOS (68%) */}
           <div className="lg:col-span-8 space-y-6">
-            {/* Header com Ações */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h1 className="text-xl font-black text-white tracking-tight">
-                  COMUNICADOS INTERNOS
-                </h1>
-                <p className="text-xs text-white/50 mt-0.5">
-                  Fique por dentro de todas as informações importantes da Serventia.
-                </p>
-              </div>
-
-              <Link href="/sistema/pessoas">
-                <Button className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-90 text-white font-bold text-xs gap-1.5 rounded-xl shadow-lg shadow-indigo-500/20">
-                  <Plus className="w-4 h-4" />
-                  <span>Novo Comunicado</span>
-                </Button>
-              </Link>
-            </div>
 
             {/* Navigation Tabs & Search */}
             <div className="space-y-3">
