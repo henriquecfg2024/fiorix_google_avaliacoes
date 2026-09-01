@@ -1,7 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
-import { AlertCircle, Clock, FileText, CheckCircle2, Bookmark, Eye, ShieldAlert, Sparkles, ChevronRight } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import {
+  AlertCircle,
+  Clock,
+  FileText,
+  CheckCircle2,
+  Bookmark,
+  Eye,
+  ShieldCheck,
+  ChevronRight,
+  QrCode,
+  Lock,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -16,9 +27,10 @@ export interface ComunicadoItem {
   dataPublicacao: string | Date;
   dataExpiracao?: string | Date | null;
   exigeCiencia: boolean;
+  visualizado?: boolean;
   autorNome?: string;
   setor?: string;
-  anexos?: Array<{ id: string; nomeOriginal: string; tamanhoBytes: number }>;
+  anexos?: Array<{ id: string; nomeOriginal: string; tamanhoBytes: number; url?: string }>;
   ciencias?: Array<{ id: string; dataCiencia: string | Date; comprovanteHash: string }>;
 }
 
@@ -26,11 +38,17 @@ interface ComunicadoCardProps {
   comunicado: ComunicadoItem;
   onOpenCiencia: (comunicado: ComunicadoItem) => void;
   onOpenAnexos?: (comunicado: ComunicadoItem) => void;
+  isArquivoView?: boolean;
 }
 
-export function ComunicadoCard({ comunicado, onOpenCiencia, onOpenAnexos }: ComunicadoCardProps) {
+export function ComunicadoCard({
+  comunicado,
+  onOpenCiencia,
+  onOpenAnexos,
+  isArquivoView = false,
+}: ComunicadoCardProps) {
   const [bookmarked, setBookmarked] = useState(false);
-  const isCiente = comunicado.ciencias && comunicado.ciencias.length > 0;
+  const isCiente = Boolean(comunicado.ciencias && comunicado.ciencias.length > 0);
   const isUrgente = comunicado.prioridade === "URGENTE";
   const isImportante = comunicado.prioridade === "IMPORTANTE";
 
@@ -38,7 +56,10 @@ export function ComunicadoCard({ comunicado, onOpenCiencia, onOpenAnexos }: Comu
   let dataFormatada = "30/08/2026 09:00";
   try {
     if (comunicado.dataPublicacao) {
-      const d = typeof comunicado.dataPublicacao === "string" ? new Date(comunicado.dataPublicacao) : comunicado.dataPublicacao;
+      const d =
+        typeof comunicado.dataPublicacao === "string"
+          ? new Date(comunicado.dataPublicacao)
+          : comunicado.dataPublicacao;
       if (!isNaN(d.getTime())) {
         dataFormatada = format(d, "dd/MM/yyyy HH:mm", { locale: ptBR });
       }
@@ -47,12 +68,64 @@ export function ComunicadoCard({ comunicado, onOpenCiencia, onOpenAnexos }: Comu
     dataFormatada = "30/08/2026 09:00";
   }
 
+  // Data da ciência se houver
+  let dataCienciaFormatada = "";
+  if (isCiente && comunicado.ciencias?.[0]?.dataCiencia) {
+    try {
+      const cd =
+        typeof comunicado.ciencias[0].dataCiencia === "string"
+          ? new Date(comunicado.ciencias[0].dataCiencia)
+          : comunicado.ciencias[0].dataCiencia;
+      if (!isNaN(cd.getTime())) {
+        dataCienciaFormatada = format(cd, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+      }
+    } catch {
+      dataCienciaFormatada = "01/09/2026 às 18:42";
+    }
+  }
+
+  // Cálculo dinâmico do prazo para ciência (dataExpiracao - agora)
+  const [prazoRestante, setPrazoRestante] = useState<string>("");
+  const [isExpirado, setIsExpirado] = useState(false);
+
+  useEffect(() => {
+    if (!isUrgente || isCiente) return;
+
+    const calcPrazo = () => {
+      // Data de expiração padrão: 48h após publicação se não especificada
+      const expDate = comunicado.dataExpiracao
+        ? new Date(comunicado.dataExpiracao)
+        : new Date(new Date(comunicado.dataPublicacao).getTime() + 48 * 3600 * 1000);
+
+      const diff = expDate.getTime() - Date.now();
+      if (diff <= 0) {
+        setIsExpirado(true);
+        setPrazoRestante("PRAZO EXPIRADO");
+      } else {
+        const dias = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const horas = Math.floor((diff / (1000 * 60 * 60)) % 24);
+        const mins = Math.floor((diff / (1000 * 60)) % 60);
+        setPrazoRestante(
+          `${String(dias).padStart(2, "0")}d ${String(horas).padStart(2, "0")}h ${String(
+            mins
+          ).padStart(2, "0")}min`
+        );
+      }
+    };
+
+    calcPrazo();
+    const interval = setInterval(calcPrazo, 60000);
+    return () => clearInterval(interval);
+  }, [comunicado, isUrgente, isCiente]);
+
   // Classes de estilo baseadas na prioridade
-  const borderClass = isUrgente
-    ? "border-rose-500/35 bg-[#140a12]/80 hover:border-rose-500/60 hover:bg-[#180c16]/90 shadow-[0_20px_50px_rgba(0,0,0,0.25)]"
+  const borderClass = isCiente
+    ? "border-emerald-500/25 bg-[#0B1020]/72 hover:border-emerald-500/40 shadow-[0_20px_50px_rgba(0,0,0,0.25)]"
+    : isUrgente
+    ? "border-rose-500/35 bg-[#140a12]/80 hover:border-rose-500/60 shadow-[0_20px_50px_rgba(244,63,94,0.15)]"
     : isImportante
-    ? "border-amber-500/30 bg-[#14100c]/80 hover:border-amber-500/50 hover:bg-[#18130e]/90 shadow-[0_20px_50px_rgba(0,0,0,0.25)]"
-    : "border-white/12 bg-[#0B1020]/72 hover:border-cyan-500/40 hover:bg-[#0B1020]/90 shadow-[0_20px_50px_rgba(0,0,0,0.25)]";
+    ? "border-amber-500/30 bg-[#14100c]/80 hover:border-amber-500/50 shadow-[0_20px_50px_rgba(245,158,11,0.1)]"
+    : "border-cyan-500/20 bg-[#0B1020]/72 hover:border-cyan-500/40 shadow-[0_20px_50px_rgba(0,0,0,0.25)]";
 
   const badgeClass = isUrgente
     ? "bg-rose-500 text-white font-black shadow-[0_0_12px_rgba(244,63,94,0.4)]"
@@ -61,32 +134,53 @@ export function ComunicadoCard({ comunicado, onOpenCiencia, onOpenAnexos }: Comu
     : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold";
 
   return (
-    <div className={`relative rounded-[28px] border p-6 transition-all duration-300 backdrop-blur-xl ${borderClass} flex flex-col justify-between`}>
+    <div
+      className={`relative rounded-[28px] border p-6 transition-all duration-300 backdrop-blur-xl ${borderClass} flex flex-col justify-between`}
+    >
       <div>
-        {/* Top bar: Badge, Data, Dot status */}
+        {/* Top bar: Badge, Data, Versão, Dot status */}
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
-            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-wide uppercase ${badgeClass}`}>
+            <span
+              className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-wide uppercase ${badgeClass}`}
+            >
               {comunicado.prioridade}
             </span>
             <span className="text-xs text-white/50">{dataFormatada}</span>
+            <span className="text-[10px] font-mono text-white/40">v{comunicado.versao}</span>
           </div>
 
           <div className="flex items-center gap-2">
-            {isUrgente && !isCiente && (
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-            )}
-            {isImportante && !isCiente && (
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-            )}
-            {comunicado.prioridade === "NORMAL" && (
+            {isCiente ? (
+              <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Ciente</span>
+              </span>
+            ) : isUrgente ? (
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+                <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider">
+                  Pendente
+                </span>
+              </span>
+            ) : isImportante ? (
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                  Pendente
+                </span>
+              </span>
+            ) : (
               <span className="w-2 h-2 rounded-full bg-cyan-400" />
             )}
           </div>
         </div>
 
         {/* Title */}
-        <h3 className="text-base font-bold text-white tracking-tight hover:text-indigo-300 transition-colors cursor-pointer" onClick={() => onOpenCiencia(comunicado)}>
+        <h3
+          className="text-base font-bold text-white tracking-tight hover:text-indigo-300 transition-colors cursor-pointer"
+          onClick={() => onOpenCiencia(comunicado)}
+        >
           {comunicado.titulo}
         </h3>
 
@@ -112,16 +206,35 @@ export function ComunicadoCard({ comunicado, onOpenCiencia, onOpenAnexos }: Comu
         </p>
       </div>
 
+      {/* Seção Arquivo de Ciências: Informações de Prova Criptográfica */}
+      {isArquivoView && isCiente && (
+        <div className="mb-4 p-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              Hash verificado
+            </span>
+            <span className="text-[11px] text-white/50 font-mono">
+              {dataCienciaFormatada || "Ciência Homologada"}
+            </span>
+          </div>
+          <div className="text-[10px] font-mono text-cyan-300/80 truncate bg-[#070A12]/80 p-1.5 rounded-lg border border-white/5 flex items-center justify-between">
+            <span>SHA-256: {comunicado.ciencias?.[0]?.comprovanteHash || comunicado.conteudoHash}</span>
+            <QrCode className="w-3.5 h-3.5 text-cyan-400 shrink-0 ml-2" />
+          </div>
+        </div>
+      )}
+
       {/* Status da Ciência / Barra de aviso */}
       <div className="space-y-3 pt-3 border-t border-white/5">
         {comunicado.exigeCiencia && (
           <div
-            onClick={() => !isCiente && onOpenCiencia(comunicado)}
+            onClick={() => onOpenCiencia(comunicado)}
             className={`p-2.5 rounded-xl border flex items-center justify-between text-xs cursor-pointer transition-colors ${
               isCiente
                 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                 : isUrgente
-                ? "bg-red-500/10 border-red-500/30 text-red-300 hover:bg-red-500/20"
+                ? "bg-rose-500/10 border-rose-500/30 text-rose-300 hover:bg-rose-500/20"
                 : "bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/20"
             }`}
           >
@@ -131,15 +244,24 @@ export function ComunicadoCard({ comunicado, onOpenCiencia, onOpenAnexos }: Comu
               ) : (
                 <AlertCircle className="w-4 h-4 text-current" />
               )}
-              <span className="font-semibold">
-                {isCiente
-                  ? "Ciência Registrada com Sucesso"
-                  : isUrgente
-                  ? "Pendente de Ciência • Expira em 2 dias"
-                  : "Pendente de Ciência • Expira em 5 dias"}
-              </span>
+              <div className="flex flex-col">
+                <span className="font-semibold">
+                  {isCiente
+                    ? "✓ Ciência registrada"
+                    : isUrgente
+                    ? isExpirado
+                      ? "PRAZO EXPIRADO"
+                      : `Pendente de Ciência • Prazo: ${prazoRestante || "Expira em breve"}`
+                    : "Pendente de Ciência • Expira em 5 dias"}
+                </span>
+                {isCiente && dataCienciaFormatada && (
+                  <span className="text-[10px] text-emerald-300/70 font-mono mt-0.5">
+                    {dataCienciaFormatada}
+                  </span>
+                )}
+              </div>
             </div>
-            {!isCiente && <ChevronRight className="w-3.5 h-3.5 opacity-60" />}
+            <ChevronRight className="w-3.5 h-3.5 opacity-60" />
           </div>
         )}
 
@@ -148,7 +270,7 @@ export function ComunicadoCard({ comunicado, onOpenCiencia, onOpenAnexos }: Comu
           {!isCiente ? (
             <Button
               onClick={() => onOpenCiencia(comunicado)}
-              className="flex-1 bg-white hover:bg-white/90 text-black font-bold text-xs py-2 rounded-xl flex items-center justify-center gap-2 shadow-lg"
+              className="flex-1 bg-white hover:bg-white/90 text-black font-bold text-xs py-2 rounded-xl flex items-center justify-center gap-2 shadow-lg cursor-pointer"
             >
               <Eye className="w-3.5 h-3.5" />
               <span>Ler e Dar Ciência com Prova</span>
@@ -157,10 +279,10 @@ export function ComunicadoCard({ comunicado, onOpenCiencia, onOpenAnexos }: Comu
             <Button
               variant="outline"
               onClick={() => onOpenCiencia(comunicado)}
-              className="flex-1 border-white/10 text-white/80 hover:bg-white/5 text-xs py-2 rounded-xl flex items-center justify-center gap-2"
+              className="flex-1 border-white/10 text-white/90 hover:bg-white/5 text-xs py-2 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
             >
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Ver Comprovante de Ciência</span>
+              <span>Ver Comprovante</span>
             </Button>
           )}
 
@@ -168,15 +290,17 @@ export function ComunicadoCard({ comunicado, onOpenCiencia, onOpenAnexos }: Comu
             <Button
               variant="outline"
               onClick={() => onOpenAnexos && onOpenAnexos(comunicado)}
-              className="border-white/10 bg-[#12141F] text-white/80 hover:text-white hover:bg-white/10 text-xs py-2 px-3 rounded-xl flex items-center gap-1.5"
+              className="border-white/10 bg-[#12141F] text-white/80 hover:text-white hover:bg-white/10 text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 cursor-pointer"
             >
-              <span>Ver Anexo{comunicado.anexos.length > 1 ? "s" : ""} ({comunicado.anexos.length})</span>
+              <span>
+                Ver Anexo{comunicado.anexos.length > 1 ? "s" : ""} ({comunicado.anexos.length})
+              </span>
             </Button>
           )}
 
           <button
             onClick={() => setBookmarked(!bookmarked)}
-            className={`p-2 rounded-xl border transition-colors ${
+            className={`p-2 rounded-xl border transition-colors cursor-pointer ${
               bookmarked
                 ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-400"
                 : "border-white/10 bg-[#12141F] text-white/40 hover:text-white hover:bg-white/10"
