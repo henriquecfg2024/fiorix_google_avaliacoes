@@ -101,9 +101,11 @@ export default async function UsuariosConfigPage() {
                 <select
                   name="role"
                   defaultValue="USER"
-                  className="w-full h-10 px-3 rounded-md border border-white/12 bg-[#0A0F1E] text-sm text-white focus:outline-hidden focus:border-amber-400/50"
+                  className="w-full h-10 px-3 rounded-md border border-white/12 bg-[#0A0F1E] text-sm text-white focus:outline-hidden focus:border-amber-400/50 cursor-pointer"
                 >
+                  <option value="COLABORADOR">Colaborador (COLABORADOR)</option>
                   <option value="USER">Usuário (USER)</option>
+                  <option value="RH">RH (RH)</option>
                   <option value="ADMIN">Admin (ADMIN)</option>
                 </select>
               </div>
@@ -111,10 +113,29 @@ export default async function UsuariosConfigPage() {
               <div className="md:col-span-2">
                 <Button 
                   type="submit"
-                  className="w-full bg-gradient-to-r from-indigo-500 to-amber-400 font-bold text-white shadow-xs transition-colors hover:brightness-105"
+                  className="w-full bg-gradient-to-r from-indigo-500 to-amber-400 font-bold text-white shadow-xs transition-colors hover:brightness-105 cursor-pointer"
                 >
                   Cadastrar
                 </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2 border-t border-white/6 text-[11px] text-white/50">
+              <div className="p-2 rounded-lg bg-white/[0.02] border border-white/5">
+                <span className="font-bold text-cyan-400 block">Colaborador (COLABORADOR):</span>
+                <span>Acesso somente a Comunicados, Férias e Holerites pessoais.</span>
+              </div>
+              <div className="p-2 rounded-lg bg-white/[0.02] border border-white/5">
+                <span className="font-bold text-blue-400 block">Usuário (USER):</span>
+                <span>Acesso operacional padrão do FIORIX.</span>
+              </div>
+              <div className="p-2 rounded-lg bg-white/[0.02] border border-white/5">
+                <span className="font-bold text-purple-400 block">RH (RH):</span>
+                <span>Gerenciamento de Comunicados, Férias e Holerites.</span>
+              </div>
+              <div className="p-2 rounded-lg bg-white/[0.02] border border-white/5">
+                <span className="font-bold text-indigo-400 block">Admin (ADMIN):</span>
+                <span>Acesso administrativo da organização.</span>
               </div>
             </div>
           </form>

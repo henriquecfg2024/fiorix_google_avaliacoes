@@ -20,8 +20,12 @@ export default async function MinhaContaPage() {
     user.role === 'MASTER'
       ? 'border-amber-400/30 bg-amber-400/10 text-amber-200'
       : user.role === 'ADMIN'
-        ? 'border-blue-400/30 bg-blue-400/10 text-blue-200'
-        : 'border-slate-300/20 bg-slate-300/10 text-slate-200';
+      ? 'border-indigo-400/30 bg-indigo-400/10 text-indigo-200'
+      : user.role === 'RH'
+      ? 'border-purple-400/30 bg-purple-400/10 text-purple-200'
+      : user.role === 'COLABORADOR'
+      ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-200'
+      : 'border-blue-400/30 bg-blue-400/10 text-blue-200';
 
   return (
     <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">

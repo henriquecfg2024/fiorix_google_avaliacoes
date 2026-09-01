@@ -19,23 +19,57 @@ export const authConfig = {
                             
       if (isOnDashboard) {
         if (!isLoggedIn) return false;
-        if (nextUrl.pathname.startsWith('/configuracoes/cartorios') && auth.user.role !== 'MASTER') {
+        const role = auth.user.role || 'USER';
+
+        // MASTER tem acesso irrestrito
+        if (role === 'MASTER') return true;
+
+        // MASTER apenas para /configuracoes/cartorios
+        if (nextUrl.pathname.startsWith('/configuracoes/cartorios') && role !== 'MASTER') {
           return Response.redirect(new URL('/dashboard', nextUrl));
         }
-        if (nextUrl.pathname.startsWith('/sistema') && auth.user.role === 'USER') {
-          return Response.redirect(new URL('/pessoas', nextUrl));
+
+        // Regras para perfil COLABORADOR: acesso estritamente a /pessoas e /minha-conta
+        if (role === 'COLABORADOR') {
+          if (nextUrl.pathname.startsWith('/pessoas') || nextUrl.pathname === '/minha-conta') {
+            return true;
+          }
+          return Response.redirect(new URL('/pessoas/comunicados', nextUrl));
         }
-        if (nextUrl.pathname.startsWith('/configuracoes') && auth.user.role === 'USER') {
-          return Response.redirect(new URL('/dashboard', nextUrl));
+
+        // Regras para perfil RH: acesso a /pessoas, /sistema/pessoas e /minha-conta
+        if (role === 'RH') {
+          if (
+            nextUrl.pathname.startsWith('/pessoas') ||
+            nextUrl.pathname.startsWith('/sistema/pessoas') ||
+            nextUrl.pathname === '/minha-conta'
+          ) {
+            return true;
+          }
+          return Response.redirect(new URL('/sistema/pessoas', nextUrl));
         }
-        if (nextUrl.pathname.startsWith('/bi/importar') && auth.user.role === 'USER') {
-          return Response.redirect(new URL('/bi', nextUrl));
+
+        // Regras para perfil USER: acesso operacional ao dashboard, bi, avaliacoes, relatorios, pessoas
+        if (role === 'USER') {
+          if (nextUrl.pathname.startsWith('/sistema') || nextUrl.pathname.startsWith('/configuracoes')) {
+            return Response.redirect(new URL('/dashboard', nextUrl));
+          }
+          if (nextUrl.pathname.startsWith('/bi/importar') || nextUrl.pathname.startsWith('/bi/importacoes')) {
+            return Response.redirect(new URL('/bi', nextUrl));
+          }
+          return true;
         }
-        if (nextUrl.pathname.startsWith('/bi/importacoes') && auth.user.role === 'USER') {
-          return Response.redirect(new URL('/bi', nextUrl));
-        }
+
+        // ADMIN tem acesso amplo à organização
         return true;
       } else if (isLoggedIn && nextUrl.pathname === '/login') {
+        const role = auth.user.role || 'USER';
+        if (role === 'COLABORADOR') {
+          return Response.redirect(new URL('/pessoas/comunicados', nextUrl));
+        }
+        if (role === 'RH') {
+          return Response.redirect(new URL('/sistema/pessoas', nextUrl));
+        }
         return Response.redirect(new URL('/dashboard', nextUrl));
       }
       return true;

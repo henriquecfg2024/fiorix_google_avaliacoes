@@ -13,6 +13,8 @@ enum Role {
   MASTER
   ADMIN
   USER
+  RH
+  COLABORADOR
 }
 
 enum Sentiment {

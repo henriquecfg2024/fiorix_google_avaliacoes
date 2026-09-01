@@ -34,7 +34,14 @@ export async function createUser(formData: FormData) {
   const name = formData.get('name') as string;
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
-  const role = (formData.get('role') as 'ADMIN' | 'USER') || 'USER';
+  const rawRole = (formData.get('role') as string) || 'USER';
+
+  const validRoles = ['COLABORADOR', 'USER', 'RH', 'ADMIN'];
+  if (!validRoles.includes(rawRole)) {
+    throw new Error('Função selecionada inválida.');
+  }
+
+  const role = rawRole as 'COLABORADOR' | 'USER' | 'RH' | 'ADMIN';
 
   if (!email || !password) {
     throw new Error('E-mail e senha são obrigatórios.');
@@ -47,16 +54,32 @@ export async function createUser(formData: FormData) {
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  await prisma.user.create({
+  const newUser = await prisma.user.create({
     data: {
       name,
       email,
       passwordHash,
       role,
       tenantId: currentUser.tenantId,
-    }
+    },
   });
 
+  // Log de auditoria
+  try {
+    const { logAuditEvent } = await import('@/lib/audit/log');
+    await logAuditEvent({
+      tenantId: currentUser.tenantId,
+      usuarioId: currentUser.id,
+      tipo: 'user_created',
+      recursoId: newUser.id,
+      ip: '127.0.0.1',
+      metadata: { target_email: email, role, actor_user_id: currentUser.id },
+    });
+  } catch (err) {
+    // Non-blocking
+  }
+
+  revalidatePath('/configuracoes/usuarios');
   revalidatePath('/configuracoes');
 }
 
@@ -126,8 +149,16 @@ export async function resetUserPassword(userId: string, newPassword: string) {
   return { success: true };
 }
 
-export async function updateUserRole(userId: string, newRole: 'ADMIN' | 'USER') {
+export async function updateUserRole(
+  userId: string,
+  newRole: 'COLABORADOR' | 'USER' | 'RH' | 'ADMIN'
+) {
   const currentUser = await requireRole('ADMIN', 'MASTER');
+
+  const validRoles = ['COLABORADOR', 'USER', 'RH', 'ADMIN'];
+  if (!validRoles.includes(newRole)) {
+    return { error: 'Função inválida fornecida.' };
+  }
 
   const targetUser = await prisma.user.findUnique({ where: { id: userId } });
   if (!targetUser) return { error: 'Usuário não encontrado.' };
@@ -140,10 +171,33 @@ export async function updateUserRole(userId: string, newRole: 'ADMIN' | 'USER') 
     return { error: 'Não autorizado a alterar este usuário.' };
   }
 
+  const oldRole = targetUser.role;
+
   await prisma.user.update({
     where: { id: userId },
-    data: { role: newRole }
+    data: { role: newRole as any },
   });
+
+  // Log de auditoria para mudança de função
+  try {
+    const { logAuditEvent } = await import('@/lib/audit/log');
+    await logAuditEvent({
+      tenantId: currentUser.tenantId,
+      usuarioId: currentUser.id,
+      tipo: 'user_role_changed',
+      recursoId: targetUser.id,
+      ip: '127.0.0.1',
+      metadata: {
+        actor_user_id: currentUser.id,
+        target_user_id: targetUser.id,
+        old_role: oldRole,
+        new_role: newRole,
+        organization_id: currentUser.tenantId,
+      },
+    });
+  } catch (err) {
+    // Non-blocking
+  }
 
   revalidatePath('/configuracoes/usuarios');
   return { success: true };

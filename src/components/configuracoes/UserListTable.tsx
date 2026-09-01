@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { resetUserPassword, updateUserRole, updateUserName } from '@/app/actions/admin';
+import { ShieldCheck, ShieldAlert, Key, Edit3, X, AlertTriangle } from 'lucide-react';
 
 interface UserItem {
   id: string;
@@ -11,9 +12,11 @@ interface UserItem {
   createdAt: Date | string;
 }
 
+type AppRole = 'COLABORADOR' | 'USER' | 'RH' | 'ADMIN' | 'MASTER';
+
 export function UserListTable({
   usuarios,
-  currentUserRole = 'USER'
+  currentUserRole = 'USER',
 }: {
   usuarios: UserItem[];
   currentUserRole?: string;
@@ -27,7 +30,55 @@ export function UserListTable({
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
   const [nameMessage, setNameMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
-  const handleRoleChange = async (userId: string, newRole: 'ADMIN' | 'USER') => {
+  // Modal de confirmação de alteração de função com elevação de privilégio
+  const [pendingRoleChange, setPendingRoleChange] = useState<{
+    user: UserItem;
+    newRole: 'COLABORADOR' | 'USER' | 'RH' | 'ADMIN';
+    impact: string;
+  } | null>(null);
+
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case 'COLABORADOR':
+        return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/25';
+      case 'USER':
+        return 'bg-blue-500/10 text-blue-400 border-blue-500/25';
+      case 'RH':
+        return 'bg-purple-500/10 text-purple-400 border-purple-500/25';
+      case 'ADMIN':
+        return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/25';
+      case 'MASTER':
+        return 'bg-amber-500/10 text-amber-300 border-amber-500/25';
+      default:
+        return 'bg-white/5 text-white/70 border-white/10';
+    }
+  };
+
+  const getRoleImpact = (oldRole: string, newRole: string): string | null => {
+    if (newRole === 'ADMIN') {
+      return 'O usuário terá acesso administrativo completo sobre usuários e configurações da organização.';
+    }
+    if (newRole === 'RH' && (oldRole === 'COLABORADOR' || oldRole === 'USER')) {
+      return 'O usuário terá acesso à gestão de Comunicados, Férias e Holerites de todos os colaboradores.';
+    }
+    if (newRole === 'USER' && oldRole === 'COLABORADOR') {
+      return 'O usuário terá acesso operacional ampliado aos módulos de BI, Avaliações e Relatórios.';
+    }
+    return null;
+  };
+
+  const onSelectRole = (user: UserItem, newRole: 'COLABORADOR' | 'USER' | 'RH' | 'ADMIN') => {
+    if (user.role === newRole) return;
+
+    const impact = getRoleImpact(user.role, newRole);
+    if (impact) {
+      setPendingRoleChange({ user, newRole, impact });
+    } else {
+      executeRoleChange(user.id, newRole);
+    }
+  };
+
+  const executeRoleChange = async (userId: string, newRole: 'COLABORADOR' | 'USER' | 'RH' | 'ADMIN') => {
     setUpdatingRoleId(userId);
     try {
       const res = await updateUserRole(userId, newRole);
@@ -38,6 +89,7 @@ export function UserListTable({
       alert('Erro ao alterar a função do usuário.');
     } finally {
       setUpdatingRoleId(null);
+      setPendingRoleChange(null);
     }
   };
 
@@ -109,7 +161,10 @@ export function UserListTable({
       if (res?.error) {
         setMessage({ type: 'error', text: res.error });
       } else {
-        setMessage({ type: 'success', text: `Senha de ${selectedUser.name || selectedUser.email} alterada com sucesso!` });
+        setMessage({
+          type: 'success',
+          text: `Senha de ${selectedUser.name || selectedUser.email} alterada com sucesso!`,
+        });
         setTimeout(() => {
           handleCloseModal();
         }, 1800);
@@ -148,19 +203,30 @@ export function UserListTable({
                   <td className="p-3 sm:p-4 text-white/70">{u.email}</td>
                   <td className="p-3 sm:p-4">
                     {isMasterTarget ? (
-                      <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-amber-300">
+                      <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-amber-300 font-mono">
                         MASTER
                       </span>
                     ) : (
-                      <select
-                        value={u.role}
-                        disabled={updatingRoleId === u.id}
-                        onChange={(e) => handleRoleChange(u.id, e.target.value as 'ADMIN' | 'USER')}
-                        className="rounded-lg border border-white/12 bg-[#0A0F1E] px-2.5 py-1 text-xs font-semibold text-white focus:outline-hidden focus:border-amber-400/50"
-                      >
-                        <option value="USER">USER (Usuário)</option>
-                        <option value="ADMIN">ADMIN (Administrador)</option>
-                      </select>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={u.role}
+                          disabled={updatingRoleId === u.id}
+                          onChange={(e) =>
+                            onSelectRole(
+                              u,
+                              e.target.value as 'COLABORADOR' | 'USER' | 'RH' | 'ADMIN'
+                            )
+                          }
+                          className={`rounded-lg border px-2.5 py-1 text-xs font-semibold focus:outline-hidden focus:border-amber-400/50 cursor-pointer bg-[#0A0F1E] ${getRoleBadge(
+                            u.role
+                          )}`}
+                        >
+                          <option value="COLABORADOR">Colaborador (COLABORADOR)</option>
+                          <option value="USER">Usuário (USER)</option>
+                          <option value="RH">RH (RH)</option>
+                          <option value="ADMIN">Admin (ADMIN)</option>
+                        </select>
+                      </div>
                     )}
                   </td>
                   <td className="p-3 sm:p-4 text-white/60">
@@ -175,13 +241,13 @@ export function UserListTable({
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleOpenNameModal(u)}
-                          className="rounded-xl border border-white/12 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-white/[0.08]"
+                          className="rounded-xl border border-white/12 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-white/[0.08] cursor-pointer"
                         >
                           ✏️ Editar Nome
                         </button>
                         <button
                           onClick={() => handleOpenModal(u)}
-                          className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 transition-colors hover:bg-cyan-500/18"
+                          className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 transition-colors hover:bg-cyan-500/18 cursor-pointer"
                         >
                           🔑 Resetar Senha
                         </button>
@@ -195,65 +261,108 @@ export function UserListTable({
         </table>
       </div>
 
-      {selectedUser && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15, 23, 42, 0.5)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            padding: '20px'
-          }}
-        >
-          <div
-            style={{
-              background: 'white',
-              borderRadius: '16px',
-              padding: '28px',
-              width: '100%',
-              maxWidth: '440px',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>
-                🔑 Resetar Senha
-              </h3>
+      {/* Modal de Confirmação de Elevação de Função (Privilege Escalation) */}
+      {pendingRoleChange && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+          <div className="relative w-full max-w-md bg-[#0B1020] border border-white/12 rounded-[24px] p-6 shadow-[0_25px_70px_rgba(0,0,0,0.6)] space-y-4">
+            <div className="flex items-center justify-between border-b border-white/8 pb-3">
+              <div className="flex items-center gap-2 text-amber-400">
+                <AlertTriangle className="w-5 h-5" />
+                <h3 className="text-sm font-bold text-white">Confirmar Alteração de Função</h3>
+              </div>
               <button
-                onClick={handleCloseModal}
-                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748b' }}
+                onClick={() => setPendingRoleChange(null)}
+                className="p-1 rounded-lg text-white/50 hover:text-white hover:bg-white/10"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p style={{ fontSize: '14px', color: '#475569', marginBottom: '20px' }}>
-              Digite a nova senha para o usuário <strong>{selectedUser.name || selectedUser.email}</strong>.
+            <p className="text-xs text-slate-300">
+              Você está alterando os privilégios de acesso do usuário{' '}
+              <strong className="text-white">
+                {pendingRoleChange.user.name || pendingRoleChange.user.email}
+              </strong>
+              .
+            </p>
+
+            <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-white/50">Função Atual:</span>
+                <span className="font-bold text-slate-300">{pendingRoleChange.user.role}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-white/50">Nova Função:</span>
+                <span className="font-bold text-amber-300">{pendingRoleChange.newRole}</span>
+              </div>
+              <div className="pt-2 border-t border-white/5 text-[11px] text-amber-200/80 leading-relaxed">
+                <strong>Impacto:</strong> {pendingRoleChange.impact}
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setPendingRoleChange(null)}
+                className="flex-1 px-4 py-2 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() =>
+                  executeRoleChange(pendingRoleChange.user.id, pendingRoleChange.newRole)
+                }
+                className="flex-1 px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black shadow-lg cursor-pointer"
+              >
+                {loading ? 'Confirmando...' : 'Confirmar Alteração'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Reset de Senha */}
+      {selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+          <div className="relative w-full max-w-md bg-[#0B1020] border border-white/12 rounded-[24px] p-6 shadow-[0_25px_70px_rgba(0,0,0,0.6)] space-y-4">
+            <div className="flex items-center justify-between border-b border-white/8 pb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Key className="w-4 h-4 text-cyan-400" />
+                Resetar Senha
+              </h3>
+              <button
+                onClick={handleCloseModal}
+                className="p-1 rounded-lg text-white/50 hover:text-white hover:bg-white/10"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300">
+              Digite a nova senha para o usuário{' '}
+              <strong className="text-white">
+                {selectedUser.name || selectedUser.email}
+              </strong>
+              .
             </p>
 
             {message && (
               <div
-                style={{
-                  padding: '12px',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  marginBottom: '16px',
-                  background: message.type === 'error' ? '#fee2e2' : '#dcfce7',
-                  color: message.type === 'error' ? '#991b1b' : '#166534'
-                }}
+                className={`p-3 rounded-xl text-xs font-medium ${
+                  message.type === 'error'
+                    ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                }`}
               >
                 {message.text}
               </div>
             )}
 
-            <form onSubmit={handleResetPassword}>
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-white/60">
                   Nova Senha *
                 </label>
                 <input
@@ -262,48 +371,22 @@ export function UserListTable({
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
                   placeholder="Digite a nova senha (mín. 6 caracteres)"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '14px',
-                    outline: 'none'
-                  }}
+                  className="w-full px-3.5 py-2 rounded-xl border border-white/12 bg-[#070A12] text-xs text-white placeholder:text-white/30 focus:outline-hidden focus:border-cyan-400/50"
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <div className="flex gap-2 justify-end pt-2">
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  style={{
-                    background: '#f1f5f9',
-                    color: '#475569',
-                    border: 'none',
-                    padding: '10px 16px',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  style={{
-                    background: '#3b82f6',
-                    color: 'white',
-                    border: 'none',
-                    padding: '10px 18px',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    opacity: loading ? 0.7 : 1
-                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-black shadow-lg cursor-pointer"
                 >
                   {loading ? 'Salvando...' : 'Salvar Nova Senha'}
                 </button>
@@ -313,65 +396,43 @@ export function UserListTable({
         </div>
       )}
 
+      {/* Modal de Edição de Nome */}
       {editNameUser && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15, 23, 42, 0.5)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            padding: '20px'
-          }}
-        >
-          <div
-            style={{
-              background: 'white',
-              borderRadius: '16px',
-              padding: '28px',
-              width: '100%',
-              maxWidth: '440px',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>
-                ✏️ Editar Nome do Usuário
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+          <div className="relative w-full max-w-md bg-[#0B1020] border border-white/12 rounded-[24px] p-6 shadow-[0_25px_70px_rgba(0,0,0,0.6)] space-y-4">
+            <div className="flex items-center justify-between border-b border-white/8 pb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-indigo-400" />
+                Editar Nome do Usuário
               </h3>
               <button
                 onClick={handleCloseNameModal}
-                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748b' }}
+                className="p-1 rounded-lg text-white/50 hover:text-white hover:bg-white/10"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p style={{ fontSize: '14px', color: '#475569', marginBottom: '20px' }}>
-              Altere o nome cadastrado para o e-mail <strong>{editNameUser.email}</strong>.
+            <p className="text-xs text-slate-300">
+              Altere o nome cadastrado para o e-mail{' '}
+              <strong className="text-white">{editNameUser.email}</strong>.
             </p>
 
             {nameMessage && (
               <div
-                style={{
-                  padding: '12px',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  marginBottom: '16px',
-                  background: nameMessage.type === 'error' ? '#fee2e2' : '#dcfce7',
-                  color: nameMessage.type === 'error' ? '#991b1b' : '#166534'
-                }}
+                className={`p-3 rounded-xl text-xs font-medium ${
+                  nameMessage.type === 'error'
+                    ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                }`}
               >
                 {nameMessage.text}
               </div>
             )}
 
-            <form onSubmit={handleSaveName}>
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+            <form onSubmit={handleSaveName} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-white/60">
                   Nome Completo *
                 </label>
                 <input
@@ -380,48 +441,22 @@ export function UserListTable({
                   onChange={(e) => setNameInput(e.target.value)}
                   required
                   placeholder="Digite o nome correto"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '14px',
-                    outline: 'none'
-                  }}
+                  className="w-full px-3.5 py-2 rounded-xl border border-white/12 bg-[#070A12] text-xs text-white placeholder:text-white/30 focus:outline-hidden focus:border-indigo-400/50"
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <div className="flex gap-2 justify-end pt-2">
                 <button
                   type="button"
                   onClick={handleCloseNameModal}
-                  style={{
-                    background: '#f1f5f9',
-                    color: '#475569',
-                    border: 'none',
-                    padding: '10px 16px',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  style={{
-                    background: '#3b82f6',
-                    color: 'white',
-                    border: 'none',
-                    padding: '10px 18px',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    opacity: loading ? 0.7 : 1
-                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg cursor-pointer"
                 >
                   {loading ? 'Salvando...' : 'Salvar Nome'}
                 </button>
