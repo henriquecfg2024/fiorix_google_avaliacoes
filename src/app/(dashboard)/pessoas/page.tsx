@@ -27,8 +27,27 @@ export default async function PessoasDashboard() {
   const userRole = session.user.role || "USER";
   const userName = session.user.name || "Colaborador";
 
-  let feriasPrevistas = null;
-  let pendingCount = 2;
+  // Saudação dinâmica conforme horário de Brasília (UTC-3)
+  const now = new Date();
+  const horaBrasilia = (now.getUTCHours() - 3 + 24) % 24;
+  let saudacao = "Olá";
+  if (horaBrasilia >= 5 && horaBrasilia < 12) {
+    saudacao = "Bom dia";
+  } else if (horaBrasilia >= 12 && horaBrasilia < 18) {
+    saudacao = "Boa tarde";
+  } else {
+    saudacao = "Boa noite";
+  }
+
+  let feriasPrevistas: {
+    dataInicioPrevista: string | Date;
+    dataFimPrevista?: string | Date;
+    dias?: number;
+  } | null = null;
+
+  let naoLidosCount = 0;
+  let pendingCount = 0;
+  let urgentesCount = 0;
 
   try {
     if (tenantId && userId) {
@@ -43,19 +62,32 @@ export default async function PessoasDashboard() {
 
       const comunicadosDb = await PessoasRepository.getComunicados(tenantId, userId, userRole);
       if (comunicadosDb && comunicadosDb.length > 0) {
-        pendingCount = comunicadosDb.filter((c) => c.exigeCiencia && (!c.ciencias || c.ciencias.length === 0)).length;
+        const naoCientificados = comunicadosDb.filter(
+          (c) => c.exigeCiencia && (!c.ciencias || c.ciencias.length === 0)
+        );
+        pendingCount = naoCientificados.length;
+        urgentesCount = naoCientificados.filter((c) => c.urgente).length;
+        naoLidosCount = comunicadosDb.filter((c) => !c.lido).length;
       }
     }
   } catch (error) {
-    console.error("Erro ao carregar dados do dashboard de pessoas:", error);
+    console.error("Erro ao carregar dados da central de pessoas:", error);
   }
 
+  // Fallback seguro se não houver dados de férias
   if (!feriasPrevistas) {
     feriasPrevistas = {
-      dataInicioPrevista: new Date("2026-12-15T00:00:00Z").toISOString(),
-      dataFimPrevista: new Date("2027-01-03T00:00:00Z").toISOString(),
+      dataInicioPrevista: "2026-12-15T00:00:00.000Z",
+      dataFimPrevista: "2027-01-03T00:00:00.000Z",
       dias: 20,
     };
+  }
+
+  // Se o usuário ainda não tiver pendências calculadas e for novo no sistema, default para 2 não lidos / 1 pendência
+  if (pendingCount === 0 && naoLidosCount === 0 && (!tenantId || tenantId.length === 0)) {
+    naoLidosCount = 2;
+    pendingCount = 1;
+    urgentesCount = 1;
   }
 
   return (
@@ -79,7 +111,7 @@ export default async function PessoasDashboard() {
             </div>
             <div className="flex items-center gap-3 mt-1.5">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                Boa tarde, {userName.split(" ")[0]}! 👋
+                {saudacao}, {userName.split(" ")[0]}! 👋
               </h1>
               <span className="rounded-full border border-indigo-500/25 bg-indigo-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-indigo-300">
                 CENTRAL DO COLABORADOR
@@ -92,12 +124,17 @@ export default async function PessoasDashboard() {
         </div>
 
         {/* Resumo de Cards */}
-        <CentralResumo 
-          pendingComunicadosCount={pendingCount} 
-          ferias={feriasPrevistas} 
+        <CentralResumo
+          naoLidosCount={naoLidosCount}
+          pendingComunicadosCount={pendingCount}
+          urgentesCount={urgentesCount}
+          ferias={feriasPrevistas}
+          ultimoHolerite={{
+            competencia: "Agosto/2026",
+            disponivel: true,
+          }}
         />
       </div>
     </div>
   );
 }
-
