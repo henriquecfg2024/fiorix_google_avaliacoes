@@ -107,6 +107,8 @@ export function FiorixHeader() {
     return "bg-white/10 text-white/90 border border-white/20";
   };
 
+  const homeRoute = currentUser?.role === "COLABORADOR" ? "/pessoas" : "/dashboard";
+
   return (
     <header className="sticky top-0 z-50 h-14 w-full border-b border-white/[0.06] bg-[#080A12]/90 backdrop-blur-md">
       <div className="mx-auto flex h-full items-center justify-between px-4 lg:px-8">
@@ -114,7 +116,7 @@ export function FiorixHeader() {
         {/* Esquerda: Logo + Home + Grupos Desktop */}
         <div className="flex items-center gap-6">
           <Link
-            href="/dashboard"
+            href={homeRoute}
             className="flex items-center gap-2 transition-opacity hover:opacity-90"
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#6366f1] to-[#a855f7] text-white font-extrabold shadow-md shadow-indigo-500/20">
@@ -129,9 +131,9 @@ export function FiorixHeader() {
           <nav className="hidden lg:flex items-center gap-2 text-xs font-semibold">
             {/* Link Home único fora dos grupos */}
             <Link
-              href="/dashboard"
+              href={homeRoute}
               className={`px-3 py-1.5 rounded-lg border transition-all ${
-                isActive("/dashboard")
+                isActive(homeRoute)
                   ? "bg-white/[0.08] border-white/10 text-white"
                   : "border-transparent text-white/60 hover:text-white hover:bg-white/[0.04]"
               }`}
@@ -394,10 +396,10 @@ export function FiorixHeader() {
                 <div className="p-4 flex flex-col gap-2">
                   {/* Home Link */}
                   <Link
-                    href="/dashboard"
+                    href={homeRoute}
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={`flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold border transition-all ${
-                      isActive("/dashboard")
+                      isActive(homeRoute)
                         ? "bg-white/[0.08] border-white/10 text-white"
                         : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
                     }`}

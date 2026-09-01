@@ -28,6 +28,24 @@ export const ROLE_DESCRIPTIONS: Record<AppRole, string> = {
 };
 
 /**
+ * Returns the canonical landing/home route by role
+ */
+export function getHomeRouteForRole(userOrRole?: UserLike | string | null): string {
+  const role = typeof userOrRole === 'string' ? userOrRole : userOrRole?.role;
+  switch (role) {
+    case 'COLABORADOR':
+      return '/pessoas';
+    case 'RH':
+      return '/sistema/pessoas';
+    case 'USER':
+    case 'ADMIN':
+    case 'MASTER':
+    default:
+      return '/dashboard';
+  }
+}
+
+/**
  * Checks if the user is MASTER
  */
 export function isMaster(userOrRole?: UserLike | string | null): boolean {
