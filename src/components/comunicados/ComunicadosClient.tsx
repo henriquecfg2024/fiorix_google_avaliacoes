@@ -32,7 +32,7 @@ interface ComunicadosClientProps {
 }
 
 export function ComunicadosClient({ userRole = "USER", userName = "Colaborador" }: ComunicadosClientProps) {
-  const [activeTab, setActiveTab] = useState<"nao_lidos" | "recentes" | "arquivo" | "todos">("nao_lidos");
+  const [activeTab, setActiveTab] = useState<"nao_lidos" | "urgentes" | "recentes" | "arquivo" | "todos">("nao_lidos");
   const [docTab, setDocTab] = useState<"holerites" | "avisos" | "previstas" | "logs">("holerites");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedComunicado, setSelectedComunicado] = useState<ComunicadoItem | null>(null);
@@ -144,8 +144,15 @@ export function ComunicadosClient({ userRole = "USER", userName = "Colaborador" 
     { mes: "06/2026", liquido: "••••••••", hash: "9f8e7d6c5b4a..." },
   ];
 
+  const urgentesPendentes = comunicados.filter(
+    (c) => c.prioridade === "URGENTE" && (!c.ciencias || c.ciencias.length === 0)
+  );
+
   // Filtros
   const filteredComunicados = comunicados.filter((c) => {
+    if (activeTab === "urgentes") {
+      return c.prioridade === "URGENTE" && (!c.ciencias || c.ciencias.length === 0);
+    }
     if (activeTab === "nao_lidos") return c.ciencias?.length === 0;
     if (activeTab === "arquivo") return c.ciencias && c.ciencias.length > 0;
     if (searchQuery) {
@@ -156,6 +163,14 @@ export function ComunicadosClient({ userRole = "USER", userName = "Colaborador" 
     }
     return true;
   });
+
+  const handleVerUrgentesClick = () => {
+    setActiveTab("urgentes");
+    const el = document.getElementById("comunicados-feed");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
   const handleCienciaSuccess = (comprovanteHash: string) => {
     if (!selectedComunicado) return;
@@ -221,7 +236,7 @@ export function ComunicadosClient({ userRole = "USER", userName = "Colaborador" 
             </div>
             <div>
               <h2 className="text-xs sm:text-sm font-black text-rose-300 tracking-wide">
-                ATENÇÃO: 3 COMUNICADOS URGENTES PENDENTES DE CIÊNCIA
+                ATENÇÃO: {urgentesPendentes.length > 0 ? `${urgentesPendentes.length} COMUNICADOS URGENTES PENDENTES DE CIÊNCIA` : "COMUNICADOS URGENTES"}
               </h2>
               <p className="text-[11px] text-rose-200/70">
                 Sua ciência é obrigatória e alguns comunicados expiram em breve.
@@ -230,11 +245,11 @@ export function ComunicadosClient({ userRole = "USER", userName = "Colaborador" 
           </div>
           <Button
             size="sm"
-            onClick={() => setActiveTab("nao_lidos")}
-            className="bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold gap-1.5 shrink-0 rounded-xl"
+            onClick={handleVerUrgentesClick}
+            className="bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold gap-1.5 shrink-0 rounded-xl cursor-pointer"
           >
             <Eye className="w-3.5 h-3.5" />
-            <span>Ver todos urgentes</span>
+            <span>Ver todos urgentes ({urgentesPendentes.length})</span>
           </Button>
         </div>
 
@@ -291,13 +306,26 @@ export function ComunicadosClient({ userRole = "USER", userName = "Colaborador" 
         </div>
 
         {/* Main 2-Column Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="comunicados-feed">
           {/* Coluna Principal: COMUNICADOS (68%) */}
           <div className="lg:col-span-8 space-y-6">
             {/* Navigation Tabs & Search */}
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-1.5 p-1 bg-white/[0.04] border border-white/8 rounded-2xl">
+                  {urgentesPendentes.length > 0 && (
+                    <button
+                      onClick={() => setActiveTab("urgentes")}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        activeTab === "urgentes"
+                          ? "bg-rose-600 text-white shadow-[0_0_15px_rgba(225,29,72,0.4)]"
+                          : "text-rose-300 hover:text-white hover:bg-rose-500/10"
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
+                      <span>Urgentes ({urgentesPendentes.length})</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => setActiveTab("nao_lidos")}
                     className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
