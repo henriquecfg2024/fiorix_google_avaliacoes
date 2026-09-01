@@ -13,7 +13,9 @@ export const authConfig = {
                             nextUrl.pathname.startsWith('/relatorios') ||
                             nextUrl.pathname.startsWith('/admin') ||
                             nextUrl.pathname.startsWith('/bi') ||
-                            nextUrl.pathname.startsWith('/configuracoes');
+                            nextUrl.pathname.startsWith('/configuracoes') ||
+                            nextUrl.pathname.startsWith('/pessoas') ||
+                            nextUrl.pathname.startsWith('/sistema');
                             
       if (isOnDashboard) {
         if (!isLoggedIn) return false;

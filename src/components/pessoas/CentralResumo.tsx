@@ -7,17 +7,29 @@ import { ptBR } from "date-fns/locale";
 
 interface CentralResumoProps {
   pendingComunicadosCount: number;
-  ferias: FiorixFeriasPrevista | null;
+  ferias: {
+    dataInicioPrevista: string | Date;
+    dataFimPrevista?: string | Date;
+    dias?: number;
+  } | null;
 }
 
 export function CentralResumo({ pendingComunicadosCount, ferias }: CentralResumoProps) {
   let feriasText = "Período não definido";
-  if (ferias) {
-    const diff = differenceInDays(ferias.dataInicioPrevista, new Date());
-    if (diff > 0) {
-      feriasText = `Faltam ${diff} dias`;
-    } else {
-      feriasText = "Período de férias";
+  let feriasMesFormatado = "Não agendado";
+
+  if (ferias?.dataInicioPrevista) {
+    try {
+      const dataInicio = new Date(ferias.dataInicioPrevista);
+      const diff = differenceInDays(dataInicio, new Date());
+      if (diff > 0) {
+        feriasText = `Faltam ${diff} dias`;
+      } else {
+        feriasText = "Período de férias";
+      }
+      feriasMesFormatado = format(dataInicio, "MMMM/yyyy", { locale: ptBR });
+    } catch (e) {
+      feriasText = "Período previsto";
     }
   }
 
@@ -61,7 +73,7 @@ export function CentralResumo({ pendingComunicadosCount, ferias }: CentralResumo
           <div className="mt-4">
             <h3 className="text-sm font-bold text-white/50 mb-1 uppercase tracking-wider">Férias</h3>
             <div className="text-lg font-bold text-white truncate">
-              {ferias ? format(ferias.dataInicioPrevista, "MMMM/yyyy", { locale: ptBR }) : "Não agendado"}
+              {feriasMesFormatado}
             </div>
             <p className="text-sm text-white/50 mt-1">{feriasText}</p>
           </div>
