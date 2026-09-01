@@ -35,6 +35,7 @@ import {
 import { navigationGroups } from "./navigation";
 import { handleSignOut, getCurrentUser } from "@/app/actions/auth";
 import { getPendingCount } from "@/app/actions/reviews";
+import { getHomeRouteForRole } from "@/lib/permissions";
 
 export function FiorixHeader() {
   const pathname = usePathname();
@@ -107,7 +108,7 @@ export function FiorixHeader() {
     return "bg-white/10 text-white/90 border border-white/20";
   };
 
-  const homeRoute = currentUser?.role === "COLABORADOR" ? "/pessoas" : "/dashboard";
+  const homeRoute = getHomeRouteForRole(currentUser?.role);
 
   return (
     <header className="sticky top-0 z-50 h-14 w-full border-b border-white/[0.06] bg-[#080A12]/90 backdrop-blur-md">
