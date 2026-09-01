@@ -8,9 +8,10 @@ import { getRequestIp } from "@/lib/security/requestIp";
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
-    // Apenas ADMIN ou RH podem publicar
-    if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "RH")) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    // Apenas ADMIN, RH, MASTER ou GESTOR podem publicar
+    const allowedRoles = ["ADMIN", "RH", "MASTER", "GESTOR"];
+    if (!session?.user || !allowedRoles.includes(session.user.role)) {
+      return NextResponse.json({ error: "Não autorizado: Apenas gestores e RH podem criar comunicados." }, { status: 401 });
     }
 
     const tenantId = session.user.tenantId;

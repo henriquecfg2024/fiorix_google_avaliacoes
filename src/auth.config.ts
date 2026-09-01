@@ -22,6 +22,9 @@ export const authConfig = {
         if (nextUrl.pathname.startsWith('/configuracoes/cartorios') && auth.user.role !== 'MASTER') {
           return Response.redirect(new URL('/dashboard', nextUrl));
         }
+        if (nextUrl.pathname.startsWith('/sistema') && auth.user.role === 'USER') {
+          return Response.redirect(new URL('/pessoas', nextUrl));
+        }
         if (nextUrl.pathname.startsWith('/configuracoes') && auth.user.role === 'USER') {
           return Response.redirect(new URL('/dashboard', nextUrl));
         }
