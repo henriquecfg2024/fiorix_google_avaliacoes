@@ -8,6 +8,7 @@ vi.mock('@/lib/prisma', () => ({
     connectorSyncBatch: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     connectorSyncStaging: { findUnique: vi.fn(), create: vi.fn() },
     connectorSourceStatus: { upsert: vi.fn() },
+    $executeRaw: vi.fn(),
     $transaction: vi.fn((callback) => callback(prisma)),
   },
 }));
@@ -78,6 +79,26 @@ describe('connector sync chunking', () => {
     expect(body.status).toBe('completed');
     expect(batch.chunkCount).toBe(1);
     expect(batch.chunksReceived).toBe(1);
+    expect(batch.syncMode).toBe('full');
+  });
+
+  it('persists incremental sync mode on batch and staging', async () => {
+    const response = await POST(request(payload({ sync_mode: 'incremental', records: [{ record_key: 'rk-1', id: 1 }] })));
+    expect(response.status).toBe(200);
+    expect(batch.syncMode).toBe('incremental');
+    expect(prisma.connectorSyncStaging.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ syncMode: 'incremental' }),
+    }));
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+    const statement = (prisma.$executeRaw as any).mock.calls[0][0];
+    const sqlText = Array.isArray(statement?.strings) ? statement.strings.join('?') : String(statement);
+    expect(sqlText).toContain('ON CONFLICT ("tenantId", "connectorId", "source", "recordKey")');
+    expect(sqlText).toContain('"updatedAt" = NOW()');
+  });
+
+  it('rejects incremental records without a deterministic record_key', async () => {
+    expect((await POST(request(payload({ sync_mode: 'incremental' })))).status).toBe(400);
+    expect(prisma.connectorSyncStaging.create).not.toHaveBeenCalled();
   });
 
   it('processes 8067 simulated records in 17 chunks and completes only on chunk 17', async () => {

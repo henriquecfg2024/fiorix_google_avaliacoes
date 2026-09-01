@@ -63,24 +63,25 @@ model Tenant {
   relatorios        FiorixRelatorio[]
 
   // Sincronização Automática - SaaS
-  autoSyncEnabled   Boolean                 @default(false)
-  connectors        Connector[]
-  syncBatches       ConnectorSyncBatch[]
-  sourceStatuses    ConnectorSourceStatus[]
+  autoSyncEnabled Boolean                 @default(false)
+  connectors      Connector[]
+  syncBatches     ConnectorSyncBatch[]
+  sourceStatuses  ConnectorSourceStatus[]
+  syncRecords     ConnectorSyncRecord[]
 }
 
 // ── USERS ─────────────────────────────────────────────────────────────
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  passwordHash  String
-  role          Role      @default(USER)
-  tenantId      String
-  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String   @id @default(cuid())
+  name         String?
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(USER)
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 // ── CARTÓRIO DATA (DYNAMIC) ───────────────────────────────────────────
@@ -95,24 +96,24 @@ model Colaborador {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  mentions  ReviewMention[]
+  mentions ReviewMention[]
 }
 
 model Category {
   id        String   @id @default(cuid())
-  name      String   // e.g. "Fila / Espera", "Site", "Atendimento"
+  name      String // e.g. "Fila / Espera", "Site", "Atendimento"
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  mentions  ReviewMention[]
+  mentions ReviewMention[]
 }
 
 model Template {
   id        String   @id @default(cuid())
   name      String
-  content   String   // The text of the template with placeholders
+  content   String // The text of the template with placeholders
   language  Language @default(PT)
   minRating Int      @default(1) // Can configure template for specific ratings (e.g. 5 only)
   maxRating Int      @default(5)
@@ -125,75 +126,75 @@ model Template {
 // ── REVIEWS & AI DATA ─────────────────────────────────────────────────
 
 model Review {
-  id            String       @id @default(cuid())
-  googleId      String?      @unique
-  reviewerName  String
-  rating        Int
-  comment       String?
-  language      Language     @default(PT)
-  publishedAt   DateTime
-  status        ReviewStatus @default(PENDING)
-  
+  id           String       @id @default(cuid())
+  googleId     String?      @unique
+  reviewerName String
+  rating       Int
+  comment      String?
+  language     Language     @default(PT)
+  publishedAt  DateTime
+  status       ReviewStatus @default(PENDING)
+
   // AI Extracted Data
-  aiSummary     String?
-  aiSentiment   Sentiment?
+  aiSummary   String?
+  aiSentiment Sentiment?
 
   // Soft-delete: marcado como true quando a avaliação não existe mais no Google
   deletedFromGoogle Boolean @default(false)
 
-  tenantId      String
-  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  mentions      ReviewMention[]
-  response      Response?
+  mentions ReviewMention[]
+  response Response?
 }
 
 model ReviewMention {
-  id            String       @id @default(cuid())
-  reviewId      String
-  review        Review       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  
+  id       String @id @default(cuid())
+  reviewId String
+  review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
   colaboradorId String?
   colaborador   Colaborador? @relation(fields: [colaboradorId], references: [id], onDelete: SetNull)
-  
-  categoryId    String?
-  category      Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  
-  sentiment     Sentiment    // Sentiment specific to this mention (e.g. they praised the Escrevente but complained about Category)
 
-  createdAt     DateTime     @default(now())
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  sentiment Sentiment // Sentiment specific to this mention (e.g. they praised the Escrevente but complained about Category)
+
+  createdAt DateTime @default(now())
 }
 
 model Response {
-  id          String   @id @default(cuid())
-  reviewId    String   @unique
-  review      Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  
-  content     String
-  isAiDraft   Boolean  @default(false)
-  sentAt      DateTime?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id       String @id @default(cuid())
+  reviewId String @unique
+  review   Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  content   String
+  isAiDraft Boolean   @default(false)
+  sentAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ── GOOGLE API ────────────────────────────────────────────────────────
 
 model GoogleConnection {
-  id           String   @id @default(cuid())
-  tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  
-  accountId    String   // Google Business Account ID
-  locationId   String   // Specific Location ID
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  accountId    String // Google Business Account ID
+  locationId   String // Specific Location ID
   accessToken  String
   refreshToken String
   expiresAt    DateTime
-  
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId], name: "idx_google_connection_tenant_id")
 }
@@ -229,45 +230,44 @@ model FiorixBiImport {
   status       String   @default("SUCCESS")
   errorMessage String?  @map("error_message")
 
-  data        FiorixBiData[]
+  data FiorixBiData[]
 
   @@index([tenantId], name: "idx_fiorix_bi_imports_tenant_id")
   @@map("fiorix_bi_imports")
 }
 
 model FiorixBiData {
-  id                 String   @id @default(uuid())
-  tenantId           String   @default("") @map("tenant_id")
-  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  importId           String   @map("import_id")
-  import             FiorixBiImport @relation(fields: [importId], references: [id], onDelete: Cascade)
-  
-  protocolo          String   @map("Protocolo")
-  flagRecepcao       Int?     @map("FlagRecepcao")
-  tipoSolicitacao    String?  @map("TipoSolicitacao")
-  idAndamento        BigInt?  @map("IdAndamento")
+  id       String         @id @default(uuid())
+  tenantId String         @default("") @map("tenant_id")
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  importId String         @map("import_id")
+  import   FiorixBiImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  protocolo          String    @map("Protocolo")
+  flagRecepcao       Int?      @map("FlagRecepcao")
+  tipoSolicitacao    String?   @map("TipoSolicitacao")
+  idAndamento        BigInt?   @map("IdAndamento")
   dtProtocolo        DateTime? @map("DtProtocolo")
   dtPrevisaoEntrega  DateTime? @map("DtPrevisaoEntrega")
   dtAndamento        DateTime? @map("DtAndamento")
-  codProcessamento   Int?     @map("CodProcessamento")
-  descAndamento      String?  @map("DescAndamento")
-  natureza           String?  @map("Natureza")
-  tipoPrenotacao     String?  @map("TipoPrenotacao")
-  diasPrometidos     Int?     @map("DiasPrometidos")
-  diasCorridos       Int?     @map("DiasCorridos")
-  diasAtraso         Int?     @map("DiasAtraso")
-  situacaoPrazo      String?  @map("SituacaoPrazo")
-  isDevolucao        Boolean? @default(false) @map("IsDevolucao")
-  isRegistrado       Boolean? @default(false) @map("IsRegistrado")
-  textoNotaDevolucao String?  @map("TextoNotaDevolucao")
+  codProcessamento   Int?      @map("CodProcessamento")
+  descAndamento      String?   @map("DescAndamento")
+  natureza           String?   @map("Natureza")
+  tipoPrenotacao     String?   @map("TipoPrenotacao")
+  diasPrometidos     Int?      @map("DiasPrometidos")
+  diasCorridos       Int?      @map("DiasCorridos")
+  diasAtraso         Int?      @map("DiasAtraso")
+  situacaoPrazo      String?   @map("SituacaoPrazo")
+  isDevolucao        Boolean?  @default(false) @map("IsDevolucao")
+  isRegistrado       Boolean?  @default(false) @map("IsRegistrado")
+  textoNotaDevolucao String?   @map("TextoNotaDevolucao")
 
+  @@unique([tenantId, importId, idAndamento], name: "fiorix_bi_data_import_id_andamento_key")
   @@index([tenantId], name: "idx_fiorix_bi_data_tenant_id")
   @@index([importId], name: "idx_fiorix_bi_data_import_id")
   @@index([dtAndamento], name: "idx_fiorix_bi_data_dt_andamento")
   @@index([codProcessamento], name: "idx_fiorix_bi_data_cod_proc")
   @@index([tipoPrenotacao], name: "idx_fiorix_bi_data_tipo_prenotacao")
-  @@unique([tenantId, importId, idAndamento], name: "fiorix_bi_data_import_id_andamento_key")
-
   @@map("fiorix_bi_data")
 }
 
@@ -286,7 +286,7 @@ model FiorixMetasImport {
   importadoPor String?   @map("importado_por") @db.VarChar(100)
   status       String?   @db.VarChar(20)
 
-  dados        FiorixMetasDados[]
+  dados FiorixMetasDados[]
 
   @@unique([tenantId, importKey], name: "fiorix_metas_imports_tenant_import_key")
   @@index([tenantId], name: "idx_fiorix_metas_imports_tenant_id")
@@ -294,37 +294,37 @@ model FiorixMetasImport {
 }
 
 model FiorixMetasDados {
-  protocolo       Int       @id @map("protocolo")
-  tenantId        String    @default("") @map("tenant_id")
-  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  dataApresentado DateTime? @map("data_apresentado")
-  dtPrevisao      DateTime? @map("dt_previsao")
-  dtEntregaReal   DateTime? @map("dt_entrega_real")
-  status          String?   @db.VarChar(50)
-  natureza        String?   @db.VarChar(255)
-  atrasoDias      Int?      @map("atraso_dias")
-  d1Protocolo     DateTime? @map("d1_protocolo")
-  d1Escaneamento  DateTime? @map("d1_escaneamento")
-  d2Contraditorio DateTime? @map("d2_contraditorio")
-  d3Extrato       DateTime? @map("d3_extrato")
-  d4Qualificacao  DateTime? @map("d4_qualificacao")
-  d5Calculo       DateTime? @map("d5_calculo")
-  d8Impressao     DateTime? @map("d8_impressao")
-  d9Preparacao    DateTime? @map("d9_preparacao")
-  d9Conferencia   DateTime? @map("d9_conferencia")
-  d10Entrega      DateTime? @map("d10_entrega")
+  protocolo         Int       @id @map("protocolo")
+  tenantId          String    @default("") @map("tenant_id")
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dataApresentado   DateTime? @map("data_apresentado")
+  dtPrevisao        DateTime? @map("dt_previsao")
+  dtEntregaReal     DateTime? @map("dt_entrega_real")
+  status            String?   @db.VarChar(50)
+  natureza          String?   @db.VarChar(255)
+  atrasoDias        Int?      @map("atraso_dias")
+  d1Protocolo       DateTime? @map("d1_protocolo")
+  d1Escaneamento    DateTime? @map("d1_escaneamento")
+  d2Contraditorio   DateTime? @map("d2_contraditorio")
+  d3Extrato         DateTime? @map("d3_extrato")
+  d4Qualificacao    DateTime? @map("d4_qualificacao")
+  d5Calculo         DateTime? @map("d5_calculo")
+  d8Impressao       DateTime? @map("d8_impressao")
+  d9Preparacao      DateTime? @map("d9_preparacao")
+  d9Conferencia     DateTime? @map("d9_conferencia")
+  d10Entrega        DateTime? @map("d10_entrega")
   dBalcaoRegistrado DateTime? @map("d_balcao_registrado")
   dBalcaoDevolvido  DateTime? @map("d_balcao_devolvido")
-  qtdRetrabalho   Int?      @map("qtd_retrabalho")
-  diasD1D2        Int?      @map("dias_d1_d2")
-  diasD2D3        Int?      @map("dias_d2_d3")
-  diasD3D4        Int?      @map("dias_d3_d4")
-  diasD4D5        Int?      @map("dias_d4_d5")
-  diasD5D8        Int?      @map("dias_d5_d8")
-  diasD8D9        Int?      @map("dias_d8_d9")
+  qtdRetrabalho     Int?      @map("qtd_retrabalho")
+  diasD1D2          Int?      @map("dias_d1_d2")
+  diasD2D3          Int?      @map("dias_d2_d3")
+  diasD3D4          Int?      @map("dias_d3_d4")
+  diasD4D5          Int?      @map("dias_d4_d5")
+  diasD5D8          Int?      @map("dias_d5_d8")
+  diasD8D9          Int?      @map("dias_d8_d9")
 
-  importId        Int?      @map("import_id")
-  import          FiorixMetasImport? @relation(fields: [importId], references: [id], onDelete: Cascade)
+  importId Int?               @map("import_id")
+  import   FiorixMetasImport? @relation(fields: [importId], references: [id], onDelete: Cascade)
 
   @@index([tenantId], name: "idx_fiorix_metas_dados_tenant_id")
   @@index([importId], name: "idx_fiorix_metas_dados_import_id")
@@ -341,18 +341,18 @@ model RateLimit {
 }
 
 model FiorixIntervencao {
-  id         String   @id @default(cuid())
-  tenantId   String   @map("tenant_id")
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  data       DateTime @default(now())
-  protocolo  Int
-  tipo       String   @db.VarChar(100)
-  de         String   @db.VarChar(100)
-  para       String   @db.VarChar(100)
-  motivo     String   @db.Text
-  risco      String   @db.VarChar(50)
-  usuario    String   @db.VarChar(100)
-  aprovado   String   @db.VarChar(100)
+  id        String   @id @default(cuid())
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  data      DateTime @default(now())
+  protocolo Int
+  tipo      String   @db.VarChar(100)
+  de        String   @db.VarChar(100)
+  para      String   @db.VarChar(100)
+  motivo    String   @db.Text
+  risco     String   @db.VarChar(50)
+  usuario   String   @db.VarChar(100)
+  aprovado  String   @db.VarChar(100)
 
   @@index([tenantId])
   @@index([tenantId, data])
@@ -360,14 +360,14 @@ model FiorixIntervencao {
 }
 
 model FiorixRelatorio {
-  id        String   @id @default(cuid())
-  tenantId  String   @map("tenant_id")
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  data      DateTime @default(now())
-  arquivo   String   @db.VarChar(255)
-  setor     String   @db.VarChar(100)
-  status    String   @db.VarChar(50)
-  url       String?  @db.Text
+  id       String   @id @default(cuid())
+  tenantId String   @map("tenant_id")
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  data     DateTime @default(now())
+  arquivo  String   @db.VarChar(255)
+  setor    String   @db.VarChar(100)
+  status   String   @db.VarChar(50)
+  url      String?  @db.Text
 
   @@index([tenantId])
   @@index([tenantId, data])
@@ -377,21 +377,22 @@ model FiorixRelatorio {
 // ── CONNECTOR & SYNC INFRASTRUCTURE ───────────────────────────────────
 
 model Connector {
-  id                   String   @id @default(cuid())
+  id                   String    @id @default(cuid())
   tenantId             String
-  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name                 String
-  status               String   @default("offline") // offline, online
+  status               String    @default("offline") // offline, online
   version              String?
-  enabled              Boolean  @default(true)
-  credentialIdentifier String   // Hash bcrypt da credencial
+  enabled              Boolean   @default(true)
+  credentialIdentifier String // Hash bcrypt da credencial
   lastSeenAt           DateTime?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  batches              ConnectorSyncBatch[]
-  sourceStatuses       ConnectorSourceStatus[]
-  staging              ConnectorSyncStaging[]
+  batches        ConnectorSyncBatch[]
+  sourceStatuses ConnectorSourceStatus[]
+  staging        ConnectorSyncStaging[]
+  syncRecords    ConnectorSyncRecord[]
 
   @@index([tenantId])
 }
@@ -402,19 +403,20 @@ model ConnectorSyncBatch {
   tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   connectorId     String
   connector       Connector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
-  source          String    // bi, produtividade, metas, tarefas
+  source          String // bi, produtividade, metas, tarefas
   batchId         String
   generatedAt     DateTime
   receivedAt      DateTime  @default(now())
   processedAt     DateTime?
-  status          String    // received, processed, error
+  status          String // received, processed, error
   recordsReceived Int       @default(0)
   recordsInserted Int       @default(0)
   recordsUpdated  Int       @default(0)
-    durationMs      Int?
-    errorMessage    String?
-    chunkCount      Int       @default(1)
-    chunksReceived  Int       @default(1)
+  durationMs      Int?
+  errorMessage    String?
+  chunkCount      Int       @default(1)
+  chunksReceived  Int       @default(1)
+  syncMode        String    @default("full")
 
   @@unique([tenantId, connectorId, source, batchId])
   @@index([tenantId])
@@ -445,12 +447,28 @@ model ConnectorSyncStaging {
   connector   Connector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
   source      String
   batchId     String
-    records     Json      // Armazena payload em JSONB
-    chunkIndex  Int       @default(0)
-    chunkCount  Int       @default(1)
-    createdAt   DateTime  @default(now())
+  records     Json // Armazena payload em JSONB
+  chunkIndex  Int       @default(0)
+  chunkCount  Int       @default(1)
+  syncMode    String    @default("full")
+  createdAt   DateTime  @default(now())
 
-    @@index([tenantId])
-    @@unique([tenantId, connectorId, source, batchId, chunkIndex])
-  }
+  @@unique([tenantId, connectorId, source, batchId, chunkIndex])
+  @@index([tenantId])
+}
 
+model ConnectorSyncRecord {
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  connectorId String
+  connector   Connector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  source      String
+  recordKey   String
+  record      Json
+  syncMode    String    @default("incremental")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@id([tenantId, connectorId, source, recordKey])
+  @@index([tenantId, source])
+}

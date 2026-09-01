@@ -8,6 +8,7 @@ vi.mock('@/lib/prisma', () => ({
     connectorSyncBatch: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     connectorSyncStaging: { findUnique: vi.fn(), create: vi.fn() },
     connectorSourceStatus: { upsert: vi.fn() },
+    $executeRaw: vi.fn(),
     $transaction: vi.fn((callback) => callback(prisma))
   }
 }));
@@ -46,10 +47,10 @@ describe('connector tenant contract', () => {
     });
     (prisma.connectorSyncBatch.findUnique as any).mockResolvedValue(null);
     (prisma.connectorSyncBatch.create as any).mockResolvedValue({
-      id: 'batch-row', chunkCount: 1, chunksReceived: 0, recordsReceived: 0, recordsInserted: 0, status: 'receiving'
+      id: 'batch-row', chunkCount: 1, chunksReceived: 0, recordsReceived: 0, recordsInserted: 0, status: 'receiving', syncMode: 'full'
     });
     (prisma.connectorSyncBatch.update as any).mockResolvedValue({
-      id: 'batch-row', chunkCount: 1, chunksReceived: 1, recordsReceived: 0, recordsInserted: 0, status: 'completed'
+      id: 'batch-row', chunkCount: 1, chunksReceived: 1, recordsReceived: 0, recordsInserted: 0, status: 'completed', syncMode: 'full'
     });
     (prisma.connectorSyncStaging.findUnique as any).mockResolvedValue(null);
   });
@@ -87,7 +88,7 @@ describe('connector tenant contract', () => {
   });
 
   it('keeps idempotent chunks out of staging', async () => {
-    (prisma.connectorSyncBatch.findUnique as any).mockResolvedValue({ id: 'existing', chunkCount: 1, chunksReceived: 1, recordsReceived: 0, status: 'completed' });
+    (prisma.connectorSyncBatch.findUnique as any).mockResolvedValue({ id: 'existing', chunkCount: 1, chunksReceived: 1, recordsReceived: 0, status: 'completed', syncMode: 'full' });
     (prisma.connectorSyncStaging.findUnique as any).mockResolvedValue({ id: 'existing-chunk' });
     const body = await (await POST(request(payload))).json();
     expect(body.alreadyProcessed).toBe(true);

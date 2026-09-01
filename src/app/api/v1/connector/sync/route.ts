@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { authenticateConnector } from '@/lib/connectorAuth';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 
 const syncPayloadSchema = z.object({
   // Legacy clients may send this field, but it never selects the tenant.
@@ -13,9 +14,14 @@ const syncPayloadSchema = z.object({
   records: z.array(z.any()), // Pode ser detalhado futuramente
   chunk_index: z.number().int().nonnegative().optional().default(0),
   chunk_count: z.number().int().positive().optional().default(1),
+  sync_mode: z.enum(['full', 'incremental', 'reconciliation']).optional().default('full'),
 }).superRefine(({ chunk_index, chunk_count }, ctx) => {
   if (chunk_index >= chunk_count) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid chunk range', path: ['chunk_index'] });
+  }
+}).superRefine(({ sync_mode, records }, ctx) => {
+  if (sync_mode !== 'full' && records.some((record) => typeof record !== 'object' || record === null || typeof record.record_key !== 'string' || record.record_key.length === 0)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Incremental records require record_key', path: ['records'] });
   }
 });
 
@@ -43,7 +49,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid payload schema', details: parsed.error.errors }, { status: 400 });
     }
 
-    const { tenant_id, connector_id, source, batch_id, generated_at, records, chunk_index, chunk_count } = parsed.data;
+    const { tenant_id, connector_id, source, batch_id, generated_at, records, chunk_index, chunk_count, sync_mode } = parsed.data;
 
     // Authenticate connector
     const authResult = await authenticateConnector(connector_id, secret);
@@ -104,12 +110,16 @@ export async function POST(req: Request) {
             recordsUpdated: 0,
             chunkCount: chunk_count,
             chunksReceived: 0,
+            syncMode: sync_mode,
           }
         });
       }
 
       if (batch.chunkCount !== chunk_count) {
         throw new Error('CHUNK_COUNT_MISMATCH');
+      }
+      if (batch.syncMode !== sync_mode) {
+        throw new Error('SYNC_MODE_MISMATCH');
       }
 
       const existingChunk = await tx.connectorSyncStaging.findUnique({
@@ -137,8 +147,26 @@ export async function POST(req: Request) {
           records,
           chunkIndex: chunk_index,
           chunkCount: chunk_count,
+          syncMode: sync_mode,
         }
       });
+
+      if (sync_mode !== 'full' && records.length > 0) {
+        const recordsJson = JSON.stringify(records);
+        await tx.$executeRaw(Prisma.sql`
+          INSERT INTO "ConnectorSyncRecord" (
+            "tenantId", "connectorId", "source", "recordKey", "record", "syncMode", "createdAt", "updatedAt"
+          )
+          SELECT
+            ${tenantId}, ${connector_id}, ${source}, item->>'record_key', item, ${sync_mode}, NOW(), NOW()
+          FROM jsonb_array_elements(${recordsJson}::jsonb) AS item
+          ON CONFLICT ("tenantId", "connectorId", "source", "recordKey")
+          DO UPDATE SET
+            "record" = EXCLUDED."record",
+            "syncMode" = EXCLUDED."syncMode",
+            "updatedAt" = NOW()
+        `);
+      }
 
       const incrementedBatch = await tx.connectorSyncBatch.update({
         where: { id: batch.id },
