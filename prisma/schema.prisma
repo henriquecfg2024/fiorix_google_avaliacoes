@@ -68,6 +68,16 @@ model Tenant {
   syncBatches     ConnectorSyncBatch[]
   sourceStatuses  ConnectorSourceStatus[]
   syncRecords     ConnectorSyncRecord[]
+
+  // FIORIX PESSOAS
+  fiorixComunicados FiorixComunicado[]
+  fiorixComunicadoAnexos FiorixComunicadoAnexo[]
+  fiorixComunicadoCiencias FiorixComunicadoCiencia[]
+  fiorixHolerites FiorixHolerite[]
+  fiorixFeriasPrevistas FiorixFeriasPrevista[]
+  fiorixFeriasPrevistaHistoricos FiorixFeriasPrevistaHistorico[]
+  fiorixFeriasAvisos FiorixFeriasAviso[]
+  fiorixAcessoLogs FiorixAcessoLog[]
 }
 
 // ── USERS ─────────────────────────────────────────────────────────────
@@ -82,6 +92,21 @@ model User {
   tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  // FIORIX PESSOAS
+  comunicadosCriados FiorixComunicado[] @relation("ComunicadosCriados")
+  comunicadoAnexos FiorixComunicadoAnexo[]
+  comunicadoCiencias FiorixComunicadoCiencia[]
+  holerites FiorixHolerite[]
+  holeritesUploaded FiorixHolerite[] @relation("HoleritesUploaded")
+  feriasPrevistas FiorixFeriasPrevista[]
+  feriasPrevistasUpdated FiorixFeriasPrevista[] @relation("FeriasPrevistasUpdated")
+  feriasPrevistaHistoricos FiorixFeriasPrevistaHistorico[]
+  feriasHistoricoAlterador FiorixFeriasPrevistaHistorico[] @relation("FeriasHistoricoAlterador")
+  feriasAvisos FiorixFeriasAviso[]
+  feriasAvisoUploaded FiorixFeriasAviso[] @relation("FeriasAvisoUploaded")
+  acessoLogs FiorixAcessoLog[]
+  acessoLogsAlvo FiorixAcessoLog[] @relation("AcessoLogAlvo")
 }
 
 // ── CARTÓRIO DATA (DYNAMIC) ───────────────────────────────────────────
@@ -472,3 +497,195 @@ model ConnectorSyncRecord {
   @@id([tenantId, connectorId, source, recordKey])
   @@index([tenantId, source])
 }
+
+// ── FIORIX PESSOAS MODULE ─────────────────────────────────────────────
+
+model FiorixComunicado {
+  id              String   @id @default(cuid())
+  tenantId        String   @map("tenant_id")
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  titulo          String
+  conteudo        String   @db.Text
+  conteudoHash    String   @map("conteudo_hash")
+  versao          Int      @default(1)
+  prioridade      String   @default("NORMAL") // URGENTE, IMPORTANTE, NORMAL
+  autorId         String   @map("autor_id")
+  autor           User     @relation("ComunicadosCriados", fields: [autorId], references: [id])
+  destinatarios   String[] // Array of roles, specific user IDs, or "TODOS"
+  dataPublicacao  DateTime @default(now()) @map("data_publicacao")
+  dataExpiracao   DateTime? @map("data_expiracao")
+  exigeCiencia    Boolean  @default(true) @map("exige_ciencia")
+  notificar       Boolean  @default(true)
+  status          String   @default("PUBLICADO") // PUBLICADO, CANCELADO, RASCUNHO
+  imutavel        Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  anexos          FiorixComunicadoAnexo[]
+  ciencias        FiorixComunicadoCiencia[]
+
+  @@index([tenantId])
+  @@map("fiorix_comunicados")
+}
+
+model FiorixComunicadoAnexo {
+  id              String   @id @default(cuid())
+  tenantId        String   @map("tenant_id")
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  comunicadoId    String   @map("comunicado_id")
+  comunicado      FiorixComunicado @relation(fields: [comunicadoId], references: [id], onDelete: Cascade)
+  storagePath     String   @map("storage_path")
+  nomeOriginal    String   @map("nome_original")
+  mimeType        String   @map("mime_type")
+  tamanhoBytes    Int      @map("tamanho_bytes")
+  hashSha256      String   @map("hash_sha256")
+  uploadedBy      String   @map("uploaded_by")
+  uploader        User     @relation(fields: [uploadedBy], references: [id])
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([comunicadoId])
+  @@map("fiorix_comunicados_anexos")
+}
+
+model FiorixComunicadoCiencia {
+  id              String   @id @default(cuid())
+  tenantId        String   @map("tenant_id")
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  comunicadoId    String   @map("comunicado_id")
+  comunicado      FiorixComunicado @relation(fields: [comunicadoId], references: [id], onDelete: Cascade)
+  usuarioId       String   @map("usuario_id")
+  usuario         User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  dataVisualizacao DateTime? @map("data_visualizacao")
+  dataCiencia     DateTime? @map("data_ciencia")
+  ip              String?
+  userAgent       String?  @map("user_agent")
+  scrollPercent   Int?     @map("scroll_percent")
+  comunicadoHash  String   @map("comunicado_hash")
+  comprovanteHash String   @unique @map("comprovante_hash")
+  qrCodeUrl       String?  @map("qr_code_url")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@unique([tenantId, comunicadoId, usuarioId])
+  @@index([tenantId])
+  @@index([comunicadoId])
+  @@index([usuarioId])
+  @@map("fiorix_comunicados_ciencia")
+}
+
+model FiorixHolerite {
+  id              String   @id @default(cuid())
+  tenantId        String   @map("tenant_id")
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuarioId       String   @map("usuario_id")
+  usuario         User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  mes             Int
+  ano             Int
+  storagePath     String   @map("storage_path")
+  arquivoNome     String   @map("arquivo_nome")
+  arquivoHash     String   @map("arquivo_hash")
+  tamanhoBytes    Int      @map("tamanho_bytes")
+  valorBruto      Decimal? @map("valor_bruto")
+  valorLiquido    Decimal? @map("valor_liquido")
+  discriminativos Json?
+  uploadedBy      String   @map("uploaded_by")
+  uploader        User     @relation("HoleritesUploaded", fields: [uploadedBy], references: [id])
+  dataUpload      DateTime @default(now()) @map("data_upload")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@unique([tenantId, usuarioId, mes, ano])
+  @@index([tenantId])
+  @@index([usuarioId])
+  @@map("fiorix_holerites")
+}
+
+model FiorixFeriasPrevista {
+  id                String   @id @default(cuid())
+  tenantId          String   @map("tenant_id")
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuarioId         String   @map("usuario_id")
+  usuario           User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  dataInicioPrevista DateTime @map("data_inicio_prevista")
+  dataFimPrevista   DateTime @map("data_fim_prevista")
+  dias              Int
+  observacao        String?  @db.Text
+  updatedBy         String   @map("updated_by")
+  updater           User     @relation("FeriasPrevistasUpdated", fields: [updatedBy], references: [id])
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  historico         FiorixFeriasPrevistaHistorico[]
+
+  @@unique([tenantId, usuarioId])
+  @@index([tenantId])
+  @@index([usuarioId])
+  @@map("fiorix_ferias_previstas")
+}
+
+model FiorixFeriasPrevistaHistorico {
+  id                String   @id @default(cuid())
+  tenantId          String   @map("tenant_id")
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  feriasPrevistasId String   @map("ferias_previstas_id")
+  feriasPrevistas   FiorixFeriasPrevista @relation(fields: [feriasPrevistasId], references: [id], onDelete: Cascade)
+  usuarioId         String   @map("usuario_id")
+  usuario           User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  dataInicioAnterior DateTime? @map("data_inicio_anterior")
+  dataFimAnterior   DateTime? @map("data_fim_anterior")
+  dataInicioNova    DateTime @map("data_inicio_nova")
+  dataFimNova       DateTime @map("data_fim_nova")
+  alteradoPor       String   @map("alterado_por")
+  alterador         User     @relation("FeriasHistoricoAlterador", fields: [alteradoPor], references: [id])
+  motivo            String?  @db.Text
+  alteracaoHash     String   @map("alteracao_hash")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([feriasPrevistasId])
+  @@map("fiorix_ferias_previstas_historico")
+}
+
+model FiorixFeriasAviso {
+  id                String   @id @default(cuid())
+  tenantId          String   @map("tenant_id")
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuarioId         String   @map("usuario_id")
+  usuario           User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  dataInicio        DateTime @map("data_inicio")
+  dataFim           DateTime @map("data_fim")
+  dataRetorno       DateTime @map("data_retorno")
+  dias              Int
+  dataAviso         DateTime @map("data_aviso")
+  antecedenciaDias  Int      @map("antecedencia_dias")
+  storagePath       String?  @map("storage_path")
+  arquivoHash       String?  @map("arquivo_hash")
+  status            String   @default("ENTREGUE")
+  uploadedBy        String   @map("uploaded_by")
+  uploader          User     @relation("FeriasAvisoUploaded", fields: [uploadedBy], references: [id])
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([usuarioId])
+  @@map("fiorix_ferias_avisos")
+}
+
+model FiorixAcessoLog {
+  id              String   @id @default(cuid())
+  tenantId        String   @map("tenant_id")
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuarioId       String   @map("usuario_id")
+  usuario         User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  alvoUsuarioId   String?  @map("alvo_usuario_id")
+  alvoUsuario     User?    @relation("AcessoLogAlvo", fields: [alvoUsuarioId], references: [id])
+  tipo            String   // comunicado_view, holerite_view, etc.
+  recursoId       String?  @map("recurso_id")
+  ip              String?
+  userAgent       String?  @map("user_agent")
+  metadata        Json?
+  dataAcesso      DateTime @default(now()) @map("data_acesso")
+
+  @@index([tenantId])
+  @@index([usuarioId])
+  @@index([tipo])
+  @@map("fiorix_acesso_log")
+}
+

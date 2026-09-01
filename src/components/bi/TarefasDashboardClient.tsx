@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowDown,
@@ -178,7 +178,7 @@ export function TarefasDashboardClient() {
     cargaTarefa: true,
   });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await fetch("/api/bi/tarefas/data");
@@ -193,11 +193,16 @@ export function TarefasDashboardClient() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+    const intervalId = window.setInterval(fetchData, 60000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [fetchData]);
 
   useEffect(() => {
     try {

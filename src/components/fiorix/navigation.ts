@@ -87,4 +87,48 @@ export const navigationGroups = {
       { label: "Configurações", href: "/configuracoes", icon: Settings2 },
     ],
   },
+  pessoas: {
+    label: "PESSOAS",
+    icon: Users,
+    items: [
+      {
+        label: "Minha Central",
+        href: "/pessoas",
+        icon: Target,
+      },
+      {
+        label: "Comunicados",
+        href: "/pessoas/comunicados",
+        icon: FileText,
+        badge: "3",
+        badgeVariant: "destructive",
+      },
+      {
+        label: "Férias",
+        href: "/pessoas/ferias",
+        icon: Briefcase,
+      },
+      {
+        label: "Holerites",
+        href: "/pessoas/holerites",
+        icon: FileText,
+      },
+    ],
+  },
+  administracao: {
+    label: "ADMINISTRAÇÃO",
+    icon: ShieldAlert,
+    items: [
+      {
+        label: "Painel RH",
+        href: "/sistema/pessoas",
+        icon: Settings2,
+      },
+      {
+        label: "Usuários",
+        href: "/sistema/pessoas/usuarios",
+        icon: Users,
+      },
+    ],
+  },
 };

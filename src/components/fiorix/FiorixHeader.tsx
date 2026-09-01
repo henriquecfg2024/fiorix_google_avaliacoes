@@ -151,7 +151,8 @@ export function FiorixHeader() {
                 if (
                   item.href === "/bi/auditoria" ||
                   item.href === "/bi/importacoes" ||
-                  item.href === "/configuracoes"
+                  item.href === "/configuracoes" ||
+                  item.href.startsWith("/sistema/pessoas")
                 ) {
                   return currentUser?.role && currentUser.role !== "USER";
                 }
