@@ -2,6 +2,8 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { PainelRHClient } from "@/components/sistema/PainelRHClient";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Painel de Governança RH | FIORIX",
 };

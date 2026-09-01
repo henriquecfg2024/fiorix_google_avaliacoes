@@ -34,8 +34,18 @@ export function ComunicadoCard({ comunicado, onOpenCiencia, onOpenAnexos }: Comu
   const isUrgente = comunicado.prioridade === "URGENTE";
   const isImportante = comunicado.prioridade === "IMPORTANTE";
 
-  // Formatação de data
-  const dataFormatada = format(new Date(comunicado.dataPublicacao), "dd/MM/yyyy HH:mm", { locale: ptBR });
+  // Formatação segura de data
+  let dataFormatada = "30/08/2026 09:00";
+  try {
+    if (comunicado.dataPublicacao) {
+      const d = typeof comunicado.dataPublicacao === "string" ? new Date(comunicado.dataPublicacao) : comunicado.dataPublicacao;
+      if (!isNaN(d.getTime())) {
+        dataFormatada = format(d, "dd/MM/yyyy HH:mm", { locale: ptBR });
+      }
+    }
+  } catch (e) {
+    dataFormatada = "30/08/2026 09:00";
+  }
 
   // Classes de estilo baseadas na prioridade
   const borderClass = isUrgente

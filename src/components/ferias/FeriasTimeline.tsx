@@ -49,7 +49,21 @@ export function FeriasTimeline({ eventos }: FeriasTimelineProps) {
             <div>
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-white/50 font-mono">
-                  {format(new Date(ev.data), "dd/MM/yyyy", { locale: ptBR })}
+                  {(() => {
+                    if (!ev.data) return "";
+                    if (typeof ev.data === "string" && ev.data.includes("/")) {
+                      return ev.data;
+                    }
+                    try {
+                      const d = typeof ev.data === "string" ? new Date(ev.data) : ev.data;
+                      if (!isNaN(d.getTime())) {
+                        return format(d, "dd/MM/yyyy", { locale: ptBR });
+                      }
+                    } catch (e) {
+                      // fallback
+                    }
+                    return String(ev.data);
+                  })()}
                 </span>
                 <span className="font-bold text-white">{ev.titulo}</span>
               </div>

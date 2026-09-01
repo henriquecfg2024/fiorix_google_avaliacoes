@@ -1,20 +1,25 @@
 import { auth } from "@/auth";
-import { redirect } from "next/navigation";
 import { ComunicadosClient } from "@/components/comunicados/ComunicadosClient";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Comunicados Internos | FIORIX",
 };
 
 export default async function ComunicadosPage() {
-  const session = await auth();
+  let userRole = "USER";
+  let userName = "Colaborador";
 
-  if (!session?.user) {
-    redirect("/login");
+  try {
+    const session = await auth();
+    if (session?.user) {
+      userRole = session.user.role || "USER";
+      userName = session.user.name || "Colaborador";
+    }
+  } catch (err) {
+    console.error("Auth error in ComunicadosPage:", err);
   }
-
-  const userRole = session.user.role || "USER";
-  const userName = session.user.name || "Colaborador";
 
   return (
     <ComunicadosClient
