@@ -624,8 +624,9 @@ export default function ComunicadosPage() {
           documentTitle={viewingPdf.title}
           documentType={viewingPdf.type}
           documentId={viewingPdf.id}
-          fileUrl="#"
+          fileUrl={`/api/holerites/${viewingPdf.id}/download?mes=08%2F2026`}
           userName={userName}
+          allowDownload={true}
           onClose={() => setViewingPdf(null)}
         />
       )}

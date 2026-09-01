@@ -122,7 +122,7 @@ export default function HoleritesPage() {
           documentTitle={`Holerite - Competência ${selectedHolerite.mes}`}
           documentType="holerite"
           documentId={selectedHolerite.id}
-          fileUrl="#"
+          fileUrl={`/api/holerites/${selectedHolerite.id}/download?mes=${encodeURIComponent(selectedHolerite.mes)}`}
           userName="Henrique Gama"
           allowDownload={true}
           onClose={() => setSelectedHolerite(null)}
