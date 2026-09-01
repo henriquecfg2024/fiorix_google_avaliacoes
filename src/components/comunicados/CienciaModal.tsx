@@ -27,6 +27,7 @@ export function CienciaModal({ comunicado, onClose, onSuccess }: CienciaModalPro
   const [declaracaoChecked, setDeclaracaoChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [resultadoCiencia, setResultadoCiencia] = useState<{
+    id: string;
     comprovanteHash: string;
     qrCodeUrl: string;
     timestamp: string;
@@ -35,20 +36,36 @@ export function CienciaModal({ comunicado, onClose, onSuccess }: CienciaModalPro
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const handleScroll = () => {
+  const checkScroll = () => {
     if (!scrollRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
     const totalScroll = scrollHeight - clientHeight;
-    if (totalScroll <= 0) {
+    if (totalScroll <= 15) {
       setScrollProgress(100);
       setHasScrolledToBottom(true);
       return;
     }
-    const progress = Math.min(100, Math.round((scrollTop / totalScroll) * 100));
+    const progress = Math.min(100, Math.max(0, Math.round((scrollTop / totalScroll) * 100)));
     setScrollProgress(progress);
-    if (progress >= 90) {
+    if (progress >= 85) {
       setHasScrolledToBottom(true);
     }
+  };
+
+  useEffect(() => {
+    checkScroll();
+    const t1 = setTimeout(checkScroll, 100);
+    const t2 = setTimeout(checkScroll, 300);
+    window.addEventListener("resize", checkScroll);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      window.removeEventListener("resize", checkScroll);
+    };
+  }, [comunicado]);
+
+  const handleScroll = () => {
+    checkScroll();
   };
 
   const handleDarCiencia = async () => {
@@ -140,8 +157,8 @@ Autenticidade garantida por integridade criptográfica SHA-256.
         {!resultadoCiencia && (
           <div className="w-full bg-white/5 h-1 relative">
             <div
-              className={`h-full transition-all duration-150 ${scrollProgress >= 90 ? "bg-emerald-500" : "bg-gradient-to-r from-violet-500 to-cyan-400"}`}
-              style={{ width: `${scrollProgress}%` }}
+              className={`h-full transition-all duration-150 ${hasScrolledToBottom ? "bg-emerald-500" : "bg-gradient-to-r from-violet-500 to-cyan-400"}`}
+              style={{ width: `${hasScrolledToBottom ? 100 : scrollProgress}%` }}
             />
           </div>
         )}
@@ -160,11 +177,11 @@ Autenticidade garantida por integridade criptográfica SHA-256.
                   Diretriz de Leitura Obrigatória
                 </h3>
                 <p className="text-xs text-white/50">
-                  Para habilitar a declaração de ciência com validade jurídica e prova de integridade SHA-256, role todo o conteúdo até o fim (mínimo 90%).
+                  Para habilitar a declaração de ciência com validade jurídica e prova de integridade SHA-256, role todo o conteúdo até o fim (ou visualize o conteúdo completo).
                 </p>
                 <div className="mt-2 flex items-center gap-2 text-xs font-mono text-cyan-400">
-                  <span>Progresso de leitura: {scrollProgress}%</span>
-                  {scrollProgress >= 90 ? (
+                  <span>Progresso de leitura: {hasScrolledToBottom ? 100 : scrollProgress}%</span>
+                  {hasScrolledToBottom ? (
                     <span className="text-emerald-400 font-bold flex items-center gap-1">
                       <Check className="w-3.5 h-3.5" /> Leitura concluída
                     </span>
