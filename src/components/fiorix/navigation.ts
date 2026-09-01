@@ -126,7 +126,7 @@ export const navigationGroups = {
       },
       {
         label: "Usuários",
-        href: "/sistema/pessoas/usuarios",
+        href: "/configuracoes/usuarios",
         icon: Users,
       },
     ],
