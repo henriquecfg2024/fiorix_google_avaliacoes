@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { CentralResumo } from "@/components/pessoas/CentralResumo";
 import { PessoasRepository } from "@/lib/pessoas/repository";
+import { getCommunicationSummaryForUser } from "@/lib/pessoas/communicationsSummary";
 
 export const dynamic = "force-dynamic";
 
@@ -45,9 +46,8 @@ export default async function PessoasDashboard() {
     dias?: number;
   } | null = null;
 
-  let naoLidosCount = 0;
-  let pendingCount = 0;
-  let urgentesCount = 0;
+  // Single Source of Truth para resumo de comunicados
+  const summary = await getCommunicationSummaryForUser(tenantId, userId, userRole);
 
   try {
     if (tenantId && userId) {
@@ -59,35 +59,18 @@ export default async function PessoasDashboard() {
           dias: feriasDb.dias,
         };
       }
-
-      const comunicadosDb = await PessoasRepository.getComunicados(tenantId, userId, userRole);
-      if (comunicadosDb && comunicadosDb.length > 0) {
-        const naoCientificados = comunicadosDb.filter(
-          (c) => c.exigeCiencia && (!c.ciencias || c.ciencias.length === 0)
-        );
-        pendingCount = naoCientificados.length;
-        urgentesCount = naoCientificados.filter((c) => c.urgente).length;
-        naoLidosCount = comunicadosDb.filter((c) => !c.lido).length;
-      }
     }
   } catch (error) {
-    console.error("Erro ao carregar dados da central de pessoas:", error);
+    console.error("Erro ao carregar dados de férias:", error);
   }
 
-  // Fallback seguro se não houver dados de férias
+  // Fallback seguro de férias se não houver período cadastrado
   if (!feriasPrevistas) {
     feriasPrevistas = {
       dataInicioPrevista: "2026-12-15T00:00:00.000Z",
       dataFimPrevista: "2027-01-03T00:00:00.000Z",
       dias: 20,
     };
-  }
-
-  // Se o usuário ainda não tiver pendências calculadas e for novo no sistema, default para 2 não lidos / 1 pendência
-  if (pendingCount === 0 && naoLidosCount === 0 && (!tenantId || tenantId.length === 0)) {
-    naoLidosCount = 2;
-    pendingCount = 1;
-    urgentesCount = 1;
   }
 
   return (
@@ -125,9 +108,7 @@ export default async function PessoasDashboard() {
 
         {/* Resumo de Cards */}
         <CentralResumo
-          naoLidosCount={naoLidosCount}
-          pendingComunicadosCount={pendingCount}
-          urgentesCount={urgentesCount}
+          summary={summary}
           ferias={feriasPrevistas}
           ultimoHolerite={{
             competencia: "Agosto/2026",

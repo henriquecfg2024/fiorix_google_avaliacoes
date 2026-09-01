@@ -10,15 +10,12 @@ import {
   ArrowRight,
   Clock,
   CheckCircle2,
-  Lock,
 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { CommunicationSummary } from "@/lib/pessoas/communicationsSummary";
 
 interface CentralResumoProps {
-  naoLidosCount?: number;
-  pendingComunicadosCount: number;
-  urgentesCount?: number;
+  summary: CommunicationSummary;
   ferias: {
     dataInicioPrevista: string | Date;
     dataFimPrevista?: string | Date;
@@ -31,9 +28,7 @@ interface CentralResumoProps {
 }
 
 export function CentralResumo({
-  naoLidosCount = 2,
-  pendingComunicadosCount = 1,
-  urgentesCount = 1,
+  summary,
   ferias,
   ultimoHolerite = { competencia: "Agosto/2026", disponivel: true },
 }: CentralResumoProps) {
@@ -69,7 +64,7 @@ export function CentralResumo({
     }
   }
 
-  const hasComunicadosPendentes = pendingComunicadosCount > 0 || naoLidosCount > 0;
+  const isPending = !summary.isAllClear;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -77,12 +72,12 @@ export function CentralResumo({
       <Link href="/pessoas/comunicados" className="group block h-full">
         <div
           className={`relative h-full rounded-[28px] border p-6 transition-all duration-300 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] flex flex-col justify-between cursor-pointer ${
-            hasComunicadosPendentes
+            isPending
               ? "border-rose-500/35 bg-[#140a12]/80 hover:border-rose-500/60 hover:bg-[#180c16]/90 hover:shadow-[0_0_35px_rgba(244,63,94,0.18)]"
               : "border-white/12 bg-[#0B1020]/72 hover:border-white/20 hover:bg-[#0B1020]/90"
           }`}
         >
-          {hasComunicadosPendentes && (
+          {isPending && (
             <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-rose-500/60 to-transparent" />
           )}
 
@@ -90,7 +85,7 @@ export function CentralResumo({
             <div className="flex items-start justify-between">
               <div
                 className={`p-3 rounded-2xl border transition-all ${
-                  hasComunicadosPendentes
+                  isPending
                     ? "bg-rose-500/15 border-rose-500/30 text-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.25)]"
                     : "bg-indigo-500/10 border-indigo-500/20 text-indigo-400"
                 }`}
@@ -99,18 +94,14 @@ export function CentralResumo({
               </div>
               <span
                 className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-bold tracking-wider uppercase border ${
-                  urgentesCount > 0
+                  summary.urgentPending > 0
                     ? "bg-rose-500/20 text-rose-300 border-rose-500/30 animate-pulse"
-                    : hasComunicadosPendentes
+                    : isPending
                     ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
                     : "bg-emerald-500/15 text-emerald-300 border-emerald-500/25"
                 }`}
               >
-                {urgentesCount > 0
-                  ? `${urgentesCount} URGENTE`
-                  : hasComunicadosPendentes
-                  ? "AÇÃO NECESSÁRIA"
-                  : "EM DIA"}
+                {summary.badgeLabel}
               </span>
             </div>
 
@@ -119,20 +110,14 @@ export function CentralResumo({
                 COMUNICADOS INTERNOS
               </h3>
 
-              {hasComunicadosPendentes ? (
+              {isPending ? (
                 <div className="mt-2 space-y-1">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-black text-white">
-                      {naoLidosCount > 0 ? `${naoLidosCount} não lido${naoLidosCount > 1 ? "s" : ""}` : "Leituras em dia"}
-                    </span>
+                  <div className="text-2xl font-black text-white">
+                    {summary.statusLabel}
                   </div>
                   <p className="text-xs text-rose-300 font-medium flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
-                    <span>
-                      {pendingComunicadosCount > 0
-                        ? `${pendingComunicadosCount} aguardando ciência`
-                        : "Nenhuma ciência pendente"}
-                    </span>
+                    <span>{summary.subtext}</span>
                   </p>
                 </div>
               ) : (
@@ -145,7 +130,7 @@ export function CentralResumo({
           </div>
 
           <div className="mt-6 pt-4 border-t border-white/8 flex items-center justify-between text-xs font-semibold text-slate-400 group-hover:text-white transition-colors">
-            <span>{urgentesCount > 0 ? "Ver comunicados" : "Ver comunicados"}</span>
+            <span>Ver comunicados</span>
             <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-rose-400 group-hover:translate-x-1 transition-all" />
           </div>
         </div>
