@@ -112,9 +112,9 @@ Autenticidade garantida por integridade criptográfica SHA-256.
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-      <div className="relative w-full max-w-3xl max-h-[90vh] bg-[#0d0d16] border border-white/10 rounded-2xl flex flex-col shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-2xl max-h-[90vh] bg-[#0B1020] border border-white/12 rounded-[28px] flex flex-col shadow-[0_25px_70px_rgba(0,0,0,0.5)] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#12141F]">
+        <div className="flex items-center justify-between p-6 border-b border-white/8 bg-[#070A12]/80">
           <div className="flex items-center gap-3">
             <div className={`p-2 rounded-lg ${comunicado.prioridade === "URGENTE" ? "bg-red-500/20 text-red-400" : "bg-indigo-500/20 text-indigo-400"}`}>
               <ShieldCheck className="w-5 h-5" />

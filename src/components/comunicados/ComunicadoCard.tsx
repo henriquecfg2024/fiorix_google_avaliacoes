@@ -39,24 +39,24 @@ export function ComunicadoCard({ comunicado, onOpenCiencia, onOpenAnexos }: Comu
 
   // Classes de estilo baseadas na prioridade
   const borderClass = isUrgente
-    ? "border-red-500/40 bg-[#12080a] shadow-[0_0_20px_rgba(239,68,68,0.1)] hover:border-red-500/60"
+    ? "border-rose-500/35 bg-[#140a12]/80 hover:border-rose-500/60 hover:bg-[#180c16]/90 shadow-[0_20px_50px_rgba(0,0,0,0.25)]"
     : isImportante
-    ? "border-amber-500/30 bg-[#120e08] hover:border-amber-500/50"
-    : "border-cyan-500/20 bg-[#0d0d16] hover:border-cyan-500/40";
+    ? "border-amber-500/30 bg-[#14100c]/80 hover:border-amber-500/50 hover:bg-[#18130e]/90 shadow-[0_20px_50px_rgba(0,0,0,0.25)]"
+    : "border-white/12 bg-[#0B1020]/72 hover:border-cyan-500/40 hover:bg-[#0B1020]/90 shadow-[0_20px_50px_rgba(0,0,0,0.25)]";
 
   const badgeClass = isUrgente
-    ? "bg-red-500 text-white font-black shadow-[0_0_10px_rgba(239,68,68,0.4)]"
+    ? "bg-rose-500 text-white font-black shadow-[0_0_12px_rgba(244,63,94,0.4)]"
     : isImportante
     ? "bg-amber-500 text-black font-black"
     : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold";
 
   return (
-    <div className={`relative rounded-2xl border p-6 transition-all duration-200 ${borderClass} flex flex-col justify-between`}>
+    <div className={`relative rounded-[28px] border p-6 transition-all duration-300 backdrop-blur-xl ${borderClass} flex flex-col justify-between`}>
       <div>
         {/* Top bar: Badge, Data, Dot status */}
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
-            <span className={`px-2.5 py-0.5 rounded-full text-[10px] tracking-wide uppercase ${badgeClass}`}>
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-wide uppercase ${badgeClass}`}>
               {comunicado.prioridade}
             </span>
             <span className="text-xs text-white/50">{dataFormatada}</span>

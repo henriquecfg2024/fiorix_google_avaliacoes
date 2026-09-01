@@ -72,24 +72,26 @@ export function HoleriteUploader() {
   };
 
   return (
-    <div className="p-6 bg-[#0d0d16] border border-white/10 rounded-2xl space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)] p-6 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/8 pb-4">
         <div>
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider">Upload em Lote de Holerites (PDF)</h3>
-          <p className="text-xs text-white/50 mt-0.5">
-            Padrão de nomenclatura obrigatório: <code className="text-cyan-400 font-mono">CPF_MM-AAAA.pdf</code> (ex: 12345678901_08-2026.pdf)
+          <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+            Upload em Lote de Holerites & Comprovantes
+          </h3>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Padrão de nomenclatura obrigatório: <code className="text-cyan-300 font-mono">CPF_MM-AAAA.pdf</code> (ex: 12345678901_08-2026.pdf)
           </p>
         </div>
-        <span className="text-[10px] font-mono px-2.5 py-1 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+        <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
           BUCKET PRIVADO + HASH SHA-256
         </span>
       </div>
 
       {/* Dropzone Area */}
-      <div className="relative border-2 border-dashed border-white/15 hover:border-indigo-500/50 rounded-2xl p-8 flex flex-col items-center justify-center transition-colors bg-[#080A12]/40">
+      <div className="relative border-2 border-dashed border-white/15 hover:border-indigo-500/50 rounded-2xl p-8 flex flex-col items-center justify-center transition-colors bg-[#070A12]/40">
         <UploadCloud className="w-10 h-10 text-indigo-400 mb-3" />
         <p className="text-xs font-semibold text-white">Arraste os arquivos PDF ou clique para selecionar</p>
-        <p className="text-[11px] text-white/40 mt-1">Até 5MB por arquivo • Processamento automático com validação de integridade</p>
+        <p className="text-[11px] text-slate-400 mt-1">Até 5MB por arquivo • Processamento automático com validação de integridade</p>
         <input
           type="file"
           multiple

@@ -19,91 +19,107 @@ export default function HoleritesPage() {
   ];
 
   return (
-    <div className="flex-1 w-full bg-[#05050a] min-h-[calc(100vh-56px)] text-white pb-16">
-      {/* Header */}
-      <div className="border-b border-white/5 bg-[#080A12]/50 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden pb-20">
+      {/* Ambient Glow */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-cyan-500/12 via-indigo-500/10 to-purple-500/8 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </div>
+
+      <div className="relative mx-auto max-w-[1600px] px-5 py-6 sm:px-8 space-y-8">
+        {/* Breadcrumb + Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-white/6">
           <div>
-            <h1 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">
-              MEUS HOLERITES & COMPROVANTES
-            </h1>
-            <p className="mt-1 text-xs text-white/50">
-              Documento pessoal de acesso restrito. Em conformidade com o Art. 464 da CLT e LGPD.
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+              <span>Dashboard</span>
+              <span className="text-slate-600">/</span>
+              <span>Pessoas</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-cyan-400">Holerites</span>
+            </div>
+            <div className="flex items-center gap-3 mt-1.5">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                MEUS HOLERITES & COMPROVANTES
+              </h1>
+              <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-cyan-300">
+                ART. 464 CLT
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              Documento pessoal de acesso restrito e auditado com proteção de dados LGPD.
             </p>
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="border-white/10 text-white/80 text-xs">
+            <Button variant="outline" size="sm" className="border-white/10 text-slate-200 hover:bg-white/10 text-xs rounded-xl">
               Solicitar Relatório LGPD
             </Button>
-            <Button variant="outline" size="sm" className="border-white/10 text-white/80 text-xs">
+            <Button variant="outline" size="sm" className="border-white/10 text-slate-200 hover:bg-white/10 text-xs rounded-xl">
               Solicitar Exclusão
             </Button>
           </div>
         </div>
-      </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8 space-y-6">
         {/* Banner LGPD */}
-        <div className="p-4 bg-[#0d0d16] border border-white/10 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-400">
+            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.15)]">
               <Lock className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-xs font-bold text-white uppercase tracking-wider">Acesso Pessoal Protegido & Auditado</h3>
-              <p className="text-xs text-white/50 mt-0.5">
+              <p className="text-xs text-slate-400 mt-0.5">
                 Cada visualização ou impressão gera registro imutável com carimbo de tempo e IP do usuário.
               </p>
             </div>
           </div>
-          <span className="text-xs text-white/40 font-mono">DPO: dpo@7risp.com.br</span>
+          <span className="text-xs text-slate-400 font-mono bg-white/[0.04] px-3 py-1 rounded-full border border-white/8">DPO: dpo@7risp.com.br</span>
         </div>
 
         {/* Tabela de Holerites */}
-        <div className="p-6 rounded-2xl bg-[#0d0d16] border border-white/5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold text-white/70 uppercase">Histórico de Competências ({searchYear})</h3>
+        <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
+          <div className="flex items-center justify-between border-b border-white/8 pb-4">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Histórico de Competências ({searchYear})</h3>
             <div className="flex items-center gap-2">
               <select
                 value={searchYear}
                 onChange={(e) => setSearchYear(e.target.value)}
-                className="bg-[#12141F] border border-white/10 text-white text-xs rounded-lg px-3 py-1.5"
+                className="bg-white/[0.04] border border-white/10 text-white text-xs rounded-xl px-3 py-1.5 focus:outline-none focus:border-cyan-500"
               >
-                <option value="2026">Ano 2026</option>
-                <option value="2025">Ano 2025</option>
+                <option value="2026" className="bg-[#0B1020] text-white">Ano 2026</option>
+                <option value="2025" className="bg-[#0B1020] text-white">Ano 2025</option>
               </select>
             </div>
           </div>
 
-          <div className="border border-white/5 rounded-xl overflow-hidden bg-[#101019]">
+          <div className="border border-white/8 rounded-2xl overflow-hidden bg-[#070A12]/60">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#12141F] text-white/40 uppercase font-mono text-[10px] border-b border-white/5">
+              <thead className="bg-white/[0.03] text-slate-400 uppercase font-mono text-[10px] border-b border-white/8">
                 <tr>
-                  <th className="px-4 py-3">Mês / Ano</th>
-                  <th className="px-4 py-3">Valor Bruto</th>
-                  <th className="px-4 py-3">Valor Líquido</th>
-                  <th className="px-4 py-3">Hash SHA-256</th>
-                  <th className="px-4 py-3">Data Disponibilização</th>
-                  <th className="px-4 py-3 text-right">Ações</th>
+                  <th className="px-5 py-3.5">Mês / Ano</th>
+                  <th className="px-5 py-3.5">Valor Bruto</th>
+                  <th className="px-5 py-3.5">Valor Líquido</th>
+                  <th className="px-5 py-3.5">Hash SHA-256</th>
+                  <th className="px-5 py-3.5">Data Disponibilização</th>
+                  <th className="px-5 py-3.5 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5 text-white/80">
+              <tbody className="divide-y divide-white/6 text-slate-200">
                 {holerites.map((h) => (
-                  <tr key={h.id} className="hover:bg-white/[0.02]">
-                    <td className="px-4 py-3 font-mono font-bold text-white flex items-center gap-2">
+                  <tr key={h.id} className="hover:bg-white/[0.04] transition-colors">
+                    <td className="px-5 py-3.5 font-mono font-bold text-white flex items-center gap-2">
                       <FileText className="w-4 h-4 text-cyan-400" />
                       <span>{h.mes}</span>
                     </td>
-                    <td className="px-4 py-3 font-mono text-white/60">{h.bruto}</td>
-                    <td className="px-4 py-3 font-mono font-semibold text-emerald-400">{h.liquido}</td>
-                    <td className="px-4 py-3 font-mono text-cyan-400 text-[10px]">{h.hash}</td>
-                    <td className="px-4 py-3 text-white/50 font-mono text-[11px]">{h.dataUpload}</td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-5 py-3.5 font-mono text-slate-400">{h.bruto}</td>
+                    <td className="px-5 py-3.5 font-mono font-bold text-emerald-400">{h.liquido}</td>
+                    <td className="px-5 py-3.5 font-mono text-cyan-300 text-[10px]">{h.hash}</td>
+                    <td className="px-5 py-3.5 text-slate-400 font-mono text-[11px]">{h.dataUpload}</td>
+                    <td className="px-5 py-3.5 text-right">
                       <Button
                         size="sm"
                         onClick={() => setSelectedHolerite({ mes: h.mes, id: h.id })}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-7 px-3 gap-1.5 font-bold rounded-lg"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-7 px-3.5 gap-1.5 font-bold rounded-xl shadow-md shadow-indigo-500/20"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         <span>Visualizar PDF</span>

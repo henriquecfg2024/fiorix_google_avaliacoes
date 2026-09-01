@@ -105,29 +105,43 @@ export default function PainelRHPage() {
   };
 
   return (
-    <div className="flex-1 w-full bg-[#05050a] min-h-[calc(100vh-56px)] text-white pb-16">
-      {/* Top Header */}
-      <div className="border-b border-white/5 bg-[#080A12]/50 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden pb-20">
+      {/* Ambient Glow */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-purple-500/10 to-cyan-500/8 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </div>
+
+      <div className="relative mx-auto max-w-[1600px] px-5 py-6 sm:px-8 space-y-8">
+        {/* Breadcrumb + Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-white/6">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-[10px] font-bold uppercase">
-                Área Restrita
-              </span>
-              <span className="text-xs text-white/40">7º RI São Paulo</span>
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+              <span>Dashboard</span>
+              <span className="text-slate-600">/</span>
+              <span>Administração</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-indigo-400">Painel RH</span>
             </div>
-            <h1 className="text-2xl font-black text-white mt-1">PAINEL DE GOVERNANÇA RH</h1>
-            <p className="text-xs text-white/50">
-              Gestão de comunicados, publicação de holerites e validação legal de férias.
+            <div className="flex items-center gap-3 mt-1.5">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                PAINEL DE GOVERNANÇA RH
+              </h1>
+              <span className="rounded-full border border-indigo-500/25 bg-indigo-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-indigo-300">
+                ÁREA RESTRITA • 7º RI SP
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              Gestão de comunicados institucionais, upload em lote de holerites e validação legal de férias.
             </p>
           </div>
 
           {/* Subtabs de navegação interna */}
-          <div className="flex gap-1.5 p-1 bg-[#12141F] rounded-xl border border-white/5 text-xs font-bold">
+          <div className="flex gap-1.5 p-1 bg-white/[0.04] rounded-2xl border border-white/8 text-xs font-bold">
             <button
               onClick={() => setCurrentTab("comunicados")}
-              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5 ${
-                currentTab === "comunicados" ? "bg-indigo-600 text-white" : "text-white/60 hover:text-white"
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+                currentTab === "comunicados" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-white"
               }`}
             >
               <FileText className="w-3.5 h-3.5" />
@@ -135,8 +149,8 @@ export default function PainelRHPage() {
             </button>
             <button
               onClick={() => setCurrentTab("holerites")}
-              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5 ${
-                currentTab === "holerites" ? "bg-indigo-600 text-white" : "text-white/60 hover:text-white"
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+                currentTab === "holerites" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-white"
               }`}
             >
               <Upload className="w-3.5 h-3.5" />
@@ -144,8 +158,8 @@ export default function PainelRHPage() {
             </button>
             <button
               onClick={() => setCurrentTab("ferias")}
-              className={`px-4 py-2 rounded-lg transition-colors flex items-center gap-1.5 ${
-                currentTab === "ferias" ? "bg-indigo-600 text-white" : "text-white/60 hover:text-white"
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+                currentTab === "ferias" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-white"
               }`}
             >
               <Briefcase className="w-3.5 h-3.5" />
@@ -153,48 +167,46 @@ export default function PainelRHPage() {
             </button>
           </div>
         </div>
-      </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8 space-y-6">
         {/* KPIs Resumo Geral */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="p-5 rounded-2xl bg-[#0d0d16] border border-white/5">
-            <span className="text-xs font-bold text-white/50 uppercase">Taxa Geral de Ciência</span>
-            <div className="mt-2 flex items-baseline gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="p-6 rounded-[28px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Taxa Geral de Ciência</span>
+            <div className="mt-3 flex items-baseline gap-2">
               <span className="text-3xl font-black text-cyan-400">84%</span>
-              <span className="text-xs text-white/40">76 / 118 ciências</span>
+              <span className="text-xs text-slate-400 font-semibold">76 / 118 ciências</span>
             </div>
-            <div className="w-full bg-white/5 h-1.5 rounded-full mt-3 overflow-hidden">
+            <div className="w-full bg-slate-700/60 h-1.5 rounded-full mt-3.5 overflow-hidden">
               <div className="bg-gradient-to-r from-violet-500 to-cyan-400 h-full w-[84%]" />
             </div>
           </div>
 
-          <div className="p-5 rounded-2xl bg-[#0d0d16] border border-white/5">
-            <span className="text-xs font-bold text-white/50 uppercase">Hashes Válidos</span>
-            <div className="mt-2 flex items-baseline gap-2">
+          <div className="p-6 rounded-[28px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Hashes Válidos</span>
+            <div className="mt-3 flex items-baseline gap-2">
               <span className="text-3xl font-black text-emerald-400">100%</span>
-              <span className="text-xs text-emerald-400/80">Integridade confirmada</span>
+              <span className="text-xs text-emerald-400/80 font-semibold">Integridade confirmada</span>
             </div>
-            <p className="text-[11px] text-white/40 mt-3">Trilha SHA-256 sem divergências</p>
+            <p className="text-[11px] text-slate-400 mt-3.5">Trilha SHA-256 sem divergências</p>
           </div>
 
-          <div className="p-5 rounded-2xl bg-[#0d0d16] border border-white/5">
-            <span className="text-xs font-bold text-white/50 uppercase">Pendentes Críticos</span>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-3xl font-black text-red-400">3</span>
-              <span className="text-xs text-red-400/80">Expiram em até 48h</span>
+          <div className="p-6 rounded-[28px] border border-rose-500/30 bg-[#140a12]/80 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pendentes Críticos</span>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-black text-rose-400">3</span>
+              <span className="text-xs text-rose-400/80 font-semibold">Expiram em até 48h</span>
             </div>
-            <p className="text-[11px] text-white/40 mt-3">Notificações automáticas enviadas</p>
+            <p className="text-[11px] text-rose-400/80 mt-3.5">Notificações automáticas enviadas</p>
           </div>
         </div>
 
         {/* Conteúdo por Aba */}
         {currentTab === "comunicados" && (
-          <div className="p-6 rounded-2xl bg-[#0d0d16] border border-white/5 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/8 pb-4">
               <div>
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">Gestão de Comunicados Internos</h3>
-                <p className="text-xs text-white/50 mt-0.5">Monitore adesão, ciências e provas criptográficas por documento</p>
+                <p className="text-xs text-slate-400 mt-0.5">Monitore adesão, ciências e provas criptográficas por documento</p>
               </div>
 
               <Button
@@ -206,48 +218,48 @@ export default function PainelRHPage() {
               </Button>
             </div>
 
-            <div className="border border-white/5 rounded-xl overflow-hidden bg-[#101019]">
+            <div className="border border-white/8 rounded-2xl overflow-hidden bg-[#070A12]/60">
               <table className="w-full text-left text-xs">
-                <thead className="bg-[#12141F] text-white/40 uppercase font-mono text-[10px] border-b border-white/5">
+                <thead className="bg-white/[0.03] text-slate-400 uppercase font-mono text-[10px] border-b border-white/8">
                   <tr>
-                    <th className="px-4 py-3">Título</th>
-                    <th className="px-4 py-3">Data</th>
-                    <th className="px-4 py-3">Autor</th>
-                    <th className="px-4 py-3">Destinatários</th>
-                    <th className="px-4 py-3">Adesão / Ciências</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-right">Ações</th>
+                    <th className="px-5 py-3.5">Título</th>
+                    <th className="px-5 py-3.5">Data</th>
+                    <th className="px-5 py-3.5">Autor</th>
+                    <th className="px-5 py-3.5">Destinatários</th>
+                    <th className="px-5 py-3.5">Adesão / Ciências</th>
+                    <th className="px-5 py-3.5">Status</th>
+                    <th className="px-5 py-3.5 text-right">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5 text-white/80">
+                <tbody className="divide-y divide-white/6 text-slate-200">
                   {comunicadosRH.map((item) => {
                     const percent = Math.round((item.ciencias / item.total) * 100);
                     return (
-                      <tr key={item.id} className="hover:bg-white/[0.02]">
-                        <td className="px-4 py-3 font-bold text-white">{item.titulo}</td>
-                        <td className="px-4 py-3 font-mono text-white/60">{item.data}</td>
-                        <td className="px-4 py-3 text-white/70">{item.autor}</td>
-                        <td className="px-4 py-3 text-white/60">{item.destinatarios}</td>
-                        <td className="px-4 py-3">
+                      <tr key={item.id} className="hover:bg-white/[0.04] transition-colors">
+                        <td className="px-5 py-3.5 font-bold text-white">{item.titulo}</td>
+                        <td className="px-5 py-3.5 font-mono text-slate-400">{item.data}</td>
+                        <td className="px-5 py-3.5 text-slate-300">{item.autor}</td>
+                        <td className="px-5 py-3.5 text-slate-400">{item.destinatarios}</td>
+                        <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2">
                             <span className="font-mono text-cyan-400 font-bold">{item.ciencias}/{item.total}</span>
-                            <span className="text-[10px] text-white/40">({percent}%)</span>
+                            <span className="text-[10px] text-slate-400">({percent}%)</span>
                           </div>
-                          <div className="w-24 bg-white/5 h-1 rounded-full mt-1 overflow-hidden">
+                          <div className="w-24 bg-slate-700/60 h-1 rounded-full mt-1.5 overflow-hidden">
                             <div className="bg-cyan-400 h-full" style={{ width: `${percent}%` }} />
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        <td className="px-5 py-3.5">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
                             {item.status}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-5 py-3.5 text-right">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => setAuditModalOpen(true)}
-                            className="border-white/10 text-white/80 text-xs h-7 px-2.5 gap-1"
+                            className="border-white/10 text-slate-200 hover:bg-white/10 text-xs h-7 px-3 gap-1 rounded-xl"
                           >
                             <Shield className="w-3.5 h-3.5 text-indigo-400" />
                             <span>Auditoria</span>

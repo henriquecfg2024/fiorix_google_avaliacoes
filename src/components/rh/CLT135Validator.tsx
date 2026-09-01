@@ -40,23 +40,23 @@ export function CLT135Validator({ onValidated }: CLT135ValidatorProps) {
   };
 
   return (
-    <div className="p-5 bg-[#0d0d16] border border-white/10 rounded-2xl space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+    <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)] p-6 space-y-4">
+      <div className="flex items-center gap-3 border-b border-white/8 pb-4">
+        <div className="p-2.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
           <ShieldAlert className="w-5 h-5" />
         </div>
         <div>
           <h4 className="text-xs font-bold text-white uppercase tracking-wide">Validador de Conformidade CLT (Art. 135)</h4>
-          <p className="text-[11px] text-white/50">Verifica a antecedência mínima legal de 30 dias para aviso formal</p>
+          <p className="text-[11px] text-slate-400">Verifica a antecedência mínima legal de 30 dias para aviso formal</p>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-2">
+      <div className="flex flex-col sm:flex-row gap-2 pt-1">
         <Input
           type="date"
           value={dataInicio}
           onChange={(e) => setDataInicio(e.target.value)}
-          className="bg-[#12141F] border-white/10 text-white text-xs"
+          className="bg-white/[0.04] border-white/10 text-white text-xs rounded-xl"
         />
         <Button
           onClick={() => handleValidar(false)}

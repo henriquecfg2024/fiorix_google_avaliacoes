@@ -28,7 +28,7 @@ export default async function PessoasDashboard() {
   const userName = session.user.name || "Colaborador";
 
   let feriasPrevistas = null;
-  let pendingCount = 2; // Default mock fallback se não houver registros
+  let pendingCount = 2;
 
   try {
     if (tenantId && userId) {
@@ -50,7 +50,6 @@ export default async function PessoasDashboard() {
     console.error("Erro ao carregar dados do dashboard de pessoas:", error);
   }
 
-  // Fallback seguro caso não haja férias cadastradas no DB
   if (!feriasPrevistas) {
     feriasPrevistas = {
       dataInicioPrevista: new Date("2026-12-15T00:00:00Z").toISOString(),
@@ -60,20 +59,39 @@ export default async function PessoasDashboard() {
   }
 
   return (
-    <div className="flex-1 w-full bg-[#05050a] min-h-[calc(100vh-56px)] text-white">
-      {/* Header Resumo */}
-      <div className="border-b border-white/5 bg-[#080A12]/50 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
-          <h1 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">
-            Boa tarde, {userName.split(" ")[0]}! 👋
-          </h1>
-          <p className="mt-2 text-sm text-white/50">
-            Aqui está o resumo das suas atividades e pendências.
-          </p>
-        </div>
+    <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden">
+      {/* Ambient Glow */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-purple-500/10 to-cyan-500/8 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
+      <div className="relative mx-auto max-w-[1600px] px-5 py-6 pb-20 sm:px-8 space-y-8">
+        {/* Breadcrumb + Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-white/6">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+              <span>Dashboard</span>
+              <span className="text-slate-600">/</span>
+              <span>Pessoas</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-indigo-400">Minha Central</span>
+            </div>
+            <div className="flex items-center gap-3 mt-1.5">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                Boa tarde, {userName.split(" ")[0]}! 👋
+              </h1>
+              <span className="rounded-full border border-indigo-500/25 bg-indigo-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-indigo-300">
+                CENTRAL DO COLABORADOR
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              Aqui está o resumo das suas atividades, documentos e pendências na Serventia.
+            </p>
+          </div>
+        </div>
+
+        {/* Resumo de Cards */}
         <CentralResumo 
           pendingComunicadosCount={pendingCount} 
           ferias={feriasPrevistas} 

@@ -35,77 +35,93 @@ export default function FeriasPage() {
   ];
 
   return (
-    <div className="flex-1 w-full bg-[#05050a] min-h-[calc(100vh-56px)] text-white pb-16">
-      {/* Header */}
-      <div className="border-b border-white/5 bg-[#080A12]/50 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden pb-20">
+      {/* Ambient Glow */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-500/12 via-indigo-500/10 to-cyan-500/8 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </div>
+
+      <div className="relative mx-auto max-w-[1600px] px-5 py-6 sm:px-8 space-y-8">
+        {/* Breadcrumb + Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-white/6">
           <div>
-            <h1 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">
-              FÉRIAS & AUSÊNCIAS
-            </h1>
-            <p className="mt-1 text-xs text-white/50">
-              Planejamento, previsão legal e histórico de alterações em conformidade com a CLT.
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+              <span>Dashboard</span>
+              <span className="text-slate-600">/</span>
+              <span>Pessoas</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-emerald-400">Férias</span>
+            </div>
+            <div className="flex items-center gap-3 mt-1.5">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                FÉRIAS & AUSÊNCIAS
+              </h1>
+              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
+                CLT ART. 135
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              Planejamento, previsão legal e histórico de alterações em conformidade com as normas da Corregedoria.
             </p>
           </div>
 
-          <div className="flex gap-2 p-1 bg-[#12141F] rounded-xl border border-white/5 text-xs font-bold">
+          <div className="flex gap-1.5 p-1 bg-white/[0.04] rounded-2xl border border-white/8 text-xs font-bold">
             <button
               onClick={() => setActiveTab("minhas")}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                activeTab === "minhas" ? "bg-indigo-600 text-white" : "text-white/60 hover:text-white"
+              className={`px-4 py-2 rounded-xl transition-all ${
+                activeTab === "minhas" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-white"
               }`}
             >
               Minhas Férias
             </button>
             <button
               onClick={() => setActiveTab("equipe")}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                activeTab === "equipe" ? "bg-indigo-600 text-white" : "text-white/60 hover:text-white"
+              className={`px-4 py-2 rounded-xl transition-all ${
+                activeTab === "equipe" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-white"
               }`}
             >
               Escala da Equipe
             </button>
           </div>
         </div>
-      </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8 space-y-8">
         {activeTab === "minhas" ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Card Principal de Férias Previstas */}
             <div className="lg:col-span-8 space-y-6">
-              <div className="p-6 rounded-2xl bg-[#0d0d16] border border-white/5 space-y-6">
-                <div className="flex items-center justify-between">
+              <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-6">
+                <div className="flex items-center justify-between border-b border-white/8 pb-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400">
+                    <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
                       <Briefcase className="w-6 h-6" />
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold text-white/40 uppercase">Próximo Período Programado</span>
-                      <h2 className="text-xl font-black text-white">15/12/2026 a 03/01/2027</h2>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Próximo Período Programado</span>
+                      <h2 className="text-2xl font-black text-white mt-0.5">15/12/2026 a 03/01/2027</h2>
                     </div>
                   </div>
-                  <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold">
+                  <span className="px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 text-xs font-bold font-mono">
                     20 dias de descanso
                   </span>
                 </div>
 
-                <div className="p-4 bg-[#12141F] rounded-xl border border-white/5 flex items-center justify-between">
+                <div className="p-4 bg-white/[0.02] rounded-2xl border border-white/8 flex items-center justify-between">
                   <div>
                     <span className="text-xs font-bold text-white">Antecedência Legal (CLT Art. 135)</span>
                     <p className="text-[11px] text-emerald-400 font-medium mt-0.5">
                       ✓ Em conformidade: 105 dias de antecedência para a data prevista.
                     </p>
                   </div>
-                  <span className="text-xs font-mono text-cyan-400 font-bold bg-cyan-950/50 px-2.5 py-1 rounded border border-cyan-800/50">
+                  <span className="text-xs font-mono text-cyan-300 font-bold bg-cyan-500/10 px-2.5 py-1 rounded-full border border-cyan-500/20">
                     STATUS: ENTREGUE
                   </span>
                 </div>
 
                 {/* Timeline de Alterações */}
                 <div className="space-y-3 pt-2">
-                  <h3 className="text-xs font-bold text-white/70 uppercase">Trilha de Histórico de Programação</h3>
-                  <div className="p-4 bg-[#101019] rounded-xl border border-white/5">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Trilha de Histórico de Programação</h3>
+                  <div className="p-4 bg-[#070A12]/60 rounded-2xl border border-white/8">
                     <FeriasTimeline eventos={feriasEventos} />
                   </div>
                 </div>
@@ -114,28 +130,28 @@ export default function FeriasPage() {
 
             {/* Coluna de Avisos e Regras */}
             <div className="lg:col-span-4 space-y-6">
-              <div className="p-6 rounded-2xl bg-[#0d0d16] border border-white/5 space-y-4">
-                <h3 className="text-xs font-black text-white uppercase tracking-wider">Avisos Formais de Férias</h3>
-                <div className="p-4 bg-[#12141F] rounded-xl border border-white/5 space-y-2">
+              <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
+                <h3 className="text-xs font-black text-white uppercase tracking-wider border-b border-white/8 pb-3">Avisos Formais de Férias</h3>
+                <div className="p-4 bg-white/[0.02] rounded-2xl border border-white/8 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-white">Aviso Formal 2026/2027</span>
                     <FileText className="w-4 h-4 text-cyan-400" />
                   </div>
-                  <p className="text-[11px] text-white/50 leading-relaxed">
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
                     Documento assinado digitalmente e protocolado no sistema de RH.
                   </p>
-                  <Button variant="outline" size="sm" className="w-full mt-2 text-xs border-white/10 text-white/80">
+                  <Button variant="outline" size="sm" className="w-full mt-2 text-xs border-white/10 text-slate-200 hover:bg-white/10 rounded-xl">
                     Visualizar Documento de Aviso
                   </Button>
                 </div>
               </div>
 
-              <div className="p-6 rounded-2xl bg-[#0d0d16] border border-white/5 space-y-3">
+              <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-3">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-indigo-400" />
-                  <h4 className="text-xs font-bold text-white uppercase">Garantias Legais</h4>
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Garantias Legais</h4>
                 </div>
-                <p className="text-xs text-white/60 leading-relaxed">
+                <p className="text-xs text-slate-400 leading-relaxed">
                   Conforme a legislação vigente e normas da Corregedoria Geral da Justiça, os períodos de férias devem ser homologados com antecedência mínima de 30 dias pela Serventia.
                 </p>
               </div>
