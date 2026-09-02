@@ -227,7 +227,7 @@ export function CentralResumo({
       </Link>
 
       {/* 4. PRIVACIDADE E ACESSOS CARD */}
-      <Link href="/pessoas/comunicados" className="group block h-full">
+      <Link href="/pessoas/holerites" className="group block h-full">
         <div className="relative h-full rounded-[24px] border border-white/12 bg-[#0B1020]/72 p-5 transition-all duration-300 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] hover:border-violet-500/40 hover:bg-[#0B1020]/90 flex flex-col justify-between cursor-pointer">
           <div>
             <div className="flex items-start justify-between">
