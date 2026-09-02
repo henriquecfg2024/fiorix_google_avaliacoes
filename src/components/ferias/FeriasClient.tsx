@@ -20,14 +20,14 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: Fe
   const feriasEventos = [
     {
       id: "1",
-      data: "2026-09-01",
+      data: "01/09/2026",
       tipo: "confirmacao" as const,
       titulo: "Previsão confirmada",
       autorNome: "Henrique Gama - Admin",
     },
     {
       id: "2",
-      data: "2026-07-16",
+      data: "16/07/2026",
       tipo: "alteracao" as const,
       titulo: "Período alterado",
       autorNome: "De: 10/12/2026 - 28/12/2026",
@@ -35,7 +35,7 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: Fe
     },
     {
       id: "3",
-      data: "2026-06-10",
+      data: "10/06/2026",
       tipo: "criacao" as const,
       titulo: "Previsão criada",
       autorNome: "Henrique Gama - Admin",
