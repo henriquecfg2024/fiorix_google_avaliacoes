@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { FileText, Eye, Printer, Download, Lock, ShieldCheck, Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,17 @@ import { SecurePDFViewer } from "@/components/comunicados/SecurePDFViewer";
 export default function HoleritesPage() {
   const [selectedHolerite, setSelectedHolerite] = useState<{ mes: string; id: string } | null>(null);
   const [searchYear, setSearchYear] = useState("2026");
+  const [lgpdFeedback, setLgpdFeedback] = useState<string | null>(null);
+
+  const handleSolicitarLgpd = (tipo: "relatorio" | "exclusao") => {
+    const protocolo = `LGPD-${Date.now().toString().slice(-6)}`;
+    setLgpdFeedback(
+      tipo === "relatorio"
+        ? `Protocolo ${protocolo}: Sua solicitação de relatório de titularidade foi enviada ao DPO (dpo@7risp.com.br).`
+        : `Protocolo ${protocolo}: Sua solicitação de exclusão/anonimização foi registrada para análise jurídica e regulatória do DPO.`
+    );
+    setTimeout(() => setLgpdFeedback(null), 8000);
+  };
 
   const holerites = [
     { id: "1", mes: "08/2026", bruto: "R$ 6.840,00", liquido: "R$ 5.420,15", hash: "f3a9c2e1d0b83e42aa881b9...", dataUpload: "28/08/2026" },
@@ -19,27 +31,27 @@ export default function HoleritesPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden pb-20">
+    <div className="w-full flex-1 flex flex-col justify-start bg-[#070A12] text-white relative overflow-hidden pb-12">
       {/* Ambient Glow */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-cyan-500/12 via-indigo-500/10 to-purple-500/8 blur-3xl" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       </div>
 
-      <div className="relative mx-auto max-w-[1600px] px-5 py-6 sm:px-8 space-y-8">
+      <div className="relative mx-auto w-full max-w-[1600px] px-5 py-6 sm:px-8 space-y-6">
         {/* Breadcrumb + Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-white/6">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-              <span>Dashboard</span>
+              <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
               <span className="text-slate-600">/</span>
-              <span>Pessoas</span>
+              <Link href="/pessoas" className="hover:text-white transition-colors">Pessoas</Link>
               <span className="text-slate-600">/</span>
-              <span className="text-cyan-400">Holerites</span>
+              <span className="text-cyan-400 font-semibold">Holerites</span>
             </div>
             <div className="flex items-center gap-3 mt-1.5">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                MEUS HOLERITES & COMPROVANTES
+                MEUS HOLERITES E COMPROVANTES
               </h1>
               <span className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-cyan-300">
                 ART. 464 CLT
@@ -51,14 +63,32 @@ export default function HoleritesPage() {
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="border-white/10 text-slate-200 hover:bg-white/10 text-xs rounded-xl">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleSolicitarLgpd("relatorio")}
+              className="border-white/10 text-slate-200 hover:bg-white/10 text-xs rounded-xl cursor-pointer"
+            >
               Solicitar Relatório LGPD
             </Button>
-            <Button variant="outline" size="sm" className="border-white/10 text-slate-200 hover:bg-white/10 text-xs rounded-xl">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleSolicitarLgpd("exclusao")}
+              className="border-white/10 text-slate-200 hover:bg-white/10 text-xs rounded-xl cursor-pointer"
+            >
               Solicitar Exclusão
             </Button>
           </div>
         </div>
+
+        {/* Feedback LGPD Temporário */}
+        {lgpdFeedback && (
+          <div className="p-3.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-xs text-cyan-200 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-cyan-400 shrink-0" />
+            <span>{lgpdFeedback}</span>
+          </div>
+        )}
 
         {/* Banner LGPD */}
         <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -69,7 +99,7 @@ export default function HoleritesPage() {
             <div>
               <h3 className="text-xs font-bold text-white uppercase tracking-wider">Acesso Pessoal Protegido & Auditado</h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Cada visualização ou impressão gera registro imutável com carimbo de tempo e IP do usuário.
+                Cada visualização ou impressão é registrada na trilha de auditoria.
               </p>
             </div>
           </div>

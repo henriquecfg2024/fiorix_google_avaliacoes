@@ -54,15 +54,15 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: Fe
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-white/6">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-              <span>Dashboard</span>
+              <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
               <span className="text-slate-600">/</span>
-              <span>Pessoas</span>
+              <Link href="/pessoas" className="hover:text-white transition-colors">Pessoas</Link>
               <span className="text-slate-600">/</span>
-              <span className="text-emerald-400">Férias</span>
+              <span className="text-emerald-400 font-semibold">Férias</span>
             </div>
             <div className="flex items-center gap-3 mt-1.5">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                FÉRIAS & AUSÊNCIAS
+                FÉRIAS
               </h1>
               <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
                 CLT ART. 135
@@ -78,7 +78,7 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: Fe
             <div className="flex gap-1.5 p-1 bg-white/[0.04] rounded-2xl border border-white/8 text-xs font-bold">
               <button
                 onClick={() => setActiveTab("minhas")}
-                className={`px-4 py-2 rounded-xl transition-all ${
+                className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
                   activeTab === "minhas" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-white"
                 }`}
               >
@@ -86,7 +86,7 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: Fe
               </button>
               <button
                 onClick={() => setActiveTab("equipe")}
-                className={`px-4 py-2 rounded-xl transition-all ${
+                className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
                   activeTab === "equipe" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-white"
                 }`}
               >
@@ -107,7 +107,7 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: Fe
                       <Briefcase className="w-6 h-6" />
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Próximo Período Programado</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Próximas Férias Previstas</span>
                       <h3 className="text-xl font-bold text-white">15/12/2026 a 03/01/2027</h3>
                     </div>
                   </div>

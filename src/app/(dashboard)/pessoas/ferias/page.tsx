@@ -4,7 +4,7 @@ import { FeriasClient } from "@/components/ferias/FeriasClient";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Férias & Ausências | FIORIX",
+  title: "Férias | FIORIX",
 };
 
 export default async function FeriasPage() {
