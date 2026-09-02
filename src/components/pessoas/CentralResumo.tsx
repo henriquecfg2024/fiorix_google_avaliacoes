@@ -67,11 +67,11 @@ export function CentralResumo({
   const isPending = !summary.isAllClear;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
       {/* 1. COMUNICADOS CARD - DESTAQUE MÁXIMO FIORIX */}
       <Link href="/pessoas/comunicados" className="group block h-full">
         <div
-          className={`relative h-full rounded-[28px] border p-6 transition-all duration-300 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] flex flex-col justify-between cursor-pointer ${
+          className={`relative h-full rounded-[24px] border p-5 transition-all duration-300 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] flex flex-col justify-between cursor-pointer ${
             isPending
               ? "border-rose-500/35 bg-[#140a12]/80 hover:border-rose-500/60 hover:bg-[#180c16]/90 hover:shadow-[0_0_35px_rgba(244,63,94,0.18)]"
               : "border-white/12 bg-[#0B1020]/72 hover:border-white/20 hover:bg-[#0B1020]/90"
@@ -84,16 +84,16 @@ export function CentralResumo({
           <div>
             <div className="flex items-start justify-between">
               <div
-                className={`p-3 rounded-2xl border transition-all ${
+                className={`p-2.5 rounded-xl border transition-all ${
                   isPending
                     ? "bg-rose-500/15 border-rose-500/30 text-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.25)]"
                     : "bg-indigo-500/10 border-indigo-500/20 text-indigo-400"
                 }`}
               >
-                <AlertCircle className="w-6 h-6" />
+                <AlertCircle className="w-5 h-5" />
               </div>
               <span
-                className={`px-2.5 py-1 rounded-full text-[11px] font-mono font-bold tracking-wider uppercase border ${
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase border ${
                   summary.urgentPending > 0
                     ? "bg-rose-500/20 text-rose-300 border-rose-500/30 animate-pulse"
                     : isPending
@@ -105,14 +105,14 @@ export function CentralResumo({
               </span>
             </div>
 
-            <div className="mt-5">
+            <div className="mt-4">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                 COMUNICADOS INTERNOS
               </h3>
 
               {isPending ? (
-                <div className="mt-2 space-y-1">
-                  <div className="text-2xl font-black text-white">
+                <div className="mt-1.5 space-y-1">
+                  <div className="text-xl font-black text-white">
                     {summary.statusLabel}
                   </div>
                   <p className="text-xs text-rose-300 font-medium flex items-center gap-1.5">
@@ -121,15 +121,15 @@ export function CentralResumo({
                   </p>
                 </div>
               ) : (
-                <div className="mt-2 space-y-1">
-                  <div className="text-2xl font-black text-emerald-400">Tudo em dia</div>
+                <div className="mt-1.5 space-y-1">
+                  <div className="text-xl font-black text-emerald-400">Tudo em dia</div>
                   <p className="text-xs text-slate-400">Nenhuma ciência pendente</p>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-white/8 flex items-center justify-between text-xs font-semibold text-slate-400 group-hover:text-white transition-colors">
+          <div className="mt-5 pt-3.5 border-t border-white/8 flex items-center justify-between text-xs font-semibold text-slate-400 group-hover:text-white transition-colors">
             <span>Ver comunicados</span>
             <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-rose-400 group-hover:translate-x-1 transition-all" />
           </div>
@@ -138,24 +138,24 @@ export function CentralResumo({
 
       {/* 2. FÉRIAS PREVISTAS CARD */}
       <Link href="/pessoas/ferias" className="group block h-full">
-        <div className="relative h-full rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 transition-all duration-300 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] hover:border-emerald-500/40 hover:bg-[#0B1020]/90 flex flex-col justify-between cursor-pointer">
+        <div className="relative h-full rounded-[24px] border border-white/12 bg-[#0B1020]/72 p-5 transition-all duration-300 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] hover:border-emerald-500/40 hover:bg-[#0B1020]/90 flex flex-col justify-between cursor-pointer">
           <div>
             <div className="flex items-start justify-between">
-              <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
-                <Briefcase className="w-6 h-6" />
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
+                <Briefcase className="w-5 h-5" />
               </div>
-              <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-bold tracking-wider uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
                 {hasFerias && feriasDias > 0 ? `${feriasDias} DIAS` : "CLT ART. 135"}
               </span>
             </div>
 
-            <div className="mt-5">
+            <div className="mt-4">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                 FÉRIAS PREVISTAS
               </h3>
 
               {hasFerias ? (
-                <div className="mt-2 space-y-1">
+                <div className="mt-1.5 space-y-0.5">
                   <div className="text-sm font-bold text-white tracking-tight">
                     {feriasPeriodoCompleto}
                   </div>
@@ -168,7 +168,7 @@ export function CentralResumo({
                   </p>
                 </div>
               ) : (
-                <div className="mt-2 space-y-1">
+                <div className="mt-1.5 space-y-0.5">
                   <div className="text-sm font-bold text-white">Nenhum período previsto</div>
                   <p className="text-xs text-slate-400">Consulte o RH para mais informações.</p>
                 </div>
@@ -176,7 +176,7 @@ export function CentralResumo({
             </div>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-white/8 flex items-center justify-between text-xs font-semibold text-slate-400 group-hover:text-white transition-colors">
+          <div className="mt-5 pt-3.5 border-t border-white/8 flex items-center justify-between text-xs font-semibold text-slate-400 group-hover:text-white transition-colors">
             <span>Ver férias</span>
             <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all" />
           </div>
@@ -185,25 +185,25 @@ export function CentralResumo({
 
       {/* 3. HOLERITES CARD */}
       <Link href="/pessoas/holerites" className="group block h-full">
-        <div className="relative h-full rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 transition-all duration-300 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] hover:border-cyan-500/40 hover:bg-[#0B1020]/90 flex flex-col justify-between cursor-pointer">
+        <div className="relative h-full rounded-[24px] border border-white/12 bg-[#0B1020]/72 p-5 transition-all duration-300 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] hover:border-cyan-500/40 hover:bg-[#0B1020]/90 flex flex-col justify-between cursor-pointer">
           <div>
             <div className="flex items-start justify-between">
-              <div className="p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.15)]">
-                <FileText className="w-6 h-6" />
+              <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.15)]">
+                <FileText className="w-5 h-5" />
               </div>
-              <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-bold tracking-wider uppercase bg-cyan-500/15 text-cyan-300 border border-cyan-500/25">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase bg-cyan-500/15 text-cyan-300 border border-cyan-500/25">
                 ART. 464 CLT
               </span>
             </div>
 
-            <div className="mt-5">
+            <div className="mt-4">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                 HOLERITES
               </h3>
 
               {ultimoHolerite?.disponivel ? (
-                <div className="mt-2 space-y-1">
-                  <div className="text-base font-bold text-white">
+                <div className="mt-1.5 space-y-0.5">
+                  <div className="text-sm font-bold text-white">
                     {ultimoHolerite.competencia} disponível
                   </div>
                   <p className="text-xs text-cyan-400/90 font-medium">
@@ -211,7 +211,7 @@ export function CentralResumo({
                   </p>
                 </div>
               ) : (
-                <div className="mt-2 space-y-1">
+                <div className="mt-1.5 space-y-0.5">
                   <div className="text-sm font-bold text-white">Nenhum holerite disponível</div>
                   <p className="text-xs text-slate-400">Aguardando liberação de competência</p>
                 </div>
@@ -219,7 +219,7 @@ export function CentralResumo({
             </div>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-white/8 flex items-center justify-between text-xs font-semibold text-slate-400 group-hover:text-white transition-colors">
+          <div className="mt-5 pt-3.5 border-t border-white/8 flex items-center justify-between text-xs font-semibold text-slate-400 group-hover:text-white transition-colors">
             <span>Ver holerites</span>
             <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-1 transition-all" />
           </div>
@@ -228,33 +228,33 @@ export function CentralResumo({
 
       {/* 4. PRIVACIDADE E ACESSOS CARD */}
       <Link href="/pessoas/comunicados" className="group block h-full">
-        <div className="relative h-full rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 transition-all duration-300 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] hover:border-violet-500/40 hover:bg-[#0B1020]/90 flex flex-col justify-between cursor-pointer">
+        <div className="relative h-full rounded-[24px] border border-white/12 bg-[#0B1020]/72 p-5 transition-all duration-300 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] hover:border-violet-500/40 hover:bg-[#0B1020]/90 flex flex-col justify-between cursor-pointer">
           <div>
             <div className="flex items-start justify-between">
-              <div className="p-3 rounded-2xl bg-violet-500/10 border border-violet-500/20 text-violet-400 shadow-[0_0_20px_rgba(139,92,246,0.15)]">
-                <ShieldCheck className="w-6 h-6" />
+              <div className="p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 shadow-[0_0_20px_rgba(139,92,246,0.15)]">
+                <ShieldCheck className="w-5 h-5" />
               </div>
-              <span className="px-2.5 py-1 rounded-full text-[11px] font-mono font-bold tracking-wider uppercase bg-violet-500/15 text-violet-300 border border-violet-500/25">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase bg-violet-500/15 text-violet-300 border border-violet-500/25">
                 LGPD
               </span>
             </div>
 
-            <div className="mt-5">
+            <div className="mt-4">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                 PRIVACIDADE E ACESSOS
               </h3>
-              <div className="mt-2 text-base font-bold text-white">Acesso Protegido</div>
-              <p className="text-xs text-emerald-400 font-medium mt-1 flex items-center gap-1.5">
+              <div className="mt-1.5 text-sm font-bold text-white">Acesso Protegido</div>
+              <p className="text-xs text-emerald-400 font-medium mt-0.5 flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
                 <span>Nenhuma atividade incomum</span>
               </p>
-              <p className="text-[11px] text-slate-500 leading-snug mt-1">
+              <p className="text-[11px] text-slate-500 leading-snug mt-0.5">
                 Seus acessos e documentos são protegidos e auditados.
               </p>
             </div>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-white/8 flex items-center justify-between text-xs font-semibold text-slate-500 group-hover:text-white transition-colors">
+          <div className="mt-5 pt-3.5 border-t border-white/8 flex items-center justify-between text-xs font-semibold text-slate-500 group-hover:text-white transition-colors">
             <span>Ver acessos</span>
             <span className="text-[10px] font-mono text-violet-400">SHA-256</span>
           </div>

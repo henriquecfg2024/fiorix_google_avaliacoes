@@ -74,16 +74,16 @@ export default async function PessoasDashboard() {
   }
 
   return (
-    <div className="w-full bg-[#070A12] text-white relative overflow-hidden">
+    <div className="w-full flex-1 flex flex-col justify-start bg-[#070A12] text-white relative overflow-hidden">
       {/* Ambient Glow */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-purple-500/10 to-cyan-500/8 blur-3xl" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       </div>
 
-      <div className="relative mx-auto max-w-[1600px] px-5 py-6 pb-6 sm:px-8 space-y-6">
+      <div className="relative mx-auto w-full max-w-[1600px] px-5 py-5 sm:px-8 space-y-5">
         {/* Breadcrumb + Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-white/6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-white/6">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <span>Dashboard</span>
@@ -92,7 +92,7 @@ export default async function PessoasDashboard() {
               <span className="text-slate-600">/</span>
               <span className="text-indigo-400">Minha Central</span>
             </div>
-            <div className="flex items-center gap-3 mt-1.5">
+            <div className="flex items-center gap-3 mt-1">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
                 {saudacao}, {userName.split(" ")[0]}! 👋
               </h1>
@@ -100,7 +100,7 @@ export default async function PessoasDashboard() {
                 CENTRAL DO COLABORADOR
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-400 mt-0.5">
               Aqui está o resumo das suas atividades, documentos e pendências na Serventia.
             </p>
           </div>
