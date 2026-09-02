@@ -74,16 +74,16 @@ export default async function PessoasDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden">
+    <div className="w-full bg-[#070A12] text-white relative overflow-hidden">
       {/* Ambient Glow */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-purple-500/10 to-cyan-500/8 blur-3xl" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       </div>
 
-      <div className="relative mx-auto max-w-[1600px] px-5 py-6 pb-20 sm:px-8 space-y-8">
+      <div className="relative mx-auto max-w-[1600px] px-5 py-6 pb-6 sm:px-8 space-y-6">
         {/* Breadcrumb + Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-white/6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-white/6">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <span>Dashboard</span>

@@ -14,15 +14,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [pathname]);
 
   return (
-    <>
-      <PwaInstallBanner />
-      <FiorixHeader />
+    <div className="min-h-screen flex flex-col justify-between bg-[#070A12]">
+      <div className="flex-1 flex flex-col">
+        <PwaInstallBanner />
+        <FiorixHeader />
 
-      {children}
-
-      <div className="footer-strip">
-        FIORIX · Preview v0.1 · 7º Cartório de Registro de Imóveis de São Paulo
+        <main className="flex-1">
+          {children}
+        </main>
       </div>
-    </>
+
+      <footer className="footer-strip">
+        FIORIX · Preview v0.1 · 7º Cartório de Registro de Imóveis de São Paulo
+      </footer>
+    </div>
   );
 }
