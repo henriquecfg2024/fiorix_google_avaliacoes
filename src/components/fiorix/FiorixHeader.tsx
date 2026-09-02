@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -50,8 +50,26 @@ export function FiorixHeader() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
-  // Hover states for the 3 dropdowns
+  // Hover states for the dropdowns with seamless grace timeout
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleGroupEnter = (key: string) => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+    setHoveredGroup(key);
+  };
+
+  const handleGroupLeave = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+    }
+    closeTimeoutRef.current = setTimeout(() => {
+      setHoveredGroup(null);
+    }, 280);
+  };
 
   const [navigationStats, setNavigationStats] = useState<Record<string, string>>({
     biCount: "15.5k",
@@ -194,17 +212,28 @@ export function FiorixHeader() {
                 <div
                   key={key}
                   className="relative"
-                  onMouseEnter={() => setHoveredGroup(key)}
-                  onMouseLeave={() => setHoveredGroup(null)}
+                  onMouseEnter={() => handleGroupEnter(key)}
+                  onMouseLeave={handleGroupLeave}
                 >
                   <DropdownMenu
                     open={hoveredGroup === key}
                     onOpenChange={(open) => {
-                      if (!open) setHoveredGroup(null);
+                      if (!open) {
+                        if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+                        setHoveredGroup(null);
+                      }
                     }}
                   >
                     <DropdownMenuTrigger asChild>
                       <button
+                        onClick={() => {
+                          if (hoveredGroup === key) {
+                            if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+                            setHoveredGroup(null);
+                          } else {
+                            handleGroupEnter(key);
+                          }
+                        }}
                         className={`flex items-center gap-1 px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
                           isGroupActive
                             ? "bg-white/[0.08] border-white/10 text-white"
@@ -213,19 +242,30 @@ export function FiorixHeader() {
                       >
                         <GroupIcon className="w-3.5 h-3.5 opacity-80" />
                         <span>{group.label}</span>
-                        <ChevronDown className="w-3 h-3 opacity-60 transition-transform duration-200" />
+                        <ChevronDown className={`w-3 h-3 opacity-60 transition-transform duration-200 ${hoveredGroup === key ? "rotate-180" : ""}`} />
                       </button>
                     </DropdownMenuTrigger>
 
                     <DropdownMenuContent
                       align="start"
-                      className="bg-[#12141F] border-white/10 backdrop-blur-xl p-2 w-80 shadow-2xl rounded-xl space-y-1 mt-1"
+                      sideOffset={4}
+                      onMouseEnter={() => handleGroupEnter(key)}
+                      onMouseLeave={handleGroupLeave}
+                      className="bg-[#12141F]/95 border-white/10 backdrop-blur-xl p-2 w-80 shadow-2xl rounded-xl space-y-1 z-[150]"
                     >
                       {visibleItems.map((item) => {
                         const active = isActive(item.href);
                         const ItemIcon = item.icon;
                         return (
-                          <Link key={item.href} href={item.href} className="block">
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            className="block"
+                            onClick={() => {
+                              if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+                              setHoveredGroup(null);
+                            }}
+                          >
                             <div
                               className={`flex items-start gap-3 p-2.5 rounded-lg transition-colors ${
                                 active
