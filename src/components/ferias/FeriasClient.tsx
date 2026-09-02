@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { Briefcase, Calendar, Clock, AlertTriangle, ShieldCheck, FileText, CheckCircle2, Lock } from "lucide-react";
 import { FeriasTimeline } from "@/components/ferias/FeriasTimeline";
 import { FeriasCalendar } from "@/components/ferias/FeriasCalendar";
