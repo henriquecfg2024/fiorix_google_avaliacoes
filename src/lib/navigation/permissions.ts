@@ -10,14 +10,14 @@ export function filterNavigationByRole(role: Role = "USER") {
   const filteredGroups: Record<string, any> = {};
 
   for (const [key, group] of Object.entries(navigationGroups)) {
-    // COLABORADOR: Apenas PESSOAS
+    // COLABORADOR: Apenas PESSOAS & RH
     if (isColaborador && key !== "pessoas") continue;
 
-    // RH: Apenas PESSOAS e ADMINISTRAÇÃO (Painel RH)
-    if (isRH && key !== "pessoas" && key !== "administracao") continue;
+    // RH: Apenas PESSOAS & RH (inclui Painel RH)
+    if (isRH && key !== "pessoas") continue;
 
-    // USER: Não tem acesso a SISTEMA ou ADMINISTRAÇÃO
-    if (isUser && (key === "sistema" || key === "administracao")) continue;
+    // USER: Não tem acesso a SISTEMA & INFRA
+    if (isUser && key === "sistema") continue;
 
     const visibleItems = group.items.filter((item) => {
       if (isColaborador) {

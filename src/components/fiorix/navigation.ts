@@ -12,11 +12,12 @@ import {
   Upload,
   Settings2,
   Activity,
+  UserCheck,
 } from "lucide-react";
 
 export const navigationGroups = {
   operacional: {
-    label: "OPERACIONAL",
+    label: "OPERACIONAL & BI",
     icon: Briefcase,
     items: [
       {
@@ -65,7 +66,7 @@ export const navigationGroups = {
     ],
   },
   gestao: {
-    label: "GESTÃO",
+    label: "GESTÃO & ANÁLISES",
     icon: PieChart,
     items: [
       { label: "Avaliações", href: "/avaliacoes", icon: Star },
@@ -73,31 +74,8 @@ export const navigationGroups = {
       { label: "Relatórios", href: "/relatorios", icon: FileText },
     ],
   },
-  sistema: {
-    label: "SISTEMA",
-    icon: Settings,
-    items: [
-      {
-        label: "Central de Operações",
-        href: "/sistema/operacoes",
-        icon: Activity,
-        badge: "ONLINE",
-        badgeVariant: "emerald",
-        description: "Saúde e monitoramento",
-      },
-      {
-        label: "Importações",
-        href: "/bi/importacoes",
-        icon: Upload,
-        badge: "118.523",
-        badgeKey: "importCount",
-        description: "4 falhas ontem",
-      },
-      { label: "Configurações", href: "/configuracoes", icon: Settings2 },
-    ],
-  },
   pessoas: {
-    label: "PESSOAS",
+    label: "PESSOAS & RH",
     icon: Users,
     items: [
       {
@@ -122,17 +100,35 @@ export const navigationGroups = {
         href: "/pessoas/holerites",
         icon: FileText,
       },
-    ],
-  },
-  administracao: {
-    label: "ADMINISTRAÇÃO",
-    icon: ShieldAlert,
-    items: [
       {
         label: "Painel RH",
         href: "/sistema/pessoas",
-        icon: Settings2,
+        icon: UserCheck,
+        description: "Gestão do quadro de colaboradores",
       },
+    ],
+  },
+  sistema: {
+    label: "SISTEMA & INFRA",
+    icon: Settings,
+    items: [
+      {
+        label: "Central de Operações",
+        href: "/sistema/operacoes",
+        icon: Activity,
+        badge: "ONLINE",
+        badgeVariant: "emerald",
+        description: "Saúde e monitoramento",
+      },
+      {
+        label: "Importações",
+        href: "/bi/importacoes",
+        icon: Upload,
+        badge: "118.523",
+        badgeKey: "importCount",
+        description: "4 falhas ontem",
+      },
+      { label: "Configurações", href: "/configuracoes", icon: Settings2 },
     ],
   },
 };
