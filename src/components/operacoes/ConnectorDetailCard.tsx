@@ -91,6 +91,16 @@ export function ConnectorDetailCard({ connector }: Props) {
                 {connector.heartbeatAgoSeconds !== null ? `${connector.heartbeatAgoSeconds}s atrás` : 'Sem sinal'}
               </span>
             </div>
+
+            <div className="flex items-center justify-between text-white/60 pt-1 border-t border-white/6">
+              <span className="flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5 text-white/40" />
+                Expediente
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-white/80 text-[11px]">Seg–Sáb 07h–19h</span>
+              </div>
+            </div>
           </div>
 
           {/* Coluna Direita: Telemetria de Conexão e Processo */}

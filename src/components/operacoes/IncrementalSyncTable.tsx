@@ -46,12 +46,16 @@ export function IncrementalSyncTable({ modules }: Props) {
     <div className="rounded-2xl border border-white/10 bg-[#0B1020]/90 p-5 shadow-xl backdrop-blur-xl flex flex-col justify-between h-full">
       <div>
         <div className="flex items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <h3 className="text-sm font-bold text-white tracking-wide">
               Sincronização Incremental
             </h3>
             <span className="px-2 py-0.5 rounded-md bg-white/[0.06] text-[11px] font-medium text-white/70 border border-white/8">
               Ciclos: 10 min (BI/Prod/Tar) | 15 min (Metas)
+            </span>
+            <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-[11px] font-semibold text-indigo-300 border border-indigo-500/20 flex items-center gap-1.5">
+              <Clock className="h-3 w-3 text-indigo-400" />
+              Expediente: Seg–Sáb (07h–19h)
             </span>
           </div>
         </div>
@@ -122,9 +126,7 @@ export function IncrementalSyncTable({ modules }: Props) {
       <div className="mt-4 pt-3 border-t border-white/6 flex items-center gap-2 text-xs font-medium text-white/60">
         <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
         <span>
-          {allInTime 
-            ? 'Todos os módulos com sincronização pontual dentro da janela configurada.' 
-            : 'Módulos sendo avaliados conforme intervalo específico por fonte de dados.'}
+          Rotinas ativas de Segunda a Sábado (07h às 19h). Sincronizações automáticas pausadas no período noturno e aos domingos.
         </span>
       </div>
     </div>
