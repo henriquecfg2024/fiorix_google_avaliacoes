@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 const FALLBACK_SNAPSHOT: OperationsHealthSnapshot = {
   globalStatus: 'UNKNOWN',
   environment: 'Produção — único ambiente monitorado',
-  timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+  timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' }),
   observedAt: new Date().toISOString(),
   snapshotAt: new Date().toISOString(),
   cacheAgeMs: 0,

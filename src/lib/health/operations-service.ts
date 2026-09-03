@@ -425,8 +425,8 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       module: cfg.module,
       key: cfg.key,
       status,
-      lastSyncAt: lastSyncDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      nextExpectedAt: nextExpectedDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      lastSyncAt: lastSyncDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' }),
+      nextExpectedAt: nextExpectedDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' }),
       delaySeconds: Math.max(0, elapsedSeconds - cfg.expectedIntervalSeconds),
       recordsCount: records,
       isIncremental: true,
@@ -595,7 +595,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
         .map((b) => ({
           id: b.id,
           severity: 'WARNING' as const,
-          time: new Date(b.receivedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          time: new Date(b.receivedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }),
           service: `Lote ${b.source.toUpperCase()}`,
           description: b.errorMessage || 'Falha ao processar lote no SaaS',
           duration: 'Falha registrada',
@@ -616,7 +616,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   return {
     globalStatus,
     environment: 'Produção — único ambiente monitorado',
-    timestamp: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    timestamp: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' }),
     observedAt: nowIso,
     snapshotAt: nowIso,
     cacheAgeMs: 0,
