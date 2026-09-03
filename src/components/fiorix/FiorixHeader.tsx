@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/accordion";
 import { navigationGroups } from "./navigation";
 import { handleSignOut, getCurrentUser } from "@/app/actions/auth";
+import { getPendingCount } from "@/app/actions/reviews";
 import { getHomeRouteForRole } from "@/lib/permissions";
 
 export function FiorixHeader() {
@@ -85,17 +86,20 @@ export function FiorixHeader() {
       })
       .catch(() => {});
 
-    // Stats são carregadas apenas uma vez (shared com sidebar via loadNavigationStatsOnce)
+    getPendingCount()
+      .then((count) => setPendingCount(count))
+      .catch(() => {});
+
+    // Fetch dynamic menu badge stats
     fetch("/api/navigation/stats")
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.stats) {
           setNavigationStats(data.stats);
-          setPendingCount(Number(data.stats.pendingReviewsCount || 0));
         }
       })
       .catch(() => {});
-  }, []); // ← Carrega apenas na montagem, não a cada navegação
+  }, [pathname]);
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
