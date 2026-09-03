@@ -370,10 +370,16 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       });
     }
 
-    // Referência temporal estritamente pelo receivedAt do servidor
-    const lastSyncDate = lastBatch?.receivedAt 
-      ? new Date(lastBatch.receivedAt) 
-      : (statusEntry?.lastSuccessAt ? new Date(statusEntry.lastSuccessAt) : null);
+    // Referência temporal: a data mais recente entre o último lote recebido e o último heartbeat/telemetria da fonte
+    const batchDate = lastBatch?.receivedAt ? new Date(lastBatch.receivedAt) : null;
+    const statusDate = statusEntry?.lastSuccessAt ? new Date(statusEntry.lastSuccessAt) : null;
+
+    let lastSyncDate: Date | null = null;
+    if (batchDate && statusDate) {
+      lastSyncDate = batchDate > statusDate ? batchDate : statusDate;
+    } else {
+      lastSyncDate = batchDate || statusDate;
+    }
 
     if (!lastSyncDate) {
       incrementalModules.push({
