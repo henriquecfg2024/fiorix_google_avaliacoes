@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 const getNavigationStatsForTenant = unstable_cache(
   async (tenantId: string) => {
     const [biTotal, metasTotal, prodTotal, auditoriaTotal, importTotal, pendingReviewsCount] =
