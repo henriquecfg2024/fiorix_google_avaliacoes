@@ -10,7 +10,8 @@ import {
   User, 
   CheckCircle2, 
   AlertTriangle,
-  XCircle
+  XCircle,
+  ShieldCheck
 } from 'lucide-react';
 import { OperationsHealthSnapshot } from '@/lib/health/operations-service';
 import { ServiceHealthGrid } from './ServiceHealthGrid';
@@ -27,7 +28,6 @@ interface Props {
 
 export function CentralOperacoesClient({ initialHealth, userName }: Props) {
   const [health, setHealth] = useState<OperationsHealthSnapshot>(initialHealth);
-  const [selectedEnv, setSelectedEnv] = useState<'PRODUÇÃO' | 'HOMOLOGAÇÃO'>('PRODUÇÃO');
   const [isPending, startTransition] = useTransition();
   const [lastUpdated, setLastUpdated] = useState<string>(initialHealth.timestamp);
 
@@ -68,41 +68,41 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        {/* 1. Header Global com Seletor e Status */}
+        {/* 1. Header Global com Identificação Rigorosa */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/8">
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
                 Central de Operações FIORIX
               </h1>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
+                health.globalStatus === 'OPERACIONAL' 
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                  : (health.globalStatus === 'DEGRADADO' 
+                      ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' 
+                      : 'bg-rose-500/10 text-rose-400 border-rose-500/20')
+              }`}>
+                <span className={`h-2 w-2 rounded-full ${health.globalStatus === 'OPERACIONAL' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
                 {health.globalStatus}
               </span>
             </div>
             <p className="text-xs text-white/50 mt-1">
-              Visão geral em tempo real da plataforma e integrações
+              Observabilidade de ponta a ponta: SaaS, conectividade e rotinas do cartório
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {/* Seletor de Ambiente */}
+            {/* Indicador de Ambiente Fixo e Auditado */}
             <div className="flex items-center gap-2 bg-[#0B1020] px-3 py-1.5 rounded-xl border border-white/10 text-xs">
-              <span className="text-white/40 font-medium">Ambiente:</span>
-              <select
-                value={selectedEnv}
-                onChange={(e) => setSelectedEnv(e.target.value as any)}
-                className="bg-transparent font-bold text-white outline-none cursor-pointer"
-              >
-                <option value="PRODUÇÃO" className="bg-[#0B1020] text-white">PRODUÇÃO</option>
-                <option value="HOMOLOGAÇÃO" className="bg-[#0B1020] text-white">HOMOLOGAÇÃO</option>
-              </select>
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+              <span className="font-semibold text-white/90">Produção — único ambiente monitorado</span>
             </div>
 
-            {/* Timestamp e Botão Atualizar */}
-            <span className="text-xs text-white/40 font-mono hidden sm:inline-block">
-              Última atualização: {lastUpdated}
-            </span>
+            {/* Timestamp e Status de Entrega */}
+            <div className="hidden sm:flex flex-col text-right text-[11px] font-mono text-white/40 leading-tight">
+              <span>Atualizado às: {lastUpdated}</span>
+              <span className="text-[10px] text-white/30">Entrega: {health.delivery === 'cached' ? `cache (${Math.round(health.cacheAgeMs / 1000)}s)` : 'em tempo real'}</span>
+            </div>
 
             <button
               type="button"
@@ -116,7 +116,7 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
           </div>
         </div>
 
-        {/* 2. Grid de 7 Cards de Serviços de Infraestrutura */}
+        {/* 2. Grid de Cards de Serviços de Infraestrutura */}
         <ServiceHealthGrid services={health.services} />
 
         {/* 3. Tabela de Sincronização Incremental + Card de Telemetria do Connector */}

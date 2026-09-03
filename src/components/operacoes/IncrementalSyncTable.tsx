@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, Clock, RefreshCw, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Clock, RefreshCw, AlertCircle, HelpCircle } from 'lucide-react';
 import { IncrementalModuleStatus } from '@/lib/health/operations-service';
 
 interface Props {
@@ -30,6 +30,13 @@ export function IncrementalSyncTable({ modules }: Props) {
             Atrasado
           </span>
         );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-500/10 text-slate-400 border border-slate-500/20">
+            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+            Desconhecido
+          </span>
+        );
     }
   };
 
@@ -44,7 +51,7 @@ export function IncrementalSyncTable({ modules }: Props) {
               Sincronização Incremental
             </h3>
             <span className="px-2 py-0.5 rounded-md bg-white/[0.06] text-[11px] font-medium text-white/70 border border-white/8">
-              Atualização a cada 60s
+              Ciclos: 60s (BI/Prod/Tar) | 15min (Metas)
             </span>
           </div>
         </div>
@@ -55,40 +62,54 @@ export function IncrementalSyncTable({ modules }: Props) {
               <tr className="border-b border-white/8 text-[11px] uppercase tracking-wider text-white/40 font-semibold">
                 <th className="pb-3 font-medium">Módulo</th>
                 <th className="pb-3 font-medium">Status</th>
-                <th className="pb-3 font-medium">Última Sincronização</th>
+                <th className="pb-3 font-medium">Última Execução</th>
                 <th className="pb-3 font-medium">Próxima Esperada</th>
                 <th className="pb-3 font-medium">Atraso</th>
                 <th className="pb-3 font-medium">Registros</th>
-                <th className="pb-3 font-medium text-right">Incremental</th>
+                <th className="pb-3 font-medium text-right">Diagnóstico</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/6 font-mono text-white/80">
               {modules.map((item) => (
-                <tr key={item.key} className="hover:bg-white/[0.02] transition-colors">
+                <tr key={item.key} className="hover:bg-white/[0.02] transition-colors" title={item.statusNote}>
                   <td className="py-3 font-sans font-semibold text-white">
                     {item.module}
+                    <span className="block text-[10px] font-normal text-white/40 font-mono">
+                      Janela: {item.expectedIntervalSeconds}s
+                    </span>
                   </td>
                   <td className="py-3">
                     {getStatusBadge(item.status)}
                   </td>
                   <td className="py-3 text-white/70">
-                    {item.lastSyncAt || 'N/A'}
+                    {item.lastSyncAt ?? 'Não disponível'}
                   </td>
                   <td className="py-3 text-white/50">
-                    {item.nextExpectedAt || 'N/A'}
+                    {item.nextExpectedAt ?? '-'}
                   </td>
                   <td className="py-3">
-                    <span className={item.delaySeconds === 0 ? 'text-emerald-400 font-semibold' : 'text-amber-400'}>
-                      {item.delaySeconds}s
-                    </span>
+                    {item.delaySeconds !== null ? (
+                      <span className={item.delaySeconds === 0 ? 'text-emerald-400 font-semibold' : 'text-amber-400'}>
+                        {item.delaySeconds}s
+                      </span>
+                    ) : (
+                      <span className="text-white/40">-</span>
+                    )}
                   </td>
                   <td className="py-3 text-white/90">
-                    {item.recordsCount.toLocaleString('pt-BR')}
+                    {item.recordsCount !== null ? (
+                      item.recordsCount === 0 ? (
+                        <span className="text-white/60">0 (sem alterações)</span>
+                      ) : (
+                        item.recordsCount.toLocaleString('pt-BR')
+                      )
+                    ) : (
+                      <span className="text-white/40">Telemetria insuficiente</span>
+                    )}
                   </td>
                   <td className="py-3 text-right">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 font-sans">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Confirmado
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-white/60 font-sans">
+                      {item.statusNote ? item.statusNote : 'Ciclo pontual'}
                     </span>
                   </td>
                 </tr>
@@ -98,10 +119,12 @@ export function IncrementalSyncTable({ modules }: Props) {
         </div>
       </div>
 
-      <div className="mt-4 pt-3 border-t border-white/6 flex items-center gap-2 text-xs font-medium text-emerald-400">
-        <CheckCircle2 className="h-4 w-4 shrink-0" />
+      <div className="mt-4 pt-3 border-t border-white/6 flex items-center gap-2 text-xs font-medium text-white/60">
+        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
         <span>
-          {allInTime ? 'Todos os módulos sincronizados dentro do prazo.' : 'Alguns módulos apresentam atraso no ciclo de sincronização.'}
+          {allInTime 
+            ? 'Todos os módulos com sincronização pontual dentro da janela configurada.' 
+            : 'Módulos sendo avaliados conforme intervalo específico por fonte de dados.'}
         </span>
       </div>
     </div>

@@ -10,7 +10,8 @@ import {
   CheckCircle2, 
   AlertTriangle, 
   XCircle,
-  Clock
+  Clock,
+  HelpCircle
 } from 'lucide-react';
 import { ServiceHealthItem } from '@/lib/health/operations-service';
 
@@ -69,12 +70,13 @@ export function ServiceHealthGrid({ services }: Props) {
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
       {services.map((service) => {
         const Icon = getIcon(service.id);
-        const isConnector = service.id === 'connector';
+        const isDb = service.id === 'supabase';
 
         return (
           <div 
             key={service.id} 
-            className="rounded-2xl border border-white/10 bg-[#0B1020]/90 p-3.5 shadow-lg backdrop-blur-xl flex flex-col justify-between hover:border-white/20 transition-all group"
+            className="rounded-2xl border border-white/10 bg-[#0B1020]/90 p-3.5 shadow-lg backdrop-blur-xl flex flex-col justify-between hover:border-white/20 transition-all group relative"
+            title={service.reason ? `${service.details || ''} - ${service.reason}` : service.details || undefined}
           >
             <div className="flex items-start justify-between gap-2 mb-3">
               <div className="p-2 rounded-xl bg-white/[0.04] border border-white/8 text-white group-hover:bg-amber-500/10 group-hover:text-amber-300 transition-colors">
@@ -90,18 +92,23 @@ export function ServiceHealthGrid({ services }: Props) {
                 {service.name}
               </h3>
               
+              {service.reason && (
+                <p className="text-[10px] text-white/40 truncate mb-1 font-sans">
+                  {service.reason}
+                </p>
+              )}
+
               <div className="flex items-center justify-between text-[11px] text-white/50 pt-2 border-t border-white/6 font-mono">
-                {isConnector ? (
-                  <>
-                    <span className="text-white/80">{service.lastSignalAt}</span>
-                    <span className="text-amber-400/90 font-semibold">{service.version || 'v1.0.0'}</span>
-                  </>
+                {service.latencyMs !== null ? (
+                  <span className={service.latencyMs > 1200 ? 'text-amber-400 font-semibold' : 'text-emerald-400'}>
+                    {service.latencyMs} ms
+                  </span>
                 ) : (
-                  <>
-                    <span>{service.latencyMs ? `${service.latencyMs} ms` : 'Ativo'}</span>
-                    <span className="text-white/70">{service.lastSignalAt}</span>
-                  </>
+                  <span>{service.lastSignalAt}</span>
                 )}
+                <span className="text-white/40 text-[9px] uppercase font-sans">
+                  {service.provenance}
+                </span>
               </div>
             </div>
           </div>

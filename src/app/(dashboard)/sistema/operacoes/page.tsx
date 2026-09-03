@@ -1,67 +1,79 @@
 import { redirect } from 'next/navigation';
-import { requireAuth } from '@/lib/auth-helpers';
+import { requireRole } from '@/lib/auth-helpers';
 import { getOperationsHealth, type OperationsHealthSnapshot } from '@/lib/health/operations-service';
 import { CentralOperacoesClient } from '@/components/operacoes/CentralOperacoesClient';
 
 export const dynamic = 'force-dynamic';
 
-// Snapshot de fallback seguro — exibido quando o serviço de saúde não responde
 const FALLBACK_SNAPSHOT: OperationsHealthSnapshot = {
-  globalStatus: 'DEGRADADO',
-  environment: 'PRODUÇÃO',
+  globalStatus: 'UNKNOWN',
+  environment: 'Produção — único ambiente monitorado',
   timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+  observedAt: new Date().toISOString(),
+  snapshotAt: new Date().toISOString(),
+  cacheAgeMs: 0,
+  delivery: 'stale',
   services: [
-    { id: 'fiorix-web', name: 'FIORIX Web', status: 'unknown', latencyMs: null, lastSignalAt: '-' },
-    { id: 'fiorix-api', name: 'API', status: 'unknown', latencyMs: null, lastSignalAt: '-' },
-    { id: 'supabase', name: 'Supabase', status: 'unknown', latencyMs: null, lastSignalAt: '-' },
-    { id: 'vercel', name: 'Vercel', status: 'unknown', latencyMs: null, lastSignalAt: '-' },
-    { id: 'connector', name: 'FIORIX Connector', status: 'unknown', latencyMs: null, lastSignalAt: '-' },
-    { id: 'webri-sql', name: 'WEBRI SQL', status: 'unknown', latencyMs: null, lastSignalAt: '-' },
-    { id: 'github', name: 'GitHub', status: 'unknown', latencyMs: null, lastSignalAt: '-' },
+    { id: 'fiorix-web', name: 'FIORIX Web', status: 'unknown', latencyMs: null, lastSignalAt: 'Não disponível', provenance: 'unavailable' },
+    { id: 'fiorix-api', name: 'API', status: 'unknown', latencyMs: null, lastSignalAt: 'Não disponível', provenance: 'unavailable' },
+    { id: 'supabase', name: 'Conectividade do PostgreSQL', status: 'unknown', latencyMs: null, lastSignalAt: 'Não disponível', provenance: 'unavailable', reason: 'Aguardando verificação' },
+    { id: 'vercel', name: 'Vercel Edge & Serverless', status: 'unknown', latencyMs: null, lastSignalAt: 'Não disponível', provenance: 'unavailable' },
+    { id: 'connector', name: 'FIORIX Connector', status: 'unknown', latencyMs: null, lastSignalAt: 'Não disponível', provenance: 'unavailable' },
+    { id: 'webri-sql', name: 'WEBRI SQL', status: 'unknown', latencyMs: null, lastSignalAt: 'Não disponível', provenance: 'unavailable' },
+    { id: 'github', name: 'GitHub CI/CD', status: 'unknown', latencyMs: null, lastSignalAt: 'Não disponível', provenance: 'unavailable' },
   ],
   incrementalModules: [
-    { module: 'Módulo BI', key: 'bi', status: 'ERROR', lastSyncAt: null, nextExpectedAt: null, delaySeconds: 999, recordsCount: 0, isIncremental: true },
-    { module: 'Produtividade', key: 'produtividade', status: 'ERROR', lastSyncAt: null, nextExpectedAt: null, delaySeconds: 999, recordsCount: 0, isIncremental: true },
-    { module: 'Metas', key: 'metas', status: 'ERROR', lastSyncAt: null, nextExpectedAt: null, delaySeconds: 999, recordsCount: 0, isIncremental: true },
-    { module: 'Tarefas', key: 'tarefas', status: 'ERROR', lastSyncAt: null, nextExpectedAt: null, delaySeconds: 999, recordsCount: 0, isIncremental: true },
+    { module: 'Módulo BI', key: 'bi', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 60, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
+    { module: 'Produtividade', key: 'produtividade', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 60, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
+    { module: 'Metas', key: 'metas', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 900, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
+    { module: 'Tarefas', key: 'tarefas', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 60, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
   ],
   connector: {
-    status: 'OFFLINE',
-    environment: 'PRODUÇÃO',
-    server: 'WEBRI',
-    windowsService: 'Unknown',
-    uptimeFormatted: '-',
-    heartbeatAgoSeconds: 999,
-    cpuPercent: 0,
-    ramMb: 0,
-    threads: 0,
-    handles: 0,
-    pendingQueue: 0,
-    lastError: 'Dados de telemetria indisponíveis',
-    lastSyncAgoSeconds: 999,
+    status: 'UNKNOWN',
+    environment: 'Produção — único ambiente monitorado',
+    server: 'Servidor do Cartório (Windows Service)',
+    windowsService: 'Desconhecido',
+    uptimeFormatted: null,
+    heartbeatAgoSeconds: null,
+    cpuPercent: null,
+    ramMb: null,
+    threads: null,
+    handles: null,
+    pendingQueue: null,
+    lastError: null,
+    lastSyncAgoSeconds: null,
+    activeConnectorsCount: 0,
+    provenance: { telemetry: 'unavailable', heartbeat: 'unavailable' },
   },
-  metrics: { availabilityPercent: 0, syncOnTimePercent: 0, successRatePercent: 0, p95LatencyMs: 0 },
+  metrics: {
+    availabilityPercent: null,
+    syncOnTimePercent: null,
+    successRatePercent: null,
+    p95LatencyMs: null,
+    provenance: 'unavailable',
+    note: 'Aguardando integração',
+  },
   incidents: [],
   alerts: [
-    { id: 'err-1', severity: 'CRITICAL', title: 'Serviço de observabilidade indisponível', detail: 'Não foi possível carregar os dados de saúde. Tente atualizar.', timeAgo: 'agora' },
+    { id: 'err-1', severity: 'WARNING', title: 'Carregamento com dados de contingência', detail: 'O serviço de saúde encontrou uma oscilação na consulta inicial.', timeAgo: 'agora' },
   ],
   deploys: {
-    fiorixWeb: { version: '-', commit: '-', deployedAt: '-' },
-    api: { version: '-', commit: '-', deployedAt: '-' },
-    connector: { version: '-', status: '-', uptime: '-' },
-    supabaseMigrations: { lastMigration: '-', status: '-', appliedAt: '-' },
-    region: 'sa-east-1',
+    fiorixWeb: { version: 'v3.2.0', deployedAt: '-' },
+    api: { version: 'v1.0.0', deployedAt: '-' },
+    connector: { version: null, status: 'Desconhecido' },
+    databaseStatus: 'Desconhecido',
+    environment: 'Produção',
   },
 };
 
 export default async function OperacoesPage() {
-  // Qualquer usuário autenticado pode acessar — sem redirect silencioso por role
-  const user = await requireAuth().catch(() => null);
-  if (!user) {
-    redirect('/login');
+  let user;
+  try {
+    user = await requireRole('MASTER', 'ADMIN');
+  } catch (err) {
+    redirect('/dashboard');
   }
 
-  // Carrega dados de saúde com fallback seguro
   let initialHealth: OperationsHealthSnapshot;
   try {
     initialHealth = await getOperationsHealth(user.tenantId);

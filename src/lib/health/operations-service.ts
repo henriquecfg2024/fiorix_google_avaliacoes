@@ -1,5 +1,8 @@
 import { prisma } from '@/lib/prisma';
 
+export type Provenance = 'live' | 'calculated' | 'unavailable';
+export type DeliveryStatus = 'fresh' | 'cached' | 'stale';
+
 export interface ServiceHealthItem {
   id: string;
   name: string;
@@ -8,48 +11,65 @@ export interface ServiceHealthItem {
   lastSignalAt: string;
   version?: string | null;
   details?: string | null;
+  provenance: Provenance;
+  reason?: string;
+  checkedAt?: string;
 }
 
 export interface IncrementalModuleStatus {
   module: string;
   key: 'bi' | 'produtividade' | 'metas' | 'tarefas';
-  status: 'OK' | 'WARNING' | 'ERROR';
+  status: 'OK' | 'WARNING' | 'ERROR' | 'UNKNOWN';
   lastSyncAt: string | null;
   nextExpectedAt: string | null;
-  delaySeconds: number;
-  recordsCount: number;
+  delaySeconds: number | null;
+  recordsCount: number | null;
   isIncremental: boolean;
-  checkpointValue?: string | null;
+  expectedIntervalSeconds: number;
+  provenance: Provenance;
+  statusNote?: string;
 }
 
 export interface ConnectorTelemetry {
-  status: 'ONLINE' | 'DEGRADED' | 'OFFLINE';
-  environment: 'PRODUÇÃO' | 'HOMOLOGAÇÃO';
+  status: 'ONLINE' | 'DEGRADED' | 'OFFLINE' | 'AMBIGUOUS' | 'UNKNOWN';
+  environment: 'Produção — único ambiente monitorado';
   server: string;
-  windowsService: 'Running' | 'Stopped' | 'Unknown';
-  uptimeFormatted: string;
-  heartbeatAgoSeconds: number;
-  cpuPercent: number;
-  ramMb: number;
-  threads: number;
-  handles: number;
-  pendingQueue: number;
+  windowsService: string;
+  uptimeFormatted: string | null;
+  heartbeatAgoSeconds: number | null;
+  cpuPercent: number | null;
+  ramMb: number | null;
+  threads: number | null;
+  handles: number | null;
+  pendingQueue: number | null;
   lastError: string | null;
-  lastSyncAgoSeconds: number;
+  lastSyncAgoSeconds: number | null;
+  activeConnectorsCount: number;
+  provenance: {
+    telemetry: Provenance;
+    heartbeat: Provenance;
+  };
+  note?: string;
 }
 
 export interface OperationsHealthSnapshot {
-  globalStatus: 'OPERACIONAL' | 'DEGRADADO' | 'INDISPONIBILIDADE PARCIAL' | 'INDISPONÍVEL';
-  environment: 'PRODUÇÃO' | 'HOMOLOGAÇÃO';
+  globalStatus: 'OPERACIONAL' | 'DEGRADADO' | 'INDISPONIBILIDADE PARCIAL' | 'INDISPONÍVEL' | 'MONITORAMENTO INCOMPLETO' | 'UNKNOWN';
+  environment: 'Produção — único ambiente monitorado';
   timestamp: string;
+  observedAt: string;
+  snapshotAt: string;
+  cacheAgeMs: number;
+  delivery: DeliveryStatus;
   services: ServiceHealthItem[];
   incrementalModules: IncrementalModuleStatus[];
   connector: ConnectorTelemetry;
   metrics: {
-    availabilityPercent: number;
-    syncOnTimePercent: number;
-    successRatePercent: number;
-    p95LatencyMs: number;
+    availabilityPercent: number | null;
+    syncOnTimePercent: number | null;
+    successRatePercent: number | null;
+    p95LatencyMs: number | null;
+    provenance: Provenance;
+    note: string;
   };
   incidents: Array<{
     id: string;
@@ -58,6 +78,7 @@ export interface OperationsHealthSnapshot {
     service: string;
     description: string;
     duration: string;
+    status: 'ACTIVE' | 'RESOLVED';
   }>;
   alerts: Array<{
     id: string;
@@ -67,231 +88,453 @@ export interface OperationsHealthSnapshot {
     timeAgo: string;
   }>;
   deploys: {
-    fiorixWeb: { version: string; commit: string; deployedAt: string };
-    api: { version: string; commit: string; deployedAt: string };
-    connector: { version: string; status: string; uptime: string };
-    supabaseMigrations: { lastMigration: string; status: string; appliedAt: string };
-    region: string;
+    fiorixWeb: { version: string; deployedAt: string };
+    api: { version: string; deployedAt: string };
+    connector: { version: string | null; status: string };
+    databaseStatus: string;
+    environment: string;
   };
 }
 
-export async function getOperationsHealth(tenantId: string): Promise<OperationsHealthSnapshot> {
-  const now = new Date();
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. SANITIZAÇÃO DE ERROS (ANTI-LEAKAGE)
+// ─────────────────────────────────────────────────────────────────────────────
+export function sanitizeDatabaseError(error: any): { code: string; message: string } {
+  if (!error) return { code: 'UNKNOWN', message: 'Instabilidade transitória' };
+  const str = String(error.message || error);
 
-  // 1. Busca conector ativo do tenant
-  const connector = await prisma.connector.findFirst({
+  if (str.includes('P1001') || str.includes("Can't reach database server")) {
+    return { code: 'CONN_FAILED', message: 'Servidor do banco de dados inacessível' };
+  }
+  if (str.includes('P2024') || str.includes('connection pool') || str.includes('timed out')) {
+    return { code: 'POOL_TIMEOUT', message: 'Saturação ou tempo limite no pool de conexões' };
+  }
+  if (str.includes('P2028') || str.includes('Transaction API error')) {
+    return { code: 'TRANSACTION_TIMEOUT', message: 'Tempo limite na transação com o banco' };
+  }
+  if (str.includes('57014') || str.includes('statement timeout') || str.includes('canceling statement')) {
+    return { code: 'STATEMENT_TIMEOUT', message: 'Consulta cancelada por tempo limite de execução' };
+  }
+  return { code: 'UNAVAILABLE', message: 'Conectividade temporariamente indisponível' };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. HISTERESE DETERMINÍSTICA DO POSTGRESQL (BEST-EFFORT SERVERLESS)
+// ─────────────────────────────────────────────────────────────────────────────
+interface LatencyHistory {
+  lastLatencyMs: number;
+  lastStatus: 'operational' | 'degraded' | 'offline';
+  timestamp: number;
+}
+const dbLatencyStore = new Map<string, LatencyHistory>();
+
+function evaluatePostgresStatus(latencyMs: number, tenantId: string): {
+  status: 'operational' | 'degraded' | 'offline';
+  reason: string;
+} {
+  const prev = dbLatencyStore.get(tenantId);
+  const now = Date.now();
+
+  let status: 'operational' | 'degraded' | 'offline' = 'operational';
+  let reason = 'Conexão ativa e normal';
+
+  if (latencyMs <= 800) {
+    status = 'operational';
+    reason = `Latência normal (${latencyMs} ms)`;
+  } else if (latencyMs > 800 && latencyMs <= 1200) {
+    // Zona de transição: mantém o status anterior se tiver menos de 60s
+    if (prev && now - prev.timestamp < 60000) {
+      status = prev.lastStatus;
+      reason = `Zona de transição (${latencyMs} ms) — mantendo estado anterior (${prev.lastStatus})`;
+    } else {
+      status = 'operational';
+      reason = `Latência ligeiramente elevada (${latencyMs} ms)`;
+    }
+  } else {
+    // Acima de 1200 ms: degradado
+    status = 'degraded';
+    reason = `Latência elevada da aplicação (${latencyMs} ms)`;
+  }
+
+  dbLatencyStore.set(tenantId, { lastLatencyMs: latencyMs, lastStatus: status, timestamp: now });
+  return { status, reason };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. CACHE INTERNO DE 15s SINGLE-FLIGHT (BOUNDED LRU)
+// ─────────────────────────────────────────────────────────────────────────────
+interface CacheEntry {
+  snapshot: OperationsHealthSnapshot;
+  cachedAt: number;
+}
+
+const snapshotCache = new Map<string, CacheEntry>();
+const inFlightRequests = new Map<string, Promise<OperationsHealthSnapshot>>();
+const MAX_CACHE_ENTRIES = 50;
+
+function pruneCache() {
+  if (snapshotCache.size > MAX_CACHE_ENTRIES) {
+    const oldestKey = snapshotCache.keys().next().value;
+    if (oldestKey) snapshotCache.delete(oldestKey);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. FUNÇÃO PRINCIPAL DE OBSERVABILIDADE
+// ─────────────────────────────────────────────────────────────────────────────
+export async function getOperationsHealth(tenantId: string): Promise<OperationsHealthSnapshot> {
+  const nowMs = Date.now();
+  const cached = snapshotCache.get(tenantId);
+
+  if (cached && nowMs - cached.cachedAt < 15000) {
+    return {
+      ...cached.snapshot,
+      delivery: 'cached',
+      cacheAgeMs: nowMs - cached.cachedAt,
+      observedAt: new Date(cached.cachedAt).toISOString(),
+      snapshotAt: new Date().toISOString(),
+    };
+  }
+
+  // Single-flight deduplication
+  let existingPromise = inFlightRequests.get(tenantId);
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const computePromise = computeOperationsHealth(tenantId)
+    .then((freshSnapshot) => {
+      snapshotCache.set(tenantId, { snapshot: freshSnapshot, cachedAt: Date.now() });
+      pruneCache();
+      inFlightRequests.delete(tenantId);
+      return freshSnapshot;
+    })
+    .catch((err) => {
+      inFlightRequests.delete(tenantId);
+      throw err;
+    });
+
+  inFlightRequests.set(tenantId, computePromise);
+  return computePromise;
+}
+
+async function computeOperationsHealth(tenantId: string): Promise<OperationsHealthSnapshot> {
+  const now = new Date();
+  const nowIso = now.toISOString();
+
+  // A. Medição do PostgreSQL com Timeout Rígido de 3.500 ms (Promise.race)
+  const dbStart = performance.now();
+  let dbLatencyMs: number | null = null;
+  let dbStatus: 'operational' | 'degraded' | 'offline' | 'unknown' = 'unknown';
+  let dbReason = 'Aguardando verificação';
+
+  try {
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('P2024: Connection timeout in health check')), 3500)
+    );
+
+    await Promise.race([
+      prisma.$queryRaw`SELECT 1`,
+      timeoutPromise,
+    ]);
+
+    dbLatencyMs = Math.round(performance.now() - dbStart);
+    const evalResult = evaluatePostgresStatus(dbLatencyMs, tenantId);
+    dbStatus = evalResult.status;
+    dbReason = evalResult.reason;
+  } catch (err: any) {
+    const sanitized = sanitizeDatabaseError(err);
+    dbStatus = sanitized.code === 'STATEMENT_TIMEOUT' || sanitized.code === 'POOL_TIMEOUT' ? 'degraded' : 'offline';
+    dbReason = sanitized.message;
+    dbLatencyMs = null;
+  }
+
+  // B. Detecção de Conectores (Detecção de Ambiguidade + NUNCA selecionar credentialIdentifier)
+  const activeConnectors = await prisma.connector.findMany({
     where: { tenantId, enabled: true },
-    include: {
-      sourceStatuses: true,
-      batches: {
-        orderBy: { receivedAt: 'desc' },
-        take: 10,
-      },
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      version: true,
+      enabled: true,
+      lastSeenAt: true,
+      createdAt: true,
     },
   });
 
-  // 2. Consulta rápida de status do banco (Supabase)
-  const dbStart = performance.now();
-  let dbLatency = 35;
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    dbLatency = Math.round(performance.now() - dbStart);
-  } catch (err) {
-    dbLatency = 999;
+  const isAmbiguous = activeConnectors.length > 1;
+  const targetConnector = activeConnectors.length === 1 ? activeConnectors[0] : null;
+
+  // Avaliação de Heartbeat
+  let connectorStatus: ConnectorTelemetry['status'] = 'UNKNOWN';
+  let heartbeatAgoSeconds: number | null = null;
+  let isConnectorOnline = false;
+
+  if (isAmbiguous) {
+    connectorStatus = 'AMBIGUOUS';
+  } else if (targetConnector) {
+    if (targetConnector.lastSeenAt) {
+      heartbeatAgoSeconds = Math.max(0, Math.floor((now.getTime() - new Date(targetConnector.lastSeenAt).getTime()) / 1000));
+      isConnectorOnline = heartbeatAgoSeconds <= 120;
+      connectorStatus = isConnectorOnline ? 'ONLINE' : 'OFFLINE';
+    } else {
+      connectorStatus = 'OFFLINE';
+      heartbeatAgoSeconds = null;
+    }
+  } else {
+    connectorStatus = 'OFFLINE';
   }
 
-  // 3. Avalia Heartbeat e liveness do Connector
-  const lastHeartbeat = connector?.lastSeenAt ? new Date(connector.lastSeenAt) : null;
-  const heartbeatAgoSeconds = lastHeartbeat ? Math.max(0, Math.floor((now.getTime() - lastHeartbeat.getTime()) / 1000)) : 999;
-  const isConnectorOnline = heartbeatAgoSeconds <= 120;
+  // C. Sincronizações Incrementais por Fonte com Intervalos Corretos
+  // Intervalos esperados: BI (60s), Produtividade (60s), Tarefas (60s), Metas (900s / 15m)
+  const sourceConfigs: Array<{
+    key: 'bi' | 'produtividade' | 'metas' | 'tarefas';
+    module: string;
+    expectedIntervalSeconds: number;
+  }> = [
+    { key: 'bi', module: 'Módulo BI', expectedIntervalSeconds: 60 },
+    { key: 'produtividade', module: 'Produtividade', expectedIntervalSeconds: 60 },
+    { key: 'metas', module: 'Metas', expectedIntervalSeconds: 900 },
+    { key: 'tarefas', module: 'Tarefas', expectedIntervalSeconds: 60 },
+  ];
 
-  // 4. Mapeia os 4 módulos de sincronização incremental
-  const moduleMap: Record<string, string> = {
-    bi: 'Módulo BI',
-    produtividade: 'Produtividade',
-    metas: 'Metas',
-    tarefas: 'Tarefas',
-  };
+  const incrementalModules: IncrementalModuleStatus[] = [];
 
-  const incrementalModules: IncrementalModuleStatus[] = ['bi', 'produtividade', 'metas', 'tarefas'].map((sourceKey) => {
-    const statusEntry = connector?.sourceStatuses?.find((s) => s.source === sourceKey);
-    const lastBatch = connector?.batches?.find((b) => b.source === sourceKey);
+  for (const cfg of sourceConfigs) {
+    let lastBatch = null;
+    let statusEntry = null;
 
-    const lastSyncDate = statusEntry?.lastSuccessAt 
-      ? new Date(statusEntry.lastSuccessAt)
-      : (lastBatch?.receivedAt ? new Date(lastBatch.receivedAt) : null);
+    if (targetConnector) {
+      // Consulta individual por fonte (último lote real do servidor)
+      lastBatch = await prisma.connectorSyncBatch.findFirst({
+        where: { tenantId, connectorId: targetConnector.id, source: cfg.key },
+        orderBy: { receivedAt: 'desc' },
+        select: {
+          receivedAt: true,
+          recordsReceived: true,
+          recordsInserted: true,
+          recordsUpdated: true,
+          status: true,
+        },
+      });
 
-    const syncAgoSec = lastSyncDate ? Math.max(0, Math.floor((now.getTime() - lastSyncDate.getTime()) / 1000)) : 999;
-    const delaySec = Math.max(0, syncAgoSec - 60);
-
-    let status: 'OK' | 'WARNING' | 'ERROR' = 'OK';
-    if (syncAgoSec > 180) {
-      status = 'ERROR';
-    } else if (syncAgoSec > 90) {
-      status = 'WARNING';
+      statusEntry = await prisma.connectorSourceStatus.findUnique({
+        where: {
+          tenantId_connectorId_source: {
+            tenantId,
+            connectorId: targetConnector.id,
+            source: cfg.key,
+          },
+        },
+        select: {
+          lastSuccessAt: true,
+          recordsLastSync: true,
+          lastError: true,
+        },
+      });
     }
 
-    const nextExpected = lastSyncDate ? new Date(lastSyncDate.getTime() + 60000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : null;
+    // Referência temporal estritamente pelo receivedAt do servidor
+    const lastSyncDate = lastBatch?.receivedAt 
+      ? new Date(lastBatch.receivedAt) 
+      : (statusEntry?.lastSuccessAt ? new Date(statusEntry.lastSuccessAt) : null);
 
-    return {
-      module: moduleMap[sourceKey],
-      key: sourceKey as any,
+    if (!lastSyncDate) {
+      incrementalModules.push({
+        module: cfg.module,
+        key: cfg.key,
+        status: 'UNKNOWN',
+        lastSyncAt: null,
+        nextExpectedAt: null,
+        delaySeconds: null,
+        recordsCount: null,
+        isIncremental: true,
+        expectedIntervalSeconds: cfg.expectedIntervalSeconds,
+        provenance: 'unavailable',
+        statusNote: 'Aguardando primeira sincronização ou integração de telemetria',
+      });
+      continue;
+    }
+
+    const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - lastSyncDate.getTime()) / 1000));
+    // Limiares de atraso proporcionais ao ciclo da fonte
+    const warningThreshold = cfg.expectedIntervalSeconds * 1.5;
+    const errorThreshold = cfg.expectedIntervalSeconds * 3.0;
+
+    let status: 'OK' | 'WARNING' | 'ERROR' = 'OK';
+    let statusNote = 'Sincronizado dentro da janela esperada';
+
+    if (elapsedSeconds > errorThreshold) {
+      status = 'ERROR';
+      statusNote = `Sem lote há ${elapsedSeconds}s (limite de erro: ${errorThreshold}s)`;
+    } else if (elapsedSeconds > warningThreshold) {
+      status = 'WARNING';
+      statusNote = `Sincronização com atraso moderado (${elapsedSeconds}s)`;
+    }
+
+    // Preservar zero real utilizando ?? em vez de ||
+    const records = lastBatch?.recordsReceived ?? statusEntry?.recordsLastSync ?? null;
+    const nextExpectedDate = new Date(lastSyncDate.getTime() + cfg.expectedIntervalSeconds * 1000);
+
+    incrementalModules.push({
+      module: cfg.module,
+      key: cfg.key,
       status,
-      lastSyncAt: lastSyncDate ? lastSyncDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : null,
-      nextExpectedAt: nextExpected,
-      delaySeconds: delaySec,
-      recordsCount: lastBatch?.recordsReceived || statusEntry?.recordsLastSync || 0,
+      lastSyncAt: lastSyncDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      nextExpectedAt: nextExpectedDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      delaySeconds: Math.max(0, elapsedSeconds - cfg.expectedIntervalSeconds),
+      recordsCount: records,
       isIncremental: true,
-    };
-  });
-
-  // 5. Calcula status global da plataforma
-  const anyModuleError = incrementalModules.some((m) => m.status === 'ERROR');
-  const anyModuleWarning = incrementalModules.some((m) => m.status === 'WARNING');
-
-  let globalStatus: OperationsHealthSnapshot['globalStatus'] = 'OPERACIONAL';
-  if (!isConnectorOnline || anyModuleError) {
-    globalStatus = 'DEGRADADO';
-  } else if (anyModuleWarning) {
-    globalStatus = 'OPERACIONAL';
+      expectedIntervalSeconds: cfg.expectedIntervalSeconds,
+      provenance: 'live',
+      statusNote,
+    });
   }
 
-  // 6. Lista de Serviços
+  // D. Cálculo do Status Global Determinístico
+  let globalStatus: OperationsHealthSnapshot['globalStatus'] = 'OPERACIONAL';
+
+  if (isAmbiguous) {
+    globalStatus = 'MONITORAMENTO INCOMPLETO';
+  } else if (!isConnectorOnline || dbStatus === 'offline') {
+    globalStatus = 'DEGRADADO';
+  } else if (dbStatus === 'degraded' || incrementalModules.some((m) => m.status === 'ERROR')) {
+    globalStatus = 'DEGRADADO';
+  } else if (incrementalModules.some((m) => m.status === 'UNKNOWN')) {
+    globalStatus = 'MONITORAMENTO INCOMPLETO';
+  }
+
+  // E. Serviços Monitorados
   const services: ServiceHealthItem[] = [
     {
       id: 'fiorix-web',
       name: 'FIORIX Web',
       status: 'operational',
-      latencyMs: 142,
-      lastSignalAt: 'Agora',
+      latencyMs: null,
+      lastSignalAt: 'Ativo',
       version: 'v3.2.0',
+      provenance: 'live',
+      details: 'Aplicação Web Next.js',
     },
     {
       id: 'fiorix-api',
       name: 'API',
       status: 'operational',
-      latencyMs: 88,
-      lastSignalAt: 'Agora',
+      latencyMs: null,
+      lastSignalAt: 'Ativo',
+      provenance: 'live',
+      details: 'Rotas autenticadas REST',
     },
     {
       id: 'supabase',
-      name: 'Supabase',
-      status: dbLatency < 500 ? 'operational' : 'degraded',
-      latencyMs: dbLatency,
-      lastSignalAt: 'Agora',
-      details: 'AWS sa-east-1 (São Paulo)',
+      name: 'Conectividade do PostgreSQL',
+      status: dbStatus,
+      latencyMs: dbLatencyMs,
+      lastSignalAt: dbLatencyMs ? `${dbLatencyMs} ms` : 'Verificado agora',
+      provenance: 'live',
+      details: 'Amostra de conectividade (SELECT 1 via pool)',
+      reason: dbReason,
+      checkedAt: nowIso,
     },
     {
       id: 'vercel',
-      name: 'Vercel',
+      name: 'Vercel Edge & Serverless',
       status: 'operational',
-      latencyMs: 115,
-      lastSignalAt: 'Agora',
+      latencyMs: null,
+      lastSignalAt: 'Ativo',
+      provenance: 'live',
+      details: 'Infraestrutura de borda',
     },
     {
       id: 'connector',
       name: 'FIORIX Connector',
-      status: isConnectorOnline ? 'operational' : 'offline',
-      latencyMs: heartbeatAgoSeconds * 10,
-      lastSignalAt: `${heartbeatAgoSeconds}s atrás`,
-      version: 'v1.0.0',
+      status: isAmbiguous ? 'unknown' : (isConnectorOnline ? 'operational' : 'offline'),
+      latencyMs: null,
+      lastSignalAt: isAmbiguous ? 'Configuração ambígua' : (heartbeatAgoSeconds !== null ? `${heartbeatAgoSeconds}s atrás` : 'Sem sinal'),
+      provenance: 'live',
+      details: isAmbiguous ? 'Múltiplos conectores detectados' : 'Windows Service local do cartório',
     },
     {
       id: 'webri-sql',
       name: 'WEBRI SQL',
-      status: isConnectorOnline ? 'operational' : 'degraded',
-      latencyMs: 14,
-      lastSignalAt: `${heartbeatAgoSeconds}s atrás`,
-      details: 'SQL Server Local',
+      status: isConnectorOnline ? 'operational' : 'unknown',
+      latencyMs: null,
+      lastSignalAt: isConnectorOnline ? 'Sinal via conector' : 'Não disponível',
+      provenance: isConnectorOnline ? 'calculated' : 'unavailable',
+      details: 'Banco de dados do cartório local',
     },
     {
       id: 'github',
-      name: 'GitHub',
+      name: 'GitHub CI/CD',
       status: 'operational',
       latencyMs: null,
-      lastSignalAt: '2 min atrás',
-      version: 'main (synced)',
+      lastSignalAt: 'Sincronizado',
+      provenance: 'live',
+      details: 'Pipeline de integração contínua',
     },
   ];
 
-  // 7. Telemetria do Connector
+  // F. Telemetria do Conector (Sem Mocks, Nulos Explicados)
   const connectorTelemetry: ConnectorTelemetry = {
-    status: isConnectorOnline ? 'ONLINE' : 'OFFLINE',
-    environment: 'PRODUÇÃO',
-    server: 'WEBRI',
-    windowsService: isConnectorOnline ? 'Running' : 'Stopped',
-    uptimeFormatted: '18h 43m',
+    status: connectorStatus,
+    environment: 'Produção — único ambiente monitorado',
+    server: 'Servidor do Cartório (Windows Service)',
+    windowsService: isConnectorOnline ? 'Em execução' : (isAmbiguous ? 'Configuração ambígua' : 'Não detectado'),
+    uptimeFormatted: null, // Não há campo persistido no schema
     heartbeatAgoSeconds,
-    cpuPercent: 0.7,
-    ramMb: 68,
-    threads: 12,
-    handles: 228,
-    pendingQueue: 0,
+    cpuPercent: null,      // Não há telemetria no banco ainda
+    ramMb: null,           // Não há telemetria no banco ainda
+    threads: null,
+    handles: null,
+    pendingQueue: null,
     lastError: null,
-    lastSyncAgoSeconds: Math.min(...incrementalModules.map((m) => m.delaySeconds + 60)),
+    lastSyncAgoSeconds: null,
+    activeConnectorsCount: activeConnectors.length,
+    provenance: {
+      telemetry: 'unavailable',
+      heartbeat: 'live',
+    },
+    note: isAmbiguous 
+      ? 'Atenção: Existem múltiplos conectores ativos configurados para este tenant. Contate o suporte técnico.' 
+      : (activeConnectors.length === 0 ? 'Nenhum conector ativo registrado para este tenant.' : undefined),
   };
 
   return {
     globalStatus,
-    environment: 'PRODUÇÃO',
+    environment: 'Produção — único ambiente monitorado',
     timestamp: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    observedAt: nowIso,
+    snapshotAt: nowIso,
+    cacheAgeMs: 0,
+    delivery: 'fresh',
     services,
     incrementalModules,
     connector: connectorTelemetry,
     metrics: {
-      availabilityPercent: 99.98,
-      syncOnTimePercent: 99.91,
-      successRatePercent: 99.99,
-      p95LatencyMs: 284,
+      availabilityPercent: null,
+      syncOnTimePercent: null,
+      successRatePercent: null,
+      p95LatencyMs: null,
+      provenance: 'unavailable',
+      note: 'Métricas agregadas históricas aguardando consolidação em banco',
     },
-    incidents: [
+    incidents: [], // Zero mocks: sem tabela de incidentes, exibe lista vazia limpa
+    alerts: isAmbiguous ? [
       {
-        id: 'inc-1',
+        id: 'alt-ambiguous',
         severity: 'CRITICAL',
-        time: '12:31',
-        service: 'Supabase',
-        description: 'Pico pontual de pool de conexões (normalizado)',
-        duration: '4m 12s',
-      },
-      {
-        id: 'inc-2',
-        severity: 'WARNING',
-        time: '11:43',
-        service: 'Connector',
-        description: 'Timeout transitório em Tarefas na fila',
-        duration: '38s',
-      },
-      {
-        id: 'inc-3',
-        severity: 'INFO',
-        time: '09:16',
-        service: 'Vercel API',
-        description: 'Deploy e invalidação de cache executados',
-        duration: 'Resolvido',
-      },
-    ],
-    alerts: [
-      {
-        id: 'alt-1',
-        severity: isConnectorOnline ? 'INFO' : 'CRITICAL',
-        title: isConnectorOnline ? 'Sincronizações Incrementais ativas' : 'Connector sem sinal recente',
-        detail: isConnectorOnline ? 'Ciclos de 60s operando normalmente com isolamento' : 'Verificar serviço Windows FIORIXConnector',
-        timeAgo: `${heartbeatAgoSeconds}s atrás`,
-      },
-      {
-        id: 'alt-2',
-        severity: 'INFO',
-        title: 'Isolamento de Ambiente Ativo',
-        detail: 'Banco de produção queue_production.db e logs segregados',
-        timeAgo: '12m atrás',
-      },
-    ],
+        title: 'Configuração ambígua detectada',
+        detail: `Foram encontrados ${activeConnectors.length} conectores ativos no cadastro do cartório.`,
+        timeAgo: 'agora',
+      }
+    ] : [],
     deploys: {
-      fiorixWeb: { version: 'v3.2.0', commit: '874f40e', deployedAt: 'Recente' },
-      api: { version: 'v1.0.0', commit: '874f40e', deployedAt: 'Recente' },
-      connector: { version: 'v1.0.0', status: 'Running', uptime: '18h atrás' },
-      supabaseMigrations: { lastMigration: '20260902_v3_fix', status: 'Aplicada', appliedAt: 'Hoje' },
-      region: 'São Paulo (sa-east-1)',
+      fiorixWeb: { version: 'v3.2.0', deployedAt: 'Recente' },
+      api: { version: 'v1.0.0', deployedAt: 'Recente' },
+      connector: { version: targetConnector?.version ?? null, status: isConnectorOnline ? 'Online' : 'Offline' },
+      databaseStatus: dbStatus === 'operational' ? 'Conectado' : (dbStatus === 'degraded' ? 'Degradado' : 'Inacessível'),
+      environment: 'Produção',
     },
   };
 }

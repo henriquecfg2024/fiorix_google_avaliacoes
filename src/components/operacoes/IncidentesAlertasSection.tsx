@@ -6,7 +6,8 @@ import {
   Clock, 
   CheckCircle2, 
   Bell, 
-  ExternalLink 
+  ExternalLink,
+  ShieldCheck
 } from 'lucide-react';
 import { OperationsHealthSnapshot } from '@/lib/health/operations-service';
 
@@ -59,36 +60,45 @@ export function IncidentesAlertasSection({ incidents, alerts }: Props) {
             <h3 className="text-sm font-bold text-white tracking-wide">
               Incidentes Recentes
             </h3>
-            <button 
-              type="button"
-              className="text-xs font-semibold text-white/50 hover:text-amber-300 transition-colors"
-            >
-              Ver todos os incidentes
-            </button>
+            <span className="text-[10px] uppercase tracking-wider text-white/40 font-mono">
+              Origem auditada
+            </span>
           </div>
 
-          <div className="space-y-2.5">
-            {incidents.map((inc) => (
-              <div 
-                key={inc.id}
-                className="p-3 rounded-xl bg-white/[0.02] border border-white/6 hover:border-white/12 transition-colors flex items-center justify-between gap-3"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  {getSeverityBadge(inc.severity)}
-                  <span className="text-xs font-mono text-white/40 shrink-0">{inc.time}</span>
-                  <div className="min-w-0">
-                    <span className="text-xs font-bold text-white block truncate">
-                      {inc.service} — {inc.description}
-                    </span>
+          {incidents.length === 0 ? (
+            <div className="p-6 rounded-xl bg-white/[0.02] border border-white/6 text-center">
+              <ShieldCheck className="h-8 w-8 text-white/30 mx-auto mb-2" />
+              <p className="text-xs font-semibold text-white/80">
+                Monitoramento de incidentes não integrado
+              </p>
+              <p className="text-[11px] text-white/40 mt-1">
+                Não há serviço externo de incident tracking (ex: PagerDuty/Statuspage) conectado ao SaaS.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {incidents.map((inc) => (
+                <div 
+                  key={inc.id}
+                  className="p-3 rounded-xl bg-white/[0.02] border border-white/6 hover:border-white/12 transition-colors flex items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    {getSeverityBadge(inc.severity)}
+                    <span className="text-xs font-mono text-white/40 shrink-0">{inc.time}</span>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-white block truncate">
+                        {inc.service} — {inc.description}
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                <span className="text-xs font-mono text-white/50 shrink-0">
-                  {inc.duration}
-                </span>
-              </div>
-            ))}
-          </div>
+                  <span className="text-xs font-mono text-white/50 shrink-0">
+                    {inc.duration}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -99,41 +109,50 @@ export function IncidentesAlertasSection({ incidents, alerts }: Props) {
             <h3 className="text-sm font-bold text-white tracking-wide flex items-center gap-2">
               Alertas Ativos
             </h3>
-            <button 
-              type="button"
-              className="text-xs font-semibold text-white/50 hover:text-amber-300 transition-colors"
-            >
-              Ver todos
-            </button>
+            <span className="text-[10px] uppercase tracking-wider text-white/40 font-mono">
+              Condições reais
+            </span>
           </div>
 
-          <div className="space-y-2.5">
-            {alerts.map((alt) => (
-              <div 
-                key={alt.id}
-                className="p-3 rounded-xl bg-white/[0.02] border border-white/6 hover:border-white/12 transition-colors flex items-start justify-between gap-3"
-              >
-                <div className="flex items-start gap-3 min-w-0">
-                  <div className="p-1.5 rounded-lg bg-white/[0.04] shrink-0 mt-0.5">
-                    {getAlertIcon(alt.severity)}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      {getSeverityBadge(alt.severity)}
-                      <span className="text-xs font-bold text-white truncate">{alt.title}</span>
+          {alerts.length === 0 ? (
+            <div className="p-6 rounded-xl bg-white/[0.02] border border-white/6 text-center">
+              <CheckCircle2 className="h-8 w-8 text-emerald-400/50 mx-auto mb-2" />
+              <p className="text-xs font-semibold text-white/80">
+                Nenhum alerta crítico ativo
+              </p>
+              <p className="text-[11px] text-white/40 mt-1">
+                Todos os subsistemas verificados operam sem condições de alarme.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {alerts.map((alt) => (
+                <div 
+                  key={alt.id}
+                  className="p-3 rounded-xl bg-white/[0.02] border border-white/6 hover:border-white/12 transition-colors flex items-start justify-between gap-3"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="p-1.5 rounded-lg bg-white/[0.04] shrink-0 mt-0.5">
+                      {getAlertIcon(alt.severity)}
                     </div>
-                    <p className="text-xs text-white/50 truncate">
-                      {alt.detail}
-                    </p>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        {getSeverityBadge(alt.severity)}
+                        <span className="text-xs font-bold text-white truncate">{alt.title}</span>
+                      </div>
+                      <p className="text-xs text-white/50 truncate">
+                        {alt.detail}
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                <span className="text-xs font-mono text-white/40 shrink-0">
-                  {alt.timeAgo}
-                </span>
-              </div>
-            ))}
-          </div>
+                  <span className="text-xs font-mono text-white/40 shrink-0">
+                    {alt.timeAgo}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

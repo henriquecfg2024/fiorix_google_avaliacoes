@@ -1,25 +1,46 @@
 import { NextResponse } from 'next/server';
 import { authenticateConnector } from '@/lib/connectorAuth';
+import { prisma } from '@/lib/prisma';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
 const statusPayloadSchema = z.object({
-  connectorId: z.string().min(1),
-  version: z.string().optional(),
-  timestamp: z.string().optional(),
-  status: z.string().optional(),
-  uptimeSeconds: z.number().optional(),
+  connectorId: z.string().trim().min(1).max(128),
+  version: z.string().trim().min(1).max(64).optional(),
+  timestamp: z.string().datetime().optional(),
+  status: z.enum(['online', 'degraded', 'offline']).optional(),
+  uptimeSeconds: z.number().int().nonnegative().optional(),
   shadowMode: z.boolean().optional(),
-  queuePending: z.number().optional(),
-  queueFailed: z.number().optional(),
+  queuePending: z.number().int().nonnegative().optional(),
+  queueFailed: z.number().int().nonnegative().optional(),
   schedulerEnabled: z.boolean().optional(),
-  sources: z.record(z.any()).optional(),
+  sources: z.record(z.string(), z.unknown()).optional(),
 });
 
+function jsonResponse(
+  requestId: string,
+  payload: Record<string, unknown>,
+  status: number,
+) {
+  return NextResponse.json(
+    { ...payload, requestId },
+    {
+      status,
+      headers: {
+        'Cache-Control': 'private, no-store',
+        'X-Request-Id': requestId,
+      },
+    },
+  );
+}
+
 export async function POST(req: Request) {
+  const requestId = randomUUID();
+
   try {
     const authHeader = req.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing or invalid Authorization header' }, { status: 401 });
+      return jsonResponse(requestId, { error: 'Unauthorized' }, 401);
     }
 
     const secret = authHeader.replace('Bearer ', '').trim();
@@ -28,30 +49,54 @@ export async function POST(req: Request) {
     try {
       body = await req.json();
     } catch {
-      return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
+      return jsonResponse(requestId, { error: 'Invalid JSON payload' }, 400);
     }
 
     const parsed = statusPayloadSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Invalid payload schema', details: parsed.error.errors }, { status: 400 });
+      return jsonResponse(requestId, { error: 'Invalid payload schema' }, 400);
     }
 
-    const { connectorId } = parsed.data;
+    const { connectorId, status = 'online', version } = parsed.data;
 
     // Authenticate connector and derive tenant from database authority
     const authResult = await authenticateConnector(connectorId, secret);
     if (!authResult.success || !authResult.connector || !authResult.tenant) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid credentials or connector' }, { status: 401 });
+      return jsonResponse(requestId, { error: 'Unauthorized' }, 401);
     }
 
-    return NextResponse.json({
+    // The payload timestamp is not authoritative. The server clock records
+    // the heartbeat and prevents Connector clock skew.
+    const receivedAt = new Date();
+    const updateResult = await prisma.connector.updateMany({
+      where: {
+        id: authResult.connector.id,
+        tenantId: authResult.tenant.id,
+        enabled: true,
+      },
+      data: {
+        lastSeenAt: receivedAt,
+        status,
+        version,
+      },
+    });
+
+    if (updateResult.count !== 1) {
+      console.warn('CONNECTOR_STATUS_NOT_PERSISTED', { requestId });
+      return jsonResponse(requestId, { error: 'Heartbeat not persisted' }, 409);
+    }
+
+    return jsonResponse(requestId, {
       ok: true,
-      receivedAt: new Date().toISOString(),
+      receivedAt: receivedAt.toISOString(),
       connectorId: authResult.connector.id,
       tenantId: authResult.tenant.id,
-    }, { status: 200 });
-  } catch (err: any) {
-    return NextResponse.json({ error: 'Internal server error', message: err.message }, { status: 500 });
+    }, 200);
+  } catch {
+    // Do not log the error object: Prisma/PostgreSQL messages may contain SQL,
+    // endpoints, or internal infrastructure details.
+    console.error('CONNECTOR_STATUS_ERROR', { requestId });
+    return jsonResponse(requestId, { error: 'Internal server error' }, 500);
   }
 }
 
