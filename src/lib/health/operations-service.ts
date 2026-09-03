@@ -178,6 +178,35 @@ function pruneCache() {
     if (oldestKey) snapshotCache.delete(oldestKey);
   }
 }
+function checkBusinessHoursState(now: Date): { isBusinessHours: boolean; isMorningGracePeriod: boolean } {
+  try {
+    const formatterStr = now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' });
+    const localDate = new Date(formatterStr);
+
+    const dayOfWeek = localDate.getDay(); // 0 = Domingo, 1 = Segunda ... 6 = Sábado
+    const hour = localDate.getHours();    // 0 a 23
+    const minute = localDate.getMinutes();
+
+    const isWorkDay = dayOfWeek >= 1 && dayOfWeek <= 6;
+    const isWorkHour = hour >= 7 && hour < 19;
+    const isBusinessHours = isWorkDay && isWorkHour;
+
+    // Tolerância no início do dia (07:00 às 07:30 de Seg-Sáb)
+    const isMorningGracePeriod = isWorkDay && hour === 7 && minute < 30;
+
+    return { isBusinessHours, isMorningGracePeriod };
+  } catch {
+    const dayOfWeek = now.getDay();
+    const hour = now.getHours();
+    const minute = now.getMinutes();
+    const isWorkDay = dayOfWeek >= 1 && dayOfWeek <= 6;
+    const isWorkHour = hour >= 7 && hour < 19;
+    return {
+      isBusinessHours: isWorkDay && isWorkHour,
+      isMorningGracePeriod: isWorkDay && hour === 7 && minute < 30,
+    };
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. FUNÇÃO PRINCIPAL DE OBSERVABILIDADE
@@ -366,10 +395,19 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     const warningThreshold = cfg.expectedIntervalSeconds * 1.5;
     const errorThreshold = cfg.expectedIntervalSeconds * 3.0;
 
+    // Validação do expediente do cartório (Segunda a Sábado, das 07h às 19h)
+    const { isBusinessHours: isWorkHours, isMorningGracePeriod } = checkBusinessHoursState(now);
+
     let status: 'OK' | 'WARNING' | 'ERROR' = 'OK';
     let statusNote = 'Sincronizado dentro da janela esperada';
 
-    if (elapsedSeconds > errorThreshold) {
+    if (!isWorkHours) {
+      status = 'OK';
+      statusNote = 'Fora do expediente (07h às 19h - Seg a Sáb) — Sincronizações pausadas';
+    } else if (isMorningGracePeriod && elapsedSeconds > errorThreshold) {
+      status = 'OK';
+      statusNote = 'Início do expediente — aguardando primeiro ciclo da manhã';
+    } else if (elapsedSeconds > errorThreshold) {
       status = 'ERROR';
       statusNote = `Sem lote há ${elapsedSeconds}s (limite de erro: ${errorThreshold}s)`;
     } else if (elapsedSeconds > warningThreshold) {
