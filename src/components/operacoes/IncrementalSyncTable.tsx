@@ -51,7 +51,7 @@ export function IncrementalSyncTable({ modules }: Props) {
               Sincronização Incremental
             </h3>
             <span className="px-2 py-0.5 rounded-md bg-white/[0.06] text-[11px] font-medium text-white/70 border border-white/8">
-              Ciclos: 60s (BI/Prod/Tar) | 15min (Metas)
+              Ciclos: 10 min (BI/Prod/Tar) | 15 min (Metas)
             </span>
           </div>
         </div>
