@@ -26,7 +26,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
           
           <footer className="footer-strip sticky bottom-0 z-10 bg-[#070A12]/90 backdrop-blur-sm border-t border-white/5 py-2 px-4 text-center text-xs text-white/40">
-            FIORIX · Governança & BI
+            FIORIX
           </footer>
         </main>
       </div>
