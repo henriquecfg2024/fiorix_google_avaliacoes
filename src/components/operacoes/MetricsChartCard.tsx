@@ -23,44 +23,44 @@ export function MetricsChartCard({ metrics }: Props) {
         <div className="p-4 rounded-xl bg-white/[0.02] border border-white/6 flex flex-col justify-between">
           <span className="text-xs text-white/50 font-medium">Disponibilidade</span>
           <div className="my-2">
-            <span className="text-sm font-semibold text-white/40 font-sans">
+            <span className="text-2xl font-bold font-mono text-emerald-400">
               {metrics.availabilityPercent !== null ? `${metrics.availabilityPercent}%` : 'Aguardando integração'}
             </span>
           </div>
-          <span className="text-[10px] text-white/30 font-sans">SLA de 30 dias</span>
+          <span className="text-[10px] text-white/40 font-sans">SLA de 30 dias</span>
         </div>
 
         {/* 2. Sincronizações no Prazo */}
         <div className="p-4 rounded-xl bg-white/[0.02] border border-white/6 flex flex-col justify-between">
           <span className="text-xs text-white/50 font-medium">Sincronizações no prazo</span>
           <div className="my-2">
-            <span className="text-sm font-semibold text-white/40 font-sans">
+            <span className="text-2xl font-bold font-mono text-emerald-400">
               {metrics.syncOnTimePercent !== null ? `${metrics.syncOnTimePercent}%` : 'Aguardando integração'}
             </span>
           </div>
-          <span className="text-[10px] text-white/30 font-sans">Amostragem histórica</span>
+          <span className="text-[10px] text-white/40 font-sans">Amostragem histórica</span>
         </div>
 
         {/* 3. Taxa de Sucesso */}
         <div className="p-4 rounded-xl bg-white/[0.02] border border-white/6 flex flex-col justify-between">
           <span className="text-xs text-white/50 font-medium">Taxa de sucesso</span>
           <div className="my-2">
-            <span className="text-sm font-semibold text-white/40 font-sans">
+            <span className="text-2xl font-bold font-mono text-emerald-400">
               {metrics.successRatePercent !== null ? `${metrics.successRatePercent}%` : 'Aguardando integração'}
             </span>
           </div>
-          <span className="text-[10px] text-white/30 font-sans">Rotinas executadas</span>
+          <span className="text-[10px] text-white/40 font-sans">Rotinas executadas</span>
         </div>
 
         {/* 4. p95 Latência API */}
         <div className="p-4 rounded-xl bg-white/[0.02] border border-white/6 flex flex-col justify-between">
           <span className="text-xs text-white/50 font-medium">p95 Latência API</span>
           <div className="my-2">
-            <span className="text-sm font-semibold text-white/40 font-sans">
+            <span className={`text-2xl font-bold font-mono ${metrics.p95LatencyMs && metrics.p95LatencyMs > 2000 ? 'text-amber-400' : 'text-emerald-400'}`}>
               {metrics.p95LatencyMs !== null ? `${metrics.p95LatencyMs} ms` : 'Aguardando integração'}
             </span>
           </div>
-          <span className="text-[10px] text-white/30 font-sans">Percentil 95</span>
+          <span className="text-[10px] text-white/40 font-sans">Percentil 95</span>
         </div>
       </div>
     </div>
