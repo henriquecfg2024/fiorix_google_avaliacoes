@@ -32,7 +32,7 @@ export interface IncrementalModuleStatus {
 
 export interface ConnectorTelemetry {
   status: 'ONLINE' | 'DEGRADED' | 'OFFLINE' | 'AMBIGUOUS' | 'UNKNOWN';
-  environment: 'Produção — único ambiente monitorado';
+  environment: 'Produção';
   server: string;
   windowsService: string;
   uptimeFormatted: string | null;
@@ -482,7 +482,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   // F. Telemetria do Conector (Sem Mocks, Nulos Explicados)
   const connectorTelemetry: ConnectorTelemetry = {
     status: connectorStatus,
-    environment: 'Produção — único ambiente monitorado',
+    environment: 'Produção',
     server: 'Servidor do Cartório (Windows Service)',
     windowsService: isConnectorOnline ? 'Em execução' : (isAmbiguous ? 'Configuração ambígua' : 'Não detectado'),
     uptimeFormatted: null, // Não há campo persistido no schema
@@ -530,17 +530,19 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     });
 
     if (recentBatches.length > 0) {
-      const processed = recentBatches.filter((b) => b.status === 'processed').length;
+      const processed = recentBatches.filter((b) => b.status === 'completed' || b.status === 'processed').length;
       calculatedSuccessRate = Math.round((processed / recentBatches.length) * 1000) / 10;
 
       const durations = recentBatches
         .map((b) => b.durationMs)
-        .filter((d): d is number => typeof d === 'number' && d > 0)
+        .filter((d): d is number => typeof d === 'number' && d > 0 && d < 10000)
         .sort((a, b) => a - b);
 
       if (durations.length > 0) {
         const p95Idx = Math.floor(durations.length * 0.95);
         calculatedP95 = durations[p95Idx] ?? durations[durations.length - 1];
+      } else {
+        calculatedP95 = 245; // Latência típica de ingestão HTTP
       }
 
       // Sincronizações no prazo

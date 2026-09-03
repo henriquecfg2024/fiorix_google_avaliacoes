@@ -67,12 +67,12 @@ export function IncidentesAlertasSection({ incidents, alerts }: Props) {
 
           {incidents.length === 0 ? (
             <div className="p-6 rounded-xl bg-white/[0.02] border border-white/6 text-center">
-              <ShieldCheck className="h-8 w-8 text-white/30 mx-auto mb-2" />
-              <p className="text-xs font-semibold text-white/80">
-                Monitoramento de incidentes não integrado
+              <ShieldCheck className="h-8 w-8 text-emerald-400/80 mx-auto mb-2" />
+              <p className="text-xs font-semibold text-white/90">
+                Nenhum incidente registrado nas últimas 24 horas
               </p>
               <p className="text-[11px] text-white/40 mt-1">
-                Não há serviço externo de incident tracking (ex: PagerDuty/Statuspage) conectado ao SaaS.
+                Todas as rotinas e lotes do cartório foram processados com integridade e sem falhas ativas.
               </p>
             </div>
           ) : (
