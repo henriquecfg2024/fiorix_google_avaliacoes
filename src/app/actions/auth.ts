@@ -1,5 +1,6 @@
 'use server';
 
+import { cache } from 'react';
 import { signIn, signOut, auth } from '@/auth';
 import { AuthError } from 'next-auth';
 import { prisma } from '@/lib/prisma';
@@ -68,7 +69,7 @@ export async function updatePassword(formData: FormData) {
   return { success: true };
 }
 
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async function getCurrentUser() {
   const session = await auth();
   if (!session?.user) return null;
   return {
@@ -77,5 +78,6 @@ export async function getCurrentUser() {
     email: session.user.email || '',
     role: session.user.role || 'USER',
   };
-}
+});
+
 
