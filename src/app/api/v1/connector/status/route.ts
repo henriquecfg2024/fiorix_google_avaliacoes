@@ -4,17 +4,28 @@ import { prisma } from '@/lib/prisma';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
+const sourceStateSchema = z.object({
+  lastRunAt: z.string().nullable().optional(),
+  lastSuccessAt: z.string().nullable().optional(),
+  lastSqlRecords: z.number().int().nonnegative().optional(),
+  lastRecordsSent: z.number().int().nonnegative().optional(),
+  lastDurationMs: z.number().int().nonnegative().optional(),
+  isRunning: z.boolean().optional(),
+  lastError: z.string().nullable().optional(),
+});
+
 const statusPayloadSchema = z.object({
   connectorId: z.string().trim().min(1).max(128),
   version: z.string().trim().min(1).max(64).optional(),
   timestamp: z.string().datetime().optional(),
   status: z.enum(['online', 'degraded', 'offline']).optional(),
   uptimeSeconds: z.number().int().nonnegative().optional(),
+  ramMb: z.number().int().nonnegative().optional(),
   shadowMode: z.boolean().optional(),
   queuePending: z.number().int().nonnegative().optional(),
   queueFailed: z.number().int().nonnegative().optional(),
   schedulerEnabled: z.boolean().optional(),
-  sources: z.record(z.string(), z.unknown()).optional(),
+  sources: z.record(z.string(), sourceStateSchema).optional(),
 });
 
 function jsonResponse(
@@ -57,7 +68,7 @@ export async function POST(req: Request) {
       return jsonResponse(requestId, { error: 'Invalid payload schema' }, 400);
     }
 
-    const { connectorId, status = 'online', version } = parsed.data;
+    const { connectorId, status = 'online', version, sources } = parsed.data;
 
     // Authenticate connector and derive tenant from database authority
     const authResult = await authenticateConnector(connectorId, secret);
@@ -65,13 +76,16 @@ export async function POST(req: Request) {
       return jsonResponse(requestId, { error: 'Unauthorized' }, 401);
     }
 
+    const tenantId = authResult.tenant.id;
+    const resolvedConnectorId = authResult.connector.id;
+
     // The payload timestamp is not authoritative. The server clock records
     // the heartbeat and prevents Connector clock skew.
     const receivedAt = new Date();
     const updateResult = await prisma.connector.updateMany({
       where: {
-        id: authResult.connector.id,
-        tenantId: authResult.tenant.id,
+        id: resolvedConnectorId,
+        tenantId,
         enabled: true,
       },
       data: {
@@ -86,11 +100,51 @@ export async function POST(req: Request) {
       return jsonResponse(requestId, { error: 'Heartbeat not persisted' }, 409);
     }
 
+    // Persistir estado das fontes (inclusive execuções vazias com 0 registros)
+    if (sources && typeof sources === 'object') {
+      const allowedSources = ['bi', 'produtividade', 'metas', 'tarefas'];
+      for (const [sourceKey, sourceData] of Object.entries(sources)) {
+        if (!allowedSources.includes(sourceKey)) continue;
+
+        const lastSuccessDate = sourceData.lastSuccessAt ? new Date(sourceData.lastSuccessAt) : null;
+        const lastRunDate = sourceData.lastRunAt ? new Date(sourceData.lastRunAt) : null;
+
+        await prisma.connectorSourceStatus.upsert({
+          where: {
+            tenantId_connectorId_source: {
+              tenantId,
+              connectorId: resolvedConnectorId,
+              source: sourceKey,
+            },
+          },
+          update: {
+            lastSyncAt: lastRunDate || receivedAt,
+            lastSuccessAt: lastSuccessDate || undefined,
+            recordsLastSync: sourceData.lastSqlRecords ?? 0,
+            status: sourceData.lastError ? 'error' : 'healthy',
+            lastError: sourceData.lastError ? sourceData.lastError.substring(0, 255) : null,
+          },
+          create: {
+            tenantId,
+            connectorId: resolvedConnectorId,
+            source: sourceKey,
+            lastSyncAt: lastRunDate || receivedAt,
+            lastSuccessAt: lastSuccessDate,
+            recordsLastSync: sourceData.lastSqlRecords ?? 0,
+            status: sourceData.lastError ? 'error' : 'healthy',
+            lastError: sourceData.lastError ? sourceData.lastError.substring(0, 255) : null,
+          },
+        }).catch((upsertErr) => {
+          console.warn(`[Connector Status] Falha no upsert da fonte ${sourceKey}:`, upsertErr?.message);
+        });
+      }
+    }
+
     return jsonResponse(requestId, {
       ok: true,
       receivedAt: receivedAt.toISOString(),
-      connectorId: authResult.connector.id,
-      tenantId: authResult.tenant.id,
+      connectorId: resolvedConnectorId,
+      tenantId,
     }, 200);
   } catch {
     // Do not log the error object: Prisma/PostgreSQL messages may contain SQL,
