@@ -122,8 +122,6 @@ export async function upsertProdutividadeImportRecord(input: ProdutividadeImport
 }
 
 export async function listProdutividadeImportLogs(tenantId: string): Promise<UnifiedImportRecord[]> {
-  await ensureProdutividadeImportsTable();
-
   const rows: any[] = await prisma.$queryRaw(
     Prisma.sql`
       SELECT
@@ -305,8 +303,6 @@ export async function ensureMetasImportsTable() {
 }
 
 export async function listMetasImportLogs(tenantId: string): Promise<UnifiedImportRecord[]> {
-  await ensureMetasImportsTable();
-
   const rows: any[] = await prisma.$queryRaw(
     Prisma.sql`
       SELECT
@@ -390,11 +386,13 @@ export async function ensureTarefasImportsTable() {
     CREATE UNIQUE INDEX IF NOT EXISTS fiorix_tarefas_dados_tenant_tarefa
     ON public.fiorix_tarefas_dados (tenant_id, id_tarefa);
   `;
+  await prisma.$executeRaw`
+    CREATE INDEX IF NOT EXISTS fiorix_tarefas_dados_tenant_previsao_protocolo
+    ON public.fiorix_tarefas_dados (tenant_id, dt_previsao, protocolo);
+  `;
 }
 
 export async function listTarefasImportLogs(tenantId: string): Promise<UnifiedImportRecord[]> {
-  await ensureTarefasImportsTable();
-
   const rows: any[] = await prisma.$queryRaw(
     Prisma.sql`
       SELECT

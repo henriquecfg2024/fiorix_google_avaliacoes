@@ -179,6 +179,8 @@ export function TarefasDashboardClient() {
   });
 
   const fetchData = useCallback(async () => {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+
     setIsLoading(true);
     try {
       const res = await fetch("/api/bi/tarefas/data");
@@ -197,7 +199,7 @@ export function TarefasDashboardClient() {
 
   useEffect(() => {
     fetchData();
-    const intervalId = window.setInterval(fetchData, 60000);
+    const intervalId = window.setInterval(fetchData, 300000);
 
     return () => {
       window.clearInterval(intervalId);

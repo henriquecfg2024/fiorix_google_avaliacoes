@@ -70,10 +70,13 @@ export default async function BiImportacoesPage() {
   const metasCount = metasImports.length;
   const tarefasCount = tarefasImports.length;
   const totalRows = unifiedRows.reduce((sum, row) => sum + Number(row.rowsCount || 0), 0);
+  const hasActiveImports = unifiedRows.some((row) =>
+    ["PROCESSING", "PROCESSANDO"].includes(String(row.status || "").toUpperCase())
+  );
 
   return (
     <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
-      <AutoRefresh intervalMs={60000} />
+      <AutoRefresh intervalMs={30000} enabled={hasActiveImports} />
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />

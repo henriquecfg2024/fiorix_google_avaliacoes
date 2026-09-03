@@ -158,9 +158,9 @@ describe('connector sync chunking', () => {
     }
   });
 
-  it('uses a bounded interactive transaction for database consistency only', async () => {
+  it('uses a short bounded transaction only for chunk bookkeeping', async () => {
     await POST(request(payload()));
-    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { timeout: 30000, maxWait: 5000 });
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { timeout: 10000, maxWait: 10000 });
   });
 
   it('rejects invalid chunk ranges', async () => {

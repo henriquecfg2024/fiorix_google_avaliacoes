@@ -6,10 +6,14 @@ import { useRouter, usePathname } from "next/navigation";
 import { Menu, LogOut, Building2, Home } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { handleSignOut, getCurrentUser } from "@/app/actions/auth";
-import { getPendingCount } from "@/app/actions/reviews";
+import { handleSignOut } from "@/app/actions/auth";
 import { filterNavigationByRole, Role } from "@/lib/navigation/permissions";
 import { getHomeRouteForRole } from "@/lib/permissions";
+import {
+  loadCurrentUserOnce,
+  loadNavigationStatsOnce,
+  type NavigationStats,
+} from "@/lib/navigation/client-data";
 
 export function FiorixTopbar() {
   const router = useRouter();
@@ -22,25 +26,19 @@ export function FiorixTopbar() {
   } | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [navigationStats, setNavigationStats] = useState<Record<string, string>>({});
+  const [navigationStats, setNavigationStats] = useState<NavigationStats>({});
 
   useEffect(() => {
-    getCurrentUser()
+    loadCurrentUserOnce()
       .then((user) => {
         if (user) setCurrentUser(user);
       })
       .catch(() => {});
 
-    getPendingCount()
-      .then((count) => setPendingCount(count))
-      .catch(() => {});
-
-    fetch("/api/navigation/stats")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.stats) {
-          setNavigationStats(data.stats);
-        }
+    loadNavigationStatsOnce()
+      .then((stats) => {
+        setNavigationStats(stats);
+        setPendingCount(Number(stats.pendingReviewsCount || 0));
       })
       .catch(() => {});
   }, []);
@@ -115,6 +113,7 @@ export function FiorixTopbar() {
 
                 <div className="p-4 flex flex-col gap-2">
                   <Link
+                    prefetch={false}
                     href={homeRoute}
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${
@@ -144,6 +143,7 @@ export function FiorixTopbar() {
                               const ItemIcon = item.icon;
                               return (
                                 <Link
+                                  prefetch={false}
                                   key={item.href}
                                   href={item.href}
                                   onClick={() => setIsMobileMenuOpen(false)}
@@ -234,6 +234,7 @@ export function FiorixTopbar() {
         {/* Direita: Badge Status, User Profile */}
         <div className="flex items-center gap-4">
           <Link
+            prefetch={false}
             href="/avaliacoes?status=PENDING"
             className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all ${
               pendingCount > 0

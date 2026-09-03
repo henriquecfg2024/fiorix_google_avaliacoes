@@ -5,8 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight, Home, ChevronDown } from "lucide-react";
 import { filterNavigationByRole, Role } from "@/lib/navigation/permissions";
-import { getCurrentUser } from "@/app/actions/auth";
 import { getHomeRouteForRole } from "@/lib/permissions";
+import {
+  loadCurrentUserOnce,
+  loadNavigationStatsOnce,
+  type NavigationStats,
+} from "@/lib/navigation/client-data";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -18,7 +22,7 @@ export function FiorixSidebar() {
   const [mounted, setMounted] = useState(false);
 
   // Fetch navigation stats dynamically if needed, just like FiorixHeader did
-  const [navigationStats, setNavigationStats] = useState<Record<string, string>>({});
+  const [navigationStats, setNavigationStats] = useState<NavigationStats>({});
 
   useEffect(() => {
     setMounted(true);
@@ -27,19 +31,14 @@ export function FiorixSidebar() {
       setIsCollapsed(true);
     }
 
-    getCurrentUser()
+    loadCurrentUserOnce()
       .then((user) => {
         if (user && user.role) setRole(user.role);
       })
       .catch(() => {});
 
-    fetch("/api/navigation/stats")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.stats) {
-          setNavigationStats(data.stats);
-        }
-      })
+    loadNavigationStatsOnce()
+      .then(setNavigationStats)
       .catch(() => {});
   }, []);
 
@@ -93,6 +92,7 @@ export function FiorixSidebar() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Link
+                  prefetch={false}
                   href={homeRoute}
                   className={`flex items-center justify-center h-10 w-full rounded-lg transition-colors ${
                     isActive(homeRoute)
@@ -107,6 +107,7 @@ export function FiorixSidebar() {
             </Tooltip>
           ) : (
             <Link
+              prefetch={false}
               href={homeRoute}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
                 isActive(homeRoute)
@@ -153,7 +154,7 @@ export function FiorixSidebar() {
                       const active = isActive(item.href);
                       const ItemIcon = item.icon;
                       return (
-                        <Link key={item.href} href={item.href} className="block">
+                        <Link key={item.href} href={item.href} prefetch={false} className="block">
                           <div
                             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
                               active
@@ -200,7 +201,7 @@ export function FiorixSidebar() {
                       const active = isActive(item.href);
                       const ItemIcon = item.icon;
                       return (
-                        <Link key={item.href} href={item.href} className="block">
+                        <Link key={item.href} href={item.href} prefetch={false} className="block">
                           <div
                             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
                               active

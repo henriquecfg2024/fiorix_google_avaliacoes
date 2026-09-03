@@ -39,8 +39,6 @@ export async function POST(req: Request) {
 
     const { rows, importMeta, action } = validation.data;
 
-    await ensureMetasImportsTable();
-
     if (action === "mark_failed") {
       if (!importMeta?.importKey) {
         return NextResponse.json({ error: "Chave de importação ausente para falha" }, { status: 400 });
@@ -73,6 +71,12 @@ export async function POST(req: Request) {
     }
 
     const { importKey, fileName, totalRows, importedBy, periodStart, periodEnd, batchNumber, totalBatches } = importMeta;
+
+    // A estrutura já existe em produção. A verificação é necessária apenas no
+    // primeiro lote, nunca em cada chunk da mesma importação.
+    if (!batchNumber || batchNumber === 1) {
+      await ensureMetasImportsTable();
+    }
 
     const periodStr = periodStart && periodEnd ? `${periodStart}|${periodEnd}` : '';
 

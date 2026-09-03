@@ -208,7 +208,9 @@ export async function GET(request: Request) {
 
     let metas = (rawMetas || []).map(normalizeRow);
 
-    if (!metas || metas.length === 0 || useSimulation) {
+    // Dados de demonstração só podem ser exibidos quando solicitados explicitamente.
+    // Uma base vazia deve permanecer vazia após o usuário limpar as importações.
+    if (useSimulation) {
       metas = [
         {
           protocolo: 642139,

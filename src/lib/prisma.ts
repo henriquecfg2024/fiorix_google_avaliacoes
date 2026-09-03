@@ -8,12 +8,10 @@ function getDatabaseUrl() {
 
   try {
     const url = new URL(value);
-    // Vercel pode iniciar várias funções ao mesmo tempo. Uma conexão por
-    // instância evita esgotar o pool do Supabase durante o carregamento do BI.
-    url.searchParams.set('connection_limit', '1');
-    // Falhar rapidamente permite que a tela mostre uma mensagem acionavel
-    // quando o Supabase estiver sem conexoes, em vez de deixar o spinner preso.
-    url.searchParams.set('pool_timeout', '10');
+    // Duas conexões permitem que heartbeat/navegação não fiquem presos atrás
+    // de um lote. O limite segue pequeno para não pressionar o pool serverless.
+    url.searchParams.set('connection_limit', process.env.PRISMA_CONNECTION_LIMIT || '2');
+    url.searchParams.set('pool_timeout', process.env.PRISMA_POOL_TIMEOUT || '20');
     return url.toString();
   } catch {
     return value;

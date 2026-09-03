@@ -75,29 +75,24 @@ export async function POST(req: Request) {
 
     console.info(`SYNC_RECEIVED: Tenant ${tenantId}, Connector ${connector_id}, Source ${source}, Batch ${batch_id}`);
 
-    // Update connector lastSeenAt
-    await prisma.connector.update({
-      where: { id: connector_id },
-      data: { lastSeenAt: new Date() }
+    // Resolve batch metadata before opening a transaction. In Neon transaction
+    // pooling, keeping JSON persistence and authentication inside an interactive
+    // transaction can monopolize the available database connections.
+    const startTime = Date.now();
+    let batch = await prisma.connectorSyncBatch.findUnique({
+      where: {
+        tenantId_connectorId_source_batchId: {
+          tenantId,
+          connectorId: connector_id,
+          source,
+          batchId: batch_id,
+        }
+      }
     });
 
-    // The request body is parsed before this point. The transaction only protects
-    // the chunk insert, counters and status update; it never serializes the full batch.
-    const startTime = Date.now();
-    const result = await prisma.$transaction(async (tx) => {
-      let batch = await tx.connectorSyncBatch.findUnique({
-        where: {
-          tenantId_connectorId_source_batchId: {
-            tenantId,
-            connectorId: connector_id,
-            source,
-            batchId: batch_id,
-          }
-        }
-      });
-
-      if (!batch) {
-        batch = await tx.connectorSyncBatch.create({
+    if (!batch) {
+      try {
+        batch = await prisma.connectorSyncBatch.create({
           data: {
             tenantId,
             connectorId: connector_id,
@@ -113,15 +108,48 @@ export async function POST(req: Request) {
             syncMode: sync_mode,
           }
         });
+      } catch (error) {
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') throw error;
+        batch = await prisma.connectorSyncBatch.findUnique({
+          where: {
+            tenantId_connectorId_source_batchId: {
+              tenantId,
+              connectorId: connector_id,
+              source,
+              batchId: batch_id,
+            }
+          }
+        });
       }
+    }
 
-      if (batch.chunkCount !== chunk_count) {
-        throw new Error('CHUNK_COUNT_MISMATCH');
-      }
-      if (batch.syncMode !== sync_mode) {
-        throw new Error('SYNC_MODE_MISMATCH');
-      }
+    if (!batch) throw new Error('BATCH_NOT_AVAILABLE');
+    if (batch.chunkCount !== chunk_count) throw new Error('CHUNK_COUNT_MISMATCH');
+    if (batch.syncMode !== sync_mode) throw new Error('SYNC_MODE_MISMATCH');
 
+    // This upsert is idempotent and intentionally runs outside the interactive
+    // transaction. A retry can safely execute it again without holding a pool
+    // connection while the remaining bookkeeping is performed.
+    if (sync_mode !== 'full' && records.length > 0) {
+      const recordsJson = JSON.stringify(records);
+      await prisma.$executeRaw(Prisma.sql`
+        INSERT INTO "ConnectorSyncRecord" (
+          "tenantId", "connectorId", "source", "recordKey", "record", "syncMode", "createdAt", "updatedAt"
+        )
+        SELECT
+          ${tenantId}, ${connector_id}, ${source}, item->>'record_key', item, ${sync_mode}, NOW(), NOW()
+        FROM jsonb_array_elements(${recordsJson}::jsonb) AS item
+        ON CONFLICT ("tenantId", "connectorId", "source", "recordKey")
+        DO UPDATE SET
+          "record" = EXCLUDED."record",
+          "syncMode" = EXCLUDED."syncMode",
+          "updatedAt" = NOW()
+      `);
+    }
+
+    // Only the idempotency marker and counters need atomicity. Keeping this
+    // transaction small prevents one import from blocking every other request.
+    const result = await prisma.$transaction(async (tx) => {
       const existingChunk = await tx.connectorSyncStaging.findUnique({
         where: {
           tenantId_connectorId_source_batchId_chunkIndex: {
@@ -151,23 +179,6 @@ export async function POST(req: Request) {
         }
       });
 
-      if (sync_mode !== 'full' && records.length > 0) {
-        const recordsJson = JSON.stringify(records);
-        await tx.$executeRaw(Prisma.sql`
-          INSERT INTO "ConnectorSyncRecord" (
-            "tenantId", "connectorId", "source", "recordKey", "record", "syncMode", "createdAt", "updatedAt"
-          )
-          SELECT
-            ${tenantId}, ${connector_id}, ${source}, item->>'record_key', item, ${sync_mode}, NOW(), NOW()
-          FROM jsonb_array_elements(${recordsJson}::jsonb) AS item
-          ON CONFLICT ("tenantId", "connectorId", "source", "recordKey")
-          DO UPDATE SET
-            "record" = EXCLUDED."record",
-            "syncMode" = EXCLUDED."syncMode",
-            "updatedAt" = NOW()
-        `);
-      }
-
       const incrementedBatch = await tx.connectorSyncBatch.update({
         where: { id: batch.id },
         data: {
@@ -188,34 +199,8 @@ export async function POST(req: Request) {
         }
       });
 
-      const now = new Date();
-      await tx.connectorSourceStatus.upsert({
-        where: {
-          tenantId_connectorId_source: {
-            tenantId,
-            connectorId: connector_id,
-            source: source
-          }
-        },
-        update: {
-          lastSyncAt: now,
-          lastSuccessAt: completed ? now : undefined,
-          recordsLastSync: finalizedBatch.recordsReceived,
-          status: completed ? 'healthy' : 'partial',
-          lastError: null
-        },
-        create: {
-          tenantId,
-          connectorId: connector_id,
-          source: source,
-          lastSyncAt: now,
-          lastSuccessAt: completed ? now : null,
-          recordsLastSync: finalizedBatch.recordsReceived,
-          status: completed ? 'healthy' : 'partial'
-        }
-      });
       return { alreadyProcessed: false, batch: finalizedBatch };
-    }, { timeout: 30000, maxWait: 5000 });
+    }, { timeout: 10000, maxWait: 10000 });
 
     if (result.alreadyProcessed) {
       console.info(`SYNC_DUPLICATE: Chunk ${chunk_index} of batch ${batch_id} already processed`);
@@ -228,6 +213,46 @@ export async function POST(req: Request) {
         recordsReceived: result.batch.recordsReceived,
         status: result.batch.status,
       });
+    }
+
+    const now = new Date();
+    const completed = result.batch.status === 'completed';
+    try {
+      await prisma.connector.update({
+        where: { id: connector_id },
+        data: { lastSeenAt: now }
+      });
+    } catch (error) {
+      console.warn('SYNC_METADATA_WARNING: lastSeenAt update failed', error);
+    }
+    try {
+      await prisma.connectorSourceStatus.upsert({
+        where: {
+          tenantId_connectorId_source: {
+            tenantId,
+            connectorId: connector_id,
+            source,
+          }
+        },
+        update: {
+          lastSyncAt: now,
+          lastSuccessAt: completed ? now : undefined,
+          recordsLastSync: result.batch.recordsReceived,
+          status: completed ? 'healthy' : 'partial',
+          lastError: null,
+        },
+        create: {
+          tenantId,
+          connectorId: connector_id,
+          source,
+          lastSyncAt: now,
+          lastSuccessAt: completed ? now : null,
+          recordsLastSync: result.batch.recordsReceived,
+          status: completed ? 'healthy' : 'partial',
+        }
+      });
+    } catch (error) {
+      console.warn('SYNC_METADATA_WARNING: source status update failed', error);
     }
 
     console.info(`SYNC_SUCCESS: Batch ${batch_id} processed successfully`);

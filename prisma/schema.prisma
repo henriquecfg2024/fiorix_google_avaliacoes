@@ -176,6 +176,8 @@ model Review {
 
   mentions ReviewMention[]
   response Response?
+
+  @@index([tenantId, status, deletedFromGoogle], name: "idx_review_tenant_status_deleted")
 }
 
 model ReviewMention {
@@ -690,4 +692,3 @@ model FiorixAcessoLog {
   @@index([tipo])
   @@map("fiorix_acesso_log")
 }
-

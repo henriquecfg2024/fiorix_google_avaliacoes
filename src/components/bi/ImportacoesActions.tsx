@@ -18,7 +18,16 @@ const normalizeHeader = (value: string) =>
     .replace(/[^a-z0-9]/g, "");
 
 const aliases: Record<string, string[]> = {
-  PROTOCOLO: ["protocolo", "numero_protocolo", "numero", "cod_protocolo", "nr_protocolo"],
+  PROTOCOLO: [
+    "protocolo",
+    "numero_protocolo",
+    "numero_do_protocolo",
+    "numero",
+    "cod_protocolo",
+    "nr_protocolo",
+    "n_protocolo",
+    "protocolo_do_titulo",
+  ],
   DATA_APRESENTADO: [
     "data_apresentado",
     "data_apresentacao",
@@ -49,6 +58,9 @@ const canonicalHeader = (header: string) => {
   );
 };
 
+const stripExcelSeparatorDirective = (chunk: string) =>
+  chunk.replace(/^\uFEFF?sep\s*=\s*[^\r\n]+\r?\n/i, "");
+
 export function ImportacoesActions() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -70,6 +82,7 @@ export function ImportacoesActions() {
       header: true,
       skipEmptyLines: true,
       encoding: "UTF-8",
+      beforeFirstChunk: stripExcelSeparatorDirective,
       transformHeader: (header) => header.replace(/^\uFEFF/, "").trim(),
       worker: false,
       chunkSize: 512 * 1024,
@@ -248,6 +261,7 @@ export function ImportacoesActions() {
       header: true,
       skipEmptyLines: true,
       encoding: "UTF-8",
+      beforeFirstChunk: stripExcelSeparatorDirective,
       transformHeader: (header) => header.replace(/^\uFEFF/, "").trim(),
       complete: async (results) => {
         try {
@@ -272,15 +286,43 @@ export function ImportacoesActions() {
           }
 
           const fileHeaders = results.meta.fields || [];
-          const availableHeaders = new Set(fileHeaders.map(normalizeHeader));
-          const hasProtocol = aliases.PROTOCOLO.some((name) => availableHeaders.has(normalizeHeader(name)));
-          const hasProtocolDate = [...aliases.DATA_APRESENTADO, "d1_protocolo"]
-            .some((name) => availableHeaders.has(normalizeHeader(name)));
+          const protocolHeader =
+            fileHeaders.find((header) =>
+              aliases.PROTOCOLO.some((name) => normalizeHeader(name) === normalizeHeader(header))
+            ) ||
+            fileHeaders.find((header) => {
+              const normalized = normalizeHeader(header);
+              return normalized.includes("protocolo") &&
+                !normalized.includes("data") &&
+                !normalized.includes("status") &&
+                !normalized.startsWith("d1");
+            });
+          const protocolDateHeader =
+            fileHeaders.find((header) =>
+              [...aliases.DATA_APRESENTADO, "d1_protocolo"].some(
+                (name) => normalizeHeader(name) === normalizeHeader(header)
+              )
+            ) ||
+            fileHeaders.find((header) => {
+              const normalized = normalizeHeader(header);
+              return normalized === "d1protocolo" ||
+                (normalized.includes("data") &&
+                  (normalized.includes("apresent") ||
+                    normalized.includes("entrada") ||
+                    normalized.includes("protocolo")));
+            });
 
-          if (!hasProtocol || !hasProtocolDate) {
+          if (!protocolHeader || !protocolDateHeader) {
             toast.error("CSV inválido. Colunas de PROTOCOLO e/ou DATA indisponíveis.");
             return;
           }
+
+          rawRows.forEach((row) => {
+            if (row.PROTOCOLO === undefined) row.PROTOCOLO = row[protocolHeader];
+            if (row.DATA_APRESENTADO === undefined && row.D1_PROTOCOLO === undefined) {
+              row.DATA_APRESENTADO = row[protocolDateHeader];
+            }
+          });
 
           const totalRows = rawRows.length;
           setMetasProgress({ current: 0, total: totalRows });

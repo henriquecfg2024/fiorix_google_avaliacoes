@@ -14,7 +14,6 @@ export async function POST(request: Request) {
     if (body.action === "mark_failed") {
       const { importMeta, errorMessage } = body;
       if (importMeta?.importKey) {
-        await ensureTarefasImportsTable();
         await prisma.$executeRaw(
           Prisma.sql`
             UPDATE public.fiorix_tarefas_imports
@@ -32,7 +31,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Nenhum registro para importar" }, { status: 400 });
     }
 
-    await ensureTarefasImportsTable();
+    // Evita repetir CREATE/ALTER/INDEX em todos os lotes do mesmo CSV.
+    if (!importMeta?.batchNumber || importMeta.batchNumber === 1) {
+      await ensureTarefasImportsTable();
+    }
 
     let importId: number | null = null;
     if (importMeta?.importKey) {
