@@ -11,6 +11,7 @@ import {
   Settings,
   Upload,
   Settings2,
+  Activity,
 } from "lucide-react";
 
 export const navigationGroups = {
@@ -76,6 +77,14 @@ export const navigationGroups = {
     label: "SISTEMA",
     icon: Settings,
     items: [
+      {
+        label: "Central de Operações",
+        href: "/sistema/operacoes",
+        icon: Activity,
+        badge: "ONLINE",
+        badgeVariant: "emerald",
+        description: "Saúde e monitoramento",
+      },
       {
         label: "Importações",
         href: "/bi/importacoes",
