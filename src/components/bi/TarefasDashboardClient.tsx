@@ -748,7 +748,7 @@ export function TarefasDashboardClient() {
           title="Vencem Hoje"
           value={kpis.vencemHoje}
           subtitle="Protocolos com previsão de entrega hoje"
-          variant="danger"
+          variant="warning"
           icon={Clock}
           onClick={() => handleKpiFilter("VENCEM_HOJE")}
           isActive={activeKpiFilter === "VENCEM_HOJE"}
@@ -757,7 +757,7 @@ export function TarefasDashboardClient() {
           title="Vencem Amanhã"
           value={kpis.vencemAmanha}
           subtitle="Protocolos com previsão de entrega amanhã"
-          variant="warning"
+          variant="default"
           icon={Calendar}
           onClick={() => handleKpiFilter("VENCEM_AMANHA")}
           isActive={activeKpiFilter === "VENCEM_AMANHA"}
@@ -984,14 +984,14 @@ export function TarefasDashboardClient() {
                   <td className="py-3 px-4 text-center text-purple-300">{row.protocolos}</td>
                   <td className="py-3 px-4 text-center">
                     {row.vencemHoje > 0 ? (
-                      <Badge className="bg-red-500/20 text-red-300 border-red-500/30">{row.vencemHoje}</Badge>
+                      <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30">{row.vencemHoje}</Badge>
                     ) : (
                       "-"
                     )}
                   </td>
                   <td className="py-3 px-4 text-center">
                     {row.vencemAmanha > 0 ? (
-                      <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30">{row.vencemAmanha}</Badge>
+                      <Badge className="bg-cyan-500/20 text-cyan-300 border-cyan-500/30">{row.vencemAmanha}</Badge>
                     ) : (
                       "-"
                     )}
