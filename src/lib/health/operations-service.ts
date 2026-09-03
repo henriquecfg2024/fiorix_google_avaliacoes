@@ -138,20 +138,15 @@ function evaluatePostgresStatus(latencyMs: number, tenantId: string): {
   let status: 'operational' | 'degraded' | 'offline' = 'operational';
   let reason = 'Conexão ativa e normal';
 
-  if (latencyMs <= 800) {
+  if (latencyMs <= 1500) {
     status = 'operational';
     reason = `Latência normal (${latencyMs} ms)`;
-  } else if (latencyMs > 800 && latencyMs <= 1200) {
-    // Zona de transição: mantém o status anterior se tiver menos de 60s
-    if (prev && now - prev.timestamp < 60000) {
-      status = prev.lastStatus;
-      reason = `Zona de transição (${latencyMs} ms) — mantendo estado anterior (${prev.lastStatus})`;
-    } else {
-      status = 'operational';
-      reason = `Latência ligeiramente elevada (${latencyMs} ms)`;
-    }
+  } else if (latencyMs > 1500 && latencyMs <= 3000) {
+    // Variação aceitável do pooler de conexões do Supabase (PgBouncer)
+    status = 'operational';
+    reason = `Latência com leve variação do pooler (${latencyMs} ms)`;
   } else {
-    // Acima de 1200 ms: degradado
+    // Acima de 3000 ms: degradado
     status = 'degraded';
     reason = `Latência elevada da aplicação (${latencyMs} ms)`;
   }
@@ -251,23 +246,30 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   const now = new Date();
   const nowIso = now.toISOString();
 
-  // A. Medição do PostgreSQL com Timeout Rígido de 3.500 ms (Promise.race)
+  // A. Medição do PostgreSQL com Resiliência (Timeout de 3.500 ms + Retry Imediato em 300 ms)
   const dbStart = performance.now();
   let dbLatencyMs: number | null = null;
   let dbStatus: 'operational' | 'degraded' | 'offline' | 'unknown' = 'unknown';
   let dbReason = 'Aguardando verificação';
 
-  try {
+  async function probePostgres(): Promise<number> {
+    const start = performance.now();
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('P2024: Connection timeout in health check')), 3500)
     );
+    await Promise.race([prisma.$queryRaw`SELECT 1`, timeoutPromise]);
+    return Math.round(performance.now() - start);
+  }
 
-    await Promise.race([
-      prisma.$queryRaw`SELECT 1`,
-      timeoutPromise,
-    ]);
+  try {
+    try {
+      dbLatencyMs = await probePostgres();
+    } catch {
+      // Pequeno alívio de 300ms se o PgBouncer do Supabase sofreu contenção temporária
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      dbLatencyMs = await probePostgres();
+    }
 
-    dbLatencyMs = Math.round(performance.now() - dbStart);
     const evalResult = evaluatePostgresStatus(dbLatencyMs, tenantId);
     dbStatus = evalResult.status;
     dbReason = evalResult.reason;
