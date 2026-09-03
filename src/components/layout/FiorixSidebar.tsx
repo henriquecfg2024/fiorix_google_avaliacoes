@@ -73,16 +73,26 @@ export function FiorixSidebar() {
           isCollapsed ? "w-20" : "w-64"
         }`}
       >
-        {/* Logo Section */}
-        <div className="flex items-center h-14 px-4 border-b border-white/5 shrink-0 gap-3 overflow-hidden">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#6366f1] to-[#a855f7] text-white font-extrabold shadow-md shrink-0">
-            F
+        {/* Logo & Toggle Section */}
+        <div className="flex items-center justify-between h-14 px-3.5 border-b border-white/5 shrink-0 overflow-hidden">
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#6366f1] to-[#a855f7] text-white font-extrabold shadow-md shrink-0">
+              F
+            </div>
+            {!isCollapsed && (
+              <span className="font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-white to-white/80 text-lg whitespace-nowrap transition-opacity duration-300">
+                FIORIX
+              </span>
+            )}
           </div>
-          {!isCollapsed && (
-            <span className="font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-white to-white/80 text-lg whitespace-nowrap transition-opacity duration-300">
-              FIORIX
-            </span>
-          )}
+
+          <button
+            onClick={toggleCollapse}
+            title={isCollapsed ? "Expandir menu" : "Recolher menu"}
+            className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+          >
+            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </button>
         </div>
 
         {/* Navigation Section */}
@@ -238,30 +248,6 @@ export function FiorixSidebar() {
           })}
         </div>
 
-        {/* Footer / Toggle Section */}
-        <div className="p-3 border-t border-white/5 shrink-0">
-          {isCollapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={toggleCollapse}
-                  className="flex items-center justify-center w-full h-10 rounded-lg text-white/50 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Expandir menu</TooltipContent>
-            </Tooltip>
-          ) : (
-            <button
-              onClick={toggleCollapse}
-              className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm font-semibold text-white/50 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              <span>Recolher menu</span>
-            </button>
-          )}
-        </div>
       </aside>
     </TooltipProvider>
   );
