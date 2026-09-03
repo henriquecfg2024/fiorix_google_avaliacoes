@@ -250,7 +250,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   }
 
   // B. Detecção de Conectores (Detecção de Ambiguidade + NUNCA selecionar credentialIdentifier)
-  const activeConnectors = await prisma.connector.findMany({
+  const allEnabledConnectors = await prisma.connector.findMany({
     where: { tenantId, enabled: true },
     select: {
       id: true,
@@ -262,6 +262,11 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       createdAt: true,
     },
   });
+
+  // Filtra placeholders provisórios legados de seed ('substituir_pelo_id_fornecido')
+  const activeConnectors = allEnabledConnectors.filter(
+    (c) => c.id !== 'substituir_pelo_id_fornecido'
+  );
 
   const isAmbiguous = activeConnectors.length > 1;
   const targetConnector = activeConnectors.length === 1 ? activeConnectors[0] : null;
