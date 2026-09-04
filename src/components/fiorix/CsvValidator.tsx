@@ -386,7 +386,6 @@ export function validarCSV(
     quoteChar: '"',
     escapeChar: '"',
     worker: false,
-    chunkSize: 1024 * 1024 * 4,
     transformHeader: (h: string) => h.replace(/^\uFEFF/, '').trim(),
     complete: (results) => {
       const rawRows = (results.data as Record<string, any>[]) || [];
@@ -587,10 +586,11 @@ export async function importarCSVEmLotes({
         })();
 
         pendingBatches.add(task);
-        task.then(
-          () => pendingBatches.delete(task),
-          () => pendingBatches.delete(task),
-        );
+        task.finally(() => {
+          pendingBatches.delete(task);
+        }).catch(() => {
+          // Capturado por fail(err) acima
+        });
       }
 
       if (drain && pendingBatches.size > 0) {
@@ -617,7 +617,7 @@ export async function importarCSVEmLotes({
       let situacaoPrazo = 'NoPrazo';
       if (isDevolucao) {
         situacaoPrazo = 'Devolucao';
-      } else if (atrasoDias > 0) {
+      } else if (atrasoDias > 0 || statusRaw.includes('ATRAS')) {
         situacaoPrazo = 'Atrasado';
       }
 
@@ -628,11 +628,11 @@ export async function importarCSVEmLotes({
         IdAndamento: get(row, 'IdAndamento', 'idandamento') || null,
         DtProtocolo: get(row, 'DATA_ENTRADA', 'DATA', 'DtProtocolo', 'DataProtocolo', 'dtprotocolo', 'dataprotocolo') || null,
         DtPrevisaoEntrega: get(row, 'DtPrevisaoEntrega', 'dtprevisaoentrega') || null,
-        DtAndamento: get(row, 'DtAndamento', 'dtandamento') || null,
+        DtAndamento: get(row, 'DtAndamento', 'dtandamento') || get(row, 'DATA_ENTRADA', 'DATA') || null,
         CodProcessamento: getInt(get(row, 'CodProcessamento', 'codprocessamento')),
-        DescAndamento: get(row, 'DescAndamento', 'descandamento') || null,
+        DescAndamento: servicoRaw || get(row, 'DescAndamento', 'descandamento') || null,
         Natureza: tipoRaw || get(row, 'Natureza', 'natureza') || null,
-        TipoPrenotacao: servicoRaw || tipoRaw || get(row, 'TipoPrenotacao', 'tipoprenotacao') || null,
+        TipoPrenotacao: tipoRaw || servicoRaw || get(row, 'TipoPrenotacao', 'tipoprenotacao') || null,
         DiasPrometidos: getInt(get(row, 'DiasPrometidos', 'diasprometidos')),
         DiasCorridos: getInt(get(row, 'DiasCorridos', 'diascorridos')),
         DiasAtraso: isNaN(atrasoDias) ? null : atrasoDias,
@@ -710,6 +710,7 @@ export function PreviewCard({
   isImporting,
   uploadProgress,
   importStatusMsg,
+  errorMessage,
 }: {
   stats: CsvStats | null;
   onConfirm: () => void;
@@ -717,6 +718,7 @@ export function PreviewCard({
   isImporting?: boolean;
   uploadProgress?: number;
   importStatusMsg?: string;
+  errorMessage?: string | null;
 }) {
   if (!stats) return null;
 
@@ -751,6 +753,13 @@ export function PreviewCard({
                 style={{ width: `${uploadProgress || 0}%` }}
               />
             </div>
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="mt-4 rounded-lg border border-rose-500/30 bg-rose-50 p-3 text-rose-800 text-xs">
+            <p className="font-semibold text-rose-900">Erro na Importação:</p>
+            <p className="mt-0.5 text-rose-700">{errorMessage}</p>
           </div>
         )}
       </CardContent>

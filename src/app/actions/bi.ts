@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 
-import { queryBiDashboardData, queryBiImportsList } from '@/lib/bi-dashboard';
+import { queryBiDashboardData, queryBiImportsList, invalidateBiImportsCache } from '@/lib/bi-dashboard';
 import { refreshBiAggregatesForImport } from '@/lib/bi-aggregates';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, requireRole } from '@/lib/auth-helpers';
@@ -41,10 +41,11 @@ export async function createBiImport(fileName: string, totalRows: number, import
       },
     });
 
+    invalidateBiImportsCache(user.tenantId);
     return { success: true, importId: record.id };
   } catch (error: any) {
     console.error('Error creating BI import:', error);
-    return { success: false, error: 'Erro ao criar registro de importação.' };
+    return { success: false, error: error?.message || 'Erro ao criar registro de importação.' };
   }
 }
 
@@ -65,7 +66,7 @@ export async function updateBiImportStatus(importId: string, status: 'SUCCESS' |
         prisma.fiorixBiData.deleteMany({ where: { importId, tenantId: user.tenantId } }),
         prisma.fiorixBiImport.update({
           where: { id: importId },
-          data: { status, errorMessage },
+          data: { status, errorMessage: errorMessage ? String(errorMessage).slice(0, 500) : null },
         }),
       ]);
     } else {
@@ -80,10 +81,12 @@ export async function updateBiImportStatus(importId: string, status: 'SUCCESS' |
         data: { status: 'SUCCESS', errorMessage: null },
       });
     }
+
+    invalidateBiImportsCache(user.tenantId);
     return { success: true };
   } catch (error: any) {
     console.error('Error updating import status:', error);
-    return { success: false, error: 'Erro ao atualizar status da importação.' };
+    return { success: false, error: error?.message || 'Erro ao atualizar status da importação.' };
   }
 }
 
@@ -103,48 +106,81 @@ export async function insertBiBatch(importId: string, rows: BiRowInput[]) {
       return { success: true, count: 0 };
     }
 
-    const dataToInsert = rows.map((row) => {
-      const parseDate = (value?: string | null) => {
-        if (!value || value.trim() === '') return null;
-        const parsed = new Date(value);
-        return Number.isNaN(parsed.getTime()) ? null : parsed;
-      };
+    const parseDate = (value?: string | null) => {
+      if (!value || typeof value !== 'string') return null;
+      const v = value.trim();
+      if (!v) return null;
 
-      const parseIntVal = (value: unknown) => {
-        if (value === null || value === undefined || value === '') return null;
-        const parsed = parseInt(String(value).replace(/\D/g, ''), 10);
-        return Number.isNaN(parsed) ? null : parsed;
-      };
-
-      const parseBool = (value: unknown) => {
-        if (typeof value === 'boolean') return value;
-        if (typeof value === 'number') return value === 1;
-        if (typeof value === 'string') {
-          const lower = value.trim().toLowerCase();
-          return lower === 'true' || lower === '1' || lower === 'sim';
+      // DD/MM/YYYY or DD/MM/YYYY HH:mm:ss
+      if (v.includes('/')) {
+        const parts = v.split(' ');
+        const dateParts = parts[0].split('/');
+        if (dateParts.length === 3) {
+          const [d, m, y] = dateParts;
+          const timePart = parts[1] || '00:00:00';
+          const iso = `${y.padStart(4, '20')}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T${timePart}`;
+          const parsed = new Date(iso);
+          if (!Number.isNaN(parsed.getTime())) return parsed;
         }
-        return false;
-      };
+      }
 
-      const parseBigIntVal = (value: unknown) => {
-        if (value === null || value === undefined || value === '') return null;
-        const cleaned = String(value).replace(/\D/g, '');
-        if (!cleaned) return null;
-        try {
-          const val = BigInt(cleaned);
-          return val === 0n ? null : val;
-        } catch {
-          return null;
-        }
-      };
+      // YYYY-MM-DD or YYYY-MM-DD HH:mm:ss
+      if (v.includes('-')) {
+        const iso = v.replace(' ', 'T');
+        const parsed = new Date(iso);
+        if (!Number.isNaN(parsed.getTime())) return parsed;
+      }
 
-      return {
+      const fallback = new Date(v);
+      return Number.isNaN(fallback.getTime()) ? null : fallback;
+    };
+
+    const parseIntVal = (value: unknown) => {
+      if (value === null || value === undefined || value === '') return null;
+      const parsed = parseInt(String(value).replace(/\D/g, ''), 10);
+      return Number.isNaN(parsed) ? null : parsed;
+    };
+
+    const parseBool = (value: unknown) => {
+      if (typeof value === 'boolean') return value;
+      if (typeof value === 'number') return value === 1;
+      if (typeof value === 'string') {
+        const lower = value.trim().toLowerCase();
+        return lower === 'true' || lower === '1' || lower === 'sim';
+      }
+      return false;
+    };
+
+    const parseBigIntVal = (value: unknown) => {
+      if (value === null || value === undefined || value === '') return null;
+      const cleaned = String(value).replace(/\D/g, '');
+      if (!cleaned) return null;
+      try {
+        const val = BigInt(cleaned);
+        return val === 0n ? null : val;
+      } catch {
+        return null;
+      }
+    };
+
+    const seenAndamento = new Set<string>();
+    const dataToInsert = [];
+
+    for (const row of rows) {
+      const idAndamento = parseBigIntVal(row.IdAndamento);
+      if (idAndamento !== null) {
+        const key = idAndamento.toString();
+        if (seenAndamento.has(key)) continue;
+        seenAndamento.add(key);
+      }
+
+      dataToInsert.push({
         importId,
         tenantId: user.tenantId,
         protocolo: String(row.Protocolo || '').trim(),
         flagRecepcao: parseIntVal(row.FlagRecepcao),
         tipoSolicitacao: row.TipoSolicitacao ? String(row.TipoSolicitacao).trim() : null,
-        idAndamento: parseBigIntVal(row.IdAndamento),
+        idAndamento,
         dtProtocolo: parseDate(row.DtProtocolo),
         dtPrevisaoEntrega: parseDate(row.DtPrevisaoEntrega),
         dtAndamento: parseDate(row.DtAndamento),
@@ -159,18 +195,17 @@ export async function insertBiBatch(importId: string, rows: BiRowInput[]) {
         isDevolucao: parseBool(row.IsDevolucao),
         isRegistrado: parseBool(row.IsRegistrado),
         textoNotaDevolucao: row.TextoNotaDevolucao ? String(row.TextoNotaDevolucao).trim() : null,
-      };
-    });
+      });
+    }
 
     await prisma.fiorixBiData.createMany({
       data: dataToInsert,
-      skipDuplicates: true,
     });
 
     return { success: true, count: dataToInsert.length };
   } catch (error: any) {
     console.error('Error inserting BI batch:', error);
-    return { success: false, error: 'Erro ao inserir lote de dados.' };
+    return { success: false, error: error?.message || 'Erro ao inserir lote de dados.' };
   }
 }
 
@@ -210,11 +245,12 @@ export async function deleteBiImport(importId: string) {
       where: { id: importId, tenantId: user.tenantId },
     });
 
+    invalidateBiImportsCache(user.tenantId);
     revalidatePath('/admin/bi');
     return { success: true };
   } catch (error: any) {
     console.error('Error deleting import:', error);
-    return { success: false, error: 'Erro ao excluir importação.' };
+    return { success: false, error: error?.message || 'Erro ao excluir importação.' };
   }
 }
 

@@ -291,7 +291,7 @@ model FiorixBiData {
   isRegistrado       Boolean?  @default(false) @map("IsRegistrado")
   textoNotaDevolucao String?   @map("TextoNotaDevolucao")
 
-  @@unique([tenantId, importId, idAndamento], name: "fiorix_bi_data_import_id_andamento_key")
+  @@unique([importId, idAndamento], name: "fiorix_bi_data_import_id_andamento_key")
   @@index([tenantId], name: "idx_fiorix_bi_data_tenant_id")
   @@index([importId], name: "idx_fiorix_bi_data_import_id")
   @@index([dtAndamento], name: "idx_fiorix_bi_data_dt_andamento")

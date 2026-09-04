@@ -415,6 +415,9 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     } else if (isMorningGracePeriod && elapsedSeconds > errorThreshold) {
       status = 'OK';
       statusNote = 'Início do expediente — aguardando primeiro ciclo da manhã';
+    } else if (statusEntry?.lastError) {
+      status = 'ERROR';
+      statusNote = `Erro no SQL Server do cartório: ${statusEntry.lastError}`;
     } else if (elapsedSeconds > errorThreshold) {
       status = 'ERROR';
       statusNote = `Sem lote há ${elapsedSeconds}s (limite de erro: ${errorThreshold}s)`;

@@ -446,6 +446,11 @@ export async function queryBiImportsList(tenantId: string) {
   }
 }
 
+export function invalidateBiImportsCache(tenantId: string) {
+  const cacheKey = `__imports__:${tenantId}`;
+  dashboardCache.delete(cacheKey);
+}
+
 export interface BiAtrasadosFilters extends BiDashboardFilters {
   page?: number;
   pageSize?: number;

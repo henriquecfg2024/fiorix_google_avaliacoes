@@ -41,6 +41,7 @@ export default function FiorixBiImportPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [importStatusMsg, setImportStatusMsg] = useState('');
+  const [importErrorMessage, setImportErrorMessage] = useState<string | null>(null);
   const [importsList, setImportsList] = useState<ImportRow[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -60,6 +61,7 @@ export default function FiorixBiImportPage() {
     setPreviewStats(null);
     setValidationError(null);
     setImportStatusMsg('');
+    setImportErrorMessage(null);
     setUploadProgress(0);
     setIsParsing(false);
     setIsImporting(false);
@@ -72,6 +74,7 @@ export default function FiorixBiImportPage() {
     setIsParsing(true);
     setValidationError(null);
     setImportStatusMsg('');
+    setImportErrorMessage(null);
     setPreviewStats(null);
     setUploadProgress(0);
 
@@ -104,6 +107,7 @@ export default function FiorixBiImportPage() {
 
     setIsImporting(true);
     setUploadProgress(0);
+    setImportErrorMessage(null);
 
     const estimatedTotal = previewStats.totalLinhas || 1;
     setImportStatusMsg(
@@ -112,7 +116,10 @@ export default function FiorixBiImportPage() {
 
     const createRes = await createBiImport(csvFile.name, estimatedTotal, 'Manual SSMS');
     if (!createRes.success || !createRes.importId) {
-      setImportStatusMsg(`Falha ao iniciar importação: ${createRes.error}`);
+      const err = createRes.error || 'Falha ao iniciar importação.';
+      setImportStatusMsg(`Falha ao iniciar importação: ${err}`);
+      setImportErrorMessage(err);
+      toast.error("Erro ao Iniciar Importação", { description: err });
       setIsImporting(false);
       return;
     }
@@ -166,6 +173,7 @@ export default function FiorixBiImportPage() {
         description: errMsg,
       });
       setImportStatusMsg(`Erro na importação: ${errMsg}`);
+      setImportErrorMessage(errMsg);
       setIsImporting(false);
       fetchImports();
     }
@@ -299,6 +307,7 @@ export default function FiorixBiImportPage() {
                 isImporting={isImporting}
                 uploadProgress={uploadProgress}
                 importStatusMsg={importStatusMsg}
+                errorMessage={importErrorMessage}
               />
             )}
           </CardContent>
