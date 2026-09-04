@@ -206,18 +206,15 @@ export async function insertBiBatch(importId: string, rows: BiRowInput[]) {
       });
     }
 
-    await prisma.$transaction(async (tx) => {
-      await configureImportTransaction(tx);
-      const targetImport = await tx.fiorixBiImport.findFirst({
-        where: { id: importId, tenantId: user.tenantId },
-        select: { id: true },
-      });
+    const targetImport = await prisma.fiorixBiImport.findFirst({
+      where: { id: importId, tenantId: user.tenantId },
+      select: { id: true },
+    });
       if (!targetImport) {
         throw new Error('Importação não encontrada para este cartório.');
       }
 
-      await tx.fiorixBiData.createMany({ data: dataToInsert });
-    }, IMPORT_TRANSACTION_OPTIONS);
+    await prisma.fiorixBiData.createMany({ data: dataToInsert });
 
     return { success: true, count: dataToInsert.length };
   } catch (error: any) {
