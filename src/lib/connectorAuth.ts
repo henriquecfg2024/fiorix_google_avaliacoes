@@ -36,6 +36,12 @@ export async function authenticateConnector(connectorId: string, secret: string)
     return { success: false, error: 'Missing credentials' };
   }
 
+  // This identifier was used by old placeholder configurations and must
+  // never be allowed to create telemetry or synchronization batches.
+  if (connectorId === 'substituir_pelo_id_fornecido') {
+    return { success: false, error: 'Connector placeholder is disabled' };
+  }
+
   const connector = await prisma.connector.findUnique({
     where: { id: connectorId },
     include: { tenant: true }
