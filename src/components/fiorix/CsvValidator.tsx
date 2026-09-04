@@ -572,13 +572,18 @@ export async function importarCSVEmLotes({
 
         const batch = rowBuffer.splice(0, Math.min(batchSize, rowBuffer.length));
         const task = (async () => {
-          const result = await insertBatch(batch);
-          if (!result?.success) {
-            throw new Error(result?.error || 'Falha ao inserir lote de dados.');
-          }
+          try {
+            const result = await insertBatch(batch);
+            if (!result?.success) {
+              throw new Error(result?.error || 'Falha ao inserir lote de dados.');
+            }
 
-          totalProcessed += batch.length;
-          if (onProgress) await onProgress(totalProcessed, estimatedTotal);
+            totalProcessed += batch.length;
+            if (onProgress) await onProgress(totalProcessed, estimatedTotal);
+          } catch (err) {
+            fail(err);
+            throw err;
+          }
         })();
 
         pendingBatches.add(task);

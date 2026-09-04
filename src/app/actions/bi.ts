@@ -71,22 +71,14 @@ export async function updateBiImportStatus(importId: string, status: 'SUCCESS' |
     } else {
       try {
         await refreshBiAggregatesForImport(importId, user.tenantId);
-        await prisma.fiorixBiImport.update({
-          where: { id: importId },
-          data: { status, errorMessage },
-        });
       } catch (aggError: any) {
-        console.error('Error refreshing aggregates, marking import as FAILED:', aggError);
-        const failMessage = aggError?.message || String(aggError);
-        await prisma.$transaction([
-          prisma.fiorixBiData.deleteMany({ where: { importId, tenantId: user.tenantId } }),
-          prisma.fiorixBiImport.update({
-            where: { id: importId },
-            data: { status: 'FAILED', errorMessage: `Erro de agregação: ${failMessage}` },
-          }),
-        ]);
-        return { success: false, error: `Erro de agregação: ${failMessage}` };
+        console.warn('[BI Import] Falha na agregação opcional (não-fatal):', aggError?.message || String(aggError));
       }
+
+      await prisma.fiorixBiImport.update({
+        where: { id: importId },
+        data: { status: 'SUCCESS', errorMessage: null },
+      });
     }
     return { success: true };
   } catch (error: any) {
@@ -134,13 +126,25 @@ export async function insertBiBatch(importId: string, rows: BiRowInput[]) {
         return false;
       };
 
+      const parseBigIntVal = (value: unknown) => {
+        if (value === null || value === undefined || value === '') return null;
+        const cleaned = String(value).replace(/\D/g, '');
+        if (!cleaned) return null;
+        try {
+          const val = BigInt(cleaned);
+          return val === 0n ? null : val;
+        } catch {
+          return null;
+        }
+      };
+
       return {
         importId,
         tenantId: user.tenantId,
         protocolo: String(row.Protocolo || '').trim(),
         flagRecepcao: parseIntVal(row.FlagRecepcao),
         tipoSolicitacao: row.TipoSolicitacao ? String(row.TipoSolicitacao).trim() : null,
-        idAndamento: row.IdAndamento ? BigInt(String(row.IdAndamento).replace(/\D/g, '') || 0) : null,
+        idAndamento: parseBigIntVal(row.IdAndamento),
         dtProtocolo: parseDate(row.DtProtocolo),
         dtPrevisaoEntrega: parseDate(row.DtPrevisaoEntrega),
         dtAndamento: parseDate(row.DtAndamento),

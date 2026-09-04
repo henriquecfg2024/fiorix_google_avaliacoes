@@ -140,7 +140,10 @@ export default function FiorixBiImportPage() {
         throw new Error('Nenhum registro válido foi encontrado no CSV.');
       }
 
-      await updateBiImportStatus(importId, 'SUCCESS');
+      const updateRes = await updateBiImportStatus(importId, 'SUCCESS');
+      if (!updateRes?.success) {
+        throw new Error(updateRes?.error || 'Falha ao finalizar status da importação.');
+      }
 
       setUploadProgress(100);
       setImportStatusMsg(
