@@ -41,18 +41,15 @@ async function configureImportTransaction(tx: Prisma.TransactionClient) {
 export async function createBiImport(fileName: string, totalRows: number, importedBy = 'Manual SSMS') {
   try {
     const user = await requireRole('ADMIN', 'MASTER');
-    const record = await prisma.$transaction(async (tx) => {
-      await configureImportTransaction(tx);
-      return tx.fiorixBiImport.create({
-        data: {
-          fileName,
-          rowsCount: totalRows,
-          importedBy,
-          tenantId: user.tenantId,
-          status: 'PROCESSING',
-        },
-      });
-    }, IMPORT_TRANSACTION_OPTIONS);
+    const record = await prisma.fiorixBiImport.create({
+      data: {
+        fileName,
+        rowsCount: totalRows,
+        importedBy,
+        tenantId: user.tenantId,
+        status: 'PROCESSING',
+      },
+    });
 
     invalidateBiImportsCache(user.tenantId);
     return { success: true, importId: record.id };

@@ -10,8 +10,10 @@ function getDatabaseUrl() {
     const url = new URL(value);
     // Duas conexões permitem que heartbeat/navegação não fiquem presos atrás
     // de um lote. O limite segue pequeno para não pressionar o pool serverless.
-    url.searchParams.set('connection_limit', process.env.PRISMA_CONNECTION_LIMIT || '2');
-    url.searchParams.set('pool_timeout', process.env.PRISMA_POOL_TIMEOUT || '20');
+    // Uma conexao por instancia evita que os webhooks do Connector esgotem
+    // o pool compartilhado do Supabase em funcoes serverless.
+    url.searchParams.set('connection_limit', process.env.PRISMA_CONNECTION_LIMIT || '1');
+    url.searchParams.set('pool_timeout', process.env.PRISMA_POOL_TIMEOUT || '5');
     return url.toString();
   } catch {
     return value;
