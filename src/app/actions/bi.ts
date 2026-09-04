@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { Prisma } from '@prisma/client';
 
 import { queryBiDashboardData, queryBiImportsList, invalidateBiImportsCache } from '@/lib/bi-dashboard';
 import { refreshBiAggregatesForImport } from '@/lib/bi-aggregates';
@@ -28,18 +29,30 @@ export interface BiRowInput {
   TextoNotaDevolucao?: string | null;
 }
 
+const IMPORT_TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 40_000 } as const;
+
+async function configureImportTransaction(tx: Prisma.TransactionClient) {
+  // Impede que um lock de DDL ou uma consulta congestionada deixe a Server
+  // Action aberta indefinidamente na Vercel.
+  await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '10000ms'");
+  await tx.$executeRawUnsafe("SET LOCAL statement_timeout = '30000ms'");
+}
+
 export async function createBiImport(fileName: string, totalRows: number, importedBy = 'Manual SSMS') {
   try {
     const user = await requireRole('ADMIN', 'MASTER');
-    const record = await prisma.fiorixBiImport.create({
-      data: {
-        fileName,
-        rowsCount: totalRows,
-        importedBy,
-        tenantId: user.tenantId,
-        status: 'PROCESSING',
-      },
-    });
+    const record = await prisma.$transaction(async (tx) => {
+      await configureImportTransaction(tx);
+      return tx.fiorixBiImport.create({
+        data: {
+          fileName,
+          rowsCount: totalRows,
+          importedBy,
+          tenantId: user.tenantId,
+          status: 'PROCESSING',
+        },
+      });
+    }, IMPORT_TRANSACTION_OPTIONS);
 
     invalidateBiImportsCache(user.tenantId);
     return { success: true, importId: record.id };
@@ -54,21 +67,23 @@ export async function updateBiImportStatus(importId: string, status: 'SUCCESS' |
     const user = await requireRole('ADMIN', 'MASTER');
     
     // Validar se a importação pertence ao tenant
-    const targetImport = await prisma.fiorixBiImport.findFirst({
-      where: { id: importId, tenantId: user.tenantId },
-    });
-    if (!targetImport) {
-      return { success: false, error: 'Importação não encontrada para este cartório.' };
-    }
+    const targetImport = await prisma.$transaction(async (tx) => {
+      await configureImportTransaction(tx);
+      return tx.fiorixBiImport.findFirst({
+        where: { id: importId, tenantId: user.tenantId },
+      });
+    }, IMPORT_TRANSACTION_OPTIONS);
+    if (!targetImport) return { success: false, error: 'Importação não encontrada para este cartório.' };
 
     if (status === 'FAILED') {
-      await prisma.$transaction([
-        prisma.fiorixBiData.deleteMany({ where: { importId, tenantId: user.tenantId } }),
-        prisma.fiorixBiImport.update({
+      await prisma.$transaction(async (tx) => {
+        await configureImportTransaction(tx);
+        await tx.fiorixBiData.deleteMany({ where: { importId, tenantId: user.tenantId } });
+        await tx.fiorixBiImport.update({
           where: { id: importId },
           data: { status, errorMessage: errorMessage ? String(errorMessage).slice(0, 500) : null },
-        }),
-      ]);
+        });
+      }, IMPORT_TRANSACTION_OPTIONS);
     } else {
       try {
         await refreshBiAggregatesForImport(importId, user.tenantId);
@@ -76,10 +91,13 @@ export async function updateBiImportStatus(importId: string, status: 'SUCCESS' |
         console.warn('[BI Import] Falha na agregação opcional (não-fatal):', aggError?.message || String(aggError));
       }
 
-      await prisma.fiorixBiImport.update({
-        where: { id: importId },
-        data: { status: 'SUCCESS', errorMessage: null },
-      });
+      await prisma.$transaction(async (tx) => {
+        await configureImportTransaction(tx);
+        await tx.fiorixBiImport.update({
+          where: { id: importId },
+          data: { status: 'SUCCESS', errorMessage: null },
+        });
+      }, IMPORT_TRANSACTION_OPTIONS);
     }
 
     invalidateBiImportsCache(user.tenantId);
@@ -95,13 +113,6 @@ export async function insertBiBatch(importId: string, rows: BiRowInput[]) {
     const user = await requireRole('ADMIN', 'MASTER');
 
     // Validar se a importação pertence ao tenant
-    const targetImport = await prisma.fiorixBiImport.findFirst({
-      where: { id: importId, tenantId: user.tenantId },
-    });
-    if (!targetImport) {
-      return { success: false, error: 'Importação não encontrada para este cartório.' };
-    }
-
     if (!rows || rows.length === 0) {
       return { success: true, count: 0 };
     }
@@ -164,7 +175,7 @@ export async function insertBiBatch(importId: string, rows: BiRowInput[]) {
     };
 
     const seenAndamento = new Set<string>();
-    const dataToInsert = [];
+    const dataToInsert: Prisma.FiorixBiDataCreateManyInput[] = [];
 
     for (const row of rows) {
       const idAndamento = parseBigIntVal(row.IdAndamento);
@@ -198,9 +209,18 @@ export async function insertBiBatch(importId: string, rows: BiRowInput[]) {
       });
     }
 
-    await prisma.fiorixBiData.createMany({
-      data: dataToInsert,
-    });
+    await prisma.$transaction(async (tx) => {
+      await configureImportTransaction(tx);
+      const targetImport = await tx.fiorixBiImport.findFirst({
+        where: { id: importId, tenantId: user.tenantId },
+        select: { id: true },
+      });
+      if (!targetImport) {
+        throw new Error('Importação não encontrada para este cartório.');
+      }
+
+      await tx.fiorixBiData.createMany({ data: dataToInsert });
+    }, IMPORT_TRANSACTION_OPTIONS);
 
     return { success: true, count: dataToInsert.length };
   } catch (error: any) {

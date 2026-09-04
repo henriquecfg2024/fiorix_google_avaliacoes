@@ -33,6 +33,21 @@ type ImportRow = {
   errorMessage?: string | null;
 };
 
+const IMPORT_REQUEST_TIMEOUT_MS = 45_000;
+
+function withImportTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`${operation} excedeu 45 segundos. Verifique a conexão com o banco e tente novamente.`));
+    }, IMPORT_REQUEST_TIMEOUT_MS);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
+}
+
 export default function FiorixBiImportPage() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [previewStats, setPreviewStats] = useState<CsvStats | null>(null);
@@ -114,24 +129,31 @@ export default function FiorixBiImportPage() {
       `Iniciando importação de ~${estimatedTotal.toLocaleString('pt-BR')} linhas...`
     );
 
-    const createRes = await createBiImport(csvFile.name, estimatedTotal, 'Manual SSMS');
-    if (!createRes.success || !createRes.importId) {
-      const err = createRes.error || 'Falha ao iniciar importação.';
-      setImportStatusMsg(`Falha ao iniciar importação: ${err}`);
-      setImportErrorMessage(err);
-      toast.error("Erro ao Iniciar Importação", { description: err });
-      setIsImporting(false);
-      return;
-    }
-
-    const importId = createRes.importId;
+    let importId: string | null = null;
 
     try {
+      const createRes = await withImportTimeout(
+        createBiImport(csvFile.name, estimatedTotal, 'Manual SSMS'),
+        'A criação da importação'
+      );
+      if (!createRes.success || !createRes.importId) {
+        throw new Error(createRes.error || 'Falha ao iniciar importação.');
+      }
+
+      importId = createRes.importId;
+      setImportStatusMsg(`Preparando o primeiro lote de ${estimatedTotal.toLocaleString('pt-BR')} linhas...`);
+
       const { totalProcessed } = await importarCSVEmLotes({
         file: csvFile,
         estimatedTotal,
-        batchSize: 1000,
-        insertBatch: (rows) => insertBiBatch(importId, rows),
+        // Server Actions são mutações serializadas. Lotes menores e uma
+        // chamada por vez evitam saturar o pool do Supabase/Vercel.
+        batchSize: 500,
+        concurrency: 1,
+        insertBatch: (rows) => withImportTimeout(
+          insertBiBatch(importId!, rows),
+          'A gravação de um lote'
+        ),
         onProgress: (processed, total) => {
           const safeTotal = Math.max(total, processed, 1);
           const pct = Math.min(99, Number(((processed / safeTotal) * 100).toFixed(1)));
@@ -147,7 +169,10 @@ export default function FiorixBiImportPage() {
         throw new Error('Nenhum registro válido foi encontrado no CSV.');
       }
 
-      const updateRes = await updateBiImportStatus(importId, 'SUCCESS');
+      const updateRes = await withImportTimeout(
+        updateBiImportStatus(importId, 'SUCCESS'),
+        'A finalização da importação'
+      );
       if (!updateRes?.success) {
         throw new Error(updateRes?.error || 'Falha ao finalizar status da importação.');
       }
@@ -159,8 +184,6 @@ export default function FiorixBiImportPage() {
       toast.success("Importação Concluída!", {
         description: `${totalProcessed.toLocaleString('pt-BR')} registros foram inseridos com sucesso.`,
       });
-      setIsImporting(false);
-
       setTimeout(() => {
         handleCancelUpload();
         fetchImports();
@@ -168,14 +191,27 @@ export default function FiorixBiImportPage() {
     } catch (error: unknown) {
       console.error('Erro ao inserir importação BI:', error);
       const errMsg = error instanceof Error ? error.message : String(error);
-      await updateBiImportStatus(importId, 'FAILED', errMsg);
+      // Libera a interface imediatamente; o registro da falha abaixo é uma
+      // limpeza de melhor esforço e não deve prolongar o spinner.
+      setIsImporting(false);
+      if (importId) {
+        try {
+          await withImportTimeout(
+            updateBiImportStatus(importId, 'FAILED', errMsg),
+            'A marcação da importação como falha'
+          );
+        } catch (statusError) {
+          console.error('Erro ao registrar falha da importação BI:', statusError);
+        }
+      }
       toast.error("Falha na Importação", {
         description: errMsg,
       });
       setImportStatusMsg(`Erro na importação: ${errMsg}`);
       setImportErrorMessage(errMsg);
-      setIsImporting(false);
       fetchImports();
+    } finally {
+      setIsImporting(false);
     }
   };
 
