@@ -122,7 +122,10 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
         {/* 3. Tabela de Sincronização Incremental + Card de Telemetria do Connector */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
           <div className="lg:col-span-7">
-            <IncrementalSyncTable modules={health.incrementalModules} />
+            <IncrementalSyncTable 
+              modules={health.incrementalModules} 
+              recentBatches={health.recentBatches}
+            />
           </div>
           <div className="lg:col-span-5">
             <ConnectorDetailCard connector={health.connector} />

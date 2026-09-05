@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { authenticateConnector } from '@/lib/connectorAuth';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import { unpackLiveRecords } from '@/lib/connector/unpack-live';
 
 const syncPayloadSchema = z.object({
   // Legacy clients may send this field, but it never selects the tenant.
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
     // Validate schema
     const parsed = syncPayloadSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Invalid payload schema', details: parsed.error.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid payload schema', details: parsed.error.issues }, { status: 400 });
     }
 
     const { tenant_id, connector_id, source, batch_id, generated_at, records, chunk_index, chunk_count, sync_mode } = parsed.data;
@@ -214,6 +215,11 @@ export async function POST(req: Request) {
         status: result.batch.status,
       });
     }
+
+    // Descarrega registros em tempo real diretamente para as tabelas de dashboard
+    unpackLiveRecords({ tenantId, source, records }).catch((err) => {
+      console.error('LIVE_UNPACK_ERROR:', err);
+    });
 
     const now = new Date();
     const completed = result.batch.status === 'completed';

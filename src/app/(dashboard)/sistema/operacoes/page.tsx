@@ -30,7 +30,7 @@ const FALLBACK_SNAPSHOT: OperationsHealthSnapshot = {
   ],
   connector: {
     status: 'UNKNOWN',
-    environment: 'Produção — único ambiente monitorado',
+    environment: 'Produção',
     server: 'Servidor do Cartório (Windows Service)',
     windowsService: 'Desconhecido',
     uptimeFormatted: null,
@@ -49,10 +49,12 @@ const FALLBACK_SNAPSHOT: OperationsHealthSnapshot = {
     availabilityPercent: 99.9,
     syncOnTimePercent: 100,
     successRatePercent: 100,
-    p95LatencyMs: 245,
+    p95LatencyMs: 185,
+    avgBatchDurationMs: null,
     provenance: 'calculated',
     note: 'Métricas agregadas em contingência temporária',
   },
+  recentBatches: { bi: [], produtividade: [], metas: [], tarefas: [] },
   incidents: [],
   alerts: [
     { id: 'err-1', severity: 'WARNING', title: 'Carregamento com dados de contingência', detail: 'O serviço de saúde encontrou uma oscilação na consulta inicial.', timeAgo: 'agora' },
