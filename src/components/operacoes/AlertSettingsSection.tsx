@@ -322,34 +322,49 @@ export function AlertSettingsSection() {
 
               {/* Guia CallMeBot */}
               {config.whatsappProvider === 'callmebot' && (
-                <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/20 text-xs text-slate-300 space-y-2">
+                <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/20 text-xs text-slate-300 space-y-2.5">
                   <div className="flex items-center gap-2 font-bold text-emerald-400 text-sm">
                     <HelpCircle className="w-4 h-4" />
                     Como ativar o envio gratuito no seu WhatsApp em 30 segundos:
                   </div>
-                  <ol className="list-decimal list-inside space-y-1 text-slate-300 ml-1">
+                  <ol className="list-decimal list-inside space-y-2 text-slate-300 ml-1">
                     <li>
-                      Clique no link para abrir o contato no WhatsApp:{' '}
-                      <a
-                        href="https://wa.me/34644444444?text=I%20allow%20callmebot%20to%20send%20me%20messages"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-emerald-400 underline font-semibold inline-flex items-center gap-1 hover:text-emerald-300"
-                      >
-                        Abrir WhatsApp CallMeBot <ExternalLink className="w-3 h-3" />
-                      </a>
+                      Clique em um dos links abaixo para abrir a conversa oficial no WhatsApp:
+                      <div className="flex flex-wrap gap-2 mt-1.5 ml-4">
+                        <a
+                          href="https://wa.me/34644336663?text=I%20allow%20callmebot%20to%20send%20me%20messages"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold inline-flex items-center gap-1.5 shadow-sm transition-colors"
+                        >
+                          🟢 Abrir no WhatsApp (Servidor 1: +34 644 33 66 63) <ExternalLink className="w-3 h-3" />
+                        </a>
+                        <a
+                          href="https://wa.me/34623786449?text=I%20allow%20callmebot%20to%20send%20me%20messages"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold inline-flex items-center gap-1.5 border border-slate-700 transition-colors"
+                        >
+                          ⚪ Servidor Alternativo (+34 623 78 64 49) <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
                     </li>
                     <li>
-                      Envie a mensagem de texto:{' '}
-                      <code className="bg-slate-900 px-1.5 py-0.5 rounded text-emerald-300 font-mono">
+                      Envie a mensagem de texto pré-preenchida:{' '}
+                      <code className="bg-slate-900 px-2 py-0.5 rounded text-emerald-300 font-mono font-bold">
                         I allow callmebot to send me messages
                       </code>
                     </li>
                     <li>
-                      O bot responderá na hora com a sua <strong className="text-white">API Key pessoal</strong> (ex:{' '}
-                      <code className="bg-slate-900 px-1.5 py-0.5 rounded text-emerald-300 font-mono">123456</code>).
+                      O bot responderá imediatamente com sua <strong className="text-white">API Key pessoal</strong> (ex:{' '}
+                      <code className="bg-slate-900 px-2 py-0.5 rounded text-emerald-300 font-mono font-bold">837291</code>).
                     </li>
-                    <li>Cole o seu número e a chave nos campos abaixo e clique em Testar!</li>
+                    <li>
+                      Digite seu número de telefone com DDD (ex: <code className="bg-slate-900 px-1.5 py-0.5 rounded text-emerald-300 font-mono">+55 11 99999-9999</code>) e a chave recebida nos campos abaixo.
+                    </li>
+                    <li>
+                      Ligue o botão <strong className="text-white">Ativado</strong> no canto superior direito, clique em <strong className="text-white">Salvar Todas as Configurações</strong> e depois em <strong className="text-white">Testar Envio no WhatsApp</strong>!
+                    </li>
                   </ol>
                 </div>
               )}
