@@ -3,6 +3,8 @@ import { authenticateConnector } from '@/lib/connectorAuth';
 import { prisma } from '@/lib/prisma';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { recordConnectorTelemetry } from '@/lib/alerts/alert-storage';
+import { dispatchAlert } from '@/lib/alerts/alert-dispatcher';
 
 const sourceStateSchema = z.object({
   lastRunAt: z.string().nullable().optional(),
@@ -68,7 +70,16 @@ export async function POST(req: Request) {
       return jsonResponse(requestId, { error: 'Invalid payload schema' }, 400);
     }
 
-    const { connectorId, status = 'online', version, sources } = parsed.data;
+    const {
+      connectorId,
+      status = 'online',
+      version,
+      sources,
+      uptimeSeconds,
+      ramMb,
+      queuePending,
+      queueFailed,
+    } = parsed.data;
 
     // Authenticate connector and derive tenant from database authority
     const authResult = await authenticateConnector(connectorId, secret);
@@ -78,6 +89,34 @@ export async function POST(req: Request) {
 
     const tenantId = authResult.tenant.id;
     const resolvedConnectorId = authResult.connector.id;
+
+    // Gravar snapshot de telemetria rica (RAM, Uptime, Filas SQLite)
+    recordConnectorTelemetry({
+      tenantId,
+      connectorId: resolvedConnectorId,
+      uptimeSeconds,
+      ramMb,
+      queuePending,
+      queueFailed,
+    }).catch((telemetryErr) => {
+      console.warn('TELEMETRY_RECORD_WARN:', telemetryErr?.message);
+    });
+
+    // Se houver falhas acumuladas na fila local, notificar webhook se configurado
+    if (queueFailed && queueFailed > 10) {
+      dispatchAlert({
+        tenantId,
+        eventType: 'sync_failed',
+        title: 'Fila local de sincronizações com falha',
+        message: `O conector local no cartório possui ${queueFailed} pacotes com erro acumulados na fila local.`,
+        severity: 'WARNING',
+        metadata: {
+          'Fila com Erros': queueFailed,
+          'Fila Pendente': queuePending ?? 0,
+          'Uptime': uptimeSeconds ? `${Math.round(uptimeSeconds / 60)} min` : 'Desconhecido',
+        },
+      }).catch(() => {});
+    }
 
     // The payload timestamp is not authoritative. The server clock records
     // the heartbeat and prevents Connector clock skew.

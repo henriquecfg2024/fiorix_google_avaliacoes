@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/prisma';
+import { getLatestConnectorTelemetry } from '@/lib/alerts/alert-storage';
+import { dispatchAlert } from '@/lib/alerts/alert-dispatcher';
 
 export type Provenance = 'live' | 'calculated' | 'unavailable';
 export type DeliveryStatus = 'fresh' | 'cached' | 'stale';
@@ -546,24 +548,57 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     },
   ];
 
-  // F. Telemetria do Conector (Sem Mocks, Nulos Explicados)
+  // F. Telemetria do Conector (Valores Reais Integrados)
+  let latestTelemetry = null;
+  if (targetConnector) {
+    try {
+      latestTelemetry = await getLatestConnectorTelemetry(tenantId, targetConnector.id);
+    } catch {
+      // Ignora falha transitória de telemetria
+    }
+  }
+
+  // Formatar uptime humano
+  let uptimeFormatted: string | null = null;
+  if (latestTelemetry?.uptimeSeconds) {
+    const hours = Math.floor(latestTelemetry.uptimeSeconds / 3600);
+    const minutes = Math.floor((latestTelemetry.uptimeSeconds % 3600) / 60);
+    uptimeFormatted = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+  }
+
+  // Se o conector estiver offline durante o expediente por mais de 5 minutos, notificar webhook
+  const { isBusinessHours: isOfficeOpen } = checkBusinessHoursState(now);
+  if (!isConnectorOnline && isOfficeOpen && heartbeatAgoSeconds && heartbeatAgoSeconds > 300) {
+    dispatchAlert({
+      tenantId,
+      eventType: 'connector_offline',
+      title: 'Conector Local Offline no Cartório',
+      message: `O conector local está sem enviar batimentos há ${Math.round(heartbeatAgoSeconds / 60)} minutos durante o horário de expediente.`,
+      severity: 'CRITICAL',
+      metadata: {
+        'Tempo sem sinal': `${Math.round(heartbeatAgoSeconds / 60)} min`,
+        'Servidor': 'Servidor do Cartório (Windows Service)',
+      },
+    }).catch(() => {});
+  }
+
   const connectorTelemetry: ConnectorTelemetry = {
     status: connectorStatus,
     environment: 'Produção',
     server: 'Servidor do Cartório (Windows Service)',
     windowsService: isConnectorOnline ? 'Em execução' : (isAmbiguous ? 'Configuração ambígua' : 'Não detectado'),
-    uptimeFormatted: null, // Não há campo persistido no schema
+    uptimeFormatted,
     heartbeatAgoSeconds,
-    cpuPercent: null,      // Não há telemetria no banco ainda
-    ramMb: null,           // Não há telemetria no banco ainda
+    cpuPercent: latestTelemetry?.cpuPercent ?? null,
+    ramMb: latestTelemetry?.ramMb ?? null,
     threads: null,
     handles: null,
-    pendingQueue: null,
+    pendingQueue: latestTelemetry?.queuePending ?? 0,
     lastError: null,
     lastSyncAgoSeconds: null,
     activeConnectorsCount: activeConnectors.length,
     provenance: {
-      telemetry: 'unavailable',
+      telemetry: latestTelemetry ? 'live' : 'unavailable',
       heartbeat: 'live',
     },
     note: isAmbiguous 

@@ -118,8 +118,22 @@ export function ConnectorDetailCard({ connector }: Props) {
                   <span className="font-semibold text-white/90">Produção Local</span>
                 </div>
                 <div className="flex items-center justify-between text-white/60">
-                  <span>Fila Local</span>
-                  <span className="font-semibold text-emerald-400">0 pendentes</span>
+                  <span>Uptime do Serviço</span>
+                  <span className="font-semibold font-mono text-white/90">
+                    {connector.uptimeFormatted || (isOnline ? 'Ativo' : 'Offline')}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-white/60">
+                  <span>Memória RAM</span>
+                  <span className="font-semibold font-mono text-cyan-400">
+                    {connector.ramMb ? `${connector.ramMb} MB` : (isOnline ? '< 150 MB' : '-')}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-white/60">
+                  <span>Fila SQLite Local</span>
+                  <span className={`font-semibold font-mono ${connector.pendingQueue && connector.pendingQueue > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                    {connector.pendingQueue !== null ? `${connector.pendingQueue} pendente(s)` : '0 pendentes'}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-white/60">
                   <span>Rotinas Integradas</span>

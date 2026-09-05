@@ -22,6 +22,7 @@ import { MetricsChartCard } from './MetricsChartCard';
 import { DeploysVersionsFooter } from './DeploysVersionsFooter';
 import { OperationsChartsSection } from './OperationsChartsSection';
 import { BatchAuditSection } from './BatchAuditSection';
+import { AlertSettingsSection } from './AlertSettingsSection';
 import { BarChart3, Database } from 'lucide-react';
 
 interface Props {
@@ -31,7 +32,7 @@ interface Props {
 
 export function CentralOperacoesClient({ initialHealth, userName }: Props) {
   const [health, setHealth] = useState<OperationsHealthSnapshot>(initialHealth);
-  const [activeTab, setActiveTab] = useState<'overview' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'audit' | 'alerts'>('overview');
   const [isPending, startTransition] = useTransition();
   const [lastUpdated, setLastUpdated] = useState<string>(initialHealth.timestamp);
 
@@ -121,7 +122,7 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
         </div>
 
         {/* Navegação entre Abas */}
-        <div className="flex items-center gap-2 border-b border-white/8 pb-2">
+        <div className="flex flex-wrap items-center gap-2 border-b border-white/8 pb-2">
           <button
             type="button"
             onClick={() => setActiveTab('overview')}
@@ -147,9 +148,22 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
             <Database className="h-4 w-4" />
             <span>Histórico de Lotes & Auditoria</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('alerts')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'alerts'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25 border border-blue-500/30'
+                : 'text-white/60 hover:text-white hover:bg-white/[0.04] border border-transparent'
+            }`}
+          >
+            <Bell className="h-4 w-4" />
+            <span>Configuração de Alertas</span>
+          </button>
         </div>
 
-        {activeTab === 'overview' ? (
+        {activeTab === 'overview' && (
           <>
             {/* 2. Grid de Cards de Serviços de Infraestrutura */}
             <ServiceHealthGrid services={health.services} />
@@ -176,9 +190,16 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
             {/* 6. Métricas Agregadas da Plataforma */}
             <MetricsChartCard metrics={health.metrics} />
           </>
-        ) : (
+        )}
+
+        {activeTab === 'audit' && (
           /* Aba de Auditoria Completa de Lotes */
           <BatchAuditSection />
+        )}
+
+        {activeTab === 'alerts' && (
+          /* Aba de Configuração de Notificações e Webhooks */
+          <AlertSettingsSection />
         )}
 
         {/* Rodapé de Deploys e Versões */}
