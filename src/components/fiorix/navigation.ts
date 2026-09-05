@@ -13,6 +13,7 @@ import {
   Settings2,
   Activity,
   UserCheck,
+  BookOpen,
 } from "lucide-react";
 
 export const navigationGroups = {
@@ -90,6 +91,12 @@ export const navigationGroups = {
         href: "/sistema/pessoas",
         icon: UserCheck,
         description: "Gestão do quadro de colaboradores",
+      },
+      {
+        label: "Instruções de Trabalho",
+        href: "/administracao/its",
+        icon: BookOpen,
+        description: "ITs, Trilha & Polivalência",
       },
     ],
   },

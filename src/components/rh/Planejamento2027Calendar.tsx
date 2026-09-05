@@ -6,7 +6,7 @@ import { Users, AlertTriangle, CheckCircle2 } from "lucide-react";
 export interface PlanejamentoColaborador {
   id: string;
   nome: string;
-  setor: "Atendimento" | "Registro" | "Financeiro" | "RH" | "Administração";
+  setor: "Atendimento" | "Registro" | "Financeiro" | "RH" | "Administração" | "Impressão/Arquivo" | "TI";
   p1Inicio: string;
   p1Fim: string;
   p1Dias: number;
@@ -38,6 +38,8 @@ const SETOR_COLORS: Record<string, string> = {
   Financeiro: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
   RH: "bg-purple-500/20 text-purple-300 border-purple-500/30",
   Administração: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+  "Impressão/Arquivo": "bg-rose-500/20 text-rose-300 border-rose-500/30",
+  TI: "bg-blue-500/20 text-blue-300 border-blue-500/30",
 };
 
 export function Planejamento2027Calendar({ ano = 2027, colaboradores, onSelectMes }: Planejamento2027CalendarProps) {

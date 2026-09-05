@@ -18,7 +18,7 @@ export async function requireAuth(): Promise<AuthenticatedUser> {
     throw new Error('Não autorizado: Sessão não encontrada ou inválida.');
   }
 
-  let tenantId = session.user.tenantId;
+  let tenantId: string | undefined = session.user.tenantId;
 
   if (!tenantId) {
     try {

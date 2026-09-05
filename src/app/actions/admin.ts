@@ -8,11 +8,27 @@ import { revalidatePath } from 'next/cache';
 export async function getUsers() {
   const user = await requireRole('ADMIN', 'MASTER');
 
-  return prisma.user.findMany({
-    where: { tenantId: user.tenantId },
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
-    orderBy: { createdAt: 'desc' }
-  });
+  const rows = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT 
+       id, 
+       name, 
+       email, 
+       role, 
+       "createdAt", 
+       cpf, 
+       departamento, 
+       cargo, 
+       ramal, 
+       pode_ser_tutor as "podeSerTutor", 
+       status
+     FROM public."User"
+     WHERE "tenantId" = $1
+     ORDER BY 
+       CASE WHEN role = 'MASTER' THEN 0 WHEN role = 'ADMIN' THEN 1 WHEN role = 'RH' THEN 2 ELSE 3 END,
+       name ASC`,
+    user.tenantId
+  );
+  return rows;
 }
 
 export async function getTenants() {
@@ -31,20 +47,35 @@ export async function getTenants() {
 export async function createUser(formData: FormData) {
   const currentUser = await requireRole('ADMIN', 'MASTER');
 
-  const name = formData.get('name') as string;
-  const email = formData.get('email') as string;
+  const name = (formData.get('name') as string)?.trim();
+  const email = (formData.get('email') as string)?.trim().toLowerCase();
   const password = formData.get('password') as string;
-  const rawRole = (formData.get('role') as string) || 'USER';
+  const cpf = (formData.get('cpf') as string)?.trim() || null;
+  const departamento = (formData.get('departamento') as string) || 'Atendimento';
+  const cargo = (formData.get('cargo') as string)?.trim() || 'auxiliar';
+  const ramal = (formData.get('ramal') as string)?.trim() || null;
+  const podeSerTutor = formData.get('podeSerTutor') === 'true' || formData.get('podeSerTutor') === 'on';
 
-  const validRoles = ['COLABORADOR', 'USER', 'RH', 'ADMIN'];
-  if (!validRoles.includes(rawRole)) {
-    throw new Error('Função selecionada inválida.');
+  // REGRA DE FUNÇÃO: Só Henrique Cesar pode ser ADMIN; todos os outros viram COLABORADOR ou RH
+  let role = 'COLABORADOR';
+  const requestedRole = (formData.get('role') as string) || 'COLABORADOR';
+  if (name.toLowerCase().includes('henrique cesar') && requestedRole === 'ADMIN') {
+    role = 'ADMIN';
+  } else if (requestedRole === 'RH') {
+    role = 'RH';
+  } else if (requestedRole === 'USER') {
+    role = 'USER';
+  } else {
+    role = 'COLABORADOR';
   }
 
-  const role = rawRole as 'COLABORADOR' | 'USER' | 'RH' | 'ADMIN';
+  if (!name || !email || !password) {
+    throw new Error('Nome, e-mail e senha são obrigatórios.');
+  }
 
-  if (!email || !password) {
-    throw new Error('E-mail e senha são obrigatórios.');
+  // PROTEÇÃO MASTER
+  if (email === 'admin@fiorix.com.br') {
+    throw new Error('Operação negada: Usuário MASTER protegido.');
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -52,17 +83,42 @@ export async function createUser(formData: FormData) {
     throw new Error('Já existe um usuário cadastrado com este e-mail.');
   }
 
+  if (cpf) {
+    const existingCpf = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id FROM public."User" WHERE cpf = $1 LIMIT 1`,
+      cpf
+    );
+    if (existingCpf.length > 0) {
+      throw new Error('Já existe um colaborador cadastrado com este CPF.');
+    }
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
 
-  const newUser = await prisma.user.create({
-    data: {
-      name,
-      email,
-      passwordHash,
-      role,
-      tenantId: currentUser.tenantId,
-    },
-  });
+  await prisma.$executeRawUnsafe(
+    `
+    INSERT INTO public."User" (
+      id, name, email, "passwordHash", role, "tenantId", 
+      cpf, departamento, cargo, ramal, pode_ser_tutor, status, 
+      "createdAt", "updatedAt"
+    )
+    VALUES (
+      gen_random_uuid()::text, $1, $2, $3, $4::"Role", $5, 
+      $6, $7, $8, $9, $10, 'ativo', 
+      NOW(), NOW()
+    );
+  `,
+    name,
+    email,
+    passwordHash,
+    role,
+    currentUser.tenantId,
+    cpf,
+    departamento,
+    cargo,
+    ramal,
+    podeSerTutor
+  );
 
   // Log de auditoria
   try {
@@ -71,7 +127,7 @@ export async function createUser(formData: FormData) {
       tenantId: currentUser.tenantId,
       usuarioId: currentUser.id,
       tipo: 'user_created',
-      recursoId: newUser.id,
+      recursoId: email,
       ip: '127.0.0.1',
       metadata: { target_email: email, role, actor_user_id: currentUser.id },
     });
@@ -131,8 +187,9 @@ export async function resetUserPassword(userId: string, newPassword: string) {
   const targetUser = await prisma.user.findUnique({ where: { id: userId } });
   if (!targetUser) return { error: 'Usuário não encontrado.' };
 
-  if (targetUser.role === 'MASTER' && currentUser.role !== 'MASTER') {
-    return { error: 'Apenas usuários MASTER podem resetar a senha de contas MASTER.' };
+  // REGRA CRÍTICA - PROTEÇÃO MASTER
+  if (targetUser.email === 'admin@fiorix.com.br' || targetUser.role === 'MASTER') {
+    return { error: 'Usuário MASTER protegido - não pode ser alterado sob nenhuma circunstância.' };
   }
 
   if (currentUser.role !== 'MASTER' && targetUser.tenantId !== currentUser.tenantId) {
@@ -140,10 +197,15 @@ export async function resetUserPassword(userId: string, newPassword: string) {
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  await prisma.user.update({
-    where: { id: userId },
-    data: { passwordHash }
-  });
+  await prisma.$executeRawUnsafe(
+    `
+    UPDATE public."User"
+    SET "passwordHash" = $1, "updatedAt" = NOW()
+    WHERE id = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+  `,
+    passwordHash,
+    userId
+  );
 
   revalidatePath('/configuracoes/usuarios');
   return { success: true };
@@ -163,22 +225,33 @@ export async function updateUserRole(
   const targetUser = await prisma.user.findUnique({ where: { id: userId } });
   if (!targetUser) return { error: 'Usuário não encontrado.' };
 
-  if (targetUser.role === 'MASTER' && currentUser.role !== 'MASTER') {
-    return { error: 'Não é possível alterar a função de um usuário MASTER.' };
+  // REGRA CRÍTICA - PROTEÇÃO MASTER
+  if (targetUser.email === 'admin@fiorix.com.br' || targetUser.role === 'MASTER') {
+    return { error: 'Usuário MASTER protegido - não pode ser alterado sob nenhuma circunstância.' };
   }
 
   if (currentUser.role !== 'MASTER' && targetUser.tenantId !== currentUser.tenantId) {
     return { error: 'Não autorizado a alterar este usuário.' };
   }
 
+  // Só Henrique Cesar pode ser promovido a ADMIN
+  if (newRole === 'ADMIN' && !targetUser.name?.toLowerCase().includes('henrique cesar')) {
+    return { error: 'Apenas Henrique Cesar Ferreira Gama possui prerrogativa de ADMIN na organização.' };
+  }
+
   const oldRole = targetUser.role;
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { role: newRole as any },
-  });
+  await prisma.$executeRawUnsafe(
+    `
+    UPDATE public."User"
+    SET role = $1::"Role", "updatedAt" = NOW()
+    WHERE id = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+  `,
+    newRole,
+    userId
+  );
 
-  // Log de auditoria para mudança de função
+  // Log de auditoria
   try {
     const { logAuditEvent } = await import('@/lib/audit/log');
     await logAuditEvent({
@@ -209,23 +282,94 @@ export async function updateUserName(userId: string, newName: string) {
   const targetUser = await prisma.user.findUnique({ where: { id: userId } });
   if (!targetUser) return { error: 'Usuário não encontrado.' };
 
-  if (targetUser.role === 'MASTER' && currentUser.role !== 'MASTER') {
-    return { error: 'Apenas usuários MASTER podem alterar o nome de uma conta MASTER.' };
+  // REGRA CRÍTICA - PROTEÇÃO MASTER
+  if (targetUser.email === 'admin@fiorix.com.br' || targetUser.role === 'MASTER') {
+    return { error: 'Usuário MASTER protegido - não pode ser alterado sob nenhuma circunstância.' };
   }
 
   if (currentUser.role !== 'MASTER' && targetUser.tenantId !== currentUser.tenantId) {
     return { error: 'Não autorizado a alterar este usuário.' };
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { name: newName.trim() }
-  });
+  await prisma.$executeRawUnsafe(
+    `
+    UPDATE public."User"
+    SET name = $1, "updatedAt" = NOW()
+    WHERE id = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+  `,
+    newName.trim(),
+    userId
+  );
 
   revalidatePath('/configuracoes/usuarios');
   return { success: true };
 }
 
+export async function updateUserCpf(userId: string, newCpf: string) {
+  const currentUser = await requireRole('ADMIN', 'MASTER');
 
+  const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+  if (!targetUser) return { error: 'Usuário não encontrado.' };
 
+  // REGRA CRÍTICA - PROTEÇÃO MASTER
+  if (targetUser.email === 'admin@fiorix.com.br' || targetUser.role === 'MASTER') {
+    return { error: 'Usuário MASTER protegido - não pode ser alterado sob nenhuma circunstância.' };
+  }
 
+  const cleanCpf = newCpf.trim();
+  if (cleanCpf) {
+    const existing = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id FROM public."User" WHERE cpf = $1 AND id != $2 LIMIT 1`,
+      cleanCpf,
+      userId
+    );
+    if (existing.length > 0) {
+      return { error: 'Este CPF já está cadastrado para outro colaborador.' };
+    }
+  }
+
+  await prisma.$executeRawUnsafe(
+    `
+    UPDATE public."User"
+    SET cpf = $1, "updatedAt" = NOW()
+    WHERE id = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+  `,
+    cleanCpf || null,
+    userId
+  );
+
+  revalidatePath('/configuracoes/usuarios');
+  return { success: true };
+}
+
+export async function toggleUserStatus(userId: string) {
+  const currentUser = await requireRole('ADMIN', 'MASTER');
+
+  const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+  if (!targetUser) return { error: 'Usuário não encontrado.' };
+
+  // REGRA CRÍTICA - PROTEÇÃO MASTER
+  if (targetUser.email === 'admin@fiorix.com.br' || targetUser.role === 'MASTER') {
+    return { error: 'Usuário MASTER protegido - não pode ser alterado sob nenhuma circunstância.' };
+  }
+
+  const rows = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT status FROM public."User" WHERE id = $1`,
+    userId
+  );
+  const currentStatus = rows[0]?.status || 'ativo';
+  const newStatus = currentStatus === 'ativo' ? 'inativo' : 'ativo';
+
+  await prisma.$executeRawUnsafe(
+    `
+    UPDATE public."User"
+    SET status = $1, "updatedAt" = NOW()
+    WHERE id = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+  `,
+    newStatus,
+    userId
+  );
+
+  revalidatePath('/configuracoes/usuarios');
+  return { success: true, newStatus };
+}

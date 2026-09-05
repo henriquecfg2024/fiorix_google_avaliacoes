@@ -17,13 +17,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
+import { COLABORADORES_REAIS_63 } from "./mockColaboradores45";
 
 interface CLT135ValidatorProps {
   onValidated?: (isValid: boolean, date: string) => void;
 }
 
 export function CLT135Validator({ onValidated }: CLT135ValidatorProps) {
-  const [colaborador, setColaborador] = useState("Mariana Oliveira (Registro)");
+  const [colaborador, setColaborador] = useState("Amanda Aparecida Gil (Registro)");
   const [dataInicio, setDataInicio] = useState("2026-10-15");
   const [dataFim, setDataFim] = useState("2026-11-03");
   const [diasTotal, setDiasTotal] = useState(20);
@@ -88,12 +89,11 @@ export function CLT135Validator({ onValidated }: CLT135ValidatorProps) {
               onChange={(e) => setColaborador(e.target.value)}
               className="w-full bg-[#05050a] border border-white/15 text-white text-xs rounded-xl p-2.5 outline-none font-medium"
             >
-              <option value="Mariana Oliveira (Registro)">Mariana Oliveira — Registro</option>
-              <option value="Henrique Gama (Administração)">Henrique Gama — Administração</option>
-              <option value="Carlos Eduardo Silva (Registro)">Carlos Eduardo Silva — Registro</option>
-              <option value="Fernanda Costa (Atendimento)">Fernanda Costa — Atendimento</option>
-              <option value="Luciana Martins (Atendimento)">Luciana Martins — Atendimento</option>
-              <option value="João Victor Lima (Financeiro)">João Victor Lima — Financeiro</option>
+              {COLABORADORES_REAIS_63.map((c) => (
+                <option key={c.id} value={`${c.nome} (${c.setor})`}>
+                  {c.nome} — {c.setor} ({c.cargo})
+                </option>
+              ))}
             </select>
           </div>
 

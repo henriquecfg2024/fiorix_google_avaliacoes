@@ -152,7 +152,7 @@ export function Planejamento2027Tab() {
       }))
     );
     alert(
-      `Planejamento de Férias 2027 homologado e publicado com sucesso!\n\nHash SHA-256 da Escala: 9a8f21c0b34de5... (Trilha WORM gravada)\nNotificações push enviadas para todos os 45 colaboradores.`
+      `Planejamento de Férias 2027 homologado e publicado com sucesso!\n\nHash SHA-256 da Escala: 9a8f21c0b34de5... (Trilha WORM gravada)\nNotificações push enviadas para todos os 63 colaboradores.`
     );
   };
 
@@ -342,12 +342,13 @@ export function Planejamento2027Tab() {
               onChange={(e) => setSelectedSetor(e.target.value)}
               className="bg-[#05050a] border border-white/15 text-white text-xs rounded-xl px-3 py-2 outline-none"
             >
-              <option value="TODOS">Todos os Setores</option>
-              <option value="Atendimento">Atendimento (18)</option>
-              <option value="Registro">Registro (15)</option>
-              <option value="Financeiro">Financeiro (5)</option>
-              <option value="RH">RH (3)</option>
-              <option value="Administração">Administração (4)</option>
+              <option value="TODOS">Todos os Setores ({colaboradores.length})</option>
+              <option value="Atendimento">Atendimento ({colaboradores.filter(c => c.setor === 'Atendimento').length})</option>
+              <option value="Registro">Registro ({colaboradores.filter(c => c.setor === 'Registro').length})</option>
+              <option value="Administração">Administração ({colaboradores.filter(c => c.setor === 'Administração').length})</option>
+              <option value="Impressão/Arquivo">Impressão/Arquivo ({colaboradores.filter(c => c.setor === 'Impressão/Arquivo').length})</option>
+              <option value="TI">TI ({colaboradores.filter(c => c.setor === 'TI').length})</option>
+              <option value="RH">RH ({colaboradores.filter(c => c.setor === 'RH').length})</option>
             </select>
 
             <select
@@ -625,9 +626,10 @@ export function Planejamento2027Tab() {
                 >
                   <option value="Atendimento">Atendimento</option>
                   <option value="Registro">Registro</option>
-                  <option value="Financeiro">Financeiro</option>
-                  <option value="RH">RH</option>
                   <option value="Administração">Administração</option>
+                  <option value="Impressão/Arquivo">Impressão/Arquivo</option>
+                  <option value="TI">TI</option>
+                  <option value="RH">RH</option>
                 </select>
               </div>
 

@@ -16,6 +16,8 @@ const SETOR_BAR_COLORS: Record<string, string> = {
   Financeiro: "from-emerald-500 to-teal-500 shadow-emerald-500/20",
   RH: "from-purple-500 to-pink-500 shadow-purple-500/20",
   Administração: "from-amber-500 to-orange-500 shadow-amber-500/20",
+  "Impressão/Arquivo": "from-rose-500 to-red-500 shadow-rose-500/20",
+  TI: "from-blue-600 to-indigo-600 shadow-blue-500/20",
 };
 
 export function Planejamento2027Gantt({ ano = 2027, colaboradores }: Planejamento2027GanttProps) {
@@ -57,12 +59,13 @@ export function Planejamento2027Gantt({ ano = 2027, colaboradores }: Planejament
             onChange={(e) => setFilterSetor(e.target.value)}
             className="bg-[#05050a] border border-white/15 text-white text-xs rounded-xl px-3 py-1.5 outline-none font-medium"
           >
-            <option value="TODOS">Todos os Setores (45)</option>
-            <option value="Atendimento">Atendimento (18)</option>
-            <option value="Registro">Registro (15)</option>
-            <option value="Financeiro">Financeiro (5)</option>
-            <option value="RH">RH (3)</option>
-            <option value="Administração">Administração (4)</option>
+            <option value="TODOS">Todos os Setores ({colaboradores.length})</option>
+            <option value="Atendimento">Atendimento ({colaboradores.filter(c => c.setor === 'Atendimento').length})</option>
+            <option value="Registro">Registro ({colaboradores.filter(c => c.setor === 'Registro').length})</option>
+            <option value="Administração">Administração ({colaboradores.filter(c => c.setor === 'Administração').length})</option>
+            <option value="Impressão/Arquivo">Impressão/Arquivo ({colaboradores.filter(c => c.setor === 'Impressão/Arquivo').length})</option>
+            <option value="TI">TI ({colaboradores.filter(c => c.setor === 'TI').length})</option>
+            <option value="RH">RH ({colaboradores.filter(c => c.setor === 'RH').length})</option>
           </select>
         </div>
       </div>

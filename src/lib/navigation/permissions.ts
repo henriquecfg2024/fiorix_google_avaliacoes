@@ -21,10 +21,10 @@ export function filterNavigationByRole(role: Role = "USER") {
 
     const visibleItems = group.items.filter((item) => {
       if (isColaborador) {
-        return item.href.startsWith("/pessoas");
+        return item.href.startsWith("/pessoas") || item.href === "/administracao/its";
       }
       if (isRH) {
-        return item.href.startsWith("/pessoas") || item.href === "/sistema/pessoas";
+        return item.href.startsWith("/pessoas") || item.href === "/sistema/pessoas" || item.href === "/administracao/its";
       }
       if (isUser) {
         if (

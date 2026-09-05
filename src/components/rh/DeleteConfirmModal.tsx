@@ -21,7 +21,7 @@ export function DeleteConfirmModal({
   onConfirm,
   title,
   itemDescription,
-  wormWarning = "Por Prov. 213/2026 Art. 7 e LGPD Art. 5 II, a exclusão não apaga a trilha de auditoria; os registros são arquivados com custódia WORM de 5 anos com hash criptográfico imutável.",
+  wormWarning = "Por Diretriz Operacional Interna e LGPD Art. 5 II, a exclusão não apaga a trilha de auditoria; os registros são arquivados com custódia WORM de 5 anos com hash criptográfico imutável.",
   loading = false,
 }: DeleteConfirmModalProps) {
   const [motivo, setMotivo] = useState("");

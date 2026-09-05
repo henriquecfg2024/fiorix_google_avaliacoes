@@ -65,7 +65,7 @@ export function ComunicadoAuditModal({
             </div>
             <div>
               <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                Trilha de Auditoria & Provas de Ciência — Provimento 213/2026 Art. 7
+                Trilha de Auditoria & Provas de Ciência — Diretriz Operacional Interna
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                   CUSTÓDIA WORM IMUTÁVEL
                 </span>

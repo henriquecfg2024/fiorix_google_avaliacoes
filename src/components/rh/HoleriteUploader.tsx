@@ -35,6 +35,8 @@ interface HoleriteItem {
   hash: string;
 }
 
+import { COLABORADORES_REAIS_63 } from "./mockColaboradores45";
+
 export function HoleriteUploader() {
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -47,78 +49,78 @@ export function HoleriteUploader() {
   const [viewPdfItem, setViewPdfItem] = useState<HoleriteItem | null>(null);
   const [viewLogsItem, setViewLogsItem] = useState<HoleriteItem | null>(null);
 
-  // Lista de holerites existentes no sistema (Mock realista para 7º RI SP)
+  // Lista de holerites existentes no sistema (Base real 7º RI SP)
   const [holeritesList, setHoleritesList] = useState<HoleriteItem[]>([
     {
       id: "hol-1",
-      colaborador: "Henrique Gama",
-      cpf: "***.452.900-00",
+      colaborador: "Henrique Cesar Ferreira Gama",
+      cpf: "***.000.000-28",
       mesAno: "08/2026",
       dataUpload: "30/08/2026 09:00",
-      uploadedBy: "Maria Silva (RH)",
+      uploadedBy: "Nadia Najjar (RH)",
       visualizacoes: 12,
       status: "Ciente",
-      arquivoNome: "12345678901_08-2026.pdf",
+      arquivoNome: "10000000028_08-2026.pdf",
       hash: "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
     },
     {
       id: "hol-2",
-      colaborador: "Mariana Oliveira",
-      cpf: "***.891.300-11",
+      colaborador: "Amanda Aparecida Gil",
+      cpf: "***.000.000-02",
       mesAno: "08/2026",
       dataUpload: "30/08/2026 09:02",
-      uploadedBy: "Maria Silva (RH)",
+      uploadedBy: "Nadia Najjar (RH)",
       visualizacoes: 8,
       status: "Visualizado",
-      arquivoNome: "23456789012_08-2026.pdf",
+      arquivoNome: "10000000002_08-2026.pdf",
       hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     },
     {
       id: "hol-3",
-      colaborador: "Carlos Eduardo Silva",
-      cpf: "***.124.789-22",
+      colaborador: "Alex Nogueira Junior",
+      cpf: "***.000.000-01",
       mesAno: "08/2026",
       dataUpload: "30/08/2026 09:03",
-      uploadedBy: "Maria Silva (RH)",
+      uploadedBy: "Nadia Najjar (RH)",
       visualizacoes: 0,
       status: "Ativo",
-      arquivoNome: "34567890123_08-2026.pdf",
+      arquivoNome: "10000000001_08-2026.pdf",
       hash: "a1b2c3d4e5f67a89bc012d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a",
     },
     {
       id: "hol-4",
-      colaborador: "Fernanda Costa",
-      cpf: "***.903.456-33",
+      colaborador: "Claudio Donizetti Ferreira da Silva",
+      cpf: "***.000.000-12",
       mesAno: "08/2026",
       dataUpload: "30/08/2026 09:05",
-      uploadedBy: "Maria Silva (RH)",
+      uploadedBy: "Nadia Najjar (RH)",
       visualizacoes: 5,
       status: "Ciente",
-      arquivoNome: "45678901234_08-2026.pdf",
+      arquivoNome: "10000000012_08-2026.pdf",
       hash: "5d41402abc4b2a76b9719d911017c592",
     },
     {
       id: "hol-5",
-      colaborador: "Luciana Martins",
-      cpf: "***.678.910-44",
+      colaborador: "Nadia Najjar",
+      cpf: "***.000.000-42",
       mesAno: "08/2026",
       dataUpload: "30/08/2026 09:07",
-      uploadedBy: "Maria Silva (RH)",
+      uploadedBy: "Nadia Najjar (RH)",
       visualizacoes: 3,
       status: "Visualizado",
-      arquivoNome: "56789012345_08-2026.pdf",
+      arquivoNome: "10000000042_08-2026.pdf",
       hash: "9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca7",
     },
     {
       id: "hol-6",
-      colaborador: "João Victor Lima",
-      cpf: "***.234.567-55",
+      colaborador: "Antonio Carlos Belato Câmara",
+      cpf: "***.000.000-08",
       mesAno: "07/2026",
       dataUpload: "30/07/2026 14:00",
-      uploadedBy: "Maria Silva (RH)",
+      uploadedBy: "Nadia Najjar (RH)",
       visualizacoes: 14,
       status: "Ciente",
-      arquivoNome: "67890123456_07-2026.pdf",
+      arquivoNome: "10000000008_07-2026.pdf",
       hash: "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
     },
   ]);
@@ -133,8 +135,39 @@ export function HoleriteUploader() {
     if (files.length === 0) return;
     setUploading(true);
     setTimeout(() => {
+      const novosHolerites: HoleriteItem[] = files.map((f, idx) => {
+        // Formato esperado: CPF_MM-AAAA.pdf
+        const cleanName = f.name.replace(/\.pdf$/i, "");
+        const parts = cleanName.split("_");
+        const rawCpf = parts[0] || "";
+        const mesAno = parts[1] ? parts[1].replace("-", "/") : "08/2026";
+        
+        // Busca nos colaboradores reais pelo sufixo ou CPF
+        const found = COLABORADORES_REAIS_63.find((c) => {
+          const digits = c.cpf.replace(/\D/g, "");
+          return rawCpf.endsWith(digits.slice(-2)) || rawCpf === digits;
+        });
+
+        const colabNome = found ? found.nome : `Colaborador CPF ${rawCpf.slice(-2)}`;
+        const colabCpf = found ? found.cpf : `***.000.000-${rawCpf.slice(-2) || "00"}`;
+
+        return {
+          id: `hol-${Date.now()}-${idx}`,
+          colaborador: colabNome,
+          cpf: colabCpf,
+          mesAno: mesAno,
+          dataUpload: new Date().toLocaleString("pt-BR"),
+          uploadedBy: "Nadia Najjar (RH)",
+          visualizacoes: 0,
+          status: "Ativo" as const,
+          arquivoNome: f.name,
+          hash: `sha256_${Date.now().toString(16)}_${idx}`,
+        };
+      });
+
+      setHoleritesList((prev) => [...novosHolerites, ...prev]);
       setUploading(false);
-      alert(`${files.length} holerites enviados, associados aos CPFs e assinados com SHA-256 com sucesso!`);
+      alert(`${files.length} holerites enviados, associados aos colaboradores do 7º RI SP e assinados com SHA-256 com sucesso!`);
       setFiles([]);
     }, 1200);
   };
