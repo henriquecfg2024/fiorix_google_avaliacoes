@@ -1,6 +1,23 @@
 import { prisma } from '@/lib/prisma';
 import { randomUUID } from 'node:crypto';
 
+export interface SmtpEmailConfig {
+  host?: string;
+  port?: number;
+  secure?: boolean;
+  user?: string;
+  pass?: string;
+  from?: string;
+  resendApiKey?: string;
+}
+
+export interface WhatsAppConfig {
+  apikey?: string;
+  instanceUrl?: string;
+  token?: string;
+  chatId?: string;
+}
+
 export interface AlertChannelConfig {
   id?: string;
   tenantId: string;
@@ -13,6 +30,18 @@ export interface AlertChannelConfig {
   notifyModuleDelayed: boolean;
   cooldownMinutes: number;
   lastTriggeredAt?: string | null;
+
+  // E-mail corporativo nativo
+  emailEnabled?: boolean;
+  emailRecipients?: string;
+  emailProvider?: 'smtp' | 'resend';
+  emailConfig?: SmtpEmailConfig;
+
+  // WhatsApp nativo (CallMeBot / Evolution / Z-API)
+  whatsappEnabled?: boolean;
+  whatsappProvider?: 'callmebot' | 'evolution' | 'zapi';
+  whatsappPhone?: string;
+  whatsappConfig?: WhatsAppConfig;
 }
 
 export interface AlertLogItem {
@@ -50,7 +79,7 @@ export async function ensureAlertTablesExist(): Promise<void> {
         id TEXT PRIMARY KEY,
         tenant_id TEXT NOT NULL,
         name TEXT NOT NULL DEFAULT 'Webhook Principal',
-        webhook_url TEXT NOT NULL,
+        webhook_url TEXT NOT NULL DEFAULT '',
         channel_type TEXT NOT NULL DEFAULT 'generic',
         enabled BOOLEAN NOT NULL DEFAULT true,
         notify_connector_offline BOOLEAN NOT NULL DEFAULT true,
@@ -62,6 +91,40 @@ export async function ensureAlertTablesExist(): Promise<void> {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         CONSTRAINT uq_tenant_alert_channel UNIQUE (tenant_id)
       );
+    `);
+
+    // Retrocompatibilidade / Migração de colunas para E-mail e WhatsApp
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE public.fiorix_operations_alert_channels 
+        ADD COLUMN IF NOT EXISTS email_enabled BOOLEAN NOT NULL DEFAULT false;
+    `);
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE public.fiorix_operations_alert_channels 
+        ADD COLUMN IF NOT EXISTS email_recipients TEXT NOT NULL DEFAULT '';
+    `);
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE public.fiorix_operations_alert_channels 
+        ADD COLUMN IF NOT EXISTS email_provider TEXT NOT NULL DEFAULT 'smtp';
+    `);
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE public.fiorix_operations_alert_channels 
+        ADD COLUMN IF NOT EXISTS email_config JSONB;
+    `);
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE public.fiorix_operations_alert_channels 
+        ADD COLUMN IF NOT EXISTS whatsapp_enabled BOOLEAN NOT NULL DEFAULT false;
+    `);
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE public.fiorix_operations_alert_channels 
+        ADD COLUMN IF NOT EXISTS whatsapp_provider TEXT NOT NULL DEFAULT 'callmebot';
+    `);
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE public.fiorix_operations_alert_channels 
+        ADD COLUMN IF NOT EXISTS whatsapp_phone TEXT NOT NULL DEFAULT '';
+    `);
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE public.fiorix_operations_alert_channels 
+        ADD COLUMN IF NOT EXISTS whatsapp_config JSONB;
     `);
 
     await prisma.$executeRawUnsafe(`
@@ -126,7 +189,15 @@ export async function getAlertConfig(tenantId: string): Promise<AlertChannelConf
         notify_sync_failed as "notifySyncFailed",
         notify_module_delayed as "notifyModuleDelayed",
         cooldown_minutes as "cooldownMinutes",
-        last_triggered_at as "lastTriggeredAt"
+        last_triggered_at as "lastTriggeredAt",
+        email_enabled as "emailEnabled",
+        email_recipients as "emailRecipients",
+        email_provider as "emailProvider",
+        email_config as "emailConfig",
+        whatsapp_enabled as "whatsappEnabled",
+        whatsapp_provider as "whatsappProvider",
+        whatsapp_phone as "whatsappPhone",
+        whatsapp_config as "whatsappConfig"
       FROM public.fiorix_operations_alert_channels
       WHERE tenant_id = $1
       LIMIT 1;
@@ -141,7 +212,7 @@ export async function getAlertConfig(tenantId: string): Promise<AlertChannelConf
       id: r.id,
       tenantId: r.tenantId,
       name: r.name,
-      webhookUrl: r.webhookUrl,
+      webhookUrl: r.webhookUrl || '',
       channelType: r.channelType,
       enabled: Boolean(r.enabled),
       notifyConnectorOffline: Boolean(r.notifyConnectorOffline),
@@ -149,6 +220,14 @@ export async function getAlertConfig(tenantId: string): Promise<AlertChannelConf
       notifyModuleDelayed: Boolean(r.notifyModuleDelayed),
       cooldownMinutes: Number(r.cooldownMinutes || 15),
       lastTriggeredAt: r.lastTriggeredAt ? new Date(r.lastTriggeredAt).toISOString() : null,
+      emailEnabled: Boolean(r.emailEnabled),
+      emailRecipients: r.emailRecipients || '',
+      emailProvider: r.emailProvider || 'smtp',
+      emailConfig: r.emailConfig ? (typeof r.emailConfig === 'string' ? JSON.parse(r.emailConfig) : r.emailConfig) : {},
+      whatsappEnabled: Boolean(r.whatsappEnabled),
+      whatsappProvider: r.whatsappProvider || 'callmebot',
+      whatsappPhone: r.whatsappPhone || '',
+      whatsappConfig: r.whatsappConfig ? (typeof r.whatsappConfig === 'string' ? JSON.parse(r.whatsappConfig) : r.whatsappConfig) : {},
     };
   } catch (err) {
     console.warn('Erro ao carregar configurações de alertas:', err);
@@ -169,9 +248,11 @@ export async function saveAlertConfig(
     INSERT INTO public.fiorix_operations_alert_channels (
       id, tenant_id, name, webhook_url, channel_type, enabled,
       notify_connector_offline, notify_sync_failed, notify_module_delayed,
-      cooldown_minutes, updated_at
+      cooldown_minutes, email_enabled, email_recipients, email_provider,
+      email_config, whatsapp_enabled, whatsapp_provider, whatsapp_phone,
+      whatsapp_config, updated_at
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15, $16, $17, $18::jsonb, NOW())
     ON CONFLICT (tenant_id) DO UPDATE SET
       name = EXCLUDED.name,
       webhook_url = EXCLUDED.webhook_url,
@@ -181,18 +262,34 @@ export async function saveAlertConfig(
       notify_sync_failed = EXCLUDED.notify_sync_failed,
       notify_module_delayed = EXCLUDED.notify_module_delayed,
       cooldown_minutes = EXCLUDED.cooldown_minutes,
+      email_enabled = EXCLUDED.email_enabled,
+      email_recipients = EXCLUDED.email_recipients,
+      email_provider = EXCLUDED.email_provider,
+      email_config = EXCLUDED.email_config,
+      whatsapp_enabled = EXCLUDED.whatsapp_enabled,
+      whatsapp_provider = EXCLUDED.whatsapp_provider,
+      whatsapp_phone = EXCLUDED.whatsapp_phone,
+      whatsapp_config = EXCLUDED.whatsapp_config,
       updated_at = NOW();
   `,
     id,
     tenantId,
-    data.name || 'Webhook Principal',
-    data.webhookUrl,
+    data.name || 'Notificações Principais',
+    data.webhookUrl || '',
     data.channelType || 'generic',
     data.enabled ?? true,
     data.notifyConnectorOffline ?? true,
     data.notifySyncFailed ?? true,
     data.notifyModuleDelayed ?? true,
-    data.cooldownMinutes ?? 15
+    data.cooldownMinutes ?? 15,
+    data.emailEnabled ?? false,
+    data.emailRecipients ?? '',
+    data.emailProvider ?? 'smtp',
+    JSON.stringify(data.emailConfig || {}),
+    data.whatsappEnabled ?? false,
+    data.whatsappProvider ?? 'callmebot',
+    data.whatsappPhone ?? '',
+    JSON.stringify(data.whatsappConfig || {})
   );
 
   return {

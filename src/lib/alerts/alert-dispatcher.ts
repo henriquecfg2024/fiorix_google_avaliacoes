@@ -3,6 +3,8 @@ import {
   recordAlertLog,
   AlertChannelConfig,
 } from './alert-storage';
+import { sendAlertEmail } from './email-dispatcher';
+import { sendAlertWhatsApp } from './whatsapp-dispatcher';
 
 export type AlertEventType = 'connector_offline' | 'sync_failed' | 'module_delayed' | 'test';
 
@@ -96,7 +98,7 @@ export function formatGenericPayload(
 export async function dispatchAlert(params: DispatchAlertParams): Promise<boolean> {
   try {
     const config = await getAlertConfig(params.tenantId);
-    if (!config || !config.enabled || !config.webhookUrl) {
+    if (!config) {
       return false;
     }
 
@@ -115,75 +117,232 @@ export async function dispatchAlert(params: DispatchAlertParams): Promise<boolea
       }
     }
 
-    let payload: any;
-    const urlLower = config.webhookUrl.toLowerCase();
-    const isDiscord = config.channelType === 'discord' || urlLower.includes('discord.com/api/webhooks');
-    const isSlack = config.channelType === 'slack' || urlLower.includes('hooks.slack.com');
+    const promises: Promise<any>[] = [];
 
-    if (isDiscord) {
-      payload = formatDiscordPayload(params.title, params.message, params.severity, params.metadata);
-    } else if (isSlack) {
-      payload = formatSlackPayload(params.title, params.message, params.severity, params.metadata);
-    } else {
-      payload = formatGenericPayload(
-        params.tenantId,
-        params.eventType,
-        params.title,
-        params.message,
-        params.severity,
-        params.metadata
+    // 1. Disparo de Webhook (se ativo e com URL)
+    if (config.enabled && config.webhookUrl) {
+      promises.push(
+        (async () => {
+          try {
+            const urlLower = config.webhookUrl.toLowerCase();
+            const isDiscord = config.channelType === 'discord' || urlLower.includes('discord.com/api/webhooks');
+            const isSlack = config.channelType === 'slack' || urlLower.includes('hooks.slack.com');
+
+            let payload: any;
+            if (isDiscord) {
+              payload = formatDiscordPayload(params.title, params.message, params.severity, params.metadata);
+            } else if (isSlack) {
+              payload = formatSlackPayload(params.title, params.message, params.severity, params.metadata);
+            } else {
+              payload = formatGenericPayload(
+                params.tenantId,
+                params.eventType,
+                params.title,
+                params.message,
+                params.severity,
+                params.metadata
+              );
+            }
+
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 7000);
+
+            const res = await fetch(config.webhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+              signal: controller.signal,
+            });
+            clearTimeout(timeout);
+
+            const success = res.ok;
+            await recordAlertLog(params.tenantId, {
+              eventType: params.eventType,
+              title: params.title,
+              message: params.message,
+              severity: params.severity,
+              channelType: isDiscord ? 'discord' : isSlack ? 'slack' : 'webhook',
+              statusCode: res.status,
+              success,
+              errorMessage: success ? null : `HTTP ${res.status} ${res.statusText}`,
+            });
+          } catch (err: any) {
+            await recordAlertLog(params.tenantId, {
+              eventType: params.eventType,
+              title: params.title,
+              message: params.message,
+              severity: params.severity,
+              channelType: 'webhook',
+              statusCode: 0,
+              success: false,
+              errorMessage: err?.message || 'Falha de conexão',
+            });
+          }
+        })()
       );
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 7000);
+    // 2. Disparo de E-mail Corporativo
+    if (config.emailEnabled && config.emailRecipients) {
+      promises.push(
+        (async () => {
+          const res = await sendAlertEmail({
+            config,
+            eventType: params.eventType,
+            title: params.title,
+            message: params.message,
+            severity: params.severity,
+          });
 
-    const res = await fetch(config.webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
+          await recordAlertLog(params.tenantId, {
+            eventType: params.eventType,
+            title: params.title,
+            message: `E-mail enviado para ${res.recipientsCount} destinatários`,
+            severity: params.severity,
+            channelType: 'email',
+            statusCode: res.statusCode || (res.success ? 200 : 500),
+            success: res.success,
+            errorMessage: res.errorMessage || null,
+          });
+        })()
+      );
+    }
 
-    const success = res.ok;
-    await recordAlertLog(params.tenantId, {
-      eventType: params.eventType,
-      title: params.title,
-      message: params.message,
-      severity: params.severity,
-      channelType: isDiscord ? 'discord' : isSlack ? 'slack' : 'generic',
-      statusCode: res.status,
-      success,
-      errorMessage: success ? null : `HTTP ${res.status} ${res.statusText}`,
-    });
+    // 3. Disparo de WhatsApp
+    if (config.whatsappEnabled && config.whatsappPhone) {
+      promises.push(
+        (async () => {
+          const res = await sendAlertWhatsApp({
+            config,
+            eventType: params.eventType,
+            title: params.title,
+            message: params.message,
+            severity: params.severity,
+          });
 
-    return success;
+          await recordAlertLog(params.tenantId, {
+            eventType: params.eventType,
+            title: params.title,
+            message: `Mensagem WhatsApp disparada via ${config.whatsappProvider || 'callmebot'}`,
+            severity: params.severity,
+            channelType: 'whatsapp',
+            statusCode: res.statusCode || (res.success ? 200 : 500),
+            success: res.success,
+            errorMessage: res.errorMessage || null,
+          });
+        })()
+      );
+    }
+
+    if (promises.length === 0) return false;
+
+    await Promise.allSettled(promises);
+    return true;
   } catch (err: any) {
-    console.warn('[Alert Dispatcher] Falha ao enviar alerta:', err?.message);
-    await recordAlertLog(params.tenantId, {
-      eventType: params.eventType,
-      title: params.title,
-      message: params.message,
-      severity: params.severity,
-      channelType: 'unknown',
-      statusCode: 0,
-      success: false,
-      errorMessage: err?.message || 'Falha de conexão',
-    });
+    console.warn('[Alert Dispatcher] Erro inesperado ao processar alertas:', err?.message);
     return false;
   }
 }
 
+export interface TestAlertRequestParams {
+  tenantId: string;
+  channel: 'all' | 'webhook' | 'email' | 'whatsapp';
+  config?: Partial<AlertChannelConfig>;
+}
+
 export async function dispatchTestAlert(
-  tenantId: string,
-  webhookUrl: string,
-  channelType: 'discord' | 'slack' | 'generic'
-): Promise<{ success: boolean; statusCode?: number; error?: string }> {
+  params: TestAlertRequestParams
+): Promise<{ success: boolean; channel: string; statusCode?: number; error?: string }> {
+  const { tenantId, channel, config: incomingConfig } = params;
+
+  // Carregar config atual do banco e mesclar com as incoming se fornecidas na requisição
+  const saved = await getAlertConfig(tenantId);
+  const activeConfig: AlertChannelConfig = {
+    tenantId,
+    name: incomingConfig?.name || saved?.name || 'Canal de Teste',
+    webhookUrl: incomingConfig?.webhookUrl ?? saved?.webhookUrl ?? '',
+    channelType: incomingConfig?.channelType ?? saved?.channelType ?? 'generic',
+    enabled: incomingConfig?.enabled ?? saved?.enabled ?? true,
+    notifyConnectorOffline: true,
+    notifySyncFailed: true,
+    notifyModuleDelayed: true,
+    cooldownMinutes: 15,
+    emailEnabled: incomingConfig?.emailEnabled ?? saved?.emailEnabled ?? true,
+    emailRecipients: incomingConfig?.emailRecipients ?? saved?.emailRecipients ?? '',
+    emailProvider: incomingConfig?.emailProvider ?? saved?.emailProvider ?? 'smtp',
+    emailConfig: incomingConfig?.emailConfig ?? saved?.emailConfig ?? {},
+    whatsappEnabled: incomingConfig?.whatsappEnabled ?? saved?.whatsappEnabled ?? true,
+    whatsappProvider: incomingConfig?.whatsappProvider ?? saved?.whatsappProvider ?? 'callmebot',
+    whatsappPhone: incomingConfig?.whatsappPhone ?? saved?.whatsappPhone ?? '',
+    whatsappConfig: incomingConfig?.whatsappConfig ?? saved?.whatsappConfig ?? {},
+  };
+
+  if (channel === 'email') {
+    const res = await sendAlertEmail({
+      config: activeConfig,
+      eventType: 'test',
+      title: 'Teste de Alerta Operacional por E-mail',
+      message: 'Este é um e-mail de validação disparado pela Central de Operações do FIORIX para confirmar que o canal corporativo está funcionando perfeitamente.',
+      severity: 'INFO',
+    });
+
+    await recordAlertLog(tenantId, {
+      eventType: 'test',
+      title: 'Teste de Notificação por E-mail',
+      message: res.success ? `Enviado com sucesso para: ${activeConfig.emailRecipients}` : (res.errorMessage || 'Falha no envio de e-mail'),
+      severity: 'INFO',
+      channelType: 'email',
+      statusCode: res.statusCode || (res.success ? 200 : 500),
+      success: res.success,
+      errorMessage: res.errorMessage || null,
+    });
+
+    return {
+      success: res.success,
+      channel: 'email',
+      statusCode: res.statusCode,
+      error: res.errorMessage,
+    };
+  }
+
+  if (channel === 'whatsapp') {
+    const res = await sendAlertWhatsApp({
+      config: activeConfig,
+      eventType: 'test',
+      title: 'Teste de Alerta Operacional no WhatsApp',
+      message: 'Olá! Este é um teste da Central de Operações do FIORIX. Seu WhatsApp foi conectado com sucesso para receber alertas de telemetria.',
+      severity: 'INFO',
+    });
+
+    await recordAlertLog(tenantId, {
+      eventType: 'test',
+      title: 'Teste de Notificação por WhatsApp',
+      message: res.success ? `Mensagem enviada com sucesso para ${activeConfig.whatsappPhone}` : (res.errorMessage || 'Falha no envio do WhatsApp'),
+      severity: 'INFO',
+      channelType: 'whatsapp',
+      statusCode: res.statusCode || (res.success ? 200 : 500),
+      success: res.success,
+      errorMessage: res.errorMessage || null,
+    });
+
+    return {
+      success: res.success,
+      channel: 'whatsapp',
+      statusCode: res.statusCode,
+      error: res.errorMessage,
+    };
+  }
+
+  // Canal Webhook
   try {
+    const webhookUrl = activeConfig.webhookUrl;
+    if (!webhookUrl) {
+      return { success: false, channel: 'webhook', error: 'URL do Webhook não preenchida' };
+    }
+
     const urlLower = webhookUrl.toLowerCase();
-    const isDiscord = channelType === 'discord' || urlLower.includes('discord.com/api/webhooks');
-    const isSlack = channelType === 'slack' || urlLower.includes('hooks.slack.com');
+    const isDiscord = activeConfig.channelType === 'discord' || urlLower.includes('discord.com/api/webhooks');
+    const isSlack = activeConfig.channelType === 'slack' || urlLower.includes('hooks.slack.com');
 
     let payload: any;
     if (isDiscord) {
@@ -233,28 +392,26 @@ export async function dispatchTestAlert(
     const success = res.ok;
     await recordAlertLog(tenantId, {
       eventType: 'test',
-      title: 'Teste de Notificação Operacional',
+      title: 'Teste de Notificação por Webhook',
       message: 'Envio manual de teste de webhook',
       severity: 'INFO',
-      channelType: isDiscord ? 'discord' : isSlack ? 'slack' : 'generic',
+      channelType: isDiscord ? 'discord' : isSlack ? 'slack' : 'webhook',
       statusCode: res.status,
       success,
-      errorMessage: success ? null : `HTTP ${res.status}`,
+      errorMessage: success ? null : `HTTP ${res.status} ${res.statusText}`,
     });
 
-    if (success) {
-      return { success: true, statusCode: res.status };
-    } else {
-      return {
-        success: false,
-        statusCode: res.status,
-        error: `O servidor de destino retornou HTTP ${res.status}: ${res.statusText}`,
-      };
-    }
+    return {
+      success,
+      channel: 'webhook',
+      statusCode: res.status,
+      error: success ? undefined : `Destino retornou HTTP ${res.status}: ${res.statusText}`,
+    };
   } catch (err: any) {
     return {
       success: false,
-      error: err?.message || 'Falha de conexão com a URL informada',
+      channel: 'webhook',
+      error: err?.message || 'Falha ao conectar com o Webhook',
     };
   }
 }
