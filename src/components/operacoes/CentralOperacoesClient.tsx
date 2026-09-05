@@ -20,6 +20,9 @@ import { ConnectorDetailCard } from './ConnectorDetailCard';
 import { IncidentesAlertasSection } from './IncidentesAlertasSection';
 import { MetricsChartCard } from './MetricsChartCard';
 import { DeploysVersionsFooter } from './DeploysVersionsFooter';
+import { OperationsChartsSection } from './OperationsChartsSection';
+import { BatchAuditSection } from './BatchAuditSection';
+import { BarChart3, Database } from 'lucide-react';
 
 interface Props {
   initialHealth: OperationsHealthSnapshot;
@@ -28,6 +31,7 @@ interface Props {
 
 export function CentralOperacoesClient({ initialHealth, userName }: Props) {
   const [health, setHealth] = useState<OperationsHealthSnapshot>(initialHealth);
+  const [activeTab, setActiveTab] = useState<'overview' | 'audit'>('overview');
   const [isPending, startTransition] = useTransition();
   const [lastUpdated, setLastUpdated] = useState<string>(initialHealth.timestamp);
 
@@ -116,29 +120,68 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
           </div>
         </div>
 
-        {/* 2. Grid de Cards de Serviços de Infraestrutura */}
-        <ServiceHealthGrid services={health.services} />
+        {/* Navegação entre Abas */}
+        <div className="flex items-center gap-2 border-b border-white/8 pb-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('overview')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'overview'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25 border border-blue-500/30'
+                : 'text-white/60 hover:text-white hover:bg-white/[0.04] border border-transparent'
+            }`}
+          >
+            <BarChart3 className="h-4 w-4" />
+            <span>Visão Geral & Gráficos</span>
+          </button>
 
-        {/* 3. Tabela de Sincronização Incremental + Card de Telemetria do Connector */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-          <div className="lg:col-span-7">
-            <IncrementalSyncTable 
-              modules={health.incrementalModules} 
-              recentBatches={health.recentBatches}
-            />
-          </div>
-          <div className="lg:col-span-5">
-            <ConnectorDetailCard connector={health.connector} />
-          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('audit')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'audit'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25 border border-blue-500/30'
+                : 'text-white/60 hover:text-white hover:bg-white/[0.04] border border-transparent'
+            }`}
+          >
+            <Database className="h-4 w-4" />
+            <span>Histórico de Lotes & Auditoria</span>
+          </button>
         </div>
 
-        {/* 4. Incidentes Recentes e Alertas Ativos */}
-        <IncidentesAlertasSection incidents={health.incidents} alerts={health.alerts} />
+        {activeTab === 'overview' ? (
+          <>
+            {/* 2. Grid de Cards de Serviços de Infraestrutura */}
+            <ServiceHealthGrid services={health.services} />
 
-        {/* 5. Métricas da Plataforma */}
-        <MetricsChartCard metrics={health.metrics} />
+            {/* 3. Tabela de Sincronização Incremental + Card de Telemetria do Connector */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+              <div className="lg:col-span-7">
+                <IncrementalSyncTable 
+                  modules={health.incrementalModules} 
+                  recentBatches={health.recentBatches}
+                />
+              </div>
+              <div className="lg:col-span-5">
+                <ConnectorDetailCard connector={health.connector} />
+              </div>
+            </div>
 
-        {/* 6. Rodapé de Deploys e Versões */}
+            {/* 4. Incidentes Recentes e Alertas Ativos */}
+            <IncidentesAlertasSection incidents={health.incidents} alerts={health.alerts} />
+
+            {/* 5. Novo Gráfico Temporal de Ingestão e Performance */}
+            <OperationsChartsSection />
+
+            {/* 6. Métricas Agregadas da Plataforma */}
+            <MetricsChartCard metrics={health.metrics} />
+          </>
+        ) : (
+          /* Aba de Auditoria Completa de Lotes */
+          <BatchAuditSection />
+        )}
+
+        {/* Rodapé de Deploys e Versões */}
         <DeploysVersionsFooter deploys={health.deploys} />
       </main>
     </div>
