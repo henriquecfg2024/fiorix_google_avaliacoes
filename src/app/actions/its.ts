@@ -1212,7 +1212,38 @@ export async function getGovernancaRhData() {
     createdAt: new Date(a.createdAt).toLocaleString('pt-BR'),
   }));
 
-  // 3. Controle por IT com status de ciências da equipe
+  // 3. Column Config
+  const columnConfigRaw = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT coluna_key, coluna_label FROM public.fiorix_its_column_config WHERE tenant_id = $1`,
+    tenantId
+  );
+  const defaultCols: Record<string, string> = {
+    codigo: 'Código / IT', setor: 'Setor', versao: 'Versão',
+    guardiao: 'Guardião Responsável', revisao: 'Última Revisão',
+    ciencia: 'Ciência da Equipe', acoes: 'Ações',
+  };
+  const columnConfig: Record<string, string> = { ...defaultCols };
+  for (const row of columnConfigRaw) {
+    columnConfig[row.coluna_key] = row.coluna_label;
+  }
+
+  // 4. Todos os colaboradores do tenant (para modais de gestão)
+  const colaboradoresTenantRaw = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT id, name, email, COALESCE(departamento, 'Atendimento') as departamento, COALESCE(cargo, 'auxiliar') as cargo
+     FROM public."User"
+     WHERE "tenantId" = $1
+     ORDER BY name ASC`,
+    tenantId
+  );
+  const colaboradoresTenant = colaboradoresTenantRaw.map(c => ({
+    id: c.id,
+    name: c.name || 'Colaborador',
+    email: c.email || '',
+    departamento: c.departamento,
+    cargo: c.cargo,
+  }));
+
+  // 5. Controle por IT com status de ciências da equipe
   const itsListRaw = await prisma.$queryRawUnsafe<any[]>(
     `SELECT 
        i.id::text,
@@ -1273,6 +1304,8 @@ export async function getGovernancaRhData() {
     },
     timelineAudit,
     conformidadePorIt,
+    columnConfig,
+    colaboradoresTenant,
   };
 }
 
@@ -1310,4 +1343,280 @@ export async function obterMinhaItId(): Promise<string | null> {
     tenantId
   );
   return firstIt[0]?.id || null;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GOVERNANÇA ADMIN — COLUNAS EDITÁVEIS, CRUD ITs, GESTÃO DE CIÊNCIA
+// ══════════════════════════════════════════════════════════════════════════════
+
+export interface ColumnConfigItem {
+  colunaKey: string;
+  colunaLabel: string;
+}
+
+export async function getColumnConfig(): Promise<Record<string, string>> {
+  const currentUser = await requireAuth();
+  const tenantId = currentUser.tenantId;
+
+  const raw = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT coluna_key, coluna_label FROM public.fiorix_its_column_config WHERE tenant_id = $1`,
+    tenantId
+  );
+
+  const config: Record<string, string> = {};
+  for (const row of raw) {
+    config[row.coluna_key] = row.coluna_label;
+  }
+
+  // Defaults caso não existam registros
+  const defaults: Record<string, string> = {
+    codigo: 'Código / IT',
+    setor: 'Setor',
+    versao: 'Versão',
+    guardiao: 'Guardião Responsável',
+    revisao: 'Última Revisão',
+    ciencia: 'Ciência da Equipe',
+    acoes: 'Ações',
+  };
+
+  return { ...defaults, ...config };
+}
+
+export async function updateColumnLabel(colunaKey: string, novoLabel: string) {
+  const currentUser = await requireRole('ADMIN', 'RH', 'MASTER');
+  const tenantId = currentUser.tenantId;
+
+  if (!novoLabel.trim()) throw new Error('O nome da coluna não pode ser vazio.');
+
+  await prisma.$queryRawUnsafe(
+    `INSERT INTO public.fiorix_its_column_config (tenant_id, coluna_key, coluna_label, updated_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (tenant_id, coluna_key)
+     DO UPDATE SET coluna_label = EXCLUDED.coluna_label, updated_at = NOW()`,
+    tenantId,
+    colunaKey,
+    novoLabel.trim()
+  );
+
+  revalidatePath('/gestao/rh/instrucoes-trabalho-monitoramento');
+  return { success: true };
+}
+
+export async function criarItRapida(data: {
+  codigo: string;
+  titulo: string;
+  departamento: string;
+  guardiaoId?: string;
+}) {
+  const currentUser = await requireRole('ADMIN', 'RH', 'MASTER');
+  const tenantId = currentUser.tenantId;
+
+  if (!data.codigo.trim() || !data.titulo.trim()) {
+    throw new Error('Código e Título são obrigatórios.');
+  }
+
+  // Verifica se já existe IT com o mesmo código
+  const existing = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT id FROM public.fiorix_its WHERE tenant_id = $1 AND codigo = $2 AND deleted_at IS NULL`,
+    tenantId,
+    data.codigo.trim()
+  );
+  if (existing.length > 0) {
+    throw new Error(`Já existe uma IT com o código "${data.codigo}".`);
+  }
+
+  const hashVersao = crypto.createHash('sha256').update(
+    JSON.stringify({ tenantId, ...data, timestamp: new Date().toISOString() })
+  ).digest('hex');
+
+  const result = await prisma.$queryRawUnsafe<any[]>(
+    `INSERT INTO public.fiorix_its (
+       tenant_id, codigo, titulo, departamento, versao, tempo_leitura_min, 
+       objetivo, hash_versao, autor_id, guardiao_id
+     ) VALUES (
+       $1, $2, $3, $4, '1.0', 5, 'Instrução de Trabalho', $5, $6, $7
+     )
+     RETURNING id::text`,
+    tenantId,
+    data.codigo.trim(),
+    data.titulo.trim(),
+    data.departamento,
+    hashVersao,
+    currentUser.id,
+    data.guardiaoId || currentUser.id
+  );
+
+  if (result.length > 0) {
+    // Registra versão inicial
+    await prisma.$queryRawUnsafe(
+      `INSERT INTO public.fiorix_its_versoes (
+         it_id, versao, conteudo_snapshot, alteracoes, autor_id, hash_versao
+       ) VALUES (
+         $1::uuid, '1.0', $2::jsonb, 'Criação rápida via Governança', $3, $4
+       )`,
+      result[0].id,
+      JSON.stringify(data),
+      currentUser.id,
+      hashVersao
+    );
+
+    // Gera ciência pendente para o departamento
+    const deptoUsers = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id FROM public."User" WHERE "tenantId" = $1 AND departamento = $2`,
+      tenantId,
+      data.departamento
+    );
+
+    for (const user of deptoUsers) {
+      await prisma.$queryRawUnsafe(
+        `INSERT INTO public.fiorix_its_ciencias (tenant_id, it_id, usuario_id, versao, status, created_at)
+         VALUES ($1, $2::uuid, $3, '1.0', 'pendente', NOW())
+         ON CONFLICT (tenant_id, it_id, usuario_id, versao) DO NOTHING`,
+        tenantId,
+        result[0].id,
+        user.id
+      );
+    }
+  }
+
+  revalidatePath('/gestao/rh/instrucoes-trabalho-monitoramento');
+  revalidatePath('/administracao/its');
+  return { success: true, id: result[0]?.id };
+}
+
+export async function excluirItGovernanca(itId: string, motivo: string, senhaAdmin: string) {
+  const currentUser = await requireRole('ADMIN', 'RH', 'MASTER');
+
+  // Validação de senha
+  const userRecord = await prisma.user.findUnique({
+    where: { id: currentUser.id },
+    select: { password: true },
+  });
+
+  if (!userRecord?.password) {
+    throw new Error('Usuário sem senha cadastrada.');
+  }
+
+  const senhaValida = await bcrypt.compare(senhaAdmin, userRecord.password);
+  if (!senhaValida) {
+    throw new Error('Senha incorreta. A exclusão requer confirmação por senha.');
+  }
+
+  // Soft-delete WORM
+  await prisma.$queryRawUnsafe(
+    `UPDATE public.fiorix_its
+     SET deleted_at = NOW()
+     WHERE id = $1::uuid AND tenant_id = $2`,
+    itId,
+    currentUser.tenantId
+  );
+
+  // Registra no audit log
+  const hashSha256 = crypto.createHash('sha256').update(
+    JSON.stringify({ itId, motivo, autor: currentUser.id, timestamp: new Date().toISOString() })
+  ).digest('hex');
+
+  await prisma.$queryRawUnsafe(
+    `INSERT INTO public.fiorix_its_audit_log (
+       tenant_id, it_id, versao_anterior, versao_nova, autor_id, motivo, diff_snapshot, hash_sha256, created_at
+     ) VALUES (
+       $1, $2::uuid, 'N/A', 'EXCLUÍDA', $3, $4, $5::jsonb, $6, NOW()
+     )`,
+    currentUser.tenantId,
+    itId,
+    currentUser.id,
+    `EXCLUSÃO: ${motivo}`,
+    JSON.stringify({ acao: 'exclusao', motivo }),
+    hashSha256
+  );
+
+  revalidatePath('/gestao/rh/instrucoes-trabalho-monitoramento');
+  revalidatePath('/administracao/its');
+  return { success: true };
+}
+
+export async function adicionarColaboradorCiencia(itId: string, usuarioId: string, versao: string) {
+  const currentUser = await requireRole('ADMIN', 'RH', 'MASTER');
+  const tenantId = currentUser.tenantId;
+
+  await prisma.$queryRawUnsafe(
+    `INSERT INTO public.fiorix_its_ciencias (tenant_id, it_id, usuario_id, versao, status, created_at)
+     VALUES ($1, $2::uuid, $3, $4, 'pendente', NOW())
+     ON CONFLICT (tenant_id, it_id, usuario_id, versao) DO NOTHING`,
+    tenantId,
+    itId,
+    usuarioId,
+    versao
+  );
+
+  revalidatePath('/gestao/rh/instrucoes-trabalho-monitoramento');
+  return { success: true };
+}
+
+export async function removerColaboradorCiencia(itId: string, usuarioId: string, versao: string) {
+  const currentUser = await requireRole('ADMIN', 'RH', 'MASTER');
+  const tenantId = currentUser.tenantId;
+
+  await prisma.$queryRawUnsafe(
+    `DELETE FROM public.fiorix_its_ciencias
+     WHERE tenant_id = $1 AND it_id = $2::uuid AND usuario_id = $3 AND versao = $4`,
+    tenantId,
+    itId,
+    usuarioId,
+    versao
+  );
+
+  revalidatePath('/gestao/rh/instrucoes-trabalho-monitoramento');
+  return { success: true };
+}
+
+export interface ColaboradorCienciaOption {
+  id: string;
+  name: string;
+  email: string;
+  departamento: string;
+  cargo: string;
+  jaIncluso: boolean;
+  status?: string;
+  cienteEm?: string;
+}
+
+export async function getColaboradoresParaCiencia(itId: string, versao: string): Promise<ColaboradorCienciaOption[]> {
+  const currentUser = await requireRole('ADMIN', 'RH', 'MASTER');
+  const tenantId = currentUser.tenantId;
+
+  const allUsers = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT id, name, email, COALESCE(departamento, 'Atendimento') as departamento, COALESCE(cargo, 'auxiliar') as cargo
+     FROM public."User"
+     WHERE "tenantId" = $1
+     ORDER BY name ASC`,
+    tenantId
+  );
+
+  const cienciasExistentes = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT usuario_id, status, ciente_em
+     FROM public.fiorix_its_ciencias
+     WHERE tenant_id = $1 AND it_id = $2::uuid AND versao = $3`,
+    tenantId,
+    itId,
+    versao
+  );
+
+  const cienciaMap = new Map<string, { status: string; cienteEm: any }>();
+  for (const c of cienciasExistentes) {
+    cienciaMap.set(c.usuario_id, { status: c.status, cienteEm: c.ciente_em });
+  }
+
+  return allUsers.map(u => ({
+    id: u.id,
+    name: u.name || 'Colaborador',
+    email: u.email || '',
+    departamento: u.departamento,
+    cargo: u.cargo,
+    jaIncluso: cienciaMap.has(u.id),
+    status: cienciaMap.get(u.id)?.status,
+    cienteEm: cienciaMap.get(u.id)?.cienteEm
+      ? new Date(cienciaMap.get(u.id)!.cienteEm).toLocaleString('pt-BR')
+      : undefined,
+  }));
 }
