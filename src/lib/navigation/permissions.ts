@@ -23,8 +23,7 @@ export function filterNavigationByRole(role: Role = "USER") {
       if (isColaborador) {
         return (
           item.href.startsWith("/pessoas") ||
-          item.href === "/minha-it" ||
-          item.href === "/administracao/its"
+          item.href === "/minha-it"
         );
       }
       if (isRH) {
