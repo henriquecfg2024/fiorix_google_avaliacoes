@@ -57,24 +57,6 @@ export default function HoleritesPage() {
             </p>
           </div>
 
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleSolicitarLgpd("relatorio")}
-              className="border-white/10 text-slate-200 hover:bg-white/10 text-xs rounded-xl cursor-pointer"
-            >
-              Solicitar Relatório LGPD
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleSolicitarLgpd("exclusao")}
-              className="border-white/10 text-slate-200 hover:bg-white/10 text-xs rounded-xl cursor-pointer"
-            >
-              Solicitar Exclusão
-            </Button>
-          </div>
         </div>
 
         {/* Feedback LGPD Temporário */}
