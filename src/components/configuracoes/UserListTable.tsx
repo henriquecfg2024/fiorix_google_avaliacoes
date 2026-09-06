@@ -8,6 +8,7 @@ import {
   updateUserCpf,
   toggleUserStatus,
   updateUserProfile,
+  deleteInactiveUser,
 } from '@/app/actions/admin';
 import {
   ShieldCheck,
@@ -25,6 +26,7 @@ import {
   UserX,
   UserCheck,
   Building,
+  Trash2,
 } from 'lucide-react';
 
 export interface UserItem {
@@ -67,6 +69,7 @@ export function UserListTable({
   const [loading, setLoading] = useState(false);
   const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
   const [modalMessage, setModalMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState<UserItem | null>(null);
 
   // Modal Confirmação de Função
   const [pendingRoleChange, setPendingRoleChange] = useState<{
@@ -510,6 +513,15 @@ export function UserListTable({
                         >
                           {u.status === 'inativo' ? <UserCheck className="w-3.5 h-3.5" /> : <UserX className="w-3.5 h-3.5" />}
                         </button>
+                        {u.status === 'inativo' && (
+                          <button
+                            onClick={() => setDeleteConfirmUser(u)}
+                            className="rounded-lg border border-rose-500/30 bg-rose-500/15 p-1.5 text-xs text-rose-400 hover:bg-rose-500/25 transition-colors"
+                            title="Excluir Usuário Inativo"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     )}
                   </td>
@@ -743,6 +755,69 @@ export function UserListTable({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirmação de Exclusão */}
+      {deleteConfirmUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+          <div className="relative w-full max-w-md bg-[#0B1020] border border-rose-500/20 rounded-[24px] p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-white/8 pb-3">
+              <h3 className="text-sm font-bold text-rose-400 flex items-center gap-2">
+                <Trash2 className="w-4 h-4" />
+                Excluir Usuário
+              </h3>
+              <button
+                onClick={() => setDeleteConfirmUser(null)}
+                className="p-1 rounded-lg text-white/50 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 space-y-2">
+              <p className="text-sm text-white font-semibold">
+                Tem certeza que deseja excluir permanentemente?
+              </p>
+              <p className="text-xs text-rose-300">
+                <strong>{deleteConfirmUser.name}</strong> ({deleteConfirmUser.email})
+              </p>
+              <p className="text-[11px] text-rose-400/80">
+                ⚠️ Esta ação é irreversível. Todos os dados deste usuário serão apagados.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => setDeleteConfirmUser(null)}
+                className="px-4 py-2 rounded-xl bg-white/[0.05] text-white/70 text-xs font-semibold hover:bg-white/[0.08]"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  setLoading(true);
+                  try {
+                    const res = await deleteInactiveUser(deleteConfirmUser.id);
+                    if (res.error) {
+                      alert(res.error);
+                    } else {
+                      setDeleteConfirmUser(null);
+                      window.location.reload();
+                    }
+                  } catch (err: any) {
+                    alert(err?.message || 'Erro ao excluir.');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md disabled:opacity-50"
+              >
+                {loading ? 'Excluindo...' : 'Confirmar Exclusão'}
+              </button>
+            </div>
           </div>
         </div>
       )}

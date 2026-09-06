@@ -484,3 +484,36 @@ export async function updateUserProfile(
   revalidatePath('/sistema/pessoas');
   return { success: true };
 }
+
+export async function deleteInactiveUser(userId: string) {
+  const currentUser = await requireRole('ADMIN', 'MASTER');
+
+  const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+  if (!targetUser) return { error: 'Usuário não encontrado.' };
+
+  if (targetUser.email === 'admin@fiorix.com.br' || targetUser.role === 'MASTER') {
+    return { error: 'Usuário MASTER protegido - não pode ser excluído.' };
+  }
+
+  if (currentUser.role !== 'MASTER' && targetUser.tenantId !== currentUser.tenantId) {
+    return { error: 'Não autorizado.' };
+  }
+
+  // Verificar se está inativo
+  const rows = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT status FROM public."User" WHERE id = $1`,
+    userId
+  );
+  if ((rows[0]?.status || 'ativo') !== 'inativo') {
+    return { error: 'Somente usuários com status INATIVO podem ser excluídos.' };
+  }
+
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM public."User" WHERE id = $1 AND role != 'MASTER' AND email != 'admin@fiorix.com.br'`,
+    userId
+  );
+
+  revalidatePath('/configuracoes/usuarios');
+  revalidatePath('/sistema/pessoas');
+  return { success: true };
+}
