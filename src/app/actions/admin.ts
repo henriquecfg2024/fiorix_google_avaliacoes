@@ -457,7 +457,7 @@ export async function updateUserProfile(
     params.push(data.cargo.trim() || null);
   }
   if (data.role !== undefined) {
-    sets.push(`role = $${paramIdx++}`);
+    sets.push(`role = $${paramIdx++}::"Role"`);
     params.push(data.role);
   }
   if (data.status !== undefined) {

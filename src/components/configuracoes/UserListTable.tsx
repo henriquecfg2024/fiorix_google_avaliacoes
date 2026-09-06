@@ -211,8 +211,8 @@ export function UserListTable({
           window.location.reload();
         }, 800);
       }
-    } catch {
-      setModalMessage({ type: 'error', text: 'Falha ao atualizar dados.' });
+    } catch (err: any) {
+      setModalMessage({ type: 'error', text: err?.message || 'Falha ao atualizar dados.' });
     } finally {
       setLoading(false);
     }
