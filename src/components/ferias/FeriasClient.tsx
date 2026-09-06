@@ -17,30 +17,15 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: Fe
 
   const isManager = userRole === "ADMIN" || userRole === "RH" || userRole === "MASTER" || userRole === "GESTOR";
 
-  const feriasEventos = [
-    {
-      id: "1",
-      data: "01/09/2026",
-      tipo: "confirmacao" as const,
-      titulo: "Previsão confirmada",
-      autorNome: "Henrique Gama - Admin",
-    },
-    {
-      id: "2",
-      data: "16/07/2026",
-      tipo: "alteracao" as const,
-      titulo: "Período alterado",
-      autorNome: "De: 10/12/2026 - 28/12/2026",
-      detalhes: "Para: 15/12/2026 - 03/01/2027",
-    },
-    {
-      id: "3",
-      data: "10/06/2026",
-      tipo: "criacao" as const,
-      titulo: "Previsão criada",
-      autorNome: "Henrique Gama - Admin",
-    },
-  ];
+  // Eventos de férias — vazio para uso oficial (dados serão carregados do banco)
+  const feriasEventos: Array<{
+    id: string;
+    data: string;
+    tipo: "confirmacao" | "alteracao" | "criacao";
+    titulo: string;
+    autorNome: string;
+    detalhes?: string;
+  }> = [];
 
   return (
     <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden pb-20">
@@ -109,39 +94,21 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: Fe
                     </div>
                     <div>
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Próximas Férias Previstas</span>
-                      <h3 className="text-xl font-bold text-white">15/12/2026 a 03/01/2027</h3>
+                      <h3 className="text-xl font-bold text-slate-500 italic">Nenhuma previsão cadastrada</h3>
                     </div>
                   </div>
 
-                  <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 font-mono text-xs font-bold text-emerald-300">
-                    20 DIAS
+                  <span className="rounded-full border border-zinc-500/25 bg-zinc-500/10 px-3 py-1 font-mono text-xs font-bold text-zinc-400">
+                    — DIAS
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-2xl bg-[#070A12]/60 border border-white/8 space-y-1">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase">Início do Período</span>
-                    <p className="text-sm font-bold text-white">15/12/2026</p>
-                    <span className="text-[10px] text-slate-400">Terça-feira</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-[#070A12]/60 border border-white/8 space-y-1">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase">Término</span>
-                    <p className="text-sm font-bold text-white">03/01/2027</p>
-                    <span className="text-[10px] text-slate-400">Domingo</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-[#070A12]/60 border border-white/8 space-y-1">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase">Retorno ao Trabalho</span>
-                    <p className="text-sm font-bold text-emerald-400">04/01/2027</p>
-                    <span className="text-[10px] text-slate-400">Segunda-feira</span>
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/8 flex items-start gap-3">
-                  <Clock className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-                  <p className="text-xs text-slate-300 leading-relaxed">
-                    Aviso formal homologado em 31/08/2026. Conforme o Art. 135 da CLT, o aviso de concessão de férias foi emitido com mais de 30 dias de antecedência (105 dias).
+                <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/8 text-center">
+                  <p className="text-sm text-slate-400 italic">
+                    Seu período de férias ainda não foi cadastrado pelo RH.
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Entre em contato com o setor de Recursos Humanos para mais informações.
                   </p>
                 </div>
               </div>

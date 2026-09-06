@@ -22,13 +22,8 @@ export default function HoleritesPage() {
     setTimeout(() => setLgpdFeedback(null), 8000);
   };
 
-  const holerites = [
-    { id: "1", mes: "08/2026", bruto: "R$ 6.840,00", liquido: "R$ 5.420,15", hash: "f3a9c2e1d0b83e42aa881b9...", dataUpload: "28/08/2026" },
-    { id: "2", mes: "07/2026", bruto: "R$ 6.840,00", liquido: "R$ 5.420,15", hash: "a1b2c3d4e5f67a89bc012d3...", dataUpload: "28/07/2026" },
-    { id: "3", mes: "06/2026", bruto: "R$ 6.840,00", liquido: "R$ 5.380,40", hash: "9f8e7d6c5b4a3f2e1d0c9b8...", dataUpload: "28/06/2026" },
-    { id: "4", mes: "05/2026", bruto: "R$ 6.500,00", liquido: "R$ 5.150,00", hash: "1a2b3c4d5e6f7a8b9c0d1e2...", dataUpload: "28/05/2026" },
-    { id: "5", mes: "04/2026", bruto: "R$ 6.500,00", liquido: "R$ 5.150,00", hash: "3e4f5a6b7c8d9e0f1a2b3c4...", dataUpload: "28/04/2026" },
-  ];
+  // Holerites carregados do banco — inicializado vazio para uso oficial
+  const holerites: { id: string; mes: string; bruto: string; liquido: string; hash: string; dataUpload: string }[] = [];
 
   return (
     <div className="w-full flex-1 flex flex-col justify-start bg-[#070A12] text-white relative overflow-hidden pb-12">

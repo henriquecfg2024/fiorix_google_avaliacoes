@@ -34,45 +34,8 @@ export function ComunicadosClient({
 
   const isManager = userRole === "ADMIN" || userRole === "RH" || userRole === "MASTER" || userRole === "GESTOR";
 
-  // Mock comunicados oficiais da Serventia
-  const [comunicados, setComunicados] = useState<ComunicadoItem[]>([
-    {
-      id: "com-1",
-      titulo: "Alteração de Horário - Plantão de Fim de Ano",
-      conteudo:
-        "Informamos que haverá alteração no horário de funcionamento durante o período de 15/12/2026 a 31/12/2026. Favor verificar os novos horários em anexo e registrar sua ciência obrigatória.",
-      conteudoHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      prioridade: "URGENTE",
-      versao: 1,
-      dataPublicacao: "2026-08-30T09:00:00",
-      dataExpiracao: "2026-09-04T09:00:00",
-      exigeCiencia: true,
-      visualizado: false,
-      autorNome: "Maria Silva",
-      setor: "RH",
-      anexos: [
-        { id: "anx-1", nomeOriginal: "Escala_Plantao_2026.pdf", tamanhoBytes: 154624, url: "#" },
-      ],
-      ciencias: [],
-    },
-    {
-      id: "com-2",
-      titulo: "Nova Política de Atendimento ao Público",
-      conteudo:
-        "Nova política de atendimento ao público conforme diretrizes institucionais de 2026. Leitura obrigatória para todos os escreventes e atendentes da Serventia.",
-      conteudoHash: "a1b2c3d4e5f67a89bc012d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a",
-      prioridade: "IMPORTANTE",
-      versao: 1,
-      dataPublicacao: "2026-08-28T14:30:00",
-      dataExpiracao: "2026-09-06T18:00:00",
-      exigeCiencia: true,
-      visualizado: false,
-      autorNome: "Henrique Gama",
-      setor: "Administração",
-      anexos: [],
-      ciencias: [],
-    },
-  ]);
+  // Comunicados carregados do banco — inicializado vazio para uso oficial
+  const [comunicados, setComunicados] = useState<ComunicadoItem[]>([]);
 
   // Métricas dinâmicas e contadores estritos
   const urgentesPendentes = comunicados.filter(

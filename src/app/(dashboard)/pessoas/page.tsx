@@ -64,14 +64,8 @@ export default async function PessoasDashboard() {
     console.error("Erro ao carregar dados de férias:", error);
   }
 
-  // Fallback seguro de férias se não houver período cadastrado
-  if (!feriasPrevistas) {
-    feriasPrevistas = {
-      dataInicioPrevista: "2026-12-15T00:00:00.000Z",
-      dataFimPrevista: "2027-01-03T00:00:00.000Z",
-      dias: 20,
-    };
-  }
+  // Sem fallback — se não houver férias cadastradas, fica null
+  // (O componente CentralResumo já trata ferias === null)
 
   return (
     <div className="w-full flex-1 flex flex-col justify-start bg-[#070A12] text-white relative overflow-hidden">
@@ -111,8 +105,8 @@ export default async function PessoasDashboard() {
           summary={summary}
           ferias={feriasPrevistas}
           ultimoHolerite={{
-            competencia: "Agosto/2026",
-            disponivel: true,
+            competencia: "",
+            disponivel: false,
           }}
         />
       </div>

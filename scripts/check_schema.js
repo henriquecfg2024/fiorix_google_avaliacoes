@@ -2,25 +2,54 @@ const { PrismaClient } = require('@prisma/client');
 const p = new PrismaClient();
 
 async function main() {
-  const cols = await p.$queryRawUnsafe(
-    "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'fiorix_its' ORDER BY ordinal_position"
+  // List ALL tables in public schema
+  const tables = await p.$queryRawUnsafe(
+    "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name"
   );
-  console.log('=== fiorix_its columns ===');
-  console.log(JSON.stringify(cols, null, 2));
+  console.log('=== ALL tables in public schema ===');
+  for (const t of tables) {
+    console.log(`  ${t.table_name}`);
+  }
 
-  const colsCiencia = await p.$queryRawUnsafe(
-    "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'fiorix_its_ciencias' ORDER BY ordinal_position"
-  );
-  console.log('\n=== fiorix_its_ciencias columns ===');
-  console.log(JSON.stringify(colsCiencia, null, 2));
+  // Try using Prisma models directly
+  console.log('\n=== Trying Prisma models ===');
 
-  const configTables = await p.$queryRawUnsafe(
-    "SELECT table_name FROM information_schema.tables WHERE table_name LIKE 'fiorix_its%' ORDER BY table_name"
-  );
-  console.log('\n=== All fiorix_its tables ===');
-  console.log(JSON.stringify(configTables, null, 2));
+  try {
+    const comunicados = await p.fiorixComunicado.count();
+    console.log(`  FiorixComunicado: ${comunicados}`);
+  } catch(e) { console.log(`  FiorixComunicado: ERROR - ${e.message?.substring(0,100)}`); }
+
+  try {
+    const holerites = await p.fiorixHolerite.count();
+    console.log(`  FiorixHolerite: ${holerites}`);
+  } catch(e) { console.log(`  FiorixHolerite: ERROR - ${e.message?.substring(0,100)}`); }
+
+  try {
+    const ferias = await p.fiorixFeriasPrevista.count();
+    console.log(`  FiorixFeriasPrevista: ${ferias}`);
+  } catch(e) { console.log(`  FiorixFeriasPrevista: ERROR - ${e.message?.substring(0,100)}`); }
+
+  try {
+    const feriasH = await p.fiorixFeriasPrevistaHistorico.count();
+    console.log(`  FiorixFeriasPrevistaHistorico: ${feriasH}`);
+  } catch(e) { console.log(`  FiorixFeriasPrevistaHistorico: ERROR - ${e.message?.substring(0,100)}`); }
+
+  try {
+    const feriasA = await p.fiorixFeriasAviso.count();
+    console.log(`  FiorixFeriasAviso: ${feriasA}`);
+  } catch(e) { console.log(`  FiorixFeriasAviso: ERROR - ${e.message?.substring(0,100)}`); }
+
+  try {
+    const anexos = await p.fiorixComunicadoAnexo.count();
+    console.log(`  FiorixComunicadoAnexo: ${anexos}`);
+  } catch(e) { console.log(`  FiorixComunicadoAnexo: ERROR - ${e.message?.substring(0,100)}`); }
+
+  try {
+    const ciencias = await p.fiorixComunicadoCiencia.count();
+    console.log(`  FiorixComunicadoCiencia: ${ciencias}`);
+  } catch(e) { console.log(`  FiorixComunicadoCiencia: ERROR - ${e.message?.substring(0,100)}`); }
 
   await p.$disconnect();
 }
 
-main().catch(e => { console.error(e); p.$disconnect(); });
+main().catch(async (e) => { console.error(e); await p.$disconnect(); });
