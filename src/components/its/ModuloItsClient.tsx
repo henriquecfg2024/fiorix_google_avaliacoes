@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import {
   BookOpen,
   Users,
@@ -598,14 +599,25 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
 
                 {/* Card Footer: Ações */}
                 <div className="flex items-center justify-between border-t border-white/5 pt-4 mt-4">
-                  <Button
-                    size="sm"
-                    onClick={() => setViewItModal(it)}
-                    className="bg-white/5 hover:bg-white/10 text-slate-200 text-xs rounded-xl gap-1.5 border border-white/10 font-medium"
-                  >
-                    <Eye className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Passo a Passo</span>
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Link href={`/instrucoes-trabalho/${it.id}`}>
+                      <Button
+                        size="sm"
+                        className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs rounded-xl gap-1.5 border border-emerald-500/30 font-semibold"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Abrir Folha A4</span>
+                      </Button>
+                    </Link>
+
+                    <Button
+                      size="sm"
+                      onClick={() => setViewItModal(it)}
+                      className="bg-white/5 hover:bg-white/10 text-slate-300 text-xs rounded-xl gap-1.5 border border-white/10"
+                    >
+                      <span>Passos</span>
+                    </Button>
+                  </div>
 
                   {isGestao && (
                     <div className="flex items-center gap-1">

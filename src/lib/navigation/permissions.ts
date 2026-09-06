@@ -21,16 +21,27 @@ export function filterNavigationByRole(role: Role = "USER") {
 
     const visibleItems = group.items.filter((item) => {
       if (isColaborador) {
-        return item.href.startsWith("/pessoas") || item.href === "/administracao/its";
+        return (
+          item.href.startsWith("/pessoas") ||
+          item.href === "/minha-it" ||
+          item.href === "/administracao/its"
+        );
       }
       if (isRH) {
-        return item.href.startsWith("/pessoas") || item.href === "/sistema/pessoas" || item.href === "/administracao/its";
+        return (
+          item.href.startsWith("/pessoas") ||
+          item.href === "/sistema/pessoas" ||
+          item.href === "/minha-it" ||
+          item.href === "/gestao/rh/instrucoes-trabalho-monitoramento" ||
+          item.href === "/administracao/its"
+        );
       }
       if (isUser) {
         if (
           item.href === "/bi/auditoria" ||
           item.href === "/bi/importacoes" ||
           item.href === "/configuracoes" ||
+          item.href === "/gestao/rh/instrucoes-trabalho-monitoramento" ||
           item.href.startsWith("/sistema") ||
           item.href.startsWith("/configuracoes")
         ) {

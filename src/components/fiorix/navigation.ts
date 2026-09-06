@@ -14,6 +14,7 @@ import {
   Activity,
   UserCheck,
   BookOpen,
+  ShieldCheck,
 } from "lucide-react";
 
 export const navigationGroups = {
@@ -93,10 +94,22 @@ export const navigationGroups = {
         description: "Gestão do quadro de colaboradores",
       },
       {
-        label: "Instruções de Trabalho",
-        href: "/administracao/its",
+        label: "Minha IT",
+        href: "/minha-it",
         icon: BookOpen,
-        description: "ITs, Trilha & Polivalência",
+        description: "Meu procedimento oficial",
+      },
+      {
+        label: "Governança de ITs",
+        href: "/gestao/rh/instrucoes-trabalho-monitoramento",
+        icon: ShieldCheck,
+        description: "Auditoria WORM & Ciências",
+      },
+      {
+        label: "Painel Geral ITs",
+        href: "/administracao/its",
+        icon: FileText,
+        description: "Catálogo completo de ITs",
       },
     ],
   },
