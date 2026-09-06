@@ -86,20 +86,46 @@ export function ItDetailViewClient({ initialData }: { initialData: ITDetailData 
     return () => target.removeEventListener('scroll', handleScroll);
   }, [isFullscreen]);
 
-  // Atalhos de teclado (F = Tela Cheia, Esc = Sair)
+  // Atalhos de teclado (F = Tela Cheia, Esc = Sair) + Fullscreen API
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === 'f' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
         e.preventDefault();
-        setIsFullscreen((prev) => !prev);
-      } else if (e.key === 'Escape' && isFullscreen) {
-        setIsFullscreen(false);
+        toggleFullscreen();
       }
+      // Esc é tratado nativamente pela Fullscreen API
+    };
+
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isFullscreen]);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      // Entra em tela cheia usando o container do componente
+      const el = containerRef.current;
+      if (el && el.requestFullscreen) {
+        el.requestFullscreen().catch(() => {
+          // Fallback CSS se a API falhar
+          setIsFullscreen(prev => !prev);
+        });
+      } else {
+        setIsFullscreen(prev => !prev);
+      }
+    } else {
+      document.exitFullscreen().catch(() => {
+        setIsFullscreen(false);
+      });
+    }
+  };
 
   // Toggle do passo no checklist
   const toggleStep = (ordem: number) => {
@@ -218,7 +244,7 @@ export function ItDetailViewClient({ initialData }: { initialData: ITDetailData 
     <div
       ref={containerRef}
       className={`relative min-h-screen text-white transition-all ${
-        isFullscreen ? 'fixed inset-0 z-50 bg-[#070A12] overflow-y-auto p-4 sm:p-8' : 'p-4 sm:p-6 lg:p-8'
+        isFullscreen ? 'fixed inset-0 z-[9999] bg-[#070A12] overflow-y-auto p-4 sm:p-8' : 'p-4 sm:p-6 lg:p-8'
       }`}
     >
       {/* Barra de Progresso Fina no Topo (Leitura) */}
@@ -304,7 +330,7 @@ export function ItDetailViewClient({ initialData }: { initialData: ITDetailData 
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setIsFullscreen((prev) => !prev)}
+            onClick={toggleFullscreen}
             className="text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:text-white gap-1.5"
           >
             {isFullscreen ? (
