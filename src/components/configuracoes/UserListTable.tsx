@@ -7,6 +7,7 @@ import {
   updateUserName,
   updateUserCpf,
   toggleUserStatus,
+  updateUserProfile,
 } from '@/app/actions/admin';
 import {
   ShieldCheck,
@@ -57,7 +58,12 @@ export function UserListTable({
   const [newPassword, setNewPassword] = useState('');
   const [editUser, setEditUser] = useState<UserItem | null>(null);
   const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
   const [editCpf, setEditCpf] = useState('');
+  const [editDepartamento, setEditDepartamento] = useState('');
+  const [editRole, setEditRole] = useState('');
+  const [editCargo, setEditCargo] = useState('');
+  const [editStatus, setEditStatus] = useState('');
   const [loading, setLoading] = useState(false);
   const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
   const [modalMessage, setModalMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
@@ -170,7 +176,12 @@ export function UserListTable({
     }
     setEditUser(user);
     setEditName(user.name || '');
+    setEditEmail(user.email || '');
     setEditCpf(user.cpf || '');
+    setEditDepartamento(user.departamento || '');
+    setEditRole(user.role || 'COLABORADOR');
+    setEditCargo(user.cargo || '');
+    setEditStatus(user.status || 'ativo');
     setModalMessage(null);
   };
 
@@ -181,26 +192,25 @@ export function UserListTable({
     setModalMessage(null);
 
     try {
-      if (editName.trim() !== (editUser.name || '')) {
-        const resName = await updateUserName(editUser.id, editName);
-        if (resName.error) {
-          setModalMessage({ type: 'error', text: resName.error });
-          setLoading(false);
-          return;
-        }
-      }
+      const res = await updateUserProfile(editUser.id, {
+        name: editName.trim(),
+        email: editEmail.trim(),
+        cpf: editCpf.trim(),
+        departamento: editDepartamento.trim(),
+        role: editRole,
+        cargo: editCargo.trim(),
+        status: editStatus,
+      });
 
-      if (editCpf.trim() !== (editUser.cpf || '')) {
-        const resCpf = await updateUserCpf(editUser.id, editCpf);
-        if (resCpf.error) {
-          setModalMessage({ type: 'error', text: resCpf.error });
-          setLoading(false);
-          return;
-        }
+      if (res.error) {
+        setModalMessage({ type: 'error', text: res.error });
+      } else {
+        setModalMessage({ type: 'success', text: 'Dados atualizados com sucesso!' });
+        setTimeout(() => {
+          setEditUser(null);
+          window.location.reload();
+        }, 800);
       }
-
-      setModalMessage({ type: 'success', text: 'Dados atualizados com sucesso!' });
-      setTimeout(() => setEditUser(null), 1000);
     } catch {
       setModalMessage({ type: 'error', text: 'Falha ao atualizar dados.' });
     } finally {
@@ -510,10 +520,10 @@ export function UserListTable({
         </table>
       </div>
 
-      {/* Modal Editar Nome & CPF */}
+      {/* Modal Editar Colaborador Completo */}
       {editUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-          <div className="relative w-full max-w-md bg-[#0B1020] border border-white/12 rounded-[24px] p-6 shadow-2xl space-y-4">
+          <div className="relative w-full max-w-lg bg-[#0B1020] border border-white/12 rounded-[24px] p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-white/8 pb-3">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <Edit3 className="w-4 h-4 text-amber-400" />
@@ -555,6 +565,19 @@ export function UserListTable({
 
               <div>
                 <label className="block text-[11px] font-semibold uppercase text-white/60 mb-1">
+                  E-mail
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  className="w-full bg-[#070A12] border border-white/12 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-hidden focus:border-amber-400/50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase text-white/60 mb-1">
                   CPF (Validação 1-para-1 do RH)
                 </label>
                 <input
@@ -564,6 +587,73 @@ export function UserListTable({
                   onChange={(e) => setEditCpf(formatCpfMask(e.target.value))}
                   className="w-full bg-[#070A12] border border-white/12 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-hidden focus:border-amber-400/50 font-mono"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase text-white/60 mb-1">
+                    Departamento
+                  </label>
+                  <select
+                    value={editDepartamento}
+                    onChange={(e) => setEditDepartamento(e.target.value)}
+                    className="w-full bg-[#070A12] border border-white/12 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-hidden focus:border-amber-400/50"
+                  >
+                    <option value="">Selecionar...</option>
+                    <option value="Atendimento">Atendimento</option>
+                    <option value="Registro">Registro</option>
+                    <option value="TI">TI</option>
+                    <option value="Administração">Administração</option>
+                    <option value="Financeiro">Financeiro</option>
+                    <option value="Jurídico">Jurídico</option>
+                    <option value="RH">RH</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase text-white/60 mb-1">
+                    Função (Nível de Acesso)
+                  </label>
+                  <select
+                    value={editRole}
+                    onChange={(e) => setEditRole(e.target.value)}
+                    className="w-full bg-[#070A12] border border-white/12 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-hidden focus:border-amber-400/50"
+                  >
+                    <option value="COLABORADOR">Colaborador</option>
+                    <option value="USER">Usuário</option>
+                    <option value="RH">RH</option>
+                    <option value="ADMIN">Admin</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase text-white/60 mb-1">
+                    Cargo
+                  </label>
+                  <input
+                    type="text"
+                    value={editCargo}
+                    onChange={(e) => setEditCargo(e.target.value)}
+                    placeholder="Ex: Escrevente, Auxiliar..."
+                    className="w-full bg-[#070A12] border border-white/12 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-hidden focus:border-amber-400/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase text-white/60 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="w-full bg-[#070A12] border border-white/12 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-hidden focus:border-amber-400/50"
+                  >
+                    <option value="ativo">Ativo</option>
+                    <option value="inativo">Inativo</option>
+                  </select>
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">

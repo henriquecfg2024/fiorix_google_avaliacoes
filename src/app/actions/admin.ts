@@ -373,3 +373,114 @@ export async function toggleUserStatus(userId: string) {
   revalidatePath('/configuracoes/usuarios');
   return { success: true, newStatus };
 }
+
+export async function updateUserProfile(
+  userId: string,
+  data: {
+    name?: string;
+    email?: string;
+    cpf?: string;
+    departamento?: string;
+    cargo?: string;
+    role?: string;
+    status?: string;
+  }
+) {
+  const currentUser = await requireRole('ADMIN', 'MASTER');
+
+  const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+  if (!targetUser) return { error: 'Usuário não encontrado.' };
+
+  // REGRA CRÍTICA - PROTEÇÃO MASTER
+  if (targetUser.email === 'admin@fiorix.com.br' || targetUser.role === 'MASTER') {
+    return { error: 'Usuário MASTER protegido - não pode ser alterado sob nenhuma circunstância.' };
+  }
+
+  if (currentUser.role !== 'MASTER' && targetUser.tenantId !== currentUser.tenantId) {
+    return { error: 'Não autorizado a alterar este usuário.' };
+  }
+
+  // Validar e-mail único
+  if (data.email && data.email.trim() !== targetUser.email) {
+    const existingEmail = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id FROM public."User" WHERE email = $1 AND id != $2 LIMIT 1`,
+      data.email.trim().toLowerCase(),
+      userId
+    );
+    if (existingEmail.length > 0) {
+      return { error: 'Este e-mail já está cadastrado para outro usuário.' };
+    }
+  }
+
+  // Validar CPF único
+  const cleanCpf = data.cpf?.trim() || '';
+  if (cleanCpf) {
+    const existingCpf = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id FROM public."User" WHERE cpf = $1 AND id != $2 LIMIT 1`,
+      cleanCpf,
+      userId
+    );
+    if (existingCpf.length > 0) {
+      return { error: 'Este CPF já está cadastrado para outro colaborador.' };
+    }
+  }
+
+  // Validar role
+  const validRoles = ['COLABORADOR', 'USER', 'RH', 'ADMIN'];
+  if (data.role && !validRoles.includes(data.role)) {
+    return { error: 'Função inválida.' };
+  }
+
+  // Construir SET dinâmico
+  const sets: string[] = [];
+  const params: any[] = [];
+  let paramIdx = 1;
+
+  if (data.name !== undefined) {
+    sets.push(`name = $${paramIdx++}`);
+    params.push(data.name.trim());
+  }
+  if (data.email !== undefined) {
+    sets.push(`email = $${paramIdx++}`);
+    params.push(data.email.trim().toLowerCase());
+  }
+  if (data.cpf !== undefined) {
+    sets.push(`cpf = $${paramIdx++}`);
+    params.push(cleanCpf || null);
+  }
+  if (data.departamento !== undefined) {
+    sets.push(`departamento = $${paramIdx++}`);
+    params.push(data.departamento.trim() || null);
+  }
+  if (data.cargo !== undefined) {
+    sets.push(`cargo = $${paramIdx++}`);
+    params.push(data.cargo.trim() || null);
+  }
+  if (data.role !== undefined) {
+    sets.push(`role = $${paramIdx++}`);
+    params.push(data.role);
+  }
+  if (data.status !== undefined) {
+    sets.push(`status = $${paramIdx++}`);
+    params.push(data.status);
+  }
+
+  if (sets.length === 0) {
+    return { error: 'Nenhum campo para atualizar.' };
+  }
+
+  sets.push(`"updatedAt" = NOW()`);
+  params.push(userId);
+
+  const query = `
+    UPDATE public."User"
+    SET ${sets.join(', ')}
+    WHERE id = $${paramIdx} AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+  `;
+
+  await prisma.$executeRawUnsafe(query, ...params);
+
+  revalidatePath('/configuracoes/usuarios');
+  revalidatePath('/sistema/pessoas');
+  return { success: true };
+}
