@@ -222,7 +222,7 @@ export async function getItsPageData() {
         assinado: false,
       };
 
-  // 3. Buscar colaboradores reais
+  // 3. Buscar colaboradores reais (excluindo MASTER que é conta de sistema)
   const rawColaboradores = await prisma.$queryRawUnsafe<any[]>(
     `SELECT 
        id, 
@@ -234,9 +234,9 @@ export async function getItsPageData() {
        COALESCE(pode_ser_tutor, false) as "podeSerTutor", 
        COALESCE(status, 'ativo') as status
      FROM public."User"
-     WHERE "tenantId" = $1
+     WHERE "tenantId" = $1 AND role != 'MASTER'
      ORDER BY 
-       CASE WHEN role = 'MASTER' THEN 0 WHEN role = 'ADMIN' THEN 1 WHEN role = 'RH' THEN 2 ELSE 3 END,
+       CASE WHEN role = 'ADMIN' THEN 0 WHEN role = 'RH' THEN 1 ELSE 2 END,
        name ASC`,
     tenantId
   );
@@ -1250,11 +1250,11 @@ export async function getGovernancaRhData() {
     columnConfig[row.coluna_key] = row.coluna_label;
   }
 
-  // 4. Todos os colaboradores do tenant (para modais de gestão)
+  // 4. Todos os colaboradores do tenant (para modais de gestão, excluindo MASTER)
   const colaboradoresTenantRaw = await prisma.$queryRawUnsafe<any[]>(
     `SELECT id, name, email, COALESCE(departamento, 'Atendimento') as departamento, COALESCE(cargo, 'auxiliar') as cargo
      FROM public."User"
-     WHERE "tenantId" = $1
+     WHERE "tenantId" = $1 AND role != 'MASTER'
      ORDER BY name ASC`,
     tenantId
   );
