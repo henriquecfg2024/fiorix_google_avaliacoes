@@ -119,6 +119,8 @@ export async function POST(request: Request) {
         responsavel: getVal("RESPONSAVEL", "responsavel", "Responsavel") || "Não Atribuído",
         tipo: getVal("TIPO", "tipo", "Tipo") || "",
         natureza: getVal("NATUREZA", "natureza", "Natureza") || "",
+        dtRetirada: parseDateStr(getVal("DT_RETIRADA", "dt_retirada", "dtRetirada", "DtRetirada", "DTRetirda")),
+        dtDevolucao: parseDateStr(getVal("DT_DEVOLUCAO", "dt_devolucao", "dtDevolucao", "DtDevolucao")),
         importId,
       };
     };
@@ -142,7 +144,9 @@ export async function POST(request: Request) {
             ${r.dataAbertura ? new Date(r.dataAbertura) : null},
             ${r.dataFinalizacao ? new Date(r.dataFinalizacao) : null},
             ${r.situacaoTarefa}, ${r.idUsuario}, ${r.responsavel},
-            ${r.tipo}, ${r.natureza}, ${r.importId}
+            ${r.tipo}, ${r.natureza}, ${r.importId},
+            ${r.dtRetirada ? new Date(r.dtRetirada) : null},
+            ${r.dtDevolucao ? new Date(r.dtDevolucao) : null}
           )`
         );
 
@@ -154,7 +158,7 @@ export async function POST(request: Request) {
             NUMERO_SERVICO, ITEM_SERVICO, DATA_SERVICO, VENCIMENTO_SERVICO,
             ID_TAREFA, TAREFA, DATA_CADASTRO_TAREFA, STATUS_TAREFA,
             DATA_ABERTURA, DATA_FINALIZACAO, SITUACAO_TAREFA, ID_USUARIO,
-            RESPONSAVEL, TIPO, NATUREZA, import_id
+            RESPONSAVEL, TIPO, NATUREZA, import_id, dt_retirada, dt_devolucao
           )
           VALUES ${Prisma.join(valuesSql)}
           ON CONFLICT (tenant_id, id_tarefa) DO UPDATE SET
@@ -166,7 +170,9 @@ export async function POST(request: Request) {
             STATUS_TAREFA = EXCLUDED.STATUS_TAREFA,
             DATA_FINALIZACAO = EXCLUDED.DATA_FINALIZACAO,
             SITUACAO_TAREFA = EXCLUDED.SITUACAO_TAREFA,
-            RESPONSAVEL = EXCLUDED.RESPONSAVEL;
+            RESPONSAVEL = EXCLUDED.RESPONSAVEL,
+            dt_retirada = EXCLUDED.dt_retirada,
+            dt_devolucao = EXCLUDED.dt_devolucao;
         `
       );
     }

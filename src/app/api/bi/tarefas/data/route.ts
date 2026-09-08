@@ -19,9 +19,15 @@ export async function GET(request: Request) {
     try {
       rawTarefas = await prisma.$queryRaw(
         Prisma.sql`
-          SELECT * FROM public.fiorix_tarefas_dados 
-          WHERE tenant_id = ${user.tenantId}
-          ORDER BY dt_previsao DESC NULLS LAST, protocolo DESC
+          SELECT t.* FROM public.fiorix_tarefas_dados t
+          WHERE t.tenant_id = ${user.tenantId}
+          AND t.protocolo NOT IN (
+            SELECT DISTINCT f.protocolo 
+            FROM public.fiorix_tarefas_dados f 
+            WHERE f.tenant_id = ${user.tenantId} 
+            AND (f.dt_retirada IS NOT NULL OR f.data_finalizacao IS NOT NULL)
+          )
+          ORDER BY t.dt_previsao DESC NULLS LAST, t.protocolo DESC
         `
       );
     } catch (dbErr) {
@@ -67,6 +73,20 @@ export async function GET(request: Request) {
           const result = await requestMssql.query(`EXEC dbo.pr_Fiorix_BI_TAREFAS @SomenteAbertas = @SomenteAbertas`);
           rawTarefas = result.recordset || [];
           await sql.close();
+
+          // Se somenteAbertas for true, excluir qualquer protocolo que já tenha DtRetirada ou data_finalizacao
+          if (rawTarefas && rawTarefas.length > 0 && somenteAbertas) {
+            const protocolosRetirados = new Set<number>();
+            rawTarefas.forEach((r: any) => {
+              const ret = r.DtRetirada || r.DTRetirda || r.dt_retirada || r.DT_RETIRADA || r.DATA_FINALIZACAO || r.data_finalizacao;
+              if (ret) {
+                protocolosRetirados.add(Number(r.PROTOCOLO || r.protocolo || 0));
+              }
+            });
+            if (protocolosRetirados.size > 0) {
+              rawTarefas = rawTarefas.filter((r: any) => !protocolosRetirados.has(Number(r.PROTOCOLO || r.protocolo || 0)));
+            }
+          }
         } catch (mssqlErr) {
           console.error("Erro no fallback MSSQL para Tarefas:", mssqlErr);
         }
@@ -112,6 +132,8 @@ export async function GET(request: Request) {
         responsavel: getVal("RESPONSAVEL", "responsavel", "Responsavel") || "Não Atribuído",
         tipo: getVal("TIPO", "tipo", "Tipo") || "",
         natureza: getVal("NATUREZA", "natureza", "Natureza") || "",
+        dtRetirada: getVal("DT_RETIRADA", "dt_retirada", "dtRetirada", "DtRetirada", "DTRetirda"),
+        dtDevolucao: getVal("DT_DEVOLUCAO", "dt_devolucao", "dtDevolucao", "DtDevolucao"),
       };
     };
 

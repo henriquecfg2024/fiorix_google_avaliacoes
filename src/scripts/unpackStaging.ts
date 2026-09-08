@@ -80,7 +80,9 @@ async function main() {
         COALESCE(item->>'ID_USUARIO', '') AS id_usuario,
         COALESCE(item->>'RESPONSAVEL', '') AS responsavel,
         COALESCE(item->>'TIPO', '') AS tipo,
-        COALESCE(item->>'NATUREZA', '') AS natureza
+        COALESCE(item->>'NATUREZA', '') AS natureza,
+        CASE WHEN COALESCE(item->>'DtRetirada', item->>'DTRetirda', item->>'dt_retirada', item->>'DT_RETIRADA') IS NOT NULL AND COALESCE(item->>'DtRetirada', item->>'DTRetirda', item->>'dt_retirada', item->>'DT_RETIRADA') <> '' THEN (COALESCE(item->>'DtRetirada', item->>'DTRetirda', item->>'dt_retirada', item->>'DT_RETIRADA'))::timestamp ELSE NULL END AS dt_retirada,
+        CASE WHEN COALESCE(item->>'DtDevolucao', item->>'dt_devolucao', item->>'DT_DEVOLUCAO') IS NOT NULL AND COALESCE(item->>'DtDevolucao', item->>'dt_devolucao', item->>'DT_DEVOLUCAO') <> '' THEN (COALESCE(item->>'DtDevolucao', item->>'dt_devolucao', item->>'DT_DEVOLUCAO'))::timestamp ELSE NULL END AS dt_devolucao
       FROM public."ConnectorSyncStaging" s,
       LATERAL jsonb_array_elements(s.records) AS item
       WHERE s.source = 'tarefas'
@@ -93,7 +95,7 @@ async function main() {
       numero_servico, item_servico, data_servico, vencimento_servico,
       id_tarefa, tarefa, data_cadastro_tarefa, status_tarefa,
       data_abertura, data_finalizacao, situacao_tarefa, id_usuario,
-      responsavel, tipo, natureza
+      responsavel, tipo, natureza, dt_retirada, dt_devolucao
     )
     SELECT * FROM deduped
     ON CONFLICT (tenant_id, id_tarefa) DO UPDATE SET
@@ -106,7 +108,9 @@ async function main() {
       status_tarefa = EXCLUDED.status_tarefa,
       data_finalizacao = EXCLUDED.data_finalizacao,
       situacao_tarefa = EXCLUDED.situacao_tarefa,
-      responsavel = EXCLUDED.responsavel;
+      responsavel = EXCLUDED.responsavel,
+      dt_retirada = EXCLUDED.dt_retirada,
+      dt_devolucao = EXCLUDED.dt_devolucao;
   `);
   console.log(`  ✅ Tarefas OK em ${Date.now() - tarStart}ms — Linhas afetadas: ${tarResult}`);
 

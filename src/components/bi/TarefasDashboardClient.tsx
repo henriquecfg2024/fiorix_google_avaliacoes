@@ -72,6 +72,8 @@ interface TarefaRecord {
   responsavel: string;
   tipo: string;
   natureza: string;
+  dtRetirada?: string | null;
+  dtDevolucao?: string | null;
 }
 
 type KpiFilter =
@@ -240,19 +242,19 @@ export function TarefasDashboardClient() {
     return d.toISOString().split("T")[0];
   }, []);
 
-  // Pré-computar quais protocolos ainda estão pendentes (sem nenhuma entrega/finalização)
-  // Um protocolo com data_finalizacao em qualquer tarefa já teve entregas e não é "atrasado"
+  // Pré-computar quais protocolos ainda estão pendentes (sem nenhuma entrega/finalização/retirada)
+  // Um protocolo com dtRetirada (DTRetirda) ou data_finalizacao já foi retirado/entregue e NÃO deve constar nos atrasados nem tarefas pendentes
   const protocolosAbertos = useMemo(() => {
-    const protocolosComEntrega = new Set<number>();
+    const protocolosConcluidos = new Set<number>();
     tarefas.forEach((t) => {
-      if (t.dataFinalizacao) {
-        protocolosComEntrega.add(t.protocolo);
+      if (t.dtRetirada || t.dataFinalizacao) {
+        protocolosConcluidos.add(t.protocolo);
       }
     });
 
     const set = new Set<number>();
     tarefas.forEach((t) => {
-      if (!protocolosComEntrega.has(t.protocolo)) {
+      if (!protocolosConcluidos.has(t.protocolo)) {
         set.add(t.protocolo);
       }
     });
@@ -512,6 +514,7 @@ export function TarefasDashboardClient() {
     activeKpiFilter,
     todayStr,
     tomorrowStr,
+    protocolosAbertos,
   ]);
 
   const tarefasOrdenadas = useMemo(() => {
