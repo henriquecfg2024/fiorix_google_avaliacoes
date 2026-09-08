@@ -213,6 +213,20 @@ export default async function ConfiguracoesPage({
             </section>
 
             <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
+              <h2 className="text-lg font-semibold text-white">🏢 Gestão de Departamentos</h2>
+              <p className="mt-1 text-sm text-white/55">
+                Cadastre, edite e organize os departamentos da sua organização. Os departamentos são utilizados para lotação de colaboradores e vinculação de Instruções de Trabalho.
+              </p>
+
+              <Link
+                href="/configuracoes/departamentos"
+                className="mt-5 inline-flex rounded-xl border border-white/12 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
+              >
+                Gerenciar Departamentos →
+              </Link>
+            </section>
+
+            <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
               <h2 className="text-lg font-semibold text-white">👤 Gestão de Usuários do Cartório</h2>
               <p className="mt-1 text-sm text-white/55">
                 Cadastre novos usuários (funcionários/equipe) para acessar o painel do FIORIX neste cartório.

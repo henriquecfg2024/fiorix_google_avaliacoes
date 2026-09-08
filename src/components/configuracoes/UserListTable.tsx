@@ -287,19 +287,7 @@ export function UserListTable({
     });
   }, [usuarios, searchTerm, selectedDepto, selectedRole]);
 
-  const departamentos = [
-    'TODOS',
-    'Atendimento',
-    'Registro',
-    'Financeiro',
-    'RH',
-    'Administração',
-    'TI',
-    'Indisponibilidade',
-    'Intimação',
-    'Ofício',
-    'Impressão/Arquivo',
-  ];
+  const departamentos = ['TODOS', ...Array.from(new Set(usuarios.map(u => u.departamento).filter(Boolean) as string[])).sort()];
 
   return (
     <div className="space-y-4">
