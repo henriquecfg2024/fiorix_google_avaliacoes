@@ -240,12 +240,19 @@ export function TarefasDashboardClient() {
     return d.toISOString().split("T")[0];
   }, []);
 
-  // Pré-computar quais protocolos têm ao menos 1 tarefa NÃO finalizada
+  // Pré-computar quais protocolos ainda estão pendentes (sem nenhuma entrega/finalização)
+  // Um protocolo com data_finalizacao em qualquer tarefa já teve entregas e não é "atrasado"
   const protocolosAbertos = useMemo(() => {
+    const protocolosComEntrega = new Set<number>();
+    tarefas.forEach((t) => {
+      if (t.dataFinalizacao) {
+        protocolosComEntrega.add(t.protocolo);
+      }
+    });
+
     const set = new Set<number>();
     tarefas.forEach((t) => {
-      const situacao = (t.situacaoTarefa || "").trim().toUpperCase();
-      if (situacao !== "FINALIZADA") {
+      if (!protocolosComEntrega.has(t.protocolo)) {
         set.add(t.protocolo);
       }
     });
