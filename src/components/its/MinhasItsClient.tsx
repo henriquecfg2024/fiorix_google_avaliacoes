@@ -10,14 +10,12 @@ import {
   ShieldCheck,
   Search,
   ArrowRight,
-  Sparkles,
   ExternalLink,
   Layers,
-  FileCheck2,
   Building2,
   User,
 } from 'lucide-react';
-import { MinhasItsPageData, MinhaItCardItem } from '@/app/actions/its';
+import { MinhasItsPageData } from '@/app/actions/its';
 
 interface MinhasItsClientProps {
   initialData: MinhasItsPageData;
@@ -32,7 +30,6 @@ export function MinhasItsClient({ initialData }: MinhasItsClientProps) {
   // Filtragem dinâmica
   const itsFiltradas = useMemo(() => {
     return its.filter((it) => {
-      // Filtro de texto (código ou título ou objetivo)
       const matchTexto =
         !busca.trim() ||
         it.codigo.toLowerCase().includes(busca.toLowerCase()) ||
@@ -41,7 +38,6 @@ export function MinhasItsClient({ initialData }: MinhasItsClientProps) {
 
       if (!matchTexto) return false;
 
-      // Filtro de status
       if (filtroStatus === 'pendentes') return it.statusCiencia === 'pendente';
       if (filtroStatus === 'cientes') return it.statusCiencia === 'ciente';
       if (filtroStatus === 'guardiao') return it.isGuardiao;
@@ -125,6 +121,16 @@ export function MinhasItsClient({ initialData }: MinhasItsClientProps) {
       </div>
     );
   }
+
+  return (
+    <div className="w-full flex-1 flex flex-col justify-start bg-[#070A12] text-white relative min-h-screen">
+      {/* Ambient Glows */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/8 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </div>
+
+      <div className="relative mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-8 space-y-6">
         {/* Breadcrumb & Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-white/5">
           <div>
