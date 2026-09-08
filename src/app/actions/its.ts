@@ -140,6 +140,11 @@ export async function getItsPageData() {
   const currentUser = await requireAuth();
   const tenantId = currentUser.tenantId;
 
+  // Colaborador comum deve utilizar exclusivamente /minha-it
+  if (currentUser.role === 'COLABORADOR') {
+    throw new Error('Acesso restrito: Colaboradores devem acessar exclusivamente Minha IT.');
+  }
+
   // 1. Buscar ITs ativas
   const rawIts = await prisma.$queryRawUnsafe<any[]>(
     `SELECT 
@@ -783,7 +788,8 @@ export async function getItDetailData(idOrCodigo: string): Promise<ITDetailData 
     it.substitutoAte &&
     new Date(it.substitutoAte) >= new Date()
   );
-  const isGuardiao = isGuardiaoTitular || isSubstitutoAtivo || ['ADMIN', 'MASTER'].includes(currentUser.role);
+  const isPrivileged = ['ADMIN', 'MASTER', 'RH'].includes(currentUser.role);
+  const isGuardiao = isGuardiaoTitular || isSubstitutoAtivo || isPrivileged;
 
   // Busca status de ciência do usuário logado
   const rawMinhaCiencia = await prisma.$queryRawUnsafe<any[]>(
@@ -796,6 +802,23 @@ export async function getItDetailData(idOrCodigo: string): Promise<ITDetailData 
     currentUser.id,
     it.versao
   );
+
+  // Busca se tem permissão por trilha de estudo
+  const rawTrilha = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT id FROM public.fiorix_trilhas_estudo
+     WHERE tenant_id = $1 AND it_id = $2::uuid AND usuario_id = $3
+     LIMIT 1`,
+    tenantId,
+    it.id,
+    currentUser.id
+  );
+
+  const temPermissaoRh = rawMinhaCiencia.length > 0 || rawTrilha.length > 0;
+
+  // SEGURANÇA E PRIVACIDADE: Colaborador comum só pode visualizar IT sob sua guarda ou com permissão expressa do RH
+  if (!isGuardiaoTitular && !isSubstitutoAtivo && !isPrivileged && !temPermissaoRh) {
+    return null;
+  }
 
   const minhaCiencia = {
     status: (rawMinhaCiencia[0]?.status || 'pendente') as 'ciente' | 'pendente',

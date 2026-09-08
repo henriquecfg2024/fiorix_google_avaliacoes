@@ -17,7 +17,13 @@ export default async function ModuloItsPage() {
     redirect("/login");
   }
 
+  // Colaborador comum não acessa o painel geral da administração
+  if (session.user.role === 'COLABORADOR') {
+    redirect("/minha-it");
+  }
+
   const initialData = await getItsPageData();
 
   return <ModuloItsClient initialData={initialData} />;
 }
+
