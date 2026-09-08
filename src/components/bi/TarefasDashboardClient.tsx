@@ -159,6 +159,17 @@ function escapePrintValue(value: unknown) {
     .replace(/'/g, "&#039;");
 }
 
+function formatDisplayDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "-";
+  const clean = String(dateStr).trim();
+  const datePart = clean.split("T")[0].split(" ")[0];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+    const [y, m, d] = datePart.split("-");
+    return `${d}/${m}/${y}`;
+  }
+  return clean;
+}
+
 export function TarefasDashboardClient() {
   const [tarefas, setTarefas] = useState<TarefaRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -653,13 +664,13 @@ export function TarefasDashboardClient() {
         [
           r.protocolo,
           r.seqTitulo,
-          r.dtPrevisao ? new Date(r.dtPrevisao).toLocaleDateString("pt-BR") : "-",
+          formatDisplayDate(r.dtPrevisao),
           r.statusPrevisao,
           r.nivelRisco,
           `"${r.tarefa || ""}"`,
           `"${r.responsavel || ""}"`,
           r.situacaoTarefa,
-          r.dataAbertura ? new Date(r.dataAbertura).toLocaleDateString("pt-BR") : "-",
+          formatDisplayDate(r.dataAbertura),
           `"${r.tipo || ""}"`,
           `"${r.natureza || ""}"`,
         ].join(";")
@@ -686,7 +697,7 @@ export function TarefasDashboardClient() {
   const printPrevisao =
     selectedPrevisao === "ALL"
       ? "Todas"
-      : new Date(`${selectedPrevisao}T12:00:00`).toLocaleDateString("pt-BR");
+      : formatDisplayDate(selectedPrevisao);
 
   const handleOpenPrintPreview = () => {
     if (tarefasFiltradas.length === 0) {
@@ -709,7 +720,7 @@ export function TarefasDashboardClient() {
       .map(
         (row) => `<tr>
           <td>${escapePrintValue(row.protocolo)}</td>
-          <td>${escapePrintValue(row.dtPrevisao ? new Date(row.dtPrevisao).toLocaleDateString("pt-BR") : "-")}</td>
+          <td>${escapePrintValue(formatDisplayDate(row.dtPrevisao))}</td>
           <td>${escapePrintValue(row.statusPrevisao)}</td>
           <td>${escapePrintValue(row.nivelRisco)}</td>
           <td>${escapePrintValue(row.tarefa)}</td>
@@ -1148,7 +1159,7 @@ export function TarefasDashboardClient() {
             <option value="ALL">Todas as Previsões</option>
             {listaPrevisoesUnicas.map((previsao) => (
               <option key={previsao} value={previsao}>
-                {new Date(`${previsao}T12:00:00`).toLocaleDateString("pt-BR")}
+                {formatDisplayDate(previsao)}
               </option>
             ))}
           </select>
@@ -1246,7 +1257,7 @@ export function TarefasDashboardClient() {
                     <tr key={`${row.idTarefa}-${row.protocolo}-${idx}`} className="transition-colors hover:bg-white/[0.035]">
                       <td className="py-3 px-4 font-bold text-white">{row.protocolo}</td>
                       <td className="py-3 px-4 font-medium text-slate-300">
-                        {row.dtPrevisao ? new Date(row.dtPrevisao).toLocaleDateString("pt-BR") : "-"}
+                        {formatDisplayDate(row.dtPrevisao)}
                       </td>
                       <td className="py-3 px-4 text-center">
                         {isAtrasado ? (

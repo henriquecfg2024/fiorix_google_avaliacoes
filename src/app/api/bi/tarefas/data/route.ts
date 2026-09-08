@@ -19,17 +19,25 @@ export async function GET(request: Request) {
     try {
       rawTarefas = await prisma.$queryRaw(
         Prisma.sql`
-          SELECT t.* FROM public.fiorix_tarefas_dados t
-          WHERE t.tenant_id = ${user.tenantId}
-          AND t.protocolo NOT IN (
-            SELECT DISTINCT f.protocolo 
-            FROM public.fiorix_tarefas_dados f 
-            WHERE f.tenant_id = ${user.tenantId} 
-            AND f.dt_retirada IS NOT NULL
+          WITH open_tasks AS (
+            SELECT t.* FROM public.fiorix_tarefas_dados t
+            WHERE t.tenant_id = ${user.tenantId}
+            AND t.protocolo NOT IN (
+              SELECT DISTINCT f.protocolo 
+              FROM public.fiorix_tarefas_dados f 
+              WHERE f.tenant_id = ${user.tenantId} 
+              AND f.dt_retirada IS NOT NULL
+            )
+            AND (t.situacao_tarefa <> 'FINALIZADA' OR t.situacao_tarefa IS NULL)
+            AND t.data_finalizacao IS NULL
           )
-          AND (t.situacao_tarefa <> 'FINALIZADA' OR t.situacao_tarefa IS NULL)
-          AND t.data_finalizacao IS NULL
-          ORDER BY t.dt_previsao DESC NULLS LAST, t.protocolo DESC
+          SELECT *
+          FROM (
+            SELECT DISTINCT ON (protocolo) *
+            FROM open_tasks
+            ORDER BY protocolo, data_cadastro_tarefa DESC NULLS LAST, id_tarefa DESC
+          ) latest
+          ORDER BY dt_previsao DESC NULLS LAST, protocolo DESC
         `
       );
     } catch (dbErr) {
