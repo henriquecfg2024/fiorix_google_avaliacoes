@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import {
   Maximize2,
   Minimize2,
@@ -18,6 +19,7 @@ import {
   HelpCircle,
   Plus,
   ArrowRight,
+  ArrowLeft,
   Copy,
   Check,
   Share2,
@@ -258,6 +260,13 @@ export function ItDetailViewClient({ initialData }: { initialData: ITDetailData 
       {/* Barra de Controles Superiores (Zen Bar quando Fullscreen ou Barra Padrão) */}
       <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-4 mb-6 print:hidden">
         <div className="flex items-center gap-3">
+          <Link
+            href="/minha-it"
+            className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all mr-1"
+            title="Voltar para Minhas Instruções de Trabalho"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Voltar
+          </Link>
           <span className="text-xs font-mono font-bold px-2.5 py-1 rounded bg-zinc-800 text-emerald-400 border border-zinc-700">
             {it.codigo}
           </span>

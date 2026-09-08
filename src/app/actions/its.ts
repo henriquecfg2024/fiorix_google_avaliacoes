@@ -1309,32 +1309,192 @@ export async function getGovernancaRhData() {
   };
 }
 
+export interface MinhaItCardItem {
+  id: string;
+  codigo: string;
+  titulo: string;
+  departamento: string;
+  versao: string;
+  vigencia: string;
+  tempoLeituraMin: number;
+  objetivo: string;
+  quandoUsar?: string;
+  isGuardiao: boolean;
+  guardiaoNome?: string;
+  statusCiencia: 'ciente' | 'pendente';
+  cienteEm?: string;
+  diasSemRevisao: number;
+}
+
+export interface MinhasItsPageData {
+  currentUser: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    departamento: string;
+    cargo: string;
+  };
+  its: MinhaItCardItem[];
+  stats: {
+    total: number;
+    cientes: number;
+    pendentes: number;
+    custodias: number;
+  };
+}
+
+export async function getMinhasItsData(): Promise<MinhasItsPageData> {
+  const currentUser = await requireAuth();
+  const tenantId = currentUser.tenantId;
+
+  // Busca departamento e cargo atualizados diretamente no banco
+  let userDepto = currentUser.departamento;
+  let userCargo = currentUser.cargo;
+  if (!userDepto || !userCargo) {
+    const rawUser = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT departamento, cargo FROM public."User" WHERE id = $1 LIMIT 1`,
+      currentUser.id
+    );
+    if (rawUser && rawUser.length > 0) {
+      userDepto = rawUser[0].departamento || userDepto;
+      userCargo = rawUser[0].cargo || userCargo;
+    }
+  }
+  userDepto = userDepto || 'Atendimento';
+  userCargo = userCargo || 'colaborador';
+
+  const isMasterOrAdmin = ['ADMIN', 'MASTER', 'RH'].includes(currentUser.role);
+
+  // Busca ITs pertinentes: do departamento, onde é guardião, onde tem ciência, ou todas para gestão
+  const rawIts = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT 
+       i.id::text,
+       i.codigo,
+       i.titulo,
+       i.departamento,
+       i.versao,
+       i.vigencia::text,
+       i.tempo_leitura_min as "tempoLeituraMin",
+       i.objetivo,
+       i.quando_usar as "quandoUsar",
+       i.guardiao_id as "guardiaoId",
+       g.name as "guardiaoNome",
+       c.status as "cienciaStatus",
+       c.ciente_em as "cienteEm",
+       ROUND(EXTRACT(EPOCH FROM (NOW() - i.updated_at)) / 86400)::int as "diasSemRevisao"
+     FROM public.fiorix_its i
+     LEFT JOIN public."User" g ON g.id = i.guardiao_id
+     LEFT JOIN public.fiorix_its_ciencias c ON c.it_id = i.id AND c.usuario_id = $2 AND c.versao = i.versao
+     WHERE i.tenant_id = $1 
+       AND i.deleted_at IS NULL
+       AND (
+         i.departamento = $3 
+         OR i.guardiao_id = $2 
+         OR c.id IS NOT NULL
+         OR $4 = true
+       )
+     ORDER BY 
+       CASE WHEN i.guardiao_id = $2 THEN 0 ELSE 1 END,
+       CASE WHEN c.status = 'pendente' THEN 0 ELSE 1 END,
+       i.codigo ASC`,
+    tenantId,
+    currentUser.id,
+    userDepto,
+    isMasterOrAdmin
+  );
+
+  const its: MinhaItCardItem[] = rawIts.map((row) => ({
+    id: row.id,
+    codigo: row.codigo,
+    titulo: row.titulo,
+    departamento: row.departamento,
+    versao: row.versao || '1.0',
+    vigencia: row.vigencia || new Date().toISOString().split('T')[0],
+    tempoLeituraMin: Number(row.tempoLeituraMin || 5),
+    objetivo: row.objetivo || '',
+    quandoUsar: row.quandoUsar || '',
+    isGuardiao: row.guardiaoId === currentUser.id,
+    guardiaoNome: row.guardiaoNome || undefined,
+    statusCiencia: row.cienciaStatus === 'ciente' ? 'ciente' : 'pendente',
+    cienteEm: row.cienteEm ? new Date(row.cienteEm).toLocaleDateString('pt-BR') : undefined,
+    diasSemRevisao: Number(row.diasSemRevisao || 0),
+  }));
+
+  const cientes = its.filter((it) => it.statusCiencia === 'ciente').length;
+  const pendentes = its.filter((it) => it.statusCiencia === 'pendente').length;
+  const custodias = its.filter((it) => it.isGuardiao).length;
+
+  return {
+    currentUser: {
+      id: currentUser.id,
+      name: currentUser.name || 'Colaborador',
+      email: currentUser.email || '',
+      role: currentUser.role,
+      departamento: userDepto,
+      cargo: userCargo,
+    },
+    its,
+    stats: {
+      total: its.length,
+      cientes,
+      pendentes,
+      custodias,
+    },
+  };
+}
+
 export async function obterMinhaItId(): Promise<string | null> {
   const currentUser = await requireAuth();
   const tenantId = currentUser.tenantId;
+
+  // 0. Busca departamento real do usuário
+  let userDepto = currentUser.departamento;
+  if (!userDepto) {
+    const rawUser = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT departamento FROM public."User" WHERE id = $1 LIMIT 1`,
+      currentUser.id
+    );
+    userDepto = rawUser[0]?.departamento || 'Atendimento';
+  }
 
   // 1. Tenta achar IT onde o usuário é guardião
   const guardiaoIt = await prisma.$queryRawUnsafe<any[]>(
     `SELECT id::text FROM public.fiorix_its 
      WHERE tenant_id = $1 AND guardiao_id = $2 AND deleted_at IS NULL
+     ORDER BY codigo ASC
      LIMIT 1`,
     tenantId,
     currentUser.id
   );
   if (guardiaoIt.length > 0) return guardiaoIt[0].id;
 
-  // 2. Tenta achar IT do departamento do usuário
+  // 2. Tenta achar IT do departamento onde o usuário tem ciência pendente
+  const pendenteIt = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT i.id::text 
+     FROM public.fiorix_its i
+     JOIN public.fiorix_its_ciencias c ON c.it_id = i.id AND c.usuario_id = $2 AND c.status = 'pendente'
+     WHERE i.tenant_id = $1 AND i.departamento = $3 AND i.deleted_at IS NULL
+     ORDER BY i.codigo ASC
+     LIMIT 1`,
+    tenantId,
+    currentUser.id,
+    userDepto
+  );
+  if (pendenteIt.length > 0) return pendenteIt[0].id;
+
+  // 3. Tenta achar qualquer IT do departamento do usuário
   const deptoIt = await prisma.$queryRawUnsafe<any[]>(
     `SELECT id::text FROM public.fiorix_its 
      WHERE tenant_id = $1 AND departamento = $2 AND deleted_at IS NULL
      ORDER BY codigo ASC
      LIMIT 1`,
     tenantId,
-    currentUser.departamento || 'Atendimento'
+    userDepto
   );
   if (deptoIt.length > 0) return deptoIt[0].id;
 
-  // 3. Fallback: primeira IT disponível
+  // 4. Fallback: primeira IT disponível
   const firstIt = await prisma.$queryRawUnsafe<any[]>(
     `SELECT id::text FROM public.fiorix_its 
      WHERE tenant_id = $1 AND deleted_at IS NULL

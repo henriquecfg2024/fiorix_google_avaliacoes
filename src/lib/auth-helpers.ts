@@ -7,6 +7,8 @@ export interface AuthenticatedUser {
   email?: string | null;
   role: Role | string;
   tenantId: string;
+  departamento?: string;
+  cargo?: string;
 }
 
 import { prisma } from '@/lib/prisma';
@@ -36,12 +38,30 @@ export async function requireAuth(): Promise<AuthenticatedUser> {
     throw new Error('Usuário sem tenant válido.');
   }
 
+  let departamento: string | undefined = undefined;
+  let cargo: string | undefined = undefined;
+
+  try {
+    const rawUser = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT departamento, cargo FROM public."User" WHERE id = $1 LIMIT 1`,
+      session.user.id
+    );
+    if (rawUser && rawUser.length > 0) {
+      departamento = rawUser[0].departamento || undefined;
+      cargo = rawUser[0].cargo || undefined;
+    }
+  } catch (err) {
+    console.warn('Erro ao buscar departamento do usuário:', err);
+  }
+
   return {
     id: session.user.id,
     name: session.user.name,
     email: session.user.email,
     role: (session.user.role as Role) || 'USER',
     tenantId,
+    departamento,
+    cargo,
   };
 }
 
