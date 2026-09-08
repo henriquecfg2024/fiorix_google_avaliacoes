@@ -705,7 +705,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
                   <th className="py-3 px-4">Colaborador</th>
                   <th className="py-3 px-4">Departamento</th>
                   <th className="py-3 px-4">Cargo</th>
-                  <th className="py-3 px-4">Função / Papel</th>
+
                   <th className="py-3 px-4">Tutor Habilitado</th>
                   <th className="py-3 px-4 text-center">Status</th>
                 </tr>
@@ -733,25 +733,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
 
                     <td className="py-3 px-4 text-slate-300">{c.cargo}</td>
 
-                    <td className="py-3 px-4">
-                      {c.role === "MASTER" ? (
-                        <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                          MASTER
-                        </span>
-                      ) : c.role === "ADMIN" ? (
-                        <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40">
-                          ADMIN
-                        </span>
-                      ) : c.role === "RH" ? (
-                        <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40">
-                          RH
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">
-                          COLABORADOR
-                        </span>
-                      )}
-                    </td>
+
 
                     <td className="py-3 px-4">
                       {isGestao ? (
