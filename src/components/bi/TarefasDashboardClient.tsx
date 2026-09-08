@@ -112,7 +112,8 @@ function matchesKpiFilter(
   tarefa: TarefaRecord,
   filter: KpiFilter | null,
   todayStr: string,
-  tomorrowStr: string
+  tomorrowStr: string,
+  protocolosAbertos?: Set<number>
 ) {
   if (!filter) return true;
 
@@ -120,12 +121,14 @@ function matchesKpiFilter(
   const statusPrev = (tarefa.statusPrevisao || "").trim().toUpperCase();
   const risco = (tarefa.nivelRisco || "").trim().toUpperCase();
   const dtStr = tarefa.dtPrevisao?.split("T")[0] || "";
+  const isAberto = !protocolosAbertos || protocolosAbertos.has(tarefa.protocolo);
 
-  if (filter === "VENCEM_HOJE") return dtStr === todayStr;
-  if (filter === "VENCEM_AMANHA") return dtStr === tomorrowStr;
+  // Para filtros de prazo/risco, só considerar protocolos que ainda têm tarefas abertas
+  if (filter === "VENCEM_HOJE") return isAberto && dtStr === todayStr;
+  if (filter === "VENCEM_AMANHA") return isAberto && dtStr === tomorrowStr;
 
   if (filter === "PROXIMOS_3_DIAS") {
-    if (!tarefa.dtPrevisao) return false;
+    if (!tarefa.dtPrevisao || !isAberto) return false;
     const dNow = new Date();
     dNow.setHours(0, 0, 0, 0);
     const d3DaysLater = new Date(dNow);
@@ -135,8 +138,8 @@ function matchesKpiFilter(
     return dPrev >= dNow && dPrev <= d3DaysLater;
   }
 
-  if (filter === "ATRASADOS") return statusPrev === "ATRASADO" || statusPrev === "ESTOURADO";
-  if (filter === "RISCO_CRITICO") return risco === "CRITICO" || risco === "CRÍTICO" || risco === "ALTO";
+  if (filter === "ATRASADOS") return isAberto && (statusPrev === "ATRASADO" || statusPrev === "ESTOURADO");
+  if (filter === "RISCO_CRITICO") return isAberto && (risco === "CRITICO" || risco === "CRÍTICO" || risco === "ALTO");
 
   return situacao === "EM ANDAMENTO" || situacao === "ABERTA" || situacao === "PENDENTE";
 }
@@ -237,6 +240,18 @@ export function TarefasDashboardClient() {
     return d.toISOString().split("T")[0];
   }, []);
 
+  // Pré-computar quais protocolos têm ao menos 1 tarefa NÃO finalizada
+  const protocolosAbertos = useMemo(() => {
+    const set = new Set<number>();
+    tarefas.forEach((t) => {
+      const situacao = (t.situacaoTarefa || "").trim().toUpperCase();
+      if (situacao !== "FINALIZADA") {
+        set.add(t.protocolo);
+      }
+    });
+    return set;
+  }, [tarefas]);
+
   // Métricas dos 6 KPI Cards
   const kpis = useMemo(() => {
     const hojeProtSet = new Set<number>();
@@ -257,20 +272,22 @@ export function TarefasDashboardClient() {
       const situacao = (t.situacaoTarefa || "").trim().toUpperCase();
       const statusPrev = (t.statusPrevisao || "").trim().toUpperCase();
       const risco = (t.nivelRisco || "").trim().toUpperCase();
+      const isAberto = protocolosAbertos.has(p);
 
       if (situacao === "EM ANDAMENTO" || situacao === "ABERTA" || situacao === "PENDENTE") {
         tarefasEmAndamentoCount++;
       }
 
-      if (statusPrev === "ATRASADO" || statusPrev === "ESTOURADO") {
+      // Só conta atrasado/risco se o protocolo tem tarefas ainda abertas
+      if (isAberto && (statusPrev === "ATRASADO" || statusPrev === "ESTOURADO")) {
         if (p > 0) atrasadosProtSet.add(p);
       }
 
-      if (risco === "CRITICO" || risco === "CRÍTICO" || risco === "ALTO") {
+      if (isAberto && (risco === "CRITICO" || risco === "CRÍTICO" || risco === "ALTO")) {
         if (p > 0) riscoCriticoProtSet.add(p);
       }
 
-      if (t.dtPrevisao) {
+      if (t.dtPrevisao && isAberto) {
         const dtStr = t.dtPrevisao.split("T")[0];
         if (dtStr === todayStr && p > 0) hojeProtSet.add(p);
         if (dtStr === tomorrowStr && p > 0) amanhaProtSet.add(p);
@@ -291,7 +308,7 @@ export function TarefasDashboardClient() {
       riscoCritico: riscoCriticoProtSet.size,
       tarefasEmAndamento: tarefasEmAndamentoCount,
     };
-  }, [tarefas, todayStr, tomorrowStr]);
+  }, [tarefas, todayStr, tomorrowStr, protocolosAbertos]);
 
   // Gráfico 1: Previsão de Protocolos por Dia
   const chartPrevisaoPorDia = useMemo(() => {
@@ -385,7 +402,7 @@ export function TarefasDashboardClient() {
       }
     > = {};
 
-    tarefas.filter((t) => matchesKpiFilter(t, activeKpiFilter, todayStr, tomorrowStr)).forEach((t) => {
+    tarefas.filter((t) => matchesKpiFilter(t, activeKpiFilter, todayStr, tomorrowStr, protocolosAbertos)).forEach((t) => {
       const resp = (t.responsavel || "Não Atribuído").trim();
       if (!mapResp[resp]) {
         mapResp[resp] = {
@@ -473,7 +490,7 @@ export function TarefasDashboardClient() {
         if (selectedStatusPrevisao === "NO_PRAZO" && s.includes("ATRASAD")) return false;
       }
 
-      if (!matchesKpiFilter(t, activeKpiFilter, todayStr, tomorrowStr)) return false;
+      if (!matchesKpiFilter(t, activeKpiFilter, todayStr, tomorrowStr, protocolosAbertos)) return false;
 
       return true;
     });
