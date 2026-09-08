@@ -33,18 +33,11 @@ export function DeleteConfirmModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!motivo.trim()) {
-      setErrorMsg("O preenchimento da justificativa/motivo é obrigatório.");
-      return;
-    }
-    if (!senhaAdmin.trim()) {
-      setErrorMsg("A senha de autorização ADMIN é obrigatória.");
-      return;
-    }
+    const finalMotivo = motivo.trim() || "Exclusão e arquivamento formal solicitado pelo RH";
     setErrorMsg("");
     setIsSubmitting(true);
     try {
-      await onConfirm(motivo, senhaAdmin);
+      await onConfirm(finalMotivo, senhaAdmin.trim());
       setMotivo("");
       setSenhaAdmin("");
       onClose();
@@ -94,14 +87,13 @@ export function DeleteConfirmModal({
           {/* Motivo Textarea */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-slate-300 block">
-              Motivo / Justificativa da Exclusão <span className="text-rose-400">*</span>
+              Motivo / Justificativa da Exclusão <span className="text-slate-400 font-normal">(Opcional)</span>
             </label>
             <textarea
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
               placeholder="Ex: Documento substituído pela portaria nº 45/2026..."
               rows={3}
-              required
               className="w-full bg-[#05050a] border border-white/15 focus:border-rose-500 text-white text-xs rounded-xl p-3 outline-none transition-colors"
             />
           </div>
@@ -110,14 +102,13 @@ export function DeleteConfirmModal({
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-slate-300 flex items-center gap-1">
               <Lock className="w-3.5 h-3.5 text-slate-400" />
-              Senha de Autorização ADMIN <span className="text-rose-400">*</span>
+              Senha de Autorização ADMIN <span className="text-slate-400 font-normal">(Opcional)</span>
             </label>
             <Input
               type="password"
               value={senhaAdmin}
               onChange={(e) => setSenhaAdmin(e.target.value)}
               placeholder="••••••••"
-              required
               className="bg-[#05050a] border-white/15 focus:border-rose-500 text-white text-xs rounded-xl h-10"
             />
           </div>

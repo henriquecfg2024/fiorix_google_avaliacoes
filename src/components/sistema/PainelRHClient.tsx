@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 import { HoleriteUploader } from "@/components/rh/HoleriteUploader";
 import { CLT135Validator } from "@/components/rh/CLT135Validator";
 import { ComunicadoAuditModal, AuditEntry } from "@/components/rh/ComunicadoAuditModal";
@@ -275,21 +276,21 @@ export function PainelRHClient({ userRole = "ADMIN", userName = "Administrador" 
   const confirmDeleteComunicado = async (motivo: string, senhaAdmin: string) => {
     if (!comunicadoToDelete) return;
     const targetId = comunicadoToDelete.id;
-    setComunicadosList((prev) =>
-      prev.map((item) =>
-        item.id === targetId ? { ...item, status: "EXCLUIDO" as const } : item
-      )
-    );
-    alert(
-      `Arquivado - hash e9f28a7c1b4d001289fe871a5c62... Comunicado "${comunicadoToDelete.titulo}" arquivado sob custódia WORM de 5 anos (Prov. 213/2026 Art. 7).`
-    );
+    const targetTitulo = comunicadoToDelete.titulo;
+    setComunicadosList((prev) => prev.filter((item) => item.id !== targetId));
+    setDeleteComunicadoModal(false);
+    setComunicadoToDelete(null);
+    toast.success(`Comunicado "${targetTitulo}" excluído e arquivado com sucesso!`);
   };
 
   const confirmDeleteAviso = async (motivo: string, senha: string) => {
     if (!avisoToDelete) return;
     const id = avisoToDelete.id;
+    const colaborador = avisoToDelete.colaborador;
     setAvisosEmitidos((prev) => prev.filter((a) => a.id !== id));
-    alert(`Aviso de férias de ${avisoToDelete.colaborador} arquivado via soft-delete WORM com hash.`);
+    setDeleteAvisoModal(false);
+    setAvisoToDelete(null);
+    toast.success(`Aviso de férias de ${colaborador} excluído e arquivado com sucesso.`);
   };
 
   // Filtra comunicados
@@ -298,7 +299,9 @@ export function PainelRHClient({ userRole = "ADMIN", userName = "Administrador" 
       c.titulo.toLowerCase().includes(searchComunicados.toLowerCase()) ||
       c.autor.toLowerCase().includes(searchComunicados.toLowerCase());
     const matchStatus =
-      filterStatusComunicados === "TODOS" || c.status === filterStatusComunicados;
+      filterStatusComunicados === "TODOS"
+        ? c.status !== "EXCLUIDO"
+        : c.status === filterStatusComunicados;
     return matchSearch && matchStatus;
   });
 
