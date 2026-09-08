@@ -36,6 +36,101 @@ interface HoleriteItem {
 }
 
 import { COLABORADORES_REAIS_63 } from "./mockColaboradores45";
+import { deleteHoleritesRH } from "@/app/actions/holerites";
+
+const INITIAL_HOLERITES: HoleriteItem[] = [
+  {
+    id: "hol-1",
+    colaborador: "Henrique Cesar Ferreira Gama",
+    cpf: "***.000.000-28",
+    mesAno: "08/2026",
+    dataUpload: "30/08/2026 09:00",
+    uploadedBy: "Nadia Najjar (RH)",
+    visualizacoes: 12,
+    status: "Ciente",
+    arquivoNome: "10000000028_08-2026.pdf",
+    hash: "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+  },
+  {
+    id: "hol-2",
+    colaborador: "Amanda Aparecida Gil",
+    cpf: "***.000.000-02",
+    mesAno: "08/2026",
+    dataUpload: "30/08/2026 09:02",
+    uploadedBy: "Nadia Najjar (RH)",
+    visualizacoes: 8,
+    status: "Visualizado",
+    arquivoNome: "10000000002_08-2026.pdf",
+    hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  },
+  {
+    id: "hol-3",
+    colaborador: "Alex Nogueira Junior",
+    cpf: "***.000.000-01",
+    mesAno: "08/2026",
+    dataUpload: "30/08/2026 09:03",
+    uploadedBy: "Nadia Najjar (RH)",
+    visualizacoes: 0,
+    status: "Ativo",
+    arquivoNome: "10000000001_08-2026.pdf",
+    hash: "a1b2c3d4e5f67a89bc012d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a",
+  },
+  {
+    id: "hol-4",
+    colaborador: "Claudio Donizetti Ferreira da Silva",
+    cpf: "***.000.000-12",
+    mesAno: "08/2026",
+    dataUpload: "30/08/2026 09:05",
+    uploadedBy: "Nadia Najjar (RH)",
+    visualizacoes: 5,
+    status: "Ciente",
+    arquivoNome: "10000000012_08-2026.pdf",
+    hash: "5d41402abc4b2a76b9719d911017c592",
+  },
+  {
+    id: "hol-5",
+    colaborador: "Nadia Najjar",
+    cpf: "***.000.000-42",
+    mesAno: "08/2026",
+    dataUpload: "30/08/2026 09:07",
+    uploadedBy: "Nadia Najjar (RH)",
+    visualizacoes: 3,
+    status: "Visualizado",
+    arquivoNome: "10000000042_08-2026.pdf",
+    hash: "9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca7",
+  },
+  {
+    id: "hol-6",
+    colaborador: "Antonio Carlos Belato Câmara",
+    cpf: "***.000.000-08",
+    mesAno: "07/2026",
+    dataUpload: "30/07/2026 14:00",
+    uploadedBy: "Nadia Najjar (RH)",
+    visualizacoes: 14,
+    status: "Ciente",
+    arquivoNome: "10000000008_07-2026.pdf",
+    hash: "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+  },
+];
+
+const STORAGE_KEY_DELETED = "fiorix_deleted_holerites";
+const STORAGE_KEY_CUSTOM = "fiorix_custom_holerites";
+
+function getStoredHolerites(): HoleriteItem[] {
+  if (typeof window === "undefined") return INITIAL_HOLERITES;
+  try {
+    const deletedRaw = localStorage.getItem(STORAGE_KEY_DELETED);
+    const deletedIds: string[] = deletedRaw ? JSON.parse(deletedRaw) : [];
+
+    const customRaw = localStorage.getItem(STORAGE_KEY_CUSTOM);
+    const customList: HoleriteItem[] = customRaw ? JSON.parse(customRaw) : [];
+
+    const combined = [...customList, ...INITIAL_HOLERITES];
+    return combined.filter((h) => !deletedIds.includes(h.id));
+  } catch {
+    return INITIAL_HOLERITES;
+  }
+}
 
 export function HoleriteUploader() {
   const [files, setFiles] = useState<File[]>([]);
@@ -49,81 +144,13 @@ export function HoleriteUploader() {
   const [viewPdfItem, setViewPdfItem] = useState<HoleriteItem | null>(null);
   const [viewLogsItem, setViewLogsItem] = useState<HoleriteItem | null>(null);
 
-  // Lista de holerites existentes no sistema (Base real 7º RI SP)
-  const [holeritesList, setHoleritesList] = useState<HoleriteItem[]>([
-    {
-      id: "hol-1",
-      colaborador: "Henrique Cesar Ferreira Gama",
-      cpf: "***.000.000-28",
-      mesAno: "08/2026",
-      dataUpload: "30/08/2026 09:00",
-      uploadedBy: "Nadia Najjar (RH)",
-      visualizacoes: 12,
-      status: "Ciente",
-      arquivoNome: "10000000028_08-2026.pdf",
-      hash: "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
-    },
-    {
-      id: "hol-2",
-      colaborador: "Amanda Aparecida Gil",
-      cpf: "***.000.000-02",
-      mesAno: "08/2026",
-      dataUpload: "30/08/2026 09:02",
-      uploadedBy: "Nadia Najjar (RH)",
-      visualizacoes: 8,
-      status: "Visualizado",
-      arquivoNome: "10000000002_08-2026.pdf",
-      hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    },
-    {
-      id: "hol-3",
-      colaborador: "Alex Nogueira Junior",
-      cpf: "***.000.000-01",
-      mesAno: "08/2026",
-      dataUpload: "30/08/2026 09:03",
-      uploadedBy: "Nadia Najjar (RH)",
-      visualizacoes: 0,
-      status: "Ativo",
-      arquivoNome: "10000000001_08-2026.pdf",
-      hash: "a1b2c3d4e5f67a89bc012d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a",
-    },
-    {
-      id: "hol-4",
-      colaborador: "Claudio Donizetti Ferreira da Silva",
-      cpf: "***.000.000-12",
-      mesAno: "08/2026",
-      dataUpload: "30/08/2026 09:05",
-      uploadedBy: "Nadia Najjar (RH)",
-      visualizacoes: 5,
-      status: "Ciente",
-      arquivoNome: "10000000012_08-2026.pdf",
-      hash: "5d41402abc4b2a76b9719d911017c592",
-    },
-    {
-      id: "hol-5",
-      colaborador: "Nadia Najjar",
-      cpf: "***.000.000-42",
-      mesAno: "08/2026",
-      dataUpload: "30/08/2026 09:07",
-      uploadedBy: "Nadia Najjar (RH)",
-      visualizacoes: 3,
-      status: "Visualizado",
-      arquivoNome: "10000000042_08-2026.pdf",
-      hash: "9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca7",
-    },
-    {
-      id: "hol-6",
-      colaborador: "Antonio Carlos Belato Câmara",
-      cpf: "***.000.000-08",
-      mesAno: "07/2026",
-      dataUpload: "30/07/2026 14:00",
-      uploadedBy: "Nadia Najjar (RH)",
-      visualizacoes: 14,
-      status: "Ciente",
-      arquivoNome: "10000000008_07-2026.pdf",
-      hash: "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
-    },
-  ]);
+  // Lista de holerites existentes no sistema com persistência local e banco
+  const [holeritesList, setHoleritesList] = useState<HoleriteItem[]>(INITIAL_HOLERITES);
+
+  // Sincroniza persistência no cliente ao montar
+  React.useEffect(() => {
+    setHoleritesList(getStoredHolerites());
+  }, []);
 
   const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
@@ -136,13 +163,11 @@ export function HoleriteUploader() {
     setUploading(true);
     setTimeout(() => {
       const novosHolerites: HoleriteItem[] = files.map((f, idx) => {
-        // Formato esperado: CPF_MM-AAAA.pdf
         const cleanName = f.name.replace(/\.pdf$/i, "");
         const parts = cleanName.split("_");
         const rawCpf = parts[0] || "";
         const mesAno = parts[1] ? parts[1].replace("-", "/") : "08/2026";
         
-        // Busca nos colaboradores reais pelo sufixo ou CPF
         const found = COLABORADORES_REAIS_63.find((c) => {
           const digits = c.cpf.replace(/\D/g, "");
           return rawCpf.endsWith(digits.slice(-2)) || rawCpf === digits;
@@ -165,7 +190,16 @@ export function HoleriteUploader() {
         };
       });
 
-      setHoleritesList((prev) => [...novosHolerites, ...prev]);
+      setHoleritesList((prev) => {
+        const updated = [...novosHolerites, ...prev];
+        try {
+          const customRaw = localStorage.getItem(STORAGE_KEY_CUSTOM);
+          const currentCustom: HoleriteItem[] = customRaw ? JSON.parse(customRaw) : [];
+          localStorage.setItem(STORAGE_KEY_CUSTOM, JSON.stringify([...novosHolerites, ...currentCustom]));
+        } catch {}
+        return updated;
+      });
+
       setUploading(false);
       alert(`${files.length} holerites enviados, associados aos colaboradores do 7º RI SP e assinados com SHA-256 com sucesso!`);
       setFiles([]);
@@ -198,19 +232,112 @@ export function HoleriteUploader() {
   const confirmDeleteHolerite = async (motivo: string, senha: string) => {
     if (!itemToDelete) return;
     const deletedId = itemToDelete.id;
+    const nomeColab = itemToDelete.colaborador;
+    const mesAno = itemToDelete.mesAno;
+
+    // 1. Atualiza estado imediatamente
     setHoleritesList((prev) => prev.filter((h) => h.id !== deletedId));
     setSelectedIds((prev) => prev.filter((id) => id !== deletedId));
+
+    // 2. Grava no localStorage para que NUNCA retorne com F5
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_DELETED) || "[]";
+      const arr: string[] = JSON.parse(stored);
+      if (!arr.includes(deletedId)) {
+        arr.push(deletedId);
+        localStorage.setItem(STORAGE_KEY_DELETED, JSON.stringify(arr));
+      }
+      const customRaw = localStorage.getItem(STORAGE_KEY_CUSTOM);
+      if (customRaw) {
+        const customArr: HoleriteItem[] = JSON.parse(customRaw);
+        localStorage.setItem(
+          STORAGE_KEY_CUSTOM,
+          JSON.stringify(customArr.filter((h) => h.id !== deletedId))
+        );
+      }
+    } catch (e) {
+      console.warn("Erro ao salvar exclusão no localStorage:", e);
+    }
+
+    // 3. Registra auditoria no servidor PostgreSQL
+    try {
+      await deleteHoleritesRH({
+        ids: [deletedId],
+        colaboradoresNomes: [nomeColab],
+        motivo: motivo || `Exclusão de holerite ${mesAno} de ${nomeColab} pelo RH`,
+      });
+    } catch (err) {
+      console.warn("Erro ao registrar auditoria no servidor:", err);
+    }
+
     alert(
-      `Holerite ${itemToDelete.mesAno} de ${itemToDelete.colaborador} arquivado via soft-delete WORM. Hash da operação registrado em fiorix_acesso_log.`
+      `Holerite ${mesAno} de ${nomeColab} excluído e arquivado com sucesso. Registro gravado na trilha de auditoria WORM.`
     );
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
-    if (confirm(`Deseja realizar o soft-delete de ${selectedIds.length} holerites selecionados?`)) {
-      setHoleritesList((prev) => prev.filter((h) => !selectedIds.includes(h.id)));
+    const count = selectedIds.length;
+    if (
+      !confirm(
+        `Deseja realizar o soft-delete de ${count} holerite(s) selecionado(s)? Esta ação será registrada na trilha de auditoria WORM e os registros não voltarão após F5.`
+      )
+    ) {
+      return;
+    }
+
+    const idsToDelete = [...selectedIds];
+    const nomesAfetados = holeritesList
+      .filter((h) => idsToDelete.includes(h.id))
+      .map((h) => h.colaborador);
+
+    // 1. Atualiza o estado
+    setHoleritesList((prev) => prev.filter((h) => !idsToDelete.includes(h.id)));
+    setSelectedIds([]);
+
+    // 2. Salva no localStorage para não voltar no F5
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_DELETED) || "[]";
+      const arr: string[] = JSON.parse(stored);
+      idsToDelete.forEach((id) => {
+        if (!arr.includes(id)) arr.push(id);
+      });
+      localStorage.setItem(STORAGE_KEY_DELETED, JSON.stringify(arr));
+
+      const customRaw = localStorage.getItem(STORAGE_KEY_CUSTOM);
+      if (customRaw) {
+        const customArr: HoleriteItem[] = JSON.parse(customRaw);
+        localStorage.setItem(
+          STORAGE_KEY_CUSTOM,
+          JSON.stringify(customArr.filter((h) => !idsToDelete.includes(h.id)))
+        );
+      }
+    } catch (e) {
+      console.warn("Erro ao salvar exclusão em lote no localStorage:", e);
+    }
+
+    // 3. Registra auditoria no servidor
+    try {
+      await deleteHoleritesRH({
+        ids: idsToDelete,
+        colaboradoresNomes: nomesAfetados,
+        motivo: `Exclusão em lote de ${count} holerites selecionados pelo RH`,
+      });
+    } catch (err) {
+      console.warn("Erro ao registrar auditoria em lote no servidor:", err);
+    }
+
+    alert(`${count} holerites excluídos e arquivados na trilha WORM com sucesso!`);
+  };
+
+  const handleRestaurarPadrao = () => {
+    if (confirm("Deseja restaurar a lista inicial demonstrativa de holerites?")) {
+      try {
+        localStorage.removeItem(STORAGE_KEY_DELETED);
+        localStorage.removeItem(STORAGE_KEY_CUSTOM);
+      } catch {}
+      setHoleritesList(INITIAL_HOLERITES);
       setSelectedIds([]);
-      alert(`${selectedIds.length} holerites removidos do storage com logs de trilha preservados.`);
     }
   };
 
@@ -281,6 +408,19 @@ export function HoleriteUploader() {
           </div>
 
           <div className="flex items-center gap-3">
+            {holeritesList.length < INITIAL_HOLERITES.length && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleRestaurarPadrao}
+                className="border-white/10 hover:bg-white/5 text-slate-400 hover:text-white text-xs h-9 rounded-xl gap-1.5"
+                title="Restaurar lista demonstrativa original"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="hidden sm:inline">Restaurar Padrão</span>
+              </Button>
+            )}
+
             {/* Search */}
             <div className="relative w-64">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -420,6 +560,25 @@ export function HoleriteUploader() {
                   </tr>
                 );
               })}
+              {filteredHolerites.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="px-4 py-12 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <FileText className="w-8 h-8 text-slate-600" />
+                      <p className="text-xs">Nenhum holerite encontrado.</p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleRestaurarPadrao}
+                        className="text-xs border-white/10 hover:bg-white/5 text-slate-300 gap-1.5 mt-2"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Restaurar Holerites Demonstrativos</span>
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

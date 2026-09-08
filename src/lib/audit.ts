@@ -6,6 +6,7 @@ export type AuditModulo =
   | 'ITS'
   | 'USUARIOS'
   | 'DEPARTAMENTOS'
+  | 'COLABORADORES'
   | 'FERIAS'
   | 'HOLERITES'
   | 'BI_IMPORTACOES';

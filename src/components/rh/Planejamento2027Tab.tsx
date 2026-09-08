@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Users,
   Plus,
@@ -19,17 +19,49 @@ import {
   Filter,
   Check,
   X,
+  CheckSquare,
+  Square,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Planejamento2027Calendar } from "./Planejamento2027Calendar";
 import { Planejamento2027Gantt } from "./Planejamento2027Gantt";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
+import { BatchDeleteFeriasModal } from "./BatchDeleteFeriasModal";
 import { MOCK_COLABORADORES_45, ColaboradorRH } from "./mockColaboradores45";
+import { batchDeleteFerias, deleteSingleFerias } from "@/app/actions/ferias";
+
+const getStorageKeyDeleted = (year: number) => `fiorix_deleted_ferias_${year}`;
+const getStorageKeyCleared = (year: number) => `fiorix_cleared_ferias_${year}`;
+
+function loadColaboradoresForYear(year: number): ColaboradorRH[] {
+  if (typeof window === "undefined") return MOCK_COLABORADORES_45;
+  try {
+    const isCleared = localStorage.getItem(getStorageKeyCleared(year)) === "true";
+    if (isCleared) return [];
+
+    const deletedRaw = localStorage.getItem(getStorageKeyDeleted(year));
+    const deletedIds: string[] = deletedRaw ? JSON.parse(deletedRaw) : [];
+    return MOCK_COLABORADORES_45.filter((c) => !deletedIds.includes(c.id));
+  } catch {
+    return MOCK_COLABORADORES_45;
+  }
+}
 
 export function Planejamento2027Tab() {
   const [ano, setAno] = useState(2027);
-  const [colaboradores, setColaboradores] = useState<ColaboradorRH[]>(MOCK_COLABORADORES_45);
+  const [colaboradores, setColaboradores] = useState<ColaboradorRH[]>(() => loadColaboradoresForYear(2027));
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [batchDeleteModalOpen, setBatchDeleteModalOpen] = useState(false);
+  const [batchDeleting, setBatchDeleting] = useState(false);
+
+  // Sincroniza ao montar ou alternar ano
+  useEffect(() => {
+    setColaboradores(loadColaboradoresForYear(ano));
+    setSelectedIds([]);
+  }, [ano]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSetor, setSelectedSetor] = useState<string>("TODOS");
   const [selectedStatus, setSelectedStatus] = useState<string>("TODOS");
@@ -120,14 +152,131 @@ export function Planejamento2027Tab() {
     setEditP2Fim(c.p2Fim || "");
   };
 
-  // Excluir com modal
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filtered.length && filtered.length > 0) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filtered.map((c) => c.id));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter((item) => item !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
+    }
+  };
+
+  // Excluir individual com modal
   const handleConfirmDelete = async (motivo: string, senha: string) => {
     if (!itemToDelete) return;
     const delId = itemToDelete.id;
+    const nomeColab = itemToDelete.nome;
+    const setorColab = itemToDelete.setor;
+
     setColaboradores((prev) => prev.filter((c) => c.id !== delId));
+    setSelectedIds((prev) => prev.filter((id) => id !== delId));
+
+    // Persiste no localStorage para não voltar no F5
+    try {
+      const key = getStorageKeyDeleted(ano);
+      const stored = localStorage.getItem(key) || "[]";
+      const arr: string[] = JSON.parse(stored);
+      if (!arr.includes(delId)) {
+        arr.push(delId);
+        localStorage.setItem(key, JSON.stringify(arr));
+      }
+    } catch {}
+
+    // Grava auditoria no servidor
+    try {
+      await deleteSingleFerias({
+        ano,
+        colaboradorId: delId,
+        colaboradorNome: nomeColab,
+        setor: setorColab,
+        motivo,
+      });
+    } catch (err) {
+      console.warn("Erro ao registrar auditoria de exclusão de férias:", err);
+    }
+
     alert(
-      `Planejamento de férias de ${itemToDelete.nome} excluído e arquivado com Hash WORM SHA-256.`
+      `Planejamento de férias de ${nomeColab} excluído e arquivado com Hash WORM SHA-256.`
     );
+  };
+
+  // Excluir em Lote com modal WORM
+  const handleConfirmBatchDelete = async (options: { mode: "selected" | "all"; motivo: string }) => {
+    const { mode, motivo } = options;
+    setBatchDeleting(true);
+
+    try {
+      if (mode === "all") {
+        const count = colaboradores.length;
+        const nomes = colaboradores.map((c) => c.nome);
+        setColaboradores([]);
+        setSelectedIds([]);
+
+        try {
+          localStorage.setItem(getStorageKeyCleared(ano), "true");
+          localStorage.setItem(getStorageKeyDeleted(ano), "[]");
+        } catch {}
+
+        await batchDeleteFerias({
+          ano,
+          deleteAllYear: true,
+          colaboradoresNomes: nomes,
+          motivo,
+        });
+
+        alert(`Escala anual de ${ano} zerada com sucesso (${count} registros arquivados na trilha WORM).`);
+      } else {
+        const idsToDelete = [...selectedIds];
+        const nomes = colaboradores
+          .filter((c) => idsToDelete.includes(c.id))
+          .map((c) => c.nome);
+
+        setColaboradores((prev) => prev.filter((c) => !idsToDelete.includes(c.id)));
+        setSelectedIds([]);
+
+        try {
+          const key = getStorageKeyDeleted(ano);
+          const stored = localStorage.getItem(key) || "[]";
+          const arr: string[] = JSON.parse(stored);
+          idsToDelete.forEach((id) => {
+            if (!arr.includes(id)) arr.push(id);
+          });
+          localStorage.setItem(key, JSON.stringify(arr));
+        } catch {}
+
+        await batchDeleteFerias({
+          ano,
+          colaboradorIds: idsToDelete,
+          colaboradoresNomes: nomes,
+          motivo,
+        });
+
+        alert(`${idsToDelete.length} escalas de férias excluídas e arquivadas na trilha WORM com sucesso.`);
+      }
+    } catch (err: any) {
+      alert("Erro ao excluir férias em lote: " + (err.message || "Erro desconhecido"));
+    } finally {
+      setBatchDeleting(false);
+      setBatchDeleteModalOpen(false);
+    }
+  };
+
+  const handleResetEscala = () => {
+    if (confirm(`Deseja restaurar a escala original completa com todos os colaboradores para o ano ${ano}?`)) {
+      try {
+        localStorage.removeItem(getStorageKeyDeleted(ano));
+        localStorage.removeItem(getStorageKeyCleared(ano));
+      } catch {}
+      setColaboradores(MOCK_COLABORADORES_45);
+      setSelectedIds([]);
+    }
   };
 
   // Auto-distribuir férias
@@ -264,6 +413,36 @@ export function Planejamento2027Tab() {
             <Send className="w-3.5 h-3.5" />
             <span>Publicar Planejamento {ano}</span>
           </Button>
+
+          {/* Botão de Exclusão em Lote */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setBatchDeleteModalOpen(true)}
+            className="border-rose-500/40 text-rose-300 hover:bg-rose-500/10 hover:border-rose-500/80 text-xs rounded-xl gap-1.5 shadow-sm font-semibold transition-colors"
+            title="Apagar férias em lote com trilha WORM"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+            <span>Apagar Férias em Lote</span>
+            {selectedIds.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.2 text-[10px] bg-rose-500 text-white font-bold rounded-full">
+                {selectedIds.length}
+              </span>
+            )}
+          </Button>
+
+          {colaboradores.length < MOCK_COLABORADORES_45.length && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleResetEscala}
+              className="border-white/15 text-slate-300 hover:bg-white/5 text-xs rounded-xl gap-1.5"
+              title="Restaurar escala padrão original"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Restaurar Escala</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -365,11 +544,47 @@ export function Planejamento2027Tab() {
           </div>
         </div>
 
+        {/* Barra de Ação em Lote */}
+        {selectedIds.length > 0 && (
+          <div className="flex items-center justify-between p-3 bg-rose-500/10 border border-rose-500/25 rounded-xl animate-in fade-in">
+            <span className="text-xs text-rose-300 font-medium">
+              <strong>{selectedIds.length}</strong> colaborador(es) selecionado(s) na escala {ano}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setSelectedIds([])}
+                className="text-xs text-slate-400 hover:text-white h-8"
+              >
+                Desmarcar Todos
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setBatchDeleteModalOpen(true)}
+                className="bg-rose-600 hover:bg-rose-700 text-white text-xs h-8 rounded-lg gap-1.5 font-bold shadow-md shadow-rose-600/30"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Excluir Selecionados ({selectedIds.length})</span>
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Tabela */}
         <div className="border border-white/10 rounded-xl overflow-x-auto bg-[#05050a]">
           <table className="w-full text-left text-xs min-w-[950px]">
             <thead className="bg-[#12141F] text-slate-400 uppercase font-mono text-[10px] border-b border-white/10">
               <tr>
+                <th className="px-4 py-3.5 w-10 text-center">
+                  <button onClick={toggleSelectAll} className="text-slate-400 hover:text-white">
+                    {selectedIds.length === filtered.length && filtered.length > 0 ? (
+                      <CheckSquare className="w-4 h-4 text-indigo-400" />
+                    ) : (
+                      <Square className="w-4 h-4" />
+                    )}
+                  </button>
+                </th>
                 <th className="px-4 py-3.5">Colaborador</th>
                 <th className="px-4 py-3.5">Setor</th>
                 <th className="px-4 py-3.5">Período 1 (Início - Fim)</th>
@@ -385,14 +600,26 @@ export function Planejamento2027Tab() {
               {filtered.map((item) => {
                 const isEditing = editingId === item.id;
                 const isConflict = item.status === "conflito";
+                const isSelected = selectedIds.includes(item.id);
 
                 return (
                   <tr
                     key={item.id}
                     className={`hover:bg-white/[0.03] transition-colors ${
+                      isSelected ? "bg-indigo-500/[0.08]" : ""
+                    } ${
                       isConflict ? "bg-rose-500/[0.06] border-l-2 border-rose-500" : ""
                     }`}
                   >
+                    <td className="px-4 py-3.5 text-center">
+                      <button onClick={() => toggleSelect(item.id)} className="text-slate-400 hover:text-white">
+                        {isSelected ? (
+                          <CheckSquare className="w-4 h-4 text-indigo-400" />
+                        ) : (
+                          <Square className="w-4 h-4" />
+                        )}
+                      </button>
+                    </td>
                     <td className="px-4 py-3.5">
                       <div className="font-bold text-white">{item.nome}</div>
                       <div className="text-[10px] text-slate-400 font-mono">{item.cpf}</div>
@@ -548,6 +775,25 @@ export function Planejamento2027Tab() {
                   </tr>
                 );
               })}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={10} className="px-4 py-12 text-center text-slate-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Users className="w-8 h-8 text-slate-600" />
+                      <p className="text-xs">Nenhuma escala de férias encontrada para o ano {ano}.</p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleResetEscala}
+                        className="text-xs border-white/10 hover:bg-white/5 text-slate-300 gap-1.5 mt-2"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Restaurar Escala Padrão {ano}</span>
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -667,7 +913,7 @@ export function Planejamento2027Tab() {
         </div>
       )}
 
-      {/* Modal Excluir Planejamento */}
+      {/* Modal Excluir Planejamento Individual */}
       {itemToDelete && (
         <DeleteConfirmModal
           isOpen={deleteModalOpen}
@@ -681,6 +927,18 @@ export function Planejamento2027Tab() {
           wormWarning="Por Provimento 213/2026 e regras de Governança Trabalhista, o cancelamento desta escala será registrado na trilha de auditoria WORM com hash criptográfico e justificativa administrativa obrigatória."
         />
       )}
+
+      {/* Modal Excluir Férias em Lote */}
+      <BatchDeleteFeriasModal
+        isOpen={batchDeleteModalOpen}
+        onClose={() => setBatchDeleteModalOpen(false)}
+        onConfirm={handleConfirmBatchDelete}
+        ano={ano}
+        selectedCount={selectedIds.length}
+        totalCount={colaboradores.length}
+        selectedNames={colaboradores.filter((c) => selectedIds.includes(c.id)).map((c) => c.nome)}
+        loading={batchDeleting}
+      />
     </div>
   );
 }
