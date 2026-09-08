@@ -173,6 +173,8 @@ function formatDisplayDate(dateStr: string | null | undefined): string {
 export function TarefasDashboardClient() {
   const [tarefas, setTarefas] = useState<TarefaRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedAno, setSelectedAno] = useState<string>("ALL");
+  const [selectedTipoAto, setSelectedTipoAto] = useState<string>("ALL");
   const [filterRangeDays, setFilterRangeDays] = useState<number>(15);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTarefa, setSelectedTarefa] = useState<string>("ALL");
@@ -253,24 +255,78 @@ export function TarefasDashboardClient() {
     return d.toISOString().split("T")[0];
   }, []);
 
+  // Funções auxiliares para escopo de análise
+  const getTarefaYear = (t: TarefaRecord): number | null => {
+    const dStr = t.dataEntrada || t.dataCadastroTarefa || t.dataAbertura || t.dtPrevisao;
+    if (!dStr) return null;
+    const match = dStr.match(/^(\d{4})/);
+    if (match) return parseInt(match[1], 10);
+    const d = new Date(dStr);
+    return isNaN(d.getFullYear()) ? null : d.getFullYear();
+  };
+
+  const isPrenotacaoAto = (t: TarefaRecord): boolean => {
+    const tipo = (t.tipo || "").toUpperCase();
+    return tipo.startsWith("PRENOTAD");
+  };
+
+  // Base escopada por Ano e Tipo de Ato (Alinhamento Metas x Tarefas)
+  const tarefasEscopadas = useMemo(() => {
+    return tarefas.filter((t) => {
+      if (selectedAno !== "ALL") {
+        const year = getTarefaYear(t);
+        if (selectedAno === "2026" && year !== 2026) return false;
+        if (selectedAno === "2025" && year !== 2025) return false;
+        if (selectedAno === "2024" && year !== 2024) return false;
+        if (selectedAno === "ANTERIORES" && (year === null || year >= 2025)) return false;
+        if (!["2026", "2025", "2024", "ANTERIORES"].includes(selectedAno)) {
+          if (String(year) !== selectedAno) return false;
+        }
+      }
+
+      if (selectedTipoAto !== "ALL") {
+        const isPrenot = isPrenotacaoAto(t);
+        if (selectedTipoAto === "PRENOTACAO" && !isPrenot) return false;
+        if (selectedTipoAto === "ATOS_ESPECIAIS" && isPrenot) return false;
+        if (selectedTipoAto !== "PRENOTACAO" && selectedTipoAto !== "ATOS_ESPECIAIS") {
+          if ((t.tipo || "").trim().toUpperCase() !== selectedTipoAto.toUpperCase()) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [tarefas, selectedAno, selectedTipoAto]);
+
+  // Lista de Tipos de Atos Únicos para filtro
+  const listaTiposUnicos = useMemo(() => {
+    const setTipo = new Set<string>();
+    tarefas.forEach((t) => {
+      const tipo = (t.tipo || "").trim().toUpperCase();
+      if (tipo && !tipo.startsWith("PRENOTAD")) {
+        setTipo.add(tipo);
+      }
+    });
+    return Array.from(setTipo).sort();
+  }, [tarefas]);
+
   // Pré-computar quais protocolos ainda estão pendentes (sem retirada no balcão)
   // Um protocolo com dtRetirada (DTRetirda) já foi retirado e NÃO deve constar nos atrasados nem tarefas pendentes
   const protocolosAbertos = useMemo(() => {
     const protocolosRetirados = new Set<number>();
-    tarefas.forEach((t) => {
+    tarefasEscopadas.forEach((t) => {
       if (t.dtRetirada) {
         protocolosRetirados.add(t.protocolo);
       }
     });
 
     const set = new Set<number>();
-    tarefas.forEach((t) => {
+    tarefasEscopadas.forEach((t) => {
       if (!protocolosRetirados.has(t.protocolo)) {
         set.add(t.protocolo);
       }
     });
     return set;
-  }, [tarefas]);
+  }, [tarefasEscopadas]);
 
   // Métricas dos 6 KPI Cards
   const kpis = useMemo(() => {
@@ -287,7 +343,7 @@ export function TarefasDashboardClient() {
     const d3DaysLater = new Date(dNow);
     d3DaysLater.setDate(d3DaysLater.getDate() + 3);
 
-    tarefas.forEach((t) => {
+    tarefasEscopadas.forEach((t) => {
       const p = t.protocolo;
       const situacao = (t.situacaoTarefa || "").trim().toUpperCase();
       const statusPrev = (t.statusPrevisao || "").trim().toUpperCase();
@@ -328,7 +384,7 @@ export function TarefasDashboardClient() {
       riscoCritico: riscoCriticoProtSet.size,
       tarefasEmAndamento: tarefasEmAndamentoCount,
     };
-  }, [tarefas, todayStr, tomorrowStr, protocolosAbertos]);
+  }, [tarefasEscopadas, todayStr, tomorrowStr, protocolosAbertos]);
 
   // Gráfico 1: Previsão de Protocolos por Dia
   const chartPrevisaoPorDia = useMemo(() => {
@@ -343,7 +399,7 @@ export function TarefasDashboardClient() {
       mapDays[key] = new Set<number>();
     }
 
-    tarefas.forEach((t) => {
+    tarefasEscopadas.forEach((t) => {
       if (t.dtPrevisao && t.protocolo > 0) {
         const dtKey = t.dtPrevisao.split("T")[0];
         if (mapDays[dtKey]) {
@@ -360,13 +416,13 @@ export function TarefasDashboardClient() {
         protocolos: protSet.size,
       };
     });
-  }, [tarefas, filterRangeDays]);
+  }, [tarefasEscopadas, filterRangeDays]);
 
   // Gráfico 2: Carga Atual por Tarefa
   const chartCargaPorTarefa = useMemo(() => {
     const mapTarefas: Record<string, { tarefasCount: number; protSet: Set<number> }> = {};
 
-    tarefas.forEach((t) => {
+    tarefasEscopadas.forEach((t) => {
       const name = (t.tarefa || "Outros").trim().toUpperCase();
       if (!mapTarefas[name]) {
         mapTarefas[name] = { tarefasCount: 0, protSet: new Set<number>() };
@@ -383,30 +439,30 @@ export function TarefasDashboardClient() {
       }))
       .sort((a, b) => b.tarefasCount - a.tarefasCount)
       .slice(0, 10);
-  }, [tarefas]);
+  }, [tarefasEscopadas]);
 
   // Lista de Opções para Filtros
   const listaTarefasUnicas = useMemo(() => {
     const setT = new Set<string>();
-    tarefas.forEach((t) => t.tarefa && setT.add(t.tarefa.trim().toUpperCase()));
+    tarefasEscopadas.forEach((t) => t.tarefa && setT.add(t.tarefa.trim().toUpperCase()));
     return Array.from(setT).sort();
-  }, [tarefas]);
+  }, [tarefasEscopadas]);
 
   const listaResponsaveisUnicos = useMemo(() => {
     const setR = new Set<string>();
-    tarefas.forEach((t) => t.responsavel && setR.add(t.responsavel.trim()));
+    tarefasEscopadas.forEach((t) => t.responsavel && setR.add(t.responsavel.trim()));
     return Array.from(setR).sort();
-  }, [tarefas]);
+  }, [tarefasEscopadas]);
 
   const listaPrevisoesUnicas = useMemo(() => {
     const setP = new Set<string>();
-    tarefas.forEach((t) => {
+    tarefasEscopadas.forEach((t) => {
       if (selectedResponsavel !== "ALL" && t.responsavel.trim() !== selectedResponsavel) return;
       const previsao = t.dtPrevisao?.split("T")[0];
       if (previsao) setP.add(previsao);
     });
     return Array.from(setP).sort();
-  }, [tarefas, selectedResponsavel]);
+  }, [tarefasEscopadas, selectedResponsavel]);
 
   // Tabela Sintética: Carga por Responsável
   const cargaPorResponsavel = useMemo(() => {
@@ -422,7 +478,7 @@ export function TarefasDashboardClient() {
       }
     > = {};
 
-    tarefas.filter((t) => matchesKpiFilter(t, activeKpiFilter, todayStr, tomorrowStr, protocolosAbertos)).forEach((t) => {
+    tarefasEscopadas.filter((t) => matchesKpiFilter(t, activeKpiFilter, todayStr, tomorrowStr, protocolosAbertos)).forEach((t) => {
       const resp = (t.responsavel || "Não Atribuído").trim();
       if (!mapResp[resp]) {
         mapResp[resp] = {
@@ -460,13 +516,13 @@ export function TarefasDashboardClient() {
         riscoCritico: r.riscoCritico.size,
       }))
       .sort((a, b) => b.tarefasCount - a.tarefasCount);
-  }, [tarefas, todayStr, tomorrowStr, activeKpiFilter]);
+  }, [tarefasEscopadas, todayStr, tomorrowStr, activeKpiFilter, protocolosAbertos]);
 
   const responsaveisExibidos = activeKpiFilter ? cargaPorResponsavel : cargaPorResponsavel.slice(0, 10);
 
   // Tabela Filtrada de Tarefas
   const tarefasFiltradas = useMemo(() => {
-    return tarefas.filter((t) => {
+    return tarefasEscopadas.filter((t) => {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const protStr = String(t.protocolo);
@@ -515,7 +571,7 @@ export function TarefasDashboardClient() {
       return true;
     });
   }, [
-    tarefas,
+    tarefasEscopadas,
     searchQuery,
     selectedTarefa,
     selectedResponsavel,
@@ -767,17 +823,90 @@ export function TarefasDashboardClient() {
 
   return (
     <div className="space-y-6">
-      {/* Botão de Atualizar */}
-      <div className="flex justify-end">
-        <Button
-          onClick={fetchData}
-          disabled={isLoading}
-          variant="outline"
-          className="h-9 gap-2 rounded-xl border-white/8 bg-white/[0.04] text-xs font-medium text-white shadow-sm hover:bg-white/[0.08]"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
-          Atualizar Previsões
-        </Button>
+      {/* Barra de Escopo de Visualização / Filtro de Cohort (Ano e Tipo de Ato) */}
+      <div className="flex flex-col gap-4 rounded-2xl border border-white/12 bg-[#0B1020]/90 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-purple-500/30 bg-purple-500/15 text-purple-400">
+            <Filter className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-white">Escopo do Estoque</h3>
+              {(selectedAno !== "ALL" || selectedTipoAto !== "ALL") && (
+                <Badge className="border-purple-500/30 bg-purple-500/20 text-[10px] text-purple-200">
+                  Filtro Ativo ({tarefasEscopadas.length} tarefas)
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs text-white/50">
+              {selectedAno === "2026" && selectedTipoAto === "PRENOTACAO"
+                ? "🎯 Amostragem alinhada com o universo do BI METAS (2026 • Prenotações)"
+                : "Alinhe a amostragem com o METAS ou visualize todo o estoque ativo do cartório."}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Seletor Ano de Entrada */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-white/60">Ano:</span>
+            <select
+              value={selectedAno}
+              onChange={(e) => setSelectedAno(e.target.value)}
+              className="h-9 rounded-xl border border-white/10 bg-[#0C1323] px-3 text-xs font-medium text-white shadow-sm transition-colors hover:border-white/20 focus:border-purple-400 focus:outline-none"
+            >
+              <option value="ALL">Todos os Anos (Estoque Total)</option>
+              <option value="2026">2026 (Ano Atual • Padrão Metas)</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
+              <option value="ANTERIORES">2024 e Anteriores (Histórico)</option>
+            </select>
+          </div>
+
+          {/* Seletor Tipo de Ato */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-white/60">Tipo de Ato:</span>
+            <select
+              value={selectedTipoAto}
+              onChange={(e) => setSelectedTipoAto(e.target.value)}
+              className="h-9 rounded-xl border border-white/10 bg-[#0C1323] px-3 text-xs font-medium text-white shadow-sm transition-colors hover:border-white/20 focus:border-purple-400 focus:outline-none"
+            >
+              <option value="ALL">Todos os Tipos de Atos</option>
+              <option value="PRENOTACAO">Apenas Prenotações (Padrão Metas)</option>
+              <option value="ATOS_ESPECIAIS">Atos Especiais (Indisponibilidade, Reurb, etc.)</option>
+              {listaTiposUnicos.map((tipo) => (
+                <option key={tipo} value={tipo}>
+                  {tipo}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {(selectedAno !== "ALL" || selectedTipoAto !== "ALL") && (
+            <Button
+              onClick={() => {
+                setSelectedAno("ALL");
+                setSelectedTipoAto("ALL");
+              }}
+              variant="ghost"
+              size="sm"
+              className="h-9 gap-1 text-xs text-white/60 hover:bg-white/10 hover:text-white"
+            >
+              <X className="h-3.5 w-3.5" />
+              Limpar
+            </Button>
+          )}
+
+          <Button
+            onClick={fetchData}
+            disabled={isLoading}
+            variant="outline"
+            className="h-9 gap-2 rounded-xl border-white/8 bg-white/[0.04] text-xs font-medium text-white shadow-sm hover:bg-white/[0.08]"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
+            Atualizar Previsões
+          </Button>
+        </div>
       </div>
 
       {/* 6 KPI Cards no Padrão Oficial FIORIX */}
