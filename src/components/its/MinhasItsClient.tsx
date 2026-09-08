@@ -52,15 +52,79 @@ export function MinhasItsClient({ initialData }: MinhasItsClientProps) {
 
   const percentualCiente = stats.total > 0 ? Math.round((stats.cientes / stats.total) * 100) : 100;
 
-  return (
-    <div className="w-full flex-1 flex flex-col justify-start bg-[#070A12] text-white relative min-h-screen">
-      {/* Ambient Glows */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-      </div>
+  // Estado vazio quando o setor não possui nenhuma IT cadastrada
+  if (stats.total === 0) {
+    return (
+      <div className="w-full flex-1 flex flex-col justify-start bg-[#070A12] text-white relative min-h-screen">
+        {/* Ambient Glows */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/8 blur-3xl" />
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        </div>
 
-      <div className="relative mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-8 space-y-6">
+        <div className="relative mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-8 space-y-8">
+          {/* Breadcrumb & Header */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-white/5">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-medium text-zinc-400">
+                <Link href="/pessoas" className="hover:text-zinc-200 transition-colors">
+                  Minha Central
+                </Link>
+                <span className="text-zinc-600">/</span>
+                <span className="text-emerald-400 font-semibold">Minhas Instruções de Trabalho</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 mt-1.5">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-2.5">
+                  <BookOpen className="w-7 h-7 text-emerald-400" />
+                  Minhas Instruções de Trabalho
+                </h1>
+                <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-0.5 font-mono text-xs font-semibold text-emerald-300">
+                  {currentUser.departamento}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 self-start md:self-center">
+              <div className="px-3.5 py-2 rounded-xl bg-zinc-900/80 border border-zinc-800 text-xs">
+                <div className="flex items-center gap-1.5 text-zinc-400">
+                  <User className="w-3.5 h-3.5 text-zinc-500" />
+                  <span>Colaborador:</span>
+                  <span className="font-semibold text-white">{currentUser.name}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-zinc-400 mt-0.5">
+                  <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Setor:</span>
+                  <span className="font-semibold text-emerald-300">{currentUser.departamento}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Empty State Box */}
+          <div className="max-w-md mx-auto my-12 py-12 px-8 text-center bg-zinc-900/40 border border-zinc-800/80 rounded-3xl backdrop-blur-sm space-y-5">
+            <div className="w-16 h-16 rounded-2xl bg-zinc-800/50 border border-zinc-700/80 flex items-center justify-center mx-auto text-zinc-400">
+              <BookOpen className="w-8 h-8" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-bold text-white">Nenhuma Instrução de Trabalho Vinculada</h2>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                O seu perfil está vinculado ao setor <strong className="text-emerald-400">{currentUser.departamento}</strong>, que no momento não possui instruções de trabalho operacionais cadastradas.
+              </p>
+            </div>
+            <div className="pt-2">
+              <Link
+                href="/pessoas"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold transition-all shadow-md"
+              >
+                Voltar para Minha Central <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
         {/* Breadcrumb & Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-white/5">
           <div>

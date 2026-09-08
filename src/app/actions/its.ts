@@ -1391,7 +1391,6 @@ export async function getMinhasItsData(): Promise<MinhasItsPageData> {
        AND (
          i.departamento = $3 
          OR i.guardiao_id = $2 
-         OR c.id IS NOT NULL
          OR $4 = true
        )
      ORDER BY 
@@ -1494,15 +1493,8 @@ export async function obterMinhaItId(): Promise<string | null> {
   );
   if (deptoIt.length > 0) return deptoIt[0].id;
 
-  // 4. Fallback: primeira IT disponível
-  const firstIt = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT id::text FROM public.fiorix_its 
-     WHERE tenant_id = $1 AND deleted_at IS NULL
-     ORDER BY codigo ASC
-     LIMIT 1`,
-    tenantId
-  );
-  return firstIt[0]?.id || null;
+  // 4. Sem IT no setor e sem custódia -> null
+  return null;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
