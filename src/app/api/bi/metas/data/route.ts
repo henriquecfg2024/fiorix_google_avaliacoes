@@ -63,7 +63,6 @@ export async function GET(request: Request) {
             AND e.protocolo = m.protocolo::text
           WHERE m.tenant_id = ${user.tenantId}
           ORDER BY m.data_apresentado DESC
-          LIMIT 5000
         `
       );
     } catch (dbError) {
@@ -72,7 +71,6 @@ export async function GET(request: Request) {
           Prisma.sql`
             SELECT * FROM public.fiorix_metas_dados 
             WHERE tenant_id = ${user.tenantId}
-            LIMIT 5000
           `
         );
       } catch (err2) {

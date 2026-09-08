@@ -21,8 +21,7 @@ export async function GET(request: Request) {
         Prisma.sql`
           SELECT * FROM public.fiorix_tarefas_dados 
           WHERE tenant_id = ${user.tenantId}
-          ORDER BY dt_previsao ASC NULLS LAST, protocolo ASC
-          LIMIT 5000
+          ORDER BY dt_previsao DESC NULLS LAST, protocolo DESC
         `
       );
     } catch (dbErr) {
