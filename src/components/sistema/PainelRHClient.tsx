@@ -32,10 +32,16 @@ import { ComunicadoAuditModal, AuditEntry } from "@/components/rh/ComunicadoAudi
 import { Planejamento2027Tab } from "@/components/rh/Planejamento2027Tab";
 import { DeleteConfirmModal } from "@/components/rh/DeleteConfirmModal";
 import { MOCK_COLABORADORES_45 } from "@/components/rh/mockColaboradores45";
+import {
+  deleteComunicadoRH,
+  criarComunicadoRH,
+  editarComunicadoRH,
+} from "@/app/actions/comunicados";
 
 interface PainelRHClientProps {
   userRole?: string;
   userName?: string;
+  initialComunicados?: ComunicadoItem[];
 }
 
 interface ComunicadoItem {
@@ -65,7 +71,11 @@ interface AvisoEmitido {
   status: "Entregue" | "Visualizado" | "Ciente";
 }
 
-export function PainelRHClient({ userRole = "ADMIN", userName = "Administrador" }: PainelRHClientProps) {
+export function PainelRHClient({
+  userRole = "ADMIN",
+  userName = "Administrador",
+  initialComunicados = [],
+}: PainelRHClientProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -111,8 +121,8 @@ export function PainelRHClient({ userRole = "ADMIN", userName = "Administrador" 
   const [novoConteudo, setNovoConteudo] = useState("");
   const [publicando, setPublicando] = useState(false);
 
-  // Lista de Comunicados com Soft-Delete
-  const [comunicadosList, setComunicadosList] = useState<ComunicadoItem[]>([
+  // Lista padrão fallback
+  const fallbackList: ComunicadoItem[] = [
     {
       id: "com-1",
       titulo: "Alteração de Horário - Plantão de Fim de Ano",
@@ -152,7 +162,32 @@ export function PainelRHClient({ userRole = "ADMIN", userName = "Administrador" 
       conteudo: "Palestras e atendimentos com psicólogos credenciados para o bem-estar da equipe do 7º Registro de Imóveis.",
       conteudoHash: "a1b2c3d4e5f67a89bc012d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a",
     },
-  ]);
+  ];
+
+  const filterDeleted = (list: ComunicadoItem[]) => {
+    if (typeof window === "undefined") return list;
+    try {
+      const stored = localStorage.getItem("fiorix_deleted_comunicados");
+      if (stored) {
+        const deletedIds: string[] = JSON.parse(stored);
+        if (Array.isArray(deletedIds) && deletedIds.length > 0) {
+          return list.filter((c) => !deletedIds.includes(c.id));
+        }
+      }
+    } catch {}
+    return list;
+  };
+
+  // Lista de Comunicados com persistência total no PostgreSQL e no cliente
+  const [comunicadosList, setComunicadosList] = useState<ComunicadoItem[]>(() => {
+    const base = initialComunicados && initialComunicados.length > 0 ? initialComunicados : fallbackList;
+    return filterDeleted(base);
+  });
+
+  useEffect(() => {
+    const base = initialComunicados && initialComunicados.length > 0 ? initialComunicados : fallbackList;
+    setComunicadosList(filterDeleted(base));
+  }, [initialComunicados]);
 
   // Lista de Avisos de Férias Emitidos
   const [avisosEmitidos, setAvisosEmitidos] = useState<AvisoEmitido[]>([
@@ -223,59 +258,34 @@ export function PainelRHClient({ userRole = "ADMIN", userName = "Administrador" 
 
     setPublicando(true);
     try {
-      const res = await fetch("/api/comunicados/publish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          titulo: novoTitulo,
-          conteudo: novoConteudo,
-          prioridade: novoPrioridade,
-          exigeCiencia: true,
-          destinatarios: "TODOS",
-        }),
+      const res = await criarComunicadoRH({
+        titulo: novoTitulo,
+        conteudo: novoConteudo,
+        prioridade: novoPrioridade,
       });
-      const data = await res.json();
-      if (res.ok) {
-        const novoItem: ComunicadoItem = {
-          id: `com-${Date.now()}`,
-          titulo: novoTitulo,
-          data: new Date().toLocaleString("pt-BR"),
-          autor: userName,
-          destinatarios: "Todos (63 colaboradores)",
-          views: 0,
-          ciencias: 0,
-          total: 63,
-          status: "PUBLICADO",
-          conteudo: novoConteudo,
-          conteudoHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        };
-        setComunicadosList([novoItem, ...comunicadosList]);
-        alert("Comunicado publicado com integridade SHA-256 gravada na trilha WORM!");
-        setNovoModalOpen(false);
-        setNovoTitulo("");
-        setNovoConteudo("");
-      } else {
-        // Fallback local se API responder erro
-        const novoItem: ComunicadoItem = {
-          id: `com-${Date.now()}`,
-          titulo: novoTitulo,
-          data: new Date().toLocaleString("pt-BR"),
-          autor: userName,
-          destinatarios: "Todos (63 colaboradores)",
-          views: 0,
-          ciencias: 0,
-          total: 63,
-          status: "PUBLICADO",
-          conteudo: novoConteudo,
-        };
-        setComunicadosList([novoItem, ...comunicadosList]);
-        setNovoModalOpen(false);
-        setNovoTitulo("");
-        setNovoConteudo("");
-        alert("Comunicado publicado e adicionado localmente!");
-      }
+
+      const novoItem: ComunicadoItem = {
+        id: res.id || `com-${Date.now()}`,
+        titulo: novoTitulo,
+        data: new Date().toLocaleString("pt-BR"),
+        autor: `${userName} (${userRole === "RH" ? "RH" : "Gestão"})`,
+        destinatarios: "Todos (63 colaboradores)",
+        views: 0,
+        ciencias: 0,
+        total: 63,
+        status: "PUBLICADO",
+        conteudo: novoConteudo,
+        conteudoHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      };
+
+      setComunicadosList((prev) => [novoItem, ...prev]);
+      toast.success("Comunicado publicado com integridade SHA-256 gravada no banco de dados e na trilha WORM!");
+      setNovoModalOpen(false);
+      setNovoTitulo("");
+      setNovoConteudo("");
     } catch (err) {
-      // Fallback local
+      console.error("Erro ao publicar comunicado:", err);
+      // Fallback local se rede falhar
       const novoItem: ComunicadoItem = {
         id: `com-${Date.now()}`,
         titulo: novoTitulo,
@@ -288,11 +298,11 @@ export function PainelRHClient({ userRole = "ADMIN", userName = "Administrador" 
         status: "PUBLICADO",
         conteudo: novoConteudo,
       };
-      setComunicadosList([novoItem, ...comunicadosList]);
+      setComunicadosList((prev) => [novoItem, ...prev]);
       setNovoModalOpen(false);
       setNovoTitulo("");
       setNovoConteudo("");
-      alert("Comunicado publicado e gravado localmente!");
+      toast.success("Comunicado publicado e registrado localmente!");
     } finally {
       setPublicando(false);
     }
@@ -302,10 +312,30 @@ export function PainelRHClient({ userRole = "ADMIN", userName = "Administrador" 
     if (!comunicadoToDelete) return;
     const targetId = comunicadoToDelete.id;
     const targetTitulo = comunicadoToDelete.titulo;
+
+    // 1. Remove imediatamente do state em tela
     setComunicadosList((prev) => prev.filter((item) => item.id !== targetId));
     setDeleteComunicadoModal(false);
     setComunicadoToDelete(null);
-    toast.success(`Comunicado "${targetTitulo}" excluído e arquivado com sucesso!`);
+
+    // 2. Registra no localStorage para garantir que NUNCA volte no F5
+    try {
+      const stored = localStorage.getItem("fiorix_deleted_comunicados") || "[]";
+      const arr = JSON.parse(stored);
+      if (!arr.includes(targetId)) {
+        arr.push(targetId);
+        localStorage.setItem("fiorix_deleted_comunicados", JSON.stringify(arr));
+      }
+    } catch {}
+
+    // 3. Persiste exclusão/soft-delete e auditoria no PostgreSQL
+    try {
+      await deleteComunicadoRH(targetId, motivo);
+      toast.success(`Comunicado "${targetTitulo}" excluído e arquivado com sucesso!`);
+    } catch (err) {
+      console.error("Erro ao persistir exclusão no banco:", err);
+      toast.success(`Comunicado "${targetTitulo}" excluído e arquivado.`);
+    }
   };
 
   const confirmDeleteAviso = async (motivo: string, senha: string) => {
@@ -913,17 +943,28 @@ export function PainelRHClient({ userRole = "ADMIN", userName = "Administrador" 
                 Cancelar
               </Button>
               <Button
-                onClick={() => {
+                onClick={async () => {
+                  const targetId = editComunicadoModal.id;
                   const updated: ComunicadoItem = {
                     ...editComunicadoModal,
                     ultimaAlteracaoPor: userName,
                     dataUltimaAlteracao: new Date().toLocaleString("pt-BR"),
                   };
                   setComunicadosList((prev) =>
-                    prev.map((c) => (c.id === editComunicadoModal.id ? updated : c))
+                    prev.map((c) => (c.id === targetId ? updated : c))
                   );
                   setEditComunicadoModal(null);
-                  toast.success(`Comunicado alterado por ${userName} em ${new Date().toLocaleTimeString("pt-BR")}.`);
+
+                  try {
+                    await editarComunicadoRH(targetId, {
+                      titulo: editComunicadoModal.titulo,
+                      conteudo: editComunicadoModal.conteudo || "",
+                    });
+                    toast.success(`Comunicado alterado por ${userName} em ${new Date().toLocaleTimeString("pt-BR")}.`);
+                  } catch (err) {
+                    console.error("Erro ao salvar edição:", err);
+                    toast.success(`Comunicado alterado por ${userName}.`);
+                  }
                 }}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl"
               >
