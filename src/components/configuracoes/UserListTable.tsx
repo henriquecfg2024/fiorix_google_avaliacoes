@@ -46,9 +46,11 @@ export interface UserItem {
 export function UserListTable({
   usuarios,
   currentUserRole = 'USER',
+  departamentosDisponiveis = [],
 }: {
   usuarios: UserItem[];
   currentUserRole?: string;
+  departamentosDisponiveis?: string[];
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepto, setSelectedDepto] = useState<string>('TODOS');
@@ -287,7 +289,7 @@ export function UserListTable({
     });
   }, [usuarios, searchTerm, selectedDepto, selectedRole]);
 
-  const departamentos = ['TODOS', ...Array.from(new Set(usuarios.map(u => u.departamento).filter(Boolean) as string[])).sort()];
+  const departamentos = ['TODOS', ...Array.from(new Set([...departamentosDisponiveis, ...usuarios.map(u => u.departamento).filter(Boolean) as string[]])).sort()];
 
   return (
     <div className="space-y-4">
@@ -600,13 +602,9 @@ export function UserListTable({
                     className="w-full bg-[#070A12] border border-white/12 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-hidden focus:border-amber-400/50"
                   >
                     <option value="">Selecionar...</option>
-                    <option value="Atendimento">Atendimento</option>
-                    <option value="Registro">Registro</option>
-                    <option value="TI">TI</option>
-                    <option value="Administração">Administração</option>
-                    <option value="Financeiro">Financeiro</option>
-                    <option value="Jurídico">Jurídico</option>
-                    <option value="RH">RH</option>
+                    {departamentos.filter(d => d !== 'TODOS').map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
                   </select>
                 </div>
 

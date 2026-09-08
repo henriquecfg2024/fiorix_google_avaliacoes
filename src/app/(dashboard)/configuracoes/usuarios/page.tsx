@@ -1,5 +1,6 @@
 import React from 'react';
 import { getUsers, createUser } from '@/app/actions/admin';
+import { listarNomesDepartamentos } from '@/app/actions/departamentos';
 import Link from 'next/link';
 import { UserListTable } from '@/components/configuracoes/UserListTable';
 import { auth } from '@/auth';
@@ -12,6 +13,12 @@ export default async function UsuariosConfigPage() {
   const session = await auth();
   const currentUserRole = session?.user?.role || 'USER';
   const usuarios = await getUsers();
+  let departamentosDb: string[] = [];
+  try {
+    departamentosDb = await listarNomesDepartamentos();
+  } catch (e) {
+    // Fallback: usar departamentos dos próprios usuários
+  }
 
   return (
     <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
@@ -243,7 +250,7 @@ export default async function UsuariosConfigPage() {
             </div>
           </div>
 
-          <UserListTable usuarios={usuarios} currentUserRole={currentUserRole} />
+          <UserListTable usuarios={usuarios} currentUserRole={currentUserRole} departamentosDisponiveis={departamentosDb} />
         </div>
 
         {/* Card Verde Final */}
