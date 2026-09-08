@@ -25,8 +25,10 @@ export async function GET(request: Request) {
             SELECT DISTINCT f.protocolo 
             FROM public.fiorix_tarefas_dados f 
             WHERE f.tenant_id = ${user.tenantId} 
-            AND (f.dt_retirada IS NOT NULL OR f.data_finalizacao IS NOT NULL)
+            AND f.dt_retirada IS NOT NULL
           )
+          AND (t.situacao_tarefa <> 'FINALIZADA' OR t.situacao_tarefa IS NULL)
+          AND t.data_finalizacao IS NULL
           ORDER BY t.dt_previsao DESC NULLS LAST, t.protocolo DESC
         `
       );
@@ -74,18 +76,21 @@ export async function GET(request: Request) {
           rawTarefas = result.recordset || [];
           await sql.close();
 
-          // Se somenteAbertas for true, excluir qualquer protocolo que já tenha DtRetirada ou data_finalizacao
+          // Se somenteAbertas for true, excluir protocolos que já foram retirados (DtRetirada) e tarefas finalizadas
           if (rawTarefas && rawTarefas.length > 0 && somenteAbertas) {
             const protocolosRetirados = new Set<number>();
             rawTarefas.forEach((r: any) => {
-              const ret = r.DtRetirada || r.DTRetirda || r.dt_retirada || r.DT_RETIRADA || r.DATA_FINALIZACAO || r.data_finalizacao;
+              const ret = r.DtRetirada || r.DTRetirda || r.dt_retirada || r.DT_RETIRADA;
               if (ret) {
                 protocolosRetirados.add(Number(r.PROTOCOLO || r.protocolo || 0));
               }
             });
-            if (protocolosRetirados.size > 0) {
-              rawTarefas = rawTarefas.filter((r: any) => !protocolosRetirados.has(Number(r.PROTOCOLO || r.protocolo || 0)));
-            }
+            rawTarefas = rawTarefas.filter((r: any) => {
+              const p = Number(r.PROTOCOLO || r.protocolo || 0);
+              const isRetirado = protocolosRetirados.has(p);
+              const isFin = r.DATA_FINALIZACAO || r.data_finalizacao || (r.SITUACAO_TAREFA || r.situacao_tarefa) === "FINALIZADA";
+              return !isRetirado && !isFin;
+            });
           }
         } catch (mssqlErr) {
           console.error("Erro no fallback MSSQL para Tarefas:", mssqlErr);

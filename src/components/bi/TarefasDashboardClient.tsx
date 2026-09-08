@@ -143,7 +143,7 @@ function matchesKpiFilter(
   if (filter === "ATRASADOS") return isAberto && (statusPrev === "ATRASADO" || statusPrev === "ESTOURADO");
   if (filter === "RISCO_CRITICO") return isAberto && (risco === "CRITICO" || risco === "CRÍTICO" || risco === "ALTO");
 
-  return situacao === "EM ANDAMENTO" || situacao === "ABERTA" || situacao === "PENDENTE";
+  return isAberto && (situacao === "EM ANDAMENTO" || situacao === "ABERTA" || situacao === "PENDENTE" || situacao === "AGUARDANDO" || situacao !== "FINALIZADA");
 }
 
 const taskPanelClass =
@@ -242,19 +242,19 @@ export function TarefasDashboardClient() {
     return d.toISOString().split("T")[0];
   }, []);
 
-  // Pré-computar quais protocolos ainda estão pendentes (sem nenhuma entrega/finalização/retirada)
-  // Um protocolo com dtRetirada (DTRetirda) ou data_finalizacao já foi retirado/entregue e NÃO deve constar nos atrasados nem tarefas pendentes
+  // Pré-computar quais protocolos ainda estão pendentes (sem retirada no balcão)
+  // Um protocolo com dtRetirada (DTRetirda) já foi retirado e NÃO deve constar nos atrasados nem tarefas pendentes
   const protocolosAbertos = useMemo(() => {
-    const protocolosConcluidos = new Set<number>();
+    const protocolosRetirados = new Set<number>();
     tarefas.forEach((t) => {
-      if (t.dtRetirada || t.dataFinalizacao) {
-        protocolosConcluidos.add(t.protocolo);
+      if (t.dtRetirada) {
+        protocolosRetirados.add(t.protocolo);
       }
     });
 
     const set = new Set<number>();
     tarefas.forEach((t) => {
-      if (!protocolosConcluidos.has(t.protocolo)) {
+      if (!protocolosRetirados.has(t.protocolo)) {
         set.add(t.protocolo);
       }
     });
@@ -283,7 +283,7 @@ export function TarefasDashboardClient() {
       const risco = (t.nivelRisco || "").trim().toUpperCase();
       const isAberto = protocolosAbertos.has(p);
 
-      if (situacao === "EM ANDAMENTO" || situacao === "ABERTA" || situacao === "PENDENTE") {
+      if (situacao === "EM ANDAMENTO" || situacao === "ABERTA" || situacao === "PENDENTE" || situacao === "AGUARDANDO" || situacao !== "FINALIZADA") {
         tarefasEmAndamentoCount++;
       }
 
