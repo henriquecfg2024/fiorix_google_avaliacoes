@@ -1320,6 +1320,7 @@ export interface MinhaItCardItem {
   objetivo: string;
   quandoUsar?: string;
   isGuardiao: boolean;
+  isAutorizadoRh: boolean;
   guardiaoNome?: string;
   statusCiencia: 'ciente' | 'pendente';
   cienteEm?: string;
@@ -1366,7 +1367,7 @@ export async function getMinhasItsData(): Promise<MinhasItsPageData> {
 
   const isMasterOrAdmin = ['ADMIN', 'MASTER', 'RH'].includes(currentUser.role);
 
-  // Busca ITs pertinentes: do departamento, onde é guardião, onde tem ciência, ou todas para gestão
+  // REGRA ESTRITA: Apenas o Guardião Oficial vê a IT, ou colaborador expressamente autorizado pelo RH
   const rawIts = await prisma.$queryRawUnsafe<any[]>(
     `SELECT 
        i.id::text,
@@ -1382,25 +1383,30 @@ export async function getMinhasItsData(): Promise<MinhasItsPageData> {
        g.name as "guardiaoNome",
        c.status as "cienciaStatus",
        c.ciente_em as "cienteEm",
-       ROUND(EXTRACT(EPOCH FROM (NOW() - i.updated_at)) / 86400)::int as "diasSemRevisao"
+       ROUND(EXTRACT(EPOCH FROM (NOW() - i.updated_at)) / 86400)::int as "diasSemRevisao",
+       CASE WHEN i.guardiao_id = $2 OR (i.substituto_id = $2 AND (i.substituto_ate IS NULL OR i.substituto_ate >= CURRENT_DATE)) THEN true ELSE false END as "isCustodia",
+       CASE WHEN i.guardiao_id != $2 AND (c.id IS NOT NULL OR t.id IS NOT NULL) THEN true ELSE false END as "isAutorizado"
      FROM public.fiorix_its i
      LEFT JOIN public."User" g ON g.id = i.guardiao_id
      LEFT JOIN public.fiorix_its_ciencias c ON c.it_id = i.id AND c.usuario_id = $2 AND c.versao = i.versao
+     LEFT JOIN public.fiorix_trilhas_estudo t ON t.it_id = i.id AND t.usuario_id = $2
      WHERE i.tenant_id = $1 
        AND i.deleted_at IS NULL
        AND (
-         i.departamento = $3 
-         OR i.guardiao_id = $2 
-         OR $4 = true
+         -- 1. É o Guardião / Responsável oficial
+         i.guardiao_id = $2
+         -- 2. É Substituto ativo
+         OR (i.substituto_id = $2 AND (i.substituto_ate IS NULL OR i.substituto_ate >= CURRENT_DATE))
+         -- 3. Permissão explícita concedida pelo RH (inclusão na ciência ou trilha aprovada)
+         OR c.id IS NOT NULL
+         OR t.id IS NOT NULL
        )
      ORDER BY 
        CASE WHEN i.guardiao_id = $2 THEN 0 ELSE 1 END,
        CASE WHEN c.status = 'pendente' THEN 0 ELSE 1 END,
        i.codigo ASC`,
     tenantId,
-    currentUser.id,
-    userDepto,
-    isMasterOrAdmin
+    currentUser.id
   );
 
   const its: MinhaItCardItem[] = rawIts.map((row) => ({
@@ -1413,7 +1419,8 @@ export async function getMinhasItsData(): Promise<MinhasItsPageData> {
     tempoLeituraMin: Number(row.tempoLeituraMin || 5),
     objetivo: row.objetivo || '',
     quandoUsar: row.quandoUsar || '',
-    isGuardiao: row.guardiaoId === currentUser.id,
+    isGuardiao: Boolean(row.isCustodia),
+    isAutorizadoRh: Boolean(row.isAutorizado),
     guardiaoNome: row.guardiaoNome || undefined,
     statusCiencia: row.cienciaStatus === 'ciente' ? 'ciente' : 'pendente',
     cienteEm: row.cienteEm ? new Date(row.cienteEm).toLocaleDateString('pt-BR') : undefined,
@@ -1447,17 +1454,7 @@ export async function obterMinhaItId(): Promise<string | null> {
   const currentUser = await requireAuth();
   const tenantId = currentUser.tenantId;
 
-  // 0. Busca departamento real do usuário
-  let userDepto = currentUser.departamento;
-  if (!userDepto) {
-    const rawUser = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT departamento FROM public."User" WHERE id = $1 LIMIT 1`,
-      currentUser.id
-    );
-    userDepto = rawUser[0]?.departamento || 'Atendimento';
-  }
-
-  // 1. Tenta achar IT onde o usuário é guardião
+  // 1. Tenta achar IT onde o usuário é guardião oficial
   const guardiaoIt = await prisma.$queryRawUnsafe<any[]>(
     `SELECT id::text FROM public.fiorix_its 
      WHERE tenant_id = $1 AND guardiao_id = $2 AND deleted_at IS NULL
@@ -1468,32 +1465,32 @@ export async function obterMinhaItId(): Promise<string | null> {
   );
   if (guardiaoIt.length > 0) return guardiaoIt[0].id;
 
-  // 2. Tenta achar IT do departamento onde o usuário tem ciência pendente
-  const pendenteIt = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT i.id::text 
-     FROM public.fiorix_its i
-     JOIN public.fiorix_its_ciencias c ON c.it_id = i.id AND c.usuario_id = $2 AND c.status = 'pendente'
-     WHERE i.tenant_id = $1 AND i.departamento = $3 AND i.deleted_at IS NULL
-     ORDER BY i.codigo ASC
-     LIMIT 1`,
-    tenantId,
-    currentUser.id,
-    userDepto
-  );
-  if (pendenteIt.length > 0) return pendenteIt[0].id;
-
-  // 3. Tenta achar qualquer IT do departamento do usuário
-  const deptoIt = await prisma.$queryRawUnsafe<any[]>(
+  // 2. Tenta achar IT onde o usuário é substituto oficial ativo
+  const substitutoIt = await prisma.$queryRawUnsafe<any[]>(
     `SELECT id::text FROM public.fiorix_its 
-     WHERE tenant_id = $1 AND departamento = $2 AND deleted_at IS NULL
+     WHERE tenant_id = $1 AND substituto_id = $2 AND deleted_at IS NULL
+       AND (substituto_ate IS NULL OR substituto_ate >= CURRENT_DATE)
      ORDER BY codigo ASC
      LIMIT 1`,
     tenantId,
-    userDepto
+    currentUser.id
   );
-  if (deptoIt.length > 0) return deptoIt[0].id;
+  if (substitutoIt.length > 0) return substitutoIt[0].id;
 
-  // 4. Sem IT no setor e sem custódia -> null
+  // 3. Tenta achar IT onde o RH deu permissão explícita
+  const permissaoIt = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT i.id::text 
+     FROM public.fiorix_its i
+     JOIN public.fiorix_its_ciencias c ON c.it_id = i.id AND c.usuario_id = $2 AND c.versao = i.versao
+     WHERE i.tenant_id = $1 AND i.deleted_at IS NULL
+     ORDER BY CASE WHEN c.status = 'pendente' THEN 0 ELSE 1 END, i.codigo ASC
+     LIMIT 1`,
+    tenantId,
+    currentUser.id
+  );
+  if (permissaoIt.length > 0) return permissaoIt[0].id;
+
+  // 4. Sem IT sob sua responsabilidade e sem permissão do RH -> null
   return null;
 }
 

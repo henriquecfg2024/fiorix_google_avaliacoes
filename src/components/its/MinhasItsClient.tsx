@@ -14,6 +14,7 @@ import {
   Layers,
   Building2,
   User,
+  Users,
 } from 'lucide-react';
 import { MinhasItsPageData } from '@/app/actions/its';
 
@@ -48,7 +49,7 @@ export function MinhasItsClient({ initialData }: MinhasItsClientProps) {
 
   const percentualCiente = stats.total > 0 ? Math.round((stats.cientes / stats.total) * 100) : 100;
 
-  // Estado vazio quando o setor não possui nenhuma IT cadastrada
+  // Estado vazio quando o colaborador não possui nenhuma IT sob sua responsabilidade ou autorizada
   if (stats.total === 0) {
     return (
       <div className="w-full flex-1 flex flex-col justify-start bg-[#070A12] text-white relative min-h-screen">
@@ -103,9 +104,12 @@ export function MinhasItsClient({ initialData }: MinhasItsClientProps) {
               <BookOpen className="w-8 h-8" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-xl font-bold text-white">Nenhuma Instrução de Trabalho Vinculada</h2>
+              <h2 className="text-xl font-bold text-white">Nenhuma IT Atribuída ao seu Perfil</h2>
               <p className="text-xs text-zinc-400 leading-relaxed">
-                O seu perfil está vinculado ao setor <strong className="text-emerald-400">{currentUser.departamento}</strong>, que no momento não possui instruções de trabalho operacionais cadastradas.
+                Você não possui nenhuma Instrução de Trabalho sob sua responsabilidade direta (Guardião Oficial) ou autorizada pelo setor de RH no momento.
+              </p>
+              <p className="text-[11px] text-zinc-500">
+                Cada colaborador visualiza estritamente suas próprias rotinas de custódia, exceto quando o RH conceder permissão de visualização.
               </p>
             </div>
             <div className="pt-2">
@@ -153,7 +157,7 @@ export function MinhasItsClient({ initialData }: MinhasItsClientProps) {
             </div>
 
             <p className="text-xs sm:text-sm text-zinc-400 mt-1 max-w-2xl">
-              Rotinas operacionais vigentes atribuídas ao seu setor e custódias sob sua responsabilidade técnica no 7º RI SP.
+              Instruções de Trabalho sob sua responsabilidade técnica direta (Guardião Oficial) ou com permissão concedida pelo RH no 7º RI SP.
             </p>
           </div>
 
@@ -177,9 +181,9 @@ export function MinhasItsClient({ initialData }: MinhasItsClientProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4 flex items-center justify-between">
             <div>
-              <p className="text-xs text-zinc-400 font-medium">Rotinas do Meu Setor</p>
+              <p className="text-xs text-zinc-400 font-medium">Minhas Instruções</p>
               <p className="text-2xl font-bold text-white mt-1">{stats.total}</p>
-              <p className="text-[11px] text-zinc-500 mt-0.5">Instruções vinculadas</p>
+              <p className="text-[11px] text-zinc-500 mt-0.5">Procedimentos vinculados</p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
               <Layers className="w-6 h-6" />
@@ -215,7 +219,7 @@ export function MinhasItsClient({ initialData }: MinhasItsClientProps) {
               <p className="text-xs text-zinc-400 font-medium">Minhas Custódias</p>
               <p className="text-2xl font-bold text-teal-400 mt-1">{stats.custodias}</p>
               <p className="text-[11px] text-teal-500/80 mt-0.5">
-                {stats.custodias > 0 ? 'Você é Guardião Oficial' : 'Colaborador da equipe'}
+                {stats.custodias > 0 ? 'Você é o Guardião Oficial' : 'Autorizado pelo RH'}
               </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400">
@@ -296,7 +300,7 @@ export function MinhasItsClient({ initialData }: MinhasItsClientProps) {
             <p className="text-sm text-zinc-400 mt-1 max-w-md mx-auto">
               {busca || filtroStatus !== 'todos'
                 ? 'Nenhuma instrução corresponde aos filtros selecionados. Tente limpar os termos de busca.'
-                : 'Não há instruções cadastradas para o seu setor no momento. Entre em contato com o seu gestor ou com o RH.'}
+                : 'Não há instruções atribuídas sob sua responsabilidade ou autorizadas pelo RH no momento.'}
             </p>
           </div>
         ) : (
@@ -326,7 +330,13 @@ export function MinhasItsClient({ initialData }: MinhasItsClientProps) {
                         {it.isGuardiao && (
                           <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-teal-500/15 text-teal-300 border border-teal-500/30">
                             <ShieldCheck className="w-3 h-3" />
-                            Guardião
+                            Responsável Direto
+                          </span>
+                        )}
+                        {it.isAutorizadoRh && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                            <Users className="w-3 h-3" />
+                            Autorizado pelo RH
                           </span>
                         )}
                       </div>
