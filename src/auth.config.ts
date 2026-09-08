@@ -12,10 +12,15 @@ export const authConfig = {
                             nextUrl.pathname.startsWith('/estatisticas') ||
                             nextUrl.pathname.startsWith('/relatorios') ||
                             nextUrl.pathname.startsWith('/admin') ||
+                            nextUrl.pathname.startsWith('/administracao') ||
                             nextUrl.pathname.startsWith('/bi') ||
                             nextUrl.pathname.startsWith('/configuracoes') ||
                             nextUrl.pathname.startsWith('/pessoas') ||
-                            nextUrl.pathname.startsWith('/sistema');
+                            nextUrl.pathname.startsWith('/sistema') ||
+                            nextUrl.pathname.startsWith('/minha-it') ||
+                            nextUrl.pathname.startsWith('/minha-conta') ||
+                            nextUrl.pathname.startsWith('/gestao') ||
+                            nextUrl.pathname.startsWith('/instrucoes-trabalho');
                             
       if (isOnDashboard) {
         if (!isLoggedIn) return false;
@@ -29,20 +34,30 @@ export const authConfig = {
           return Response.redirect(new URL('/dashboard', nextUrl));
         }
 
-        // Regras para perfil COLABORADOR: acesso estritamente a /pessoas e /minha-conta
+        // Regras para perfil COLABORADOR: acesso a /pessoas, /minha-conta, /minha-it e /instrucoes-trabalho
         if (role === 'COLABORADOR') {
-          if (nextUrl.pathname.startsWith('/pessoas') || nextUrl.pathname === '/minha-conta') {
+          if (
+            nextUrl.pathname.startsWith('/pessoas') ||
+            nextUrl.pathname === '/minha-conta' ||
+            nextUrl.pathname.startsWith('/minha-it') ||
+            nextUrl.pathname.startsWith('/instrucoes-trabalho')
+          ) {
             return true;
           }
           return Response.redirect(new URL('/pessoas', nextUrl));
         }
 
-        // Regras para perfil RH: acesso a /pessoas, /sistema/pessoas e /minha-conta
+        // Regras para perfil RH: acesso a /pessoas, /sistema/pessoas, /minha-conta, /gestao, /administracao, /minha-it, /instrucoes-trabalho, /configuracoes/departamentos
         if (role === 'RH') {
           if (
             nextUrl.pathname.startsWith('/pessoas') ||
             nextUrl.pathname.startsWith('/sistema/pessoas') ||
-            nextUrl.pathname === '/minha-conta'
+            nextUrl.pathname === '/minha-conta' ||
+            nextUrl.pathname.startsWith('/minha-it') ||
+            nextUrl.pathname.startsWith('/instrucoes-trabalho') ||
+            nextUrl.pathname.startsWith('/gestao') ||
+            nextUrl.pathname.startsWith('/administracao') ||
+            nextUrl.pathname.startsWith('/configuracoes/departamentos')
           ) {
             return true;
           }

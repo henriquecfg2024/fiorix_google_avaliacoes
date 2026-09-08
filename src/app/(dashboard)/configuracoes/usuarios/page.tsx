@@ -158,16 +158,20 @@ export default async function UsuariosConfigPage() {
                 defaultValue="Atendimento"
                 className="w-full h-10 px-3 rounded-md border border-white/12 bg-[#0A0F1E] text-xs text-white focus:outline-hidden focus:border-amber-400/50 cursor-pointer"
               >
-                <option value="Atendimento">Atendimento</option>
-                <option value="Registro">Registro</option>
-                <option value="Financeiro">Financeiro</option>
-                <option value="RH">RH</option>
-                <option value="Administração">Administração</option>
-                <option value="TI">TI</option>
-                <option value="Indisponibilidade">Indisponibilidade</option>
-                <option value="Intimação">Intimação</option>
-                <option value="Ofício">Ofício</option>
-                <option value="Impressão/Arquivo">Impressão/Arquivo</option>
+                {departamentosDb.length > 0 ? (
+                  departamentosDb.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))
+                ) : (
+                  <>
+                    <option value="Atendimento">Atendimento</option>
+                    <option value="Registro">Registro</option>
+                    <option value="Financeiro">Financeiro</option>
+                    <option value="RH">RH</option>
+                    <option value="Administração">Administração</option>
+                    <option value="TI">TI</option>
+                  </>
+                )}
               </select>
             </div>
 
