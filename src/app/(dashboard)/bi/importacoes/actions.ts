@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
+import { recordAuditLog } from "@/lib/audit";
 
 export async function deleteImportRecord(id: string, source: "BI" | "PRODUTIVIDADE" | "METAS" | "TAREFAS") {
   try {
@@ -57,6 +58,14 @@ export async function deleteImportRecord(id: string, source: "BI" | "PRODUTIVIDA
       );
     }
 
+    await recordAuditLog({
+      modulo: "BI_IMPORTACOES",
+      acao: "EXCLUSAO",
+      registroId: id,
+      registroDescricao: `Exclusão de lote de importação ${source} (ID: ${id})`,
+      userOverride: user,
+    });
+
     revalidatePath("/bi/importacoes");
     revalidatePath("/bi/produtividade");
     revalidatePath("/bi/metas");
@@ -79,6 +88,13 @@ export async function clearAllProdutividadeData() {
       Prisma.sql`DELETE FROM public.fiorix_produtividade_imports WHERE tenant_id = ${user.tenantId}`
     );
 
+    await recordAuditLog({
+      modulo: "BI_IMPORTACOES",
+      acao: "EXCLUSAO",
+      registroDescricao: "Limpeza total da base de Produtividade",
+      userOverride: user,
+    });
+
     revalidatePath("/bi/importacoes");
     revalidatePath("/bi/produtividade");
     return { success: true };
@@ -98,6 +114,13 @@ export async function clearAllMetasData() {
       Prisma.sql`DELETE FROM public.fiorix_metas_imports WHERE tenant_id = ${user.tenantId}`
     );
 
+    await recordAuditLog({
+      modulo: "BI_IMPORTACOES",
+      acao: "EXCLUSAO",
+      registroDescricao: "Limpeza total da base de Metas",
+      userOverride: user,
+    });
+
     revalidatePath("/bi/importacoes");
     revalidatePath("/bi/metas");
     return { success: true };
@@ -116,6 +139,13 @@ export async function clearAllTarefasData() {
     await prisma.$executeRaw(
       Prisma.sql`DELETE FROM public.fiorix_tarefas_imports WHERE tenant_id = ${user.tenantId}`
     );
+
+    await recordAuditLog({
+      modulo: "BI_IMPORTACOES",
+      acao: "EXCLUSAO",
+      registroDescricao: "Limpeza total da base de Tarefas",
+      userOverride: user,
+    });
 
     revalidatePath("/bi/importacoes");
     revalidatePath("/bi/tarefas");

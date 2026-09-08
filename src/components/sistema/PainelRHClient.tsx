@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Users,
   FileText,
@@ -49,6 +50,8 @@ interface ComunicadoItem {
   status: "PUBLICADO" | "ARQUIVADO" | "EXCLUIDO";
   conteudo?: string;
   conteudoHash?: string;
+  ultimaAlteracaoPor?: string;
+  dataUltimaAlteracao?: string;
 }
 
 interface AvisoEmitido {
@@ -63,8 +66,30 @@ interface AvisoEmitido {
 }
 
 export function PainelRHClient({ userRole = "ADMIN", userName = "Administrador" }: PainelRHClientProps) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const tabParam = searchParams.get("tab");
+  const initialTab: "comunicados" | "holerites" | "ferias" =
+    tabParam === "ferias" || tabParam === "holerites" || tabParam === "comunicados"
+      ? tabParam
+      : "comunicados";
+
   // Tabs principais
-  const [currentTab, setCurrentTab] = useState<"comunicados" | "holerites" | "ferias">("comunicados");
+  const [currentTab, setCurrentTab] = useState<"comunicados" | "holerites" | "ferias">(initialTab);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "ferias" || tab === "holerites" || tab === "comunicados") {
+      setCurrentTab(tab);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (tab: "comunicados" | "holerites" | "ferias") => {
+    setCurrentTab(tab);
+    router.replace(`/sistema/pessoas?tab=${tab}`, { scroll: false });
+  };
+
   // Sub-tabs da aba Férias
   const [feriasSubTab, setFeriasSubTab] = useState<"planejamento2027" | "validador" | "avisos">("planejamento2027");
 
@@ -340,7 +365,7 @@ export function PainelRHClient({ userRole = "ADMIN", userName = "Administrador" 
           {/* Abas Principais Superiores */}
           <div className="flex gap-1.5 p-1 bg-[#10101a] rounded-2xl border border-white/10 text-xs font-bold shadow-inner">
             <button
-              onClick={() => setCurrentTab("comunicados")}
+              onClick={() => handleTabChange("comunicados")}
               className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
                 currentTab === "comunicados"
                   ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 font-bold"
@@ -351,7 +376,7 @@ export function PainelRHClient({ userRole = "ADMIN", userName = "Administrador" 
               <span>Comunicados</span>
             </button>
             <button
-              onClick={() => setCurrentTab("holerites")}
+              onClick={() => handleTabChange("holerites")}
               className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
                 currentTab === "holerites"
                   ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 font-bold"
@@ -362,7 +387,7 @@ export function PainelRHClient({ userRole = "ADMIN", userName = "Administrador" 
               <span>Holerites</span>
             </button>
             <button
-              onClick={() => setCurrentTab("ferias")}
+              onClick={() => handleTabChange("ferias")}
               className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
                 currentTab === "ferias"
                   ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 font-bold"
@@ -485,6 +510,17 @@ export function PainelRHClient({ userRole = "ADMIN", userName = "Administrador" 
                           <div className="flex items-center gap-2">
                             <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                             <span>{item.titulo}</span>
+                          </div>
+                          <div className="text-[10px] font-normal text-slate-400 font-mono mt-0.5 ml-5.5">
+                            {item.ultimaAlteracaoPor ? (
+                              <span className="text-amber-300/80">
+                                ✏️ Editado por <strong>{item.ultimaAlteracaoPor}</strong> em {item.dataUltimaAlteracao}
+                              </span>
+                            ) : (
+                              <span>
+                                ✨ Publicado por <strong>{item.autor}</strong> em {item.data}
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-5 py-3.5 font-mono text-slate-400">{item.data}</td>
@@ -878,11 +914,16 @@ export function PainelRHClient({ userRole = "ADMIN", userName = "Administrador" 
               </Button>
               <Button
                 onClick={() => {
+                  const updated: ComunicadoItem = {
+                    ...editComunicadoModal,
+                    ultimaAlteracaoPor: userName,
+                    dataUltimaAlteracao: new Date().toLocaleString("pt-BR"),
+                  };
                   setComunicadosList((prev) =>
-                    prev.map((c) => (c.id === editComunicadoModal.id ? editComunicadoModal : c))
+                    prev.map((c) => (c.id === editComunicadoModal.id ? updated : c))
                   );
                   setEditComunicadoModal(null);
-                  alert("Comunicado atualizado e nova versão assinada.");
+                  toast.success(`Comunicado alterado por ${userName} em ${new Date().toLocaleTimeString("pt-BR")}.`);
                 }}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl"
               >

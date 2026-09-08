@@ -33,6 +33,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { navigationGroups } from "./navigation";
+import { filterNavigationByRole } from "@/lib/navigation/permissions";
 import { handleSignOut, getCurrentUser } from "@/app/actions/auth";
 import { getPendingCount } from "@/app/actions/reviews";
 import { getHomeRouteForRole } from "@/lib/permissions";
@@ -161,51 +162,12 @@ export function FiorixHeader() {
             </Link>
 
             {/* Grupos Dinâmicos */}
-            {Object.entries(navigationGroups).map(([key, group]) => {
+            {Object.entries(filterNavigationByRole(currentUser?.role)).map(([key, group]: [string, any]) => {
               // Check if any child item is active
-              const isGroupActive = group.items.some((item) =>
+              const isGroupActive = group.items.some((item: any) =>
                 isActive(item.href)
               );
-
-              // Filter out groups/items if role-restricted
-              const role = currentUser?.role || "USER";
-              const isColaborador = role === "COLABORADOR";
-              const isRH = role === "RH";
-              const isUser = role === "USER";
-
-              // COLABORADOR: Apenas PESSOAS
-              if (isColaborador && key !== "pessoas") return null;
-
-              // RH: Apenas PESSOAS e ADMINISTRAÇÃO (Painel RH)
-              if (isRH && key !== "pessoas" && key !== "administracao") return null;
-
-              // USER: Não tem acesso a SISTEMA ou ADMINISTRAÇÃO
-              if (isUser && (key === "sistema" || key === "administracao")) return null;
-
-              const visibleItems = group.items.filter((item) => {
-                if (isColaborador) {
-                  return item.href.startsWith("/pessoas");
-                }
-                if (isRH) {
-                  return item.href.startsWith("/pessoas") || item.href === "/sistema/pessoas";
-                }
-                if (isUser) {
-                  if (
-                    item.href === "/bi/auditoria" ||
-                    item.href === "/bi/importacoes" ||
-                    item.href === "/configuracoes" ||
-                    item.href.startsWith("/sistema") ||
-                    item.href.startsWith("/configuracoes")
-                  ) {
-                    return false;
-                  }
-                  return true;
-                }
-                return true;
-              });
-
-              if (visibleItems.length === 0) return null;
-
+              const visibleItems = group.items;
               const GroupIcon = group.icon;
 
               return (
@@ -450,45 +412,8 @@ export function FiorixHeader() {
 
                   {/* Accordion dos grupos */}
                   <Accordion type="single" collapsible className="space-y-1">
-                    {Object.entries(navigationGroups).map(([key, group]) => {
-                      const role = currentUser?.role || "USER";
-                      const isColaborador = role === "COLABORADOR";
-                      const isRH = role === "RH";
-                      const isUser = role === "USER";
-
-                      // COLABORADOR: Apenas PESSOAS
-                      if (isColaborador && key !== "pessoas") return null;
-
-                      // RH: Apenas PESSOAS e ADMINISTRAÇÃO (Painel RH)
-                      if (isRH && key !== "pessoas" && key !== "administracao") return null;
-
-                      // USER: Não tem acesso a SISTEMA ou ADMINISTRAÇÃO
-                      if (isUser && (key === "sistema" || key === "administracao")) return null;
-
-                      const visibleItems = group.items.filter((item) => {
-                        if (isColaborador) {
-                          return item.href.startsWith("/pessoas");
-                        }
-                        if (isRH) {
-                          return item.href.startsWith("/pessoas") || item.href === "/sistema/pessoas";
-                        }
-                        if (isUser) {
-                          if (
-                            item.href === "/bi/auditoria" ||
-                            item.href === "/bi/importacoes" ||
-                            item.href === "/configuracoes" ||
-                            item.href.startsWith("/sistema") ||
-                            item.href.startsWith("/configuracoes")
-                          ) {
-                            return false;
-                          }
-                          return true;
-                        }
-                        return true;
-                      });
-
-                      if (visibleItems.length === 0) return null;
-
+                    {Object.entries(filterNavigationByRole(currentUser?.role)).map(([key, group]: [string, any]) => {
+                      const visibleItems = group.items;
                       const GroupIcon = group.icon;
 
                       return (

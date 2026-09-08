@@ -1,9 +1,11 @@
 import React from "react";
+import Link from "next/link";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { CentralResumo } from "@/components/pessoas/CentralResumo";
 import { PessoasRepository } from "@/lib/pessoas/repository";
 import { getCommunicationSummaryForUser } from "@/lib/pessoas/communicationsSummary";
+import { Briefcase, Upload, Send, ShieldCheck, Users, Sparkles } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -99,6 +101,63 @@ export default async function PessoasDashboard() {
             </p>
           </div>
         </div>
+
+        {/* Banner de Gestão de RH e ITs para Dra. Nadia e Gestores */}
+        {['RH', 'ADMIN', 'MASTER'].includes(userRole) && (
+          <div className="rounded-2xl border border-indigo-500/25 bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-indigo-950/40 p-4 shadow-xl backdrop-blur-md">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-white">
+                      Painel de Gestão & Lançamentos de RH
+                    </h3>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/25 text-indigo-300 font-bold border border-indigo-500/30 uppercase tracking-wider">
+                      {userRole}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Acesso direto para realizar seus lançamentos operacionais e fiscalizações:
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href="/sistema/pessoas?tab=ferias"
+                  className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-white border border-white/10 transition-all hover:scale-102 flex items-center gap-1.5 shadow-sm"
+                >
+                  <Briefcase className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Lançar Férias</span>
+                </Link>
+                <Link
+                  href="/sistema/pessoas?tab=holerites"
+                  className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-white border border-white/10 transition-all hover:scale-102 flex items-center gap-1.5 shadow-sm"
+                >
+                  <Upload className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Lançar Holerites</span>
+                </Link>
+                <Link
+                  href="/sistema/pessoas?tab=comunicados"
+                  className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-white border border-white/10 transition-all hover:scale-102 flex items-center gap-1.5 shadow-sm"
+                >
+                  <Send className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Gestão Comunicados</span>
+                </Link>
+                <Link
+                  href="/gestao/rh/instrucoes-trabalho-monitoramento"
+                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-xs font-bold text-white border border-indigo-400/30 transition-all hover:scale-102 flex items-center gap-1.5 shadow-md shadow-indigo-600/20"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-white" />
+                  <span>Fiscalizar ITs</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Resumo de Cards */}
         <CentralResumo

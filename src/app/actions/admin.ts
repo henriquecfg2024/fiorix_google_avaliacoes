@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth, requireRole } from '@/lib/auth-helpers';
 import bcrypt from 'bcryptjs';
 import { revalidatePath } from 'next/cache';
+import { recordAuditLog } from '@/lib/audit';
 
 export async function getUsers() {
   const user = await requireRole('ADMIN', 'MASTER');
@@ -15,6 +16,7 @@ export async function getUsers() {
        email, 
        role, 
        "createdAt", 
+       "updatedAt",
        cpf, 
        departamento, 
        cargo, 
@@ -120,20 +122,13 @@ export async function createUser(formData: FormData) {
     podeSerTutor
   );
 
-  // Log de auditoria
-  try {
-    const { logAuditEvent } = await import('@/lib/audit/log');
-    await logAuditEvent({
-      tenantId: currentUser.tenantId,
-      usuarioId: currentUser.id,
-      tipo: 'user_created',
-      recursoId: email,
-      ip: '127.0.0.1',
-      metadata: { target_email: email, role, actor_user_id: currentUser.id },
-    });
-  } catch (err) {
-    // Non-blocking
-  }
+  await recordAuditLog({
+    modulo: 'USUARIOS',
+    acao: 'INCLUSAO',
+    registroDescricao: `Colaborador/Usuário "${name}" (${email}) criado`,
+    detalhes: { name, email, role, departamento, cargo, ramal },
+    userOverride: currentUser,
+  });
 
   revalidatePath('/configuracoes/usuarios');
   revalidatePath('/configuracoes');
@@ -251,26 +246,14 @@ export async function updateUserRole(
     userId
   );
 
-  // Log de auditoria
-  try {
-    const { logAuditEvent } = await import('@/lib/audit/log');
-    await logAuditEvent({
-      tenantId: currentUser.tenantId,
-      usuarioId: currentUser.id,
-      tipo: 'user_role_changed',
-      recursoId: targetUser.id,
-      ip: '127.0.0.1',
-      metadata: {
-        actor_user_id: currentUser.id,
-        target_user_id: targetUser.id,
-        old_role: oldRole,
-        new_role: newRole,
-        organization_id: currentUser.tenantId,
-      },
-    });
-  } catch (err) {
-    // Non-blocking
-  }
+  await recordAuditLog({
+    modulo: 'USUARIOS',
+    acao: 'ALTERACAO',
+    registroId: targetUser.id,
+    registroDescricao: `Função de "${targetUser.name}" alterada de ${oldRole} para ${newRole}`,
+    detalhes: { oldRole, newRole },
+    userOverride: currentUser,
+  });
 
   revalidatePath('/configuracoes/usuarios');
   return { success: true };
@@ -300,6 +283,14 @@ export async function updateUserName(userId: string, newName: string) {
     newName.trim(),
     userId
   );
+
+  await recordAuditLog({
+    modulo: 'USUARIOS',
+    acao: 'ALTERACAO',
+    registroId: userId,
+    registroDescricao: `Nome alterado de "${targetUser.name}" para "${newName.trim()}"`,
+    userOverride: currentUser,
+  });
 
   revalidatePath('/configuracoes/usuarios');
   return { success: true };
@@ -338,6 +329,14 @@ export async function updateUserCpf(userId: string, newCpf: string) {
     userId
   );
 
+  await recordAuditLog({
+    modulo: 'USUARIOS',
+    acao: 'ALTERACAO',
+    registroId: userId,
+    registroDescricao: `CPF de "${targetUser.name}" atualizado`,
+    userOverride: currentUser,
+  });
+
   revalidatePath('/configuracoes/usuarios');
   return { success: true };
 }
@@ -369,6 +368,14 @@ export async function toggleUserStatus(userId: string) {
     newStatus,
     userId
   );
+
+  await recordAuditLog({
+    modulo: 'USUARIOS',
+    acao: newStatus === 'ativo' ? 'ALTERACAO' : 'DESATIVACAO',
+    registroId: userId,
+    registroDescricao: `Status de "${targetUser.name}" alterado para ${newStatus.toUpperCase()}`,
+    userOverride: currentUser,
+  });
 
   revalidatePath('/configuracoes/usuarios');
   return { success: true, newStatus };
@@ -480,6 +487,15 @@ export async function updateUserProfile(
 
   await prisma.$executeRawUnsafe(query, ...params);
 
+  await recordAuditLog({
+    modulo: 'USUARIOS',
+    acao: 'ALTERACAO',
+    registroId: userId,
+    registroDescricao: `Perfil de "${data.name || targetUser.name}" atualizado`,
+    detalhes: data,
+    userOverride: currentUser,
+  });
+
   revalidatePath('/configuracoes/usuarios');
   revalidatePath('/sistema/pessoas');
   return { success: true };
@@ -512,6 +528,14 @@ export async function deleteInactiveUser(userId: string) {
     `DELETE FROM public."User" WHERE id = $1 AND role != 'MASTER' AND email != 'admin@fiorix.com.br'`,
     userId
   );
+
+  await recordAuditLog({
+    modulo: 'USUARIOS',
+    acao: 'EXCLUSAO',
+    registroId: userId,
+    registroDescricao: `Usuário "${targetUser.name}" (${targetUser.email}) excluído permanentemente`,
+    userOverride: currentUser,
+  });
 
   revalidatePath('/configuracoes/usuarios');
   revalidatePath('/sistema/pessoas');

@@ -3,9 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth-helpers";
 import { ensureMetasImportsTable } from "@/lib/import-history";
 import { Prisma } from "@prisma/client";
-
 import { metasImportSchema } from "@/lib/zod-schemas";
 import { checkRateLimit } from "@/lib/rate-limiter";
+import { recordAuditLog } from "@/lib/audit";
 
 export const maxDuration = 60;
 
@@ -247,6 +247,16 @@ export async function POST(req: Request) {
           WHERE id = ${importId} AND tenant_id = ${user.tenantId}
         `
       );
+
+      if (finalStatus === 'Concluído') {
+        await recordAuditLog({
+          modulo: 'BI_IMPORTACOES',
+          acao: 'IMPORTACAO',
+          registroDescricao: `Importação de Metas concluída (${importedCount} registros processados)`,
+          detalhes: { importKey, importId, totalLinhas: importedCount },
+          userOverride: user,
+        });
+      }
     }
 
     return NextResponse.json({ success: true, count: insertedCount });

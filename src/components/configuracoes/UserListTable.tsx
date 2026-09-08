@@ -35,6 +35,7 @@ export interface UserItem {
   email: string;
   role: string;
   createdAt: Date | string;
+  updatedAt?: Date | string | null;
   cpf?: string | null;
   departamento?: string | null;
   cargo?: string | null;
@@ -379,9 +380,16 @@ export function UserListTable({
                             </span>
                           )}
                         </div>
-                        {u.ramal && (
-                          <div className="text-[10px] text-white/40">Ramal: {u.ramal}</div>
-                        )}
+                        <div className="text-[10px] text-white/40 flex flex-wrap items-center gap-2 font-mono mt-0.5">
+                          {u.ramal && <span>Ramal: {u.ramal}</span>}
+                          {u.createdAt && (
+                            <span>
+                              {u.updatedAt && String(u.updatedAt) !== String(u.createdAt)
+                                ? `✏️ Modificado em ${new Date(u.updatedAt).toLocaleDateString('pt-BR')}`
+                                : `✨ Criado em ${new Date(u.createdAt).toLocaleDateString('pt-BR')}`}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </td>

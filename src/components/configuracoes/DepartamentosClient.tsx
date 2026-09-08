@@ -283,8 +283,17 @@ export function DepartamentosClient({ initialData }: DepartamentosClientProps) {
                           style={{ backgroundColor: d.cor }}
                         />
                       </td>
-                      <td className="p-3 font-bold text-white">
-                        {d.nome}
+                      <td className="p-3">
+                        <div className="font-bold text-white">{d.nome}</div>
+                        <div className="text-[10px] text-white/40 font-mono mt-0.5">
+                          {d.atualizadoPorNome ? (
+                            <span>✏️ Alterado por <strong className="text-white/60">{d.atualizadoPorNome}</strong> {d.updatedAt ? `• ${d.updatedAt}` : ''}</span>
+                          ) : d.criadoPorNome ? (
+                            <span>✨ Criado por <strong className="text-white/60">{d.criadoPorNome}</strong> {d.createdAt ? `• ${d.createdAt}` : ''}</span>
+                          ) : (
+                            <span>Data: {d.createdAt || '—'}</span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-3">
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10">

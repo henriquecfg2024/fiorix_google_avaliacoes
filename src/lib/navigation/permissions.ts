@@ -10,14 +10,14 @@ export function filterNavigationByRole(role: Role = "USER") {
   const filteredGroups: Record<string, any> = {};
 
   for (const [key, group] of Object.entries(navigationGroups)) {
-    // COLABORADOR: Apenas PESSOAS & RH
+    // COLABORADOR: Apenas o seu Espaço Pessoal
     if (isColaborador && key !== "pessoas") continue;
 
-    // RH: Apenas PESSOAS & RH (inclui Painel RH)
-    if (isRH && key !== "pessoas") continue;
+    // RH: Apenas GESTÃO DE RH & ITs e seu Espaço Pessoal
+    if (isRH && key !== "rhGestao" && key !== "pessoas") continue;
 
-    // USER: Não tem acesso a SISTEMA & INFRA
-    if (isUser && key === "sistema") continue;
+    // USER: Não tem acesso a SISTEMA nem a GESTÃO DE RH
+    if (isUser && (key === "sistema" || key === "rhGestao")) continue;
 
     const visibleItems = group.items.filter((item) => {
       if (isColaborador) {
@@ -27,13 +27,8 @@ export function filterNavigationByRole(role: Role = "USER") {
         );
       }
       if (isRH) {
-        return (
-          item.href.startsWith("/pessoas") ||
-          item.href === "/sistema/pessoas" ||
-          item.href === "/minha-it" ||
-          item.href === "/gestao/rh/instrucoes-trabalho-monitoramento" ||
-          item.href === "/administracao/its"
-        );
+        // RH tem acesso a todos os itens de rhGestao e pessoas
+        return true;
       }
       if (isUser) {
         if (

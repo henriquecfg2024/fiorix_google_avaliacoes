@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { PainelRHClient } from "@/components/sistema/PainelRHClient";
@@ -23,9 +24,11 @@ export default async function PainelRHPage() {
   }
 
   return (
-    <PainelRHClient
-      userRole={userRole}
-      userName={session.user.name || "Administrador"}
-    />
+    <Suspense fallback={null}>
+      <PainelRHClient
+        userRole={userRole}
+        userName={session.user.name || "Administrador"}
+      />
+    </Suspense>
   );
 }

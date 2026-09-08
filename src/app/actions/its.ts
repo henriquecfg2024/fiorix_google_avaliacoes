@@ -5,6 +5,7 @@ import { requireAuth, requireRole } from '@/lib/auth-helpers';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { revalidatePath } from 'next/cache';
+import { recordAuditLog } from '@/lib/audit';
 
 export interface ITItem {
   id: string;
@@ -1058,6 +1059,15 @@ export async function salvarNovaVersaoComDiff(params: SalvarNovaVersaoParams) {
     params.arquivoOriginalUrl || null,
     hashSha256
   );
+
+  await recordAuditLog({
+    modulo: 'ITS',
+    acao: 'REVISAO',
+    registroId: params.itId,
+    registroDescricao: `Nova versão ${params.novaVersao} da IT "${current.codigo} - ${current.titulo}"`,
+    detalhes: { versaoAnterior, versaoNova: params.novaVersao, motivo: params.motivo, hashSha256 },
+    userOverride: currentUser,
+  });
 
   // 5. Gera ciências para o departamento: Autor fica Ciente, outros ficam Pendentes
   const deptoUsers = await prisma.$queryRawUnsafe<any[]>(

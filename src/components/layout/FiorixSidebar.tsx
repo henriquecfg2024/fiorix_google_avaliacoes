@@ -50,6 +50,30 @@ export function FiorixSidebar() {
 
   const isActive = (href: string) => {
     if (href === "/dashboard" && pathname === "/dashboard") return true;
+
+    // Se o link possui parâmetros de busca (?tab=...)
+    if (href.includes("?")) {
+      const [baseHref, queryStr] = href.split("?");
+      if (pathname !== baseHref) return false;
+      if (typeof window !== "undefined") {
+        const currentParams = new URLSearchParams(window.location.search);
+        const targetParams = new URLSearchParams(queryStr);
+        for (const [k, v] of targetParams.entries()) {
+          if (currentParams.get(k) !== v) return false;
+        }
+        return true;
+      }
+      return false;
+    }
+
+    // Se o href é /sistema/pessoas puro e a URL possui tab ativa, o link geral não deve sobressair
+    if (typeof window !== "undefined" && pathname === "/sistema/pessoas" && href === "/sistema/pessoas") {
+      const currentParams = new URLSearchParams(window.location.search);
+      if (currentParams.get("tab")) {
+        return false;
+      }
+    }
+
     if (href !== "/dashboard" && pathname?.startsWith(href)) return true;
     return false;
   };
@@ -200,7 +224,7 @@ export function FiorixSidebar() {
             }
 
             return (
-              <Accordion type="single" collapsible key={key} defaultValue={isGroupActive ? key : undefined}>
+              <Accordion type="single" collapsible key={key} defaultValue={isGroupActive || role === "RH" || key === "rhGestao" ? key : undefined}>
                 <AccordionItem value={key} className="border-none">
                   <AccordionTrigger className="flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold text-white/50 uppercase tracking-wider hover:bg-white/5 hover:text-white hover:no-underline [&[data-state=open]>svg.chevron]:rotate-180">
                     <span className="truncate">{group.label}</span>

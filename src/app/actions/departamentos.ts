@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/auth-helpers';
 import { revalidatePath } from 'next/cache';
+import { recordAuditLog } from '@/lib/audit';
 
 export interface DepartamentoItem {
   id: string;
@@ -14,6 +15,9 @@ export interface DepartamentoItem {
   totalColaboradores: number;
   totalIts: number;
   createdAt: string;
+  criadoPorNome?: string | null;
+  atualizadoPorNome?: string | null;
+  updatedAt?: string | null;
 }
 
 export async function getDepartamentos(): Promise<DepartamentoItem[]> {
@@ -29,6 +33,9 @@ export async function getDepartamentos(): Promise<DepartamentoItem[]> {
        d.ativo,
        d.ordem,
        d.created_at as "createdAt",
+       d.updated_at as "updatedAt",
+       d.criado_por_nome as "criadoPorNome",
+       d.atualizado_por_nome as "atualizadoPorNome",
        COALESCE((SELECT count(*)::int FROM public."User" u WHERE u."tenantId" = d.tenant_id AND u.departamento = d.nome), 0) as "totalColaboradores",
        COALESCE((SELECT count(*)::int FROM public.fiorix_its i WHERE i.tenant_id = d.tenant_id AND i.departamento = d.nome AND i.deleted_at IS NULL), 0) as "totalIts"
      FROM public.fiorix_departamentos d
@@ -46,7 +53,10 @@ export async function getDepartamentos(): Promise<DepartamentoItem[]> {
     ordem: Number(r.ordem || 0),
     totalColaboradores: Number(r.totalColaboradores || 0),
     totalIts: Number(r.totalIts || 0),
-    createdAt: r.createdAt ? new Date(r.createdAt).toLocaleDateString('pt-BR') : '',
+    createdAt: r.createdAt ? new Date(r.createdAt).toLocaleString('pt-BR') : '',
+    updatedAt: r.updatedAt ? new Date(r.updatedAt).toLocaleString('pt-BR') : '',
+    criadoPorNome: r.criadoPorNome || 'Sistema / Inicial',
+    atualizadoPorNome: r.atualizadoPorNome,
   }));
 }
 
@@ -80,14 +90,23 @@ export async function criarDepartamento(data: {
   );
 
   await prisma.$executeRawUnsafe(
-    `INSERT INTO public.fiorix_departamentos (tenant_id, nome, sigla, cor, ordem)
-     VALUES ($1, $2, $3, $4, $5)`,
+    `INSERT INTO public.fiorix_departamentos (tenant_id, nome, sigla, cor, ordem, criado_por_nome, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())`,
     tenantId,
     nome,
     data.sigla?.trim() || nome.substring(0, 3).toUpperCase(),
     data.cor || '#6366f1',
-    maxOrdem[0]?.next_ordem || 1
+    maxOrdem[0]?.next_ordem || 1,
+    currentUser.name || 'Administrador'
   );
+
+  await recordAuditLog({
+    modulo: 'DEPARTAMENTOS',
+    acao: 'INCLUSAO',
+    registroDescricao: `Departamento "${nome}" criado`,
+    detalhes: { nome, sigla: data.sigla, cor: data.cor },
+    userOverride: currentUser,
+  });
 
   revalidatePath('/configuracoes/departamentos');
   return { success: true };
@@ -155,6 +174,9 @@ export async function atualizarDepartamento(
   }
 
   sets.push('updated_at = NOW()');
+  sets.push(`atualizado_por_nome = $${idx++}`);
+  params.push(currentUser.name || 'Administrador');
+
   params.push(id);
   params.push(tenantId);
 
@@ -164,6 +186,15 @@ export async function atualizarDepartamento(
      WHERE id = $${idx}::uuid AND tenant_id = $${idx + 1}`,
     ...params
   );
+
+  await recordAuditLog({
+    modulo: 'DEPARTAMENTOS',
+    acao: 'ALTERACAO',
+    registroId: id,
+    registroDescricao: `Departamento "${data.nome?.trim() || oldNome}" atualizado`,
+    detalhes: { ...data, oldNome },
+    userOverride: currentUser,
+  });
 
   // Se o nome mudou, atualizar em todos os Users e ITs que usam o nome antigo
   if (data.nome && data.nome.trim() !== oldNome) {
@@ -226,6 +257,14 @@ export async function excluirDepartamento(id: string) {
     id,
     tenantId
   );
+
+  await recordAuditLog({
+    modulo: 'DEPARTAMENTOS',
+    acao: 'EXCLUSAO',
+    registroId: id,
+    registroDescricao: `Departamento "${nome}" excluído`,
+    userOverride: currentUser,
+  });
 
   revalidatePath('/configuracoes/departamentos');
   return { success: true };

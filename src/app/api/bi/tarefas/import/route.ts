@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/auth-helpers";
 import { ensureTarefasImportsTable } from "@/lib/import-history";
 import { Prisma } from "@prisma/client";
+import { recordAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -185,6 +186,14 @@ export async function POST(request: Request) {
           WHERE id = ${importId} AND tenant_id = ${user.tenantId}
         `
       );
+
+      await recordAuditLog({
+        modulo: 'BI_IMPORTACOES',
+        acao: 'IMPORTACAO',
+        registroDescricao: `Importação de Tarefas concluída (${importMeta?.fileName || 'tarefas.csv'})`,
+        detalhes: { importKey: importMeta?.importKey, importId, totalLinhas: importMeta?.totalRows || normalizedRows.length },
+        userOverride: user,
+      });
     }
 
     return NextResponse.json({
