@@ -97,7 +97,7 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
     ORDER BY codigo ASC
   `, userId);
 
-  if (itsCustodiaRows.length === 0 && isMaster) {
+  if (itsCustodiaRows.length === 0 && (isMaster || currentUser.role === 'ADMIN' || currentUser.role === 'SUBSTITUTO')) {
     itsCustodiaRows = await prisma.$queryRawUnsafe(`
       SELECT id, codigo, titulo, versao, departamento, status
       FROM public.fiorix_its

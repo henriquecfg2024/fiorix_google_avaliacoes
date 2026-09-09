@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition, useId } from 'react';
+import React, { useState, useEffect, useTransition, useId } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   CheckCircle2,
@@ -25,8 +25,13 @@ interface MinhaItCleanClientProps {
 }
 
 export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const { hasCustodia, currentUser, cartorioNome, cartorioUnidade, itsCustodia, currentIt } = initialData;
 
@@ -42,6 +47,18 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState(false);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-[#070A12] text-white p-6 sm:p-8">
+        <div className="mx-auto max-w-[1600px] space-y-6">
+          <div className="h-8 w-64 rounded-xl bg-white/5 animate-pulse" />
+          <div className="h-96 rounded-[28px] border border-white/8 bg-[#0B1020]/72 animate-pulse" />
+          <div className="h-64 rounded-[28px] border border-white/8 bg-[#0B1020]/72 animate-pulse" />
+        </div>
+      </div>
+    );
+  }
 
   // Helper para copiar Hash
   function handleCopyHash() {
