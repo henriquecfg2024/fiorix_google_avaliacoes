@@ -41,7 +41,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleapis.com https://*.gstatic.com; font-src 'self' data:; connect-src 'self' https://*.googleapis.com https://api.openai.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self';",
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleapis.com https://*.gstatic.com; font-src 'self' data:; connect-src 'self' https://*.googleapis.com https://api.openai.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self';",
           },
         ],
       },
