@@ -159,7 +159,7 @@ export default function LoginPage() {
 
       {/* Rodapé Institucional Seguro */}
       <footer className="login-footer">
-        © 2026 FIORIX • Sistema de Gestão Cartorária • 7º RI de São Paulo
+        © 2026 FIORIX • Sistema de Gestão Cartorária
       </footer>
 
       <style jsx>{`
