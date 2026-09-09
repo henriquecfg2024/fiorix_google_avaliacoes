@@ -444,7 +444,7 @@ export function UserListTable({
                         onChange={(e) =>
                           onSelectRole(
                             u,
-                            e.target.value as 'COLABORADOR' | 'USER' | 'RH' | 'ADMIN'
+                            e.target.value as 'COLABORADOR' | 'USER' | 'RH' | 'SUBSTITUTO' | 'ADMIN'
                           )
                         }
                         className={`rounded-lg border px-2.5 py-1 text-xs font-semibold focus:outline-hidden focus:ring-1 focus:ring-amber-400/50 cursor-pointer ${getRoleBadge(

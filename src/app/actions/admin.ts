@@ -234,29 +234,34 @@ export async function updateUserRole(
     return { error: 'Apenas Henrique Cesar Ferreira Gama possui prerrogativa de ADMIN na organização.' };
   }
 
-  const oldRole = targetUser.role;
+  try {
+    const oldRole = targetUser.role;
 
-  await prisma.$executeRawUnsafe(
-    `
-    UPDATE public."User"
-    SET role = $1::"Role", "updatedAt" = NOW()
-    WHERE id = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
-  `,
-    newRole,
-    userId
-  );
+    await prisma.$executeRawUnsafe(
+      `
+      UPDATE public."User"
+      SET role = $1::"Role", "updatedAt" = NOW()
+      WHERE id = $2 AND role != 'MASTER' AND email != 'admin@fiorix.com.br';
+    `,
+      newRole,
+      userId
+    );
 
-  await recordAuditLog({
-    modulo: 'USUARIOS',
-    acao: 'ALTERACAO',
-    registroId: targetUser.id,
-    registroDescricao: `Função de "${targetUser.name}" alterada de ${oldRole} para ${newRole}`,
-    detalhes: { oldRole, newRole },
-    userOverride: currentUser,
-  });
+    await recordAuditLog({
+      modulo: 'USUARIOS',
+      acao: 'ALTERACAO',
+      registroId: targetUser.id,
+      registroDescricao: `Função de "${targetUser.name}" alterada de ${oldRole} para ${newRole}`,
+      detalhes: { oldRole, newRole },
+      userOverride: currentUser,
+    });
 
-  revalidatePath('/configuracoes/usuarios');
-  return { success: true };
+    revalidatePath('/configuracoes/usuarios');
+    return { success: true };
+  } catch (err: any) {
+    console.error('Erro em updateUserRole:', err);
+    return { error: err?.message || 'Falha ao atualizar função no banco de dados.' };
+  }
 }
 
 export async function updateUserName(userId: string, newName: string) {
