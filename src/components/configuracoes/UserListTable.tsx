@@ -447,15 +447,15 @@ export function UserListTable({
                             e.target.value as 'COLABORADOR' | 'USER' | 'RH' | 'ADMIN'
                           )
                         }
-                        className={`rounded-lg border px-2.5 py-1 text-xs font-semibold focus:outline-hidden focus:border-amber-400/50 cursor-pointer bg-[#0A0F1E] ${getRoleBadge(
+                        className={`rounded-lg border px-2.5 py-1 text-xs font-semibold focus:outline-hidden focus:ring-1 focus:ring-amber-400/50 cursor-pointer ${getRoleBadge(
                           u.role
                         )}`}
                       >
-                        <option value="COLABORADOR">Colaborador</option>
-                        <option value="USER">Usuário</option>
-                        <option value="RH">RH</option>
-                        <option value="SUBSTITUTO">Substituto</option>
-                        <option value="ADMIN">Admin</option>
+                        <option value="COLABORADOR" className="bg-[#121624] text-cyan-300 py-1 font-medium">Colaborador</option>
+                        <option value="USER" className="bg-[#121624] text-blue-300 py-1 font-medium">Usuário</option>
+                        <option value="RH" className="bg-[#121624] text-purple-300 py-1 font-medium">RH</option>
+                        <option value="SUBSTITUTO" className="bg-[#121624] text-indigo-300 py-1 font-bold">Substituto</option>
+                        <option value="ADMIN" className="bg-[#121624] text-amber-300 py-1 font-bold">Admin</option>
                       </select>
                     )}
                   </td>
@@ -629,11 +629,11 @@ export function UserListTable({
                     onChange={(e) => setEditRole(e.target.value)}
                     className="w-full bg-[#070A12] border border-white/12 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-hidden focus:border-amber-400/50"
                   >
-                    <option value="COLABORADOR">Colaborador</option>
-                    <option value="USER">Usuário</option>
-                    <option value="RH">RH</option>
-                    <option value="SUBSTITUTO">Substituto</option>
-                    <option value="ADMIN">Admin</option>
+                    <option value="COLABORADOR" className="bg-[#121624] text-cyan-300 py-1">Colaborador</option>
+                    <option value="USER" className="bg-[#121624] text-blue-300 py-1">Usuário</option>
+                    <option value="RH" className="bg-[#121624] text-purple-300 py-1">RH</option>
+                    <option value="SUBSTITUTO" className="bg-[#121624] text-indigo-300 py-1 font-bold">Substituto</option>
+                    <option value="ADMIN" className="bg-[#121624] text-amber-300 py-1 font-bold">Admin</option>
                   </select>
                 </div>
               </div>
