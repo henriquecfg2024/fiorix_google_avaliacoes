@@ -169,8 +169,8 @@ export function UserListTable({
       if (res?.error) {
         alert(res.error);
       }
-    } catch {
-      alert('Erro ao alterar a função do usuário.');
+    } catch (err: any) {
+      alert('Erro ao alterar a função do usuário: ' + (err?.message || 'Falha de comunicação com o servidor.'));
     } finally {
       setUpdatingRoleId(null);
       setPendingRoleChange(null);
