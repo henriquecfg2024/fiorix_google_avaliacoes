@@ -3,7 +3,8 @@ import crypto from 'crypto';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
 import PostalMime from 'postal-mime';
-import { requireRole } from '@/lib/auth-helpers';
+import { requireRole, requireAuth } from '@/lib/auth-helpers';
+import { supabase } from '@/lib/supabase';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
@@ -85,6 +86,36 @@ export async function POST(req: NextRequest) {
       .createHash('sha256')
       .update(fileBuffer || Buffer.from(textoExtraido))
       .digest('hex');
+
+    // Upload do arquivo original para Supabase Storage
+    let arquivoOriginalUrl: string | null = null;
+    if (file && fileBuffer) {
+      try {
+        const currentUser = await requireAuth();
+        const timestamp = Date.now();
+        const safeFileName = nomeArquivo.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const storagePath = `${currentUser.tenantId}/${timestamp}_${safeFileName}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('it-documentos')
+          .upload(storagePath, fileBuffer, {
+            contentType: file.type || 'application/octet-stream',
+            upsert: true,
+          });
+
+        if (uploadError) {
+          console.warn('Aviso: Falha no upload para Supabase Storage:', uploadError.message);
+        } else {
+          const { data: urlData } = supabase.storage
+            .from('it-documentos')
+            .getPublicUrl(storagePath);
+          arquivoOriginalUrl = urlData?.publicUrl || null;
+        }
+      } catch (storageErr: any) {
+        console.warn('Aviso: Erro no upload do arquivo original:', storageErr.message);
+        // Não bloqueia o fluxo — o upload do arquivo é complementar
+      }
+    }
 
     // Estruturação com OpenAI GPT-4o (se OPENAI_API_KEY existir) ou Fallback Inteligente
     let itensExtraidos = {
@@ -219,6 +250,7 @@ Retorne ESTRITAMENTE um JSON válido com a seguinte estrutura:
       textoExtraido: textoExtraido.slice(0, 10000),
       hashSha256,
       itensExtraidos,
+      arquivoOriginalUrl,
     });
   } catch (error: any) {
     console.error('Erro no parser universal de IT:', error);

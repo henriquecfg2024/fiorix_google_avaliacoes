@@ -37,6 +37,7 @@ interface ItDiffModalProps {
     errosComuns: string[];
   };
   hashArquivoOriginal?: string;
+  arquivoOriginalUrl?: string;
   onClose: () => void;
   onSuccess: (novaVersao: string) => void;
 }
@@ -50,6 +51,7 @@ export function ItDiffModal({
   dadosAtuais,
   novosDados,
   hashArquivoOriginal,
+  arquivoOriginalUrl,
   onClose,
   onSuccess,
 }: ItDiffModalProps) {
@@ -78,6 +80,7 @@ export function ItDiffModal({
         checklist: novosDados.checklist,
         errosComuns: novosDados.errosComuns,
         motivo,
+        arquivoOriginalUrl,
       });
 
       toast.success(`Versão ${novaVersaoSugerida} registrada com sucesso! Hash WORM gravado.`);

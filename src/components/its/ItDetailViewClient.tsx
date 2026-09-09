@@ -521,7 +521,32 @@ export function ItDetailViewClient({ initialData }: { initialData: ITDetailData 
         </div>
 
         {/* CONTEÚDO DA IT */}
-        {viewMode === 'a4' ? (
+        {it.pdfOriginalUrl ? (
+          /* MODO DOCUMENTO ORIGINAL EMBUTIDO */
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400 mb-2">
+              <FileText className="w-4 h-4" />
+              <span className="font-medium">Documento Original Anexado</span>
+              <a
+                href={it.pdfOriginalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors"
+              >
+                <ExternalLink className="w-3 h-3" />
+                Abrir em Nova Aba
+              </a>
+            </div>
+            <div className="rounded-xl border border-slate-200 dark:border-zinc-700 overflow-hidden shadow-inner bg-white dark:bg-zinc-900">
+              <iframe
+                src={it.pdfOriginalUrl}
+                className="w-full border-0"
+                style={{ height: '80vh', minHeight: '600px' }}
+                title={`Documento original - ${it.titulo}`}
+              />
+            </div>
+          </div>
+        ) : viewMode === 'a4' ? (
           /* MODO A4 OFICIAL */
           <div className="space-y-8 text-sm leading-relaxed">
             {/* 1. Objetivo */}
@@ -838,6 +863,7 @@ export function ItDetailViewClient({ initialData }: { initialData: ITDetailData 
           }}
           novosDados={parsedDataForDiff.itensExtraidos}
           hashArquivoOriginal={parsedDataForDiff.hashSha256}
+          arquivoOriginalUrl={parsedDataForDiff.arquivoOriginalUrl}
           onClose={() => setDiffModalOpen(false)}
           onSuccess={(novaVersao) => {
             setDiffModalOpen(false);

@@ -22,6 +22,7 @@ interface UniversalITUploaderProps {
     tipoDetectado: string;
     nomeArquivo: string;
     hashSha256: string;
+    arquivoOriginalUrl?: string;
     itensExtraidos: {
       objetivo: string;
       responsavel: string;
