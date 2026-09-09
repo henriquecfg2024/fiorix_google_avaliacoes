@@ -32,8 +32,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!passwordsMatch) return null;
 
         // Verifica se o usuário precisa de 2FA
-        if (roleRequires2FA(user.role) && user.totpEnabled && user.totpSecret) {
+        if (roleRequires2FA(user.role)) {
           const totpCode = credentials.totpCode as string | undefined;
+
+          if (!user.totpSecret) {
+            throw new Error('REQUIRES_2FA');
+          }
           
           if (!totpCode) {
             // Senha correta, mas precisa de 2FA — lança erro especial
@@ -44,6 +48,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const isValid = verifyTotpToken(totpCode, user.totpSecret);
           if (!isValid) {
             throw new Error('INVALID_2FA_CODE');
+          }
+
+          // Se ainda não estava ativado, ativa no primeiro código válido!
+          if (!user.totpEnabled) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { totpEnabled: true, totpVerifiedAt: new Date() },
+            });
           }
         }
 

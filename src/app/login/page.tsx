@@ -1,20 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  Mail,
-  Lock,
-  LogIn,
-  ShieldCheck,
-  Eye,
-  EyeOff,
-  Loader2,
-  Smartphone,
-  ArrowLeft,
-  Building2,
-  Crown,
-} from 'lucide-react';
-import { getActiveTenants, type ActiveTenantItem } from '@/app/actions/tenants';
+import { Mail, Lock, LogIn, ShieldCheck, Eye, EyeOff, Loader2, Smartphone, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -23,29 +10,16 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  // Multi-Tenant State
-  const [tenants, setTenants] = useState<ActiveTenantItem[]>([]);
-  const [selectedTenantId, setSelectedTenantId] = useState<string>('');
-
+  
   // 2FA State
   const [step, setStep] = useState<'credentials' | 'totp'>('credentials');
+  const [isSetup2FA, setIsSetup2FA] = useState(false);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
+  const [totpSecretKey, setTotpSecretKey] = useState('');
   const [totpCode, setTotpCode] = useState(['', '', '', '', '', '']);
   const totpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    // Carrega cartórios ativos para a tela de login
-    getActiveTenants().then((items) => {
-      setTenants(items);
-      const savedTenantId = localStorage.getItem('fiorix_selected_tenant');
-      if (savedTenantId && items.some((t) => t.id === savedTenantId)) {
-        setSelectedTenantId(savedTenantId);
-      } else if (items.length > 0) {
-        const defaultTenant = items.find((t) => t.slug === '7ri-sp') || items[0];
-        setSelectedTenantId(defaultTenant.id);
-      }
-    });
-
     const savedEmail = localStorage.getItem('fiorix_remember_email');
     if (savedEmail) {
       setEmail(savedEmail);
@@ -65,7 +39,7 @@ export default function LoginPage() {
     const newCode = [...totpCode];
     newCode[index] = value.slice(-1);
     setTotpCode(newCode);
-
+    
     // Auto-avança para próximo input
     if (value && index < 5) {
       totpRefs.current[index + 1]?.focus();
@@ -106,7 +80,7 @@ export default function LoginPage() {
         // Passo 1: Verifica credenciais e se precisa de 2FA
         const { checkCredentials } = await import('@/app/actions/auth');
         const result = await checkCredentials(email, password);
-
+        
         if (!result.valid) {
           setError(result.error || 'Credenciais inválidas.');
           setIsLoading(false);
@@ -114,7 +88,11 @@ export default function LoginPage() {
         }
 
         if (result.requires2FA) {
+          // Precisa de 2FA → mostra tela de código (ou ativação com QR code)
           setStep('totp');
+          setIsSetup2FA(result.isSetup2FA || false);
+          setQrCodeDataUrl(result.qrCodeDataUrl || '');
+          setTotpSecretKey(result.secret || '');
           setError('');
           setIsLoading(false);
           return;
@@ -167,142 +145,57 @@ export default function LoginPage() {
     }
   }
 
-  const isMaster = email.trim().toLowerCase() === 'admin@fiorix.com.br';
-  const selectedTenant = tenants.find((t) => t.id === selectedTenantId) || tenants[0];
-  const emailPlaceholder = isMaster
-    ? 'admin@fiorix.com.br'
-    : selectedTenant?.dominio
-    ? `seu.nome@${selectedTenant.dominio}`
-    : 'seu.nome@7risp.com.br';
-
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#0a0a0f] relative overflow-hidden select-none">
+    <div className="login-shell">
       {/* Luz ambiente / Ambient Glows */}
-      <div className="absolute -left-32 -top-24 w-[520px] h-[520px] rounded-full bg-purple-600/15 blur-[120px] pointer-events-none" />
-      <div className="absolute -right-32 -bottom-24 w-[480px] h-[480px] rounded-full bg-amber-500/10 blur-[120px] pointer-events-none" />
+      <div className="login-ambient-purple" />
+      <div className="login-ambient-amber" />
 
-      <div className="w-full max-w-[460px] bg-[#141624]/90 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-7 sm:p-9 shadow-2xl shadow-black/80 relative z-10 flex flex-col gap-6">
+      <div className="login-card">
         {/* Badge de Segurança */}
-        <div className="inline-flex items-center gap-2 self-center px-3.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-semibold shadow-sm">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
+        <div className="login-badge">
+          <ShieldCheck className="badge-icon" />
           <span>Acesso seguro ao painel do cartório</span>
         </div>
 
         {/* Logo e Cabeçalho */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-3 justify-center mb-1">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-black text-2xl flex items-center justify-center shadow-lg shadow-purple-600/35 border border-purple-400/30">
-              F
-            </div>
-            <span className="text-2xl font-black tracking-tight text-white">FIORIX</span>
+        <div className="login-header">
+          <div className="login-brand">
+            <div className="brand-icon">F</div>
+            <span className="brand-text">FIORIX</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Bem-vindo de volta</h1>
-          <p className="text-xs text-zinc-400">
-            Faça login para acessar o painel do seu cartório.
-          </p>
+          <h1 className="login-title">Bem-vindo de volta</h1>
+          <p className="login-subtitle">Faça login para acessar o painel do seu cartório.</p>
         </div>
 
         {/* Formulário */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-medium leading-relaxed">
-              {error}
-            </div>
-          )}
+        <form onSubmit={handleSubmit} className="login-form">
+          {error && <div className="login-error">{error}</div>}
 
           {step === 'credentials' ? (
             <>
-              {/* Identificação do Cartório / Master */}
-              {isMaster ? (
-                <div className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-purple-500/10 to-transparent border border-amber-500/40 shadow-lg shadow-amber-500/5">
-                  <div className="flex items-center gap-3">
-                    <Crown className="w-5 h-5 text-amber-400 filter drop-shadow" />
-                    <div>
-                      <div className="text-xs font-bold text-amber-200">Acesso MASTER Plataforma</div>
-                      <div className="text-[11px] text-amber-400/80 font-medium">Gestão global multi-tenant</div>
-                    </div>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                    MASTER
-                  </span>
-                </div>
-              ) : tenants.length > 1 ? (
-                /* Seletor dinâmico caso haja mais de 1 cartório cadastrado */
-                <div className="space-y-1.5">
-                  <label htmlFor="tenant" className="block text-xs font-semibold text-zinc-300">
-                    Selecione seu Cartório
-                  </label>
-                  <div className="relative flex items-center">
-                    <Building2 className="w-4 h-4 absolute left-3.5 text-zinc-400 pointer-events-none" />
-                    <select
-                      id="tenant"
-                      value={selectedTenantId}
-                      onChange={(e) => {
-                        setSelectedTenantId(e.target.value);
-                        localStorage.setItem('fiorix_selected_tenant', e.target.value);
-                      }}
-                      disabled={isLoading}
-                      className="w-full bg-[#1c1f33] border border-zinc-700/80 hover:border-zinc-600 focus:border-purple-500 rounded-xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-white focus:outline-none transition-colors cursor-pointer"
-                    >
-                      {tenants.map((t) => (
-                        <option key={t.id} value={t.id} className="bg-[#1c1f33] text-white">
-                          {t.name} {t.cnpj ? `(${t.cnpj})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              ) : (
-                /* Exibição Oficial do 7º Cartório (Único Cliente Ativo) */
-                <div className="p-3.5 rounded-2xl bg-[#1c1f33]/80 border border-zinc-700/80 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400">
-                      <Building2 className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-white leading-tight">
-                        {selectedTenant?.name || '7º Cartório de Registro de Imóveis de São Paulo'}
-                      </div>
-                      <div className="text-[11px] text-zinc-400 font-mono mt-0.5">
-                        {selectedTenant?.cnpj ? `CNPJ ${selectedTenant.cnpj}` : '11.111.111/0001-07'}
-                      </div>
-                    </div>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                    7º RI
-                  </span>
-                </div>
-              )}
-
-              {/* E-mail */}
-              <div className="space-y-1.5">
-                <label htmlFor="email" className="block text-xs font-semibold text-zinc-300">
-                  E-mail Corporativo
-                </label>
-                <div className="relative flex items-center">
-                  <Mail className="w-4 h-4 absolute left-3.5 text-zinc-400 pointer-events-none" />
+              <div className="form-group">
+                <label htmlFor="email">E-mail Corporativo</label>
+                <div className="input-wrap">
+                  <Mail className="input-icon" />
                   <input
                     id="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder={emailPlaceholder}
+                    placeholder="seu.nome@7risp.com.br"
                     autoComplete="username"
                     inputMode="email"
                     required
                     disabled={isLoading}
-                    className="w-full bg-[#1c1f33] border border-zinc-700/80 hover:border-zinc-600 focus:border-purple-500 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition-colors"
                   />
                 </div>
               </div>
 
-              {/* Senha */}
-              <div className="space-y-1.5">
-                <label htmlFor="password" className="block text-xs font-semibold text-zinc-300">
-                  Senha
-                </label>
-                <div className="relative flex items-center">
-                  <Lock className="w-4 h-4 absolute left-3.5 text-zinc-400 pointer-events-none" />
+              <div className="form-group">
+                <label htmlFor="password">Senha</label>
+                <div className="input-wrap">
+                  <Lock className="input-icon" />
                   <input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
@@ -312,55 +205,50 @@ export default function LoginPage() {
                     autoComplete="current-password"
                     required
                     disabled={isLoading}
-                    className="w-full bg-[#1c1f33] border border-zinc-700/80 hover:border-zinc-600 focus:border-purple-500 rounded-xl pl-10 pr-11 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none transition-colors"
                   />
                   <button
                     type="button"
+                    className="toggle-password"
                     onClick={() => setShowPassword(!showPassword)}
                     tabIndex={-1}
-                    className="absolute right-3.5 text-zinc-400 hover:text-zinc-200 transition-colors"
                     title={showPassword ? 'Ocultar senha' : 'Exibir senha'}
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? <EyeOff className="eye-icon" /> : <Eye className="eye-icon" />}
                   </button>
                 </div>
               </div>
 
-              {/* Lembrar-me e Esqueci Senha */}
-              <div className="flex items-center justify-between text-xs pt-1">
-                <label className="flex items-center gap-2 text-zinc-400 hover:text-zinc-300 cursor-pointer font-medium select-none">
+              <div className="form-options">
+                <label className="remember-me">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                     disabled={isLoading}
-                    className="w-4 h-4 rounded border-zinc-700 bg-zinc-800 text-purple-600 focus:ring-0 focus:ring-offset-0 cursor-pointer"
                   />
                   <span>Lembrar-me</span>
                 </label>
-                <button
-                  type="button"
-                  onClick={() => alert('Entre em contato com o administrador do cartório para redefinir sua senha.')}
-                  className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
+                <a
+                  href="#"
+                  className="forgot-password"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    alert('Entre em contato com o administrador do cartório para redefinir sua senha.');
+                  }}
                 >
                   Esqueceu a senha?
-                </button>
+                </a>
               </div>
 
-              {/* Botão de Entrar */}
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-purple-600/25 border border-purple-400/30 transition-all flex items-center justify-center gap-2 mt-3 disabled:opacity-50 cursor-pointer"
-              >
+              <button type="submit" className="login-button" disabled={isLoading}>
                 {isLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="button-icon animate-spin" />
                     <span>Verificando credenciais...</span>
                   </>
                 ) : (
                   <>
-                    <LogIn className="w-4 h-4" />
+                    <LogIn className="button-icon" />
                     <span>Entrar no Painel</span>
                   </>
                 )}
@@ -368,24 +256,42 @@ export default function LoginPage() {
             </>
           ) : (
             /* ── Tela 2FA TOTP ──────────────────────────────────── */
-            <div className="space-y-6 text-center py-2">
-              <div className="w-14 h-14 mx-auto rounded-2xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 shadow-lg shadow-purple-500/10">
-                <Smartphone className="w-7 h-7" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-white">Verificação em duas etapas</h2>
-                <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                  Abra o <strong>Google Authenticator</strong> e digite o código de 6 dígitos gerado para <strong>{email}</strong>
-                </p>
+            <>
+              <div className="totp-header">
+                {isSetup2FA && qrCodeDataUrl ? (
+                  <>
+                    <div style={{ padding: 10, background: '#ffffff', borderRadius: 16, width: 'fit-content', margin: '0 auto', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={qrCodeDataUrl} alt="QR Code Google Authenticator" style={{ width: 160, height: 160, display: 'block' }} />
+                    </div>
+                    <h2 className="totp-title" style={{ marginTop: 8 }}>Vincular Google Authenticator</h2>
+                    <p className="totp-subtitle">
+                      Escaneie o QR Code no app e digite os 6 dígitos:
+                    </p>
+                    {totpSecretKey && (
+                      <p style={{ fontSize: 11, color: '#9ca3af', margin: '2px 0 0' }}>
+                        Chave manual: <strong style={{ color: '#a78bfa', fontFamily: 'monospace' }}>{totpSecretKey}</strong>
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="totp-icon-wrap">
+                      <Smartphone style={{ width: 32, height: 32, color: '#7c3aed' }} />
+                    </div>
+                    <h2 className="totp-title">Verificação em duas etapas</h2>
+                    <p className="totp-subtitle">
+                      Abra o <strong>Google Authenticator</strong> e digite o código de 6 dígitos exibido para <strong>{email}</strong>
+                    </p>
+                  </>
+                )}
               </div>
 
-              <div className="flex justify-center gap-2.5">
+              <div className="totp-inputs">
                 {totpCode.map((digit, i) => (
                   <input
                     key={i}
-                    ref={(el) => {
-                      totpRefs.current[i] = el;
-                    }}
+                    ref={(el) => { totpRefs.current[i] = el; }}
                     type="text"
                     inputMode="numeric"
                     maxLength={1}
@@ -393,55 +299,510 @@ export default function LoginPage() {
                     onChange={(e) => handleTotpChange(i, e.target.value)}
                     onKeyDown={(e) => handleTotpKeyDown(i, e)}
                     onPaste={i === 0 ? handleTotpPaste : undefined}
+                    className="totp-digit"
                     disabled={isLoading}
                     autoComplete="one-time-code"
-                    className="w-11 h-13 text-center text-xl font-bold rounded-xl bg-[#1c1f33] border border-zinc-700/90 text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all font-mono"
                   />
                 ))}
               </div>
 
-              <button
-                type="submit"
-                disabled={isLoading || totpCode.join('').length !== 6}
-                className="w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-purple-600/25 border border-purple-400/30 transition-all flex items-center justify-center gap-2 disabled:opacity-40 cursor-pointer"
-              >
+              <button type="submit" className="login-button" disabled={isLoading || totpCode.join('').length !== 6}>
                 {isLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="button-icon animate-spin" />
                     <span>Validando código...</span>
                   </>
                 ) : (
                   <>
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>Verificar e Entrar</span>
+                    <ShieldCheck className="button-icon" />
+                    <span>{isSetup2FA ? 'Confirmar e Ativar 2FA' : 'Verificar e Entrar'}</span>
                   </>
                 )}
               </button>
 
               <button
                 type="button"
+                className="totp-back"
                 onClick={() => {
                   setStep('credentials');
                   setError('');
                   setTotpCode(['', '', '', '', '', '']);
                 }}
-                className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors"
               >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Voltar para credenciais</span>
+                <ArrowLeft style={{ width: 14, height: 14 }} />
+                Voltar para credenciais
               </button>
-            </div>
+            </>
           )}
         </form>
       </div>
 
       {/* Rodapé Institucional Seguro */}
-      <footer className="mt-8 text-center text-xs text-zinc-500 flex flex-col sm:flex-row items-center justify-center gap-1.5 relative z-10">
-        <span>© 2026 FIORIX • Sistema de Gestão Cartorária</span>
-        <span className="text-purple-400/90 font-medium">
-          • 7º Cartório de Registro de Imóveis de São Paulo
-        </span>
+      <footer className="login-footer">
+        © 2026 FIORIX • Sistema de Gestão Cartorária
       </footer>
+
+      <style jsx>{`
+        .login-shell {
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          overflow: hidden;
+          background-color: #0a0a0f;
+          padding: 24px;
+        }
+
+        /* Ambient Glows */
+        .login-ambient-purple {
+          position: absolute;
+          width: 520px;
+          height: 520px;
+          border-radius: 999px;
+          filter: blur(120px);
+          opacity: 0.18;
+          background: radial-gradient(circle, #7c3aed 0%, transparent 70%);
+          left: -120px;
+          top: -80px;
+          pointer-events: none;
+        }
+
+        .login-ambient-amber {
+          position: absolute;
+          width: 480px;
+          height: 480px;
+          border-radius: 999px;
+          filter: blur(130px);
+          opacity: 0.12;
+          background: radial-gradient(circle, #f59e0b 0%, transparent 70%);
+          right: -100px;
+          bottom: -80px;
+          pointer-events: none;
+        }
+
+        /* Card Central Dark Premium */
+        .login-card {
+          position: relative;
+          z-index: 10;
+          width: 100%;
+          max-width: 440px;
+          padding: 36px 32px;
+          border-radius: 24px;
+          background: #16161f;
+          border: 1px solid #2a2a3a;
+          box-shadow:
+            0 24px 70px rgba(0, 0, 0, 0.55),
+            0 0 1px 1px rgba(255, 255, 255, 0.05);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        /* Badge Superior */
+        .login-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 24px;
+          padding: 6px 14px;
+          border-radius: 999px;
+          background: rgba(16, 185, 129, 0.08);
+          border: 1px solid rgba(16, 185, 129, 0.25);
+          color: #10b981;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.02em;
+        }
+
+        .badge-icon {
+          width: 14px;
+          height: 14px;
+          color: #10b981;
+          flex-shrink: 0;
+        }
+
+        /* Header e Marca */
+        .login-header {
+          text-align: center;
+          margin-bottom: 26px;
+          width: 100%;
+        }
+
+        .login-brand {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+
+        .brand-icon {
+          width: 44px;
+          height: 44px;
+          background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+          color: #ffffff;
+          border-radius: 13px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 800;
+          font-size: 22px;
+          box-shadow: 0 8px 20px rgba(124, 58, 237, 0.35);
+        }
+
+        .brand-text {
+          font-size: 26px;
+          font-weight: 900;
+          color: #ffffff;
+          letter-spacing: -0.03em;
+        }
+
+        .login-title {
+          font-size: 26px;
+          font-weight: 800;
+          color: #ffffff;
+          margin-bottom: 8px;
+          letter-spacing: -0.03em;
+        }
+
+        .login-subtitle {
+          font-size: 14px;
+          color: #9ca3af;
+          line-height: 1.45;
+        }
+
+        /* Formulário */
+        .login-form {
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+        }
+
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .form-group label {
+          font-size: 13px;
+          font-weight: 600;
+          color: #e5e7eb;
+        }
+
+        .input-wrap {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+
+        .input-icon {
+          position: absolute;
+          left: 14px;
+          width: 18px;
+          height: 18px;
+          color: #6b7280;
+          pointer-events: none;
+          transition: color 0.2s ease;
+        }
+
+        .form-group input {
+          width: 100%;
+          padding: 13px 44px 13px 44px;
+          border-radius: 12px;
+          border: 1px solid #2a2a3a;
+          background: #1e1e2a;
+          font-size: 14px;
+          color: #ffffff;
+          caret-color: #ffffff;
+          outline: none;
+          transition: all 0.2s ease;
+        }
+
+        .form-group input::placeholder {
+          color: #64748b;
+        }
+
+        .form-group input:hover {
+          border-color: #3b3b4f;
+        }
+
+        .form-group input:focus {
+          border-color: #7c3aed;
+          box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+          background: #232332;
+        }
+
+        .input-wrap:focus-within .input-icon {
+          color: #a78bfa;
+        }
+
+        .toggle-password {
+          position: absolute;
+          right: 12px;
+          background: none;
+          border: none;
+          color: #6b7280;
+          cursor: pointer;
+          padding: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 6px;
+          transition: color 0.2s;
+        }
+
+        .toggle-password:hover {
+          color: #e5e7eb;
+        }
+
+        .eye-icon {
+          width: 18px;
+          height: 18px;
+        }
+
+        /* Opções (Lembrar-me e Esqueceu Senha) */
+        .form-options {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          font-size: 13px;
+          margin-top: -2px;
+        }
+
+        .remember-me {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: #9ca3af;
+          cursor: pointer;
+          user-select: none;
+          font-weight: 500;
+        }
+
+        .remember-me input {
+          width: 16px;
+          height: 16px;
+          accent-color: #7c3aed;
+          cursor: pointer;
+          border-radius: 4px;
+        }
+
+        .forgot-password {
+          color: #a78bfa;
+          text-decoration: none;
+          font-weight: 500;
+          transition: color 0.2s;
+        }
+
+        .forgot-password:hover {
+          color: #c4b5fd;
+          text-decoration: underline;
+        }
+
+        /* Botão de Login Gradiente Roxo -> Âmbar */
+        .login-button {
+          margin-top: 8px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          width: 100%;
+          background: linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #f59e0b 100%);
+          color: #ffffff;
+          border: none;
+          padding: 14px;
+          border-radius: 12px;
+          font-size: 15px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.22s ease;
+          box-shadow: 0 10px 24px rgba(124, 58, 237, 0.3);
+        }
+
+        .button-icon {
+          width: 18px;
+          height: 18px;
+        }
+
+        .login-button:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 14px 28px rgba(124, 58, 237, 0.4);
+          filter: brightness(1.05);
+        }
+
+        .login-button:disabled {
+          opacity: 0.65;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        /* Mensagem de Erro */
+        .login-error {
+          padding: 12px 14px;
+          background: rgba(239, 68, 68, 0.12);
+          color: #f87171;
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          border-radius: 10px;
+          font-size: 13px;
+          text-align: center;
+          font-weight: 500;
+        }
+
+        /* Rodapé Institucional */
+        .login-footer {
+          margin-top: 28px;
+          color: #6b7280;
+          font-size: 12px;
+          text-align: center;
+          z-index: 10;
+        }
+
+        /* ── TOTP 2FA Styles ──────────────────────────────── */
+        .totp-header {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          gap: 12px;
+          margin-bottom: 8px;
+        }
+
+        .totp-icon-wrap {
+          width: 64px;
+          height: 64px;
+          border-radius: 16px;
+          background: rgba(124, 58, 237, 0.1);
+          border: 1px solid rgba(124, 58, 237, 0.25);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          animation: pulse2fa 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse2fa {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.2); }
+          50% { box-shadow: 0 0 0 8px rgba(124, 58, 237, 0); }
+        }
+
+        .totp-title {
+          font-size: 20px;
+          font-weight: 700;
+          color: #ffffff;
+          margin: 0;
+        }
+
+        .totp-subtitle {
+          font-size: 13px;
+          color: #9ca3af;
+          line-height: 1.5;
+          margin: 0;
+        }
+
+        .totp-subtitle strong {
+          color: #e5e7eb;
+        }
+
+        .totp-inputs {
+          display: flex;
+          gap: 8px;
+          justify-content: center;
+          margin: 8px 0;
+        }
+
+        .totp-digit {
+          width: 48px;
+          height: 56px;
+          text-align: center;
+          font-size: 24px;
+          font-weight: 700;
+          color: #ffffff;
+          background: #1e1e2a;
+          border: 1.5px solid #2a2a3a;
+          border-radius: 12px;
+          outline: none;
+          caret-color: #7c3aed;
+          transition: all 0.2s ease;
+        }
+
+        .totp-digit:focus {
+          border-color: #7c3aed;
+          box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.25);
+          background: #232332;
+        }
+
+        .totp-digit:not(:placeholder-shown),
+        .totp-digit:not([value=""]) {
+          border-color: #4c3a8a;
+        }
+
+        .totp-back {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          background: none;
+          border: none;
+          color: #9ca3af;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          padding: 8px 0;
+          margin-top: 4px;
+          transition: color 0.2s;
+        }
+
+        .totp-back:hover {
+          color: #e5e7eb;
+        }
+
+        @media (max-width: 640px) {
+          .login-shell {
+            padding: 16px;
+          }
+
+          .login-card {
+            padding: 28px 20px;
+            border-radius: 20px;
+          }
+
+          .login-title {
+            font-size: 22px;
+          }
+
+          .form-options {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+          }
+
+          .forgot-password {
+            margin-left: 24px;
+          }
+
+          .totp-digit {
+            width: 40px;
+            height: 48px;
+            font-size: 20px;
+          }
+        }
+      `}</style>
     </div>
   );
 }

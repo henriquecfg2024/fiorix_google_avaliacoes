@@ -41,12 +41,15 @@ export async function authenticate(
 export async function checkCredentials(email: string, password: string): Promise<{
   valid: boolean;
   requires2FA: boolean;
+  isSetup2FA?: boolean;
+  qrCodeDataUrl?: string;
+  secret?: string;
   error?: string;
 }> {
   try {
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, passwordHash: true, role: true, totpEnabled: true },
+      select: { id: true, email: true, passwordHash: true, role: true, totpEnabled: true, totpSecret: true },
     });
 
     if (!user) return { valid: false, requires2FA: false, error: 'Credenciais inválidas.' };
@@ -54,9 +57,34 @@ export async function checkCredentials(email: string, password: string): Promise
     const match = await bcrypt.compare(password, user.passwordHash);
     if (!match) return { valid: false, requires2FA: false, error: 'Credenciais inválidas.' };
 
-    const needs2FA = roleRequires2FA(user.role) && user.totpEnabled;
-    return { valid: true, requires2FA: needs2FA };
-  } catch {
+    const mustUse2FA = roleRequires2FA(user.role);
+    if (mustUse2FA) {
+      if (user.totpEnabled && user.totpSecret) {
+        return { valid: true, requires2FA: true, isSetup2FA: false };
+      }
+
+      // Primeiro acesso do ADMIN ou MASTER: gera segredo e QR code para ativação imediata
+      const secret = user.totpSecret || generateTotpSecret();
+      const otpauthUrl = generateTotpUri(user.email, secret);
+      const qrCodeDataUrl = await generateQRCodeDataUrl(otpauthUrl);
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { totpSecret: secret, totpEnabled: false },
+      });
+
+      return {
+        valid: true,
+        requires2FA: true,
+        isSetup2FA: true,
+        qrCodeDataUrl,
+        secret,
+      };
+    }
+
+    return { valid: true, requires2FA: false };
+  } catch (err) {
+    console.error('Erro em checkCredentials:', err);
     return { valid: false, requires2FA: false, error: 'Erro ao verificar credenciais.' };
   }
 }
