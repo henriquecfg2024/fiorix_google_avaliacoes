@@ -335,6 +335,7 @@ export function UserListTable({
               <option value="TODOS" className="bg-[#0A0F1E]">Função: Todas</option>
               <option value="MASTER" className="bg-[#0A0F1E]">MASTER</option>
               <option value="ADMIN" className="bg-[#0A0F1E]">ADMIN</option>
+              <option value="SUBSTITUTO" className="bg-[#0A0F1E]">SUBSTITUTO</option>
               <option value="RH" className="bg-[#0A0F1E]">RH</option>
               <option value="USER" className="bg-[#0A0F1E]">USER</option>
               <option value="COLABORADOR" className="bg-[#0A0F1E]">COLABORADOR</option>
