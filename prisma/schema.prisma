@@ -110,6 +110,11 @@ model User {
   feriasAvisoUploaded FiorixFeriasAviso[] @relation("FeriasAvisoUploaded")
   acessoLogs FiorixAcessoLog[]
   acessoLogsAlvo FiorixAcessoLog[] @relation("AcessoLogAlvo")
+
+  // Google Authenticator 2FA (TOTP) — somente ADMIN/MASTER
+  totpSecret     String?    // Segredo TOTP criptografado (base32)
+  totpEnabled    Boolean    @default(false)
+  totpVerifiedAt DateTime?  // Data em que ativou 2FA
 }
 
 // ── CARTÓRIO DATA (DYNAMIC) ───────────────────────────────────────────

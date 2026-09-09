@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Mail, Lock, LogIn, ShieldCheck, Eye, EyeOff, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Mail, Lock, LogIn, ShieldCheck, Eye, EyeOff, Loader2, Smartphone, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -10,6 +10,11 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // 2FA State
+  const [step, setStep] = useState<'credentials' | 'totp'>('credentials');
+  const [totpCode, setTotpCode] = useState(['', '', '', '', '', '']);
+  const totpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
     const savedEmail = localStorage.getItem('fiorix_remember_email');
@@ -18,6 +23,43 @@ export default function LoginPage() {
       setRememberMe(true);
     }
   }, []);
+
+  // Foca no primeiro input TOTP quando entra no step 2FA
+  useEffect(() => {
+    if (step === 'totp') {
+      setTimeout(() => totpRefs.current[0]?.focus(), 100);
+    }
+  }, [step]);
+
+  function handleTotpChange(index: number, value: string) {
+    if (!/^\d*$/.test(value)) return; // Aceita só dígitos
+    const newCode = [...totpCode];
+    newCode[index] = value.slice(-1);
+    setTotpCode(newCode);
+    
+    // Auto-avança para próximo input
+    if (value && index < 5) {
+      totpRefs.current[index + 1]?.focus();
+    }
+  }
+
+  function handleTotpKeyDown(index: number, e: React.KeyboardEvent) {
+    if (e.key === 'Backspace' && !totpCode[index] && index > 0) {
+      totpRefs.current[index - 1]?.focus();
+    }
+  }
+
+  function handleTotpPaste(e: React.ClipboardEvent) {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    const newCode = [...totpCode];
+    for (let i = 0; i < 6; i++) {
+      newCode[i] = pasted[i] || '';
+    }
+    setTotpCode(newCode);
+    const nextEmpty = pasted.length < 6 ? pasted.length : 5;
+    totpRefs.current[nextEmpty]?.focus();
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,16 +72,65 @@ export default function LoginPage() {
       localStorage.removeItem('fiorix_remember_email');
     }
 
-    const formData = new FormData();
-    formData.append('email', email);
-    formData.append('password', password);
-    formData.append('redirectTo', '/dashboard');
-
     try {
-      const { authenticate } = await import('@/app/actions/auth');
-      const errorMessage = await authenticate(undefined, formData);
-      if (errorMessage) {
-        setError(errorMessage);
+      if (step === 'credentials') {
+        // Passo 1: Verifica credenciais e se precisa de 2FA
+        const { checkCredentials } = await import('@/app/actions/auth');
+        const result = await checkCredentials(email, password);
+        
+        if (!result.valid) {
+          setError(result.error || 'Credenciais inválidas.');
+          setIsLoading(false);
+          return;
+        }
+
+        if (result.requires2FA) {
+          // Precisa de 2FA → mostra tela de código
+          setStep('totp');
+          setError('');
+          setIsLoading(false);
+          return;
+        }
+
+        // Não precisa de 2FA → login direto
+        const formData = new FormData();
+        formData.append('email', email);
+        formData.append('password', password);
+        formData.append('redirectTo', '/dashboard');
+
+        const { authenticate } = await import('@/app/actions/auth');
+        const errorMessage = await authenticate(undefined, formData);
+        if (errorMessage) {
+          setError(errorMessage);
+        }
+      } else {
+        // Passo 2: Verifica código TOTP
+        const code = totpCode.join('');
+        if (code.length !== 6) {
+          setError('Digite o código completo de 6 dígitos.');
+          setIsLoading(false);
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('email', email);
+        formData.append('password', password);
+        formData.append('totpCode', code);
+        formData.append('redirectTo', '/dashboard');
+
+        const { authenticate } = await import('@/app/actions/auth');
+        const errorMessage = await authenticate(undefined, formData);
+        if (errorMessage) {
+          if (errorMessage === 'INVALID_2FA_CODE') {
+            setError('Código inválido. Verifique seu Google Authenticator.');
+            setTotpCode(['', '', '', '', '', '']);
+            totpRefs.current[0]?.focus();
+          } else if (errorMessage === 'REQUIRES_2FA') {
+            setError('Código de autenticação é obrigatório.');
+          } else {
+            setError(errorMessage);
+          }
+        }
       }
     } catch {
       setError('Ocorreu um erro ao tentar fazer login.');
@@ -75,85 +166,148 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="login-form">
           {error && <div className="login-error">{error}</div>}
 
-          <div className="form-group">
-            <label htmlFor="email">E-mail Corporativo</label>
-            <div className="input-wrap">
-              <Mail className="input-icon" />
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu.nome@7risp.com.br"
-                autoComplete="username"
-                inputMode="email"
-                required
-                disabled={isLoading}
-              />
-            </div>
-          </div>
+          {step === 'credentials' ? (
+            <>
+              <div className="form-group">
+                <label htmlFor="email">E-mail Corporativo</label>
+                <div className="input-wrap">
+                  <Mail className="input-icon" />
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="seu.nome@7risp.com.br"
+                    autoComplete="username"
+                    inputMode="email"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
 
-          <div className="form-group">
-            <label htmlFor="password">Senha</label>
-            <div className="input-wrap">
-              <Lock className="input-icon" />
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="current-password"
-                required
-                disabled={isLoading}
-              />
+              <div className="form-group">
+                <label htmlFor="password">Senha</label>
+                <div className="input-wrap">
+                  <Lock className="input-icon" />
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                    required
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    className="toggle-password"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                    title={showPassword ? 'Ocultar senha' : 'Exibir senha'}
+                  >
+                    {showPassword ? <EyeOff className="eye-icon" /> : <Eye className="eye-icon" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="form-options">
+                <label className="remember-me">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    disabled={isLoading}
+                  />
+                  <span>Lembrar-me</span>
+                </label>
+                <a
+                  href="#"
+                  className="forgot-password"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    alert('Entre em contato com o administrador do cartório para redefinir sua senha.');
+                  }}
+                >
+                  Esqueceu a senha?
+                </a>
+              </div>
+
+              <button type="submit" className="login-button" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="button-icon animate-spin" />
+                    <span>Verificando credenciais...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="button-icon" />
+                    <span>Entrar no Painel</span>
+                  </>
+                )}
+              </button>
+            </>
+          ) : (
+            /* ── Tela 2FA TOTP ──────────────────────────────────── */
+            <>
+              <div className="totp-header">
+                <div className="totp-icon-wrap">
+                  <Smartphone style={{ width: 32, height: 32, color: '#7c3aed' }} />
+                </div>
+                <h2 className="totp-title">Verificação em duas etapas</h2>
+                <p className="totp-subtitle">
+                  Abra o <strong>Google Authenticator</strong> e digite o código de 6 dígitos exibido para <strong>{email}</strong>
+                </p>
+              </div>
+
+              <div className="totp-inputs">
+                {totpCode.map((digit, i) => (
+                  <input
+                    key={i}
+                    ref={(el) => { totpRefs.current[i] = el; }}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleTotpChange(i, e.target.value)}
+                    onKeyDown={(e) => handleTotpKeyDown(i, e)}
+                    onPaste={i === 0 ? handleTotpPaste : undefined}
+                    className="totp-digit"
+                    disabled={isLoading}
+                    autoComplete="one-time-code"
+                  />
+                ))}
+              </div>
+
+              <button type="submit" className="login-button" disabled={isLoading || totpCode.join('').length !== 6}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="button-icon animate-spin" />
+                    <span>Validando código...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="button-icon" />
+                    <span>Verificar e Entrar</span>
+                  </>
+                )}
+              </button>
+
               <button
                 type="button"
-                className="toggle-password"
-                onClick={() => setShowPassword(!showPassword)}
-                tabIndex={-1}
-                title={showPassword ? 'Ocultar senha' : 'Exibir senha'}
+                className="totp-back"
+                onClick={() => {
+                  setStep('credentials');
+                  setError('');
+                  setTotpCode(['', '', '', '', '', '']);
+                }}
               >
-                {showPassword ? <EyeOff className="eye-icon" /> : <Eye className="eye-icon" />}
+                <ArrowLeft style={{ width: 14, height: 14 }} />
+                Voltar para credenciais
               </button>
-            </div>
-          </div>
-
-          <div className="form-options">
-            <label className="remember-me">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                disabled={isLoading}
-              />
-              <span>Lembrar-me</span>
-            </label>
-            <a
-              href="#"
-              className="forgot-password"
-              onClick={(e) => {
-                e.preventDefault();
-                alert('Entre em contato com o administrador do cartório para redefinir sua senha.');
-              }}
-            >
-              Esqueceu a senha?
-            </a>
-          </div>
-
-          <button type="submit" className="login-button" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="button-icon animate-spin" />
-                <span>Autenticando com segurança...</span>
-              </>
-            ) : (
-              <>
-                <LogIn className="button-icon" />
-                <span>Entrar no Painel</span>
-              </>
-            )}
-          </button>
+            </>
+          )}
         </form>
       </div>
 
@@ -494,6 +648,104 @@ export default function LoginPage() {
           z-index: 10;
         }
 
+        /* ── TOTP 2FA Styles ──────────────────────────────── */
+        .totp-header {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          gap: 12px;
+          margin-bottom: 8px;
+        }
+
+        .totp-icon-wrap {
+          width: 64px;
+          height: 64px;
+          border-radius: 16px;
+          background: rgba(124, 58, 237, 0.1);
+          border: 1px solid rgba(124, 58, 237, 0.25);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          animation: pulse2fa 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse2fa {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.2); }
+          50% { box-shadow: 0 0 0 8px rgba(124, 58, 237, 0); }
+        }
+
+        .totp-title {
+          font-size: 20px;
+          font-weight: 700;
+          color: #ffffff;
+          margin: 0;
+        }
+
+        .totp-subtitle {
+          font-size: 13px;
+          color: #9ca3af;
+          line-height: 1.5;
+          margin: 0;
+        }
+
+        .totp-subtitle strong {
+          color: #e5e7eb;
+        }
+
+        .totp-inputs {
+          display: flex;
+          gap: 8px;
+          justify-content: center;
+          margin: 8px 0;
+        }
+
+        .totp-digit {
+          width: 48px;
+          height: 56px;
+          text-align: center;
+          font-size: 24px;
+          font-weight: 700;
+          color: #ffffff;
+          background: #1e1e2a;
+          border: 1.5px solid #2a2a3a;
+          border-radius: 12px;
+          outline: none;
+          caret-color: #7c3aed;
+          transition: all 0.2s ease;
+        }
+
+        .totp-digit:focus {
+          border-color: #7c3aed;
+          box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.25);
+          background: #232332;
+        }
+
+        .totp-digit:not(:placeholder-shown),
+        .totp-digit:not([value=""]) {
+          border-color: #4c3a8a;
+        }
+
+        .totp-back {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          background: none;
+          border: none;
+          color: #9ca3af;
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          padding: 8px 0;
+          margin-top: 4px;
+          transition: color 0.2s;
+        }
+
+        .totp-back:hover {
+          color: #e5e7eb;
+        }
+
         @media (max-width: 640px) {
           .login-shell {
             padding: 16px;
@@ -516,6 +768,12 @@ export default function LoginPage() {
 
           .forgot-password {
             margin-left: 24px;
+          }
+
+          .totp-digit {
+            width: 40px;
+            height: 48px;
+            font-size: 20px;
           }
         }
       `}</style>
