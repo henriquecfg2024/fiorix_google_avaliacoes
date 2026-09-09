@@ -5,11 +5,11 @@ import * as XLSX from 'xlsx';
 import PostalMime from 'postal-mime';
 import { requireRole } from '@/lib/auth-helpers';
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
 export async function POST(req: NextRequest) {
   try {
-    await requireRole('ADMIN', 'RH', 'MASTER');
+    await requireRole('ADMIN', 'RH', 'MASTER', 'SUBSTITUTO');
 
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
