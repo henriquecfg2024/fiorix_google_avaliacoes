@@ -132,7 +132,7 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
                         itemStyle={{ color: '#fff' }}
                       />
                       <Bar dataKey="count" fill="url(#colorSeverity)" radius={[6, 6, 0, 0]}>
-                        <LabelList dataKey="count" position="top" fill="rgba(255,255,255,0.6)" fontSize={11} formatter={(v) => v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v} />
+                        <LabelList dataKey="count" position="top" fill="rgba(255,255,255,0.6)" fontSize={11} formatter={((v: any) => v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v) as any} />
                       </Bar>
                     </BarChart>
                   </ChartContainer>

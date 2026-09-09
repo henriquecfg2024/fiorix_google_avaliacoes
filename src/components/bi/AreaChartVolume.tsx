@@ -34,7 +34,7 @@ export function AreaChartVolume({ data }: AreaChartVolumeProps) {
       const tipo = row.TIPO;
       const count = row.QUANTIDADE || 0;
 
-      if (hour >= 0 && hour < 24) {
+      if (hour != null && hour >= 0 && hour < 24) {
         if (tipo === "TÍTULO") {
           hours[hour].TITULO += count;
         } else if (tipo === "CERTIDÃO") {
@@ -50,10 +50,10 @@ export function AreaChartVolume({ data }: AreaChartVolumeProps) {
     if (active && payload && payload.length) {
       return (
         <div className="rounded-xl border border-white/10 bg-[#0B1020]/95 p-3 text-xs text-white shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
-          <p className="font-semibold text-white/80">Faixa Horária: {payload[0].payload.displayHour}</p>
+          <p className="font-semibold text-white/80">Faixa Horária: {payload[0]?.payload?.displayHour}</p>
           {payload.map((p, idx: number) => (
             <p key={idx} className="font-bold" style={{ color: p.color }}>
-              {p.name}: {p.value.toLocaleString("pt-BR")}
+              {p.name}: {(p.value ?? 0).toLocaleString("pt-BR")}
             </p>
           ))}
         </div>
@@ -95,7 +95,7 @@ export function AreaChartVolume({ data }: AreaChartVolumeProps) {
             <Legend
               verticalAlign="top"
               height={36}
-              content={({ payload }: { payload?: Array<{ color?: string; value?: string }> }) => (
+              content={(({ payload }: { payload?: Array<{ color?: string; value?: string }> }) => (
                 <div className="flex justify-center gap-6 text-xs text-white/60">
                   {payload?.map((entry, index: number) => (
                     <div key={index} className="flex items-center gap-1.5">
@@ -104,7 +104,7 @@ export function AreaChartVolume({ data }: AreaChartVolumeProps) {
                     </div>
                   ))}
                 </div>
-              )}
+              )) as any}
             />
             <Area type="monotone" dataKey="TITULO" name="TITULO" stroke="#2DD4BF" strokeWidth={2} fillOpacity={1} fill="url(#colorTitulo)" />
             <Area

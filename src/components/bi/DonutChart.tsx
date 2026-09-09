@@ -41,13 +41,14 @@ export function DonutChart({ data }: DonutChartProps) {
 
   const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: TooltipPoint[] }) => {
     if (active && payload && payload.length) {
-      const item = payload[0].payload;
-      const pct = totalSum > 0 ? ((item.total / totalSum) * 100).toFixed(1) : "0";
+      const item = payload[0]?.payload;
+      const total = item?.total ?? 0;
+      const pct = totalSum > 0 ? ((total / totalSum) * 100).toFixed(1) : "0";
       return (
         <div className="rounded-xl border border-white/10 bg-[#0B1020]/95 p-3 text-xs text-white shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
-          <p className="font-semibold text-white/80">{item.tipo}</p>
+          <p className="font-semibold text-white/80">{item?.tipo}</p>
           <p className="mt-1 font-bold text-white">
-            {item.total.toLocaleString("pt-BR")} ({pct}%)
+            {total.toLocaleString("pt-BR")} ({pct}%)
           </p>
         </div>
       );
@@ -99,7 +100,7 @@ export function DonutChart({ data }: DonutChartProps) {
               ))}
             </Pie>
             <Tooltip content={<CustomTooltip />} />
-            <Legend verticalAlign="bottom" align="center" content={renderLegend} />
+            <Legend verticalAlign="bottom" align="center" content={renderLegend as any} />
           </PieChart>
         </ResponsiveContainer>
 

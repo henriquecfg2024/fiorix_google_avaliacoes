@@ -540,14 +540,14 @@ export async function excluirItWorm(itId: string, motivo: string, senhaAdmin: st
   // Validação de senha
   const userRecord = await prisma.user.findUnique({
     where: { id: currentUser.id },
-    select: { password: true },
+    select: { passwordHash: true },
   });
 
-  if (!userRecord?.password) {
+  if (!userRecord?.passwordHash) {
     throw new Error('Usuário sem senha cadastrada.');
   }
 
-  const senhaValida = await bcrypt.compare(senhaAdmin, userRecord.password);
+  const senhaValida = await bcrypt.compare(senhaAdmin, userRecord.passwordHash);
   if (!senhaValida) {
     throw new Error('Senha incorreta.');
   }
@@ -925,7 +925,7 @@ export async function getItDetailData(idOrCodigo: string): Promise<ITDetailData 
       name: currentUser.name || 'Colaborador',
       email: currentUser.email,
       role: currentUser.role,
-      departamento: currentUser.departamento || it.departamento,
+      departamento: (currentUser as any).departamento || it.departamento,
     },
     isGuardiao,
     minhaCiencia,
@@ -1672,14 +1672,14 @@ export async function excluirItGovernanca(itId: string, motivo: string, senhaAdm
   // Validação de senha
   const userRecord = await prisma.user.findUnique({
     where: { id: currentUser.id },
-    select: { password: true },
+    select: { passwordHash: true },
   });
 
-  if (!userRecord?.password) {
+  if (!userRecord?.passwordHash) {
     throw new Error('Usuário sem senha cadastrada.');
   }
 
-  const senhaValida = await bcrypt.compare(senhaAdmin, userRecord.password);
+  const senhaValida = await bcrypt.compare(senhaAdmin, userRecord.passwordHash);
   if (!senhaValida) {
     throw new Error('Senha incorreta. A exclusão requer confirmação por senha.');
   }
