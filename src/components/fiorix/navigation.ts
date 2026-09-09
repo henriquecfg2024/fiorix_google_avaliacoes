@@ -145,7 +145,7 @@ export const navigationGroups = {
         label: "Minha IT",
         href: "/minha-it",
         icon: BookOpen,
-        description: "Meu procedimento oficial assinado",
+        description: "Instrução oficial • Responsável Técnico",
       },
     ],
   },

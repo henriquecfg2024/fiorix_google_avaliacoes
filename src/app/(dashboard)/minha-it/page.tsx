@@ -1,15 +1,23 @@
 import React from 'react';
-import { getMinhasItsData } from '@/app/actions/its';
-import { MinhasItsClient } from '@/components/its/MinhasItsClient';
+import { getMinhaItData } from '@/app/actions/minha-it';
+import { MinhaItCleanClient } from '@/components/its/MinhaItCleanClient';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Minhas Instruções de Trabalho | FIORIX',
+  title: 'Minhas Instruções de Trabalho • Responsável Técnico | FIORIX',
+  description: 'Controle de versão e gestão das instruções de trabalho sob responsabilidade técnica oficial.',
 };
 
-export default async function MinhaItPage() {
-  const data = await getMinhasItsData();
+interface MinhaItPageProps {
+  searchParams?: Promise<{ codigo?: string }> | { codigo?: string };
+}
 
-  return <MinhasItsClient initialData={data} />;
+export default async function MinhaItPage({ searchParams }: MinhaItPageProps) {
+  const resolvedParams = searchParams ? await Promise.resolve(searchParams) : undefined;
+  const codigo = typeof resolvedParams?.codigo === 'string' ? resolvedParams.codigo : undefined;
+
+  const data = await getMinhaItData(codigo);
+
+  return <MinhaItCleanClient initialData={data} />;
 }
