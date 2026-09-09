@@ -162,86 +162,108 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
   // Estado Vazio: Colaborador sem nenhuma IT atribuída
   if (!hasCustodia || !currentIt) {
     return (
-      <div className="min-h-screen bg-[#f9fafb] flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-400 mb-4 shadow-sm">
-          <FileText className="w-8 h-8" />
+      <div className="min-h-screen bg-[#070A12] text-white flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
+        {/* Background Ambient Glows */}
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-500/12 via-indigo-500/10 to-cyan-500/8 blur-3xl" />
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
         </div>
-        <h1 className="text-xl font-bold text-[#111827] mb-2">
-          Nenhuma Instrução de Trabalho sob sua responsabilidade
-        </h1>
-        <p className="text-sm text-[#6b7280] max-w-md mb-6 leading-relaxed">
-          Você ainda não foi designado como Responsável Técnico por nenhuma instrução de trabalho oficial.
-          Suas instruções atribuídas aparecerão diretamente aqui quando o RH realizar a designação.
-        </p>
-        <button
-          onClick={() => router.push('/dashboard')}
-          className="px-5 py-2.5 rounded-full bg-[#111827] text-white text-xs font-semibold hover:bg-zinc-800 transition-colors shadow-sm cursor-pointer"
-        >
-          Voltar para o Painel Geral
-        </button>
+
+        <div className="relative z-10 flex flex-col items-center max-w-md">
+          <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/8 flex items-center justify-center text-slate-400 mb-4 shadow-xl">
+            <FileText className="w-8 h-8 text-emerald-400/70" />
+          </div>
+          <h1 className="text-xl font-bold text-white mb-2">
+            Nenhuma Instrução de Trabalho sob sua responsabilidade
+          </h1>
+          <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+            Você ainda não foi designado como Responsável Técnico por nenhuma instrução de trabalho oficial.
+            Suas instruções atribuídas aparecerão diretamente aqui quando o RH realizar a designação.
+          </p>
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold border border-white/10 transition-colors shadow-sm cursor-pointer"
+          >
+            Voltar para o Painel Geral
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f9fafb] text-[#111827] flex flex-col font-sans">
-      {/* ── Header Top Clean (56px) ─────────────────────────────── */}
-      <header className="h-14 bg-white border-b border-[#e5e7eb] px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30 shadow-xs">
-        <div className="flex items-center gap-2.5 text-xs">
-          <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
-          <span className="font-semibold text-[#111827]">{cartorioNome}</span>
-          <span className="text-[#9ca3af]">•</span>
-          <span className="text-[#6b7280]">{cartorioUnidade}</span>
-          <span className="ml-1 px-2 py-0.5 rounded-md bg-[#10b981]/10 text-[#10b981] font-semibold text-[10px]">
-            Em dia
-          </span>
-        </div>
+    <div className="min-h-screen bg-[#070A12] text-white selection:bg-emerald-500/30 transition-colors duration-300 relative overflow-hidden pb-16 font-sans">
+      {/* Background Ambient Glows */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 left-1/2 h-72 w-[48rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-500/12 via-indigo-500/10 to-cyan-500/8 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </div>
 
-        <div className="flex items-center gap-3">
-          <div className="text-right hidden sm:block">
-            <div className="text-xs font-bold text-[#111827] leading-tight">{currentUser.name}</div>
-            <div className="text-[11px] text-[#6b7280]">
-              Responsável Técnico • {currentIt.departamento}
+      {/* ── Breadcrumbs & Top Info (FIORIX Dark Standard) ────── */}
+      <div className="relative mx-auto max-w-[1200px] px-4 sm:px-6 pt-6 pb-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-white/6">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+              <span>Dashboard</span>
+              <span className="text-slate-600">/</span>
+              <span>Meu Espaço (Pessoal)</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-emerald-400">Minha IT</span>
             </div>
+            <div className="flex items-center gap-3 mt-1.5">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-sans">
+                Minha Instrução de Trabalho
+              </h1>
+              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
+                RESPONSÁVEL TÉCNICO
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              {cartorioNome} • {cartorioUnidade} • Gestão oficial e custódia de versão do setor {currentIt.departamento}
+            </p>
           </div>
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
-            {currentUser.name.slice(0, 2).toUpperCase()}
+
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs font-semibold text-emerald-400">
+              Versão Oficial Homologada
+            </span>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* ── Área Principal (Documento Centralizado 800px + Sidebar 320px) ─ */}
-      <div className="flex-1 flex justify-center px-4 sm:px-6 py-8">
-        <div className="w-full max-w-[1160px] flex flex-col lg:flex-row gap-8 items-start justify-center">
+      {/* ── Área Principal (Documento Centralizado + Sidebar 320px) ─ */}
+      <div className="relative flex-1 flex justify-center px-4 sm:px-6 py-6">
+        <div className="w-full max-w-[1200px] flex flex-col lg:flex-row gap-6 items-start justify-center">
 
-          {/* ── Documento Branco Centralizado (800px) ─────────────── */}
-          <main className="w-full lg:w-[800px] flex-shrink-0 bg-white border border-[#e5e7eb] rounded-2xl p-6 sm:p-12 shadow-sm relative">
+          {/* ── Documento Centralizado (820px) ─────────────── */}
+          <main className="w-full lg:w-[820px] flex-shrink-0 rounded-[28px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-6 sm:p-10 shadow-[0_20px_60px_rgba(0,0,0,0.22)] relative text-white">
 
             {/* Barra Controle de Versão Minimalista (36px) */}
-            <div className="h-9 px-3.5 bg-[#f9fafb] border border-[#e5e7eb] rounded-lg flex items-center justify-between text-[11px] text-[#6b7280] mb-8 select-none">
+            <div className="h-9 px-4 bg-white/[0.03] border border-white/8 rounded-xl flex items-center justify-between text-[11px] text-slate-400 mb-8 select-none">
               <div className="flex items-center gap-2 truncate">
-                <span className="font-bold tracking-wider text-[10px] text-zinc-500 uppercase">Controle de Versão</span>
-                <span>•</span>
-                <span className="font-mono text-zinc-600">
+                <span className="font-bold tracking-wider text-[10px] text-slate-400 uppercase">Controle de Versão</span>
+                <span className="text-slate-600">•</span>
+                <span className="font-mono text-slate-300">
                   Hash SHA-256: {currentIt.hashVersao.slice(0, 10)}...
                 </span>
-                <span>•</span>
-                <span className="font-medium text-zinc-700">Versão Oficial v{currentIt.versao}</span>
+                <span className="text-slate-600">•</span>
+                <span className="font-medium text-emerald-400">Versão Oficial v{currentIt.versao}</span>
               </div>
 
               <button
                 onClick={handleCopyHash}
-                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-zinc-200/70 text-[#111827] font-medium transition-colors cursor-pointer text-[11px]"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white font-medium transition-colors cursor-pointer text-[11px]"
                 title="Copiar Hash SHA-256 completo"
               >
                 {copiedHash ? (
                   <>
-                    <Check className="w-3.5 h-3.5 text-[#10b981]" />
-                    <span className="text-[#10b981]">Copiado</span>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-emerald-400 font-semibold">Copiado</span>
                   </>
                 ) : (
                   <>
-                    <Copy className="w-3 h-3 text-[#6b7280]" />
+                    <Copy className="w-3 h-3 text-slate-400" />
                     <span>Copiar Hash</span>
                   </>
                 )}
@@ -249,7 +271,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
             </div>
 
             {/* Header Documento: Dropdown minimalista de custódia + Badge */}
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-[#e5e7eb]/80">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-white/8">
               <div className="relative inline-flex items-center">
                 {itsCustodia.length > 1 ? (
                   <div className="relative flex items-center">
@@ -257,62 +279,62 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                       value={currentIt.codigo}
                       onChange={(e) => handleSelectIt(e.target.value)}
                       disabled={isPending}
-                      className="appearance-none bg-transparent hover:bg-zinc-50 pr-8 pl-1 py-1 rounded-lg text-sm font-bold text-[#111827] focus:outline-none cursor-pointer border border-transparent hover:border-zinc-200 transition-colors"
+                      className="appearance-none bg-[#0B1020] hover:bg-[#12182d] text-white border border-white/10 pr-8 pl-3 py-1.5 rounded-xl text-sm font-bold focus:border-emerald-500/60 focus:outline-none cursor-pointer transition-colors"
                     >
                       {itsCustodia.map((it) => (
-                        <option key={it.id} value={it.codigo} className="bg-white text-zinc-900 font-medium">
+                        <option key={it.id} value={it.codigo} className="bg-[#0B1020] text-white font-medium">
                           {it.codigo} • {it.titulo}
                         </option>
                       ))}
                     </select>
-                    <ChevronDown className="w-4 h-4 text-zinc-500 absolute right-2 pointer-events-none" />
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 pointer-events-none" />
                   </div>
                 ) : (
-                  <span className="text-sm font-bold text-[#111827]">
+                  <span className="text-sm font-bold text-slate-200">
                     {currentIt.codigo} • {currentIt.titulo}
                   </span>
                 )}
               </div>
 
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/25 text-[11px] font-semibold tracking-wide shadow-xs">
-                <Shield className="w-3 h-3" />
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 text-[11px] font-semibold tracking-wide shadow-xs">
+                <Shield className="w-3.5 h-3.5 text-emerald-400" />
                 <span>MEU PDF VIGENTE</span>
               </div>
             </div>
 
             {/* Título Serif H1 */}
-            <h1 className="text-2xl sm:text-[28px] font-bold text-[#111827] tracking-tight leading-tight mb-8 font-serif">
+            <h2 className="text-2xl sm:text-[28px] font-bold text-white tracking-tight leading-tight mb-8 font-serif">
               {currentIt.titulo} • {currentIt.codigo} v{currentIt.versao}
-            </h1>
+            </h2>
 
             {/* Corpo do Documento */}
-            <div className="space-y-8 text-[15px] text-[#111827] leading-relaxed">
+            <div className="space-y-8 text-[15px] leading-relaxed">
 
               {/* 1. OBJETIVO */}
               <section className="space-y-2">
-                <h2 className="text-xs uppercase tracking-wider font-bold text-[#6b7280] pb-1 border-b border-[#e5e7eb]">
+                <h3 className="text-xs uppercase tracking-wider font-bold text-slate-400 pb-1.5 border-b border-white/8">
                   1. Objetivo
-                </h2>
-                <p className="text-[#111827] pt-1">
+                </h3>
+                <p className="text-slate-200 pt-1 leading-relaxed">
                   {currentIt.objetivo}
                 </p>
               </section>
 
               {/* 2. QUANDO USAR */}
               <section className="space-y-2">
-                <h2 className="text-xs uppercase tracking-wider font-bold text-[#6b7280] pb-1 border-b border-[#e5e7eb]">
+                <h3 className="text-xs uppercase tracking-wider font-bold text-slate-400 pb-1.5 border-b border-white/8">
                   2. Quando Usar
-                </h2>
-                <p className="text-[#111827] pt-1">
+                </h3>
+                <p className="text-slate-200 pt-1 leading-relaxed">
                   {currentIt.quandoUsar}
                 </p>
               </section>
 
               {/* 3. PASSO A PASSO (RESPONSABILIDADE TÉCNICA) */}
               <section className="space-y-3">
-                <h2 className="text-xs uppercase tracking-wider font-bold text-[#6b7280] pb-1 border-b border-[#e5e7eb]">
+                <h3 className="text-xs uppercase tracking-wider font-bold text-slate-400 pb-1.5 border-b border-white/8">
                   3. Passo a Passo (Responsabilidade Técnica)
-                </h2>
+                </h3>
 
                 <div className="space-y-3 pt-1">
                   {currentIt.passoAPasso.length > 0 ? (
@@ -322,32 +344,35 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                       const desc = isString ? '' : item.desc;
 
                       return (
-                        <div key={idx} className="flex items-start gap-3.5 p-3.5 rounded-xl bg-[#f9fafb] border border-[#e5e7eb]/70 hover:border-zinc-300 transition-colors">
-                          <span className="w-6 h-6 rounded-full bg-white border border-[#e5e7eb] font-bold text-xs text-[#111827] flex items-center justify-center flex-shrink-0 shadow-xs">
+                        <div
+                          key={idx}
+                          className="flex items-start gap-3.5 p-4 rounded-2xl bg-white/[0.02] border border-white/8 hover:border-emerald-500/30 hover:bg-white/[0.04] transition-all"
+                        >
+                          <span className="w-7 h-7 rounded-full bg-emerald-500/10 border border-emerald-500/25 font-bold text-xs text-emerald-400 flex items-center justify-center flex-shrink-0 shadow-xs">
                             {idx + 1}
                           </span>
                           <div className="flex-1">
-                            <div className="font-semibold text-sm text-[#111827]">{titulo}</div>
-                            {desc && <div className="text-xs text-[#6b7280] mt-0.5 leading-normal">{desc}</div>}
+                            <div className="font-semibold text-sm text-white">{titulo}</div>
+                            {desc && <div className="text-xs text-slate-400 mt-1 leading-relaxed">{desc}</div>}
                           </div>
                         </div>
                       );
                     })
                   ) : (
-                    <div className="text-xs text-zinc-500 italic">Nenhum passo a passo cadastrado para esta rotina.</div>
+                    <div className="text-xs text-slate-500 italic">Nenhum passo a passo cadastrado para esta rotina.</div>
                   )}
                 </div>
               </section>
 
               {/* 4. Cards do Rodapé do Documento */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-[#e5e7eb]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-white/8">
                 {/* Checklist Obrigatório */}
-                <div className="p-4 rounded-xl border border-[#e5e7eb] bg-[#f9fafb] space-y-2">
-                  <div className="text-xs font-bold text-[#111827] uppercase tracking-wider flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#10b981]" />
+                <div className="p-4 rounded-2xl border border-white/8 bg-white/[0.02] space-y-2">
+                  <div className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                     <span>Checklist Obrigatório</span>
                   </div>
-                  <ul className="text-xs text-[#4b5563] space-y-1.5 list-disc list-inside">
+                  <ul className="text-xs text-slate-300 space-y-1.5 list-disc list-inside">
                     {currentIt.checklist.map((item, i) => (
                       <li key={i}>{item}</li>
                     ))}
@@ -355,12 +380,12 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 </div>
 
                 {/* Orientações Práticas */}
-                <div className="p-4 rounded-xl border border-[#e5e7eb] bg-[#f9fafb] space-y-2">
-                  <div className="text-xs font-bold text-[#111827] uppercase tracking-wider flex items-center gap-1.5">
-                    <Layers className="w-3.5 h-3.5 text-purple-600" />
+                <div className="p-4 rounded-2xl border border-white/8 bg-white/[0.02] space-y-2">
+                  <div className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-indigo-400" />
                     <span>Orientações Práticas</span>
                   </div>
-                  <ul className="text-xs text-[#4b5563] space-y-1.5 list-disc list-inside">
+                  <ul className="text-xs text-slate-300 space-y-1.5 list-disc list-inside">
                     {currentIt.casosPraticos.map((item, i) => (
                       <li key={i}>{item}</li>
                     ))}
@@ -375,7 +400,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                     href={currentIt.pdfUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs text-[#6b7280] hover:text-[#111827] font-medium transition-colors"
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-emerald-400 font-medium transition-colors"
                   >
                     <FileText className="w-3.5 h-3.5" />
                     <span>Visualizar PDF do Documento</span>
@@ -390,33 +415,33 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
           <aside className="w-full lg:w-[320px] flex-shrink-0 space-y-6">
 
             {/* Box 1: CIÊNCIA CONFIRMADA */}
-            <div className="bg-white border border-[#e5e7eb] rounded-2xl p-5 shadow-xs space-y-4">
+            <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] space-y-4">
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#10b981]/15 text-[#10b981] flex items-center justify-center flex-shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 flex items-center justify-center flex-shrink-0">
                   <Check className="w-4 h-4 stroke-[3]" />
                 </div>
                 <div>
-                  <div className="text-xs font-bold uppercase tracking-wider text-[#10b981]">
+                  <div className="text-xs font-bold uppercase tracking-wider text-emerald-400">
                     Ciência Confirmada
                   </div>
-                  <div className="text-xs font-semibold text-[#111827] mt-0.5">
+                  <div className="text-xs font-semibold text-slate-200 mt-0.5">
                     em {currentIt.responsavelCienteEm}
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-[#6b7280]">Adesão da Equipe</span>
-                  <span className="font-bold text-[#111827]">{currentIt.adesaoPercentual}%</span>
+                  <span className="text-slate-400">Adesão da Equipe</span>
+                  <span className="font-bold text-white font-mono">{currentIt.adesaoPercentual}%</span>
                 </div>
-                <div className="w-full h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden border border-white/5">
                   <div
-                    className="h-full bg-[#10b981] rounded-full transition-all duration-500"
+                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full shadow-[0_0_12px_rgba(16,185,129,0.5)] transition-all duration-500"
                     style={{ width: `${currentIt.adesaoPercentual}%` }}
                   />
                 </div>
-                <div className="text-[11px] text-[#6b7280]">
+                <div className="text-[11px] text-slate-400 leading-tight">
                   Você já deu ciência automática. {currentIt.pendentesCount} colaboradores pendentes.
                 </div>
               </div>
@@ -424,7 +449,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
               {/* Botão Principal: Atualizar Meu PDF Vigente */}
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="w-full h-11 bg-[#10b981] hover:bg-emerald-600 active:bg-emerald-700 text-white font-semibold text-xs rounded-full shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+                className="w-full h-11 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 active:scale-[0.98] text-white font-semibold text-xs rounded-xl shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 transition-all cursor-pointer border border-emerald-400/20"
               >
                 <Upload className="w-4 h-4" />
                 <span>Atualizar Meu PDF Vigente</span>
@@ -432,12 +457,12 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
             </div>
 
             {/* Box 2: EQUIPE • CIÊNCIAS */}
-            <div className="bg-white border border-[#e5e7eb] rounded-2xl p-5 shadow-xs space-y-3.5">
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-bold uppercase tracking-wider text-[#6b7280]">
+            <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] space-y-3.5">
+              <div className="flex items-center justify-between pb-2 border-b border-white/8">
+                <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
                   Equipe • Ciências
                 </div>
-                <span className="text-xs font-mono font-semibold text-[#111827]">
+                <span className="text-xs font-mono font-semibold text-emerald-400">
                   {currentIt.totalCientes}/{currentIt.totalColaboradores}
                 </span>
               </div>
@@ -446,22 +471,22 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 {currentIt.equipeCiencias.map((colab) => (
                   <div
                     key={colab.usuarioId}
-                    className="flex items-center justify-between text-xs py-1 border-b border-[#f3f4f6] last:border-0"
+                    className="flex items-center justify-between text-xs py-1.5 border-b border-white/5 last:border-0"
                   >
-                    <div className="flex items-center gap-2 min-w-0 pr-2">
+                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
                       {colab.ciente ? (
-                        <div className="w-4 h-4 rounded-full bg-[#10b981]/15 text-[#10b981] flex items-center justify-center flex-shrink-0">
+                        <div className="w-4 h-4 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center flex-shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
                       ) : (
-                        <div className="w-4 h-4 rounded-full border border-zinc-300 flex items-center justify-center flex-shrink-0" />
+                        <div className="w-4 h-4 rounded-full border border-white/20 flex items-center justify-center flex-shrink-0" />
                       )}
-                      <span className={`truncate ${colab.isCurrentUser ? 'font-bold text-[#111827]' : 'text-[#4b5563]'}`}>
+                      <span className={`truncate ${colab.isCurrentUser ? 'font-bold text-white' : 'text-slate-300'}`}>
                         {colab.nome}
                       </span>
                     </div>
 
-                    <span className="text-[10px] text-[#9ca3af] font-mono flex-shrink-0">
+                    <span className={`text-[10px] font-mono flex-shrink-0 ${colab.ciente ? 'text-emerald-400 font-semibold' : 'text-slate-500'}`}>
                       {colab.ciente ? 'Ciente' : 'Pendente'}
                     </span>
                   </div>
@@ -472,64 +497,64 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
         </div>
       </div>
 
-      {/* ── Modal Clean: Atualizar Meu PDF Vigente ────────────────── */}
+      {/* ── Modal Clean: Atualizar Meu PDF Vigente (FIORIX Dark) ────────────────── */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-lg rounded-2xl border border-[#e5e7eb] shadow-xl p-6 space-y-5 relative animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-[#0B1020] w-full max-w-lg rounded-3xl border border-white/12 shadow-[0_25px_70px_rgba(0,0,0,0.6)] p-6 space-y-5 relative text-white animate-in fade-in zoom-in-95 duration-200">
             {/* Header Modal */}
-            <div className="flex items-center justify-between pb-3 border-b border-[#e5e7eb]">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div>
-                <h3 className="text-base font-bold text-[#111827]">
+                <h3 className="text-base font-bold text-white">
                   Atualizar Meu PDF Vigente
                 </h3>
-                <p className="text-xs text-[#6b7280]">Responsável Técnico: {currentIt.codigo}</p>
+                <p className="text-xs text-slate-400">Responsável Técnico: {currentIt.codigo}</p>
               </div>
               <button
                 onClick={() => !isUploading && setIsModalOpen(false)}
                 disabled={isUploading}
-                className="p-1 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-colors cursor-pointer"
+                className="p-1.5 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Aviso Neutro */}
-            <div className="p-3.5 rounded-xl bg-[#f9fafb] border border-[#e5e7eb] text-xs text-[#4b5563] space-y-1">
-              <div className="font-semibold text-[#111827]">Controle de Versão Oficial</div>
-              <p>
-                Este documento representa o registro oficial das rotinas da sua área. Ao publicar um novo PDF, será gerada a versão <strong>v{nextVersao}</strong> e um novo Hash criptográfico SHA-256.
+            <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/8 text-xs text-slate-300 space-y-1">
+              <div className="font-semibold text-white">Controle de Versão Oficial</div>
+              <p className="text-slate-400 leading-relaxed">
+                Este documento representa o registro oficial das rotinas da sua área. Ao publicar um novo PDF, será gerada a versão <strong className="text-emerald-400">v{nextVersao}</strong> e um novo Hash criptográfico SHA-256.
               </p>
             </div>
 
             {uploadError && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2.5">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-400" />
                 <span>{uploadError}</span>
               </div>
             )}
 
             {uploadSuccess && (
-              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2.5">
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400" />
                 <span>Versão v{nextVersao} publicada com sucesso! Atualizando tela...</span>
               </div>
             )}
 
             {/* Dropzone PDF */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-[#111827]">
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-slate-300">
                 Selecione o PDF Atualizado
               </label>
-              <label className="border-2 border-dashed border-[#d1d5db] hover:border-[#10b981] rounded-xl p-5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors bg-[#f9fafb]/50">
-                <Upload className="w-7 h-7 text-zinc-400" />
-                <span className="text-xs text-[#4b5563] font-medium text-center">
+              <label className="border-2 border-dashed border-white/15 hover:border-emerald-500/50 rounded-2xl p-6 flex flex-col items-center justify-center gap-2.5 cursor-pointer transition-colors bg-white/[0.02] hover:bg-white/[0.04]">
+                <Upload className="w-7 h-7 text-slate-400" />
+                <span className="text-xs text-slate-300 font-medium text-center">
                   {selectedFile ? (
-                    <strong className="text-[#10b981]">{selectedFile.name}</strong>
+                    <strong className="text-emerald-400">{selectedFile.name}</strong>
                   ) : (
                     'Clique para selecionar ou arraste seu PDF atualizado'
                   )}
                 </span>
-                <span className="text-[10px] text-[#9ca3af]">Apenas arquivos .pdf</span>
+                <span className="text-[10px] text-slate-500">Apenas arquivos .pdf</span>
                 <input
                   type="file"
                   accept="application/pdf"
@@ -540,15 +565,15 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
               </label>
 
               {fileHash && (
-                <div className="text-[10px] font-mono text-[#6b7280] truncate bg-zinc-50 p-2 rounded border border-zinc-200">
-                  Hash SHA-256 gerado: {fileHash}
+                <div className="text-[11px] font-mono text-slate-300 truncate bg-white/[0.03] p-2.5 rounded-xl border border-white/8">
+                  Hash SHA-256 gerado: <span className="text-emerald-400">{fileHash}</span>
                 </div>
               )}
             </div>
 
             {/* O que mudou nesta versão? */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-[#111827]">
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-slate-300">
                 O que mudou nesta versão?
               </label>
               <textarea
@@ -557,31 +582,31 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 placeholder="Ex: Atualização do fluxo de conferência de certidões e prazos de resposta..."
                 disabled={isUploading}
                 rows={3}
-                className="w-full text-xs p-3 rounded-xl border border-[#e5e7eb] focus:border-[#10b981] focus:outline-none transition-colors"
+                className="w-full text-xs p-3.5 rounded-xl bg-white/[0.03] border border-white/10 focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/40 text-white placeholder-slate-500 focus:outline-none transition-all"
               />
             </div>
 
             {/* Checkbox de Responsabilidade Técnica */}
-            <label className="flex items-start gap-2.5 text-xs text-[#4b5563] cursor-pointer select-none">
+            <label className="flex items-start gap-2.5 text-xs text-slate-300 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={confirmouRevisao}
                 onChange={(e) => setConfirmouRevisao(e.target.checked)}
                 disabled={isUploading}
-                className="mt-0.5 w-4 h-4 rounded border-[#d1d5db] text-[#10b981] focus:ring-0 cursor-pointer"
+                className="mt-0.5 w-4 h-4 rounded border-white/20 bg-white/5 text-emerald-500 focus:ring-0 cursor-pointer accent-emerald-500"
               />
-              <span>
-                Confirmo que revisei o documento e sou o <strong>Responsável Técnico</strong> oficial por esta versão.
+              <span className="leading-relaxed">
+                Confirmo que revisei o documento e sou o <strong className="text-emerald-400">Responsável Técnico</strong> oficial por esta versão.
               </span>
             </label>
 
             {/* Rodapé e Botões */}
-            <div className="pt-3 border-t border-[#e5e7eb] flex items-center justify-between">
+            <div className="pt-3 border-t border-white/10 flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
                 disabled={isUploading}
-                className="text-xs text-[#6b7280] hover:text-[#111827] font-medium transition-colors cursor-pointer"
+                className="text-xs text-slate-400 hover:text-white font-medium transition-colors cursor-pointer"
               >
                 Cancelar
               </button>
@@ -590,7 +615,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 type="button"
                 onClick={handlePublishVersion}
                 disabled={isUploading || !selectedFile || !confirmouRevisao}
-                className="h-10 px-5 rounded-xl bg-[#10b981] hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-semibold shadow-sm flex items-center gap-2 transition-all cursor-pointer"
+                className="h-11 px-6 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-40 text-white text-xs font-semibold shadow-lg shadow-emerald-900/30 flex items-center gap-2 transition-all cursor-pointer border border-emerald-400/20"
               >
                 {isUploading ? (
                   <span>Publicando versão v{nextVersao}...</span>
@@ -603,7 +628,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
               </button>
             </div>
 
-            <div className="text-[11px] text-zinc-500 text-center">
+            <div className="text-[11px] text-slate-500 text-center">
               A ciência da equipe será reiniciada para 0% — os colaboradores precisarão confirmar ciência nesta versão.
             </div>
           </div>
