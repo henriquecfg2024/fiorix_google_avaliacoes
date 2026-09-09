@@ -213,6 +213,11 @@ export function UniversalITUploader({ onParseSuccess, onCancel }: UniversalITUpl
                 <ImageIcon className="w-3 h-3" /> Imagem / Foto
               </span>
             </div>
+
+            {/* Aviso de limite de tamanho */}
+            <p className="text-[10px] text-zinc-500 mt-2">
+              Tamanho máximo do arquivo: <span className="font-semibold text-zinc-400">20 MB</span>
+            </p>
           </div>
         )}
       </div>
