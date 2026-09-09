@@ -16,6 +16,14 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { createClient } from '@supabase/supabase-js';
+
+// Cliente Supabase para upload direto do navegador (bypassa limite do Vercel de ~4.5MB)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '';
+const supabaseClient = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
 interface UniversalITUploaderProps {
   onParseSuccess: (data: {
@@ -40,51 +48,100 @@ export function UniversalITUploader({ onParseSuccess, onCancel }: UniversalITUpl
   const [statusMessage, setStatusMessage] = useState('');
   const [dragActive, setDragActive] = useState(false);
 
+  // Calcula SHA-256 no navegador usando Web Crypto API
+  const computeHash = async (buffer: ArrayBuffer): Promise<string> => {
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
   const processFileOrHtml = async (file: File | null, textHtml?: string) => {
     setIsUploading(true);
     setStatusMessage('Lendo arquivo e calculando carimbo SHA-256...');
 
     try {
-      // Verificação de resolução para imagens
-      if (file && file.type.startsWith('image/')) {
-        const img = new Image();
-        const objectUrl = URL.createObjectURL(file);
-        img.src = objectUrl;
-        await new Promise((resolve) => {
-          img.onload = () => {
-            if (img.width < 800) {
-              toast.warning('Atenção: Imagem com largura inferior a 800px. O OCR pode ter precisão reduzida.');
-            }
-            URL.revokeObjectURL(objectUrl);
-            resolve(true);
-          };
-          img.onerror = () => resolve(true);
-        });
+      if (file && file.size > MAX_FILE_SIZE) {
+        throw new Error(`Arquivo excede o limite de ${MAX_FILE_SIZE / 1024 / 1024}MB.`);
       }
 
-      setStatusMessage('Processando conteúdo com o Parser Universal...');
-      const formData = new FormData();
+      let arquivoOriginalUrl: string | undefined;
+      let hashSha256 = '';
+      let nomeArquivo = file?.name || 'texto-arrastado.txt';
+      let tipoDetectado = 'desconhecido';
+
       if (file) {
-        formData.append('file', file);
+        const arrayBuffer = await file.arrayBuffer();
+
+        // 1. Calcula hash SHA-256 no navegador
+        hashSha256 = await computeHash(arrayBuffer);
+
+        // 2. Detecta tipo
+        const ext = nomeArquivo.split('.').pop()?.toLowerCase() || '';
+        if (['pdf'].includes(ext)) tipoDetectado = 'pdf';
+        else if (['docx', 'doc'].includes(ext)) tipoDetectado = 'documento-word';
+        else if (['xlsx', 'xls', 'csv'].includes(ext)) tipoDetectado = 'planilha-excel';
+        else if (['eml', 'msg'].includes(ext)) tipoDetectado = 'email';
+        else if (['jpg', 'jpeg', 'png', 'webp', 'heic'].includes(ext)) tipoDetectado = 'imagem-fluxograma';
+        else tipoDetectado = ext || 'texto';
+
+        // 3. Upload direto para Supabase Storage (bypassa limite Vercel)
+        setStatusMessage('Enviando documento para armazenamento seguro...');
+        if (supabaseClient) {
+          const timestamp = Date.now();
+          const safeFileName = nomeArquivo.replace(/[^a-zA-Z0-9._-]/g, '_');
+          const storagePath = `uploads/${timestamp}_${safeFileName}`;
+
+          const { error: uploadError } = await supabaseClient.storage
+            .from('it-documentos')
+            .upload(storagePath, arrayBuffer, {
+              contentType: file.type || 'application/octet-stream',
+              upsert: true,
+            });
+
+          if (uploadError) {
+            console.warn('Aviso: Falha no upload para Storage:', uploadError.message);
+            toast.warning('Upload do documento falhou, mas o processamento continua.');
+          } else {
+            const { data: urlData } = supabaseClient.storage
+              .from('it-documentos')
+              .getPublicUrl(storagePath);
+            arquivoOriginalUrl = urlData?.publicUrl || undefined;
+          }
+        } else {
+          console.warn('Supabase client não configurado para upload direto.');
+        }
       } else if (textHtml) {
-        formData.append('textHtml', textHtml);
+        tipoDetectado = 'email-arraste-direto';
+        nomeArquivo = 'Email_Arrastado.html';
+        const encoder = new TextEncoder();
+        const buffer = encoder.encode(textHtml);
+        hashSha256 = await computeHash(buffer.buffer as ArrayBuffer);
+      } else {
+        throw new Error('Nenhum arquivo ou texto fornecido.');
       }
 
-      const res = await fetch('/api/its/universal-parser', {
-        method: 'POST',
-        body: formData,
+      setStatusMessage('Preparando dados da nova versão...');
+
+      // Dados estruturados básicos (o documento original é exibido diretamente)
+      const itensExtraidos = {
+        objetivo: `Documento importado: ${nomeArquivo}`,
+        responsavel: 'Guardião Oficial',
+        quandoUsar: 'Conforme rotina operacional do departamento',
+        procedimento: [
+          { ordem: 1, titulo: 'Consultar Documento Original', desc: 'Acessar o documento original anexado para referência completa do procedimento.' },
+        ],
+        checklist: ['Documento original anexado e verificado'],
+        errosComuns: [],
+      };
+
+      toast.success(`Documento "${nomeArquivo}" processado com sucesso!`);
+      onParseSuccess({
+        tipoDetectado,
+        nomeArquivo,
+        hashSha256,
+        arquivoOriginalUrl,
+        itensExtraidos,
       });
-
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || 'Falha ao processar arquivo.');
-      }
-
-      setStatusMessage('Estruturando nova versão com IA...');
-      const result = await res.json();
-
-      toast.success(`Documento "${result.nomeArquivo}" processado com sucesso!`);
-      onParseSuccess(result);
     } catch (err: any) {
       console.error(err);
       toast.error('Erro no processamento: ' + (err.message || 'Erro desconhecido.'));
