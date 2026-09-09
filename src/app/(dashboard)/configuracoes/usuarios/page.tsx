@@ -142,11 +142,11 @@ export default async function UsuariosConfigPage() {
                 defaultValue="COLABORADOR"
                 className="w-full h-10 px-3 rounded-md border border-white/12 bg-[#0A0F1E] text-xs text-white focus:outline-hidden focus:border-amber-400/50 cursor-pointer"
               >
-                <option value="COLABORADOR">Colaborador (COLABORADOR)</option>
-                <option value="USER">Usuário (USER)</option>
-                <option value="RH">RH (RH - Gestão de Pessoas)</option>
-                <option value="SUBSTITUTO">Substituto (SUBSTITUTO - ITs & Governança)</option>
-                <option value="ADMIN">Admin (ADMIN - Restrito)</option>
+                <option value="COLABORADOR">Colaborador</option>
+                <option value="USER">Usuário</option>
+                <option value="RH">RH (Gestão de Pessoas)</option>
+                <option value="SUBSTITUTO">Substituto (ITs & Governança)</option>
+                <option value="ADMIN">Admin (Restrito)</option>
               </select>
             </div>
 
@@ -225,24 +225,24 @@ export default async function UsuariosConfigPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 pt-2 border-t border-white/6 text-[11px] text-white/50">
-            <div className="p-2 rounded-lg bg-white/[0.02] border border-white/5">
-              <span className="font-bold text-cyan-400 block">Colaborador (COLABORADOR):</span>
-              <span>Acesso somente a Comunicados, Férias, Holerites e Minha IT.</span>
+            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+              <span className="font-bold text-cyan-400 block mb-0.5">Colaborador:</span>
+              <span>Acesso a Comunicados, Férias, Holerites e Minha IT.</span>
             </div>
-            <div className="p-2 rounded-lg bg-white/[0.02] border border-white/5">
-              <span className="font-bold text-blue-400 block">Usuário (USER):</span>
-              <span>Acesso operacional padrão do FIORIX.</span>
+            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+              <span className="font-bold text-blue-400 block mb-0.5">Usuário:</span>
+              <span>Acesso operacional e consultas ao sistema.</span>
             </div>
-            <div className="p-2 rounded-lg bg-white/[0.02] border border-white/5">
-              <span className="font-bold text-purple-400 block">RH (RH):</span>
-              <span>Gerenciamento de Comunicados, Férias e Holerites do Cartório.</span>
+            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+              <span className="font-bold text-purple-400 block mb-0.5">RH:</span>
+              <span>Gestão de Comunicados, Férias e Holerites do Cartório.</span>
             </div>
-            <div className="p-2 rounded-lg bg-white/[0.02] border border-indigo-500/30 bg-indigo-500/5">
-              <span className="font-bold text-indigo-300 block">Substituto (SUBSTITUTO):</span>
-              <span>Governança, criação, aprovação e fiscalização WORM de ITs.</span>
+            <div className="p-2.5 rounded-xl border border-indigo-500/30 bg-indigo-500/5">
+              <span className="font-bold text-indigo-300 block mb-0.5">Substituto:</span>
+              <span>Governança, criação, aprovação e fiscalização de ITs.</span>
             </div>
-            <div className="p-2 rounded-lg bg-white/[0.02] border border-white/5">
-              <span className="font-bold text-indigo-400 block">Admin (ADMIN):</span>
+            <div className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+              <span className="font-bold text-indigo-400 block mb-0.5">Administrador:</span>
               <span>Acesso administrativo geral (Henrique Cesar Ferreira Gama).</span>
             </div>
           </div>
