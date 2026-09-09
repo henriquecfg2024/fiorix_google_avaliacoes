@@ -17,10 +17,8 @@ export const metadata: Metadata = {
   title: "FIORIX - 7º Registro de Imóveis de SP",
   description: "Gestão de Avaliações do Google e Módulo BI de Prazos do 7º Registro de Imóveis de SP",
   manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "FIORIX",
+  other: {
+    "mobile-web-app-capable": "yes",
   },
 };
 

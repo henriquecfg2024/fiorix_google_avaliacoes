@@ -102,11 +102,16 @@ function DurationTooltip({ active, payload, label }: CustomTooltipProps) {
 }
 
 export function OperationsChartsSection() {
+  const [isMounted, setIsMounted] = useState(false);
   const [range, setRange] = useState<'24h' | '7d' | '30d'>('24h');
   const [data, setData] = useState<TelemetryHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const fetchTelemetry = async (selectedRange: '24h' | '7d' | '30d') => {
     setLoading(true);
@@ -291,13 +296,13 @@ export function OperationsChartsSection() {
             </div>
           </div>
 
-          <div className="h-[280px] w-full">
-            {loading ? (
+          <div className="h-[280px] w-full min-w-0" style={{ minWidth: 0, height: 280 }}>
+            {loading || !isMounted ? (
               <div className="h-full w-full flex items-center justify-center text-white/40 text-xs">
                 Carregando dados temporais...
               </div>
             ) : data && data.timeline.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={280} minWidth={0} minHeight={0}>
                 <AreaChart data={data.timeline} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gradBi" x1="0" y1="0" x2="0" y2="1">
@@ -393,13 +398,13 @@ export function OperationsChartsSection() {
             </span>
           </div>
 
-          <div className="h-[280px] w-full">
-            {loading ? (
+          <div className="h-[280px] w-full min-w-0" style={{ minWidth: 0, height: 280 }}>
+            {loading || !isMounted ? (
               <div className="h-full w-full flex items-center justify-center text-white/40 text-xs">
                 Carregando...
               </div>
             ) : data && data.timeline.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={280} minWidth={0} minHeight={0}>
                 <BarChart data={data.timeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis
