@@ -359,11 +359,6 @@ export function MinhasItsClient({ initialData }: MinhasItsClientProps) {
                     <h2 className="text-base font-bold text-white group-hover:text-emerald-400 transition-colors line-clamp-2">
                       {it.titulo}
                     </h2>
-
-                    {/* Objetivo */}
-                    <p className="text-xs text-zinc-400 mt-2 line-clamp-3 leading-relaxed">
-                      {it.objetivo || it.quandoUsar || 'Procedimento padronizado do cartório.'}
-                    </p>
                   </div>
 
                   {/* Detalhes e Rodapé */}
