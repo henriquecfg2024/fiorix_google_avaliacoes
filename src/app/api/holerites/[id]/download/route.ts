@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requireAuth } from "@/lib/auth-helpers";
 import { generateHoleritePdfBinary } from "@/lib/pdf/generateHoleritePdf";
 import { getRequestIp, maskIp } from "@/lib/security/requestIp";
 import { logAuditEvent } from "@/lib/audit/log";
@@ -11,10 +11,10 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await auth();
-    const userName = session?.user?.name || "Henrique Gama";
-    const tenantId = session?.user?.tenantId || "tenant-7ri";
-    const usuarioId = session?.user?.id || "user-1";
+    const user = await requireAuth();
+    const userName = user.name || 'Colaborador';
+    const tenantId = user.tenantId;
+    const usuarioId = user.id;
     const ip = getRequestIp(req);
     const ipMascarado = maskIp(ip);
 
@@ -52,6 +52,7 @@ export async function GET(
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="Holerite-Competencia-${mes.replace("/", "-")}.pdf"`,
         "Content-Length": pdfBuffer.length.toString(),
+        "Cache-Control": "no-store, no-cache, must-revalidate",
       },
     });
   } catch (error) {
@@ -59,3 +60,4 @@ export async function GET(
     return NextResponse.json({ error: "Erro interno no servidor" }, { status: 500 });
   }
 }
+

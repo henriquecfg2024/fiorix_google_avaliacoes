@@ -32,12 +32,9 @@ export async function GET(
       valido: true,
       dados: {
         colaborador: ciencia.usuario.name,
-        email: ciencia.usuario.email,
         comunicado: ciencia.comunicado.titulo,
         versao: ciencia.comunicado.versao,
         dataCiencia: ciencia.dataCiencia,
-        comunicadoHash: ciencia.comunicadoHash,
-        ipRegistrado: ciencia.ip,
       },
     });
   } catch (error) {

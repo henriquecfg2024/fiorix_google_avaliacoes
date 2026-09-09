@@ -5,6 +5,29 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { unpackLiveRecords } from '@/lib/connector/unpack-live';
 
+// Rate limiting em memória para evitar pressão adicional no banco.
+// Cada connector_id é limitado a MAX_REQUESTS_PER_WINDOW por janela temporal.
+const RATE_LIMIT_WINDOW_MS = 60_000; // 60 segundos
+const MAX_REQUESTS_PER_WINDOW = 60;
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkConnectorRateLimit(connectorId: string): { allowed: boolean; remaining: number } {
+  const now = Date.now();
+  const entry = rateLimitMap.get(connectorId);
+
+  if (!entry || now >= entry.resetAt) {
+    rateLimitMap.set(connectorId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - 1 };
+  }
+
+  if (entry.count >= MAX_REQUESTS_PER_WINDOW) {
+    return { allowed: false, remaining: 0 };
+  }
+
+  entry.count++;
+  return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - entry.count };
+}
+
 const syncPayloadSchema = z.object({
   // Legacy clients may send this field, but it never selects the tenant.
   tenant_id: z.string().optional(),
@@ -12,7 +35,7 @@ const syncPayloadSchema = z.object({
   source: z.enum(['bi', 'produtividade', 'metas', 'tarefas']),
   batch_id: z.string(),
   generated_at: z.string().datetime(),
-  records: z.array(z.any()), // Pode ser detalhado futuramente
+  records: z.array(z.object({}).passthrough()).max(10000, 'Máximo de 10.000 registros por chunk'),
   chunk_index: z.number().int().nonnegative().optional().default(0),
   chunk_count: z.number().int().positive().optional().default(1),
   sync_mode: z.enum(['full', 'incremental', 'reconciliation']).optional().default('full'),
@@ -36,7 +59,7 @@ export async function POST(req: Request) {
 
     const secret = authHeader.replace('Bearer ', '').trim();
 
-    // Parse the body
+    // Parse the body first to get connector_id for rate limiting
     let body;
     try {
       body = await req.json();
@@ -51,6 +74,13 @@ export async function POST(req: Request) {
     }
 
     const { tenant_id, connector_id, source, batch_id, generated_at, records, chunk_index, chunk_count, sync_mode } = parsed.data;
+
+    // Rate limit por connector_id (in-memory, sem pressão no banco)
+    const rateCheck = checkConnectorRateLimit(connector_id);
+    if (!rateCheck.allowed) {
+      console.warn(`CONNECTOR_RATE_LIMIT: Connector ${connector_id} exceeded ${MAX_REQUESTS_PER_WINDOW} req/${RATE_LIMIT_WINDOW_MS / 1000}s`);
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
 
     // Authenticate connector
     const authResult = await authenticateConnector(connector_id, secret);
@@ -173,7 +203,7 @@ export async function POST(req: Request) {
           connectorId: connector_id,
           source,
           batchId: batch_id,
-          records,
+          records: records as any,
           chunkIndex: chunk_index,
           chunkCount: chunk_count,
           syncMode: sync_mode,

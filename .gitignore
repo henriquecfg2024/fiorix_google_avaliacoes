@@ -45,3 +45,9 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# Build artifacts que não devem ser versionados
+chunk_*.js
+
+# Importações temporárias com dados sensíveis
+.codex-import/

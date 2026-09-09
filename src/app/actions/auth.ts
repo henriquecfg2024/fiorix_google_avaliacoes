@@ -31,7 +31,7 @@ export async function handleSignOut() {
 
 export async function updatePassword(formData: FormData) {
   const session = await auth();
-  if (!session?.user?.email) {
+  if (!session?.user?.id || !session?.user?.tenantId) {
     return { error: 'Não autorizado' };
   }
 
@@ -46,8 +46,9 @@ export async function updatePassword(formData: FormData) {
     return { error: 'A nova senha deve ter no mínimo 6 caracteres.' };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email }
+  // Busca por id E tenantId para garantir isolamento multi-tenant
+  const user = await prisma.user.findFirst({
+    where: { id: session.user.id, tenantId: session.user.tenantId }
   });
 
   if (!user) {

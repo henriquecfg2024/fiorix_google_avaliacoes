@@ -3,9 +3,14 @@ import crypto from 'crypto';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
 import PostalMime from 'postal-mime';
+import { requireRole } from '@/lib/auth-helpers';
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export async function POST(req: NextRequest) {
   try {
+    await requireRole('ADMIN', 'RH', 'MASTER');
+
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const directHtml = formData.get('textHtml') as string | null;
@@ -16,6 +21,9 @@ export async function POST(req: NextRequest) {
     let fileBuffer: Buffer | null = null;
 
     if (file) {
+      if (file.size > MAX_FILE_SIZE) {
+        return NextResponse.json({ error: `Arquivo excede o limite de ${MAX_FILE_SIZE / 1024 / 1024}MB.` }, { status: 400 });
+      }
       nomeArquivo = file.name;
       const arrayBuffer = await file.arrayBuffer();
       fileBuffer = Buffer.from(arrayBuffer);
