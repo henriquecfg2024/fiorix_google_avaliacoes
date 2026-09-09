@@ -5,6 +5,7 @@ export type Role = string;
 export function filterNavigationByRole(role: Role = "USER") {
   const isColaborador = role === "COLABORADOR";
   const isRH = role === "RH";
+  const isSubstituto = role === "SUBSTITUTO";
   const isUser = role === "USER";
 
   const filteredGroups: Record<string, any> = {};
@@ -13,11 +14,14 @@ export function filterNavigationByRole(role: Role = "USER") {
     // COLABORADOR: Apenas o seu Espaço Pessoal
     if (isColaborador && key !== "pessoas") continue;
 
-    // RH: Apenas GESTÃO DE RH & ITs e seu Espaço Pessoal
+    // RH: Apenas GESTÃO DE RH e seu Espaço Pessoal (SEM GOVERNANÇA DE ITS)
     if (isRH && key !== "rhGestao" && key !== "pessoas") continue;
 
-    // USER: Não tem acesso a SISTEMA nem a GESTÃO DE RH
-    if (isUser && (key === "sistema" || key === "rhGestao")) continue;
+    // SUBSTITUTO: Apenas GOVERNANÇA DE ITS, OPERACIONAL & BI, GESTÃO & ANÁLISES e Espaço Pessoal (SEM GESTÃO DE RH / FÉRIAS / HOLERITES ALHEIOS)
+    if (isSubstituto && (key === "rhGestao" || key === "sistema")) continue;
+
+    // USER: Não tem acesso a SISTEMA, GESTÃO DE RH nem GOVERNANÇA DE ITS
+    if (isUser && (key === "sistema" || key === "rhGestao" || key === "governancaIts")) continue;
 
     const visibleItems = group.items.filter((item) => {
       if (isColaborador) {
@@ -27,7 +31,11 @@ export function filterNavigationByRole(role: Role = "USER") {
         );
       }
       if (isRH) {
-        // RH tem acesso a todos os itens de rhGestao e pessoas
+        // RH tem acesso aos itens de rhGestao e pessoas
+        return true;
+      }
+      if (isSubstituto) {
+        // Substituto tem acesso pleno a governancaIts, pessoas, operacional e gestao
         return true;
       }
       if (isUser) {
@@ -36,6 +44,7 @@ export function filterNavigationByRole(role: Role = "USER") {
           item.href === "/bi/importacoes" ||
           item.href === "/configuracoes" ||
           item.href === "/gestao/rh/instrucoes-trabalho-monitoramento" ||
+          item.href.startsWith("/administracao") ||
           item.href.startsWith("/sistema") ||
           item.href.startsWith("/configuracoes")
         ) {

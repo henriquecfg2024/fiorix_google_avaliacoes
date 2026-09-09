@@ -141,9 +141,9 @@ export async function getItsPageData() {
   const currentUser = await requireAuth();
   const tenantId = currentUser.tenantId;
 
-  // Colaborador comum deve utilizar exclusivamente /minha-it
-  if (currentUser.role === 'COLABORADOR') {
-    throw new Error('Acesso restrito: Colaboradores devem acessar exclusivamente Minha IT.');
+  // Apenas SUBSTITUTO, ADMIN e MASTER possuem prerrogativa de acessar a Governança Geral de ITs
+  if (!['SUBSTITUTO', 'ADMIN', 'MASTER'].includes(currentUser.role)) {
+    throw new Error('Acesso restrito: Apenas Oficiais Substitutos e Administradores possuem acesso à Governança de ITs.');
   }
 
   // 1. Buscar ITs ativas
@@ -429,7 +429,7 @@ export async function salvarOuAtualizarIt(data: {
   checklist?: string[];
   errosComuns?: string[];
 }) {
-  const currentUser = await requireRole('ADMIN', 'RH', 'MASTER');
+  const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
   const tenantId = currentUser.tenantId;
 
   const snapshotString = JSON.stringify(data);
@@ -597,7 +597,7 @@ export async function responderSolicitacaoCross(
   diasLiberacao: number = 7,
   motivoReprovacao?: string
 ) {
-  const currentUser = await requireRole('ADMIN', 'RH', 'MASTER');
+  const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
 
   if (acao === 'aprovar') {
     await prisma.$queryRawUnsafe(
@@ -660,7 +660,7 @@ export async function atualizarNivelMatriz(
   nivel: number,
   observacao?: string
 ) {
-  const currentUser = await requireRole('ADMIN', 'RH', 'MASTER');
+  const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
 
   await prisma.$queryRawUnsafe(
     `INSERT INTO public.fiorix_matriz_polivalencia (
@@ -687,7 +687,7 @@ export async function atualizarNivelMatriz(
 }
 
 export async function toggleColaboradorTutor(usuarioId: string, novoStatus: boolean) {
-  await requireRole('ADMIN', 'RH', 'MASTER');
+  await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
 
   // Proteção Master: nunca alterar admin@fiorix.com.br
   await prisma.$queryRawUnsafe(
@@ -1149,7 +1149,7 @@ export async function adicionarFaqExcecao(itId: string, pergunta: string, respos
 }
 
 export async function getGovernancaRhData() {
-  const currentUser = await requireRole('ADMIN', 'RH', 'MASTER');
+  const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
   const tenantId = currentUser.tenantId;
 
   // 1. KPIs
@@ -1565,7 +1565,7 @@ export async function getColumnConfig(): Promise<Record<string, string>> {
 }
 
 export async function updateColumnLabel(colunaKey: string, novoLabel: string) {
-  const currentUser = await requireRole('ADMIN', 'RH', 'MASTER');
+  const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
   const tenantId = currentUser.tenantId;
 
   if (!novoLabel.trim()) throw new Error('O nome da coluna não pode ser vazio.');
@@ -1590,7 +1590,7 @@ export async function criarItRapida(data: {
   departamento: string;
   guardiaoId?: string;
 }) {
-  const currentUser = await requireRole('ADMIN', 'RH', 'MASTER');
+  const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
   const tenantId = currentUser.tenantId;
 
   if (!data.codigo.trim() || !data.titulo.trim()) {
@@ -1667,7 +1667,7 @@ export async function criarItRapida(data: {
 }
 
 export async function excluirItGovernanca(itId: string, motivo: string, senhaAdmin: string) {
-  const currentUser = await requireRole('ADMIN', 'RH', 'MASTER');
+  const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
 
   // Validação de senha
   const userRecord = await prisma.user.findUnique({
@@ -1718,7 +1718,7 @@ export async function excluirItGovernanca(itId: string, motivo: string, senhaAdm
 }
 
 export async function adicionarColaboradorCiencia(itId: string, usuarioId: string, versao: string) {
-  const currentUser = await requireRole('ADMIN', 'RH', 'MASTER');
+  const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
   const tenantId = currentUser.tenantId;
 
   await prisma.$queryRawUnsafe(
@@ -1736,7 +1736,7 @@ export async function adicionarColaboradorCiencia(itId: string, usuarioId: strin
 }
 
 export async function removerColaboradorCiencia(itId: string, usuarioId: string, versao: string) {
-  const currentUser = await requireRole('ADMIN', 'RH', 'MASTER');
+  const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
   const tenantId = currentUser.tenantId;
 
   await prisma.$queryRawUnsafe(
@@ -1764,7 +1764,7 @@ export interface ColaboradorCienciaOption {
 }
 
 export async function getColaboradoresParaCiencia(itId: string, versao: string): Promise<ColaboradorCienciaOption[]> {
-  const currentUser = await requireRole('ADMIN', 'RH', 'MASTER');
+  const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
   const tenantId = currentUser.tenantId;
 
   const allUsers = await prisma.$queryRawUnsafe<any[]>(

@@ -17,9 +17,9 @@ export default async function ModuloItsPage() {
     redirect("/login");
   }
 
-  // Colaborador comum não acessa o painel geral da administração
-  if (session.user.role === 'COLABORADOR') {
-    redirect("/minha-it");
+  // Apenas SUBSTITUTO, ADMIN e MASTER acessam a gestão geral de ITs
+  if (session.user.role === 'COLABORADOR' || session.user.role === 'RH' || session.user.role === 'USER') {
+    redirect(session.user.role === 'RH' ? "/sistema/pessoas" : "/minha-it");
   }
 
   const initialData = await getItsPageData();

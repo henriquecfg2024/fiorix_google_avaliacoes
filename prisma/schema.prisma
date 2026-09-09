@@ -12,6 +12,7 @@ datasource db {
 enum Role {
   MASTER
   ADMIN
+  SUBSTITUTO
   USER
   RH
   COLABORADOR

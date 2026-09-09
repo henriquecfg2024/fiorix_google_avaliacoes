@@ -64,7 +64,7 @@ export const navigationGroups = {
     ],
   },
   rhGestao: {
-    label: "GESTÃO DE RH & ITs",
+    label: "GESTÃO DE RH",
     icon: UserCheck,
     items: [
       {
@@ -86,22 +86,28 @@ export const navigationGroups = {
         description: "Criar comunicados e gerenciar ciências",
       },
       {
-        label: "Fiscalização de ITs",
-        href: "/gestao/rh/instrucoes-trabalho-monitoramento",
-        icon: ShieldCheck,
-        description: "Auditoria WORM & Ciências das equipes",
-      },
-      {
-        label: "Catálogo de ITs",
-        href: "/administracao/its",
-        icon: BookOpen,
-        description: "Acervo de Instruções de Trabalho",
-      },
-      {
         label: "Painel Geral de RH",
         href: "/sistema/pessoas",
         icon: Users,
         description: "Quadro de colaboradores e governança",
+      },
+    ],
+  },
+  governancaIts: {
+    label: "GOVERNANÇA DE ITS",
+    icon: BookOpen,
+    items: [
+      {
+        label: "Catálogo de ITs",
+        href: "/administracao/its",
+        icon: BookOpen,
+        description: "Acervo e matriz de Instruções de Trabalho",
+      },
+      {
+        label: "Fiscalização de ITs",
+        href: "/gestao/rh/instrucoes-trabalho-monitoramento",
+        icon: ShieldCheck,
+        description: "Auditoria WORM & Ciências das equipes",
       },
     ],
   },

@@ -47,21 +47,38 @@ export const authConfig = {
           return Response.redirect(new URL('/pessoas', nextUrl));
         }
 
-        // Regras para perfil RH: acesso a /pessoas, /sistema/pessoas, /minha-conta, /gestao, /administracao, /minha-it, /instrucoes-trabalho, /configuracoes/departamentos
+        // Regras para perfil RH: foco exclusivo em Pessoas (comunicados, férias, holerites)
         if (role === 'RH') {
           if (
             nextUrl.pathname.startsWith('/pessoas') ||
             nextUrl.pathname.startsWith('/sistema/pessoas') ||
             nextUrl.pathname === '/minha-conta' ||
             nextUrl.pathname.startsWith('/minha-it') ||
-            nextUrl.pathname.startsWith('/instrucoes-trabalho') ||
-            nextUrl.pathname.startsWith('/gestao') ||
-            nextUrl.pathname.startsWith('/administracao') ||
             nextUrl.pathname.startsWith('/configuracoes/departamentos')
           ) {
             return true;
           }
           return Response.redirect(new URL('/sistema/pessoas', nextUrl));
+        }
+
+        // Regras para perfil SUBSTITUTO: governança de ITs, operacional, BI e espaço pessoal
+        if (role === 'SUBSTITUTO') {
+          if (
+            nextUrl.pathname.startsWith('/pessoas') ||
+            nextUrl.pathname === '/minha-conta' ||
+            nextUrl.pathname.startsWith('/minha-it') ||
+            nextUrl.pathname.startsWith('/instrucoes-trabalho') ||
+            nextUrl.pathname.startsWith('/administracao') ||
+            nextUrl.pathname.startsWith('/gestao') ||
+            nextUrl.pathname.startsWith('/dashboard') ||
+            nextUrl.pathname.startsWith('/bi') ||
+            nextUrl.pathname.startsWith('/avaliacoes') ||
+            nextUrl.pathname.startsWith('/estatisticas') ||
+            nextUrl.pathname.startsWith('/relatorios')
+          ) {
+            return true;
+          }
+          return Response.redirect(new URL('/administracao/its', nextUrl));
         }
 
         // Regras para perfil USER: acesso operacional ao dashboard, bi, avaliacoes, relatorios, pessoas
@@ -84,6 +101,9 @@ export const authConfig = {
         }
         if (role === 'RH') {
           return Response.redirect(new URL('/sistema/pessoas', nextUrl));
+        }
+        if (role === 'SUBSTITUTO') {
+          return Response.redirect(new URL('/administracao/its', nextUrl));
         }
         return Response.redirect(new URL('/dashboard', nextUrl));
       }

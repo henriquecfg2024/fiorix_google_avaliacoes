@@ -76,7 +76,7 @@ const NIVEL_CORES: Record<number, { bg: string; text: string; label: string; des
 
 export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
   const { currentUser } = initialData;
-  const isGestao = ["ADMIN", "RH", "MASTER"].includes(currentUser.role);
+  const isGestao = ["ADMIN", "SUBSTITUTO", "MASTER"].includes(currentUser.role);
 
   // Tabs principais
   const [activeTab, setActiveTab] = useState<"its" | "colaboradores" | "matriz" | "gestao">("its");
@@ -423,7 +423,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
               }`}
             >
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Gerenciamento RH</span>
+              <span>Governança dos Substitutos</span>
             </button>
           )}
         </div>

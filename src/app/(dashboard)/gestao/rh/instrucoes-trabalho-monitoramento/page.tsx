@@ -6,7 +6,7 @@ import { requireRole } from '@/lib/auth-helpers';
 export const dynamic = 'force-dynamic';
 
 export default async function InstrucoesTrabalhoMonitoramentoPage() {
-  const currentUser = await requireRole('ADMIN', 'RH', 'MASTER');
+  const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
   const data = await getGovernancaRhData();
   return <GovernancaRhClient initialData={data} currentUserRole={currentUser.role} />;
 }

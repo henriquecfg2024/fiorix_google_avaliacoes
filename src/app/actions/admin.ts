@@ -208,11 +208,11 @@ export async function resetUserPassword(userId: string, newPassword: string) {
 
 export async function updateUserRole(
   userId: string,
-  newRole: 'COLABORADOR' | 'USER' | 'RH' | 'ADMIN'
+  newRole: 'COLABORADOR' | 'USER' | 'RH' | 'SUBSTITUTO' | 'ADMIN'
 ) {
   const currentUser = await requireRole('ADMIN', 'MASTER');
 
-  const validRoles = ['COLABORADOR', 'USER', 'RH', 'ADMIN'];
+  const validRoles = ['COLABORADOR', 'USER', 'RH', 'SUBSTITUTO', 'ADMIN'];
   if (!validRoles.includes(newRole)) {
     return { error: 'Função inválida fornecida.' };
   }
