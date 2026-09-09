@@ -64,49 +64,6 @@ async function main() {
     console.log(`Tenant ${defaultTenantId} atualizado com slug '7ri-sp'.`);
   }
 
-  // 3. Inserir cartórios de teste/demonstração
-  console.log('3. Criando cartórios adicionais para o SaaS...');
-  await prisma.$executeRawUnsafe(`
-    INSERT INTO public."Tenant" (
-      id, name, slug, cnpj, dominio, cidade, estado, plano, status, "maxUsuarios", "updatedAt"
-    ) VALUES 
-    (
-      'tenant_1ri_campinas_demo',
-      '1º Cartório de Registro de Imóveis de Campinas',
-      '1ri-campinas',
-      '22.222.222/0001-22',
-      '1ricampinas.com.br',
-      'Campinas',
-      'SP',
-      'PRO',
-      'ativo',
-      100,
-      NOW()
-    ),
-    (
-      'tenant_2ri_santos_demo',
-      '2º Cartório de Registro de Imóveis de Santos',
-      '2ri-santos',
-      '33.333.333/0001-33',
-      '2risantos.com.br',
-      'Santos',
-      'SP',
-      'BASIC',
-      'trial',
-      50,
-      NOW()
-    )
-    ON CONFLICT (id) DO UPDATE SET
-      name = EXCLUDED.name,
-      slug = EXCLUDED.slug,
-      cnpj = EXCLUDED.cnpj,
-      dominio = EXCLUDED.dominio,
-      cidade = EXCLUDED.cidade,
-      estado = EXCLUDED.estado,
-      plano = EXCLUDED.plano,
-      status = EXCLUDED.status;
-  `);
-
   // 4. Adicionar tenant_id às 28 tabelas fiorix_* e associar ao 7º RI
   console.log('4. Verificando e adicionando tenant_id nas tabelas fiorix_*...');
   const tabelas = [
