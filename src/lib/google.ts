@@ -337,7 +337,7 @@ export async function syncReviews(tenantId: string, triggeredBy?: string) {
       const markedDeleted = await prisma.review.updateMany({
         where: {
           tenantId,
-          googleId: { notIn: [...activeGoogleIds], not: null },
+          googleId: { notIn: Array.from(activeGoogleIds), not: null },
           deletedFromGoogle: false,
         },
         data: { deletedFromGoogle: true },
@@ -348,7 +348,7 @@ export async function syncReviews(tenantId: string, triggeredBy?: string) {
       const markedRestored = await prisma.review.updateMany({
         where: {
           tenantId,
-          googleId: { in: [...activeGoogleIds] },
+          googleId: { in: Array.from(activeGoogleIds) },
           deletedFromGoogle: true,
         },
         data: { deletedFromGoogle: false },

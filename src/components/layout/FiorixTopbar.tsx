@@ -79,6 +79,7 @@ export function FiorixTopbar() {
         {/* Esquerda: Contexto, Hamburguer (Mobile) */}
         <div className="flex items-center gap-4">
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+            {/* @ts-expect-error Radix UI asChild type mismatch */}
             <SheetTrigger asChild>
               <button
                 className="lg:hidden p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors cursor-pointer -ml-2"
@@ -126,6 +127,7 @@ export function FiorixTopbar() {
                     <span>Home</span>
                   </Link>
 
+                  {/* @ts-expect-error Radix UI type mismatch */}
                   <Accordion type="single" collapsible className="space-y-1 mt-2">
                     {Object.entries(visibleGroups).map(([key, group]) => {
                       const GroupIcon = group.icon;

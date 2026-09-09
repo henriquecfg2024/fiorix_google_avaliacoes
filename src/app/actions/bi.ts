@@ -165,7 +165,7 @@ export async function insertBiBatch(importId: string, rows: BiRowInput[]) {
       if (!cleaned) return null;
       try {
         const val = BigInt(cleaned);
-        return val === 0n ? null : val;
+        return val === BigInt(0) ? null : val;
       } catch {
         return null;
       }

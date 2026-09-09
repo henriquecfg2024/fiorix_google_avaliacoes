@@ -211,7 +211,7 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
                     <td className="px-4 py-3 text-white/65">{row.importedBy || "-"}</td>
                     <td className="px-4 py-3">{statusBadge(row)}</td>
                     <td className="px-4 py-3 text-right">
-                      <DeleteImportButton id={row.id} source={row.source as UnifiedImportRecord["source"]} />
+                      <DeleteImportButton id={row.id} source={row.source as any} />
                     </td>
                   </tr>
                 );

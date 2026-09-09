@@ -50,8 +50,8 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
         bVal = String(bVal || "").toLowerCase();
       }
 
-      if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
-      if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+      if ((aVal as any) < (bVal as any)) return sortDirection === "asc" ? -1 : 1;
+      if ((aVal as any) > (bVal as any)) return sortDirection === "asc" ? 1 : -1;
       return 0;
     });
 

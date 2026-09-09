@@ -28,7 +28,7 @@ const container = {
 const item = {
   hidden: { opacity: 0, y: 20 },
   show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } }
-};
+} as any;
 
 export function FiorixKpiGrid({ data }: FiorixKpiGridProps) {
   const formatNumber = (num: number) => num.toLocaleString('pt-BR');

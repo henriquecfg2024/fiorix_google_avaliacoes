@@ -923,7 +923,7 @@ export async function getItDetailData(idOrCodigo: string): Promise<ITDetailData 
     currentUser: {
       id: currentUser.id,
       name: currentUser.name || 'Colaborador',
-      email: currentUser.email,
+      email: currentUser.email as string,
       role: currentUser.role,
       departamento: (currentUser as any).departamento || it.departamento,
     },

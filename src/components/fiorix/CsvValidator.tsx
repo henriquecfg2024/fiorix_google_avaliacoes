@@ -455,7 +455,7 @@ export function validarCSV(
       const percAtrasoVal =
         noPrazo + atrasados > 0 ? (atrasados / (noPrazo + atrasados)) * 100 : 0;
 
-      const naturezas = [...new Set(rowsLimpos.map(r => r.tipo).filter(Boolean))].slice(0, 3);
+      const naturezas = Array.from(new Set(rowsLimpos.map(r => r.tipo).filter(Boolean))).slice(0, 3);
 
       const stats: CsvStats = {
         fileName: file.name,

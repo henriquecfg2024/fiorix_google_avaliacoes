@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
         tipoDetectado = 'email';
         const parser = new PostalMime();
         const email = await parser.parse(fileBuffer);
-        textoExtraido = `Assunto: ${email.subject || ''}\nDe: ${email.from?.text || ''}\nData: ${email.date || ''}\n\n${email.text || email.html || ''}`;
+        textoExtraido = `Assunto: ${email.subject || ''}\nDe: ${(email.from as any)?.text || (email.from as any)?.address || ''}\nData: ${email.date || ''}\n\n${email.text || email.html || ''}`;
       } else if (['pdf'].includes(ext)) {
         tipoDetectado = 'pdf';
         // Extração de texto básico ou texto plano

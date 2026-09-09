@@ -237,7 +237,7 @@ export async function GET(request: Request) {
           diasD4D5: null,
           diasD5D8: null,
           diasD8D9: null,
-        },
+        } as any,
         {
           protocolo: 629999,
           natureza: "Escritura de Compra e Venda",
@@ -265,7 +265,7 @@ export async function GET(request: Request) {
           diasD4D5: 3,
           diasD5D8: 0,
           diasD8D9: 0,
-        }
+        } as any
       ];
     }
 

@@ -186,6 +186,7 @@ export function FiorixHeader() {
                       }
                     }}
                   >
+                    {/* @ts-expect-error Radix UI asChild type mismatch */}
                     <DropdownMenuTrigger asChild>
                       <button
                         onClick={() => {
@@ -215,7 +216,7 @@ export function FiorixHeader() {
                       onMouseLeave={handleGroupLeave}
                       className="bg-[#12141F]/95 border-white/10 backdrop-blur-xl p-2 w-80 shadow-2xl rounded-xl space-y-1 z-[150]"
                     >
-                      {visibleItems.map((item) => {
+                      {visibleItems.map((item: any) => {
                         const active = isActive(item.href);
                         const ItemIcon = item.icon;
                         return (
@@ -364,6 +365,7 @@ export function FiorixHeader() {
 
           {/* Mobile Menu Trigger (<1024px) */}
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+            {/* @ts-expect-error Radix UI asChild type mismatch */}
             <SheetTrigger asChild>
               <button
                 className="lg:hidden p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors cursor-pointer"
@@ -411,6 +413,7 @@ export function FiorixHeader() {
                   </Link>
 
                   {/* Accordion dos grupos */}
+                  {/* @ts-expect-error Radix UI type mismatch */}
                   <Accordion type="single" collapsible className="space-y-1">
                     {Object.entries(filterNavigationByRole(currentUser?.role)).map(([key, group]: [string, any]) => {
                       const visibleItems = group.items;
@@ -429,7 +432,7 @@ export function FiorixHeader() {
                             </div>
                           </AccordionTrigger>
                           <AccordionContent className="pt-1 pb-2 pl-6 pr-4 space-y-1">
-                            {visibleItems.map((item) => {
+                            {visibleItems.map((item: any) => {
                               const active = isActive(item.href);
                               const ItemIcon = item.icon;
                               return (

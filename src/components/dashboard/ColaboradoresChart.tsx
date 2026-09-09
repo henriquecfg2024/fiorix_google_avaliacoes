@@ -71,11 +71,11 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
 
   const CustomTooltip = ({ active, payload }: ColaboradorTooltipProps) => {
     if (active && payload && payload.length) {
-      const data = payload[0].payload;
+      const data = payload[0]?.payload;
       return (
         <div className="rounded-xl border border-white/10 bg-[#0B1020]/95 p-2.5 text-xs text-white shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-          <p className="font-bold text-slate-200">{data.nome}</p>
-          <p className="mt-0.5 font-semibold text-emerald-300">👏 {data.elogios} elogios registrados</p>
+          <p className="font-bold text-slate-200">{data?.nome}</p>
+          <p className="mt-0.5 font-semibold text-emerald-300">👏 {data?.elogios} elogios registrados</p>
         </div>
       );
     }

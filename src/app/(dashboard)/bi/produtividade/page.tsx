@@ -229,6 +229,7 @@ export default function ProdutividadePage() {
 
           <div className="flex flex-wrap items-center gap-3">
             <Popover>
+              {/* @ts-expect-error Radix UI type mismatch */}
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"

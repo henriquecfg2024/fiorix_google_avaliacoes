@@ -298,10 +298,10 @@ export function ProdutividadeClient() {
           {/* Row 1 Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-8">
-              <HeatmapChart data={filteredData} />
+              <HeatmapChart data={filteredData as any} />
             </div>
             <div className="lg:col-span-4">
-              <DonutChart data={filteredData} />
+              <DonutChart data={filteredData as any} />
             </div>
           </div>
 

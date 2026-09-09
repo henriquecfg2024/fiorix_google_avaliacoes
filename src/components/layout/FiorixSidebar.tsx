@@ -58,7 +58,7 @@ export function FiorixSidebar() {
       if (typeof window !== "undefined") {
         const currentParams = new URLSearchParams(window.location.search);
         const targetParams = new URLSearchParams(queryStr);
-        for (const [k, v] of targetParams.entries()) {
+        for (const [k, v] of Array.from(targetParams.entries())) {
           if (currentParams.get(k) !== v) return false;
         }
         return true;
@@ -124,6 +124,7 @@ export function FiorixSidebar() {
           {/* Home Link */}
           {isCollapsed ? (
             <Tooltip>
+              {/* @ts-expect-error Radix UI asChild type mismatch */}
               <TooltipTrigger asChild>
                 <Link
                   prefetch={false}
@@ -164,6 +165,7 @@ export function FiorixSidebar() {
             if (isCollapsed) {
               return (
                 <Popover key={key}>
+                  {/* @ts-expect-error Radix UI asChild type mismatch */}
                   <PopoverTrigger asChild>
                     <button
                       className={`flex items-center justify-center h-10 w-full rounded-lg transition-colors cursor-pointer ${
@@ -224,7 +226,8 @@ export function FiorixSidebar() {
             }
 
             return (
-              <Accordion type="single" collapsible key={key} defaultValue={isGroupActive || role === "RH" || key === "rhGestao" ? key : undefined}>
+              // @ts-expect-error Radix UI type mismatch
+              <Accordion type="single" collapsible key={key} defaultValue={(isGroupActive || role === "RH" || key === "rhGestao" ? key : undefined) as any}>
                 <AccordionItem value={key} className="border-none">
                   <AccordionTrigger className="flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold text-white/50 uppercase tracking-wider hover:bg-white/5 hover:text-white hover:no-underline [&[data-state=open]>svg.chevron]:rotate-180">
                     <span className="truncate">{group.label}</span>

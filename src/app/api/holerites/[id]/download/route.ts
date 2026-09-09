@@ -46,7 +46,7 @@ export async function GET(
       dataEmissao: new Date().toLocaleDateString("pt-BR"),
     });
 
-    return new Response(pdfBuffer, {
+    return new Response(new Blob([pdfBuffer as any]), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",

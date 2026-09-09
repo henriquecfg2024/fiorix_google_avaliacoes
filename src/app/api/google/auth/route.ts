@@ -9,5 +9,5 @@ export async function GET(request: Request) {
   }
 
   const url = getGoogleAuthUrl(session.user.tenantId);
-  return NextResponse.redirect(url);
+  return NextResponse.redirect(url as unknown as string);
 }

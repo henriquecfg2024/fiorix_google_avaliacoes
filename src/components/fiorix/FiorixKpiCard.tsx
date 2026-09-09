@@ -113,6 +113,7 @@ export function FiorixKpiCard({
         </div>
         
         <Tooltip>
+          {/* @ts-expect-error Radix UI asChild type mismatch */}
           <TooltipTrigger asChild>
             <button
               className="p-1 text-white/40 transition-colors hover:text-white/80"

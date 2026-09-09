@@ -29,9 +29,9 @@ export function KpiCards({ data }: KpiCardsProps) {
 
     const filaGroups: { [key: string]: { count: number; day: string; time: string } } = {};
     data.forEach((row) => {
-      const key = `${row.DIA_SEMANA} ${row.HORA}`;
+      const key = `${row.DIA_SEMANA || ''} ${row.HORA || ''}`;
       if (!filaGroups[key]) {
-        filaGroups[key] = { count: 0, day: row.DIA_SEMANA, time: row.HORA };
+        filaGroups[key] = { count: 0, day: row.DIA_SEMANA || '', time: row.HORA || '' };
       }
       filaGroups[key].count += row.QUANTIDADE || 0;
     });
@@ -65,7 +65,7 @@ export function KpiCards({ data }: KpiCardsProps) {
 
     const userCounts: { [key: string]: number } = {};
     data.forEach((row) => {
-      userCounts[row.NOME] = (userCounts[row.NOME] || 0) + (row.QUANTIDADE || 0);
+      userCounts[row.NOME || ''] = (userCounts[row.NOME || ''] || 0) + (row.QUANTIDADE || 0);
     });
 
     let topUser = "";
@@ -82,7 +82,7 @@ export function KpiCards({ data }: KpiCardsProps) {
 
     const tipoCounts: { [key: string]: number } = {};
     data.forEach((row) => {
-      tipoCounts[row.TIPO_PEDIDO] = (tipoCounts[row.TIPO_PEDIDO] || 0) + (row.QUANTIDADE || 0);
+      tipoCounts[row.TIPO_PEDIDO || ''] = (tipoCounts[row.TIPO_PEDIDO || ''] || 0) + (row.QUANTIDADE || 0);
     });
 
     let topTipo = "";

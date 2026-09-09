@@ -479,10 +479,10 @@ export function UserListTable({
                   <td className="p-3 pr-5 text-right sm:p-4 whitespace-nowrap">
                     {isMaster ? (
                       <span
-                        title="Usuário MASTER protegido - não pode ser alterado"
-                        className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-bold text-amber-300 inline-flex items-center gap-1"
+                        title="Usuário MASTER protegido - não pode ser alterado - auth.users"
+                        className="rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1 text-[11px] font-bold text-amber-300 inline-flex items-center gap-1.5 shadow-xs shadow-amber-500/20"
                       >
-                        <Lock className="w-3 h-3" /> Intocável
+                        <Lock className="w-3.5 h-3.5 text-amber-300" /> Usuário MASTER protegido
                       </span>
                     ) : (
                       <div className="flex items-center justify-end gap-1.5">

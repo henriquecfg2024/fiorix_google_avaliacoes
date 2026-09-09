@@ -48,7 +48,7 @@ export async function getComunicadosRH(): Promise<ComunicadoItem[]> {
     where: {
       tenantId: user.tenantId,
       active: true,
-    },
+    } as any,
   });
 
   return comunicados.map((c) => {
@@ -62,8 +62,8 @@ export async function getComunicadosRH(): Promise<ComunicadoItem[]> {
         })
       : '';
 
-    const dataAltFmt = c.dataUltimaAlteracao
-      ? new Date(c.dataUltimaAlteracao).toLocaleString('pt-BR', {
+    const dataAltFmt = (c as any).dataUltimaAlteracao
+      ? new Date((c as any).dataUltimaAlteracao).toLocaleString('pt-BR', {
           day: '2-digit',
           month: '2-digit',
           year: 'numeric',
@@ -89,7 +89,7 @@ export async function getComunicadosRH(): Promise<ComunicadoItem[]> {
       status: (c.status as any) || 'PUBLICADO',
       conteudo: c.conteudo,
       conteudoHash: c.conteudoHash,
-      ultimaAlteracaoPor: c.ultimaAlteracaoPor || undefined,
+      ultimaAlteracaoPor: (c as any).ultimaAlteracaoPor || undefined,
       dataUltimaAlteracao: dataAltFmt,
     };
   });
@@ -115,7 +115,7 @@ export async function deleteComunicadoRH(id: string, motivo?: string) {
       motivoExclusao: motivo || 'Excluído via Painel RH',
       dataUltimaAlteracao: new Date(),
       ultimaAlteracaoPor: user.name || 'RH',
-    },
+    } as any,
   });
 
   await recordAuditLog({
@@ -199,7 +199,7 @@ export async function editarComunicadoRH(
       prioridade: data.prioridade || 'NORMAL',
       dataUltimaAlteracao: new Date(),
       ultimaAlteracaoPor: user.name || 'RH',
-    },
+    } as any,
   });
 
   await recordAuditLog({

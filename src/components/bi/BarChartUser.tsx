@@ -38,7 +38,7 @@ export function BarChartUser({ data }: BarChartUserProps) {
       return (
         <div className="rounded-xl border border-white/10 bg-[#0B1020]/95 p-3 text-xs text-white shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
           <p className="font-semibold text-white/80">{item.name}</p>
-          <p className="mt-1 font-bold text-cyan-300">{item.value.toLocaleString("pt-BR")} autenticações</p>
+          <p className="mt-1 font-bold text-cyan-300">{(item.value ?? 0).toLocaleString("pt-BR")} autenticações</p>
         </div>
       );
     }
