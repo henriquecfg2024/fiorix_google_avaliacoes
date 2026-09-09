@@ -46,10 +46,21 @@ enum SyncStatus {
 // ── MULTI-TENANT ──────────────────────────────────────────────────────
 
 model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String   @id @default(cuid())
+  name             String
+  slug             String?  @unique
+  cnpj             String?  @unique
+  dominio          String?  @unique
+  cidade           String?
+  estado           String?
+  plano            String   @default("PRO")
+  status           String   @default("ativo")
+  maxUsuarios      Int      @default(100)
+  dpoEmail         String?
+  responsavelNome  String?
+  responsavelEmail String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   users             User[]
   colaboradores     Colaborador[]

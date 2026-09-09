@@ -20,6 +20,7 @@ export const authConfig = {
                             nextUrl.pathname.startsWith('/minha-it') ||
                             nextUrl.pathname.startsWith('/minha-conta') ||
                             nextUrl.pathname.startsWith('/gestao') ||
+                            nextUrl.pathname.startsWith('/master') ||
                             nextUrl.pathname.startsWith('/instrucoes-trabalho');
                             
       if (isOnDashboard) {
@@ -29,7 +30,11 @@ export const authConfig = {
         // MASTER tem acesso irrestrito
         if (role === 'MASTER') return true;
 
-        // MASTER apenas para /configuracoes/cartorios
+        // MASTER apenas para /master e /configuracoes/cartorios
+        if (nextUrl.pathname.startsWith('/master') && role !== 'MASTER') {
+          return Response.redirect(new URL('/dashboard', nextUrl));
+        }
+
         if (nextUrl.pathname.startsWith('/configuracoes/cartorios') && role !== 'MASTER') {
           return Response.redirect(new URL('/dashboard', nextUrl));
         }

@@ -11,6 +11,9 @@ export function filterNavigationByRole(role: Role = "USER") {
   const filteredGroups: Record<string, any> = {};
 
   for (const [key, group] of Object.entries(navigationGroups)) {
+    // MASTER: Apenas o MASTER vê o grupo 'master'
+    if (key === "master" && role !== "MASTER") continue;
+
     // COLABORADOR: Apenas o seu Espaço Pessoal
     if (isColaborador && key !== "pessoas") continue;
 

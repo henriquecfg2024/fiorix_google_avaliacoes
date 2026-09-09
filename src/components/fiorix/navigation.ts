@@ -15,6 +15,8 @@ import {
   UserCheck,
   BookOpen,
   ShieldCheck,
+  Crown,
+  Building2,
 } from "lucide-react";
 
 export const navigationGroups = {
@@ -164,6 +166,18 @@ export const navigationGroups = {
         description: "4 falhas ontem",
       },
       { label: "Configurações", href: "/configuracoes", icon: Settings2 },
+    ],
+  },
+  master: {
+    label: "MASTER SAAS",
+    icon: Crown,
+    items: [
+      {
+        label: "Cartórios (Tenants)",
+        href: "/master/tenants",
+        icon: Building2,
+        description: "Gestão multi-tenant da plataforma",
+      },
     ],
   },
 };

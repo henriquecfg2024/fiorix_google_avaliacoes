@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Mail, Lock, LogIn, ShieldCheck, Eye, EyeOff, Loader2, Smartphone, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, LogIn, ShieldCheck, Eye, EyeOff, Loader2, Smartphone, ArrowLeft, Building2, Crown } from 'lucide-react';
+import { getActiveTenants, type ActiveTenantItem } from '@/app/actions/tenants';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -10,6 +11,10 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Multi-Tenant State
+  const [tenants, setTenants] = useState<ActiveTenantItem[]>([]);
+  const [selectedTenantId, setSelectedTenantId] = useState<string>('');
   
   // 2FA State
   const [step, setStep] = useState<'credentials' | 'totp'>('credentials');
@@ -17,6 +22,18 @@ export default function LoginPage() {
   const totpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
+    // Carrega cartórios ativos para o seletor
+    getActiveTenants().then((items) => {
+      setTenants(items);
+      const savedTenantId = localStorage.getItem('fiorix_selected_tenant');
+      if (savedTenantId && items.some((t) => t.id === savedTenantId)) {
+        setSelectedTenantId(savedTenantId);
+      } else if (items.length > 0) {
+        const defaultTenant = items.find((t) => t.slug === '7ri-sp') || items[0];
+        setSelectedTenantId(defaultTenant.id);
+      }
+    });
+
     const savedEmail = localStorage.getItem('fiorix_remember_email');
     if (savedEmail) {
       setEmail(savedEmail);
@@ -139,6 +156,14 @@ export default function LoginPage() {
     }
   }
 
+  const isMaster = email.trim().toLowerCase() === 'admin@fiorix.com.br';
+  const selectedTenant = tenants.find((t) => t.id === selectedTenantId);
+  const emailPlaceholder = isMaster
+    ? 'admin@fiorix.com.br'
+    : selectedTenant?.dominio
+    ? `seu.nome@${selectedTenant.dominio}`
+    : 'seu.nome@cartorio.com.br';
+
   return (
     <div className="login-shell">
       {/* Luz ambiente / Ambient Glows */}
@@ -168,6 +193,42 @@ export default function LoginPage() {
 
           {step === 'credentials' ? (
             <>
+              {isMaster ? (
+                <div className="master-badge-box">
+                  <div className="master-badge-left">
+                    <Crown className="master-crown-icon" />
+                    <div>
+                      <div className="master-badge-title">Acesso MASTER Plataforma</div>
+                      <div className="master-badge-desc">Gestão multi-cartórios & infraestrutura</div>
+                    </div>
+                  </div>
+                  <span className="master-badge-tag">MASTER</span>
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label htmlFor="tenant">Selecione seu Cartório</label>
+                  <div className="input-wrap">
+                    <Building2 className="input-icon" />
+                    <select
+                      id="tenant"
+                      value={selectedTenantId}
+                      onChange={(e) => {
+                        setSelectedTenantId(e.target.value);
+                        localStorage.setItem('fiorix_selected_tenant', e.target.value);
+                      }}
+                      className="tenant-select"
+                      disabled={isLoading}
+                    >
+                      {tenants.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} {t.cnpj ? `(${t.cnpj})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
               <div className="form-group">
                 <label htmlFor="email">E-mail Corporativo</label>
                 <div className="input-wrap">
@@ -177,7 +238,7 @@ export default function LoginPage() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="seu.nome@7risp.com.br"
+                    placeholder={emailPlaceholder}
                     autoComplete="username"
                     inputMode="email"
                     required
@@ -313,7 +374,12 @@ export default function LoginPage() {
 
       {/* Rodapé Institucional Seguro */}
       <footer className="login-footer">
-        © 2026 FIORIX • Sistema de Gestão Cartorária
+        <span>© 2026 FIORIX • Sistema de Gestão Cartorária</span>
+        {selectedTenant && !isMaster && (
+          <span className="footer-tenant-pill">
+            • {selectedTenant.name}
+          </span>
+        )}
       </footer>
 
       <style jsx>{`
@@ -520,6 +586,94 @@ export default function LoginPage() {
           border-color: #7c3aed;
           box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
           background: #232332;
+        }
+
+        .tenant-select {
+          width: 100%;
+          padding: 13px 16px 13px 44px;
+          border-radius: 12px;
+          border: 1px solid #2a2a3a;
+          background: #1e1e2a;
+          font-size: 13.5px;
+          font-weight: 500;
+          color: #ffffff;
+          outline: none;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 14px center;
+        }
+
+        .tenant-select:hover {
+          border-color: #3b3b4f;
+        }
+
+        .tenant-select:focus {
+          border-color: #7c3aed;
+          box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+          background-color: #232332;
+        }
+
+        .tenant-select option {
+          background: #1e1e2a;
+          color: #ffffff;
+          padding: 8px;
+        }
+
+        /* Master Badge */
+        .master-badge-box {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px 14px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(217, 119, 6, 0.05) 100%);
+          border: 1px solid rgba(245, 158, 11, 0.35);
+          box-shadow: 0 4px 14px rgba(245, 158, 11, 0.1);
+        }
+
+        .master-badge-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .master-crown-icon {
+          width: 20px;
+          height: 20px;
+          color: #fbbf24;
+          filter: drop-shadow(0 2px 4px rgba(245, 158, 11, 0.4));
+        }
+
+        .master-badge-title {
+          font-size: 13px;
+          font-weight: 700;
+          color: #fef3c7;
+          letter-spacing: -0.01em;
+        }
+
+        .master-badge-desc {
+          font-size: 11px;
+          color: #d97706;
+          font-weight: 500;
+        }
+
+        .master-badge-tag {
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 0.05em;
+          padding: 2px 8px;
+          border-radius: 6px;
+          background: rgba(245, 158, 11, 0.2);
+          color: #fbbf24;
+          border: 1px solid rgba(245, 158, 11, 0.4);
+        }
+
+        .footer-tenant-pill {
+          color: #a78bfa;
+          font-weight: 500;
         }
 
         .input-wrap:focus-within .input-icon {
