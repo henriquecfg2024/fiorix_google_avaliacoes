@@ -16,12 +16,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { createClient } from '@supabase/supabase-js';
-
-// Cliente Supabase para upload direto do navegador (bypassa limite do Vercel de ~4.5MB)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '';
-const supabaseClient = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+import { getITUploadSignedUrl } from '@/app/actions/its';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
@@ -84,32 +79,25 @@ export function UniversalITUploader({ onParseSuccess, onCancel }: UniversalITUpl
         else if (['jpg', 'jpeg', 'png', 'webp', 'heic'].includes(ext)) tipoDetectado = 'imagem-fluxograma';
         else tipoDetectado = ext || 'texto';
 
-        // 3. Upload direto para Supabase Storage (bypassa limite Vercel)
+        // 3. Upload direto para Supabase Storage via URL assinada (bypassa limite Vercel e não precisa de env vars no cliente)
+        setStatusMessage('Autorizando armazenamento seguro...');
+        const { signedUrl, publicUrl } = await getITUploadSignedUrl(nomeArquivo, file.type);
+
         setStatusMessage('Enviando documento para armazenamento seguro...');
-        if (supabaseClient) {
-          const timestamp = Date.now();
-          const safeFileName = nomeArquivo.replace(/[^a-zA-Z0-9._-]/g, '_');
-          const storagePath = `uploads/${timestamp}_${safeFileName}`;
+        const uploadRes = await fetch(signedUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': file.type || 'application/octet-stream',
+          },
+          body: file,
+        });
 
-          const { error: uploadError } = await supabaseClient.storage
-            .from('it-documentos')
-            .upload(storagePath, arrayBuffer, {
-              contentType: file.type || 'application/octet-stream',
-              upsert: true,
-            });
-
-          if (uploadError) {
-            console.warn('Aviso: Falha no upload para Storage:', uploadError.message);
-            toast.warning('Upload do documento falhou, mas o processamento continua.');
-          } else {
-            const { data: urlData } = supabaseClient.storage
-              .from('it-documentos')
-              .getPublicUrl(storagePath);
-            arquivoOriginalUrl = urlData?.publicUrl || undefined;
-          }
-        } else {
-          console.warn('Supabase client não configurado para upload direto.');
+        if (!uploadRes.ok) {
+          const errBody = await uploadRes.text().catch(() => '');
+          throw new Error(`Falha no upload do arquivo (${uploadRes.status}): ${errBody || 'Erro no envio'}`);
         }
+
+        arquivoOriginalUrl = publicUrl;
       } else if (textHtml) {
         tipoDetectado = 'email-arraste-direto';
         nomeArquivo = 'Email_Arrastado.html';

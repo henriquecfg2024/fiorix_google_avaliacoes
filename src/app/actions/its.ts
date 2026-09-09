@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { revalidatePath } from 'next/cache';
 import { recordAuditLog } from '@/lib/audit';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export interface ITItem {
   id: string;
@@ -958,6 +959,33 @@ export async function registrarCienciaIt(itId: string, versao: string) {
   revalidatePath(`/instrucoes-trabalho/${itId}`);
   revalidatePath('/gestao/rh/instrucoes-trabalho-monitoramento');
   return { success: true };
+}
+
+export async function getITUploadSignedUrl(fileName: string, contentType?: string) {
+  const currentUser = await requireAuth();
+  const timestamp = Date.now();
+  const safeFileName = (fileName || 'documento').replace(/[^a-zA-Z0-9._-]/g, '_');
+  const tenantFolder = currentUser.tenantId || 'global';
+  const storagePath = `uploads/${tenantFolder}_${timestamp}_${safeFileName}`;
+
+  const { data, error } = await supabaseAdmin.storage
+    .from('it-documentos')
+    .createSignedUploadUrl(storagePath);
+
+  if (error || !data?.signedUrl) {
+    console.error('Erro ao gerar Signed URL no Supabase:', error);
+    throw new Error(`Falha ao autorizar upload no armazenamento: ${error?.message || 'Erro desconhecido'}`);
+  }
+
+  const { data: publicUrlData } = supabaseAdmin.storage
+    .from('it-documentos')
+    .getPublicUrl(storagePath);
+
+  return {
+    signedUrl: data.signedUrl,
+    publicUrl: publicUrlData.publicUrl,
+    storagePath,
+  };
 }
 
 export interface SalvarNovaVersaoParams {

@@ -18,7 +18,7 @@ export function generateTotpUri(email: string, secret: string): string {
     issuer: ISSUER,
     label: email,
     secret,
-    algorithm: 'SHA1',
+    algorithm: 'sha1',
     digits: 6,
     period: 30,
   });
