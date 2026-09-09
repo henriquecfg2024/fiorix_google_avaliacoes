@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Briefcase, Calendar, Clock, AlertTriangle, ShieldCheck, FileText, CheckCircle2, Lock } from "lucide-react";
 import { FeriasTimeline } from "@/components/ferias/FeriasTimeline";
@@ -13,7 +13,23 @@ interface FeriasClientProps {
 }
 
 export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: FeriasClientProps) {
+  const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<"minhas" | "equipe">("minhas");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-[#070A12] text-white p-8">
+        <div className="mx-auto max-w-[1600px] space-y-6">
+          <div className="h-8 w-48 bg-white/5 rounded-xl animate-pulse" />
+          <div className="h-64 bg-[#0B1020]/72 rounded-[28px] border border-white/8 animate-pulse" />
+        </div>
+      </div>
+    );
+  }
 
   const isManager = userRole === "ADMIN" || userRole === "RH" || userRole === "MASTER" || userRole === "GESTOR";
 

@@ -157,25 +157,34 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
   const depto = String(itRow.departamento || 'Atendimento');
 
   // 5. Garante ciência automática imediata para o responsável técnico se ainda não tiver registrado
-  await prisma.$executeRawUnsafe(`
-    INSERT INTO public.fiorix_its_ciencias (
-      tenant_id, it_id, usuario_id, versao, status, ciente_em, created_at
-    )
-    VALUES ($1, $2::uuid, $3, $4, 'ciente', NOW(), NOW())
-    ON CONFLICT (it_id, usuario_id, versao) DO NOTHING
-  `, currentUser.tenantId || 'global', itId, userId, versao);
+  try {
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO public.fiorix_its_ciencias (
+        tenant_id, it_id, usuario_id, versao, status, ciente_em, created_at
+      )
+      VALUES ($1, $2::uuid, $3, $4, 'ciente', NOW(), NOW())
+      ON CONFLICT (tenant_id, it_id, usuario_id, versao) DO NOTHING
+    `, currentUser.tenantId || 'global', itId, userId, versao);
+  } catch (err) {
+    console.warn('Aviso ao registrar ciência automática do responsável:', err);
+  }
 
   // Busca a data/hora da ciência do responsável
-  const respCienciaRows: any[] = await prisma.$queryRawUnsafe(`
-    SELECT ciente_em 
-    FROM public.fiorix_its_ciencias 
-    WHERE it_id = $1::uuid AND usuario_id = $2 AND versao = $3
-    LIMIT 1
-  `, itId, userId, versao);
+  let responsavelCienteEm = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  try {
+    const respCienciaRows: any[] = await prisma.$queryRawUnsafe(`
+      SELECT ciente_em 
+      FROM public.fiorix_its_ciencias 
+      WHERE it_id = $1::uuid AND usuario_id = $2 AND versao = $3
+      LIMIT 1
+    `, itId, userId, versao);
 
-  const responsavelCienteEm = respCienciaRows[0]?.ciente_em
-    ? new Date(respCienciaRows[0].ciente_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
-    : new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    if (respCienciaRows[0]?.ciente_em) {
+      responsavelCienteEm = new Date(respCienciaRows[0].ciente_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    }
+  } catch (err) {
+    console.warn('Aviso ao buscar data da ciência do responsável:', err);
+  }
 
   // 6. Busca colaboradores do setor e verifica ciências da equipe
   const colabs: any[] = await prisma.$queryRawUnsafe(`
@@ -389,15 +398,19 @@ export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
   );
 
   // 4. Registra ciência automática imediata para o próprio Responsável Técnico na nova versão
-  await prisma.$executeRawUnsafe(`
-    INSERT INTO public.fiorix_its_ciencias (
-      tenant_id, it_id, usuario_id, versao, status, ciente_em, created_at
-    )
-    VALUES ($1, $2::uuid, $3, $4, 'ciente', NOW(), NOW())
-    ON CONFLICT (it_id, usuario_id, versao) DO UPDATE SET
-      status = 'ciente',
-      ciente_em = NOW();
-  `, tenantId, params.itId, userId, params.novaVersao);
+  try {
+    await prisma.$executeRawUnsafe(`
+      INSERT INTO public.fiorix_its_ciencias (
+        tenant_id, it_id, usuario_id, versao, status, ciente_em, created_at
+      )
+      VALUES ($1, $2::uuid, $3, $4, 'ciente', NOW(), NOW())
+      ON CONFLICT (tenant_id, it_id, usuario_id, versao) DO UPDATE SET
+        status = 'ciente',
+        ciente_em = NOW();
+    `, tenantId, params.itId, userId, params.novaVersao);
+  } catch (err) {
+    console.warn('Aviso ao registrar ciência automática do responsável na nova versão:', err);
+  }
 
   revalidatePath('/minha-it');
   revalidatePath(`/minha-it/${params.codigo}`);
