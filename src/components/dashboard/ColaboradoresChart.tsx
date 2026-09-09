@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 
 export interface ColaboradorRankData {
@@ -20,7 +20,12 @@ interface ColaboradoresChartProps {
 }
 
 export function ColaboradoresChart({ monthData, quarterData, totalData }: ColaboradoresChartProps) {
+  const [isMounted, setIsMounted] = useState(false);
   const [period, setPeriod] = useState<'month' | 'quarter' | 'total'>('month');
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const defaultMonth: ColaboradorRankData[] = [
     { nome: 'Lucas', elogios: 8 },
@@ -144,27 +149,33 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
         })}
       </div>
 
-      <div className="h-[220px] w-full pt-2">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart layout="vertical" data={chartData} margin={{ top: 0, right: 20, left: 10, bottom: 0 }} barCategoryGap={12}>
-            <XAxis type="number" hide />
-            <YAxis
-              type="category"
-              dataKey="nome"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: '#CBD5E1', fontSize: 12, fontWeight: 600 }}
-              width={100}
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(148,163,184,0.08)' }} />
-            <Bar dataKey="elogios" radius={[0, 8, 8, 0]} barSize={20}>
-              {chartData.map((entry, index) => {
-                const isTop1 = entry.nome === currentList[0]?.nome;
-                return <Cell key={`cell-${index}`} fill={isTop1 ? '#22D3EE' : '#0EA5E9'} />;
-              })}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+      <div className="h-[220px] w-full min-w-0 pt-2" style={{ minWidth: 0 }}>
+        {isMounted ? (
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+            <BarChart layout="vertical" data={chartData} margin={{ top: 0, right: 20, left: 10, bottom: 0 }} barCategoryGap={12}>
+              <XAxis type="number" hide />
+              <YAxis
+                type="category"
+                dataKey="nome"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: '#CBD5E1', fontSize: 12, fontWeight: 600 }}
+                width={100}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(148,163,184,0.08)' }} />
+              <Bar dataKey="elogios" radius={[0, 8, 8, 0]} barSize={20}>
+                {chartData.map((entry, index) => {
+                  const isTop1 = entry.nome === currentList[0]?.nome;
+                  return <Cell key={`cell-${index}`} fill={isTop1 ? '#22D3EE' : '#0EA5E9'} />;
+                })}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="h-full w-full flex items-center justify-center">
+            <div className="h-5 w-5 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin opacity-50" />
+          </div>
+        )}
       </div>
     </div>
   );

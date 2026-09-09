@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 type TrendTooltipProps = {
@@ -10,7 +10,12 @@ type TrendTooltipProps = {
 };
 
 export function TrendChart() {
+  const [isMounted, setIsMounted] = useState(false);
   const [period, setPeriod] = useState<'7d' | '30d' | '90d' | '1a'>('30d');
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const dataMap = {
     '7d': [
@@ -87,10 +92,11 @@ export function TrendChart() {
         </div>
       </div>
 
-      <div className="h-[220px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={currentData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <defs>
+      <div className="h-[220px] w-full min-w-0" style={{ minWidth: 0 }}>
+        {isMounted ? (
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+            <AreaChart data={currentData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
               <linearGradient id="colorNota" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#22D3EE" stopOpacity={0.34} />
                 <stop offset="95%" stopColor="#22D3EE" stopOpacity={0} />
@@ -133,6 +139,11 @@ export function TrendChart() {
             />
           </AreaChart>
         </ResponsiveContainer>
+        ) : (
+          <div className="h-full w-full flex items-center justify-center">
+            <div className="h-5 w-5 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin opacity-50" />
+          </div>
+        )}
       </div>
     </div>
   );

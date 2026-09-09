@@ -1,6 +1,7 @@
 import React from 'react';
 import { prisma } from '@/lib/prisma';
 import { redirect } from 'next/navigation';
+import { isRedirectError } from 'next/dist/client/components/redirect';
 import { requireAuth } from '@/lib/auth-helpers';
 
 import { HealthCard } from '@/components/dashboard/HealthCard';
@@ -10,6 +11,8 @@ import { ReviewCard } from '@/components/dashboard/ReviewCard';
 import { TrendChart } from '@/components/dashboard/TrendChart';
 import { ColaboradoresChart } from '@/components/dashboard/ColaboradoresChart';
 
+export const dynamic = 'force-dynamic';
+
 export default async function Dashboard({
   searchParams,
 }: {
@@ -18,7 +21,12 @@ export default async function Dashboard({
   let user;
   try {
     user = await requireAuth();
-  } catch {
+  } catch (err) {
+    if (isRedirectError(err)) throw err;
+    redirect('/login');
+  }
+
+  if (!user || !user.tenantId) {
     redirect('/login');
   }
   const tenantId = user.tenantId;

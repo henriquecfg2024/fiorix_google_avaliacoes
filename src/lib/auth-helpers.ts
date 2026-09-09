@@ -34,6 +34,15 @@ export async function requireAuth(): Promise<AuthenticatedUser> {
     }
   }
 
+  if (!tenantId && session.user.role === 'MASTER') {
+    try {
+      const defaultTenant = await prisma.tenant.findFirst({ select: { id: true } });
+      tenantId = defaultTenant?.id;
+    } catch (err) {
+      console.warn('Erro ao buscar fallback tenantId para MASTER:', err);
+    }
+  }
+
   if (!tenantId) {
     throw new Error('Usuário sem tenant válido.');
   }

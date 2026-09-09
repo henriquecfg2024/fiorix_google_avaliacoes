@@ -82,7 +82,7 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
                   </div>
                   <div>
                     <h4 className="text-indicator-label font-bold leading-tight text-white">{rev.reviewerName}</h4>
-                    <span className="text-badge text-white/50">
+                    <span className="text-badge text-white/50" suppressHydrationWarning>
                       {new Date(rev.publishedAt).toLocaleDateString('pt-BR')}
                     </span>
                   </div>
