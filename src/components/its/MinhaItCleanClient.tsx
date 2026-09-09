@@ -124,10 +124,16 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
     try {
       // 1. Obtém URL assinada para upload no Supabase
-      const { signedUrl, storagePath } = await getITUploadSignedUrl(
+      const urlRes = await getITUploadSignedUrl(
         `${currentIt.codigo}_v${nextVersao}_${selectedFile.name}`,
         'application/pdf'
       );
+
+      if (!urlRes.success || !urlRes.signedUrl) {
+        throw new Error(urlRes.error || 'Falha ao autorizar upload no armazenamento.');
+      }
+
+      const { signedUrl, storagePath } = urlRes;
 
       // 2. Faz o upload binário direto via PUT
       const uploadRes = await fetch(signedUrl, {

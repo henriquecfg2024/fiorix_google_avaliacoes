@@ -329,92 +329,111 @@ export interface PublicarNovaVersaoParams {
  * - Reseta ciências da equipe (nova versão começa com 0% exceto responsável ciente)
  */
 export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
-  const currentUser = await requireAuth();
-  const userId = currentUser.id;
-  const tenantId = currentUser.tenantId || 'global';
-
-  // 1. Busca a IT atual para verificação de permissão e histórico
-  const currentRows: any[] = await prisma.$queryRawUnsafe(`
-    SELECT id, codigo, versao, responsavel_tecnico_id, objetivo, quando_usar, passo_a_passo, checklist, erros_comuns, hash_versao
-    FROM public.fiorix_its
-    WHERE id = $1::uuid
-    LIMIT 1
-  `, params.itId);
-
-  if (currentRows.length === 0) {
-    return { success: false, error: 'Instrução de trabalho não encontrada.' };
-  }
-
-  const current = currentRows[0];
-
-  // Verifica se o usuário é o responsável técnico ou MASTER
-  if (current.responsavel_tecnico_id !== userId && currentUser.role !== 'MASTER') {
-    return { success: false, error: 'Apenas o Responsável Técnico pode atualizar esta instrução.' };
-  }
-
-  // 2. Registra versão anterior em fiorix_its_versoes
   try {
-    await prisma.$executeRawUnsafe(`
-      INSERT INTO public.fiorix_its_versoes (
-        id, it_id, versao, conteudo_snapshot, alteracoes, autor_id, hash_versao, created_at, tenant_id
-      )
-      VALUES (
-        gen_random_uuid(), $1::uuid, $2, $3::jsonb, $4, $5, $6, NOW(), $7
+    const currentUser = await requireAuth();
+    const userId = currentUser.id;
+    const tenantId = currentUser.tenantId || 'global';
+
+    // 1. Busca a IT atual para verificação de permissão e histórico
+    const currentRows: any[] = await prisma.$queryRawUnsafe(`
+      SELECT id, codigo, versao, responsavel_tecnico_id, objetivo, quando_usar, passo_a_passo, checklist, erros_comuns, hash_versao
+      FROM public.fiorix_its
+      WHERE id = $1::uuid
+      LIMIT 1
+    `, params.itId);
+
+    if (currentRows.length === 0) {
+      return { success: false, error: 'Instrução de trabalho não encontrada.' };
+    }
+
+    const current = currentRows[0];
+
+    // Verifica se o usuário é o responsável técnico, ADMIN ou MASTER
+    if (current.responsavel_tecnico_id !== userId && currentUser.role !== 'MASTER' && currentUser.role !== 'ADMIN') {
+      return { success: false, error: 'Apenas o Responsável Técnico ou Administrador pode atualizar esta instrução.' };
+    }
+
+    // 2. Registra versão anterior em fiorix_its_versoes
+    try {
+      await prisma.$executeRawUnsafe(`
+        INSERT INTO public.fiorix_its_versoes (
+          id, it_id, versao, conteudo_snapshot, alteracoes, autor_id, hash_versao, created_at, tenant_id
+        )
+        VALUES (
+          gen_random_uuid(), $1::uuid, $2, $3::jsonb, $4, $5, $6, NOW(), $7
+        );
+      `,
+        current.id,
+        current.versao,
+        JSON.stringify({
+          objetivo: current.objetivo,
+          quando_usar: current.quando_usar,
+          passo_a_passo: current.passo_a_passo,
+          checklist: current.checklist,
+        }),
+        params.resumoMudancas || 'Atualização de versão pelo Responsável Técnico',
+        userId,
+        current.hash_versao,
+        tenantId
       );
-    `,
-      current.id,
-      current.versao,
-      JSON.stringify({
-        objetivo: current.objetivo,
-        quando_usar: current.quando_usar,
-        passo_a_passo: current.passo_a_passo,
-        checklist: current.checklist,
-      }),
-      params.resumoMudancas || 'Atualização de versão pelo Responsável Técnico',
-      userId,
-      current.hash_versao,
-      tenantId
-    );
-  } catch (err) {
-    console.error('Aviso ao registrar histórico de versão:', err);
-  }
+    } catch (err) {
+      console.warn('Aviso ao registrar histórico de versão:', err);
+    }
 
-  // 3. Atualiza fiorix_its com a nova versão
-  await prisma.$executeRawUnsafe(`
-    UPDATE public.fiorix_its
-    SET 
-      versao = $1,
-      hash_versao = $2,
-      pdf_path = $3,
-      pdf_original_url = $4,
-      updated_at = NOW()
-    WHERE id = $5::uuid
-  `,
-    params.novaVersao,
-    params.hashSha256,
-    params.pdfPath,
-    params.pdfPath ? supabaseAdmin.storage.from('it-documentos').getPublicUrl(params.pdfPath).data.publicUrl : null,
-    params.itId
-  );
+    // 3. Atualiza fiorix_its com a nova versão
+    let publicUrl = null;
+    if (params.pdfPath) {
+      try {
+        const { data } = supabaseAdmin.storage.from('it-documentos').getPublicUrl(params.pdfPath);
+        publicUrl = data?.publicUrl || null;
+      } catch (e) {
+        console.warn('Aviso ao gerar publicUrl:', e);
+      }
+    }
 
-  // 4. Registra ciência automática imediata para o próprio Responsável Técnico na nova versão
-  try {
     await prisma.$executeRawUnsafe(`
-      INSERT INTO public.fiorix_its_ciencias (
-        tenant_id, it_id, usuario_id, versao, status, ciente_em, created_at
-      )
-      VALUES ($1, $2::uuid, $3, $4, 'ciente', NOW(), NOW())
-      ON CONFLICT (tenant_id, it_id, usuario_id, versao) DO UPDATE SET
-        status = 'ciente',
-        ciente_em = NOW();
-    `, tenantId, params.itId, userId, params.novaVersao);
-  } catch (err) {
-    console.warn('Aviso ao registrar ciência automática do responsável na nova versão:', err);
+      UPDATE public.fiorix_its
+      SET 
+        versao = $1,
+        hash_versao = $2,
+        pdf_path = $3,
+        pdf_original_url = $4,
+        updated_at = NOW()
+      WHERE id = $5::uuid
+    `,
+      params.novaVersao,
+      params.hashSha256,
+      params.pdfPath,
+      publicUrl,
+      params.itId
+    );
+
+    // 4. Registra ciência automática imediata para o próprio Responsável Técnico na nova versão
+    try {
+      await prisma.$executeRawUnsafe(`
+        INSERT INTO public.fiorix_its_ciencias (
+          tenant_id, it_id, usuario_id, versao, status, ciente_em, created_at
+        )
+        VALUES ($1, $2::uuid, $3, $4, 'ciente', NOW(), NOW())
+        ON CONFLICT (tenant_id, it_id, usuario_id, versao) DO UPDATE SET
+          status = 'ciente',
+          ciente_em = NOW();
+      `, tenantId, params.itId, userId, params.novaVersao);
+    } catch (err) {
+      console.warn('Aviso ao registrar ciência automática do responsável na nova versão:', err);
+    }
+
+    try {
+      revalidatePath('/minha-it');
+      revalidatePath(`/minha-it/${params.codigo}`);
+      revalidatePath('/administracao/its');
+    } catch (e) {
+      console.warn('Aviso ao revalidar cache:', e);
+    }
+
+    return { success: true, versao: params.novaVersao };
+  } catch (err: any) {
+    console.error('Erro em publicarNovaVersaoIT:', err);
+    return { success: false, error: err?.message || 'Falha ao processar publicação da nova versão.' };
   }
-
-  revalidatePath('/minha-it');
-  revalidatePath(`/minha-it/${params.codigo}`);
-  revalidatePath('/sistema/its');
-
-  return { success: true, versao: params.novaVersao };
 }

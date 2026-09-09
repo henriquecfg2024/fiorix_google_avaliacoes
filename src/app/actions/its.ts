@@ -962,30 +962,51 @@ export async function registrarCienciaIt(itId: string, versao: string) {
 }
 
 export async function getITUploadSignedUrl(fileName: string, contentType?: string) {
-  const currentUser = await requireAuth();
-  const timestamp = Date.now();
-  const safeFileName = (fileName || 'documento').replace(/[^a-zA-Z0-9._-]/g, '_');
-  const tenantFolder = currentUser.tenantId || 'global';
-  const storagePath = `uploads/${tenantFolder}_${timestamp}_${safeFileName}`;
+  try {
+    const currentUser = await requireAuth();
+    const timestamp = Date.now();
+    const safeFileName = (fileName || 'documento')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9._-]/g, '_');
+    const tenantFolder = currentUser.tenantId || 'global';
+    const storagePath = `uploads/${tenantFolder}_${timestamp}_${safeFileName}`;
 
-  const { data, error } = await supabaseAdmin.storage
-    .from('it-documentos')
-    .createSignedUploadUrl(storagePath);
+    const { data, error } = await supabaseAdmin.storage
+      .from('it-documentos')
+      .createSignedUploadUrl(storagePath);
 
-  if (error || !data?.signedUrl) {
-    console.error('Erro ao gerar Signed URL no Supabase:', error);
-    throw new Error(`Falha ao autorizar upload no armazenamento: ${error?.message || 'Erro desconhecido'}`);
+    if (error || !data?.signedUrl) {
+      console.error('Erro ao gerar Signed URL no Supabase:', error);
+      return {
+        success: false,
+        error: `Falha ao autorizar upload no armazenamento: ${error?.message || 'Erro desconhecido'}`,
+        signedUrl: '',
+        publicUrl: '',
+        storagePath: '',
+      };
+    }
+
+    const { data: publicUrlData } = supabaseAdmin.storage
+      .from('it-documentos')
+      .getPublicUrl(storagePath);
+
+    return {
+      success: true,
+      signedUrl: data.signedUrl,
+      publicUrl: publicUrlData.publicUrl,
+      storagePath,
+    };
+  } catch (err: any) {
+    console.error('Erro no getITUploadSignedUrl:', err);
+    return {
+      success: false,
+      error: err?.message || 'Falha ao autorizar upload no armazenamento.',
+      signedUrl: '',
+      publicUrl: '',
+      storagePath: '',
+    };
   }
-
-  const { data: publicUrlData } = supabaseAdmin.storage
-    .from('it-documentos')
-    .getPublicUrl(storagePath);
-
-  return {
-    signedUrl: data.signedUrl,
-    publicUrl: publicUrlData.publicUrl,
-    storagePath,
-  };
 }
 
 export interface SalvarNovaVersaoParams {
