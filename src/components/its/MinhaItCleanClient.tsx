@@ -123,43 +123,22 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
     setUploadError('');
 
     try {
-      // 1. Obtém URL assinada para upload no Supabase
-      const urlRes = await getITUploadSignedUrl(
-        `${currentIt.codigo}_v${nextVersao}_${selectedFile.name}`,
-        'application/pdf'
-      );
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('itId', currentIt.id);
+      formData.append('codigo', currentIt.codigo);
+      formData.append('novaVersao', nextVersao);
+      formData.append('hashSha256', fileHash || currentIt.hashVersao);
+      formData.append('resumoMudancas', resumoMudancas);
 
-      if (!urlRes.success || !urlRes.signedUrl) {
-        throw new Error(urlRes.error || 'Falha ao autorizar upload no armazenamento.');
-      }
-
-      const { signedUrl, storagePath } = urlRes;
-
-      // 2. Faz o upload binário direto via PUT
-      const uploadRes = await fetch(signedUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/pdf',
-        },
-        body: selectedFile,
+      const res = await fetch('/api/its/upload', {
+        method: 'POST',
+        body: formData,
       });
 
-      if (!uploadRes.ok) {
-        throw new Error(`Falha no upload do arquivo (HTTP ${uploadRes.status})`);
-      }
-
-      // 3. Registra a nova versão no banco de dados e reseta ciências
-      const pubRes = await publicarNovaVersaoIT({
-        itId: currentIt.id,
-        codigo: currentIt.codigo,
-        novaVersao: nextVersao,
-        pdfPath: storagePath,
-        hashSha256: fileHash || currentIt.hashVersao,
-        resumoMudancas,
-      });
-
-      if (!pubRes.success) {
-        throw new Error(pubRes.error || 'Erro ao publicar nova versão.');
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Falha ao processar publicação da nova versão.');
       }
 
       setUploadSuccess(true);
