@@ -189,10 +189,12 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
           <h1 className="text-xl font-bold text-white mb-2">
             Nenhuma Instrução de Trabalho sob sua responsabilidade
           </h1>
-          <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-            Você ainda não foi designado como Responsável Técnico por nenhuma instrução de trabalho oficial.
-            Suas instruções atribuídas aparecerão diretamente aqui quando o RH realizar a designação.
-          </p>
+          <div className="text-sm text-slate-400 mb-6 leading-relaxed space-y-2">
+            <p>Você ainda não foi designado como Responsável Técnico por uma Instrução de Trabalho.</p>
+            <p>
+              As Instruções de Trabalho sob sua responsabilidade serão exibidas aqui após a sua designação pelo Oficial Substituto no respectivo departamento.
+            </p>
+          </div>
           <button
             onClick={() => router.push('/dashboard')}
             className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold border border-white/10 transition-colors shadow-sm cursor-pointer"
