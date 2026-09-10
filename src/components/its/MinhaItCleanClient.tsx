@@ -393,21 +393,55 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 </div>
               </div>
 
-              {/* Link para PDF Original (se houver) */}
-              {currentIt.pdfUrl && (
-                <div className="pt-2 flex justify-end">
-                  <a
-                    href={currentIt.pdfUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs text-[#5C564D] hover:text-[#1C1A17] font-medium transition-colors"
+              {/* Botão de Visualização na Íntegra (PDF) */}
+              <div className="pt-6 flex justify-end">
+                <a
+                  href={currentIt.pdfUrl || '#'}
+                  target={currentIt.pdfUrl ? '_blank' : undefined}
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    if (!currentIt.pdfUrl) {
+                      e.preventDefault();
+                      alert('O documento PDF original desta IT ainda não foi anexado.');
+                    }
+                  }}
+                  className="group inline-flex items-center gap-3 px-8 py-3.5 rounded-full bg-gradient-to-r from-[#FFD000] via-[#FFB800] to-[#FFA000] text-[#0A0A0A] font-bold text-[12.5px] sm:text-[13px] tracking-[0.08em] shadow-[0_10px_25px_-5px_rgba(255,170,0,0.48),0_4px_10px_-2px_rgba(255,170,0,0.25)] hover:shadow-[0_16px_35px_-4px_rgba(255,160,0,0.65),0_6px_14px_-2px_rgba(255,160,0,0.35)] hover:-translate-y-0.5 hover:brightness-105 active:scale-[0.98] transition-all duration-300 cursor-pointer select-none"
+                >
+                  {/* Ícone Olho com Pupila Preenchida */}
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="flex-shrink-0"
                   >
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>Visualizar PDF do Documento</span>
-                    <ArrowUpRight className="w-3 h-3" />
-                  </a>
-                </div>
-              )}
+                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+                    <circle cx="12" cy="12" r="3" fill="currentColor" />
+                  </svg>
+
+                  <span>VISUALIZAR NA ÍNTEGRA ESTA IT</span>
+
+                  {/* Ícone Seta Horizontal → que desloca no hover */}
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="flex-shrink-0 transition-transform duration-300 group-hover:translate-x-1"
+                  >
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </a>
+              </div>
             </div>
           </main>
 
