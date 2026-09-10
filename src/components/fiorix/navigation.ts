@@ -114,29 +114,23 @@ export const navigationGroups = {
     ],
   },
   pessoas: {
-    label: "MEU ESPAÇO (PESSOAL)",
+    label: "MEU ESPAÇO",
     icon: Target,
     items: [
       {
-        label: "Minha Central",
-        href: "/pessoas",
-        icon: Target,
-        description: "Meu painel com resumo e pendências",
-      },
-      {
-        label: "Meus Comunicados",
+        label: "Comunicados",
         href: "/pessoas/comunicados",
         icon: FileText,
         description: "Mural interno e minhas ciências",
       },
       {
-        label: "Minhas Férias",
+        label: "Férias",
         href: "/pessoas/ferias",
         icon: Briefcase,
         description: "Meu saldo e solicitações individuais",
       },
       {
-        label: "Meus Holerites",
+        label: "Holerites",
         href: "/pessoas/holerites",
         icon: FileText,
         description: "Meus contracheques e comprovantes",

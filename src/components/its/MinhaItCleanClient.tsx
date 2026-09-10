@@ -219,7 +219,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <span>Dashboard</span>
               <span className="text-slate-600">/</span>
-              <span>Meu Espaço (Pessoal)</span>
+              <span>Meu Espaço</span>
               <span className="text-slate-600">/</span>
               <span className="text-emerald-400">Minha IT</span>
             </div>
