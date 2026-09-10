@@ -22,6 +22,9 @@ import {
   Lock,
   Download,
   Filter,
+  ArrowRight,
+  ChevronRight,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,24 +83,31 @@ export function PainelRHClient({
   const router = useRouter();
 
   const tabParam = searchParams.get("tab");
-  const initialTab: "comunicados" | "holerites" | "ferias" =
+  type TabType = "geral" | "ferias" | "holerites" | "comunicados";
+  const initialTab: TabType =
     tabParam === "ferias" || tabParam === "holerites" || tabParam === "comunicados"
       ? tabParam
-      : "comunicados";
+      : "geral";
 
-  // Tabs principais
-  const [currentTab, setCurrentTab] = useState<"comunicados" | "holerites" | "ferias">(initialTab);
+  // Tab principal ativa
+  const [currentTab, setCurrentTab] = useState<TabType>(initialTab);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
     if (tab === "ferias" || tab === "holerites" || tab === "comunicados") {
       setCurrentTab(tab);
+    } else {
+      setCurrentTab("geral");
     }
   }, [searchParams]);
 
-  const handleTabChange = (tab: "comunicados" | "holerites" | "ferias") => {
+  const handleTabChange = (tab: TabType) => {
     setCurrentTab(tab);
-    router.replace(`/sistema/pessoas?tab=${tab}`, { scroll: false });
+    if (tab === "geral") {
+      router.replace("/sistema/pessoas", { scroll: false });
+    } else {
+      router.replace(`/sistema/pessoas?tab=${tab}`, { scroll: false });
+    }
   };
 
   // Sub-tabs da aba Férias
@@ -383,104 +393,463 @@ export function PainelRHClient({
       </div>
 
       <div className="relative mx-auto max-w-[1600px] px-5 py-6 sm:px-8 space-y-8">
-        {/* Breadcrumb + Header */}
+        {/* Breadcrumb + Header Dinâmico com Identidade Própria */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-white/5">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <span>Dashboard</span>
               <span className="text-slate-600">/</span>
-              <span>Administração</span>
+              <span>Gestão de RH</span>
               <span className="text-slate-600">/</span>
-              <span className="text-indigo-400">Painel RH</span>
+              <span className="text-indigo-400">
+                {currentTab === "ferias" && "Lançamento de Férias"}
+                {currentTab === "holerites" && "Lançamento de Holerites"}
+                {currentTab === "comunicados" && "Gestão de Comunicados"}
+                {currentTab === "geral" && "Painel Geral de RH"}
+              </span>
             </div>
             <div className="flex items-center gap-3 mt-1.5">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                PAINEL DE GOVERNANÇA RH
+                {currentTab === "ferias" && "GESTÃO DE FÉRIAS"}
+                {currentTab === "holerites" && "GESTÃO DE HOLERITES"}
+                {currentTab === "comunicados" && "GESTÃO DE COMUNICADOS"}
+                {currentTab === "geral" && "PAINEL DE GOVERNANÇA RH"}
               </h1>
-              <span className="rounded-full border border-indigo-500/30 bg-indigo-500/15 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-indigo-300">
-                ÁREA RESTRITA • 7º RI SP
+              <span
+                className={`rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-semibold ${
+                  currentTab === "ferias"
+                    ? "border-amber-500/30 bg-amber-500/15 text-amber-300"
+                    : currentTab === "holerites"
+                    ? "border-cyan-500/30 bg-cyan-500/15 text-cyan-300"
+                    : "border-indigo-500/30 bg-indigo-500/15 text-indigo-300"
+                }`}
+              >
+                {currentTab === "ferias" && "PLANEJAMENTO & ESCALAS • 7º RI SP"}
+                {currentTab === "holerites" && "DISTRIBUIÇÃO & RECIBOS • 7º RI SP"}
+                {currentTab === "comunicados" && "CIÊNCIA OFICIAL & WORM • 7º RI SP"}
+                {currentTab === "geral" && "ÁREA RESTRITA • 7º RI SP"}
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              Gestão de comunicados institucionais com prova criptográfica, upload de contracheques e escala de férias 2027.
+              {currentTab === "ferias" && "Planejamento, programação e acompanhamento das férias dos colaboradores."}
+              {currentTab === "holerites" && "Disponibilização, controle de acesso e rastreabilidade dos documentos dos colaboradores."}
+              {currentTab === "comunicados" && "Publicação, acompanhamento de ciência e auditoria dos comunicados internos."}
+              {currentTab === "geral" && "Visão consolidada dos principais indicadores, pendências e controles da gestão de pessoas."}
             </p>
           </div>
 
-          {/* Abas Principais Superiores */}
-          <div className="flex gap-1.5 p-1 bg-[#10101a] rounded-2xl border border-white/10 text-xs font-bold shadow-inner">
-            <button
-              onClick={() => handleTabChange("comunicados")}
-              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
-                currentTab === "comunicados"
-                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 font-bold"
-                  : "text-slate-400 hover:text-white"
-              }`}
+          {/* Ações contextuais de topo por tela */}
+          {currentTab === "comunicados" && (
+            <Button
+              onClick={() => setNovoModalOpen(true)}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs gap-1.5 rounded-xl shadow-lg shadow-indigo-500/20 h-9 shrink-0 self-start sm:self-center"
             >
-              <FileText className="w-4 h-4" />
-              <span>Comunicados</span>
-            </button>
-            <button
-              onClick={() => handleTabChange("holerites")}
-              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
-                currentTab === "holerites"
-                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 font-bold"
-                  : "text-slate-400 hover:text-white"
-              }`}
+              <Plus className="w-4 h-4" />
+              <span>Criar Novo Comunicado</span>
+            </Button>
+          )}
+
+          {currentTab === "ferias" && (
+            <Button
+              onClick={() => setFeriasSubTab("validador")}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs gap-1.5 rounded-xl shadow-lg shadow-amber-500/20 h-9 shrink-0 self-start sm:self-center"
             >
-              <Upload className="w-4 h-4" />
-              <span>Holerites</span>
-            </button>
-            <button
-              onClick={() => handleTabChange("ferias")}
-              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
-                currentTab === "ferias"
-                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 font-bold"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <Briefcase className="w-4 h-4" />
-              <span>Férias</span>
-            </button>
-          </div>
+              <Shield className="w-4 h-4" />
+              <span>Validador CLT (Art. 135)</span>
+            </Button>
+          )}
+
+          {currentTab === "holerites" && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-cyan-300 font-mono text-xs self-start sm:self-center">
+              <Lock className="w-3.5 h-3.5" />
+              <span>Criptografia WORM SHA-256 Ativa</span>
+            </div>
+          )}
+
+          {currentTab === "geral" && (
+            <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+              <span className="text-xs text-slate-400 font-medium mr-1">Ir para:</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleTabChange("comunicados")}
+                className="border-white/10 hover:bg-white/5 text-slate-300 hover:text-white text-xs h-8 rounded-lg font-semibold"
+              >
+                Comunicados
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleTabChange("holerites")}
+                className="border-white/10 hover:bg-white/5 text-slate-300 hover:text-white text-xs h-8 rounded-lg font-semibold"
+              >
+                Holerites
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleTabChange("ferias")}
+                className="border-white/10 hover:bg-white/5 text-slate-300 hover:text-white text-xs h-8 rounded-lg font-semibold"
+              >
+                Férias
+              </Button>
+            </div>
+          )}
         </div>
 
-        {/* KPIs Resumo Geral (Dinâmicos) */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-          <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Taxa Geral de Ciência</span>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-black text-[#06b6d4]">{taxaGeral}%</span>
-              <span className="text-xs text-slate-400 font-semibold">{totalCiencias} / {totalEsperado} ciências</span>
-            </div>
-            <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3.5 overflow-hidden">
-              <div className="bg-gradient-to-r from-indigo-500 to-[#06b6d4] h-full transition-all duration-500" style={{ width: `${taxaGeral}%` }} />
-            </div>
-          </div>
+        {/* ══════════════════════════════════════════════════════════════
+            CARDS ESPECÍFICOS POR TELA
+        ══════════════════════════════════════════════════════════════ */}
 
-          <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Hashes Válidos</span>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-black text-[#10b981]">{hashesPercent}%</span>
-              <span className="text-xs text-[#10b981]/80 font-semibold">
-                {comunicadosAtivos.length > 0 ? `${hashesValidosCount} de ${comunicadosAtivos.length} verificados` : "Integridade confirmada"}
-              </span>
+        {/* 1. CARDS: FÉRIAS */}
+        {currentTab === "ferias" && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Férias Programadas</span>
+                <Calendar className="w-4 h-4 text-amber-400" />
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-3xl font-black text-amber-400">42 / 45</span>
+                <span className="text-xs text-slate-400 font-semibold">(93% da equipe)</span>
+              </div>
+              <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3.5 overflow-hidden">
+                <div className="bg-gradient-to-r from-amber-500 to-amber-300 h-full" style={{ width: "93%" }} />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-2.5">Planejamento 2027 estruturado</p>
             </div>
-            <p className="text-[11px] text-slate-400 mt-3.5">Trilha SHA-256 e WORM sem divergências</p>
-          </div>
 
-          <div className="p-6 rounded-2xl border border-rose-500/30 bg-[#140a12] shadow-xl">
-            <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">Pendentes Críticos</span>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-black text-[#ef4444]">{pendentesCriticos}</span>
-              <span className="text-xs text-[#ef4444]/80 font-semibold">
-                {pendentesCriticos > 0 ? "Aguardando ciência" : "Tudo em dia"}
-              </span>
+            <div className="p-6 rounded-2xl border border-rose-500/30 bg-[#140a12] shadow-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">Pendentes de Programação</span>
+                <AlertTriangle className="w-4 h-4 text-rose-400" />
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-3xl font-black text-rose-400">3</span>
+                <span className="text-xs text-rose-300/80 font-semibold">colaboradores</span>
+              </div>
+              <p className="text-[11px] text-rose-300/70 mt-3.5">Período aquisitivo próximo ao limite legal</p>
             </div>
-            <p className="text-[11px] text-[#ef4444]/80 mt-3.5">
-              {pendentesCriticos > 0 ? "Notificações automáticas ativas" : "Nenhuma pendência crítica"}
-            </p>
+
+            <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Conflitos de Lotação</span>
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-3xl font-black text-emerald-400">0</span>
+                <span className="text-xs text-emerald-300/80 font-semibold">identificados</span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-3.5">Quorum mínimo setorial de 50% respeitado</p>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* 2. CARDS: HOLERITES */}
+        {currentTab === "holerites" && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Holerites Disponibilizados</span>
+                <FileText className="w-4 h-4 text-cyan-400" />
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-3xl font-black text-cyan-400">180</span>
+                <span className="text-xs text-slate-400 font-semibold">documentos em custódia</span>
+              </div>
+              <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3.5 overflow-hidden">
+                <div className="bg-gradient-to-r from-cyan-500 to-indigo-500 h-full" style={{ width: "100%" }} />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-2.5">Últimos 3 meses distribuídos via portal</p>
+            </div>
+
+            <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Colaboradores Atendidos</span>
+                <Users className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-3xl font-black text-emerald-400">60 / 60</span>
+                <span className="text-xs text-emerald-300/80 font-semibold">100% da folha ativa</span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-3.5">Acesso individualizado com PIN e autenticação</p>
+            </div>
+
+            <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Rastreabilidade & WORM</span>
+                <ShieldCheck className="w-4 h-4 text-indigo-400" />
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-3xl font-black text-indigo-400">100%</span>
+                <span className="text-xs text-indigo-300/80 font-semibold">íntegro</span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-3.5">Logs de download e visualização auditáveis</p>
+            </div>
+          </div>
+        )}
+
+        {/* 3. CARDS: COMUNICADOS */}
+        {currentTab === "comunicados" && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Comunicados Ativos</span>
+                <FileText className="w-4 h-4 text-indigo-400" />
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-3xl font-black text-indigo-400">{comunicadosAtivos.length}</span>
+                <span className="text-xs text-slate-400 font-semibold">documentos vigentes</span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-3.5">Assinatura digital e hash SHA-256</p>
+            </div>
+
+            <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Taxa Geral de Ciência</span>
+                <CheckCircle2 className="w-4 h-4 text-[#06b6d4]" />
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-3xl font-black text-[#06b6d4]">{taxaGeral}%</span>
+                <span className="text-xs text-slate-400 font-semibold">{totalCiencias} / {totalEsperado} ciências</span>
+              </div>
+              <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3.5 overflow-hidden">
+                <div className="bg-gradient-to-r from-indigo-500 to-[#06b6d4] h-full transition-all duration-500" style={{ width: `${taxaGeral}%` }} />
+              </div>
+            </div>
+
+            <div className="p-6 rounded-2xl border border-rose-500/30 bg-[#140a12] shadow-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">Ciências Pendentes</span>
+                <AlertTriangle className="w-4 h-4 text-rose-400" />
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-3xl font-black text-[#ef4444]">{pendentesCriticos}</span>
+                <span className="text-xs text-[#ef4444]/80 font-semibold">
+                  {pendentesCriticos > 0 ? "Aguardando confirmação" : "Tudo em dia"}
+                </span>
+              </div>
+              <p className="text-[11px] text-[#ef4444]/80 mt-3.5">
+                {pendentesCriticos > 0 ? "Notificações automáticas ativas no mural" : "Nenhuma pendência crítica"}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* 4. CARDS: PAINEL GERAL DE RH (CONSOLIDADO) */}
+        {currentTab === "geral" && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="p-5 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Comunicados Oficiais</span>
+                <FileText className="w-4 h-4 text-indigo-400" />
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-2xl font-black text-white">{comunicadosAtivos.length}</span>
+                <span className="text-xs text-indigo-400 font-semibold">{taxaGeral}% ciência</span>
+              </div>
+              <div className="w-full bg-slate-800 h-1 rounded-full mt-3 overflow-hidden">
+                <div className="bg-indigo-500 h-full" style={{ width: `${taxaGeral}%` }} />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-2">{totalCiencias} de {totalEsperado} confirmados</p>
+            </div>
+
+            <div className="p-5 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Distribuição de Holerites</span>
+                <Upload className="w-4 h-4 text-cyan-400" />
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-2xl font-black text-white">180</span>
+                <span className="text-xs text-cyan-400 font-semibold">docs processados</span>
+              </div>
+              <div className="w-full bg-slate-800 h-1 rounded-full mt-3 overflow-hidden">
+                <div className="bg-cyan-500 h-full" style={{ width: "100%" }} />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-2">60/60 colaboradores atendidos</p>
+            </div>
+
+            <div className="p-5 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Escala Férias 2027</span>
+                <Briefcase className="w-4 h-4 text-amber-400" />
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-2xl font-black text-white">42 / 45</span>
+                <span className="text-xs text-amber-400 font-semibold">programadas</span>
+              </div>
+              <div className="w-full bg-slate-800 h-1 rounded-full mt-3 overflow-hidden">
+                <div className="bg-amber-500 h-full" style={{ width: "93%" }} />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-2">3 pendências de alinhamento</p>
+            </div>
+
+            <div className="p-5 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Conformidade & WORM</span>
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-2xl font-black text-emerald-400">{hashesPercent}%</span>
+                <span className="text-xs text-emerald-300 font-semibold">hashes válidos</span>
+              </div>
+              <div className="w-full bg-slate-800 h-1 rounded-full mt-3 overflow-hidden">
+                <div className="bg-emerald-500 h-full" style={{ width: `${hashesPercent}%` }} />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-2">Auditoria CLT & Prov. 213 em dia</p>
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════
+            0. PAINEL GERAL (DASHBOARD EXECUTIVO CONSOLIDADO)
+        ══════════════════════════════════════════════════════════════ */}
+        {currentTab === "geral" && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Bloco 1: Gestão de Comunicados */}
+              <div className="rounded-2xl border border-white/10 bg-[#10101a] p-6 shadow-xl flex flex-col justify-between space-y-5">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">Gestão de Comunicados</h3>
+                        <p className="text-[11px] text-slate-400">Mural oficial & ciências nominais</p>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                      WORM SHA-256
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-[#05050a] border border-white/5 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Total cadastrados:</span>
+                      <span className="font-bold text-white font-mono">{comunicadosAtivos.length}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Taxa de adesão:</span>
+                      <span className="font-bold text-[#06b6d4] font-mono">{taxaGeral}%</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Ciências pendentes:</span>
+                      <span className="font-bold text-rose-400 font-mono">{pendentesCriticos}</span>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-400">
+                    Garante comprovação jurídica com carimbo temporal e hash imutável conforme Provimento 213/2026.
+                  </p>
+                </div>
+
+                <Button
+                  onClick={() => handleTabChange("comunicados")}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs gap-2 rounded-xl h-10 shadow-lg shadow-indigo-600/20"
+                >
+                  <span>Ir para Gestão de Comunicados</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* Bloco 2: Lançamento de Holerites */}
+              <div className="rounded-2xl border border-white/10 bg-[#10101a] p-6 shadow-xl flex flex-col justify-between space-y-5">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                        <Upload className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">Lançamento de Holerites</h3>
+                        <p className="text-[11px] text-slate-400">Upload em lote & recibos de pagamento</p>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                      EM LOTE
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-[#05050a] border border-white/5 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Total distribuídos:</span>
+                      <span className="font-bold text-white font-mono">180 recibos</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Colaboradores ativos:</span>
+                      <span className="font-bold text-emerald-400 font-mono">60 / 60</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Rastreabilidade WORM:</span>
+                      <span className="font-bold text-cyan-400 font-mono">100% íntegro</span>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-400">
+                    Processamento automático de PDF com separação por CPF, assinatura e disponibilização individualizada.
+                  </p>
+                </div>
+
+                <Button
+                  onClick={() => handleTabChange("holerites")}
+                  className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs gap-2 rounded-xl h-10 shadow-lg shadow-cyan-600/20"
+                >
+                  <span>Ir para Lançamento de Holerites</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {/* Bloco 3: Lançamento de Férias */}
+              <div className="rounded-2xl border border-white/10 bg-[#10101a] p-6 shadow-xl flex flex-col justify-between space-y-5">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                        <Briefcase className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">Lançamento de Férias</h3>
+                        <p className="text-[11px] text-slate-400">Planejamento 2027 & Validador CLT</p>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                      CLT ART. 135
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-[#05050a] border border-white/5 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Escala 2027:</span>
+                      <span className="font-bold text-white font-mono">42 / 45 programadas</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Antecedência mínima:</span>
+                      <span className="font-bold text-emerald-400 font-mono">30 dias respeitados</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Avisos emitidos:</span>
+                      <span className="font-bold text-amber-400 font-mono">3 documentos</span>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-400">
+                    Controle de períodos aquisitivos, fracionamento em até 3 períodos e blindagem contra dobra de férias.
+                  </p>
+                </div>
+
+                <Button
+                  onClick={() => handleTabChange("ferias")}
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs gap-2 rounded-xl h-10 shadow-lg shadow-amber-600/20"
+                >
+                  <span>Ir para Lançamento de Férias</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ══════════════════════════════════════════════════════════════
             1. COMUNICADOS TAB
