@@ -37,17 +37,14 @@ export function AlertaResponsavelTecnico({ codigo = 'IT-PREP-001', onDismiss }: 
             Sua Instrução de Trabalho <strong className="font-bold text-black underline decoration-[#111827]/30 underline-offset-2">{codigo}</strong> deve ser mantida sempre atualizada. Você é o responsável técnico oficial pela conformidade deste procedimento perante o cartório.
           </p>
 
-          {/* Ações: Botão Entendi + Microtexto */}
-          <div className="mt-4 flex items-center gap-3.5">
+          {/* Ações: Botão Entendi */}
+          <div className="mt-4 flex items-center">
             <button
               onClick={onDismiss}
               className="px-5 py-2 rounded-full bg-white text-[#0A0A0A] hover:bg-[#111827] hover:text-white font-bold text-xs sm:text-[13px] shadow-sm transition-all duration-200 cursor-pointer select-none active:scale-[0.97]"
             >
               Entendi
             </button>
-            <span className="text-xs sm:text-[13px] text-[#0A0A0A]/80 font-medium select-none">
-              Dispensável nesta sessão
-            </span>
           </div>
         </div>
       </div>
