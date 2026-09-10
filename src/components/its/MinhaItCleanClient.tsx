@@ -190,7 +190,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
             Nenhuma Instrução de Trabalho sob sua responsabilidade
           </h1>
           <div className="text-sm text-slate-400 mb-6 leading-relaxed space-y-2">
-            <p>Você ainda não foi designado como Responsável Técnico por uma Instrução de Trabalho.</p>
+            <p>Você ainda não foi designado como Responsável por uma Instrução de Trabalho.</p>
             <p>
               As Instruções de Trabalho sob sua responsabilidade serão exibidas aqui após a sua designação pelo Oficial Substituto no respectivo departamento.
             </p>
