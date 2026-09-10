@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { PainelRHClient } from "@/components/sistema/PainelRHClient";
 import { getComunicadosRH } from "@/app/actions/comunicados";
+import { getIndicadoresRH, IndicadoresRH } from "@/app/actions/rh";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +26,31 @@ export default async function PainelRHPage() {
   }
 
   let initialComunicados: any[] = [];
+  let initialStats: IndicadoresRH = {
+    totalColaboradores: 0,
+    holerites: {
+      totalProcessados: 0,
+      colaboradoresAtendidos: 0,
+      hashesValidos: 0,
+    },
+    ferias: {
+      totalProgramadas: 0,
+      pendentesProgramacao: 0,
+      conflitosLotacao: 0,
+      totalAvisosEmitidos: 0,
+      avisos: [],
+    },
+  };
+
   try {
-    initialComunicados = await getComunicadosRH();
+    const [comunicados, stats] = await Promise.all([
+      getComunicadosRH(),
+      getIndicadoresRH(),
+    ]);
+    initialComunicados = comunicados;
+    initialStats = stats;
   } catch (err) {
-    console.error("Erro ao carregar comunicados do banco:", err);
+    console.error("Erro ao carregar dados do banco:", err);
   }
 
   return (
@@ -37,6 +59,7 @@ export default async function PainelRHPage() {
         userRole={userRole}
         userName={session.user.name || "Administrador"}
         initialComunicados={initialComunicados}
+        initialStats={initialStats}
       />
     </Suspense>
   );

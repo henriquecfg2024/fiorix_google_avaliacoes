@@ -40,11 +40,13 @@ import {
   criarComunicadoRH,
   editarComunicadoRH,
 } from "@/app/actions/comunicados";
+import { IndicadoresRH, AvisoEmitidoItem } from "@/app/actions/rh";
 
 interface PainelRHClientProps {
   userRole?: string;
   userName?: string;
   initialComunicados?: ComunicadoItem[];
+  initialStats?: IndicadoresRH;
 }
 
 interface ComunicadoItem {
@@ -63,21 +65,13 @@ interface ComunicadoItem {
   dataUltimaAlteracao?: string;
 }
 
-interface AvisoEmitido {
-  id: string;
-  colaborador: string;
-  setor: string;
-  periodoGozo: string;
-  dataAviso: string;
-  antecedenciaDias: number;
-  arquivo: string;
-  status: "Entregue" | "Visualizado" | "Ciente";
-}
+export type AvisoEmitido = AvisoEmitidoItem;
 
 export function PainelRHClient({
   userRole = "ADMIN",
   userName = "Administrador",
   initialComunicados = [],
+  initialStats,
 }: PainelRHClientProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -195,55 +189,23 @@ export function PainelRHClient({
   });
 
   useEffect(() => {
-    const base = initialComunicados && initialComunicados.length > 0 ? initialComunicados : fallbackList;
+    const base = initialComunicados ?? [];
     setComunicadosList(filterDeleted(base));
   }, [initialComunicados]);
 
-  // Lista de Avisos de Férias Emitidos
-  const [avisosEmitidos, setAvisosEmitidos] = useState<AvisoEmitido[]>([
-    {
-      id: "aviso-1",
-      colaborador: "Amanda Aparecida Gil",
-      setor: "Registro",
-      periodoGozo: "15/10/2026 a 03/11/2026",
-      dataAviso: "10/09/2026",
-      antecedenciaDias: 35,
-      arquivo: "Aviso_Ferias_Amanda_Gil_2026.pdf",
-      status: "Ciente",
-    },
-    {
-      id: "aviso-2",
-      colaborador: "Alex Nogueira Junior",
-      setor: "Atendimento",
-      periodoGozo: "01/10/2026 a 30/10/2026",
-      dataAviso: "28/08/2026",
-      antecedenciaDias: 34,
-      arquivo: "Aviso_Ferias_Alex_Junior_2026.pdf",
-      status: "Visualizado",
-    },
-    {
-      id: "aviso-3",
-      colaborador: "Claudio Donizetti Ferreira da Silva",
-      setor: "Administração",
-      periodoGozo: "10/09/2026 a 29/09/2026",
-      dataAviso: "31/08/2026",
-      antecedenciaDias: 10,
-      arquivo: "Aviso_Ferias_Claudio_Donizetti_2026.pdf",
-      status: "Entregue",
-    },
-    {
-      id: "aviso-4",
-      colaborador: "David Bruno Francisco Comunian dos Santos",
-      setor: "Registro",
-      periodoGozo: "01/11/2026 a 20/11/2026",
-      dataAviso: "15/09/2026",
-      antecedenciaDias: 47,
-      arquivo: "Aviso_Ferias_David_Bruno_2026.pdf",
-      status: "Ciente",
-    },
-  ]);
+  // Lista de Avisos de Férias Emitidos reais do banco de dados
+  const [avisosEmitidos, setAvisosEmitidos] = useState<AvisoEmitidoItem[]>(
+    initialStats?.ferias?.avisos || []
+  );
+
+  useEffect(() => {
+    if (initialStats?.ferias?.avisos) {
+      setAvisosEmitidos(initialStats.ferias.avisos);
+    }
+  }, [initialStats]);
+
   const [deleteAvisoModal, setDeleteAvisoModal] = useState(false);
-  const [avisoToDelete, setAvisoToDelete] = useState<AvisoEmitido | null>(null);
+  const [avisoToDelete, setAvisoToDelete] = useState<AvisoEmitidoItem | null>(null);
 
   // Mock de 45 auditorias de ciências para o modal de Comunicado
   const mockAuditorias45: AuditEntry[] = MOCK_COLABORADORES_45.map((colab, idx) => ({
@@ -378,11 +340,28 @@ export function PainelRHClient({
   const taxaGeral = totalEsperado > 0 ? Math.round((totalCiencias / totalEsperado) * 100) : 0;
 
   const hashesValidosCount = comunicadosAtivos.filter((c) => Boolean(c.conteudoHash)).length;
-  const hashesPercent = comunicadosAtivos.length > 0 ? Math.round((hashesValidosCount / comunicadosAtivos.length) * 100) : 100;
+  const hashesPercent = comunicadosAtivos.length > 0 ? Math.round((hashesValidosCount / comunicadosAtivos.length) * 100) : 0;
 
   const pendentesCriticos = comunicadosAtivos
     .filter((c) => c.status === "PUBLICADO")
     .reduce((acc, c) => acc + Math.max(0, (c.total || 0) - (c.ciencias || 0)), 0);
+
+  // Estatísticas Reais de Holerites e Férias (Persistidas no Banco de Dados)
+  const totalColaboradores = initialStats?.totalColaboradores || 0;
+
+  // Holerites reais
+  const totalHolerites = initialStats?.holerites?.totalProcessados || 0;
+  const colaboradoresAtendidosHolerite = initialStats?.holerites?.colaboradoresAtendidos || 0;
+  const hashesValidosHolerites = initialStats?.holerites?.hashesValidos || 0;
+  const percentAtendidosHolerite = totalColaboradores > 0 ? Math.round((colaboradoresAtendidosHolerite / totalColaboradores) * 100) : 0;
+  const percentWormHolerite = totalHolerites > 0 ? Math.round((hashesValidosHolerites / totalHolerites) * 100) : 0;
+
+  // Férias reais
+  const totalFeriasProgramadas = initialStats?.ferias?.totalProgramadas || 0;
+  const pendentesProgramacao = initialStats?.ferias?.pendentesProgramacao || 0;
+  const conflitosLotacao = initialStats?.ferias?.conflitosLotacao || 0;
+  const totalAvisosEmitidos = avisosEmitidos.length;
+  const percentFeriasProgramadas = totalColaboradores > 0 ? Math.round((totalFeriasProgramadas / totalColaboradores) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-[#05050a] text-white relative overflow-hidden pb-24 font-sans selection:bg-indigo-500 selection:text-white">
@@ -510,25 +489,40 @@ export function PainelRHClient({
                 <Calendar className="w-4 h-4 text-amber-400" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-amber-400">42 / 45</span>
-                <span className="text-xs text-slate-400 font-semibold">(93% da equipe)</span>
+                <span className="text-3xl font-black text-amber-400">
+                  {totalFeriasProgramadas > 0 ? `${totalFeriasProgramadas} / ${totalColaboradores}` : "0"}
+                </span>
+                {totalFeriasProgramadas > 0 && totalColaboradores > 0 && (
+                  <span className="text-xs text-slate-400 font-semibold">({percentFeriasProgramadas}% da equipe)</span>
+                )}
               </div>
               <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3.5 overflow-hidden">
-                <div className="bg-gradient-to-r from-amber-500 to-amber-300 h-full" style={{ width: "93%" }} />
+                <div
+                  className="bg-gradient-to-r from-amber-500 to-amber-300 h-full transition-all duration-500"
+                  style={{ width: `${percentFeriasProgramadas}%` }}
+                />
               </div>
-              <p className="text-[11px] text-slate-400 mt-2.5">Planejamento 2027 estruturado</p>
+              <p className="text-[11px] text-slate-400 mt-2.5">
+                {totalFeriasProgramadas > 0 ? "Planejamento 2027 estruturado" : "Nenhuma programação cadastrada"}
+              </p>
             </div>
 
-            <div className="p-6 rounded-2xl border border-rose-500/30 bg-[#140a12] shadow-xl">
+            <div className={`p-6 rounded-2xl border shadow-xl ${
+              pendentesProgramacao > 0 ? "border-rose-500/30 bg-[#140a12]" : "border-white/10 bg-[#10101a]"
+            }`}>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">Pendentes de Programação</span>
-                <AlertTriangle className="w-4 h-4 text-rose-400" />
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pendentes de Programação</span>
+                <AlertTriangle className={`w-4 h-4 ${pendentesProgramacao > 0 ? "text-rose-400" : "text-slate-500"}`} />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-rose-400">3</span>
-                <span className="text-xs text-rose-300/80 font-semibold">colaboradores</span>
+                <span className={`text-3xl font-black ${pendentesProgramacao > 0 ? "text-rose-400" : "text-slate-300"}`}>
+                  {pendentesProgramacao}
+                </span>
+                <span className="text-xs text-slate-400 font-semibold">colaboradores</span>
               </div>
-              <p className="text-[11px] text-rose-300/70 mt-3.5">Período aquisitivo próximo ao limite legal</p>
+              <p className="text-[11px] text-slate-400 mt-3.5">
+                {pendentesProgramacao > 0 ? "Período aquisitivo pendente de agendamento" : "Nenhuma programação pendente"}
+              </p>
             </div>
 
             <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
@@ -537,10 +531,12 @@ export function PainelRHClient({
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-emerald-400">0</span>
+                <span className="text-3xl font-black text-emerald-400">{conflitosLotacao}</span>
                 <span className="text-xs text-emerald-300/80 font-semibold">identificados</span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-3.5">Quorum mínimo setorial de 50% respeitado</p>
+              <p className="text-[11px] text-slate-400 mt-3.5">
+                {totalFeriasProgramadas > 0 ? "Quorum mínimo setorial de 50% respeitado" : "Nenhum conflito identificado"}
+              </p>
             </div>
           </div>
         )}
@@ -554,13 +550,20 @@ export function PainelRHClient({
                 <FileText className="w-4 h-4 text-cyan-400" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-cyan-400">180</span>
-                <span className="text-xs text-slate-400 font-semibold">documentos em custódia</span>
+                <span className="text-3xl font-black text-cyan-400">{totalHolerites}</span>
+                <span className="text-xs text-slate-400 font-semibold">
+                  {totalHolerites > 0 ? "documentos em custódia" : "documentos"}
+                </span>
               </div>
               <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3.5 overflow-hidden">
-                <div className="bg-gradient-to-r from-cyan-500 to-indigo-500 h-full" style={{ width: "100%" }} />
+                <div
+                  className="bg-gradient-to-r from-cyan-500 to-indigo-500 h-full transition-all duration-500"
+                  style={{ width: totalHolerites > 0 ? "100%" : "0%" }}
+                />
               </div>
-              <p className="text-[11px] text-slate-400 mt-2.5">Últimos 3 meses distribuídos via portal</p>
+              <p className="text-[11px] text-slate-400 mt-2.5">
+                {totalHolerites > 0 ? "Documentos distribuídos via portal" : "Nenhum holerite processado"}
+              </p>
             </div>
 
             <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
@@ -569,22 +572,45 @@ export function PainelRHClient({
                 <Users className="w-4 h-4 text-emerald-400" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-emerald-400">60 / 60</span>
-                <span className="text-xs text-emerald-300/80 font-semibold">100% da folha ativa</span>
+                <span className="text-3xl font-black text-emerald-400">
+                  {colaboradoresAtendidosHolerite}
+                  {totalColaboradores > 0 && (
+                    <span className="text-slate-500 text-2xl font-normal"> / {totalColaboradores}</span>
+                  )}
+                </span>
+                {colaboradoresAtendidosHolerite > 0 && totalColaboradores > 0 && (
+                  <span className="text-xs text-emerald-300/80 font-semibold">
+                    ({percentAtendidosHolerite}% da folha ativa)
+                  </span>
+                )}
               </div>
-              <p className="text-[11px] text-slate-400 mt-3.5">Acesso individualizado com PIN e autenticação</p>
+              <p className="text-[11px] text-slate-400 mt-3.5">
+                {colaboradoresAtendidosHolerite > 0
+                  ? "Acesso individualizado com PIN e autenticação"
+                  : "Nenhum colaborador recebeu holerite"}
+              </p>
             </div>
 
             <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Rastreabilidade & WORM</span>
-                <ShieldCheck className="w-4 h-4 text-indigo-400" />
+                <ShieldCheck className={`w-4 h-4 ${totalHolerites > 0 ? "text-indigo-400" : "text-slate-500"}`} />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-indigo-400">100%</span>
-                <span className="text-xs text-indigo-300/80 font-semibold">íntegro</span>
+                {totalHolerites > 0 ? (
+                  <>
+                    <span className="text-3xl font-black text-indigo-400">{percentWormHolerite}%</span>
+                    <span className="text-xs text-indigo-300/80 font-semibold">íntegro</span>
+                  </>
+                ) : (
+                  <span className="text-lg font-bold text-slate-400">Sem dados</span>
+                )}
               </div>
-              <p className="text-[11px] text-slate-400 mt-3.5">Logs de download e visualização auditáveis</p>
+              <p className="text-[11px] text-slate-400 mt-3.5">
+                {totalHolerites > 0
+                  ? "Logs de download e visualização auditáveis"
+                  : "Sem documentos para validação"}
+              </p>
             </div>
           </div>
         )}
@@ -639,6 +665,7 @@ export function PainelRHClient({
         {/* 4. CARDS: PAINEL GERAL DE RH (CONSOLIDADO) */}
         {currentTab === "geral" && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {/* Card 1: Comunicados */}
             <div className="p-5 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Comunicados Oficiais</span>
@@ -646,57 +673,99 @@ export function PainelRHClient({
               </div>
               <div className="mt-3 flex items-baseline gap-2">
                 <span className="text-2xl font-black text-white">{comunicadosAtivos.length}</span>
-                <span className="text-xs text-indigo-400 font-semibold">{taxaGeral}% ciência</span>
+                <span className="text-xs text-indigo-400 font-semibold">
+                  {comunicadosAtivos.length > 0 ? `${taxaGeral}% ciência` : "cadastrados"}
+                </span>
               </div>
               <div className="w-full bg-slate-800 h-1 rounded-full mt-3 overflow-hidden">
                 <div className="bg-indigo-500 h-full" style={{ width: `${taxaGeral}%` }} />
               </div>
-              <p className="text-[11px] text-slate-400 mt-2">{totalCiencias} de {totalEsperado} confirmados</p>
+              <p className="text-[11px] text-slate-400 mt-2">
+                {comunicadosAtivos.length > 0
+                  ? `${totalCiencias} de ${totalEsperado} confirmados`
+                  : "Nenhum comunicado publicado"}
+              </p>
             </div>
 
+            {/* Card 2: Holerites */}
             <div className="p-5 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Distribuição de Holerites</span>
                 <Upload className="w-4 h-4 text-cyan-400" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-black text-white">180</span>
-                <span className="text-xs text-cyan-400 font-semibold">docs processados</span>
+                <span className="text-2xl font-black text-white">{totalHolerites}</span>
+                <span className="text-xs text-cyan-400 font-semibold">
+                  {totalHolerites > 0 ? "docs processados" : "documentos"}
+                </span>
               </div>
               <div className="w-full bg-slate-800 h-1 rounded-full mt-3 overflow-hidden">
-                <div className="bg-cyan-500 h-full" style={{ width: "100%" }} />
+                <div
+                  className="bg-cyan-500 h-full"
+                  style={{ width: totalHolerites > 0 ? `${percentAtendidosHolerite}%` : "0%" }}
+                />
               </div>
-              <p className="text-[11px] text-slate-400 mt-2">60/60 colaboradores atendidos</p>
+              <p className="text-[11px] text-slate-400 mt-2">
+                {totalHolerites > 0
+                  ? `${colaboradoresAtendidosHolerite} de ${totalColaboradores} colaboradores atendidos`
+                  : "Nenhum documento processado"}
+              </p>
             </div>
 
+            {/* Card 3: Férias */}
             <div className="p-5 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Escala Férias 2027</span>
                 <Briefcase className="w-4 h-4 text-amber-400" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-black text-white">42 / 45</span>
-                <span className="text-xs text-amber-400 font-semibold">programadas</span>
+                <span className="text-2xl font-black text-white">
+                  {totalFeriasProgramadas > 0 ? `${totalFeriasProgramadas} / ${totalColaboradores}` : "0"}
+                </span>
+                <span className="text-xs text-amber-400 font-semibold">
+                  {totalFeriasProgramadas > 0 ? "programadas" : "cadastradas"}
+                </span>
               </div>
               <div className="w-full bg-slate-800 h-1 rounded-full mt-3 overflow-hidden">
-                <div className="bg-amber-500 h-full" style={{ width: "93%" }} />
+                <div
+                  className="bg-amber-500 h-full"
+                  style={{ width: `${percentFeriasProgramadas}%` }}
+                />
               </div>
-              <p className="text-[11px] text-slate-400 mt-2">3 pendências de alinhamento</p>
+              <p className="text-[11px] text-slate-400 mt-2">
+                {totalFeriasProgramadas > 0
+                  ? `${pendentesProgramacao} pendências de alinhamento`
+                  : "Nenhuma programação cadastrada"}
+              </p>
             </div>
 
+            {/* Card 4: Conformidade & WORM */}
             <div className="p-5 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Conformidade & WORM</span>
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-black text-emerald-400">{hashesPercent}%</span>
-                <span className="text-xs text-emerald-300 font-semibold">hashes válidos</span>
+                {comunicadosAtivos.length > 0 || totalHolerites > 0 ? (
+                  <>
+                    <span className="text-2xl font-black text-emerald-400">{hashesPercent}%</span>
+                    <span className="text-xs text-emerald-300 font-semibold">hashes válidos</span>
+                  </>
+                ) : (
+                  <span className="text-lg font-bold text-slate-400">Sem dados</span>
+                )}
               </div>
               <div className="w-full bg-slate-800 h-1 rounded-full mt-3 overflow-hidden">
-                <div className="bg-emerald-500 h-full" style={{ width: `${hashesPercent}%` }} />
+                <div
+                  className="bg-emerald-500 h-full"
+                  style={{ width: comunicadosAtivos.length > 0 || totalHolerites > 0 ? `${hashesPercent}%` : "0%" }}
+                />
               </div>
-              <p className="text-[11px] text-slate-400 mt-2">Auditoria CLT & Prov. 213 em dia</p>
+              <p className="text-[11px] text-slate-400 mt-2">
+                {comunicadosAtivos.length > 0 || totalHolerites > 0
+                  ? "Auditoria CLT & Prov. 213 em dia"
+                  : "Sem documentos para validação"}
+              </p>
             </div>
           </div>
         )}
@@ -775,15 +844,23 @@ export function PainelRHClient({
                   <div className="p-3.5 rounded-xl bg-[#05050a] border border-white/5 space-y-2">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-400">Total distribuídos:</span>
-                      <span className="font-bold text-white font-mono">180 recibos</span>
+                      <span className="font-bold text-white font-mono">
+                        {totalHolerites > 0 ? `${totalHolerites} recibos` : "0 recibos"}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-400">Colaboradores ativos:</span>
-                      <span className="font-bold text-emerald-400 font-mono">60 / 60</span>
+                      <span className="font-bold text-emerald-400 font-mono">
+                        {colaboradoresAtendidosHolerite > 0
+                          ? `${colaboradoresAtendidosHolerite} / ${totalColaboradores}`
+                          : `0 / ${totalColaboradores} atendidos`}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-400">Rastreabilidade WORM:</span>
-                      <span className="font-bold text-cyan-400 font-mono">100% íntegro</span>
+                      <span className="font-bold text-cyan-400 font-mono">
+                        {totalHolerites > 0 ? `${percentWormHolerite}% íntegro` : "Sem documentos para validação"}
+                      </span>
                     </div>
                   </div>
 
@@ -822,15 +899,23 @@ export function PainelRHClient({
                   <div className="p-3.5 rounded-xl bg-[#05050a] border border-white/5 space-y-2">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-400">Escala 2027:</span>
-                      <span className="font-bold text-white font-mono">42 / 45 programadas</span>
+                      <span className="font-bold text-white font-mono">
+                        {totalFeriasProgramadas > 0
+                          ? `${totalFeriasProgramadas} / ${totalColaboradores} programadas`
+                          : "Nenhuma programação cadastrada"}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-400">Antecedência mínima:</span>
-                      <span className="font-bold text-emerald-400 font-mono">30 dias respeitados</span>
+                      <span className="font-bold text-emerald-400 font-mono">
+                        {totalFeriasProgramadas > 0 ? "30 dias respeitados" : "Sem programações ativas"}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-400">Avisos emitidos:</span>
-                      <span className="font-bold text-amber-400 font-mono">3 documentos</span>
+                      <span className="font-bold text-amber-400 font-mono">
+                        {totalAvisosEmitidos} {totalAvisosEmitidos === 1 ? "documento" : "documentos"}
+                      </span>
                     </div>
                   </div>
 
@@ -1122,7 +1207,18 @@ export function PainelRHClient({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 text-slate-200">
-                      {avisosEmitidos.map((aviso) => {
+                      {avisosEmitidos.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
+                            <FileText className="w-8 h-8 mx-auto text-slate-600 mb-2" />
+                            <p className="font-semibold text-sm text-slate-300">Nenhum aviso formal de férias emitido</p>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              Os avisos emitidos com antecedência mínima de 30 dias (CLT Art. 135) serão listados aqui.
+                            </p>
+                          </td>
+                        </tr>
+                      ) : (
+                        avisosEmitidos.map((aviso) => {
                         const isOk = aviso.antecedenciaDias >= 30;
                         return (
                           <tr key={aviso.id} className="hover:bg-white/[0.03] transition-colors">
@@ -1187,7 +1283,7 @@ export function PainelRHClient({
                             </td>
                           </tr>
                         );
-                      })}
+                      }))}
                     </tbody>
                   </table>
                 </div>
