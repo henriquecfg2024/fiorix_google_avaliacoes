@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { MinhaItPageData, MinhaItCustodiaItem, publicarNovaVersaoIT } from '@/app/actions/minha-it';
 import { getITUploadSignedUrl } from '@/app/actions/its';
+import { AlertaResponsavelTecnico } from './AlertaResponsavelTecnico';
 
 interface MinhaItCleanClientProps {
   initialData: MinhaItPageData;
@@ -47,6 +48,18 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState(false);
+
+  // Estado do Alerta Amarelo de Responsabilidade Técnica (sempre visível ao entrar em Minha IT)
+  const [alertaVisible, setAlertaVisible] = useState(true);
+
+  useEffect(() => {
+    // Garante que o alerta abra sempre que o colaborador entrar em Minha IT ou trocar de IT
+    setAlertaVisible(true);
+
+    const handleReopen = () => setAlertaVisible(true);
+    window.addEventListener('fiorix-minha-it-open', handleReopen);
+    return () => window.removeEventListener('fiorix-minha-it-open', handleReopen);
+  }, [currentIt?.codigo]);
 
   if (!mounted) {
     return (
@@ -230,6 +243,16 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
             </span>
           </div>
         </div>
+
+        {/* ── Alerta Amarelo Vibrante do Responsável Técnico ── */}
+        {alertaVisible && (
+          <div className="mt-4">
+            <AlertaResponsavelTecnico
+              codigo={currentIt.codigo}
+              onDismiss={() => setAlertaVisible(false)}
+            />
+          </div>
+        )}
       </div>
 
       {/* ── Área Principal (Documento Centralizado + Sidebar 320px) ─ */}

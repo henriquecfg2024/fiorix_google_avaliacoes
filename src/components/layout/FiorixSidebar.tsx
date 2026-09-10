@@ -190,7 +190,17 @@ export function FiorixSidebar() {
                       const active = isActive(item.href);
                       const ItemIcon = item.icon;
                       return (
-                        <Link key={item.href} href={item.href} prefetch={false} className="block">
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          prefetch={false}
+                          className="block"
+                          onClick={() => {
+                            if (item.href === '/minha-it' && typeof window !== 'undefined') {
+                              window.dispatchEvent(new CustomEvent('fiorix-minha-it-open'));
+                            }
+                          }}
+                        >
                           <div
                             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
                               active
@@ -238,7 +248,17 @@ export function FiorixSidebar() {
                       const active = isActive(item.href);
                       const ItemIcon = item.icon;
                       return (
-                        <Link key={item.href} href={item.href} prefetch={false} className="block">
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          prefetch={false}
+                          className="block"
+                          onClick={() => {
+                            if (item.href === '/minha-it' && typeof window !== 'undefined') {
+                              window.dispatchEvent(new CustomEvent('fiorix-minha-it-open'));
+                            }
+                          }}
+                        >
                           <div
                             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
                               active
