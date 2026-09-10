@@ -283,6 +283,7 @@ export function PainelRHClient({
       setNovoModalOpen(false);
       setNovoTitulo("");
       setNovoConteudo("");
+      router.refresh();
     } catch (err) {
       console.error("Erro ao publicar comunicado:", err);
       // Fallback local se rede falhar
@@ -360,6 +361,19 @@ export function PainelRHClient({
     return matchSearch && matchStatus;
   });
 
+  // Cálculos dinâmicos dos KPIs de Comunicados
+  const comunicadosAtivos = comunicadosList.filter((c) => c.status !== "EXCLUIDO");
+  const totalCiencias = comunicadosAtivos.reduce((acc, c) => acc + (c.ciencias || 0), 0);
+  const totalEsperado = comunicadosAtivos.reduce((acc, c) => acc + (c.total || 0), 0);
+  const taxaGeral = totalEsperado > 0 ? Math.round((totalCiencias / totalEsperado) * 100) : 0;
+
+  const hashesValidosCount = comunicadosAtivos.filter((c) => Boolean(c.conteudoHash)).length;
+  const hashesPercent = comunicadosAtivos.length > 0 ? Math.round((hashesValidosCount / comunicadosAtivos.length) * 100) : 100;
+
+  const pendentesCriticos = comunicadosAtivos
+    .filter((c) => c.status === "PUBLICADO")
+    .reduce((acc, c) => acc + Math.max(0, (c.total || 0) - (c.ciencias || 0)), 0);
+
   return (
     <div className="min-h-screen bg-[#05050a] text-white relative overflow-hidden pb-24 font-sans selection:bg-indigo-500 selection:text-white">
       {/* Ambient Glow */}
@@ -430,24 +444,26 @@ export function PainelRHClient({
           </div>
         </div>
 
-        {/* KPIs Resumo Geral */}
+        {/* KPIs Resumo Geral (Dinâmicos) */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Taxa Geral de Ciência</span>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-black text-[#06b6d4]">84%</span>
-              <span className="text-xs text-slate-400 font-semibold">76 / 118 ciências</span>
+              <span className="text-3xl font-black text-[#06b6d4]">{taxaGeral}%</span>
+              <span className="text-xs text-slate-400 font-semibold">{totalCiencias} / {totalEsperado} ciências</span>
             </div>
             <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3.5 overflow-hidden">
-              <div className="bg-gradient-to-r from-indigo-500 to-[#06b6d4] h-full w-[84%]" />
+              <div className="bg-gradient-to-r from-indigo-500 to-[#06b6d4] h-full transition-all duration-500" style={{ width: `${taxaGeral}%` }} />
             </div>
           </div>
 
           <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Hashes Válidos</span>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-black text-[#10b981]">100%</span>
-              <span className="text-xs text-[#10b981]/80 font-semibold">Integridade confirmada</span>
+              <span className="text-3xl font-black text-[#10b981]">{hashesPercent}%</span>
+              <span className="text-xs text-[#10b981]/80 font-semibold">
+                {comunicadosAtivos.length > 0 ? `${hashesValidosCount} de ${comunicadosAtivos.length} verificados` : "Integridade confirmada"}
+              </span>
             </div>
             <p className="text-[11px] text-slate-400 mt-3.5">Trilha SHA-256 e WORM sem divergências</p>
           </div>
@@ -455,10 +471,14 @@ export function PainelRHClient({
           <div className="p-6 rounded-2xl border border-rose-500/30 bg-[#140a12] shadow-xl">
             <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">Pendentes Críticos</span>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-black text-[#ef4444]">3</span>
-              <span className="text-xs text-[#ef4444]/80 font-semibold">Expiram em até 48h</span>
+              <span className="text-3xl font-black text-[#ef4444]">{pendentesCriticos}</span>
+              <span className="text-xs text-[#ef4444]/80 font-semibold">
+                {pendentesCriticos > 0 ? "Aguardando ciência" : "Tudo em dia"}
+              </span>
             </div>
-            <p className="text-[11px] text-[#ef4444]/80 mt-3.5">Notificações automáticas ativas</p>
+            <p className="text-[11px] text-[#ef4444]/80 mt-3.5">
+              {pendentesCriticos > 0 ? "Notificações automáticas ativas" : "Nenhuma pendência crítica"}
+            </p>
           </div>
         </div>
 
@@ -525,7 +545,18 @@ export function PainelRHClient({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 text-slate-200">
-                  {filteredComunicados.map((item) => {
+                  {filteredComunicados.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-12 text-center text-slate-400">
+                        <FileText className="w-8 h-8 mx-auto text-slate-600 mb-2" />
+                        <p className="font-semibold text-sm text-slate-300">Nenhum comunicado encontrado</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Clique em &quot;+ Criar Novo Comunicado&quot; para publicar o primeiro comunicado oficial.
+                        </p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredComunicados.map((item) => {
                     const percent = Math.round((item.ciencias / item.total) * 100);
                     const isExcluido = item.status === "EXCLUIDO";
 
@@ -624,7 +655,7 @@ export function PainelRHClient({
                         </td>
                       </tr>
                     );
-                  })}
+                  }))}
                 </tbody>
               </table>
             </div>

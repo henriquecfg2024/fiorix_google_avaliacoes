@@ -47,8 +47,7 @@ export async function getComunicadosRH(): Promise<ComunicadoItem[]> {
   const totalColaboradores = await prisma.user.count({
     where: {
       tenantId: user.tenantId,
-      active: true,
-    } as any,
+    },
   });
 
   return comunicados.map((c) => {
