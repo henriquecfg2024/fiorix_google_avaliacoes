@@ -239,9 +239,9 @@ export function FiorixSidebar() {
               // @ts-expect-error Radix UI type mismatch
               <Accordion type="single" collapsible key={key} defaultValue={(isGroupActive || role === "RH" || key === "rhGestao" ? key : undefined) as any}>
                 <AccordionItem value={key} className="border-none">
-                  <AccordionTrigger className="flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold text-white/50 uppercase tracking-wider hover:bg-white/5 hover:text-white hover:no-underline [&[data-state=open]>svg.chevron]:rotate-180">
+                  <AccordionTrigger className="flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-extrabold text-white/75 uppercase tracking-wider hover:bg-white/5 hover:text-white hover:no-underline [&[data-state=open]>svg.chevron]:rotate-180">
                     <span className="truncate">{group.label}</span>
-                    <ChevronDown className="chevron w-3.5 h-3.5 opacity-50 transition-transform duration-200" />
+                    <ChevronDown className="chevron w-3.5 h-3.5 opacity-60 transition-transform duration-200" />
                   </AccordionTrigger>
                   <AccordionContent className="pt-1 pb-1 space-y-1">
                     {group.items.map((item: any) => {
@@ -263,20 +263,20 @@ export function FiorixSidebar() {
                             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
                               active
                                 ? "bg-white/[0.08] text-white border border-white/5"
-                                : "text-white/60 hover:bg-white/[0.04] hover:text-white border border-transparent"
+                                : "text-slate-300 hover:bg-white/[0.06] hover:text-white border border-transparent"
                             }`}
                           >
-                            <ItemIcon className="w-4 h-4 opacity-75 shrink-0" />
+                            <ItemIcon className="w-4 h-4 opacity-80 shrink-0" />
                             <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
                               <span className="truncate">{item.label}</span>
                               {item.isNew && (
-                                <span className="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[8px] font-black rounded-md uppercase tracking-wide leading-none shrink-0">
+                                <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[9.5px] font-black rounded-md uppercase tracking-wide leading-none shrink-0">
                                   NOVO
                                 </span>
                               )}
                               {!item.isNew && (item.badgeKey || item.badge) && (
                                 <span
-                                  className={`px-1.5 py-0.2 text-[8px] font-black rounded-md uppercase tracking-wide leading-none shrink-0 ${badgeColorClass(
+                                  className={`px-1.5 py-0.5 text-[9.5px] font-black rounded-md uppercase tracking-wide leading-none shrink-0 ${badgeColorClass(
                                     item.badgeVariant
                                   )}`}
                                 >

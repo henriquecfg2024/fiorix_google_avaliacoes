@@ -287,33 +287,33 @@ export default async function AvaliacoesPage({
           <div className="inline-flex flex-wrap gap-1 self-start rounded-xl border border-white/8 bg-white/[0.04] p-1 text-xs font-semibold sm:self-auto">
               <Link
                 href="/avaliacoes"
-                className={`rounded-lg px-3.5 py-1.5 transition-all ${
-                  !statusFilter ? 'bg-amber-400 font-bold text-slate-950 shadow-sm' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+                className={`rounded-xl px-4 py-2 text-sm transition-all ${
+                  !statusFilter ? 'bg-amber-400 font-bold text-slate-950 shadow-sm' : 'text-slate-200 hover:bg-white/[0.08] hover:text-white font-medium'
                 }`}
               >
                 Todas ({totalCount})
               </Link>
               <Link
                 href="/avaliacoes?status=PENDING"
-                className={`rounded-lg px-3.5 py-1.5 transition-all ${
-                  statusFilter === 'PENDING' ? 'bg-amber-500 font-bold text-slate-950 shadow-sm' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+                className={`rounded-xl px-4 py-2 text-sm transition-all ${
+                  statusFilter === 'PENDING' ? 'bg-amber-500 font-bold text-slate-950 shadow-sm' : 'text-slate-200 hover:bg-white/[0.08] hover:text-white font-medium'
                 }`}
               >
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5" />
+                <span className="flex items-center gap-1.5">
+                  <Clock className="h-4 w-4" />
                   Aguardando ({pendingCount})
                 </span>
               </Link>
               <Link
                 href="/avaliacoes?status=RESPONDED"
-                className={`rounded-lg px-3.5 py-1.5 transition-all ${
+                className={`rounded-xl px-4 py-2 text-sm transition-all ${
                   statusFilter === 'RESPONDED'
                     ? 'bg-emerald-600 font-bold text-white shadow-sm'
-                    : 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/16'
+                    : 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/16 font-medium'
                 }`}
               >
-                <span className="flex items-center gap-1">
-                  <CheckCircle className="h-3.5 w-3.5" />
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle className="h-4 w-4" />
                   Respondidas ({respondedCount})
                 </span>
               </Link>
@@ -479,13 +479,13 @@ export default async function AvaliacoesPage({
 
         <form action="/avaliacoes" method="GET" className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-12">
           <div className="relative sm:col-span-6">
-            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 transform text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 transform text-slate-400" />
             <input
               type="text"
               name="search"
               defaultValue={searchQuery || ''}
               placeholder="Buscar por nome, comentário ou colaborador..."
-              className="w-full rounded-xl border border-white/10 bg-slate-950/60 py-2 pl-9 pr-4 text-xs text-slate-100 outline-none placeholder:text-slate-500 focus:border-blue-500/40 focus:ring-2 focus:ring-blue-500/30"
+              className="w-full rounded-xl border border-white/10 bg-slate-950/60 py-2.5 pl-10 pr-4 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-blue-500/40 focus:ring-2 focus:ring-blue-500/30 font-medium"
             />
           </div>
 
@@ -493,7 +493,7 @@ export default async function AvaliacoesPage({
             <select
               name="rating"
               defaultValue={ratingFilter ? String(ratingFilter) : ''}
-              className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-xs font-medium text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/30"
+              className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3.5 py-2.5 text-sm font-medium text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/30"
             >
               <option value="">Todas as Estrelas</option>
               <option value="5">5 Estrelas (★★★★★)</option>
@@ -506,7 +506,7 @@ export default async function AvaliacoesPage({
             <select
               name="colaborador"
               defaultValue={colabFilter || ''}
-              className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-xs font-medium text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/30"
+              className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3.5 py-2.5 text-sm font-medium text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/30"
             >
               <option value="">Todos Colaboradores</option>
               {staffList.map((colab) => (
@@ -516,16 +516,16 @@ export default async function AvaliacoesPage({
               ))}
             </select>
 
-            <button type="submit" className="shrink-0 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-blue-500">
+            <button type="submit" className="shrink-0 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-500 shadow-sm cursor-pointer">
               Filtrar
             </button>
           </div>
         </form>
 
       {(searchQuery || ratingFilter || colabFilter || statusFilter) && (
-        <div className="flex items-center justify-between rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 px-4 text-xs text-blue-100">
-          <div className="flex items-center gap-2 font-semibold">
-            <Filter className="h-4 w-4 text-blue-400" />
+        <div className="flex items-center justify-between rounded-xl border border-blue-500/20 bg-blue-500/10 p-3.5 px-4 text-sm text-blue-100">
+          <div className="flex items-center gap-2 font-medium">
+            <Filter className="h-4.5 w-4.5 text-blue-400 shrink-0" />
             <span>
               Filtros ativos:{' '}
               {[searchQuery && `Busca: "${searchQuery}"`, ratingFilter && `Nota: ${ratingFilter}★`, colabFilter && `Colaborador: ${colabFilter}`, statusFilter && `Status: ${statusFilter}`]
@@ -591,64 +591,64 @@ export default async function AvaliacoesPage({
             </div>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             {currentPage > 1 ? (
               <Link
                 href={buildPageUrl(1)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08]"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08]"
                 title="Primeira Página"
               >
-                <ChevronsLeft size={15} />
+                <ChevronsLeft size={16} />
               </Link>
             ) : (
-              <button disabled className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white/30 cursor-not-allowed">
-                <ChevronsLeft size={15} />
+              <button disabled className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/[0.02] text-white/20 cursor-not-allowed">
+                <ChevronsLeft size={16} />
               </button>
             )}
 
             {currentPage > 1 ? (
               <Link
                 href={buildPageUrl(currentPage - 1)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08]"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08]"
                 title="Página Anterior"
               >
-                <ChevronLeft size={15} />
+                <ChevronLeft size={16} />
               </Link>
             ) : (
-              <button disabled className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white/30 cursor-not-allowed">
-                <ChevronLeft size={15} />
+              <button disabled className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/[0.02] text-white/20 cursor-not-allowed">
+                <ChevronLeft size={16} />
               </button>
             )}
 
-            <span className="text-xs px-2 font-medium text-white min-w-[90px] text-center">
+            <span className="text-sm px-3 font-semibold text-slate-200 min-w-[110px] text-center">
               Página {currentPage.toLocaleString("pt-BR")} de {totalPages.toLocaleString("pt-BR")}
             </span>
 
             {currentPage < totalPages ? (
               <Link
                 href={buildPageUrl(currentPage + 1)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08]"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08]"
                 title="Próxima Página"
               >
-                <ChevronRight size={15} />
+                <ChevronRight size={16} />
               </Link>
             ) : (
-              <button disabled className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white/30 cursor-not-allowed">
-                <ChevronRight size={15} />
+              <button disabled className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/[0.02] text-white/20 cursor-not-allowed">
+                <ChevronRight size={16} />
               </button>
             )}
 
             {currentPage < totalPages ? (
               <Link
                 href={buildPageUrl(totalPages)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08]"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08]"
                 title="Última Página"
               >
-                <ChevronsRight size={15} />
+                <ChevronsRight size={16} />
               </Link>
             ) : (
-              <button disabled className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white/30 cursor-not-allowed">
-                <ChevronsRight size={15} />
+              <button disabled className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/[0.02] text-white/20 cursor-not-allowed">
+                <ChevronsRight size={16} />
               </button>
             )}
           </div>
