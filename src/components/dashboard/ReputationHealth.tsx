@@ -404,10 +404,10 @@ function IndicatorCard({
   const IconComponent = ICON_MAP[ind.iconName] || AlertCircle;
   const borderClass =
     tone === 'green'
-      ? 'border-emerald-500/20 hover:border-emerald-500/40'
+      ? 'border-white/12 hover:border-emerald-500/40'
       : tone === 'amber'
-      ? 'border-amber-500/20 hover:border-amber-500/40'
-      : 'border-rose-500/20 hover:border-rose-500/40';
+      ? 'border-white/12 hover:border-amber-500/40'
+      : 'border-white/12 hover:border-rose-500/40';
 
   const textClass =
     tone === 'green' ? 'text-emerald-300' : tone === 'amber' ? 'text-amber-300' : 'text-rose-300';
