@@ -75,7 +75,7 @@ export function ReputationHealth({ variant = 'executive', data }: ReputationHeal
         {/* Grid Principal: Coluna Esquerda (Gauge) & Coluna Direita (Resumo Executivo) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
           {/* Coluna Esquerda: Gauge Circular Ciano */}
-          <div className="lg:col-span-4 flex flex-col justify-center items-center rounded-2xl border border-white/10 bg-[#080D1A]/80 p-6 text-center shadow-inner">
+          <div className="lg:col-span-4 flex flex-col justify-center items-center rounded-2xl border border-white/12 bg-[#080D1A]/80 p-6 text-center shadow-inner">
             <div className="relative flex h-44 w-44 items-center justify-center">
               <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 160 160">
                 <circle
@@ -121,7 +121,7 @@ export function ReputationHealth({ variant = 'executive', data }: ReputationHeal
               {/* Card 1: Saudáveis */}
               <Link
                 href="/estatisticas"
-                className="group flex items-center justify-between rounded-2xl border border-emerald-500/20 bg-[#080D1A]/90 p-4 transition-all duration-200 hover:border-emerald-500/40 hover:bg-[#0c1428]"
+                className="group flex items-center justify-between rounded-2xl border border-emerald-500/20 bg-[#080D1A]/80 p-4 transition-all duration-200 hover:border-emerald-500/40 hover:bg-[#0c1428]"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">
@@ -142,7 +142,7 @@ export function ReputationHealth({ variant = 'executive', data }: ReputationHeal
               {/* Card 2: Pontos de Atenção */}
               <Link
                 href="/estatisticas"
-                className="group flex items-center justify-between rounded-2xl border border-amber-500/20 bg-[#080D1A]/90 p-4 transition-all duration-200 hover:border-amber-500/40 hover:bg-[#0c1428]"
+                className="group flex items-center justify-between rounded-2xl border border-amber-500/20 bg-[#080D1A]/80 p-4 transition-all duration-200 hover:border-amber-500/40 hover:bg-[#0c1428]"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400">
@@ -163,7 +163,7 @@ export function ReputationHealth({ variant = 'executive', data }: ReputationHeal
               {/* Card 3: Indicadores Críticos */}
               <Link
                 href="/estatisticas"
-                className="group flex items-center justify-between rounded-2xl border border-rose-500/20 bg-[#080D1A]/90 p-4 transition-all duration-200 hover:border-rose-500/40 hover:bg-[#0c1428]"
+                className="group flex items-center justify-between rounded-2xl border border-rose-500/20 bg-[#080D1A]/80 p-4 transition-all duration-200 hover:border-rose-500/40 hover:bg-[#0c1428]"
               >
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-500/15 text-rose-400">
@@ -213,7 +213,7 @@ export function ReputationHealth({ variant = 'executive', data }: ReputationHeal
                     <Link
                       key={ind.id}
                       href={`/avaliacoes?search=${encodeURIComponent(ind.query)}`}
-                      className="group flex flex-col justify-between rounded-2xl border border-rose-500/20 bg-[#080D1A]/90 p-3.5 transition-all duration-200 hover:border-rose-500/40 hover:bg-[#0c1428]"
+                      className="group flex flex-col justify-between rounded-2xl border border-rose-500/20 bg-[#080D1A]/80 p-3.5 transition-all duration-200 hover:border-rose-500/40 hover:bg-[#0c1428]"
                     >
                       <div className="flex items-center justify-between gap-2 min-w-0">
                         <div className="flex items-center gap-2.5 truncate min-w-0">
@@ -241,7 +241,7 @@ export function ReputationHealth({ variant = 'executive', data }: ReputationHeal
             </div>
 
             {/* Linha 3: Oportunidade de Melhoria & CTA Principal */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="rounded-2xl border border-white/12 bg-white/[0.02] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-300">
                   <Lightbulb className="h-5 w-5" />
@@ -298,7 +298,7 @@ export function ReputationHealth({ variant = 'executive', data }: ReputationHeal
       {/* Grid Principal: Coluna Esquerda (Gauge) & Coluna Direita (Grupos Semânticos) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* Coluna Esquerda: Gauge Circular Ciano e Acesso Metodológico */}
-        <div className="lg:col-span-4 flex flex-col justify-between items-center rounded-2xl border border-white/10 bg-[#080D1A]/80 p-6 text-center shadow-inner">
+        <div className="lg:col-span-4 flex flex-col justify-between items-center rounded-2xl border border-white/12 bg-[#080D1A]/80 p-6 text-center shadow-inner">
           <div className="flex flex-col items-center justify-center pt-2">
             <div className="relative flex h-44 w-44 items-center justify-center">
               <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 160 160">
@@ -425,7 +425,7 @@ function IndicatorCard({
   return (
     <Link
       href={`/avaliacoes?search=${encodeURIComponent(ind.query)}`}
-      className={`group flex flex-col justify-between rounded-2xl border ${borderClass} bg-[#080D1A]/90 p-3.5 transition-all duration-200 hover:bg-[#0c1428]`}
+      className={`group flex flex-col justify-between rounded-2xl border ${borderClass} bg-[#080D1A]/80 p-3.5 transition-all duration-200 hover:bg-[#0c1428]`}
     >
       <div className="flex items-center justify-between gap-2 min-w-0">
         <div className="flex items-center gap-2.5 truncate min-w-0">

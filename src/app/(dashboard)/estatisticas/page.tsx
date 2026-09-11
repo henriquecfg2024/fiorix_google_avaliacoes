@@ -216,7 +216,7 @@ export default async function EstatisticasPage() {
             {/* Resumo Executivo: 4 KPIs compactos na parte inferior */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-4 border-t border-white/8">
               {/* Total de avaliações */}
-              <div className="rounded-xl border border-white/10 bg-[#070D1E]/90 p-3 flex flex-col justify-between shadow-xs">
+              <div className="rounded-xl border border-white/12 bg-[#070D1E]/80 p-3 flex flex-col justify-between shadow-xs">
                 <div className="flex items-center gap-2">
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-300">
                     <MessageSquare className="h-3.5 w-3.5" />
@@ -229,7 +229,7 @@ export default async function EstatisticasPage() {
               </div>
 
               {/* Avaliações Positivas */}
-              <div className="rounded-xl border border-white/10 bg-[#070D1E]/90 p-3 flex flex-col justify-between shadow-xs">
+              <div className="rounded-xl border border-white/12 bg-[#070D1E]/80 p-3 flex flex-col justify-between shadow-xs">
                 <div className="flex items-center gap-2">
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-300">
                     <Smile className="h-3.5 w-3.5" />
@@ -243,7 +243,7 @@ export default async function EstatisticasPage() {
               </div>
 
               {/* Avaliações Neutras */}
-              <div className="rounded-xl border border-white/10 bg-[#070D1E]/90 p-3 flex flex-col justify-between shadow-xs">
+              <div className="rounded-xl border border-white/12 bg-[#070D1E]/80 p-3 flex flex-col justify-between shadow-xs">
                 <div className="flex items-center gap-2">
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/15 text-amber-300">
                     <Meh className="h-3.5 w-3.5" />
@@ -257,7 +257,7 @@ export default async function EstatisticasPage() {
               </div>
 
               {/* Avaliações Negativas */}
-              <div className="rounded-xl border border-white/10 bg-[#070D1E]/90 p-3 flex flex-col justify-between shadow-xs">
+              <div className="rounded-xl border border-white/12 bg-[#070D1E]/80 p-3 flex flex-col justify-between shadow-xs">
                 <div className="flex items-center gap-2">
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-500/15 text-rose-300">
                     <Frown className="h-3.5 w-3.5" />
