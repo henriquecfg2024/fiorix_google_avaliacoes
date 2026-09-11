@@ -175,7 +175,7 @@ export function KpiCards({
       title: "Total Autenticações",
       primaryValue: kpis.totalAutenticacoes.toLocaleString("pt-BR"),
       secondaryValue: null,
-      subText: "Volume total processado",
+      subText: "Volume total processado no período",
       icon: Award,
       iconBox: "border-cyan-500/20 bg-cyan-500/10",
       iconColor: "text-cyan-300",
@@ -187,7 +187,7 @@ export function KpiCards({
       title: "Digital ONR",
       primaryValue: kpis.digitalCount.toLocaleString("pt-BR"),
       secondaryValue: `(${kpis.digitalPct}%)`,
-      subText: "RIDigital / Gestão ONR",
+      subText: "RIDigital / Gestão de escala do ONR",
       icon: Laptop,
       iconBox: "border-emerald-500/20 bg-emerald-500/10",
       iconColor: "text-emerald-300",
@@ -199,7 +199,7 @@ export function KpiCards({
       title: "Presencial",
       primaryValue: kpis.presencialCount.toLocaleString("pt-BR"),
       secondaryValue: `(${kpis.presencialPct}%)`,
-      subText: "Recepção / Balcão físico",
+      subText: "Recepção / Balanço operacional presencial",
       icon: Users,
       iconBox: "border-sky-500/20 bg-sky-500/10",
       iconColor: "text-sky-300",
@@ -210,8 +210,8 @@ export function KpiCards({
     {
       title: "Pico de Fila",
       primaryValue: kpis.picoFila.dayTime,
-      secondaryValue: kpis.picoFila.countText,
-      subText: "Momento com maior acúmulo",
+      secondaryValue: kpis.picoFila.countText ? `• ${kpis.picoFila.countText}` : null,
+      subText: "Momento com maior acúmulo de requisições",
       icon: ShieldAlert,
       badge: kpis.picoFila.isCritico ? "CRÍTICO" : null,
       iconBox: "border-rose-500/20 bg-rose-500/10",
@@ -223,8 +223,8 @@ export function KpiCards({
     {
       title: "Usuário Top",
       primaryValue: kpis.usuarioTop.name,
-      secondaryValue: kpis.usuarioTop.detail,
-      subText: "Colaborador com maior volume",
+      secondaryValue: kpis.usuarioTop.detail ? `• ${kpis.usuarioTop.detail}` : null,
+      subText: "Colaborador com maior produtividade",
       icon: UserCheck,
       iconBox: "border-purple-500/20 bg-purple-500/10",
       iconColor: "text-purple-300",
@@ -235,8 +235,8 @@ export function KpiCards({
     {
       title: "Tipo Dominante",
       primaryValue: kpis.tipoDominante.name,
-      secondaryValue: kpis.tipoDominante.detail,
-      subText: "Serviço mais demandado",
+      secondaryValue: kpis.tipoDominante.detail ? `• ${kpis.tipoDominante.detail}` : null,
+      subText: "Serviço mais demandado na operação",
       icon: Zap,
       iconBox: "border-amber-500/20 bg-amber-500/10",
       iconColor: "text-amber-300",
@@ -247,58 +247,45 @@ export function KpiCards({
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {cardsData.map((card, idx) => {
         const Icon = card.icon;
         return (
           <div
             key={idx}
             className={cn(
-              "group relative flex min-h-[145px] flex-col justify-between overflow-hidden rounded-[28px] border bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all",
+              "group relative flex min-h-[125px] flex-col justify-between overflow-hidden rounded-[24px] border bg-[#0B1020]/72 p-4 sm:p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all",
               card.border,
               card.hoverBorder
             )}
           >
-            <div className="mb-3 flex items-start justify-between gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">
-                {card.title}
-              </span>
-              <div className="flex items-center gap-1.5 shrink-0">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">
+                  {card.title}
+                </span>
                 {card.badge && (
                   <span className="rounded-md border border-rose-500/30 bg-rose-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-rose-300">
                     {card.badge}
                   </span>
                 )}
-                <div className={cn("rounded-xl border p-2 transition-all group-hover:brightness-110", card.iconBox)}>
-                  <Icon className={cn("h-4 w-4", card.iconColor)} />
-                </div>
+              </div>
+              <div className={cn("rounded-xl border p-2 transition-all group-hover:brightness-110", card.iconBox)}>
+                <Icon className={cn("h-4 w-4", card.iconColor)} />
               </div>
             </div>
 
             <div className="mt-auto space-y-1">
-              {card.secondaryValue && card.secondaryValue.startsWith("(") ? (
-                <div className="flex items-baseline gap-1.5">
-                  <span className={cn("text-2xl font-extrabold tracking-tight", card.valueColor)}>
-                    {card.primaryValue}
-                  </span>
-                  <span className="text-xs font-semibold text-white/60">
-                    {card.secondaryValue}
-                  </span>
-                </div>
-              ) : card.secondaryValue ? (
-                <div>
-                  <div className={cn("text-[15px] font-bold tracking-tight text-white line-clamp-1")}>
-                    {card.primaryValue}
-                  </div>
-                  <div className={cn("text-xs font-semibold", card.valueColor)}>
-                    {card.secondaryValue}
-                  </div>
-                </div>
-              ) : (
-                <div className={cn("text-2xl font-extrabold tracking-tight", card.valueColor)}>
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <span className={cn("text-2xl sm:text-3xl font-extrabold tracking-tight", card.valueColor)}>
                   {card.primaryValue}
-                </div>
-              )}
+                </span>
+                {card.secondaryValue && (
+                  <span className="text-xs sm:text-sm font-semibold text-white/60">
+                    {card.secondaryValue}
+                  </span>
+                )}
+              </div>
               <p className="text-[11px] text-white/45">{card.subText}</p>
             </div>
           </div>
