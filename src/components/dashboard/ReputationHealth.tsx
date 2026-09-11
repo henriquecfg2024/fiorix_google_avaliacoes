@@ -196,13 +196,6 @@ export function ReputationHealth({ variant = 'executive', data }: ReputationHeal
                     Itens que mais impactam a sua reputação no momento.
                   </p>
                 </div>
-
-                <Link
-                  href="/estatisticas"
-                  className="text-xs font-semibold text-cyan-300 hover:text-cyan-200 transition-colors shrink-0"
-                >
-                  Ver todos os indicadores &rarr;
-                </Link>
               </div>
 
               {/* 3 Cards de Prioridade Dinâmica */}
