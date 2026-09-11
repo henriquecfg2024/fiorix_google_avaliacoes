@@ -23,17 +23,11 @@ export default async function ConfiguracoesPage({
   const isUserOnly = userRole === 'USER';
 
   let connection = null;
-  let syncLogs: Array<any> = [];
   if (tenantId && !isUserOnly) {
     try {
       await ensureSyncLogTable();
       connection = await prisma.googleConnection.findFirst({
         where: { tenantId },
-      });
-      syncLogs = await prisma.syncLog.findMany({
-        where: { tenantId },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
       });
     } catch (e) {
       console.error('Error fetching google connection:', e);
@@ -88,66 +82,6 @@ export default async function ConfiguracoesPage({
           </section>
         ) : (
           <>
-            <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-              <h2 className="text-lg font-semibold text-white">Histórico de sincronizações</h2>
-              <p className="mt-1 text-sm text-white/55">
-                Acompanhe as últimas consultas feitas ao Google.
-              </p>
-
-              {syncLogs.length === 0 ? (
-                <div className="mt-4 text-sm text-white/55">Nenhuma sincronização registrada ainda.</div>
-              ) : (
-                <div className="mt-4 overflow-x-auto rounded-2xl border border-white/12">
-                  <table className="w-full min-w-[780px] text-sm">
-                    <thead className="bg-[#0B1020] text-xs uppercase tracking-wider text-white/58 border-b border-white/12">
-                      <tr>
-                        <th className="px-4 py-3 text-left font-medium">Data</th>
-                        <th className="px-4 py-3 text-left font-medium">Status</th>
-                        <th className="px-4 py-3 text-left font-medium">Encontradas</th>
-                        <th className="px-4 py-3 text-left font-medium">Importadas</th>
-                        <th className="px-4 py-3 text-left font-medium">Duração</th>
-                        <th className="px-4 py-3 text-left font-medium">Detalhe</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/8 font-medium text-white/80">
-                      {syncLogs.map((log) => {
-                        const statusLabel =
-                          {
-                            COMPLETED: 'Concluída',
-                            FAILED: 'Erro',
-                            TIMEOUT: 'Timeout',
-                            RUNNING: 'Em andamento',
-                          }[log.status as string] || log.status;
-
-                        const statusClass =
-                          log.status === 'COMPLETED'
-                            ? 'text-[#10d9a0]'
-                            : log.status === 'RUNNING'
-                              ? 'text-amber-300'
-                              : 'text-red-300';
-
-                        return (
-                          <tr key={log.id} className="text-white/80 hover:bg-white/[0.03] transition-colors">
-                            <td className="px-4 py-3 whitespace-nowrap">
-                              {new Date(log.createdAt).toLocaleString('pt-BR')}
-                            </td>
-                            <td className={`px-4 py-3 font-semibold ${statusClass}`}>{statusLabel}</td>
-                            <td className="px-4 py-3">{log.reviewsFetched}</td>
-                            <td className="px-4 py-3">{log.reviewsImported}</td>
-                            <td className="px-4 py-3">
-                              {log.durationMs ? `${(log.durationMs / 1000).toFixed(1)}s` : '—'}
-                            </td>
-                            <td className="px-4 py-3 max-w-[260px] text-white/55">
-                              {log.errorMessage || '—'}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
 
             <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
               <h2 className="text-lg font-semibold text-white">🌐 Integração com Google Meu Negócio</h2>
