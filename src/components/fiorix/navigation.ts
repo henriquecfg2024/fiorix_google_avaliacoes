@@ -20,6 +20,15 @@ import {
 } from "lucide-react";
 
 export const navigationGroups = {
+  gestao: {
+    label: "GESTÃO & ANÁLISES",
+    icon: PieChart,
+    items: [
+      { label: "Avaliações", href: "/avaliacoes", icon: Star },
+      { label: "Estatísticas", href: "/estatisticas", icon: TrendingUp },
+      { label: "Relatórios", href: "/relatorios", icon: FileText },
+    ],
+  },
   operacional: {
     label: "OPERACIONAL & BI",
     icon: Briefcase,
@@ -54,15 +63,6 @@ export const navigationGroups = {
         icon: ShieldAlert,
         description: "280 SEM BALCÃO REG ID 76",
       },
-    ],
-  },
-  gestao: {
-    label: "GESTÃO & ANÁLISES",
-    icon: PieChart,
-    items: [
-      { label: "Avaliações", href: "/avaliacoes", icon: Star },
-      { label: "Estatísticas", href: "/estatisticas", icon: TrendingUp },
-      { label: "Relatórios", href: "/relatorios", icon: FileText },
     ],
   },
   rhGestao: {
