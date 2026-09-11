@@ -159,29 +159,51 @@ export default async function Dashboard({
   const satisfacao = totalActive > 0 ? Math.round((activeReviews.filter(r => r.rating >= 4).length / totalActive) * 100) : 0;
   const cinco = totalActive > 0 ? Math.round((activeReviews.filter(r => r.rating === 5).length / totalActive) * 100) : 0;
   const negativos = totalActive > 0 ? Math.round((activeReviews.filter(r => r.rating <= 2).length / totalActive) * 100) : 0;
-  const crescimento = lastMonthReviews.length > 0 ? Math.round(((thisMonthReviews.length - lastMonthReviews.length) / lastMonthReviews.length) * 100) : 0;
+  const umEstrela = totalActive > 0 ? Math.round((activeReviews.filter(r => r.rating === 1).length / totalActive) * 100) : 0;
   const notaPct = Math.round(((notaMedia || 0) / 5) * 100);
-  const indiceRecomendacao = totalActive > 0 ? Math.round((activeReviews.filter(r => r.rating >= 4).length / totalActive) * 100) : 0;
-  const volumeScore = Math.min(100, Math.round((thisMonthReviews.length / Math.max(1, lastMonthReviews.length)) * 70));
+
+  // Engagement: % of reviews with comments
+  const comComentario = totalActive > 0 ? Math.round((activeReviews.filter(r => r.comment && r.comment.trim().length > 0).length / totalActive) * 100) : 0;
+
+  // Recency: volume trend (last 30 days vs previous 30 days)
+  const d30ago = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const d60ago = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+  const last30 = activeReviews.filter(r => new Date(r.publishedAt) >= d30ago);
+  const prev30 = activeReviews.filter(r => { const d = new Date(r.publishedAt); return d >= d60ago && d < d30ago; });
+  const recencyTrend = prev30.length > 0 ? Math.round(((last30.length - prev30.length) / prev30.length) * 100) : 0;
+
+  // Rating trend: nota últimos 30d vs 30d anteriores
+  const avgLast30 = last30.length > 0 ? last30.reduce((s, r) => s + r.rating, 0) / last30.length : 0;
+  const avgPrev30 = prev30.length > 0 ? prev30.reduce((s, r) => s + r.rating, 0) / prev30.length : 0;
+  const notaTrend = avgPrev30 > 0 ? Math.round((avgLast30 - avgPrev30) * 10) / 10 : 0;
+
+  // Polarização: diferença entre 5★ e 1★ (alto = polarizado, reviews "love or hate")
+  const polarizacao = umEstrela > 0 ? Math.max(0, 100 - Math.round((umEstrela / Math.max(1, cinco)) * 100 * 2)) : 100;
+
+  // Build indicators - classify dynamically
+  const allIndicators = [
+    { icon: '⭐', nome: 'Nota Média Geral', pct: notaPct, weight: 0.20 },
+    { icon: '💬', nome: 'Taxa de Resposta', pct: taxaResposta, weight: 0.15 },
+    { icon: '😊', nome: 'Satisfação (4★+)', pct: satisfacao, weight: 0.15 },
+    { icon: '🏆', nome: 'Avaliações 5★', pct: cinco, weight: 0.10 },
+    { icon: '📝', nome: 'Engajamento (com comentário)', pct: comComentario, weight: 0.05 },
+    { icon: '🛡️', nome: 'Ausência de Negativos', pct: Math.max(0, 100 - negativos), weight: 0.15 },
+    { icon: '📊', nome: 'Consistência (baixa polarização)', pct: polarizacao, weight: 0.10 },
+    { icon: '📈', nome: 'Tendência de Volume', pct: Math.max(0, Math.min(100, 50 + recencyTrend)), weight: 0.05 },
+    { icon: '🔄', nome: 'Tendência da Nota', pct: Math.max(0, Math.min(100, 50 + Math.round(notaTrend * 20))), weight: 0.05 },
+  ];
 
   const healthIndicators = {
-    saudaveis: [
-      { icon: '⭐', nome: 'Nota Média', pct: notaPct },
-      { icon: '💬', nome: 'Taxa de Resposta', pct: taxaResposta },
-      { icon: '😊', nome: 'Satisfação (4★+)', pct: satisfacao },
-      { icon: '🏆', nome: 'Avaliações 5★', pct: cinco },
-    ].filter(i => i.pct >= 60),
-    atencao: [
-      { icon: '📈', nome: 'Crescimento Mensal', pct: Math.max(0, Math.min(100, 50 + crescimento)), badgeColor: crescimento >= 0 ? 'blue' as const : 'amber' as const },
-      { icon: '👍', nome: 'Índice de Recomendação', pct: indiceRecomendacao, badgeColor: indiceRecomendacao >= 70 ? 'blue' as const : 'amber' as const },
-      { icon: '📊', nome: 'Volume Mensal', pct: volumeScore, badgeColor: volumeScore >= 50 ? 'blue' as const : 'amber' as const },
-    ].filter(i => i.pct >= 30 && i.pct < 60 || !([notaPct, taxaResposta, satisfacao, cinco].includes(i.pct))),
-    criticos: [
-      ...(negativos > 10 ? [{ icon: '⚠️', nome: 'Avaliações Negativas (≤2★)', pct: negativos, isBi: false, biPath: undefined }] : []),
-      ...(taxaResposta < 60 ? [{ icon: '📭', nome: 'Taxa de Resposta Baixa', pct: taxaResposta, isBi: false, biPath: undefined }] : []),
-      ...(notaPct < 60 ? [{ icon: '📉', nome: 'Nota Geral Abaixo de 3.0', pct: notaPct, isBi: false, biPath: undefined }] : []),
-    ],
-    score: Math.round((notaPct * 0.3 + taxaResposta * 0.25 + satisfacao * 0.25 + (100 - negativos) * 0.2)),
+    saudaveis: allIndicators
+      .filter(i => i.pct >= 70)
+      .map(({ weight, ...rest }) => rest),
+    atencao: allIndicators
+      .filter(i => i.pct >= 40 && i.pct < 70)
+      .map(({ weight, ...rest }) => ({ ...rest, badgeColor: (i => i.pct >= 55 ? 'blue' as const : 'amber' as const)(rest) })),
+    criticos: allIndicators
+      .filter(i => i.pct < 40)
+      .map(({ weight, ...rest }) => ({ ...rest, isBi: false, biPath: undefined })),
+    score: Math.round(allIndicators.reduce((s, i) => s + i.pct * i.weight, 0)),
   };
 
   // ── Real Trend Chart Data ──
