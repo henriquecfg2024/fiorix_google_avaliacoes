@@ -337,18 +337,8 @@ export function ReputationHealth({ variant = 'executive', data }: ReputationHeal
               {data.reputacaoMsg}
             </p>
           </div>
-
-          <Link
-            href="#metodologia-reputacao"
-            className="mt-6 flex items-center justify-between w-full px-4 py-3 rounded-xl border border-cyan-500/20 bg-cyan-500/[0.06] hover:bg-cyan-500/15 hover:border-cyan-500/40 text-xs font-semibold text-slate-200 transition-all group shadow-sm"
-          >
-            <div className="flex items-center gap-2 text-cyan-300">
-              <BarChart3 className="h-4 w-4 text-cyan-400" />
-              <span>Metodologia e Detalhes</span>
-            </div>
-            <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-cyan-300 group-hover:translate-x-0.5 transition-all" />
-          </Link>
         </div>
+
 
         {/* Coluna Direita: Grupos Semânticos (4 Saudáveis, 3 Atenção, 3 Críticos) */}
         <div className="lg:col-span-8 flex flex-col justify-between gap-5">
