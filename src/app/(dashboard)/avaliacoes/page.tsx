@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireAuth } from '@/lib/auth-helpers';
 import { ReviewItemCard } from '@/components/avaliacoes/ReviewItemCard';
-import { MessageSquare, CheckCircle, Clock, Search, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { MessageSquare, CheckCircle, Clock, Search, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, BarChart3, Users, Star } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,14 +74,15 @@ export default async function AvaliacoesPage({
   let respondedCount = 549;
   let staffList: string[] = ['Lucas', 'Ana', 'Edvan', 'Juliana', 'Sarah', 'Ricardo', 'Anne', 'Theodoro', 'Guilherme'];
   let ratingStats = {
-    count5: 437,
-    pct5: 79.6,
-    count4: 32,
-    pct4: 5.8,
-    count3: 10,
-    pct3: 1.8,
-    count12: 70,
-    pct12: 12.7,
+    count5: 467,
+    pct5: 85.0,
+    count4: 44,
+    pct4: 8.0,
+    count3: 16,
+    pct3: 3.0,
+    count12: 22,
+    pct12: 4.0,
+    pctPositive: 93.0,
     avg: "4.4",
   };
 
@@ -126,6 +127,7 @@ export default async function AvaliacoesPage({
       const c2 = ratingGroups.find((r) => r.rating === 2)?._count.id || 0;
       const c1 = ratingGroups.find((r) => r.rating === 1)?._count.id || 0;
       const c12 = c1 + c2;
+      const cPositive = c5 + c4;
 
       ratingStats = {
         count5: c5,
@@ -136,6 +138,7 @@ export default async function AvaliacoesPage({
         pct3: Number(((c3 / dbTotal) * 100).toFixed(1)),
         count12: c12,
         pct12: Number(((c12 / dbTotal) * 100).toFixed(1)),
+        pctPositive: Number(((cPositive / dbTotal) * 100).toFixed(1)),
         avg: ratingAvg._avg.rating ? ratingAvg._avg.rating.toFixed(1) : "5.0",
       };
 
@@ -317,34 +320,161 @@ export default async function AvaliacoesPage({
             </div>
         </div>
 
-        <div className="space-y-3 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-200">
-            <span className="uppercase tracking-[0.2em] text-white/60">Distribuição de Notas das Avaliações</span>
-            <span className="font-bold text-amber-300">Nota Média: {ratingStats.avg} ★</span>
-          </div>
-          <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-slate-800/80">
-            <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${ratingStats.pct5}%` }} title={`5★: ${ratingStats.count5} (${ratingStats.pct5}%)`} />
-            <div className="h-full bg-cyan-400 transition-all duration-500" style={{ width: `${ratingStats.pct4}%` }} title={`4★: ${ratingStats.count4} (${ratingStats.pct4}%)`} />
-            <div className="h-full bg-amber-400 transition-all duration-500" style={{ width: `${ratingStats.pct3}%` }} title={`3★: ${ratingStats.count3} (${ratingStats.pct3}%)`} />
-            <div className="h-full bg-rose-500 transition-all duration-500" style={{ width: `${ratingStats.pct12}%` }} title={`1-2★: ${ratingStats.count12} (${ratingStats.pct12}%)`} />
-          </div>
-          <div className="flex flex-wrap items-center gap-4 sm:gap-7 text-[11px] font-semibold text-slate-300 pt-0.5">
-            <span className="flex items-center gap-1.5 text-emerald-300">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" />
-              5★: {ratingStats.count5.toLocaleString("pt-BR")} ({ratingStats.pct5}%)
-            </span>
-            <span className="flex items-center gap-1.5 text-cyan-300">
-              <span className="h-2 w-2 rounded-full bg-cyan-400 inline-block" />
-              4★: {ratingStats.count4.toLocaleString("pt-BR")} ({ratingStats.pct4}%)
-            </span>
-            <span className="flex items-center gap-1.5 text-amber-300">
-              <span className="h-2 w-2 rounded-full bg-amber-400 inline-block" />
-              3★: {ratingStats.count3.toLocaleString("pt-BR")} ({ratingStats.pct3}%)
-            </span>
-            <span className="flex items-center gap-1.5 text-rose-300">
-              <span className="h-2 w-2 rounded-full bg-rose-500 inline-block" />
-              1-2★: {ratingStats.count12.toLocaleString("pt-BR")} ({ratingStats.pct12}%)
-            </span>
+        {/* Card Executivo de Distribuição das Avaliações */}
+        <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/75 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-stretch">
+            {/* Coluna Principal: Distribuição (~78%) */}
+            <div className="lg:col-span-9 flex flex-col justify-between space-y-4">
+              {/* Header com Título e Total de Avaliações */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border border-blue-500/30 text-blue-400 shadow-sm">
+                    <BarChart3 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-white tracking-tight">
+                      Distribuição das Avaliações
+                    </h2>
+                    <p className="text-xs text-white/50">
+                      Panorama geral das notas recebidas no Google.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-1.5 shadow-xs">
+                  <Users className="h-4 w-4 text-cyan-400" />
+                  <span className="text-xs text-white/60">Total de avaliações:</span>
+                  <span className="font-bold text-sm text-white font-mono">
+                    {totalCount.toLocaleString('pt-BR')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Barra de Distribuição Proporcional */}
+              <div className="py-1">
+                <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-800/80 shadow-inner">
+                  <div
+                    className="h-full bg-emerald-500 transition-all duration-500"
+                    style={{ width: `${ratingStats.pct5}%` }}
+                    title={`5 estrelas: ${ratingStats.count5} (${ratingStats.pct5.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)`}
+                  />
+                  <div
+                    className="h-full bg-cyan-400 transition-all duration-500"
+                    style={{ width: `${ratingStats.pct4}%` }}
+                    title={`4 estrelas: ${ratingStats.count4} (${ratingStats.pct4.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)`}
+                  />
+                  <div
+                    className="h-full bg-amber-400 transition-all duration-500"
+                    style={{ width: `${ratingStats.pct3}%` }}
+                    title={`3 estrelas: ${ratingStats.count3} (${ratingStats.pct3.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)`}
+                  />
+                  <div
+                    className="h-full bg-rose-500 transition-all duration-500"
+                    style={{ width: `${ratingStats.pct12}%` }}
+                    title={`1-2 estrelas: ${ratingStats.count12} (${ratingStats.pct12.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)`}
+                  />
+                </div>
+              </div>
+
+              {/* 4 Cards das Faixas de Avaliação */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                {/* 5 Estrelas */}
+                <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3.5 transition-all hover:border-white/16 hover:bg-white/[0.05]">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                    <span className="text-xs font-semibold text-white/80">5 estrelas</span>
+                  </div>
+                  <div className="mt-2 flex items-baseline gap-1.5">
+                    <span className="text-xl font-black text-white">
+                      {ratingStats.count5.toLocaleString('pt-BR')}
+                    </span>
+                    <span className="text-xs font-medium text-white/50">
+                      ({ratingStats.pct5.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)
+                    </span>
+                  </div>
+                </div>
+
+                {/* 4 Estrelas */}
+                <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3.5 transition-all hover:border-white/16 hover:bg-white/[0.05]">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.5)]" />
+                    <span className="text-xs font-semibold text-white/80">4 estrelas</span>
+                  </div>
+                  <div className="mt-2 flex items-baseline gap-1.5">
+                    <span className="text-xl font-black text-white">
+                      {ratingStats.count4.toLocaleString('pt-BR')}
+                    </span>
+                    <span className="text-xs font-medium text-white/50">
+                      ({ratingStats.pct4.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3 Estrelas */}
+                <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3.5 transition-all hover:border-white/16 hover:bg-white/[0.05]">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]" />
+                    <span className="text-xs font-semibold text-white/80">3 estrelas</span>
+                  </div>
+                  <div className="mt-2 flex items-baseline gap-1.5">
+                    <span className="text-xl font-black text-white">
+                      {ratingStats.count3.toLocaleString('pt-BR')}
+                    </span>
+                    <span className="text-xs font-medium text-white/50">
+                      ({ratingStats.pct3.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)
+                    </span>
+                  </div>
+                </div>
+
+                {/* 1 - 2 Estrelas */}
+                <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3.5 transition-all hover:border-white/16 hover:bg-white/[0.05]">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
+                    <span className="text-xs font-semibold text-white/80">1 – 2 estrelas</span>
+                  </div>
+                  <div className="mt-2 flex items-baseline gap-1.5">
+                    <span className="text-xl font-black text-white">
+                      {ratingStats.count12.toLocaleString('pt-BR')}
+                    </span>
+                    <span className="text-xs font-medium text-white/50">
+                      ({ratingStats.pct12.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Coluna Lateral: Nota Média & Positivas (~22%) */}
+            <div className="lg:col-span-3 flex flex-col justify-between rounded-2xl border border-white/8 bg-[#070B16]/70 p-4.5 space-y-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-white/60 uppercase tracking-wider">
+                  <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
+                  <span>Nota Média</span>
+                </div>
+                <div className="flex items-baseline gap-1.5 pt-1">
+                  <span className="text-4xl font-black text-white tracking-tight">
+                    {ratingStats.avg.replace('.', ',')}
+                  </span>
+                  <Star className="h-7 w-7 text-amber-400 fill-amber-400" />
+                </div>
+                <p className="text-[11px] font-semibold text-white/40">de 5</p>
+              </div>
+
+              {/* Destaque Avaliações Positivas */}
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 flex items-center gap-2.5">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
+                  <BarChart3 className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="text-xs font-extrabold text-emerald-300 block">
+                    {ratingStats.pctPositive.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% das avaliações
+                  </span>
+                  <span className="text-[10px] text-emerald-300/80 block leading-tight">
+                    possuem 4 ou 5 estrelas
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
