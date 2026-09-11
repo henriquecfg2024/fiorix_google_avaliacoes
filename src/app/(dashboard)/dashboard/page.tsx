@@ -153,57 +153,58 @@ export default async function Dashboard({
   const respondidas = activeReviews.filter(r => r.status === 'RESPONDED').length;
   const respondidasEsteMes = thisMonthReviews.filter(r => r.status === 'RESPONDED').length;
 
-  // ── Real Health Indicators ──
+  // ── Real Health Indicators — Análise por Assunto ──
   const totalActive = activeReviews.length;
   const taxaResposta = totalActive > 0 ? Math.round((respondidas / totalActive) * 100) : 0;
-  const satisfacao = totalActive > 0 ? Math.round((activeReviews.filter(r => r.rating >= 4).length / totalActive) * 100) : 0;
-  const cinco = totalActive > 0 ? Math.round((activeReviews.filter(r => r.rating === 5).length / totalActive) * 100) : 0;
   const negativos = totalActive > 0 ? Math.round((activeReviews.filter(r => r.rating <= 2).length / totalActive) * 100) : 0;
-  const umEstrela = totalActive > 0 ? Math.round((activeReviews.filter(r => r.rating === 1).length / totalActive) * 100) : 0;
-  const notaPct = Math.round(((notaMedia || 0) / 5) * 100);
 
-  // Engagement: % of reviews with comments
-  const comComentario = totalActive > 0 ? Math.round((activeReviews.filter(r => r.comment && r.comment.trim().length > 0).length / totalActive) * 100) : 0;
-
-  // Recency: volume trend (last 30 days vs previous 30 days)
-  const d30ago = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const d60ago = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
-  const last30 = activeReviews.filter(r => new Date(r.publishedAt) >= d30ago);
-  const prev30 = activeReviews.filter(r => { const d = new Date(r.publishedAt); return d >= d60ago && d < d30ago; });
-  const recencyTrend = prev30.length > 0 ? Math.round(((last30.length - prev30.length) / prev30.length) * 100) : 0;
-
-  // Rating trend: nota últimos 30d vs 30d anteriores
-  const avgLast30 = last30.length > 0 ? last30.reduce((s, r) => s + r.rating, 0) / last30.length : 0;
-  const avgPrev30 = prev30.length > 0 ? prev30.reduce((s, r) => s + r.rating, 0) / prev30.length : 0;
-  const notaTrend = avgPrev30 > 0 ? Math.round((avgLast30 - avgPrev30) * 10) / 10 : 0;
-
-  // Polarização: diferença entre 5★ e 1★ (alto = polarizado, reviews "love or hate")
-  const polarizacao = umEstrela > 0 ? Math.max(0, 100 - Math.round((umEstrela / Math.max(1, cinco)) * 100 * 2)) : 100;
-
-  // Build indicators - classify dynamically
-  const allIndicators = [
-    { icon: '⭐', nome: 'Nota Média Geral', pct: notaPct, weight: 0.20 },
-    { icon: '💬', nome: 'Taxa de Resposta', pct: taxaResposta, weight: 0.15 },
-    { icon: '😊', nome: 'Satisfação (4★+)', pct: satisfacao, weight: 0.15 },
-    { icon: '🏆', nome: 'Avaliações 5★', pct: cinco, weight: 0.10 },
-    { icon: '📝', nome: 'Engajamento (com comentário)', pct: comComentario, weight: 0.05 },
-    { icon: '🛡️', nome: 'Ausência de Negativos', pct: Math.max(0, 100 - negativos), weight: 0.15 },
-    { icon: '📊', nome: 'Consistência (baixa polarização)', pct: polarizacao, weight: 0.10 },
-    { icon: '📈', nome: 'Tendência de Volume', pct: Math.max(0, Math.min(100, 50 + recencyTrend)), weight: 0.05 },
-    { icon: '🔄', nome: 'Tendência da Nota', pct: Math.max(0, Math.min(100, 50 + Math.round(notaTrend * 20))), weight: 0.05 },
+  // Topic keywords map — each topic has keywords that identify it in reviews
+  const topicDefs: { nome: string; icon: string; keywords: string[] }[] = [
+    { nome: 'Atendimento', icon: '🤝', keywords: ['atendimento', 'atendeu', 'atendida', 'atendido', 'recepção', 'recepcionista', 'educad', 'cordial', 'simpátic', 'gentil', 'grosseir', 'mal educad'] },
+    { nome: 'Competência Profissional', icon: '🎯', keywords: ['competent', 'profission', 'conhecimento', 'esclarec', 'orientou', 'explicou', 'dúvida', 'informaç'] },
+    { nome: 'Tempo de Espera / Fila', icon: '⏱️', keywords: ['espera', 'fila', 'demora', 'demorou', 'lento', 'rápido', 'ágil', 'agilidade'] },
+    { nome: 'Documentação', icon: '📄', keywords: ['documento', 'certidão', 'registro', 'escritura', 'reconhecimento', 'firma', 'autenticação', 'cópia'] },
+    { nome: 'Telefone / Contato', icon: '📞', keywords: ['telefone', 'ligação', 'ligar', 'contato', 'email', 'whatsapp'] },
+    { nome: 'Infraestrutura', icon: '🏢', keywords: ['estrutura', 'ambiente', 'limpo', 'organizado', 'confortável', 'café', 'ar condicionado', 'banheiro'] },
+    { nome: 'Prazo de Entrega', icon: '📦', keywords: ['prazo', 'entrega', 'atraso', 'atrasado', 'demorado'] },
+    { nome: 'Preço / Taxas', icon: '💰', keywords: ['preço', 'taxa', 'caro', 'valor', 'custo', 'emolumento', 'cobr'] },
+    { nome: 'Agendamento / Site', icon: '🌐', keywords: ['agendamento', 'site', 'online', 'internet', 'sistema', 'agendar'] },
+    { nome: 'Estacionamento', icon: '🅿️', keywords: ['estacionamento', 'estacionar', 'carro', 'vaga'] },
   ];
 
+  // Calculate satisfaction per topic
+  const topicResults = topicDefs.map(topic => {
+    const matchedReviews = activeReviews.filter(r => {
+      if (!r.comment) return false;
+      const lc = r.comment.toLowerCase();
+      return topic.keywords.some(kw => lc.includes(kw));
+    });
+    if (matchedReviews.length < 3) return null; // Min 3 mentions to show
+    const positiveCount = matchedReviews.filter(r => r.rating >= 4).length;
+    const pct = Math.round((positiveCount / matchedReviews.length) * 100);
+    return { icon: topic.icon, nome: topic.nome, pct, mentions: matchedReviews.length };
+  }).filter((t): t is NonNullable<typeof t> => t !== null);
+
+  // Sort by mentions (most discussed first)
+  topicResults.sort((a, b) => b.mentions - a.mentions);
+
+  // Calculate weighted score based on topic satisfaction (weighted by mention count)
+  const totalMentions = topicResults.reduce((s, t) => s + t.mentions, 0);
+  const weightedScore = totalMentions > 0
+    ? Math.round(topicResults.reduce((s, t) => s + t.pct * (t.mentions / totalMentions), 0))
+    : 0;
+
   const healthIndicators = {
-    saudaveis: allIndicators
+    saudaveis: topicResults
       .filter(i => i.pct >= 70)
-      .map(({ weight, ...rest }) => rest),
-    atencao: allIndicators
+      .map(({ mentions, ...rest }) => rest),
+    atencao: topicResults
       .filter(i => i.pct >= 40 && i.pct < 70)
-      .map(({ weight, ...rest }) => ({ ...rest, badgeColor: (i => i.pct >= 55 ? 'blue' as const : 'amber' as const)(rest) })),
-    criticos: allIndicators
+      .map(({ mentions, ...rest }) => ({ ...rest, badgeColor: (rest.pct >= 55 ? 'blue' as const : 'amber' as const) })),
+    criticos: topicResults
       .filter(i => i.pct < 40)
-      .map(({ weight, ...rest }) => ({ ...rest, isBi: false, biPath: undefined })),
-    score: Math.round(allIndicators.reduce((s, i) => s + i.pct * i.weight, 0)),
+      .map(({ mentions, ...rest }) => ({ ...rest, isBi: false, biPath: undefined })),
+    score: weightedScore,
   };
 
   // ── Real Trend Chart Data ──
