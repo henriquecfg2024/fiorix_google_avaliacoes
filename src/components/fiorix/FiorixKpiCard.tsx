@@ -24,34 +24,37 @@ interface FiorixKpiCardProps {
   isActive?: boolean;
 }
 
-const variantStyles: Record<KpiVariant, { text: string; icon: string; color: string; border: string; hoverBorder: string }> = {
+const variantStyles: Record<
+  KpiVariant,
+  { text: string; icon: string; iconBox: string; border: string; hoverBorder: string }
+> = {
   default: {
     text: "text-cyan-400",
-    icon: "text-cyan-400",
-    color: "from-cyan-400 to-blue-500",
-    border: "border-cyan-400",
-    hoverBorder: "hover:border-cyan-300",
+    icon: "text-cyan-300",
+    iconBox: "border-cyan-500/20 bg-cyan-500/10",
+    border: "border-cyan-500/25",
+    hoverBorder: "hover:border-cyan-400/50",
   },
   success: {
     text: "text-emerald-400",
-    icon: "text-emerald-400",
-    color: "from-emerald-400 to-teal-500",
-    border: "border-emerald-400",
-    hoverBorder: "hover:border-emerald-300",
+    icon: "text-emerald-300",
+    iconBox: "border-emerald-500/20 bg-emerald-500/10",
+    border: "border-emerald-500/25",
+    hoverBorder: "hover:border-emerald-400/50",
   },
   danger: {
-    text: "text-red-400",
-    icon: "text-red-400",
-    color: "from-red-500 to-rose-500",
-    border: "border-red-400",
-    hoverBorder: "hover:border-red-300",
+    text: "text-rose-400",
+    icon: "text-rose-300",
+    iconBox: "border-rose-500/20 bg-rose-500/10",
+    border: "border-rose-500/25",
+    hoverBorder: "hover:border-rose-400/50",
   },
   warning: {
     text: "text-amber-400",
-    icon: "text-amber-400",
-    color: "from-amber-400 to-orange-500",
-    border: "border-amber-400",
-    hoverBorder: "hover:border-amber-300",
+    icon: "text-amber-300",
+    iconBox: "border-amber-500/20 bg-amber-500/10",
+    border: "border-amber-500/25",
+    hoverBorder: "hover:border-amber-400/50",
   },
 };
 
@@ -66,6 +69,7 @@ export function FiorixKpiCard({
   isActive = false,
 }: FiorixKpiCardProps) {
   const styles = variantStyles[variant];
+  const formattedValue = typeof value === "number" ? value.toLocaleString("pt-BR") : value;
 
   return (
     <Card
@@ -80,7 +84,7 @@ export function FiorixKpiCard({
         }
       }}
       className={cn(
-        "group relative flex min-h-[145px] flex-col justify-between overflow-hidden rounded-[28px] border bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all",
+        "group relative flex min-h-[145px] flex-col justify-between overflow-hidden rounded-[28px] border bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all",
         styles.border,
         styles.hoverBorder,
         onClick && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070A12]",
@@ -88,23 +92,23 @@ export function FiorixKpiCard({
       )}
     >
       
-      <div className="flex justify-between items-start w-full mb-4">
-        <h3 className="w-[80%] text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">
+      <div className="flex justify-between items-start w-full mb-3">
+        <h3 className="w-[80%] text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">
           {title}
         </h3>
-        <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2 transition-all group-hover:bg-white/[0.08]">
-          <Icon className={`w-4 h-4 ${styles.icon}`} />
+        <div className={cn("rounded-xl border p-2 transition-all group-hover:brightness-110", styles.iconBox)}>
+          <Icon className={cn("w-4 h-4", styles.icon)} />
         </div>
       </div>
 
       <div className="mt-auto flex items-end justify-between">
-        <div className="flex flex-col space-y-1.5">
+        <div className="flex flex-col space-y-1">
           <span className={`text-3xl font-extrabold ${styles.text} tracking-tight`}>
-            {value}
+            {formattedValue}
           </span>
           {trend && (
             <div className="flex items-center gap-1 mt-1 text-[11px] font-semibold">
-              <span className={trend.isGood ? "text-emerald-300" : "text-red-300"}>
+              <span className={trend.isGood ? "text-emerald-300" : "text-rose-300"}>
                 {trend.isUp ? "↑" : "↓"} {trend.value}
               </span>
               <span className="text-white/40">vs mês anterior</span>

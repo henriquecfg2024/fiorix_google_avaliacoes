@@ -147,7 +147,7 @@ function matchesKpiFilter(
 }
 
 const taskPanelClass =
-  "rounded-2xl border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)]";
+  "rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl";
 const chartVisibilityStorageKey = "fiorix:tarefas:chart-visibility";
 
 function escapePrintValue(value: unknown) {
@@ -824,7 +824,7 @@ export function TarefasDashboardClient() {
   return (
     <div className="space-y-6">
       {/* Barra de Escopo de Visualização / Filtro de Cohort (Ano e Tipo de Ato) */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-white/12 bg-[#0B1020]/90 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-purple-500/30 bg-purple-500/15 text-purple-400">
             <Filter className="h-5 w-5" />
