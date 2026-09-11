@@ -288,105 +288,130 @@ export function ReputationHealth({ variant = 'executive', data }: ReputationHeal
         </div>
       </div>
 
-      {/* Grid Principal: Coluna Esquerda (Gauge) & Coluna Direita (Grupos Semânticos) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        {/* Coluna Esquerda: Gauge Circular Ciano e Acesso Metodológico */}
-        <div className="lg:col-span-4 flex flex-col justify-between items-center rounded-2xl border border-white/12 bg-[#080D1A]/80 p-6 text-center shadow-inner">
-          <div className="flex flex-col items-center justify-center pt-2">
-            <div className="relative flex h-44 w-44 items-center justify-center">
-              <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 160 160">
-                <circle
-                  cx="80"
-                  cy="80"
-                  r={gaugeRadius}
-                  className="text-slate-800/80"
-                  strokeWidth="12"
-                  stroke="currentColor"
-                  fill="transparent"
-                />
-                <circle
-                  cx="80"
-                  cy="80"
-                  r={gaugeRadius}
-                  stroke="#06B6D4"
-                  strokeWidth="12"
-                  strokeDasharray={gaugeCircumference}
-                  strokeDashoffset={gaugeOffset}
-                  strokeLinecap="round"
-                  fill="transparent"
-                  className="drop-shadow-[0_0_16px_rgba(6,182,212,0.45)] transition-all duration-1000 ease-out"
-                />
-              </svg>
-              <div className="absolute flex flex-col items-center justify-center text-center">
-                <span className="text-5xl font-black tracking-tight text-white">{data.scoreGeral}</span>
-                <span className="text-xs font-semibold text-slate-400 mt-0.5">de 100</span>
-              </div>
-            </div>
-
-            <h3 className="text-lg font-bold text-white mt-4">
-              Reputação <span className={`${data.reputacaoLabelColor} font-black`}>{data.reputacaoLabel}</span>
-            </h3>
-            <p className="text-xs leading-relaxed text-slate-400 mt-2 max-w-xs">
-              {data.reputacaoMsg}
-            </p>
+      {/* Faixa Analítica Compacta: Score + Classificação + Composição */}
+      <div className="flex flex-col sm:flex-row items-stretch gap-0 rounded-2xl border border-white/12 bg-[#080D1A]/80 overflow-hidden shadow-inner">
+        {/* Score Atual */}
+        <div className="flex items-center gap-3 px-5 py-4 sm:py-0 sm:min-h-[100px]">
+          <div className="flex items-baseline gap-1">
+            <span className="text-4xl font-black tracking-tight text-white">{data.scoreGeral}</span>
+            <span className="text-base font-semibold text-slate-500">/ 100</span>
           </div>
         </div>
 
+        {/* Divisor */}
+        <div className="hidden sm:flex items-center px-0">
+          <div className="w-px h-12 bg-white/10" />
+        </div>
+        <div className="sm:hidden mx-5">
+          <div className="h-px w-full bg-white/10" />
+        </div>
 
-        {/* Coluna Direita: Grupos Semânticos (4 Saudáveis, 3 Atenção, 3 Críticos) */}
-        <div className="lg:col-span-8 flex flex-col justify-between gap-5">
-          {/* 1. Indicadores Saudáveis */}
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
+        {/* Classificação */}
+        <div className="flex items-center gap-2.5 px-5 py-3 sm:py-0">
+          <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${
+            data.scoreGeral >= 80 ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]'
+            : data.scoreGeral >= 60 ? 'bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]'
+            : data.scoreGeral >= 40 ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]'
+            : 'bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.5)]'
+          }`} />
+          <div>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/45 block">Classificação</span>
+            <span className={`text-base font-black ${data.reputacaoLabelColor}`}>{data.reputacaoLabel}</span>
+          </div>
+        </div>
+
+        {/* Divisor */}
+        <div className="hidden sm:flex items-center px-0">
+          <div className="w-px h-12 bg-white/10" />
+        </div>
+        <div className="sm:hidden mx-5">
+          <div className="h-px w-full bg-white/10" />
+        </div>
+
+        {/* Composição dos Indicadores */}
+        <div className="flex-1 flex items-center px-5 py-3 sm:py-0">
+          <div className="w-full">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/45 block mb-2">Composição dos Indicadores</span>
+            <div className="flex items-center gap-5 sm:gap-8">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                <h4 className="text-sm font-bold text-emerald-400">Indicadores Saudáveis</h4>
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-500/15">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                </div>
+                <span className="text-lg font-black text-white">{data.contadores.saudaveis}</span>
+                <span className="text-[11px] text-slate-400 font-medium">Saudáveis</span>
               </div>
-              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-300">
-                {data.saudaveis.length} de 10
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {data.saudaveis.map((ind) => (
-                <IndicatorCard key={ind.id} ind={ind} tone="green" />
-              ))}
+              <div className="flex items-center gap-2">
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500/15">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+                </div>
+                <span className="text-lg font-black text-white">{data.contadores.atencao}</span>
+                <span className="text-[11px] text-slate-400 font-medium">Atenção</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-rose-500/15">
+                  <AlertCircle className="h-3.5 w-3.5 text-rose-400" />
+                </div>
+                <span className="text-lg font-black text-white">{data.contadores.criticos}</span>
+                <span className="text-[11px] text-slate-400 font-medium">Críticos</span>
+              </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* 2. Pontos de Atenção */}
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-400" />
-                <h4 className="text-sm font-bold text-amber-400">Pontos de Atenção</h4>
-              </div>
-              <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-0.5 text-xs font-bold text-amber-300">
-                {data.atencao.length} de 10
-              </span>
+      {/* Indicadores Analíticos (full-width) */}
+      <div className="space-y-5">
+        {/* 1. Indicadores Saudáveis */}
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+              <h4 className="text-sm font-bold text-emerald-400">Indicadores Saudáveis</h4>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {data.atencao.map((ind) => (
-                <IndicatorCard key={ind.id} ind={ind} tone="amber" />
-              ))}
-            </div>
+            <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-300">
+              {data.saudaveis.length} de 10
+            </span>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {data.saudaveis.map((ind) => (
+              <IndicatorCard key={ind.id} ind={ind} tone="green" />
+            ))}
+          </div>
+        </div>
 
-          {/* 3. Indicadores Críticos */}
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-rose-400" />
-                <h4 className="text-sm font-bold text-rose-400">Indicadores Críticos</h4>
-              </div>
-              <span className="rounded-full border border-rose-500/25 bg-rose-500/10 px-2.5 py-0.5 text-xs font-bold text-rose-300">
-                {data.criticos.length} de 10
-              </span>
+        {/* 2. Pontos de Atenção */}
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-400" />
+              <h4 className="text-sm font-bold text-amber-400">Pontos de Atenção</h4>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {data.criticos.map((ind) => (
-                <IndicatorCard key={ind.id} ind={ind} tone="red" />
-              ))}
+            <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-0.5 text-xs font-bold text-amber-300">
+              {data.atencao.length} de 10
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {data.atencao.map((ind) => (
+              <IndicatorCard key={ind.id} ind={ind} tone="amber" />
+            ))}
+          </div>
+        </div>
+
+        {/* 3. Indicadores Críticos */}
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-rose-400" />
+              <h4 className="text-sm font-bold text-rose-400">Indicadores Críticos</h4>
             </div>
+            <span className="rounded-full border border-rose-500/25 bg-rose-500/10 px-2.5 py-0.5 text-xs font-bold text-rose-300">
+              {data.criticos.length} de 10
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {data.criticos.map((ind) => (
+              <IndicatorCard key={ind.id} ind={ind} tone="red" />
+            ))}
           </div>
         </div>
       </div>
