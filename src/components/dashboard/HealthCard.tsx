@@ -144,29 +144,22 @@ export function HealthCard({ score, saudaveis, atencao, criticos }: HealthCardPr
                 <span>Pontos de Atenção</span>
               </div>
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                {atencaoList.map((ind, idx) => {
-                  const isBlue = ind.badgeColor === 'blue';
-                  return (
-                    <div key={idx} className="space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 transition-colors hover:border-white/16">
-                      <div className="flex items-center justify-between min-w-0">
-                        <span className="flex items-center gap-2 truncate min-w-0">
-                          <span className="shrink-0">{ind.icon}</span>
-                          <span className="truncate text-sm font-medium text-slate-200">{ind.nome}</span>
-                        </span>
-                        <span
-                          className={`rounded-md px-2 py-0.5 text-xs font-bold shrink-0 ${
-                            isBlue ? 'border border-cyan-500/25 bg-cyan-500/10 text-cyan-300' : 'border border-amber-500/25 bg-amber-500/10 text-amber-300'
-                          }`}
-                        >
-                          {ind.pct}%
-                        </span>
-                      </div>
-                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800/80">
-                        <div className={`h-full rounded-full transition-all duration-500 ${isBlue ? 'bg-cyan-400' : 'bg-amber-500'}`} style={{ width: `${ind.pct}%` }} />
-                      </div>
+                {atencaoList.map((ind, idx) => (
+                  <div key={idx} className="space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 transition-colors hover:border-white/16">
+                    <div className="flex items-center justify-between min-w-0">
+                      <span className="flex items-center gap-2 truncate min-w-0">
+                        <span className="shrink-0">{ind.icon}</span>
+                        <span className="truncate text-sm font-medium text-slate-200">{ind.nome}</span>
+                      </span>
+                      <span className="rounded-md border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-xs font-bold text-amber-300 shrink-0">
+                        {ind.pct}%
+                      </span>
                     </div>
-                  );
-                })}
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800/80">
+                      <div className="h-full rounded-full bg-amber-400 transition-all duration-500" style={{ width: `${ind.pct}%` }} />
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}

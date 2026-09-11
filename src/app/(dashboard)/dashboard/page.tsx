@@ -200,7 +200,7 @@ export default async function Dashboard({
       .map(({ mentions, ...rest }) => rest),
     atencao: topicResults
       .filter(i => i.pct >= 40 && i.pct < 70)
-      .map(({ mentions, ...rest }) => ({ ...rest, badgeColor: (rest.pct >= 55 ? 'blue' as const : 'amber' as const) })),
+      .map(({ mentions, ...rest }) => ({ ...rest, badgeColor: 'amber' as const })),
     criticos: topicResults
       .filter(i => i.pct < 40)
       .map(({ mentions, ...rest }) => ({ ...rest, isBi: false, biPath: undefined })),
