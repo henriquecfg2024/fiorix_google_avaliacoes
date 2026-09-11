@@ -302,7 +302,7 @@ export default function ProdutividadePage() {
             Segmentação de Caixa
           </span>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {caixaTabs.map((item) => {
               const active = filtroCaixa === item.key;
 
@@ -313,22 +313,29 @@ export default function ProdutividadePage() {
                   onClick={() => setFiltroCaixa(item.key)}
                   aria-pressed={active}
                   className={[
-                    "min-w-[160px] flex-1 md:flex-none rounded-2xl border px-4 py-3 text-left transition-all backdrop-blur-xl",
+                    "group relative flex min-h-[120px] flex-col justify-between overflow-hidden rounded-[24px] border p-5 text-left transition-all backdrop-blur-xl",
                     active
-                      ? "border-cyan-500/40 bg-[#0B1020]/90 text-white shadow-[0_20px_60px_rgba(0,0,0,0.22)]"
+                      ? "border-cyan-500/50 bg-[#0B1020]/95 text-white shadow-[0_20px_60px_rgba(0,0,0,0.28)] ring-1 ring-cyan-500/30"
                       : "border-white/12 bg-[#0B1020]/72 text-white/70 hover:border-white/20 hover:bg-[#0B1020]/85 hover:text-white",
                   ].join(" ")}
                 >
-                  <div className="mb-1.5 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className={`h-2.5 w-2.5 rounded-full ${item.dotClass}`} />
-                      <span className="text-[13px] font-semibold leading-tight">{item.label}</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2.5">
+                      <span className={`h-3 w-3 rounded-full ${item.dotClass} shadow-[0_0_8px_currentColor]`} />
+                      <span className="text-sm font-bold tracking-tight text-white">{item.label}</span>
                     </div>
-                    <span className="text-[11px] font-semibold text-white/40">{item.pct}</span>
+                    <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-0.5 text-xs font-semibold text-white/80">
+                      {item.pct}
+                    </span>
                   </div>
-                  <div className="text-[11px] text-white/45">{item.helper}</div>
-                  <div className="mt-2 text-[11px] font-medium text-white/60">
-                    {item.count} autenticações
+
+                  <div className="text-xs text-white/45 mb-2">{item.helper}</div>
+
+                  <div className="mt-auto flex items-baseline justify-between border-t border-white/5 pt-2.5">
+                    <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+                      {item.count}
+                    </span>
+                    <span className="text-xs font-medium text-white/45">autenticações</span>
                   </div>
                 </button>
               );
