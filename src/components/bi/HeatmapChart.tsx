@@ -78,15 +78,22 @@ function HeatmapChartInner({ data }: HeatmapChartProps) {
     });
 
     let maxVal = 0;
+    let maxDay = "";
+    let maxHour = 0;
     DAYS_OF_WEEK.forEach((day) => {
       HOURS.forEach((hour) => {
         if (grid[day][hour] > maxVal) {
           maxVal = grid[day][hour];
+          maxDay = day;
+          maxHour = hour;
         }
       });
     });
 
-    return { grid, maxVal: maxVal || 1 };
+    const maxDayIdx = DAYS_OF_WEEK.indexOf(maxDay);
+    const maxDayPt = maxDayIdx >= 0 ? DAYS_OF_WEEK_PT[maxDayIdx] : maxDay;
+
+    return { grid, maxVal: maxVal || 1, maxDay, maxHour, maxDayPt };
   }, [data]);
 
   const getColorIntensity = (value: number) => {
@@ -107,10 +114,12 @@ function HeatmapChartInner({ data }: HeatmapChartProps) {
           </h3>
           <p className="text-xs text-white/40">Visualização de produtividade por faixa horária de Domingo a Sábado</p>
         </div>
-        <div className="flex items-center gap-1.5 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs text-amber-300">
-          <Info className="h-3.5 w-3.5" />
-          <span>Fila crítica: Segunda 7h</span>
-        </div>
+        {heatmapData.maxVal > 1 && (
+          <div className="flex items-center gap-1.5 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs text-amber-300">
+            <Info className="h-3.5 w-3.5" />
+            <span>Pico: {heatmapData.maxDayPt} às {heatmapData.maxHour}h ({heatmapData.maxVal.toLocaleString("pt-BR")})</span>
+          </div>
+        )}
       </div>
 
       <div className="select-none overflow-x-auto pt-2">
@@ -136,26 +145,26 @@ function HeatmapChartInner({ data }: HeatmapChartProps) {
                 {HOURS.map((hour) => {
                   const value = heatmapData.grid[day]?.[hour] ?? 0;
                   const color = getColorIntensity(value);
-                  const isMonday7h = day === "Monday" && hour === 7;
+                  const isPeak = heatmapData.maxVal > 1 && day === heatmapData.maxDay && hour === heatmapData.maxHour;
 
                   return (
                     <div
                       key={hour}
                       style={{ backgroundColor: color }}
                       className={`group relative flex h-8 cursor-pointer items-center justify-center rounded-[3px] border border-white/[0.02] transition-all ${
-                        isMonday7h ? "border-amber-300/50 shadow-[0_0_12px_rgba(251,191,36,0.35)]" : "hover:border-white/30"
+                        isPeak ? "border-amber-300/50 shadow-[0_0_12px_rgba(251,191,36,0.35)]" : "hover:border-white/30"
                       }`}
                     >
-                      {isMonday7h && <span className="absolute h-2 w-2 rounded-full bg-amber-300 shadow-[0_0_6px_rgba(251,191,36,0.8)]" />}
+                      {isPeak && <span className="absolute h-2 w-2 rounded-full bg-amber-300 shadow-[0_0_6px_rgba(251,191,36,0.8)]" />}
 
                       <div className="pointer-events-none absolute bottom-full left-1/2 z-[25] hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-white/10 bg-[#0B1020]/95 px-3 py-1.5 text-center text-[11px] shadow-[0_20px_60px_rgba(0,0,0,0.28)] group-hover:block">
                         <p className="font-semibold text-white">
                           {DAYS_OF_WEEK_PT[dIdx]}, {hour}h
                         </p>
                         <p className="mt-0.5 font-bold text-cyan-300">{(value ?? 0).toLocaleString("pt-BR")} autenticações</p>
-                        {isMonday7h && (
-                          <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-rose-300">
-                            Indicador Crítico (Fila/Espera)
+                        {isPeak && (
+                          <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-amber-300">
+                            Maior Pico do Período
                           </p>
                         )}
                       </div>

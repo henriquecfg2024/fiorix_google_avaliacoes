@@ -44,8 +44,8 @@ export default function ProdutividadePage() {
   const [data, setData] = useState<ProdutividadeRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [startDate, setStartDate] = useState("2026-08-01");
-  const [endDate, setEndDate] = useState("2026-08-11");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [tipo, setTipo] = useState("ALL");
   const [tipoPedido, setTipoPedido] = useState("ALL");
   const [tipoDetalhado, setTipoDetalhado] = useState("ALL");
@@ -96,7 +96,18 @@ export default function ProdutividadePage() {
 
         const result = await dataRes.json();
         if (result.success && Array.isArray(result.data)) {
-          setData(result.data.filter(Boolean) as ProdutividadeRow[]);
+          const validData = result.data.filter(Boolean) as ProdutividadeRow[];
+          setData(validData);
+
+          // Inicialização dinâmica com o mês mais recente disponível no banco de dados
+          if (validData.length > 0) {
+            const latestDate = validData[0]?.DATA;
+            if (latestDate && typeof latestDate === "string") {
+              const [year, month] = latestDate.split("-");
+              setStartDate((prev) => prev || `${year}-${month}-01`);
+              setEndDate((prev) => prev || latestDate);
+            }
+          }
         } else {
           setData([]);
         }
@@ -113,11 +124,12 @@ export default function ProdutividadePage() {
   const baseFilteredData = useMemo(() => {
     return data.filter((row) => {
       if (!row || !row.DATA) return false;
-      if (row.DATA < startDate || row.DATA > endDate) return false;
+      if (startDate && row.DATA < startDate) return false;
+      if (endDate && row.DATA > endDate) return false;
       if (tipo !== "ALL" && row.TIPO !== tipo) return false;
       if (tipoPedido !== "ALL" && row.TIPO_PEDIDO !== tipoPedido) return false;
       if (tipoDetalhado !== "ALL" && row.TIPO_DETALHADO !== tipoDetalhado) return false;
-      if (nome !== "ALL" && row.NOME !== nome) return false;
+      if (nome !== "ALL" && String(row.NOME || "").trim() !== nome) return false;
       return true;
     });
   }, [data, startDate, endDate, tipo, tipoPedido, tipoDetalhado, nome]);
@@ -147,7 +159,7 @@ export default function ProdutividadePage() {
       if (!row) return;
       if (row.TIPO_PEDIDO) tiposPedidos.add(String(row.TIPO_PEDIDO));
       if (row.TIPO_DETALHADO) tiposDetalhados.add(String(row.TIPO_DETALHADO));
-      if (row.NOME) nomes.add(String(row.NOME));
+      if (row.NOME) nomes.add(String(row.NOME).trim());
     });
 
     return {
@@ -170,13 +182,20 @@ export default function ProdutividadePage() {
   }, [baseFilteredData, filtroCaixa]);
 
   const clearFilters = () => {
-    setStartDate("2026-08-01");
-    setEndDate("2026-08-11");
+    if (data.length > 0 && typeof data[0]?.DATA === "string") {
+      const latestDate = data[0].DATA;
+      const [year, month] = latestDate.split("-");
+      setStartDate(`${year}-${month}-01`);
+      setEndDate(latestDate);
+    } else {
+      setStartDate("");
+      setEndDate("");
+    }
     setTipo("ALL");
     setTipoPedido("ALL");
     setTipoDetalhado("ALL");
     setNome("ALL");
-    toast.success("Filtros limpos com sucesso.");
+    toast.success("Filtros redefinidos para o período mais recente.");
   };
 
   const caixaTabs = [
@@ -185,21 +204,24 @@ export default function ProdutividadePage() {
       label: "Todos",
       helper: "Visão consolidada",
       count: totalCaixas.toLocaleString("pt-BR"),
-      dotClass: "bg-white/60",
+      pct: "100%",
+      dotClass: "bg-cyan-400",
     },
     {
       key: "digital" as FiltroCaixa,
       label: "Digital ONR",
       helper: "RIDigital",
       count: digitalCount.toLocaleString("pt-BR"),
-      dotClass: "bg-[#00C950]",
+      pct: totalCaixas > 0 ? `${((digitalCount / totalCaixas) * 100).toFixed(1)}%` : "0%",
+      dotClass: "bg-emerald-400",
     },
     {
       key: "presencial" as FiltroCaixa,
       label: "Presencial",
       helper: "Recepção",
       count: presencialCount.toLocaleString("pt-BR"),
-      dotClass: "bg-[#2B7FFF]",
+      pct: totalCaixas > 0 ? `${((presencialCount / totalCaixas) * 100).toFixed(1)}%` : "0%",
+      dotClass: "bg-sky-400",
     },
   ];
 
@@ -293,16 +315,19 @@ export default function ProdutividadePage() {
                   className={[
                     "min-w-[160px] flex-1 md:flex-none rounded-2xl border px-4 py-3 text-left transition-all backdrop-blur-xl",
                     active
-                      ? "border-amber-400/40 bg-[#0B1020]/90 text-white shadow-[0_18px_50px_rgba(0,0,0,0.20)]"
+                      ? "border-cyan-500/40 bg-[#0B1020]/90 text-white shadow-[0_20px_60px_rgba(0,0,0,0.22)]"
                       : "border-white/12 bg-[#0B1020]/72 text-white/70 hover:border-white/20 hover:bg-[#0B1020]/85 hover:text-white",
                   ].join(" ")}
                 >
-                  <div className="mb-2 flex items-center gap-2">
-                    <span className={`h-2.5 w-2.5 rounded-full ${item.dotClass}`} />
-                    <span className="text-[13px] font-semibold leading-tight">{item.label}</span>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2.5 w-2.5 rounded-full ${item.dotClass}`} />
+                      <span className="text-[13px] font-semibold leading-tight">{item.label}</span>
+                    </div>
+                    <span className="text-[11px] font-semibold text-white/40">{item.pct}</span>
                   </div>
                   <div className="text-[11px] text-white/45">{item.helper}</div>
-                  <div className="mt-2 text-[11px] font-medium text-white/55">
+                  <div className="mt-2 text-[11px] font-medium text-white/60">
                     {item.count} autenticações
                   </div>
                 </button>
@@ -325,7 +350,7 @@ export default function ProdutividadePage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="rounded-2xl border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] space-y-4">
+          <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] space-y-4">
             <div className="flex items-center gap-2 text-white/80 font-bold text-sm">
               <LayoutGrid className="h-4 w-4 text-[#00C950]" />
               <span>Filtros do Painel de Produtividade</span>
@@ -442,57 +467,14 @@ export default function ProdutividadePage() {
             </div>
           </div>
 
-          {filtroCaixa === "todos" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="relative overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm font-medium text-white/60">Digital ONR</span>
-                  <div className="rounded-lg border border-white/12 bg-white/[0.04] px-2.5 py-1 text-xs text-white/70">
-                    RIDigital
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <h3 className="text-2xl font-bold tracking-tight text-white">
-                    <span className="bg-gradient-to-r from-[#00C950] to-[#2B7FFF] bg-clip-text text-transparent">
-                      {digitalCount.toLocaleString("pt-BR")}
-                    </span>
-                    <span className="ml-2 text-lg text-white/80">
-                      ({totalCaixas > 0 ? ((digitalCount / totalCaixas) * 100).toFixed(1) : "0.0"}%)
-                    </span>
-                  </h3>
-                  <p className="text-xs text-white/40">
-                    Volume associado às caixas digitais para gestão de escala do ONR
-                  </p>
-                </div>
-                <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-gradient-to-r from-[#00C950] to-[#2B7FFF] opacity-70" />
-              </div>
-
-              <div className="relative overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-sm font-medium text-white/60">Presencial</span>
-                  <div className="rounded-lg border border-white/12 bg-white/[0.04] px-2.5 py-1 text-xs text-white/70">
-                    Recepção
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <h3 className="text-2xl font-bold tracking-tight text-white">
-                    <span className="bg-gradient-to-r from-amber-400 to-[#00C950] bg-clip-text text-transparent">
-                      {presencialCount.toLocaleString("pt-BR")}
-                    </span>
-                    <span className="ml-2 text-lg text-white/80">
-                      ({totalCaixas > 0 ? ((presencialCount / totalCaixas) * 100).toFixed(1) : "0.0"}%)
-                    </span>
-                  </h3>
-                  <p className="text-xs text-white/40">
-                    Volume presencial de recepção para balanceamento operacional
-                  </p>
-                </div>
-                <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-gradient-to-r from-amber-400 to-[#00C950] opacity-70" />
-              </div>
-            </div>
+          {chartsVisible.kpiCards && (
+            <KpiCards
+              data={filteredData}
+              totalCaixas={totalCaixas}
+              digitalCount={digitalCount}
+              presencialCount={presencialCount}
+            />
           )}
-
-          {chartsVisible.kpiCards && <KpiCards data={filteredData} />}
 
           {(chartsVisible.heatmap || chartsVisible.donut) && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

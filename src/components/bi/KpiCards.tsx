@@ -1,8 +1,19 @@
 "use client";
 
 import { useMemo } from "react";
-import { Award, Zap, Users, ShieldAlert } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Award, Zap, Users, ShieldAlert, Laptop, UserCheck } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const CAIXAS_DIGITAIS = ["eProtocolo", "GuilhermeM", "Rafael", "Intimação", "Intimacao"];
+
+const normalizeNome = (valor: string) =>
+  (valor || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+const isDigital = (nome: string) =>
+  CAIXAS_DIGITAIS.some((item) => normalizeNome(nome).includes(normalizeNome(item)));
 
 interface KpiCardsProps {
   data: Array<{
@@ -12,26 +23,62 @@ interface KpiCardsProps {
     NOME?: string;
     TIPO_PEDIDO?: string;
   }>;
+  totalCaixas?: number;
+  digitalCount?: number;
+  presencialCount?: number;
 }
 
-export function KpiCards({ data }: KpiCardsProps) {
+export function KpiCards({
+  data,
+  totalCaixas: propTotalCaixas,
+  digitalCount: propDigitalCount,
+  presencialCount: propPresencialCount,
+}: KpiCardsProps) {
   const kpis = useMemo(() => {
     if (!data || data.length === 0) {
       return {
         totalAutenticacoes: 0,
-        picoFila: { text: "Sem dados", isCritico: false },
-        usuarioTop: "Sem dados",
-        tipoDominante: "Sem dados",
+        digitalCount: 0,
+        presencialCount: 0,
+        digitalPct: "0.0",
+        presencialPct: "0.0",
+        picoFila: { dayTime: "Sem dados", countText: "", isCritico: false },
+        usuarioTop: { name: "Sem dados", detail: "" },
+        tipoDominante: { name: "Sem dados", detail: "" },
       };
     }
 
-    const totalAutenticacoes = data.reduce((acc, row) => acc + (row.QUANTIDADE || 0), 0);
+    const totalAutenticacoes =
+      propTotalCaixas !== undefined
+        ? propTotalCaixas
+        : data.reduce((acc, row) => acc + (row.QUANTIDADE || 0), 0);
 
+    const digitalCount =
+      propDigitalCount !== undefined
+        ? propDigitalCount
+        : data.reduce((acc, row) => {
+            if (!isDigital(String(row.NOME || ""))) return acc;
+            return acc + Number(row.QUANTIDADE || 0);
+          }, 0);
+
+    const presencialCount =
+      propPresencialCount !== undefined
+        ? propPresencialCount
+        : data.reduce((acc, row) => {
+            if (isDigital(String(row.NOME || ""))) return acc;
+            return acc + Number(row.QUANTIDADE || 0);
+          }, 0);
+
+    const totalCalculado = digitalCount + presencialCount || totalAutenticacoes || 1;
+    const digitalPct = ((digitalCount / totalCalculado) * 100).toFixed(1);
+    const presencialPct = ((presencialCount / totalCalculado) * 100).toFixed(1);
+
+    // Pico de Fila
     const filaGroups: { [key: string]: { count: number; day: string; time: string } } = {};
     data.forEach((row) => {
-      const key = `${row.DIA_SEMANA || ''} ${row.HORA || ''}`;
+      const key = `${row.DIA_SEMANA || ""} ${row.HORA || ""}`;
       if (!filaGroups[key]) {
-        filaGroups[key] = { count: 0, day: row.DIA_SEMANA || '', time: row.HORA || '' };
+        filaGroups[key] = { count: 0, day: row.DIA_SEMANA || "", time: row.HORA || "" };
       }
       filaGroups[key].count += row.QUANTIDADE || 0;
     });
@@ -45,7 +92,8 @@ export function KpiCards({ data }: KpiCardsProps) {
       }
     });
 
-    let picoFilaText = "Sem dados";
+    let picoFilaDayTime = "Sem dados";
+    let picoFilaCountText = "";
     let isCritico = false;
     if (maxFilaKey) {
       const g = filaGroups[maxFilaKey];
@@ -59,13 +107,16 @@ export function KpiCards({ data }: KpiCardsProps) {
         Sunday: "Domingo",
       };
       const dayPt = daysPt[g.day] || g.day;
-      picoFilaText = `${dayPt} às ${g.time} - ${g.count} autenticações`;
+      picoFilaDayTime = `${dayPt} às ${g.time}`;
+      picoFilaCountText = `${g.count.toLocaleString("pt-BR")} autenticações`;
       isCritico = g.count > 20;
     }
 
+    // Usuário Top
     const userCounts: { [key: string]: number } = {};
     data.forEach((row) => {
-      userCounts[row.NOME || ''] = (userCounts[row.NOME || ''] || 0) + (row.QUANTIDADE || 0);
+      const nomeLimpo = (row.NOME ? String(row.NOME).trim() : "") || "Não identificado";
+      userCounts[nomeLimpo] = (userCounts[nomeLimpo] || 0) + (row.QUANTIDADE || 0);
     });
 
     let topUser = "";
@@ -77,12 +128,18 @@ export function KpiCards({ data }: KpiCardsProps) {
       }
     });
 
-    const topUserPercent = totalAutenticacoes > 0 ? Math.round((topUserCount / totalAutenticacoes) * 100) : 0;
-    const usuarioTopText = topUser ? `${topUser} - ${topUserPercent}%` : "Sem dados";
+    const topUserPercent =
+      totalAutenticacoes > 0 ? Math.round((topUserCount / totalAutenticacoes) * 100) : 0;
+    const usuarioTopName = topUser || "Sem dados";
+    const usuarioTopDetail = topUser
+      ? `${topUserCount.toLocaleString("pt-BR")} aut. (${topUserPercent}%)`
+      : "";
 
+    // Tipo Dominante
     const tipoCounts: { [key: string]: number } = {};
     data.forEach((row) => {
-      tipoCounts[row.TIPO_PEDIDO || ''] = (tipoCounts[row.TIPO_PEDIDO || ''] || 0) + (row.QUANTIDADE || 0);
+      const tipoLimpo = (row.TIPO_PEDIDO ? String(row.TIPO_PEDIDO).trim() : "") || "Não classificado";
+      tipoCounts[tipoLimpo] = (tipoCounts[tipoLimpo] || 0) + (row.QUANTIDADE || 0);
     });
 
     let topTipo = "";
@@ -94,92 +151,156 @@ export function KpiCards({ data }: KpiCardsProps) {
       }
     });
 
-    const topTipoPercent = totalAutenticacoes > 0 ? Math.round((topTipoCount / totalAutenticacoes) * 100) : 0;
-    const tipoDominanteText = topTipo ? `${topTipo} - ${topTipoPercent}%` : "Sem dados";
+    const topTipoPercent =
+      totalAutenticacoes > 0 ? Math.round((topTipoCount / totalAutenticacoes) * 100) : 0;
+    const tipoDominanteName = topTipo || "Sem dados";
+    const tipoDominanteDetail = topTipo
+      ? `${topTipoCount.toLocaleString("pt-BR")} aut. (${topTipoPercent}%)`
+      : "";
 
     return {
       totalAutenticacoes,
-      picoFila: { text: picoFilaText, isCritico },
-      usuarioTop: usuarioTopText,
-      tipoDominante: tipoDominanteText,
+      digitalCount,
+      presencialCount,
+      digitalPct,
+      presencialPct,
+      picoFila: { dayTime: picoFilaDayTime, countText: picoFilaCountText, isCritico },
+      usuarioTop: { name: usuarioTopName, detail: usuarioTopDetail },
+      tipoDominante: { name: tipoDominanteName, detail: tipoDominanteDetail },
     };
-  }, [data]);
+  }, [data, propTotalCaixas, propDigitalCount, propPresencialCount]);
 
   const cardsData = [
     {
       title: "Total Autenticações",
-      value: kpis.totalAutenticacoes.toLocaleString("pt-BR"),
-      subText: "Volume total processado no período",
+      primaryValue: kpis.totalAutenticacoes.toLocaleString("pt-BR"),
+      secondaryValue: null,
+      subText: "Volume total processado",
       icon: Award,
-      color: "from-cyan-400 to-emerald-400",
+      iconBox: "border-cyan-500/20 bg-cyan-500/10",
+      iconColor: "text-cyan-300",
+      valueColor: "text-cyan-300",
+      border: "border-cyan-500/25",
+      hoverBorder: "hover:border-cyan-400/50",
+    },
+    {
+      title: "Digital ONR",
+      primaryValue: kpis.digitalCount.toLocaleString("pt-BR"),
+      secondaryValue: `(${kpis.digitalPct}%)`,
+      subText: "RIDigital / Gestão ONR",
+      icon: Laptop,
+      iconBox: "border-emerald-500/20 bg-emerald-500/10",
+      iconColor: "text-emerald-300",
+      valueColor: "text-emerald-300",
+      border: "border-emerald-500/25",
+      hoverBorder: "hover:border-emerald-400/50",
+    },
+    {
+      title: "Presencial",
+      primaryValue: kpis.presencialCount.toLocaleString("pt-BR"),
+      secondaryValue: `(${kpis.presencialPct}%)`,
+      subText: "Recepção / Balcão físico",
+      icon: Users,
+      iconBox: "border-sky-500/20 bg-sky-500/10",
+      iconColor: "text-sky-300",
+      valueColor: "text-sky-300",
+      border: "border-sky-500/25",
+      hoverBorder: "hover:border-sky-400/50",
     },
     {
       title: "Pico de Fila",
-      value: kpis.picoFila.text,
-      subText: "Momento com maior acúmulo de requisições",
+      primaryValue: kpis.picoFila.dayTime,
+      secondaryValue: kpis.picoFila.countText,
+      subText: "Momento com maior acúmulo",
       icon: ShieldAlert,
       badge: kpis.picoFila.isCritico ? "CRÍTICO" : null,
-      color: "from-rose-500 to-amber-500",
+      iconBox: "border-rose-500/20 bg-rose-500/10",
+      iconColor: "text-rose-300",
+      valueColor: "text-white",
+      border: "border-rose-500/25",
+      hoverBorder: "hover:border-rose-400/50",
     },
     {
       title: "Usuário Top",
-      value: kpis.usuarioTop,
-      subText: "Colaborador com maior produtividade",
-      icon: Users,
-      color: "from-sky-400 to-violet-500",
+      primaryValue: kpis.usuarioTop.name,
+      secondaryValue: kpis.usuarioTop.detail,
+      subText: "Colaborador com maior volume",
+      icon: UserCheck,
+      iconBox: "border-purple-500/20 bg-purple-500/10",
+      iconColor: "text-purple-300",
+      valueColor: "text-purple-300",
+      border: "border-purple-500/25",
+      hoverBorder: "hover:border-purple-400/50",
     },
     {
       title: "Tipo Dominante",
-      value: kpis.tipoDominante,
+      primaryValue: kpis.tipoDominante.name,
+      secondaryValue: kpis.tipoDominante.detail,
       subText: "Serviço mais demandado",
       icon: Zap,
-      color: "from-amber-400 to-emerald-400",
+      iconBox: "border-amber-500/20 bg-amber-500/10",
+      iconColor: "text-amber-300",
+      valueColor: "text-amber-300",
+      border: "border-amber-500/25",
+      hoverBorder: "hover:border-amber-400/50",
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       {cardsData.map((card, idx) => {
         const Icon = card.icon;
         return (
           <div
             key={idx}
-            className="group relative overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20"
+            className={cn(
+              "group relative flex min-h-[145px] flex-col justify-between overflow-hidden rounded-[28px] border bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all",
+              card.border,
+              card.hoverBorder
+            )}
           >
-            <div className="mb-4 flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">
+            <div className="mb-3 flex items-start justify-between gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">
                 {card.title}
               </span>
-              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2 transition-all group-hover:bg-white/[0.08]">
-                <Icon className="h-4 w-4 text-white/80" />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <h3 className="text-2xl font-bold tracking-tight text-white">
-                {card.title === "Total Autenticações" ? (
-                  <span className="bg-gradient-to-r from-cyan-300 to-emerald-300 bg-clip-text text-transparent">
-                    {card.value}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {card.badge && (
+                  <span className="rounded-md border border-rose-500/30 bg-rose-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-rose-300">
+                    {card.badge}
                   </span>
-                ) : (
-                  card.value
                 )}
-              </h3>
-              <p className="text-xs text-white/42">{card.subText}</p>
+                <div className={cn("rounded-xl border p-2 transition-all group-hover:brightness-110", card.iconBox)}>
+                  <Icon className={cn("h-4 w-4", card.iconColor)} />
+                </div>
+              </div>
             </div>
 
-            {card.badge && (
-              <div className="absolute right-6 top-6">
-                <Badge
-                  variant="destructive"
-                  className="border border-white/10 bg-rose-500/85 text-[10px] font-bold text-white shadow-lg shadow-rose-500/20"
-                >
-                  {card.badge}
-                </Badge>
-              </div>
-            )}
-
-            <div className={`absolute bottom-0 left-0 right-0 h-[3px] bg-gradient-to-r ${card.color} opacity-80`} />
+            <div className="mt-auto space-y-1">
+              {card.secondaryValue && card.secondaryValue.startsWith("(") ? (
+                <div className="flex items-baseline gap-1.5">
+                  <span className={cn("text-2xl font-extrabold tracking-tight", card.valueColor)}>
+                    {card.primaryValue}
+                  </span>
+                  <span className="text-xs font-semibold text-white/60">
+                    {card.secondaryValue}
+                  </span>
+                </div>
+              ) : card.secondaryValue ? (
+                <div>
+                  <div className={cn("text-[15px] font-bold tracking-tight text-white line-clamp-1")}>
+                    {card.primaryValue}
+                  </div>
+                  <div className={cn("text-xs font-semibold", card.valueColor)}>
+                    {card.secondaryValue}
+                  </div>
+                </div>
+              ) : (
+                <div className={cn("text-2xl font-extrabold tracking-tight", card.valueColor)}>
+                  {card.primaryValue}
+                </div>
+              )}
+              <p className="text-[11px] text-white/45">{card.subText}</p>
+            </div>
           </div>
         );
       })}

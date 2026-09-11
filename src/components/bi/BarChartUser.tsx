@@ -19,7 +19,8 @@ export function BarChartUser({ data }: BarChartUserProps) {
   const chartData = useMemo(() => {
     const counts: { [key: string]: number } = {};
     data.forEach((row) => {
-      const user = row.NOME || "Outro";
+      const rawUser = row.NOME ? String(row.NOME).trim() : "";
+      const user = rawUser || "Outro";
       counts[user] = (counts[user] || 0) + (row.QUANTIDADE || 1);
     });
 
