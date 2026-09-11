@@ -51,7 +51,7 @@ export function HealthCard({ score, saudaveis, atencao, criticos }: HealthCardPr
   const totalIndicators = saudaveisList.length + atencaoList.length + criticosList.length;
 
   const label = saudeReputacao >= 80 ? 'Excelente' : saudeReputacao >= 60 ? 'Bom' : saudeReputacao >= 40 ? 'Regular' : 'Crítico';
-  const labelColor = saudeReputacao >= 80 ? 'text-emerald-300' : saudeReputacao >= 60 ? 'text-cyan-300' : saudeReputacao >= 40 ? 'text-amber-300' : 'text-rose-300';
+  const labelColor = saudeReputacao >= 80 ? 'text-emerald-400' : saudeReputacao >= 60 ? 'text-cyan-400' : saudeReputacao >= 40 ? 'text-amber-400' : 'text-rose-400';
 
   const radius = 58;
   const circumference = 2 * Math.PI * radius;
@@ -59,21 +59,22 @@ export function HealthCard({ score, saudaveis, atencao, criticos }: HealthCardPr
 
   return (
     <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
-      <div className="mb-6 flex items-center justify-between border-b border-white/8 pb-5">
-        <div className="flex items-center gap-2">
+      <div className="mb-5 flex items-center justify-between border-b border-white/8 pb-4">
+        <div className="flex items-center gap-2.5">
           <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-cyan-400" />
-          <h2 className="text-kpi-label font-bold text-slate-300">Saúde da Reputação</h2>
+          <h2 className="text-card-title font-bold text-white">Saúde da Reputação</h2>
         </div>
-        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-badge font-semibold text-slate-200">
+        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-badge font-semibold text-slate-300">
           {totalIndicators} Indicadores
         </span>
       </div>
 
-      <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-12">
-        <div className="lg:col-span-4 flex flex-col items-center justify-center rounded-2xl border border-white/12 bg-[#0B1020]/80 p-4 text-center">
+      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-12">
+        {/* LEFT COLUMN: GAUGE */}
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.02] p-5 text-center lg:col-span-4">
           <div className="relative flex h-36 w-36 items-center justify-center">
             <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 140 140">
-              <circle cx="70" cy="70" r={radius} className="text-slate-700" strokeWidth="12" stroke="currentColor" fill="transparent" />
+              <circle cx="70" cy="70" r={radius} className="text-slate-800" strokeWidth="12" stroke="currentColor" fill="transparent" />
               <circle
                 cx="70"
                 cy="70"
@@ -93,115 +94,116 @@ export function HealthCard({ score, saudaveis, atencao, criticos }: HealthCardPr
             </div>
           </div>
 
-          <div className="mt-3">
-            <p className="text-sm font-bold text-slate-100">
+          <div className="mt-3 text-center">
+            <p className="text-sm font-bold text-slate-200">
               {saudeReputacao} pontos de 100 — <span className={labelColor}>{label}</span>
             </p>
             <Link
               href="/estatisticas#metodologia-reputacao"
               className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-cyan-300 transition-colors hover:text-cyan-200 hover:underline"
             >
-              <span>Metodologia e Detalhes ({saudeReputacao} pts)</span>
+              <span>Metodologia e Detalhes</span>
               <span>→</span>
             </Link>
           </div>
         </div>
 
+        {/* RIGHT COLUMN: INDICATORS */}
         <div className="space-y-4 lg:col-span-8">
           {saudaveisList.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5 text-kpi-label text-emerald-300 font-semibold">
-              <span>✅</span>
-              <span>Indicadores Saudáveis</span>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {saudaveisList.map((ind, idx) => (
-                <div key={idx} className="space-y-1.5 rounded-xl border border-white/12 bg-[#0B1020]/80 p-2.5 shadow-xs">
-                  <div className="flex items-center justify-between text-indicator-label text-white font-medium min-w-0">
-                    <span className="flex items-center gap-1.5 truncate min-w-0">
-                      <span>{ind.icon}</span>
-                      <span className="truncate">{ind.nome}</span>
-                    </span>
-                    <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-indicator-value font-bold text-emerald-300 shrink-0">
-                      {ind.pct}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-700/70">
-                    <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${ind.pct}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          )}
-
-          {atencaoList.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5 text-kpi-label text-amber-300 font-semibold">
-              <span>⚠️</span>
-              <span>Pontos de Atenção</span>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {atencaoList.map((ind, idx) => {
-                const isBlue = ind.badgeColor === 'blue';
-                return (
-                  <div key={idx} className="space-y-1.5 rounded-xl border border-white/12 bg-[#0B1020]/80 p-2.5 shadow-xs">
-                    <div className="flex items-center justify-between text-indicator-label text-white font-medium min-w-0">
-                      <span className="flex items-center gap-1.5 truncate min-w-0">
-                        <span>{ind.icon}</span>
-                        <span className="truncate">{ind.nome}</span>
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400">
+                <span>✅</span>
+                <span>Indicadores Saudáveis</span>
+              </div>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {saudaveisList.map((ind, idx) => (
+                  <div key={idx} className="space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 transition-colors hover:border-white/16">
+                    <div className="flex items-center justify-between min-w-0">
+                      <span className="flex items-center gap-2 truncate min-w-0">
+                        <span className="shrink-0">{ind.icon}</span>
+                        <span className="truncate text-sm font-medium text-slate-200">{ind.nome}</span>
                       </span>
-                      <span
-                        className={`rounded px-1.5 py-0.5 text-indicator-value font-bold shrink-0 ${
-                          isBlue ? 'border border-cyan-500/20 bg-cyan-500/10 text-cyan-300' : 'border border-amber-500/20 bg-amber-500/10 text-amber-300'
-                        }`}
-                      >
+                      <span className="rounded-md border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-xs font-bold text-emerald-300 shrink-0">
                         {ind.pct}%
                       </span>
                     </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-700/70">
-                      <div className={`h-full rounded-full transition-all duration-500 ${isBlue ? 'bg-cyan-400' : 'bg-amber-500'}`} style={{ width: `${ind.pct}%` }} />
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800/80">
+                      <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${ind.pct}%` }} />
                     </div>
                   </div>
-                );
-              })}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
+          {atencaoList.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-400">
+                <span>⚠️</span>
+                <span>Pontos de Atenção</span>
+              </div>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {atencaoList.map((ind, idx) => {
+                  const isBlue = ind.badgeColor === 'blue';
+                  return (
+                    <div key={idx} className="space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 transition-colors hover:border-white/16">
+                      <div className="flex items-center justify-between min-w-0">
+                        <span className="flex items-center gap-2 truncate min-w-0">
+                          <span className="shrink-0">{ind.icon}</span>
+                          <span className="truncate text-sm font-medium text-slate-200">{ind.nome}</span>
+                        </span>
+                        <span
+                          className={`rounded-md px-2 py-0.5 text-xs font-bold shrink-0 ${
+                            isBlue ? 'border border-cyan-500/25 bg-cyan-500/10 text-cyan-300' : 'border border-amber-500/25 bg-amber-500/10 text-amber-300'
+                          }`}
+                        >
+                          {ind.pct}%
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800/80">
+                        <div className={`h-full rounded-full transition-all duration-500 ${isBlue ? 'bg-cyan-400' : 'bg-amber-500'}`} style={{ width: `${ind.pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
 
           {criticosList.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5 text-kpi-label text-rose-300 font-semibold">
-              <span>🚨</span>
-              <span>Indicadores Críticos</span>
-            </div>
-            <div className="space-y-2.5 rounded-2xl border border-white/12 bg-[#0B1020]/80 p-3 shadow-xs">
-              {criticosList.map((ind, idx) => (
-                <div key={idx} className="space-y-1">
-                  <div className="flex items-center justify-between text-indicator-label text-white font-medium min-w-0">
-                    <span className="flex items-center gap-1.5 truncate min-w-0">
-                      <span>{ind.icon}</span>
-                      <span className="truncate">{ind.nome}</span>
-                      {ind.isBi && (
-                        <Link
-                          href={ind.biPath || '/bi'}
-                          className="rounded border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-badge font-bold text-rose-300 transition-colors hover:bg-rose-500/18 shrink-0"
-                        >
-                          VER BI →
-                        </Link>
-                      )}
-                    </span>
-                    <span className="rounded border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-indicator-value font-bold text-rose-300 shrink-0">
-                      {ind.pct}%
-                    </span>
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-rose-400">
+                <span>🚨</span>
+                <span>Indicadores Críticos</span>
+              </div>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {criticosList.map((ind, idx) => (
+                  <div key={idx} className="space-y-2 rounded-xl border border-rose-500/20 bg-rose-500/[0.04] p-3 transition-colors hover:border-rose-500/30">
+                    <div className="flex items-center justify-between min-w-0">
+                      <span className="flex items-center gap-2 truncate min-w-0">
+                        <span className="shrink-0">{ind.icon}</span>
+                        <span className="truncate text-sm font-medium text-slate-200">{ind.nome}</span>
+                        {ind.isBi && (
+                          <Link
+                            href={ind.biPath || '/bi'}
+                            className="rounded border border-rose-500/30 bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-bold text-rose-300 transition-colors hover:bg-rose-500/25 shrink-0"
+                          >
+                            BI →
+                          </Link>
+                        )}
+                      </span>
+                      <span className="rounded-md border border-rose-500/25 bg-rose-500/10 px-2 py-0.5 text-xs font-bold text-rose-300 shrink-0">
+                        {ind.pct}%
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-rose-950/50">
+                      <div className="h-full rounded-full bg-rose-500 transition-all duration-500" style={{ width: `${ind.pct}%` }} />
+                    </div>
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-rose-950/40">
-                    <div className="h-full rounded-full bg-rose-500 transition-all duration-500" style={{ width: `${ind.pct}%` }} />
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
           )}
         </div>
       </div>

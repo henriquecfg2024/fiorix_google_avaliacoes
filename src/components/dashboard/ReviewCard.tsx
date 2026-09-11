@@ -32,9 +32,9 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
 
   if (!reviews || reviews.length === 0) {
     return (
-      <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+      <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
         <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-4">
-          <h3 className="text-base font-bold text-white">Últimas Avaliações</h3>
+          <h3 className="text-card-title font-bold text-white">Últimas Avaliações</h3>
         </div>
         <div className="py-8 text-center text-xs text-white/40">Nenhuma avaliação registrada ainda.</div>
       </div>
@@ -48,10 +48,10 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
   };
 
   return (
-    <div className="space-y-4 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all">
-      <div className="flex items-center justify-between border-b border-white/8 pb-4">
+    <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
+      <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-4">
         <h3 className="text-card-title font-bold text-white">Últimas Avaliações</h3>
-        <Link href="/avaliacoes" className="text-badge font-semibold text-amber-300 transition-colors hover:text-amber-200 hover:underline">
+        <Link href="/avaliacoes" className="text-xs font-semibold text-amber-300 transition-colors hover:text-amber-200 hover:underline">
           Ver todas →
         </Link>
       </div>

@@ -29,15 +29,15 @@ function KpiCard({
   badgeText: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col justify-between space-y-3 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
+    <div className="flex h-full flex-col justify-between rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-white/20">
       <div className="flex items-center justify-between">
-        <span className="text-kpi-label text-slate-400 font-semibold">{title}</span>
+        <span className="text-kpi-label font-semibold text-slate-300">{title}</span>
         <div className={`rounded-xl border p-2 ${iconClass}`}>{icon}</div>
       </div>
 
-      <div>
+      <div className="mt-3">
         <div className="text-3xl font-extrabold tracking-tight text-white">{value}</div>
-        <div className={`mt-2 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-badge whitespace-nowrap ${badgeClass}`}>
+        <div className={`mt-2 inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${badgeClass}`}>
           {badgeText}
         </div>
       </div>

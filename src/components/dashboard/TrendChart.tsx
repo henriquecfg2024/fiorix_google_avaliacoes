@@ -53,14 +53,14 @@ export function TrendChart({ data }: TrendChartProps) {
   };
 
   return (
-    <div className="space-y-4 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+    <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
+      <div className="mb-5 flex flex-col justify-between gap-3 border-b border-white/8 pb-4 sm:flex-row sm:items-center">
         <div>
           <h3 className="text-card-title font-bold text-white">Tendência de Avaliações</h3>
-          <p className="mt-0.5 text-badge text-slate-400">Evolução da nota média e volume acumulado</p>
+          <p className="mt-0.5 text-xs text-slate-400">Evolução da nota média e volume acumulado</p>
         </div>
 
-        <div className="inline-flex self-start gap-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-badge font-semibold text-cyan-200 sm:self-auto">
+        <div className="inline-flex self-start gap-1 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-cyan-200 sm:self-auto">
           Últimos 6 meses
         </div>
       </div>
@@ -68,7 +68,7 @@ export function TrendChart({ data }: TrendChartProps) {
       <div className="h-[220px] w-full min-w-0" style={{ minWidth: 0 }}>
         {isMounted ? (
           <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-            <AreaChart data={currentData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <AreaChart data={currentData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
               <defs>
               <linearGradient id="colorNota" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#22D3EE" stopOpacity={0.34} />

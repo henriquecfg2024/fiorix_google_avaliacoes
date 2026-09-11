@@ -88,10 +88,10 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
   };
 
   return (
-    <div className="space-y-4 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
-      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+    <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
+      <div className="mb-5 flex flex-col justify-between gap-3 border-b border-white/8 pb-4 sm:flex-row sm:items-center">
         <div>
-          <h3 className="text-base font-bold text-white">Ranking dos Colaboradores</h3>
+          <h3 className="text-card-title font-bold text-white">Ranking dos Colaboradores</h3>
           <p className="mt-0.5 text-xs text-slate-400">
             {period === 'month'
               ? 'Menções positivas no mês atual'
@@ -129,7 +129,7 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
         {currentList.map((col, idx) => {
           const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
           const isTop = idx === 0;
@@ -138,12 +138,12 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
             <div
               key={idx}
               className={`flex flex-col items-center justify-center rounded-xl border p-2.5 text-center transition-all ${
-                isTop ? 'border-cyan-500/20 bg-cyan-500/[0.06] shadow-sm' : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.05]'
+                isTop ? 'border-cyan-500/25 bg-cyan-500/[0.08] shadow-xs' : 'border-white/10 bg-white/[0.03] hover:border-white/16'
               }`}
             >
-              <span className="text-[10px] font-bold uppercase text-slate-400">{medal} Rank</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{medal} Rank</span>
               <span className="mt-0.5 max-w-full truncate text-xs font-bold text-white">{col.nome}</span>
-              <span className="mt-1 text-xs font-extrabold text-emerald-300">{col.elogios} 👏</span>
+              <span className="mt-1 text-xs font-extrabold text-emerald-400">{col.elogios} 👏</span>
             </div>
           );
         })}
