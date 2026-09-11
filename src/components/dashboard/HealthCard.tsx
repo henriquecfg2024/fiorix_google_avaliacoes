@@ -1,27 +1,57 @@
 import React from 'react';
 import Link from 'next/link';
 
-export function HealthCard() {
-  const saudeReputacao = 68;
+interface HealthIndicator {
+  icon: string;
+  nome: string;
+  pct: number;
+}
 
-  const saudaveis = [
-    { icon: '🕘', nome: 'Horário de Atendimento', pct: 96 },
-    { icon: '💳', nome: 'Pagamento', pct: 93 },
-    { icon: '🤝', nome: 'Qualidade de Atendimento', pct: 91 },
-    { icon: '💡', nome: 'Clareza de Informações', pct: 88 },
-  ];
+interface AttentionIndicator extends HealthIndicator {
+  badgeColor: 'blue' | 'amber';
+}
 
-  const atencao = [
-    { icon: '🌟', nome: 'Índice de Recomendação', pct: 85, badgeColor: 'blue' },
-    { icon: '🎯', nome: 'Resolução no 1º Contato', pct: 82, badgeColor: 'blue' },
-    { icon: '📄', nome: 'Documentação', pct: 59, badgeColor: 'amber' },
-    { icon: '🌐', nome: 'Site / Agendamento', pct: 42, badgeColor: 'amber' },
-  ];
+interface CriticalIndicator extends HealthIndicator {
+  isBi: boolean;
+  biPath?: string;
+}
 
-  const criticos = [
-    { icon: '⏱️', nome: 'Prazo de Entrega', pct: 22, isBi: true },
-    { icon: '🕐', nome: 'Fila / Espera', pct: 18, isBi: true, biPath: '/bi/produtividade' },
-  ];
+interface HealthCardProps {
+  score?: number;
+  saudaveis?: HealthIndicator[];
+  atencao?: AttentionIndicator[];
+  criticos?: CriticalIndicator[];
+}
+
+const defaultSaudaveis: HealthIndicator[] = [
+  { icon: '⭐', nome: 'Horário de Atendimento', pct: 96 },
+  { icon: '💳', nome: 'Pagamento', pct: 93 },
+  { icon: '🤝', nome: 'Qualidade de Atendimento', pct: 91 },
+  { icon: '📋', nome: 'Clareza de Informações', pct: 88 },
+];
+
+const defaultAtencao: AttentionIndicator[] = [
+  { icon: '👍', nome: 'Índice de Recomendação', pct: 85, badgeColor: 'blue' },
+  { icon: '📞', nome: 'Resolução no 1º Contato', pct: 82, badgeColor: 'blue' },
+  { icon: '📄', nome: 'Documentação', pct: 59, badgeColor: 'amber' },
+  { icon: '🌐', nome: 'Site / Agendamento', pct: 42, badgeColor: 'amber' },
+];
+
+const defaultCriticos: CriticalIndicator[] = [
+  { icon: '⏰', nome: 'Prazo de Entrega', pct: 22, isBi: true },
+  { icon: '⏳', nome: 'Fila / Espera', pct: 18, isBi: true, biPath: '/bi/produtividade' },
+];
+
+export function HealthCard({ score, saudaveis, atencao, criticos }: HealthCardProps) {
+  const saudeReputacao = score ?? 68;
+  const saudaveisList = saudaveis ?? defaultSaudaveis;
+  const atencaoList = atencao ?? defaultAtencao;
+  const criticosList = criticos ?? defaultCriticos;
+
+  const totalIndicators = saudaveisList.length + atencaoList.length + criticosList.length;
+
+  const label = saudeReputacao >= 80 ? 'Excelente' : saudeReputacao >= 60 ? 'Bom' : saudeReputacao >= 40 ? 'Regular' : 'Crítico';
+  const labelColor = saudeReputacao >= 80 ? 'text-emerald-300' : saudeReputacao >= 60 ? 'text-cyan-300' : saudeReputacao >= 40 ? 'text-amber-300' : 'text-rose-300';
 
   const radius = 58;
   const circumference = 2 * Math.PI * radius;
@@ -35,7 +65,7 @@ export function HealthCard() {
           <h2 className="text-kpi-label font-bold text-slate-300">Saúde da Reputação</h2>
         </div>
         <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-badge font-semibold text-slate-200">
-          10 Indicadores
+          {totalIndicators} Indicadores
         </span>
       </div>
 
@@ -65,7 +95,7 @@ export function HealthCard() {
 
           <div className="mt-3">
             <p className="text-sm font-bold text-slate-100">
-              {saudeReputacao} pontos de 100 — <span className="text-cyan-300">Bom</span>
+              {saudeReputacao} pontos de 100 — <span className={labelColor}>{label}</span>
             </p>
             <Link
               href="/estatisticas#metodologia-reputacao"
@@ -78,13 +108,14 @@ export function HealthCard() {
         </div>
 
         <div className="space-y-4 lg:col-span-8">
+          {saudaveisList.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center gap-1.5 text-kpi-label text-emerald-300 font-semibold">
-              <span>🟢</span>
+              <span>✅</span>
               <span>Indicadores Saudáveis</span>
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {saudaveis.map((ind, idx) => (
+              {saudaveisList.map((ind, idx) => (
                 <div key={idx} className="space-y-1.5 rounded-xl border border-white/12 bg-[#0B1020]/80 p-2.5 shadow-xs">
                   <div className="flex items-center justify-between text-indicator-label text-white font-medium min-w-0">
                     <span className="flex items-center gap-1.5 truncate min-w-0">
@@ -102,14 +133,16 @@ export function HealthCard() {
               ))}
             </div>
           </div>
+          )}
 
+          {atencaoList.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center gap-1.5 text-kpi-label text-amber-300 font-semibold">
-              <span>🟡</span>
+              <span>⚠️</span>
               <span>Pontos de Atenção</span>
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {atencao.map((ind, idx) => {
+              {atencaoList.map((ind, idx) => {
                 const isBlue = ind.badgeColor === 'blue';
                 return (
                   <div key={idx} className="space-y-1.5 rounded-xl border border-white/12 bg-[#0B1020]/80 p-2.5 shadow-xs">
@@ -134,14 +167,16 @@ export function HealthCard() {
               })}
             </div>
           </div>
+          )}
 
+          {criticosList.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center gap-1.5 text-kpi-label text-rose-300 font-semibold">
-              <span>🔴</span>
+              <span>🚨</span>
               <span>Indicadores Críticos</span>
             </div>
             <div className="space-y-2.5 rounded-2xl border border-white/12 bg-[#0B1020]/80 p-3 shadow-xs">
-              {criticos.map((ind, idx) => (
+              {criticosList.map((ind, idx) => (
                 <div key={idx} className="space-y-1">
                   <div className="flex items-center justify-between text-indicator-label text-white font-medium min-w-0">
                     <span className="flex items-center gap-1.5 truncate min-w-0">
@@ -167,6 +202,7 @@ export function HealthCard() {
               ))}
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>

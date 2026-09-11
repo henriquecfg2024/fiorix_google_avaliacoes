@@ -9,46 +9,29 @@ type TrendTooltipProps = {
   label?: string | number;
 };
 
-export function TrendChart() {
+type TrendDataPoint = { month: string; nota: number; volume: number };
+
+interface TrendChartProps {
+  data?: TrendDataPoint[];
+}
+
+const defaultData: TrendDataPoint[] = [
+  { month: 'Jan', nota: 4.2, volume: 120 },
+  { month: 'Fev', nota: 4.3, volume: 150 },
+  { month: 'Mar', nota: 4.1, volume: 95 },
+  { month: 'Abr', nota: 4.5, volume: 180 },
+  { month: 'Mai', nota: 4.4, volume: 160 },
+  { month: 'Jun', nota: 4.7, volume: 190 },
+];
+
+export function TrendChart({ data }: TrendChartProps) {
   const [isMounted, setIsMounted] = useState(false);
-  const [period, setPeriod] = useState<'7d' | '30d' | '90d' | '1a'>('30d');
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  const dataMap = {
-    '7d': [
-      { month: 'Seg', nota: 4.5, volume: 22 },
-      { month: 'Ter', nota: 4.6, volume: 28 },
-      { month: 'Qua', nota: 4.4, volume: 19 },
-      { month: 'Qui', nota: 4.7, volume: 35 },
-      { month: 'Sex', nota: 4.5, volume: 30 },
-      { month: 'Sáb', nota: 4.8, volume: 15 },
-      { month: 'Dom', nota: 4.6, volume: 12 },
-    ],
-    '30d': [
-      { month: 'Jan', nota: 4.2, volume: 120 },
-      { month: 'Fev', nota: 4.3, volume: 150 },
-      { month: 'Mar', nota: 4.1, volume: 95 },
-      { month: 'Abr', nota: 4.5, volume: 180 },
-      { month: 'Mai', nota: 4.4, volume: 160 },
-      { month: 'Jun', nota: 4.7, volume: 190 },
-    ],
-    '90d': [
-      { month: 'Abril', nota: 4.3, volume: 420 },
-      { month: 'Maio', nota: 4.5, volume: 490 },
-      { month: 'Junho', nota: 4.7, volume: 540 },
-    ],
-    '1a': [
-      { month: 'Q1', nota: 4.2, volume: 1200 },
-      { month: 'Q2', nota: 4.4, volume: 1450 },
-      { month: 'Q3', nota: 4.5, volume: 1600 },
-      { month: 'Q4', nota: 4.7, volume: 1850 },
-    ],
-  };
-
-  const currentData = dataMap[period];
+  const currentData = data ?? defaultData;
 
   const CustomTooltip = ({ active, payload, label }: TrendTooltipProps) => {
     if (active && payload && payload.length) {
@@ -77,18 +60,8 @@ export function TrendChart() {
           <p className="mt-0.5 text-badge text-slate-400">Evolução da nota média e volume acumulado</p>
         </div>
 
-        <div className="inline-flex self-start gap-1 rounded-xl border border-white/10 bg-white/[0.04] p-1 text-badge font-semibold sm:self-auto">
-          {(['7d', '30d', '90d', '1a'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setPeriod(tab)}
-              className={`rounded-lg px-3 py-1.5 transition-all ${
-              period === tab ? 'bg-cyan-500/15 font-bold text-cyan-200 shadow-sm' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+        <div className="inline-flex self-start gap-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-badge font-semibold text-cyan-200 sm:self-auto">
+          Últimos 6 meses
         </div>
       </div>
 

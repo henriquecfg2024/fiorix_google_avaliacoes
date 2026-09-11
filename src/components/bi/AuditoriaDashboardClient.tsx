@@ -57,6 +57,28 @@ export function AuditoriaDashboardClient() {
   const [filtroSetor, setFiltroSetor] = useState<"todos" | "Balcão" | "Conferência" | "Qualificação" | "Registro">("todos");
   const [filtroResponsavel, setFiltroResponsavel] = useState<string>("todos");
   const [loading, setLoading] = useState(false);
+  const [lastAuditAt, setLastAuditAt] = useState<string | null>(null);
+
+  // Calculated metrics from real data
+  const metrics = useMemo(() => {
+    if (protocolos.length === 0) return { avgDays: 0, avgRegistrado: 0, avgDevolvido: 0, riskLevel: "NENHUM", riskColor: "emerald" };
+
+    const registrado = protocolos.filter((p) => p.falta === 76);
+    const devolvido = protocolos.filter((p) => p.falta === 75);
+
+    const avg = (arr: any[]) => arr.length > 0 ? Math.round((arr.reduce((s, p) => s + p.dias, 0) / arr.length) * 10) / 10 : 0;
+
+    const avgDays = avg(protocolos);
+    const avgRegistrado = avg(registrado);
+    const avgDevolvido = avg(devolvido);
+
+    let riskLevel = "BAIXO";
+    let riskColor = "emerald";
+    if (protocolos.length > 200 || avgDays > 30) { riskLevel = "ALTO"; riskColor = "red"; }
+    else if (protocolos.length > 100 || avgDays > 15) { riskLevel = "MODERADO"; riskColor = "amber"; }
+
+    return { avgDays, avgRegistrado, avgDevolvido, riskLevel, riskColor };
+  }, [protocolos]);
 
   const loadData = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -65,6 +87,7 @@ export function AuditoriaDashboardClient() {
       const json = await res.json();
       if (json.success && Array.isArray(json.protocolos)) {
         setProtocolos(json.protocolos);
+        setLastAuditAt(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
         if (!silent) {
           toast.success("Auditoria recalculada!", {
             description: `${json.protocolos.length} pendências reais encontradas.`
@@ -258,12 +281,12 @@ export function AuditoriaDashboardClient() {
       {/* Upper info / Header Meta */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-[22px] border border-white/8 bg-[#0B1020]/72 px-4 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
         <div className="text-white/60 text-xs flex flex-wrap items-center gap-3">
-          <span> Última auditoria: hoje 08:42</span>
+          <span>Última auditoria: {lastAuditAt ? `hoje ${lastAuditAt}` : "carregando..."}</span>
           <span className="w-1 h-1 rounded-full bg-white/22"></span>
           <span>{protocolos.length.toLocaleString("pt-BR")} títulos auditados</span>
           <span className="w-1 h-1 rounded-full bg-white/22"></span>
           <span className="rounded-full border border-emerald-500/18 bg-emerald-500/10 px-2 py-0.5 font-bold text-emerald-300">
-            {protocolos.length > 0 ? "98.4%" : "100%"} precisão
+            Dados reais
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -284,7 +307,7 @@ export function AuditoriaDashboardClient() {
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-wider text-white/48">Antes FIORIX</span>
             <span className="rounded-full border border-white/10 bg-white/6 px-2 py-0.5 text-[10px] font-bold text-white/80">
-              gargalo: {protocolos.length > 0 ? "77.1d" : "0.0d"}
+              gargalo: {metrics.avgDays}d
             </span>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
@@ -292,7 +315,7 @@ export function AuditoriaDashboardClient() {
             <span className="text-xs text-white/40">títulos</span>
           </div>
           <p className="text-xs text-white/60 mt-1">
-            {protocolos.length > 0 ? `${protocolos.length} pendentes` : "0 atrasados (0.0%)"}
+            {protocolos.length > 0 ? `${protocolos.length} pendentes` : "0 pendentes"}
           </p>
         </div>
 
@@ -305,7 +328,7 @@ export function AuditoriaDashboardClient() {
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-amber-300">Zerar {protocolos.length}</span>
           </div>
-          <p className="text-xs text-white/58 mt-1">Regularização em até 48h • Conferência</p>
+          <p className="text-xs text-white/58 mt-1">Regularização contínua • Compliance</p>
         </div>
 
         {/* Card 3 */}
@@ -315,25 +338,29 @@ export function AuditoriaDashboardClient() {
             <span className="rounded-full border border-emerald-500/20 bg-emerald-500/12 px-2 py-0.5 text-[10px] font-bold text-emerald-200">HOJE</span>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-emerald-300">0 / {protocolos.length.toLocaleString("pt-BR")}</span>
-            <span className="text-xs text-white/40">mês</span>
+            <span className="text-3xl font-extrabold text-emerald-300">{protocolos.length.toLocaleString("pt-BR")}</span>
+            <span className="text-xs text-white/40">pendências ativas</span>
           </div>
-          <p className="text-xs text-white/58 mt-1">Taxa de sucesso {protocolos.length > 0 ? "98.4%" : "100%"} - Auto</p>
+          <p className="text-xs text-white/58 mt-1">Média de {metrics.avgDays}d por pendência</p>
         </div>
 
         {/* Card 4 */}
         <div className="rounded-2xl border border-white/8 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-white/12">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-wider text-white/48">Risco Atual</span>
-            <span className="rounded-full border border-amber-500/20 bg-amber-500/12 px-2 py-0.5 text-[10px] font-bold text-amber-200">BAIXO RISCO</span>
+            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+              metrics.riskColor === "red" ? "border-red-500/20 bg-red-500/12 text-red-200" :
+              metrics.riskColor === "amber" ? "border-amber-500/20 bg-amber-500/12 text-amber-200" :
+              "border-emerald-500/20 bg-emerald-500/12 text-emerald-200"
+            }`}>{metrics.riskLevel} RISCO</span>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-white">{protocolos.length}</span>
-            <span className="text-xs text-white/40">falsos atrasos</span>
+            <span className="text-xs text-white/40">pendências</span>
           </div>
           <p className="mt-1 flex items-center gap-1 text-xs text-amber-200/85">
             <AlertTriangle className="w-3.5 h-3.5" />
-            {protocolos.length > 0 ? "Auditoria de listagem pronta" : "Nenhum risco detectado"}
+            {protocolos.length > 0 ? `${protocolos.filter(p => p.dias > 30).length} com mais de 30 dias` : "Nenhum risco detectado"}
           </p>
         </div>
       </div>
@@ -441,8 +468,8 @@ export function AuditoriaDashboardClient() {
                   </span>
                 </div>
                 <div className="mt-4">
-                  <span className="text-[32px] font-black text-white">27.1d</span>
-                  <p className="mt-1 text-xs text-white/52">Média parado • Setor Conferência</p>
+                  <span className="text-[32px] font-black text-white">{metrics.avgRegistrado}d</span>
+                  <p className="mt-1 text-xs text-white/52">Média parado • Setor Competência</p>
                 </div>
               </div>
               <div className="rounded-2xl border border-white/8 bg-[#0B1020]/72 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
@@ -453,8 +480,8 @@ export function AuditoriaDashboardClient() {
                   </span>
                 </div>
                 <div className="mt-4">
-                  <span className="text-[32px] font-black text-white">0.0d</span>
-                  <p className="mt-1 text-xs text-white/52">Status: Fluxo normalizado</p>
+                  <span className="text-[32px] font-black text-white">{metrics.avgDevolvido}d</span>
+                  <p className="mt-1 text-xs text-white/52">{metrics.avgDevolvido === 0 ? "Status: Fluxo normalizado" : `Média parado • ${protocolos.filter(p => p.falta === 75).length} pendências`}</p>
                 </div>
               </div>
             </div>

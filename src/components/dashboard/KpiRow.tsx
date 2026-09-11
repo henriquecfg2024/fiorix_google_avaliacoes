@@ -7,6 +7,10 @@ interface KpiRowProps {
   pendentes: number;
   respondidasHoje: number;
   isDemo?: boolean;
+  notaVariation?: number;
+  volumeVariation?: number;
+  pendentesVariation?: number;
+  respondidasEsteMes?: number;
 }
 
 function KpiCard({
@@ -41,11 +45,24 @@ function KpiCard({
   );
 }
 
-export function KpiRow({ notaMedia, totalAvaliacoes, pendentes, respondidasHoje }: KpiRowProps) {
+export function KpiRow({
+  notaMedia,
+  totalAvaliacoes,
+  pendentes,
+  respondidasHoje,
+  notaVariation = 0,
+  volumeVariation = 0,
+  pendentesVariation = 0,
+  respondidasEsteMes = 0,
+}: KpiRowProps) {
   const formattedNota = (notaMedia || 4.4).toFixed(1).replace('.', ',');
   const totalDisplay = totalAvaliacoes ?? 0;
   const pendentesDisplay = pendentes ?? 0;
   const respondidasDisplay = respondidasHoje ?? 0;
+
+  const notaUp = notaVariation >= 0;
+  const volUp = volumeVariation >= 0;
+  const pendUp = pendentesVariation > 0;
 
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -54,11 +71,13 @@ export function KpiRow({ notaMedia, totalAvaliacoes, pendentes, respondidasHoje 
         value={formattedNota}
         icon={<Star className="h-4 w-4 fill-current" />}
         iconClass="border-cyan-500/20 bg-cyan-500/10 text-cyan-300"
-        badgeClass="border-emerald-500/20 bg-emerald-500/12 font-bold text-emerald-300"
+        badgeClass={notaUp
+          ? "border-emerald-500/20 bg-emerald-500/12 font-bold text-emerald-300"
+          : "border-rose-500/20 bg-rose-500/12 font-bold text-rose-300"}
         badgeText={
           <>
-            <span>↑ 0,1</span>
-            <span className="font-normal text-emerald-200/80">vs mês anterior</span>
+            <span>{notaUp ? '↑' : '↓'} {Math.abs(notaVariation).toFixed(1)}</span>
+            <span className={`font-normal ${notaUp ? 'text-emerald-200/80' : 'text-rose-200/80'}`}>vs mês anterior</span>
           </>
         }
       />
@@ -68,11 +87,13 @@ export function KpiRow({ notaMedia, totalAvaliacoes, pendentes, respondidasHoje 
         value={totalDisplay}
         icon={<MessageSquare className="h-4 w-4" />}
         iconClass="border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
-        badgeClass="border-emerald-500/20 bg-emerald-500/12 font-bold text-emerald-300"
+        badgeClass={volUp
+          ? "border-emerald-500/20 bg-emerald-500/12 font-bold text-emerald-300"
+          : "border-rose-500/20 bg-rose-500/12 font-bold text-rose-300"}
         badgeText={
           <>
-            <span>↑ +23</span>
-            <span className="font-normal text-emerald-200/80">este mês</span>
+            <span>{volUp ? '↑' : '↓'} {volumeVariation > 0 ? '+' : ''}{volumeVariation}</span>
+            <span className={`font-normal ${volUp ? 'text-emerald-200/80' : 'text-rose-200/80'}`}>este mês</span>
           </>
         }
       />
@@ -82,25 +103,27 @@ export function KpiRow({ notaMedia, totalAvaliacoes, pendentes, respondidasHoje 
         value={pendentesDisplay}
         icon={<Clock className="h-4 w-4" />}
         iconClass="border-amber-500/20 bg-amber-500/10 text-amber-300"
-        badgeClass="border-amber-500/20 bg-amber-500/10 font-bold text-amber-200"
+        badgeClass={pendUp
+          ? "border-rose-500/20 bg-rose-500/10 font-bold text-rose-200"
+          : "border-emerald-500/20 bg-emerald-500/12 font-bold text-emerald-300"}
         badgeText={
           <>
-            <span>↓ 3</span>
-            <span className="font-normal text-amber-200/80">vs ontem</span>
+            <span>{pendentesVariation === 0 ? '=' : pendUp ? '↑' : '↓'} {Math.abs(pendentesVariation)}</span>
+            <span className={`font-normal ${pendUp ? 'text-rose-200/80' : 'text-emerald-200/80'}`}>vs período anterior</span>
           </>
         }
       />
 
       <KpiCard
-        title="Respondidas Hoje"
+        title="Respondidas Mês"
         value={respondidasDisplay}
         icon={<CheckCircle className="h-4 w-4" />}
         iconClass="border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
         badgeClass="border-emerald-500/20 bg-emerald-500/12 font-bold text-emerald-300"
         badgeText={
           <>
-            <span>↗ 8</span>
-            <span className="font-normal text-emerald-200/80">automáticas</span>
+            <span>✓ {respondidasEsteMes}</span>
+            <span className="font-normal text-emerald-200/80">este mês</span>
           </>
         }
       />
