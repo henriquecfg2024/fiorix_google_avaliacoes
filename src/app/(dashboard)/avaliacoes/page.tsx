@@ -321,29 +321,29 @@ export default async function AvaliacoesPage({
         </div>
 
         {/* Card Executivo de Distribuição das Avaliações */}
-        <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/75 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+        <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-stretch">
             {/* Coluna Principal: Distribuição (~78%) */}
-            <div className="lg:col-span-9 flex flex-col justify-between space-y-4">
+            <div className="lg:col-span-9 flex flex-col justify-between space-y-5">
               {/* Header com Título e Total de Avaliações */}
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border border-blue-500/30 text-blue-400 shadow-sm">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border border-blue-500/30 text-blue-400 shadow-sm">
                     <BarChart3 className="h-5 w-5" />
                   </div>
                   <div>
-                    <h2 className="text-base font-bold text-white tracking-tight">
+                    <h2 className="text-lg font-bold text-white tracking-tight">
                       Distribuição das Avaliações
                     </h2>
-                    <p className="text-xs text-white/50">
+                    <p className="text-xs text-slate-400">
                       Panorama geral das notas recebidas no Google.
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-1.5 shadow-xs">
+                <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0D152A]/80 px-4 py-2 shadow-xs">
                   <Users className="h-4 w-4 text-cyan-400" />
-                  <span className="text-xs text-white/60">Total de avaliações:</span>
+                  <span className="text-xs text-slate-400 font-medium">Total de avaliações:</span>
                   <span className="font-bold text-sm text-white font-mono">
                     {totalCount.toLocaleString('pt-BR')}
                   </span>
@@ -351,8 +351,8 @@ export default async function AvaliacoesPage({
               </div>
 
               {/* Barra de Distribuição Proporcional */}
-              <div className="py-1">
-                <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-800/80 shadow-inner">
+              <div className="py-0.5">
+                <div className="flex h-3.5 w-full overflow-hidden rounded-full bg-slate-800/90 shadow-inner">
                   <div
                     className="h-full bg-emerald-500 transition-all duration-500"
                     style={{ width: `${ratingStats.pct5}%` }}
@@ -377,66 +377,66 @@ export default async function AvaliacoesPage({
               </div>
 
               {/* 4 Cards das Faixas de Avaliação */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {/* 5 Estrelas */}
-                <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3.5 transition-all hover:border-white/16 hover:bg-white/[0.05]">
+                <div className="rounded-2xl border border-white/10 bg-[#070D1E]/90 p-4 transition-all hover:border-white/20 hover:bg-[#0A122A]/90 shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
                   <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                    <span className="text-xs font-semibold text-white/80">5 estrelas</span>
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+                    <span className="text-xs font-semibold text-slate-300">5 estrelas</span>
                   </div>
-                  <div className="mt-2 flex items-baseline gap-1.5">
-                    <span className="text-xl font-black text-white">
+                  <div className="mt-2.5 flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black text-white tracking-tight">
                       {ratingStats.count5.toLocaleString('pt-BR')}
                     </span>
-                    <span className="text-xs font-medium text-white/50">
+                    <span className="text-xs font-medium text-slate-400">
                       ({ratingStats.pct5.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)
                     </span>
                   </div>
                 </div>
 
                 {/* 4 Estrelas */}
-                <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3.5 transition-all hover:border-white/16 hover:bg-white/[0.05]">
+                <div className="rounded-2xl border border-white/10 bg-[#070D1E]/90 p-4 transition-all hover:border-white/20 hover:bg-[#0A122A]/90 shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
                   <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.5)]" />
-                    <span className="text-xs font-semibold text-white/80">4 estrelas</span>
+                    <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.6)]" />
+                    <span className="text-xs font-semibold text-slate-300">4 estrelas</span>
                   </div>
-                  <div className="mt-2 flex items-baseline gap-1.5">
-                    <span className="text-xl font-black text-white">
+                  <div className="mt-2.5 flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black text-white tracking-tight">
                       {ratingStats.count4.toLocaleString('pt-BR')}
                     </span>
-                    <span className="text-xs font-medium text-white/50">
+                    <span className="text-xs font-medium text-slate-400">
                       ({ratingStats.pct4.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)
                     </span>
                   </div>
                 </div>
 
                 {/* 3 Estrelas */}
-                <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3.5 transition-all hover:border-white/16 hover:bg-white/[0.05]">
+                <div className="rounded-2xl border border-white/10 bg-[#070D1E]/90 p-4 transition-all hover:border-white/20 hover:bg-[#0A122A]/90 shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
                   <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]" />
-                    <span className="text-xs font-semibold text-white/80">3 estrelas</span>
+                    <span className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
+                    <span className="text-xs font-semibold text-slate-300">3 estrelas</span>
                   </div>
-                  <div className="mt-2 flex items-baseline gap-1.5">
-                    <span className="text-xl font-black text-white">
+                  <div className="mt-2.5 flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black text-white tracking-tight">
                       {ratingStats.count3.toLocaleString('pt-BR')}
                     </span>
-                    <span className="text-xs font-medium text-white/50">
+                    <span className="text-xs font-medium text-slate-400">
                       ({ratingStats.pct3.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)
                     </span>
                   </div>
                 </div>
 
                 {/* 1 - 2 Estrelas */}
-                <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3.5 transition-all hover:border-white/16 hover:bg-white/[0.05]">
+                <div className="rounded-2xl border border-white/10 bg-[#070D1E]/90 p-4 transition-all hover:border-white/20 hover:bg-[#0A122A]/90 shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
                   <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
-                    <span className="text-xs font-semibold text-white/80">1 – 2 estrelas</span>
+                    <span className="h-2.5 w-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]" />
+                    <span className="text-xs font-semibold text-slate-300">1 – 2 estrelas</span>
                   </div>
-                  <div className="mt-2 flex items-baseline gap-1.5">
-                    <span className="text-xl font-black text-white">
+                  <div className="mt-2.5 flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black text-white tracking-tight">
                       {ratingStats.count12.toLocaleString('pt-BR')}
                     </span>
-                    <span className="text-xs font-medium text-white/50">
+                    <span className="text-xs font-medium text-slate-400">
                       ({ratingStats.pct12.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)
                     </span>
                   </div>
@@ -445,31 +445,30 @@ export default async function AvaliacoesPage({
             </div>
 
             {/* Coluna Lateral: Nota Média & Positivas (~22%) */}
-            <div className="lg:col-span-3 flex flex-col justify-between rounded-2xl border border-white/8 bg-[#070B16]/70 p-4.5 space-y-4">
+            <div className="lg:col-span-3 flex flex-col justify-between rounded-2xl border border-white/10 bg-[#070D1E]/90 p-5 space-y-4 shadow-[0_10px_30px_rgba(0,0,0,0.2)]">
               <div className="space-y-1">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-white/60 uppercase tracking-wider">
-                  <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400">
                   <span>Nota Média</span>
                 </div>
-                <div className="flex items-baseline gap-1.5 pt-1">
-                  <span className="text-4xl font-black text-white tracking-tight">
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-4xl lg:text-5xl font-black text-white tracking-tight leading-none">
                     {ratingStats.avg.replace('.', ',')}
                   </span>
-                  <Star className="h-7 w-7 text-amber-400 fill-amber-400" />
+                  <Star className="h-8 w-8 text-amber-400 fill-amber-400 drop-shadow-[0_2px_8px_rgba(251,191,36,0.3)]" />
                 </div>
-                <p className="text-[11px] font-semibold text-white/40">de 5</p>
+                <p className="text-xs font-medium text-slate-400 pt-0.5">de 5</p>
               </div>
 
               {/* Destaque Avaliações Positivas */}
-              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 flex items-center gap-2.5">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
+              <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3.5 flex items-center gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
                   <BarChart3 className="h-4 w-4" />
                 </div>
                 <div>
                   <span className="text-xs font-extrabold text-emerald-300 block">
                     {ratingStats.pctPositive.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% das avaliações
                   </span>
-                  <span className="text-[10px] text-emerald-300/80 block leading-tight">
+                  <span className="text-[11px] text-emerald-400/80 block leading-tight">
                     possuem 4 ou 5 estrelas
                   </span>
                 </div>
