@@ -121,7 +121,7 @@ export default async function EstatisticasPage() {
         {/* Linha Superior: Distribuição de Notas & Análise Qualitativa Real */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-stretch">
           {/* Card 1: Distribuição de Notas */}
-          <div className="flex flex-col justify-between rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-5">
+          <div className="flex flex-col justify-between rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all space-y-5">
             <div>
               {/* Header do Card */}
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -273,7 +273,7 @@ export default async function EstatisticasPage() {
           </div>
 
           {/* Card 2: Análise Qualitativa Semântica */}
-          <div className="flex flex-col justify-between rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
+          <div className="flex flex-col justify-between rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all space-y-4">
             {/* Header do Card */}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -300,12 +300,12 @@ export default async function EstatisticasPage() {
             <div className="space-y-3 pt-1">
               {[
                 {
-                  id: 'agilidade',
+                  id: 'fila',
                   topic: 'Agilidade e Prontidão no Serviço',
-                  score: computedIndicators.find((i) => i.id === 'agilidade')?.score || 95,
-                  sentiment: 'Excelente',
-                  query: 'rapido',
-                  count: computedIndicators.find((i) => i.id === 'agilidade')?.count || 104,
+                  score: reputationHealth.indicadores.find((i) => i.id === 'fila')?.score || 85,
+                  sentiment: reputationHealth.indicadores.find((i) => i.id === 'fila')?.group === 'saudavel' ? 'Excelente' : reputationHealth.indicadores.find((i) => i.id === 'fila')?.group === 'atencao' ? 'Atenção' : 'Saudável',
+                  query: 'espera',
+                  count: reputationHealth.indicadores.find((i) => i.id === 'fila')?.count || 0,
                   Icon: Zap,
                   borderClass: 'border-emerald-500/25 hover:border-emerald-500/40',
                   iconBoxClass: 'bg-emerald-500/15 text-emerald-300',
@@ -315,10 +315,10 @@ export default async function EstatisticasPage() {
                 {
                   id: 'atendimento',
                   topic: 'Cordialidade e Presteza no Atendimento',
-                  score: computedIndicators.find((i) => i.id === 'atendimento')?.score || 91,
-                  sentiment: 'Excelente',
+                  score: reputationHealth.indicadores.find((i) => i.id === 'atendimento')?.score || 93,
+                  sentiment: reputationHealth.indicadores.find((i) => i.id === 'atendimento')?.group === 'saudavel' ? 'Excelente' : 'Atenção',
                   query: 'atendimento',
-                  count: computedIndicators.find((i) => i.id === 'atendimento')?.count || 317,
+                  count: reputationHealth.indicadores.find((i) => i.id === 'atendimento')?.count || 0,
                   Icon: UserCheck,
                   borderClass: 'border-emerald-500/25 hover:border-emerald-500/40',
                   iconBoxClass: 'bg-emerald-500/15 text-emerald-300',
@@ -328,10 +328,10 @@ export default async function EstatisticasPage() {
                 {
                   id: 'prazo',
                   topic: 'Cumprimento de Prazos e Devolução',
-                  score: computedIndicators.find((i) => i.id === 'prazo')?.score || 70,
-                  sentiment: 'Atenção',
+                  score: reputationHealth.indicadores.find((i) => i.id === 'prazo')?.score || 42,
+                  sentiment: reputationHealth.indicadores.find((i) => i.id === 'prazo')?.group === 'atencao' ? 'Atenção' : reputationHealth.indicadores.find((i) => i.id === 'prazo')?.group === 'critico' ? 'Crítico' : 'Excelente',
                   query: 'prazo',
-                  count: computedIndicators.find((i) => i.id === 'prazo')?.count || 54,
+                  count: reputationHealth.indicadores.find((i) => i.id === 'prazo')?.count || 0,
                   Icon: Clock,
                   borderClass: 'border-amber-500/25 hover:border-amber-500/40',
                   iconBoxClass: 'bg-amber-500/15 text-amber-300',
@@ -339,12 +339,12 @@ export default async function EstatisticasPage() {
                   textColor: 'text-amber-300',
                 },
                 {
-                  id: 'fila',
-                  topic: 'Tempo de Espera na Fila e Guichês',
-                  score: computedIndicators.find((i) => i.id === 'fila')?.score || 32,
-                  sentiment: 'Crítico',
-                  query: 'fila',
-                  count: computedIndicators.find((i) => i.id === 'fila')?.count || 25,
+                  id: 'telefone',
+                  topic: 'Canais de Contato e Atendimento Telefônico',
+                  score: reputationHealth.indicadores.find((i) => i.id === 'telefone')?.score || 28,
+                  sentiment: reputationHealth.indicadores.find((i) => i.id === 'telefone')?.group === 'critico' ? 'Crítico' : 'Atenção',
+                  query: 'telefone',
+                  count: reputationHealth.indicadores.find((i) => i.id === 'telefone')?.count || 0,
                   Icon: Timer,
                   borderClass: 'border-rose-500/25 hover:border-rose-500/40',
                   iconBoxClass: 'bg-rose-500/15 text-rose-300',
@@ -402,7 +402,7 @@ export default async function EstatisticasPage() {
         {/* Seção Complementar: Metodologia da Saúde da Reputação */}
         <div
           id="metodologia-reputacao"
-          className="space-y-5 rounded-[24px] border border-white/10 bg-[#0B1020]/75 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl scroll-mt-6"
+          className="space-y-5 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all scroll-mt-6"
         >
           <div className="flex flex-col justify-between gap-4 border-b border-white/8 pb-5 md:flex-row md:items-center">
             <div>
@@ -467,7 +467,7 @@ export default async function EstatisticasPage() {
         </div>
 
         {/* Nota Metodológica de Rodapé */}
-        <div className="mt-6 flex items-start gap-3 rounded-[24px] border border-white/10 bg-[#0B1020]/75 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+        <div className="mt-6 flex items-start gap-3 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
           <Lightbulb className="mt-0.5 h-6 w-6 shrink-0 text-amber-300" />
           <div className="space-y-1 text-xs text-white/80">
             <h4 className="text-sm font-bold text-amber-300">
