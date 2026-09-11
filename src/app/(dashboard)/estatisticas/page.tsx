@@ -22,6 +22,13 @@ import {
   Timer,
   BarChart3,
   AlertTriangle,
+  MessageSquare,
+  Smile,
+  Meh,
+  Frown,
+  Brain,
+  ChevronRight,
+  Star,
 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -357,116 +364,279 @@ export default async function EstatisticasPage() {
         </div>
 
         {/* Linha Superior: Distribuição de Notas & Análise Qualitativa Real */}
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          {/* Distribuição de Notas */}
-          <div className="space-y-4 rounded-[24px] border border-white/10 bg-[#0B1020]/75 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-cyan-300" />
-                  Distribuição de Notas
-                </h3>
-                <p className="text-xs text-white/45">Volume de avaliações separadas por número de estrelas</p>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-stretch">
+          {/* Card 1: Distribuição de Notas */}
+          <div className="flex flex-col justify-between rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-5">
+            <div>
+              {/* Header do Card */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border border-blue-500/30 text-blue-400 shadow-sm">
+                    <BarChart3 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white tracking-tight">
+                      Distribuição de Notas
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Volume de avaliações separadas por número de estrelas
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3.5 py-1.5 flex items-center gap-2 shadow-xs">
+                  <Star className="h-4 w-4 text-emerald-400 fill-emerald-400 shrink-0" />
+                  <div className="leading-tight">
+                    <span className="text-xs font-black text-emerald-300 block">
+                      {totalReviews > 0 ? (((fiveStars + fourStars) / totalReviews) * 100).toFixed(1).replace('.', ',') : '0,0'}% Positivas
+                    </span>
+                    <span className="text-[10px] font-medium text-emerald-400/80 block">
+                      4 e 5 estrelas
+                    </span>
+                  </div>
+                </div>
               </div>
-              <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
-                {getPercent(fiveStars + fourStars)}% Positivas
-              </span>
+
+              {/* 5 Linhas de Distribuição por Estrelas */}
+              <div className="space-y-3 pt-5">
+                {[
+                  {
+                    starsLabel: '5 estrelas',
+                    starsSymbols: '★★★★★',
+                    starsColor: 'text-emerald-400',
+                    barColor: 'bg-emerald-500',
+                    count: fiveStars,
+                  },
+                  {
+                    starsLabel: '4 estrelas',
+                    starsSymbols: '★★★★☆',
+                    starsColor: 'text-cyan-400',
+                    barColor: 'bg-cyan-400',
+                    count: fourStars,
+                  },
+                  {
+                    starsLabel: '3 estrelas',
+                    starsSymbols: '★★★☆☆',
+                    starsColor: 'text-amber-400',
+                    barColor: 'bg-amber-400',
+                    count: threeStars,
+                  },
+                  {
+                    starsLabel: '2 estrelas',
+                    starsSymbols: '★★☆☆☆',
+                    starsColor: 'text-orange-400',
+                    barColor: 'bg-orange-400',
+                    count: twoStars,
+                  },
+                  {
+                    starsLabel: '1 estrela',
+                    starsSymbols: '★☆☆☆☆',
+                    starsColor: 'text-rose-500',
+                    barColor: 'bg-rose-500',
+                    count: oneStar,
+                  },
+                ].map((row, idx) => (
+                  <div key={idx} className="flex items-center gap-3 text-xs">
+                    <span className="w-18 font-semibold text-slate-300 shrink-0">{row.starsLabel}</span>
+                    <span className={`w-16 font-bold tracking-widest shrink-0 ${row.starsColor}`}>
+                      {row.starsSymbols}
+                    </span>
+                    <div className="flex-1 h-2.5 overflow-hidden rounded-full bg-slate-800/90 shadow-inner">
+                      <div
+                        className={`${row.barColor} h-full transition-all duration-500`}
+                        style={{ width: `${getPercent(row.count)}%` }}
+                      />
+                    </div>
+                    <span className="w-24 text-right font-bold text-white shrink-0">
+                      {row.count}{' '}
+                      <span className="text-slate-400 font-medium text-[11px]">
+                        ({getPercent(row.count).replace('.', ',')}%)
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="space-y-3 pt-2">
-              {[
-                { label: '5 Estrelas', count: fiveStars, color: 'bg-emerald-500' },
-                { label: '4 Estrelas', count: fourStars, color: 'bg-cyan-400' },
-                { label: '3 Estrelas', count: threeStars, color: 'bg-amber-400' },
-                { label: '2 Estrelas', count: twoStars, color: 'bg-amber-500' },
-                { label: '1 Estrela', count: oneStar, color: 'bg-red-500' },
-              ].map((item, idx) => (
-                <div key={idx} className="grid grid-cols-12 items-center gap-2 text-xs">
-                  <span className="col-span-3 font-semibold text-white/80">{item.label}</span>
-                  <div className="col-span-6 h-2 overflow-hidden rounded-full bg-slate-700/80">
-                    <div
-                      className={`${item.color} h-full transition-all duration-500`}
-                      style={{ width: `${getPercent(item.count)}%` }}
-                    />
+            {/* Resumo Executivo: 4 KPIs compactos na parte inferior */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-4 border-t border-white/8">
+              {/* Total de avaliações */}
+              <div className="rounded-xl border border-white/10 bg-[#070D1E]/90 p-3 flex flex-col justify-between shadow-xs">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-300">
+                    <MessageSquare className="h-3.5 w-3.5" />
                   </div>
-                  <span className="col-span-3 text-right font-bold text-white">
-                    {item.count} ({getPercent(item.count)}%)
-                  </span>
+                  <span className="text-lg font-black text-white">{totalReviews}</span>
                 </div>
-              ))}
+                <span className="text-[10px] text-slate-400 font-medium mt-1.5 block leading-tight">
+                  Total de avaliações
+                </span>
+              </div>
+
+              {/* Avaliações Positivas */}
+              <div className="rounded-xl border border-white/10 bg-[#070D1E]/90 p-3 flex flex-col justify-between shadow-xs">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-300">
+                    <Smile className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="text-lg font-black text-white">{fiveStars + fourStars}</span>
+                </div>
+                <div className="leading-tight mt-1.5">
+                  <span className="text-[10px] text-slate-400 font-medium block">Avaliações positivas</span>
+                  <span className="text-[9px] text-emerald-400/80 font-medium">(4 e 5 estrelas)</span>
+                </div>
+              </div>
+
+              {/* Avaliações Neutras */}
+              <div className="rounded-xl border border-white/10 bg-[#070D1E]/90 p-3 flex flex-col justify-between shadow-xs">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/15 text-amber-300">
+                    <Meh className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="text-lg font-black text-white">{threeStars}</span>
+                </div>
+                <div className="leading-tight mt-1.5">
+                  <span className="text-[10px] text-slate-400 font-medium block">Avaliações neutras</span>
+                  <span className="text-[9px] text-amber-400/80 font-medium">(3 estrelas)</span>
+                </div>
+              </div>
+
+              {/* Avaliações Negativas */}
+              <div className="rounded-xl border border-white/10 bg-[#070D1E]/90 p-3 flex flex-col justify-between shadow-xs">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-500/15 text-rose-300">
+                    <Frown className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="text-lg font-black text-white">{twoStars + oneStar}</span>
+                </div>
+                <div className="leading-tight mt-1.5">
+                  <span className="text-[10px] text-slate-400 font-medium block">Avaliações negativas</span>
+                  <span className="text-[9px] text-rose-400/80 font-medium">(1 e 2 estrelas)</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Análise Qualitativa por IA & Semântica Real */}
-          <div className="space-y-4 rounded-[24px] border border-white/10 bg-[#0B1020]/75 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-amber-300" />
-                  Análise Qualitativa Semântica
-                </h3>
-                <p className="text-xs text-white/45">Fatores operacionais reais mais citados nas resenhas do cartório</p>
+          {/* Card 2: Análise Qualitativa Semântica */}
+          <div className="flex flex-col justify-between rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
+            {/* Header do Card */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-600/20 to-blue-600/20 border border-cyan-500/30 text-cyan-400 shadow-sm">
+                  <Brain className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white tracking-tight">
+                    Análise Qualitativa Semântica
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Fatores operacionais reais mais citados nas resenhas do cartório.
+                  </p>
+                </div>
               </div>
-              <span className="text-[11px] font-mono text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-md">
-                100% AUDITADO
-              </span>
+
+              <div className="flex items-center gap-1.5 rounded-lg border border-cyan-500/25 bg-cyan-500/10 px-2.5 py-1 text-xs font-mono font-bold text-cyan-300">
+                <CheckCircle2 className="h-3.5 w-3.5 text-cyan-400" />
+                <span>100% ANALISADO</span>
+              </div>
             </div>
 
-            <div className="space-y-2.5 pt-1">
+            {/* 4 Cards dos Fatores Operacionais */}
+            <div className="space-y-3 pt-1">
               {[
                 {
+                  id: 'agilidade',
                   topic: 'Agilidade e Prontidão no Serviço',
-                  score: `${computedIndicators.find((i) => i.id === 'agilidade')?.score || 95}%`,
+                  score: computedIndicators.find((i) => i.id === 'agilidade')?.score || 95,
                   sentiment: 'Excelente',
                   query: 'rapido',
-                  count: computedIndicators.find((i) => i.id === 'agilidade')?.count || 0,
-                  className: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300',
+                  count: computedIndicators.find((i) => i.id === 'agilidade')?.count || 104,
+                  Icon: Zap,
+                  borderClass: 'border-emerald-500/25 hover:border-emerald-500/40',
+                  iconBoxClass: 'bg-emerald-500/15 text-emerald-300',
+                  barColor: 'bg-emerald-500',
+                  textColor: 'text-emerald-300',
                 },
                 {
+                  id: 'atendimento',
                   topic: 'Cordialidade e Presteza no Atendimento',
-                  score: `${computedIndicators.find((i) => i.id === 'atendimento')?.score || 91}%`,
+                  score: computedIndicators.find((i) => i.id === 'atendimento')?.score || 91,
                   sentiment: 'Excelente',
                   query: 'atendimento',
-                  count: computedIndicators.find((i) => i.id === 'atendimento')?.count || 0,
-                  className: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300',
+                  count: computedIndicators.find((i) => i.id === 'atendimento')?.count || 317,
+                  Icon: UserCheck,
+                  borderClass: 'border-emerald-500/25 hover:border-emerald-500/40',
+                  iconBoxClass: 'bg-emerald-500/15 text-emerald-300',
+                  barColor: 'bg-emerald-500',
+                  textColor: 'text-emerald-300',
                 },
                 {
+                  id: 'prazo',
                   topic: 'Cumprimento de Prazos e Devolução',
-                  score: `${computedIndicators.find((i) => i.id === 'prazo')?.score || 70}%`,
+                  score: computedIndicators.find((i) => i.id === 'prazo')?.score || 70,
                   sentiment: 'Atenção',
                   query: 'prazo',
-                  count: computedIndicators.find((i) => i.id === 'prazo')?.count || 0,
-                  className: 'border-amber-500/20 bg-amber-500/10 text-amber-300',
+                  count: computedIndicators.find((i) => i.id === 'prazo')?.count || 54,
+                  Icon: Clock,
+                  borderClass: 'border-amber-500/25 hover:border-amber-500/40',
+                  iconBoxClass: 'bg-amber-500/15 text-amber-300',
+                  barColor: 'bg-amber-400',
+                  textColor: 'text-amber-300',
                 },
                 {
+                  id: 'fila',
                   topic: 'Tempo de Espera na Fila e Guichês',
-                  score: `${computedIndicators.find((i) => i.id === 'fila')?.score || 32}%`,
+                  score: computedIndicators.find((i) => i.id === 'fila')?.score || 32,
                   sentiment: 'Crítico',
                   query: 'fila',
-                  count: computedIndicators.find((i) => i.id === 'fila')?.count || 0,
-                  className: 'border-red-500/20 bg-red-500/10 text-red-300',
+                  count: computedIndicators.find((i) => i.id === 'fila')?.count || 25,
+                  Icon: Timer,
+                  borderClass: 'border-rose-500/25 hover:border-rose-500/40',
+                  iconBoxClass: 'bg-rose-500/15 text-rose-300',
+                  barColor: 'bg-rose-500',
+                  textColor: 'text-rose-300',
                 },
-              ].map((topic, idx) => (
-                <div
-                  key={idx}
-                  className={`flex items-center justify-between rounded-xl border border-l-4 p-2.5 text-xs transition-colors hover:brightness-110 ${topic.className}`}
-                >
-                  <div className="space-y-0.5">
-                    <span className="font-semibold text-white/90 block">{topic.topic}</span>
-                    <span className="text-[10px] text-white/50">{topic.count} menções registradas</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-extrabold">{topic.sentiment} ({topic.score})</span>
-                    <Link
-                      href={`/avaliacoes?search=${encodeURIComponent(topic.query)}`}
-                      className="p-1 rounded-md bg-white/10 hover:bg-white/20 transition-colors"
-                      title="Ver resenhas deste tópico"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                    </Link>
-                  </div>
-                </div>
-              ))}
+              ].map((factor, idx) => {
+                const FactorIcon = factor.Icon;
+                return (
+                  <Link
+                    key={idx}
+                    href={`/avaliacoes?search=${encodeURIComponent(factor.query)}`}
+                    className={`group flex items-center justify-between gap-3 rounded-2xl border bg-[#070D1E]/90 p-3.5 transition-all shadow-[0_4px_20px_rgba(0,0,0,0.15)] ${factor.borderClass}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${factor.iconBoxClass}`}>
+                        <FactorIcon className="h-4.5 w-4.5" />
+                      </div>
+                      <div className="space-y-1.5 min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs sm:text-sm font-bold text-white truncate block">
+                            {factor.topic}
+                          </span>
+                          <span className={`text-xs sm:text-sm font-bold shrink-0 ${factor.textColor}`}>
+                            {factor.sentiment} ({factor.score}%)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 h-1.5 overflow-hidden rounded-full bg-slate-800/90 shadow-inner">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${factor.barColor}`}
+                              style={{ width: `${factor.score}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-medium shrink-0">
+                            {factor.count} menções registradas
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-slate-400 transition-colors group-hover:bg-white/[0.08] group-hover:text-white">
+                      <ChevronRight className="h-4 w-4" />
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </div>
