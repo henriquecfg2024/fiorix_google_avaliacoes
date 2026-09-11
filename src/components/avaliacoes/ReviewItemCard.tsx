@@ -30,6 +30,7 @@ interface ReviewItemProps {
     status: string;
     response?: { content: string } | null;
   };
+  staffNames?: string[];
 }
 
 function cleanReviewComment(comment: string | null | undefined): string {
@@ -39,8 +40,24 @@ function cleanReviewComment(comment: string | null | undefined): string {
     .trim();
 }
 
-function renderCommentWithPills(text: string) {
-  const staffNames = ['Lucas', 'Ana', 'Edvan', 'Juliana', 'Sarah'];
+const defaultStaffList = [
+  'Lucas',
+  'Ana',
+  'Edvan',
+  'Juliana',
+  'Sarah',
+  'Ricardo',
+  'Anne',
+  'Jozilene',
+  'Theodoro',
+  'Guilherme',
+  'Vanderlei',
+  'Jonatan',
+  'Bruno',
+];
+
+function renderCommentWithPills(text: string, customStaff?: string[]) {
+  const staffNames = customStaff && customStaff.length > 0 ? customStaff : defaultStaffList;
   const regex = new RegExp(`\\b(${staffNames.join('|')})\\b`, 'gi');
 
   const parts = text.split(regex);
@@ -88,7 +105,7 @@ function detectTopicTags(comment: string | null | undefined) {
   return tags;
 }
 
-export function ReviewItemCard({ review }: ReviewItemProps) {
+export function ReviewItemCard({ review, staffNames }: ReviewItemProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showTechDetails, setShowTechDetails] = useState(false);
   const [responseText, setResponseText] = useState('');
@@ -180,7 +197,7 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
   return (
     <>
       <div
-        className={`space-y-3.5 rounded-2xl border p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all ${
+        className={`space-y-3.5 rounded-[24px] border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all ${
           isLowRating
             ? 'border-red-500/35 border-l-4 border-l-red-500 bg-[#0B1020]/72'
             : isMidRating
@@ -244,7 +261,7 @@ export function ReviewItemCard({ review }: ReviewItemProps) {
             <p className="italic text-white/40">Sem comentário por extenso.</p>
           ) : (
             <div>
-              <p className={!isExpanded && isLong ? 'line-clamp-3' : ''}>"{renderCommentWithPills(cleanedComment)}"</p>
+              <p className={!isExpanded && isLong ? 'line-clamp-3' : ''}>"{renderCommentWithPills(cleanedComment, staffNames)}"</p>
               {isLong && (
                 <button
                   onClick={() => setIsExpanded(!isExpanded)}

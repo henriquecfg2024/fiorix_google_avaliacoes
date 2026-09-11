@@ -39,8 +39,27 @@ export default async function AvaliacoesPage({
   if (statusFilter === 'PENDING') whereClause.status = 'PENDING';
   if (statusFilter === 'RESPONDED') whereClause.status = 'RESPONDED';
   if (ratingFilter) whereClause.rating = ratingFilter;
-  if (searchQuery) whereClause.comment = { contains: searchQuery, mode: 'insensitive' };
-  if (colabFilter) whereClause.comment = { contains: colabFilter, mode: 'insensitive' };
+
+  if (searchQuery && colabFilter) {
+    whereClause.AND = [
+      {
+        OR: [
+          { reviewerName: { contains: searchQuery, mode: 'insensitive' } },
+          { comment: { contains: searchQuery, mode: 'insensitive' } },
+          { response: { is: { content: { contains: searchQuery, mode: 'insensitive' } } } },
+        ],
+      },
+      { comment: { contains: colabFilter, mode: 'insensitive' } },
+    ];
+  } else if (searchQuery) {
+    whereClause.OR = [
+      { reviewerName: { contains: searchQuery, mode: 'insensitive' } },
+      { comment: { contains: searchQuery, mode: 'insensitive' } },
+      { response: { is: { content: { contains: searchQuery, mode: 'insensitive' } } } },
+    ];
+  } else if (colabFilter) {
+    whereClause.comment = { contains: colabFilter, mode: 'insensitive' };
+  }
 
   const rawPage = Array.isArray(searchParams?.page) ? searchParams.page[0] : searchParams?.page;
   const currentPage = Math.max(1, parseInt(typeof rawPage === 'string' ? rawPage : '1', 10) || 1);
@@ -49,18 +68,49 @@ export default async function AvaliacoesPage({
   const skip = (currentPage - 1) * pageSize;
 
   let dbReviews: any[] = [];
-  let totalCount = 547;
-  let totalFilteredCount = 547;
+  let totalCount = 549;
+  let totalFilteredCount = 549;
   let pendingCount = 0;
-  let respondedCount = 547;
+  let respondedCount = 549;
+  let staffList: string[] = ['Lucas', 'Ana', 'Edvan', 'Juliana', 'Sarah', 'Ricardo', 'Anne', 'Theodoro', 'Guilherme'];
+  let ratingStats = {
+    count5: 437,
+    pct5: 79.6,
+    count4: 32,
+    pct4: 5.8,
+    count3: 10,
+    pct3: 1.8,
+    count12: 70,
+    pct12: 12.7,
+    avg: "4.4",
+  };
 
   try {
-    const dbTotal = await prisma.review.count({ where: { tenantId, deletedFromGoogle: false } });
+    const [dbTotal, dbPending, dbResponded, ratingGroups, ratingAvg, activeColabs] = await Promise.all([
+      prisma.review.count({ where: { tenantId, deletedFromGoogle: false } }),
+      prisma.review.count({ where: { tenantId, status: 'PENDING', deletedFromGoogle: false } }),
+      prisma.review.count({ where: { tenantId, status: 'RESPONDED', deletedFromGoogle: false } }),
+      prisma.review.groupBy({
+        by: ['rating'],
+        where: { tenantId, deletedFromGoogle: false },
+        _count: { id: true },
+      }),
+      prisma.review.aggregate({
+        where: { tenantId, deletedFromGoogle: false },
+        _avg: { rating: true },
+      }),
+      prisma.colaborador.findMany({
+        where: { tenantId, active: true },
+        select: { name: true },
+        orderBy: { name: 'asc' },
+      }),
+    ]);
+
     if (dbTotal > 0) {
       totalCount = dbTotal;
+      pendingCount = dbPending;
+      respondedCount = dbResponded;
       totalFilteredCount = await prisma.review.count({ where: whereClause });
-      pendingCount = await prisma.review.count({ where: { tenantId, status: 'PENDING', deletedFromGoogle: false } });
-      respondedCount = await prisma.review.count({ where: { tenantId, status: 'RESPONDED', deletedFromGoogle: false } });
 
       dbReviews = await prisma.review.findMany({
         where: whereClause,
@@ -69,6 +119,29 @@ export default async function AvaliacoesPage({
         skip,
         take: pageSize,
       });
+
+      const c5 = ratingGroups.find((r) => r.rating === 5)?._count.id || 0;
+      const c4 = ratingGroups.find((r) => r.rating === 4)?._count.id || 0;
+      const c3 = ratingGroups.find((r) => r.rating === 3)?._count.id || 0;
+      const c2 = ratingGroups.find((r) => r.rating === 2)?._count.id || 0;
+      const c1 = ratingGroups.find((r) => r.rating === 1)?._count.id || 0;
+      const c12 = c1 + c2;
+
+      ratingStats = {
+        count5: c5,
+        pct5: Number(((c5 / dbTotal) * 100).toFixed(1)),
+        count4: c4,
+        pct4: Number(((c4 / dbTotal) * 100).toFixed(1)),
+        count3: c3,
+        pct3: Number(((c3 / dbTotal) * 100).toFixed(1)),
+        count12: c12,
+        pct12: Number(((c12 / dbTotal) * 100).toFixed(1)),
+        avg: ratingAvg._avg.rating ? ratingAvg._avg.rating.toFixed(1) : "5.0",
+      };
+
+      if (activeColabs.length > 0) {
+        staffList = Array.from(new Set([...activeColabs.map((c) => c.name), ...staffList])).sort();
+      }
     }
   } catch (err) {
     console.error('Error fetching reviews:', err);
@@ -244,22 +317,22 @@ export default async function AvaliacoesPage({
             </div>
         </div>
 
-        <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
+        <div className="space-y-2.5 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
           <div className="flex items-center justify-between text-xs font-bold text-slate-200">
-            <span>Distribuição de Notas das Avaliações</span>
-            <span className="font-semibold text-slate-400">Nota Média: 4.4 ★</span>
+            <span className="uppercase tracking-[0.2em] text-white/60">Distribuição de Notas das Avaliações</span>
+            <span className="font-bold text-amber-300">Nota Média: {ratingStats.avg} ★</span>
           </div>
-          <div className="flex h-2 w-full overflow-hidden rounded-full bg-slate-700/80">
-            <div className="h-full bg-emerald-500" style={{ width: '85%' }} title="5★ - 85%" />
-            <div className="h-full bg-emerald-400" style={{ width: '8%' }} title="4★ - 8%" />
-            <div className="h-full bg-amber-400" style={{ width: '3%' }} title="3★ - 3%" />
-            <div className="h-full bg-red-400" style={{ width: '4%' }} title="1-2★ - 4%" />
+          <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-slate-800/80">
+            <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${ratingStats.pct5}%` }} title={`5★: ${ratingStats.count5} (${ratingStats.pct5}%)`} />
+            <div className="h-full bg-emerald-400 transition-all duration-500" style={{ width: `${ratingStats.pct4}%` }} title={`4★: ${ratingStats.count4} (${ratingStats.pct4}%)`} />
+            <div className="h-full bg-amber-400 transition-all duration-500" style={{ width: `${ratingStats.pct3}%` }} title={`3★: ${ratingStats.count3} (${ratingStats.pct3}%)`} />
+            <div className="h-full bg-rose-500 transition-all duration-500" style={{ width: `${ratingStats.pct12}%` }} title={`1-2★: ${ratingStats.count12} (${ratingStats.pct12}%)`} />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold text-slate-400">
-            <span className="flex items-center gap-1 text-emerald-300">● 5★: 85%</span>
-            <span className="flex items-center gap-1 text-emerald-400">● 4★: 8%</span>
-            <span className="flex items-center gap-1 text-amber-300">● 3★: 3%</span>
-            <span className="flex items-center gap-1 text-red-300">● 1-2★: 4%</span>
+            <span className="flex items-center gap-1.5 text-emerald-300">● 5★: {ratingStats.count5.toLocaleString("pt-BR")} ({ratingStats.pct5}%)</span>
+            <span className="flex items-center gap-1.5 text-emerald-400">● 4★: {ratingStats.count4.toLocaleString("pt-BR")} ({ratingStats.pct4}%)</span>
+            <span className="flex items-center gap-1.5 text-amber-300">● 3★: {ratingStats.count3.toLocaleString("pt-BR")} ({ratingStats.pct3}%)</span>
+            <span className="flex items-center gap-1.5 text-rose-300">● 1-2★: {ratingStats.count12.toLocaleString("pt-BR")} ({ratingStats.pct12}%)</span>
           </div>
         </div>
 
@@ -295,11 +368,11 @@ export default async function AvaliacoesPage({
               className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-xs font-medium text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/30"
             >
               <option value="">Todos Colaboradores</option>
-              <option value="Lucas">Lucas</option>
-              <option value="Ana">Ana</option>
-              <option value="Edvan">Edvan</option>
-              <option value="Juliana">Juliana</option>
-              <option value="Sarah">Sarah</option>
+              {staffList.map((colab) => (
+                <option key={colab} value={colab}>
+                  {colab}
+                </option>
+              ))}
             </select>
 
             <button type="submit" className="shrink-0 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-blue-500">
@@ -341,13 +414,13 @@ export default async function AvaliacoesPage({
       ) : (
         <div className="space-y-4">
           {displayReviews.map((rev) => (
-            <ReviewItemCard key={rev.id} review={rev} />
+            <ReviewItemCard key={rev.id} review={rev} staffNames={staffList} />
           ))}
         </div>
       )}
 
       {/* Unified Pagination Footer */}
-      <div className="flex flex-col items-center justify-between gap-4 rounded-2xl border border-white/12 bg-[#0B1020]/72 px-6 py-3.5 text-white shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl sm:flex-row">
+      <div className="flex flex-col items-center justify-between gap-4 rounded-[24px] border border-white/12 bg-[#0B1020]/72 px-6 py-4 text-white shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl sm:flex-row">
         {/* Interval text */}
         <div className="text-xs text-white/60 text-center sm:text-left">
           Exibindo <strong className="text-white">{startItemIndex.toLocaleString("pt-BR")}</strong> a{" "}
