@@ -317,22 +317,34 @@ export default async function AvaliacoesPage({
             </div>
         </div>
 
-        <div className="space-y-2.5 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+        <div className="space-y-3 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
           <div className="flex items-center justify-between text-xs font-bold text-slate-200">
             <span className="uppercase tracking-[0.2em] text-white/60">Distribuição de Notas das Avaliações</span>
             <span className="font-bold text-amber-300">Nota Média: {ratingStats.avg} ★</span>
           </div>
           <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-slate-800/80">
             <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${ratingStats.pct5}%` }} title={`5★: ${ratingStats.count5} (${ratingStats.pct5}%)`} />
-            <div className="h-full bg-emerald-400 transition-all duration-500" style={{ width: `${ratingStats.pct4}%` }} title={`4★: ${ratingStats.count4} (${ratingStats.pct4}%)`} />
+            <div className="h-full bg-cyan-400 transition-all duration-500" style={{ width: `${ratingStats.pct4}%` }} title={`4★: ${ratingStats.count4} (${ratingStats.pct4}%)`} />
             <div className="h-full bg-amber-400 transition-all duration-500" style={{ width: `${ratingStats.pct3}%` }} title={`3★: ${ratingStats.count3} (${ratingStats.pct3}%)`} />
             <div className="h-full bg-rose-500 transition-all duration-500" style={{ width: `${ratingStats.pct12}%` }} title={`1-2★: ${ratingStats.count12} (${ratingStats.pct12}%)`} />
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold text-slate-400">
-            <span className="flex items-center gap-1.5 text-emerald-300">● 5★: {ratingStats.count5.toLocaleString("pt-BR")} ({ratingStats.pct5}%)</span>
-            <span className="flex items-center gap-1.5 text-emerald-400">● 4★: {ratingStats.count4.toLocaleString("pt-BR")} ({ratingStats.pct4}%)</span>
-            <span className="flex items-center gap-1.5 text-amber-300">● 3★: {ratingStats.count3.toLocaleString("pt-BR")} ({ratingStats.pct3}%)</span>
-            <span className="flex items-center gap-1.5 text-rose-300">● 1-2★: {ratingStats.count12.toLocaleString("pt-BR")} ({ratingStats.pct12}%)</span>
+          <div className="flex flex-wrap items-center gap-4 sm:gap-7 text-[11px] font-semibold text-slate-300 pt-0.5">
+            <span className="flex items-center gap-1.5 text-emerald-300">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" />
+              5★: {ratingStats.count5.toLocaleString("pt-BR")} ({ratingStats.pct5}%)
+            </span>
+            <span className="flex items-center gap-1.5 text-cyan-300">
+              <span className="h-2 w-2 rounded-full bg-cyan-400 inline-block" />
+              4★: {ratingStats.count4.toLocaleString("pt-BR")} ({ratingStats.pct4}%)
+            </span>
+            <span className="flex items-center gap-1.5 text-amber-300">
+              <span className="h-2 w-2 rounded-full bg-amber-400 inline-block" />
+              3★: {ratingStats.count3.toLocaleString("pt-BR")} ({ratingStats.pct3}%)
+            </span>
+            <span className="flex items-center gap-1.5 text-rose-300">
+              <span className="h-2 w-2 rounded-full bg-rose-500 inline-block" />
+              1-2★: {ratingStats.count12.toLocaleString("pt-BR")} ({ratingStats.pct12}%)
+            </span>
           </div>
         </div>
 
