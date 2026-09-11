@@ -4,7 +4,8 @@ import { redirect } from 'next/navigation';
 import { isRedirectError } from 'next/dist/client/components/redirect';
 import { requireAuth } from '@/lib/auth-helpers';
 
-import { HealthCard } from '@/components/dashboard/HealthCard';
+import { ReputationHealth } from '@/components/dashboard/ReputationHealth';
+import { computeReputationHealth } from '@/lib/reputation-health';
 import { InsightCard } from '@/components/dashboard/InsightCard';
 import { KpiRow } from '@/components/dashboard/KpiRow';
 import { ReviewCard } from '@/components/dashboard/ReviewCard';
@@ -300,6 +301,8 @@ export default async function Dashboard({
   const rawSynced = searchParams?.synced;
   const syncedCount = Array.isArray(rawSynced) ? rawSynced[0] : rawSynced;
 
+  const reputationHealth = computeReputationHealth(activeReviews);
+
   return (
     <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
@@ -356,13 +359,8 @@ export default async function Dashboard({
         </div>
       )}
 
-      {/* HEALTH CARD TOP SECTION */}
-      <HealthCard
-        score={isDemo ? 68 : healthIndicators.score}
-        saudaveis={isDemo ? undefined : healthIndicators.saudaveis}
-        atencao={isDemo ? undefined : healthIndicators.atencao}
-        criticos={isDemo ? undefined : healthIndicators.criticos}
-      />
+      {/* HEALTH CARD TOP SECTION (VERSÃO EXECUTIVA COMPACTA) */}
+      <ReputationHealth variant="executive" data={reputationHealth} />
 
       {/* KPI ROW */}
       <KpiRow

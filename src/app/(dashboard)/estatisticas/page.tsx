@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireAuth } from '@/lib/auth-helpers';
+import { ReputationHealth } from '@/components/dashboard/ReputationHealth';
+import { computeReputationHealth } from '@/lib/reputation-health';
 import {
   Target,
   ExternalLink,
@@ -78,181 +80,8 @@ export default async function EstatisticasPage() {
   const getPercent = (count: number) =>
     totalReviews > 0 ? ((count / totalReviews) * 100).toFixed(1) : '0.0';
 
-  // Configuração Semântica Real dos 10 Indicadores da Saúde da Reputação
-  const indicatorConfigs: Array<{
-    id: string;
-    nome: string;
-    desc: string;
-    query: string;
-    regex: RegExp;
-    baseScore: number;
-    iconBoxClass: string;
-    Icon: React.ComponentType<{ className?: string }>;
-    group: 'saudavel' | 'atencao' | 'critico';
-  }> = [
-    // 🟢 Saudáveis (4)
-    {
-      id: 'atendimento',
-      nome: 'Atendimento',
-      desc: 'Cordialidade, empatia e presteza da equipe na recepção e guichês.',
-      query: 'atendimento',
-      regex: /atendimento|atendente|atendeu|cordial|educad|gentil|prestativ|recepção/i,
-      baseScore: 93,
-      iconBoxClass: 'bg-amber-500/15 text-amber-300',
-      Icon: Handshake,
-      group: 'saudavel',
-    },
-    {
-      id: 'competencia',
-      nome: 'Competência Profissional',
-      desc: 'Capacidade técnica, clareza jurídica e segurança na execução dos atos.',
-      query: 'competente',
-      regex: /compet|prepar|profission|capacit|experi[eê]n|qualific/i,
-      baseScore: 91,
-      iconBoxClass: 'bg-fuchsia-500/15 text-fuchsia-300',
-      Icon: Target,
-      group: 'saudavel',
-    },
-    {
-      id: 'fila',
-      nome: 'Tempo de Espera / Fila',
-      desc: 'Tempo de permanência nas filas de triagem e tempo até o início do atendimento.',
-      query: 'espera',
-      regex: /fila|espera|demora|aguard/i,
-      baseScore: 85,
-      iconBoxClass: 'bg-cyan-500/15 text-cyan-300',
-      Icon: Hourglass,
-      group: 'saudavel',
-    },
-    {
-      id: 'infraestrutura',
-      nome: 'Infraestrutura',
-      desc: 'Conforto, climatização, limpeza e estrutura das salas de espera e atendimento.',
-      query: 'local',
-      regex: /ar condicionado|espaço|local|limp|confort|estrutura|prédio|sala|ambiente/i,
-      baseScore: 88,
-      iconBoxClass: 'bg-teal-500/15 text-teal-300',
-      Icon: Building2,
-      group: 'saudavel',
-    },
-    // 🟠 Pontos de Atenção (3)
-    {
-      id: 'documentacao',
-      nome: 'Documentação',
-      desc: 'Clareza no exame formal e expedição de notas de exigência.',
-      query: 'documento',
-      regex: /document|nota devolutiva|exig[eê]ncia|papel/i,
-      baseScore: 62,
-      iconBoxClass: 'bg-amber-500/15 text-amber-300',
-      Icon: FileText,
-      group: 'atencao',
-    },
-    {
-      id: 'preco',
-      nome: 'Preço / Taxas',
-      desc: 'Transparência na cobrança de emolumentos e taxas regimentais.',
-      query: 'taxa',
-      regex: /preço|taxa|custo|caro|emolumento|valor/i,
-      baseScore: 42,
-      iconBoxClass: 'bg-yellow-500/15 text-yellow-300',
-      Icon: DollarSign,
-      group: 'atencao',
-    },
-    {
-      id: 'prazo',
-      nome: 'Prazo de Entrega',
-      desc: 'Cumprimento do prazo prometido para devolução de títulos e certidões.',
-      query: 'prazo',
-      regex: /prazo|entrega|devolu|dia/i,
-      baseScore: 42,
-      iconBoxClass: 'bg-amber-500/15 text-amber-300',
-      Icon: Clock,
-      group: 'atencao',
-    },
-    // 🔴 Indicadores Críticos (3)
-    {
-      id: 'telefone',
-      nome: 'Telefone / Contato',
-      desc: 'Canais de atendimento telefônico, WhatsApp e prontidão no contato.',
-      query: 'telefone',
-      regex: /telefone|lig|contato|whatsapp|zap/i,
-      baseScore: 28,
-      iconBoxClass: 'bg-rose-500/15 text-rose-300',
-      Icon: Phone,
-      group: 'critico',
-    },
-    {
-      id: 'site',
-      nome: 'Agendamento / Site',
-      desc: 'Acesso e usabilidade das ferramentas digitais e agendamento prévio.',
-      query: 'site',
-      regex: /site|agend|online|portal|sistema|internet/i,
-      baseScore: 33,
-      iconBoxClass: 'bg-blue-500/15 text-blue-300',
-      Icon: Globe,
-      group: 'critico',
-    },
-    {
-      id: 'estacionamento',
-      nome: 'Estacionamento',
-      desc: 'Facilidade de estacionamento e conveniência de acesso no entorno.',
-      query: 'estacionamento',
-      regex: /estacionamento|carro|vaga|estacionar|parar/i,
-      baseScore: 17,
-      iconBoxClass: 'bg-rose-500/15 text-rose-300',
-      Icon: SquareParking,
-      group: 'critico',
-    },
-  ];
-
-  // Cálculo real por indicador
-  const computedIndicators = indicatorConfigs.map((cfg) => {
-    const matches = reviews.filter((r) => r.comment && cfg.regex.test(r.comment));
-    const count = matches.length;
-    let score = cfg.baseScore;
-    if (count > 0) {
-      const positive = matches.filter((r) => r.rating >= 4).length;
-      if (cfg.id === 'atendimento') {
-        const computed = Math.round((positive / count) * 100);
-        score = computed >= 90 ? computed : cfg.baseScore;
-      } else if (cfg.id === 'competencia') {
-        const computed = Math.round((positive / count) * 100);
-        score = computed >= 88 ? computed : cfg.baseScore;
-      } else if (cfg.id === 'infraestrutura') {
-        const computed = Math.round((positive / count) * 100);
-        score = computed >= 85 ? computed : cfg.baseScore;
-      } else if (cfg.id === 'preco') {
-        score = Math.round((positive / count) * 100);
-      } else if (cfg.id === 'estacionamento') {
-        score = Math.round((positive / count) * 100);
-      }
-    }
-
-    return {
-      ...cfg,
-      score,
-      count,
-    };
-  });
-
-  // 3 Grupos Oficiais: Saudáveis (4), Atenção (3), Críticos (3)
-  const grupoSaudaveis = computedIndicators.filter((i) => i.group === 'saudavel');
-  const grupoAtencao = computedIndicators.filter((i) => i.group === 'atencao');
-  const grupoCriticos = computedIndicators.filter((i) => i.group === 'critico');
-
-  const scoreGeral = 81; // Média ponderada global validada dos 10 indicadores (81.13)
-  const reputacaoLabel = scoreGeral >= 80 ? 'Excelente' : scoreGeral >= 60 ? 'Boa' : scoreGeral >= 40 ? 'Regular' : 'Crítica';
-  const reputacaoLabelColor = scoreGeral >= 80 ? 'text-emerald-400' : scoreGeral >= 60 ? 'text-cyan-400' : scoreGeral >= 40 ? 'text-amber-400' : 'text-rose-400';
-  const reputacaoMsg =
-    scoreGeral >= 80
-      ? 'A reputação está em um ótimo nível. Continue acompanhando os indicadores para manter esse resultado.'
-      : scoreGeral >= 60
-      ? 'A reputação está em um nível estável. Mantenha a atenção aos indicadores de alerta.'
-      : 'Atenção aos indicadores críticos para reverter o impacto na reputação.';
-
-  const gaugeRadius = 66;
-  const gaugeCircumference = 2 * Math.PI * gaugeRadius;
-  const gaugeOffset = gaugeCircumference - (scoreGeral / 100) * gaugeCircumference;
+  // Cálculo unificado oficial da Saúde da Reputação (10 Indicadores)
+  const reputationHealth = computeReputationHealth(reviews);
 
   return (
     <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
@@ -567,225 +396,8 @@ export default async function EstatisticasPage() {
           </div>
         </div>
 
-        {/* Card Principal: Saúde da Reputação (Layout Executivo Aprovado) */}
-        <div className="space-y-6 rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 lg:p-7 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
-          {/* Header do Card */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/8 pb-5">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_12px_#22d3ee] shrink-0" />
-                <h2 className="text-lg font-extrabold tracking-tight text-white">
-                  Saúde da Reputação
-                </h2>
-              </div>
-              <p className="text-xs text-slate-400">
-                Acompanhe os principais indicadores que impactam a experiência dos usuários e a reputação do cartório.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-1.5 self-start sm:self-auto rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 shadow-sm">
-              <BarChart3 className="h-3.5 w-3.5 text-cyan-400" />
-              <span>10 Indicadores</span>
-            </div>
-          </div>
-
-          {/* Grid Principal: Coluna Esquerda (Gauge) & Coluna Direita (Grupos Semânticos) */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-            {/* Coluna Esquerda: Gauge Circular Ciano e Acesso Metodológico */}
-            <div className="lg:col-span-4 flex flex-col justify-between items-center rounded-2xl border border-white/10 bg-[#080D1A]/80 p-6 text-center shadow-inner">
-              <div className="flex flex-col items-center justify-center pt-2">
-                {/* Gauge Circular Ciano */}
-                <div className="relative flex h-44 w-44 items-center justify-center">
-                  <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 160 160">
-                    <circle
-                      cx="80"
-                      cy="80"
-                      r={gaugeRadius}
-                      className="text-slate-800/80"
-                      strokeWidth="12"
-                      stroke="currentColor"
-                      fill="transparent"
-                    />
-                    <circle
-                      cx="80"
-                      cy="80"
-                      r={gaugeRadius}
-                      stroke="#06B6D4"
-                      strokeWidth="12"
-                      strokeDasharray={gaugeCircumference}
-                      strokeDashoffset={gaugeOffset}
-                      strokeLinecap="round"
-                      fill="transparent"
-                      className="drop-shadow-[0_0_16px_rgba(6,182,212,0.45)] transition-all duration-1000 ease-out"
-                    />
-                  </svg>
-                  <div className="absolute flex flex-col items-center justify-center text-center">
-                    <span className="text-5xl font-black tracking-tight text-white">{scoreGeral}</span>
-                    <span className="text-xs font-semibold text-slate-400 mt-0.5">de 100</span>
-                  </div>
-                </div>
-
-                {/* Classificação e Diagnóstico */}
-                <h3 className="text-lg font-bold text-white mt-4">
-                  Reputação <span className={`${reputacaoLabelColor} font-black`}>{reputacaoLabel}</span>
-                </h3>
-                <p className="text-xs leading-relaxed text-slate-400 mt-2 max-w-xs">
-                  {reputacaoMsg}
-                </p>
-              </div>
-
-              {/* Botão de Acesso à Metodologia */}
-              <Link
-                href="#metodologia-reputacao"
-                className="mt-6 flex items-center justify-between w-full px-4 py-3 rounded-xl border border-cyan-500/20 bg-cyan-500/[0.06] hover:bg-cyan-500/15 hover:border-cyan-500/40 text-xs font-semibold text-slate-200 transition-all group shadow-sm"
-              >
-                <div className="flex items-center gap-2 text-cyan-300">
-                  <BarChart3 className="h-4 w-4 text-cyan-400" />
-                  <span>Metodologia e Detalhes</span>
-                </div>
-                <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-cyan-300 group-hover:translate-x-0.5 transition-all" />
-              </Link>
-            </div>
-
-            {/* Coluna Direita: Grupos Semânticos (4 Saudáveis, 3 Atenção, 3 Críticos) */}
-            <div className="lg:col-span-8 flex flex-col justify-between gap-5">
-              {/* 1. Indicadores Saudáveis */}
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    <h4 className="text-sm font-bold text-emerald-400">Indicadores Saudáveis</h4>
-                  </div>
-                  <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-300">
-                    {grupoSaudaveis.length} de 10
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {grupoSaudaveis.map((ind) => {
-                    const IconComponent = ind.Icon;
-                    return (
-                      <Link
-                        key={ind.id}
-                        href={`/avaliacoes?search=${encodeURIComponent(ind.query)}`}
-                        className="group flex flex-col justify-between rounded-2xl border border-emerald-500/20 bg-[#080D1A]/90 p-3.5 transition-all duration-200 hover:border-emerald-500/40 hover:bg-[#0c1428]"
-                      >
-                        <div className="flex items-center justify-between gap-2 min-w-0">
-                          <div className="flex items-center gap-2.5 truncate min-w-0">
-                            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${ind.iconBoxClass}`}>
-                              <IconComponent className="h-4 w-4" />
-                            </div>
-                            <span className="text-xs sm:text-sm font-semibold text-slate-200 truncate group-hover:text-white transition-colors">
-                              {ind.nome}
-                            </span>
-                          </div>
-                          <span className="text-xs sm:text-sm font-bold font-mono text-emerald-300 shrink-0">
-                            {ind.score}%
-                          </span>
-                        </div>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800/80 mt-2.5">
-                          <div
-                            className="h-full rounded-full bg-emerald-400 transition-all duration-700"
-                            style={{ width: `${Math.max(ind.score, 4)}%` }}
-                          />
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 2. Pontos de Atenção */}
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-400" />
-                    <h4 className="text-sm font-bold text-amber-400">Pontos de Atenção</h4>
-                  </div>
-                  <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-0.5 text-xs font-bold text-amber-300">
-                    {grupoAtencao.length} de 10
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {grupoAtencao.map((ind) => {
-                    const IconComponent = ind.Icon;
-                    return (
-                      <Link
-                        key={ind.id}
-                        href={`/avaliacoes?search=${encodeURIComponent(ind.query)}`}
-                        className="group flex flex-col justify-between rounded-2xl border border-amber-500/20 bg-[#080D1A]/90 p-3.5 transition-all duration-200 hover:border-amber-500/40 hover:bg-[#0c1428]"
-                      >
-                        <div className="flex items-center justify-between gap-2 min-w-0">
-                          <div className="flex items-center gap-2.5 truncate min-w-0">
-                            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${ind.iconBoxClass}`}>
-                              <IconComponent className="h-4 w-4" />
-                            </div>
-                            <span className="text-xs sm:text-sm font-semibold text-slate-200 truncate group-hover:text-white transition-colors">
-                              {ind.nome}
-                            </span>
-                          </div>
-                          <span className="text-xs sm:text-sm font-bold font-mono text-amber-300 shrink-0">
-                            {ind.score}%
-                          </span>
-                        </div>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800/80 mt-2.5">
-                          <div
-                            className="h-full rounded-full bg-amber-400 transition-all duration-700"
-                            style={{ width: `${Math.max(ind.score, 4)}%` }}
-                          />
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 3. Indicadores Críticos */}
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-rose-400" />
-                    <h4 className="text-sm font-bold text-rose-400">Indicadores Críticos</h4>
-                  </div>
-                  <span className="rounded-full border border-rose-500/25 bg-rose-500/10 px-2.5 py-0.5 text-xs font-bold text-rose-300">
-                    {grupoCriticos.length} de 10
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {grupoCriticos.map((ind) => {
-                    const IconComponent = ind.Icon;
-                    return (
-                      <Link
-                        key={ind.id}
-                        href={`/avaliacoes?search=${encodeURIComponent(ind.query)}`}
-                        className="group flex flex-col justify-between rounded-2xl border border-rose-500/20 bg-[#080D1A]/90 p-3.5 transition-all duration-200 hover:border-rose-500/40 hover:bg-[#0c1428]"
-                      >
-                        <div className="flex items-center justify-between gap-2 min-w-0">
-                          <div className="flex items-center gap-2.5 truncate min-w-0">
-                            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${ind.iconBoxClass}`}>
-                              <IconComponent className="h-4 w-4" />
-                            </div>
-                            <span className="text-xs sm:text-sm font-semibold text-slate-200 truncate group-hover:text-white transition-colors">
-                              {ind.nome}
-                            </span>
-                          </div>
-                          <span className="text-xs sm:text-sm font-bold font-mono text-rose-300 shrink-0">
-                            {ind.score}%
-                          </span>
-                        </div>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800/80 mt-2.5">
-                          <div
-                            className="h-full rounded-full bg-rose-500 transition-all duration-700"
-                            style={{ width: `${Math.max(ind.score, 4)}%` }}
-                          />
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Card Principal: Saúde da Reputação (Versão Analítica Completa) */}
+        <ReputationHealth variant="detailed" data={reputationHealth} />
 
         {/* Seção Complementar: Metodologia da Saúde da Reputação */}
         <div
@@ -810,7 +422,7 @@ export default async function EstatisticasPage() {
                 SCORE GLOBAL DE REPUTAÇÃO
               </span>
               <div className="text-3xl font-black text-cyan-300">
-                {scoreGeral} <span className="text-xs font-semibold text-cyan-400">pts</span>
+                {reputationHealth.scoreGeral} <span className="text-xs font-semibold text-cyan-400">pts</span>
               </div>
             </div>
           </div>
@@ -824,8 +436,8 @@ export default async function EstatisticasPage() {
               O score global reflete o desempenho ponderado dos 10 indicadores operacionais avaliados no cartório:
             </p>
             <div className="inline-block rounded-xl border border-white/12 bg-white/[0.04] px-4 py-2.5 font-mono text-xs font-bold text-white">
-              Saúde da Reputação = <span className="text-cyan-300 text-sm font-black">{scoreGeral} Pontos</span> ➜{' '}
-              <span className="text-emerald-400 text-sm font-black">Reputação Excelente</span>
+              Saúde da Reputação = <span className="text-cyan-300 text-sm font-black">{reputationHealth.scoreGeral} Pontos</span> ➜{' '}
+              <span className="text-emerald-400 text-sm font-black">Reputação {reputationHealth.reputacaoLabel}</span>
             </div>
           </div>
 
@@ -837,7 +449,7 @@ export default async function EstatisticasPage() {
                 <span>Simulação de Impacto Operacional</span>
               </div>
               <h3 className="text-sm font-bold text-white">
-                Resolvendo os gargalos de Telefone, Agendamento e Estacionamento, o Score salta de {scoreGeral} ➜{' '}
+                Resolvendo os gargalos de Telefone, Agendamento e Estacionamento, o Score salta de {reputationHealth.scoreGeral} ➜{' '}
                 <span className="text-emerald-400 font-extrabold">92 pts</span>!
               </h3>
               <p className="text-xs text-white/60">
