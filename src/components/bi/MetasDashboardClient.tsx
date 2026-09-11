@@ -1046,42 +1046,53 @@ export function MetasDashboardClient() {
       
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="relative overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
-          <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-white/60">
-            <Target className="w-4 h-4 text-cyan-300" /> TOTAL
-          </p>
-          <h3 className="text-3xl font-bold text-white">
-            {kpis?.total ? kpis.total.toLocaleString("pt-BR") : 0}
-          </h3>
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-white/20">
+          <div>
+            <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-white/60">
+              <Target className="w-4 h-4 text-cyan-300" /> TOTAL
+            </p>
+            <h3 className="text-3xl font-bold text-white">
+              {kpis?.total ? kpis.total.toLocaleString("pt-BR") : 0}
+            </h3>
+          </div>
+          <p className="text-xs text-white/40 mt-2">Protocolos em esteira</p>
         </div>
 
-        <div className="relative overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
-          <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-rose-300">
-            <AlertCircle className="w-4 h-4" /> ATRASADOS
-          </p>
-          <h3 className="text-3xl font-bold text-white">
-            {kpis?.atrasados ? kpis.atrasados.toLocaleString("pt-BR") : 0}
-          </h3>
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-white/20">
+          <div>
+            <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-rose-300">
+              <AlertCircle className="w-4 h-4" /> ATRASADOS
+            </p>
+            <h3 className="text-3xl font-bold text-white">
+              {kpis?.atrasados ? kpis.atrasados.toLocaleString("pt-BR") : 0}
+            </h3>
+          </div>
+          <p className="text-xs text-rose-300/70 mt-2">Prazo legal excedido</p>
         </div>
 
-        <div className="relative overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
-          <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-emerald-300">
-            <Clock className="w-4 h-4" /> ENTREGUE COM ATRASO
-          </p>
-          <h3 className="text-3xl font-bold text-white">
-            {kpis?.entregueComAtraso ? kpis.entregueComAtraso.toLocaleString("pt-BR") : 0}
-          </h3>
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-white/20">
+          <div>
+            <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-emerald-300">
+              <Clock className="w-4 h-4" /> ENTREGUE COM ATRASO
+            </p>
+            <h3 className="text-3xl font-bold text-white">
+              {kpis?.entregueComAtraso ? kpis.entregueComAtraso.toLocaleString("pt-BR") : 0}
+            </h3>
+          </div>
+          <p className="text-xs text-emerald-300/70 mt-2">Concluídos fora do prazo</p>
         </div>
 
-        <div className="relative overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
-          <p className="mb-1 flex items-center gap-2 truncate pr-6 text-xs font-semibold text-amber-300" title="Gargalo Principal">
-            <TrendingUp className="w-4 h-4" /> PRINCIPAL GARGALO
-          </p>
-          <h3 className="text-lg font-bold text-white truncate pr-2 mt-2" title={kpis?.topGargalo?.name}>
-            {kpis?.topGargalo?.name || "-"}
-          </h3>
-          <p className="text-xs text-white/50 mt-1">
-            Afeta {kpis?.topGargalo?.count?.toLocaleString("pt-BR") || 0} protocolos
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-white/20">
+          <div>
+            <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-amber-300" title="Fase com maior volume de protocolos retidos">
+              <TrendingUp className="w-4 h-4" /> GARGALO MAIS FREQUENTE
+            </p>
+            <h3 className="text-sm sm:text-base font-bold text-white mt-2 leading-snug line-clamp-2" title={kpis?.topGargalo?.name}>
+              {kpis?.topGargalo?.name ? kpis.topGargalo.name.replace(" -> ", " → ") : "-"}
+            </h3>
+          </div>
+          <p className="text-xs text-amber-300/80 mt-2">
+            Afeta <strong>{kpis?.topGargalo?.count?.toLocaleString("pt-BR") || 0} protocolos</strong> (volume)
           </p>
         </div>
       </div>
@@ -1092,7 +1103,7 @@ export function MetasDashboardClient() {
           type="button"
           onClick={() => handleBalcaoFilter("SEM_REG")}
           aria-pressed={balcaoFilter === "SEM_REG"}
-          className={`min-h-[104px] w-full rounded-[28px] border p-4 text-left transition-all shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 ${
+          className={`min-h-[104px] w-full rounded-[28px] border p-4 text-left transition-all shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 ${
             balcaoFilter === "SEM_REG"
               ? "border-amber-400/40 bg-[#0B1020]/80"
               : "border-white/12 bg-[#0B1020]/72 hover:border-white/20 hover:bg-[#0B1020]/80"
@@ -1122,7 +1133,7 @@ export function MetasDashboardClient() {
           type="button"
           onClick={() => handleBalcaoFilter("SEM_DEV")}
           aria-pressed={balcaoFilter === "SEM_DEV"}
-          className={`min-h-[104px] w-full rounded-[28px] border p-4 text-left transition-all shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 ${
+          className={`min-h-[104px] w-full rounded-[28px] border p-4 text-left transition-all shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 ${
             balcaoFilter === "SEM_DEV"
               ? "border-rose-400/40 bg-[#0B1020]/80"
               : "border-white/12 bg-[#0B1020]/72 hover:border-white/20 hover:bg-[#0B1020]/80"
@@ -1172,7 +1183,7 @@ export function MetasDashboardClient() {
             {chartBottleneck && (
               <div className="inline-flex items-center gap-2 rounded-lg border border-amber-400/20 bg-amber-400/[0.08] px-3 py-2 text-[10px] font-semibold uppercase text-amber-200 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
                 <span className={`h-1.5 w-1.5 rounded-full bg-amber-400 ${prefersReducedMotion ? "" : "animate-pulse"}`} />
-                <span>Principal gargalo</span>
+                <span>Maior tempo médio: <strong>{chartBottleneck.label} ({chartBottleneck.dias}d)</strong></span>
                 <span className="text-white/35">•</span>
                 <span className="normal-case text-white/70">
                   {chartBottleneck.count.toLocaleString("pt-BR")} protocolos
