@@ -342,10 +342,10 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       module: string;
       expectedIntervalSeconds: number;
     }> = [
-      { key: 'bi', module: 'Módulo BI', expectedIntervalSeconds: 600 },
-      { key: 'produtividade', module: 'Produtividade', expectedIntervalSeconds: 600 },
-      { key: 'metas', module: 'Metas', expectedIntervalSeconds: 900 },
-      { key: 'tarefas', module: 'Tarefas', expectedIntervalSeconds: 600 },
+      { key: 'bi', module: 'Módulo BI', expectedIntervalSeconds: 3600 },
+      { key: 'produtividade', module: 'Produtividade', expectedIntervalSeconds: 3600 },
+      { key: 'metas', module: 'Metas', expectedIntervalSeconds: 3600 },
+      { key: 'tarefas', module: 'Tarefas', expectedIntervalSeconds: 3600 },
     ];
 
   const incrementalModules: IncrementalModuleStatus[] = [];

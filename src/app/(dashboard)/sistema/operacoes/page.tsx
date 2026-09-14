@@ -44,10 +44,10 @@ const FALLBACK_SNAPSHOT: OperationsHealthSnapshot = {
     { id: 'github', name: 'GitHub CI/CD', status: 'unknown', latencyMs: null, lastSignalAt: 'Não disponível', provenance: 'unavailable' },
   ],
   incrementalModules: [
-    { module: 'Módulo BI', key: 'bi', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 60, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
-    { module: 'Produtividade', key: 'produtividade', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 60, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
-    { module: 'Metas', key: 'metas', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 900, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
-    { module: 'Tarefas', key: 'tarefas', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 60, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
+    { module: 'Módulo BI', key: 'bi', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 3600, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
+    { module: 'Produtividade', key: 'produtividade', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 3600, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
+    { module: 'Metas', key: 'metas', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 3600, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
+    { module: 'Tarefas', key: 'tarefas', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 3600, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
   ],
   connector: {
     status: 'UNKNOWN',
