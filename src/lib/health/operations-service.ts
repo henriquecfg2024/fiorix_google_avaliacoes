@@ -432,9 +432,11 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     } else if (!isConnectorOnline) {
       status = 'WARNING';
       statusNote = 'Conector pausado ou offline — aguardando ciclo do serviço local';
-    } else if (statusEntry?.lastError) {
+    } else if (statusEntry?.lastError && elapsedSeconds > warningThreshold) {
+      // Só mostra erro se o conector está atrasado E ainda temos lastError registrado
+      // Se o tempo elapsed está dentro da janela de warning, o erro foi transitório e o conector já se recuperou
       status = 'ERROR';
-      statusNote = `Erro no SQL Server do cartório: ${statusEntry.lastError}`;
+      statusNote = `Erro transitório no SQL Server do cartório: ${statusEntry.lastError}`;
     } else if (elapsedSeconds > errorThreshold) {
       status = 'ERROR';
       const mins = Math.round(elapsedSeconds / 60);

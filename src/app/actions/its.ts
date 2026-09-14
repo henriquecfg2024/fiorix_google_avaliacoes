@@ -1646,36 +1646,60 @@ export async function criarItRapida(data: {
     throw new Error('Código e Título são obrigatórios.');
   }
 
-  // Verifica se já existe IT com o mesmo código
-  const existing = await prisma.$queryRawUnsafe<any[]>(
+  // Verifica se já existe IT ativa com o mesmo código
+  const existingActive = await prisma.$queryRawUnsafe<any[]>(
     `SELECT id FROM public.fiorix_its WHERE tenant_id = $1 AND codigo = $2 AND deleted_at IS NULL`,
     tenantId,
     data.codigo.trim()
   );
-  if (existing.length > 0) {
-    throw new Error(`Já existe uma IT com o código "${data.codigo}".`);
+  if (existingActive.length > 0) {
+    throw new Error(`Já existe uma IT ativa com o código "${data.codigo}". Escolha um código diferente.`);
+  }
+
+  // Verifica se existe IT arquivada (soft-deleted) com o mesmo código — a constraint UNIQUE não inclui deleted_at
+  const existingDeleted = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT id, deleted_at FROM public.fiorix_its WHERE tenant_id = $1 AND codigo = $2 AND deleted_at IS NOT NULL`,
+    tenantId,
+    data.codigo.trim()
+  );
+  if (existingDeleted.length > 0) {
+    throw new Error(
+      `O código "${data.codigo}" já foi utilizado por uma IT arquivada. ` +
+      `Por integridade do histórico WORM, use um código novo (ex: ${data.codigo}-V2 ou ${data.codigo.replace(/\d+$/, (n) => String(parseInt(n) + 1))}).`
+    );
   }
 
   const hashVersao = crypto.createHash('sha256').update(
     JSON.stringify({ tenantId, ...data, timestamp: new Date().toISOString() })
   ).digest('hex');
 
-  const result = await prisma.$queryRawUnsafe<any[]>(
-    `INSERT INTO public.fiorix_its (
-       tenant_id, codigo, titulo, departamento, versao, tempo_leitura_min, 
-       objetivo, hash_versao, autor_id, guardiao_id
-     ) VALUES (
-       $1, $2, $3, $4, '1.0', 5, 'Instrução de Trabalho', $5, $6, $7
-     )
-     RETURNING id::text`,
-    tenantId,
-    data.codigo.trim(),
-    data.titulo.trim(),
-    data.departamento,
-    hashVersao,
-    currentUser.id,
-    data.guardiaoId || currentUser.id
-  );
+  let result: any[];
+  try {
+    result = await prisma.$queryRawUnsafe<any[]>(
+      `INSERT INTO public.fiorix_its (
+         tenant_id, codigo, titulo, departamento, versao, tempo_leitura_min, 
+         objetivo, hash_versao, autor_id, guardiao_id
+       ) VALUES (
+         $1, $2, $3, $4, '1.0', 5, 'Instrução de Trabalho', $5, $6, $7
+       )
+       RETURNING id::text`,
+      tenantId,
+      data.codigo.trim(),
+      data.titulo.trim(),
+      data.departamento,
+      hashVersao,
+      currentUser.id,
+      data.guardiaoId || currentUser.id
+    );
+  } catch (err: any) {
+    // Código 23505 = unique_violation no PostgreSQL
+    if (err?.message?.includes('23505') || err?.message?.includes('already exists')) {
+      throw new Error(
+        `Código "${data.codigo}" já está em uso (incluindo ITs arquivadas). Use um código diferente.`
+      );
+    }
+    throw err;
+  }
 
   if (result.length > 0) {
     // Registra versão inicial
