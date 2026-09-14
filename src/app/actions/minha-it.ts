@@ -92,25 +92,28 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
     if (tenant?.cidade) cartorioUnidade = `${tenant.cidade}${tenant.estado ? ` - ${tenant.estado}` : ''}`;
   }
 
-  // 2. Busca as ITs onde o usuário é responsável técnico
-  // Se for MASTER e não tiver ITs próprias, carrega todas as ITs ativas do tenant para preview/gestão
-  let itsCustodiaRows: any[] = await prisma.$queryRawUnsafe(`
-    SELECT id, codigo, titulo, versao, departamento, status, responsavel_tecnico_id
-    FROM public.fiorix_its
-    WHERE responsavel_tecnico_id = $1
-    ORDER BY codigo ASC
-  `, userId);
-
-  // Flag de supervisão: true se o fallback for usado (usuário não é responsável direto)
+  // 2. Busca as ITs para exibição
+  // SUBSTITUTO/ADMIN/MASTER sempre veem TODAS as ITs (supervisão).
+  // Usuários comuns veem apenas as ITs onde são responsável técnico.
+  let itsCustodiaRows: any[];
   let isSupervisao = false;
 
-  if (itsCustodiaRows.length === 0 && (isMaster || currentUser.role === 'ADMIN' || currentUser.role === 'SUBSTITUTO')) {
-    isSupervisao = true;
+  if (isMaster || currentUser.role === 'ADMIN' || currentUser.role === 'SUBSTITUTO') {
+    // Supervisores: carregar TODAS as ITs
     itsCustodiaRows = await prisma.$queryRawUnsafe(`
       SELECT id, codigo, titulo, versao, departamento, status, responsavel_tecnico_id
       FROM public.fiorix_its
       ORDER BY codigo ASC
     `);
+    // isSupervisao será determinado por IT selecionada (mais abaixo)
+  } else {
+    // Usuário comum: apenas ITs onde é responsável técnico
+    itsCustodiaRows = await prisma.$queryRawUnsafe(`
+      SELECT id, codigo, titulo, versao, departamento, status, responsavel_tecnico_id
+      FROM public.fiorix_its
+      WHERE responsavel_tecnico_id = $1
+      ORDER BY codigo ASC
+    `, userId);
   }
 
   const itsCustodia: MinhaItCustodiaItem[] = itsCustodiaRows.map((r) => ({
@@ -165,6 +168,11 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
   const itId = String(itRow.id);
   const versao = String(itRow.versao || '1.0');
   const depto = String(itRow.departamento || 'Atendimento');
+
+  // Determina supervisão por IT: se o responsável técnico desta IT não é o usuário logado
+  if (isMaster || currentUser.role === 'ADMIN' || currentUser.role === 'SUBSTITUTO') {
+    isSupervisao = itRow.resp_id !== userId;
+  }
 
   // 5. Garante ciência automática imediata para o responsável técnico se ainda não tiver registrado
   try {
