@@ -29,6 +29,7 @@ import {
   UserMinus,
   Lock,
   Settings,
+  UploadCloud,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -36,6 +37,7 @@ import {
   AuditLogItem,
   updateColumnLabel,
   criarItRapida,
+  getITUploadSignedUrl,
   excluirItGovernanca,
   adicionarColaboradorCiencia,
   removerColaboradorCiencia,
@@ -190,6 +192,33 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
     departamento: 'Atendimento',
     guardiaoId: '',
   });
+  const [novaItPdfFile, setNovaItPdfFile] = useState<File | null>(null);
+  const [novaItPdfHash, setNovaItPdfHash] = useState('');
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+
+  // Cálculo de SHA-256 no browser
+  const computeFileSHA256 = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  };
+
+  const handleNovaItPdfSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      toast.error('Selecione um arquivo no formato PDF (.pdf).');
+      return;
+    }
+    setNovaItPdfFile(file);
+    try {
+      const hash = await computeFileSHA256(file);
+      setNovaItPdfHash(hash);
+    } catch {
+      setNovaItPdfHash('');
+    }
+  };
 
   // Excluir IT form
   const [excluirForm, setExcluirForm] = useState({ motivo: '', senha: '' });
@@ -237,14 +266,47 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
   const handleCriarIt = () => {
     startTransition(async () => {
       try {
-        await criarItRapida(novaItForm);
+        setIsUploadingPdf(true);
+        let pdfOriginalUrl: string | undefined;
+        let pdfPath: string | undefined;
+
+        if (novaItPdfFile) {
+          const uploadAuth = await getITUploadSignedUrl(novaItPdfFile.name, 'application/pdf');
+          if (!uploadAuth.success || !uploadAuth.signedUrl) {
+            throw new Error(uploadAuth.error || 'Falha ao autorizar upload do PDF no armazenamento seguro.');
+          }
+
+          const uploadRes = await fetch(uploadAuth.signedUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/pdf' },
+            body: novaItPdfFile,
+          });
+
+          if (!uploadRes.ok) {
+            throw new Error(`Falha no upload do arquivo PDF (${uploadRes.status}).`);
+          }
+
+          pdfOriginalUrl = uploadAuth.publicUrl;
+          pdfPath = uploadAuth.storagePath;
+        }
+
+        await criarItRapida({
+          ...novaItForm,
+          pdfOriginalUrl,
+          pdfPath,
+        });
+
         toast.success(`IT "${novaItForm.codigo}" criada com sucesso!`);
         setShowNovaItModal(false);
         setNovaItForm({ codigo: '', titulo: '', departamento: 'Atendimento', guardiaoId: '' });
+        setNovaItPdfFile(null);
+        setNovaItPdfHash('');
         // Force reload to see new data
         window.location.reload();
       } catch (err: any) {
         toast.error(err.message || 'Erro ao criar IT');
+      } finally {
+        setIsUploadingPdf(false);
       }
     });
   };
@@ -828,6 +890,61 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
                   ))}
                 </select>
               </div>
+
+              {/* Anexar Documento PDF */}
+              <div className="pt-2 border-t border-zinc-800">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                    Documento Oficial (Anexo PDF)
+                  </label>
+                  <span className="text-[10px] text-zinc-500">Opcional</span>
+                </div>
+
+                {novaItPdfFile ? (
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-white">
+                    <div className="flex items-center gap-2.5 overflow-hidden">
+                      <FileText className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <div className="truncate">
+                        <div className="text-xs font-bold text-emerald-200 truncate">{novaItPdfFile.name}</div>
+                        <div className="text-[10px] text-zinc-400 flex items-center gap-2 mt-0.5">
+                          <span>{(novaItPdfFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                          {novaItPdfHash && (
+                            <span className="font-mono text-[9px] bg-black/30 px-1 rounded text-emerald-300">
+                              SHA: {novaItPdfHash.slice(0, 10)}...
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNovaItPdfFile(null);
+                        setNovaItPdfHash('');
+                      }}
+                      className="p-1 text-zinc-400 hover:text-rose-400 ml-2"
+                      title="Remover"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="block border border-dashed border-zinc-700 hover:border-emerald-500/60 rounded-lg p-4 text-center cursor-pointer bg-zinc-900/50 hover:bg-zinc-900 transition-all">
+                    <div className="flex flex-col items-center justify-center gap-1.5">
+                      <UploadCloud className="w-5 h-5 text-zinc-400" />
+                      <span className="text-xs text-zinc-300">Clique para anexar o PDF da IT</span>
+                      <span className="text-[10px] text-zinc-500">Formato .pdf (máx. 20MB) com carimbo SHA-256</span>
+                    </div>
+                    <input
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      onChange={handleNovaItPdfSelect}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-zinc-800">
@@ -836,12 +953,15 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
               </Button>
               <Button
                 size="sm"
-                disabled={isPending || !novaItForm.codigo.trim() || !novaItForm.titulo.trim()}
+                disabled={isPending || isUploadingPdf || !novaItForm.codigo.trim() || !novaItForm.titulo.trim()}
                 onClick={handleCriarIt}
                 className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold disabled:opacity-50"
               >
-                {isPending ? (
-                  <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 border-2 border-black/30 border-t-black rounded-full animate-spin" /> Criando...</span>
+                {isPending || isUploadingPdf ? (
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-3.5 h-3.5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                    {isUploadingPdf ? 'Enviando PDF...' : 'Criando...'}
+                  </span>
                 ) : (
                   <><Plus className="w-3.5 h-3.5 mr-1" /> Cadastrar IT</>
                 )}

@@ -28,6 +28,9 @@ import {
   GraduationCap,
   Layers,
   ArrowRight,
+  UploadCloud,
+  FileText,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +44,7 @@ import {
   AceiteStatus,
   registrarAceiteMensal,
   salvarOuAtualizarIt,
+  getITUploadSignedUrl,
   excluirItWorm,
   solicitarAcessoCross,
   responderSolicitacaoCross,
@@ -108,7 +112,36 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
   const [formPassos, setFormPassos] = useState<Array<{ ordem: number; titulo: string; desc: string }>>([
     { ordem: 1, titulo: "Etapa 1", desc: "Descrição do procedimento operacional." },
   ]);
+  const [formPdfFile, setFormPdfFile] = useState<File | null>(null);
+  const [formPdfHash, setFormPdfHash] = useState("");
+  const [formPdfExistingUrl, setFormPdfExistingUrl] = useState("");
   const [salvandoIt, setSalvandoIt] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [pdfUploadStatus, setPdfUploadStatus] = useState("");
+
+  // Cálculo de SHA-256 no browser
+  const computeFileSHA256 = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  };
+
+  const handlePdfFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      alert("Por favor, selecione um arquivo no formato PDF (.pdf).");
+      return;
+    }
+    setFormPdfFile(file);
+    try {
+      const hash = await computeFileSHA256(file);
+      setFormPdfHash(hash);
+    } catch {
+      setFormPdfHash("");
+    }
+  };
 
   // Estado de Colaboradores
   const [colabsList, setColabsList] = useState<ColaboradorItem[]>(initialData.colaboradores);
@@ -166,6 +199,34 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
     e.preventDefault();
     setSalvandoIt(true);
     try {
+      let finalPdfUrl: string | undefined = formPdfExistingUrl || undefined;
+      let finalPdfPath: string | undefined = editItModal?.pdfPath || undefined;
+
+      if (formPdfFile) {
+        setUploadingPdf(true);
+        setPdfUploadStatus("Autorizando armazenamento seguro do PDF...");
+        const uploadAuth = await getITUploadSignedUrl(formPdfFile.name, "application/pdf");
+        if (!uploadAuth.success || !uploadAuth.signedUrl) {
+          throw new Error(uploadAuth.error || "Não foi possível autorizar o envio do arquivo PDF.");
+        }
+
+        setPdfUploadStatus("Enviando arquivo PDF para o servidor...");
+        const uploadRes = await fetch(uploadAuth.signedUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/pdf",
+          },
+          body: formPdfFile,
+        });
+
+        if (!uploadRes.ok) {
+          throw new Error(`Falha no envio do PDF (${uploadRes.status}).`);
+        }
+
+        finalPdfUrl = uploadAuth.publicUrl;
+        finalPdfPath = uploadAuth.storagePath;
+      }
+
       await salvarOuAtualizarIt({
         id: editItModal?.id,
         codigo: formCodigo,
@@ -175,6 +236,8 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
         objetivo: formObjetivo,
         quandoUsar: formQuandoUsar,
         passos: formPassos,
+        pdfOriginalUrl: finalPdfUrl,
+        pdfPath: finalPdfPath,
       });
 
       if (editItModal) {
@@ -190,12 +253,14 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
                   objetivo: formObjetivo,
                   quandoUsar: formQuandoUsar,
                   passoAPasso: formPassos,
+                  pdfOriginalUrl: finalPdfUrl || item.pdfOriginalUrl,
+                  pdfPath: finalPdfPath || item.pdfPath,
                   diasSemRevisao: 0,
                 }
               : item
           )
         );
-        alert("IT atualizada com nova versão e hash gravado!");
+        alert("IT atualizada com nova versão e carimbo gravado com sucesso!");
         setEditItModal(null);
       } else {
         const novaIt: ITItem = {
@@ -210,17 +275,25 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
           quandoUsar: formQuandoUsar,
           tempoLeituraMin: Number(formTempo),
           passoAPasso: formPassos,
+          pdfOriginalUrl: finalPdfUrl,
+          pdfPath: finalPdfPath,
+          hashVersao: formPdfHash || undefined,
           updatedAt: new Date().toISOString(),
           diasSemRevisao: 0,
         };
         setItsList((prev) => [...prev, novaIt]);
-        alert("Nova Instrução de Trabalho cadastrada e snapshot registrado!");
+        alert("Nova Instrução de Trabalho cadastrada com sucesso!");
         setCreateItModalOpen(false);
       }
+      setFormPdfFile(null);
+      setFormPdfHash("");
+      setFormPdfExistingUrl("");
     } catch (err: any) {
       alert("Erro ao salvar IT: " + (err.message || "Erro desconhecido"));
     } finally {
       setSalvandoIt(false);
+      setUploadingPdf(false);
+      setPdfUploadStatus("");
     }
   };
 
@@ -537,6 +610,9 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
                   setFormObjetivo("");
                   setFormQuandoUsar("");
                   setFormTempo(10);
+                  setFormPdfFile(null);
+                  setFormPdfHash("");
+                  setFormPdfExistingUrl("");
                   setCreateItModalOpen(true);
                 }}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl gap-2 shadow-lg shadow-indigo-600/30"
@@ -564,6 +640,11 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
                       <span className="text-[10px] font-semibold text-slate-300 bg-white/5 px-2 py-1 rounded-md">
                         {it.departamento}
                       </span>
+                      {it.pdfOriginalUrl && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-md">
+                          <FileText className="w-2.5 h-2.5" /> PDF
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
@@ -612,6 +693,19 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
                       </Button>
                     </Link>
 
+                    {it.pdfOriginalUrl && (
+                      <a
+                        href={it.pdfOriginalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30 text-xs font-semibold transition-all"
+                        title="Visualizar PDF original anexado"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-red-400" />
+                        <span>PDF</span>
+                      </a>
+                    )}
+
                     <Button
                       size="sm"
                       onClick={() => setViewItModal(it)}
@@ -633,6 +727,9 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
                           setFormObjetivo(it.objetivo || "");
                           setFormQuandoUsar(it.quandoUsar || "");
                           setFormPassos(it.passoAPasso || []);
+                          setFormPdfFile(null);
+                          setFormPdfHash(it.hashVersao || "");
+                          setFormPdfExistingUrl(it.pdfOriginalUrl || "");
                         }}
                         className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
                         title="Editar IT"
@@ -1274,6 +1371,106 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
                 />
               </div>
 
+              {/* Seção de Anexo de PDF */}
+              <div className="pt-2 border-t border-white/10">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs text-slate-300 font-medium flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Documento Oficial da IT (Anexo PDF)</span>
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-normal">Exibido na Folha A4 e Minha IT</span>
+                </div>
+
+                {formPdfFile ? (
+                  /* Arquivo novo selecionado */
+                  <div className="flex items-center justify-between p-3.5 rounded-xl border border-indigo-500/40 bg-indigo-500/10 text-white shadow-inner">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <div className="w-9 h-9 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-300 flex-shrink-0">
+                        <FileText className="w-5 h-5 text-indigo-400" />
+                      </div>
+                      <div className="truncate">
+                        <div className="text-xs font-bold truncate text-indigo-200">{formPdfFile.name}</div>
+                        <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
+                          <span>{(formPdfFile.size / 1024 / 1024).toFixed(2)} MB</span>
+                          {formPdfHash && (
+                            <span className="font-mono text-[9px] bg-white/10 px-1.5 py-0.5 rounded text-indigo-300 truncate max-w-[180px]">
+                              SHA-256: {formPdfHash.slice(0, 12)}...
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormPdfFile(null);
+                        setFormPdfHash("");
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-white/5 transition-colors ml-2"
+                      title="Remover anexo"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : formPdfExistingUrl ? (
+                  /* IT já tem PDF anexado anteriormente */
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-white">
+                      <div className="flex items-center gap-2.5 overflow-hidden">
+                        <FileText className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                        <span className="text-xs font-semibold text-emerald-300 truncate">PDF Original Anexado</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={formPdfExistingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] font-semibold text-emerald-400 hover:underline inline-flex items-center gap-1 bg-emerald-500/20 px-2.5 py-1 rounded-lg"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          Visualizar
+                        </a>
+                      </div>
+                    </div>
+                    <label className="block border border-dashed border-white/20 hover:border-indigo-400/60 rounded-xl p-3 text-center cursor-pointer bg-white/[0.02] hover:bg-white/[0.05] transition-all">
+                      <span className="text-xs text-slate-300 flex items-center justify-center gap-1.5">
+                        <UploadCloud className="w-3.5 h-3.5 text-indigo-400" />
+                        Substituir por outro arquivo PDF
+                      </span>
+                      <input
+                        type="file"
+                        accept="application/pdf,.pdf"
+                        onChange={handlePdfFileSelect}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  /* Nenhum PDF ainda: área de arraste / seleção */
+                  <label className="block border-2 border-dashed border-white/15 hover:border-indigo-400/60 rounded-xl p-5 text-center cursor-pointer bg-[#05050a] hover:bg-indigo-500/[0.04] transition-all group">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-indigo-400 group-hover:bg-indigo-500/10 transition-colors">
+                        <UploadCloud className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-slate-200">
+                          Clique para selecionar ou arraste o arquivo PDF da IT
+                        </p>
+                        <p className="text-[10px] text-slate-500 mt-0.5">
+                          Formato aceito: .pdf (máx. 20MB) • Carimbo de integridade criptográfica SHA-256
+                        </p>
+                      </div>
+                    </div>
+                    <input
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      onChange={handlePdfFileSelect}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+
               <div className="flex justify-end gap-2 pt-3 border-t border-white/10">
                 <Button
                   type="button"
@@ -1288,10 +1485,17 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={salvandoIt}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl"
+                  disabled={salvandoIt || uploadingPdf}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5"
                 >
-                  {salvandoIt ? "Gravando Snapshot..." : "Salvar Instrução de Trabalho"}
+                  {(salvandoIt || uploadingPdf) && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>
+                    {uploadingPdf
+                      ? (pdfUploadStatus || "Enviando PDF...")
+                      : salvandoIt
+                      ? "Gravando Snapshot..."
+                      : "Salvar Instrução de Trabalho"}
+                  </span>
                 </Button>
               </div>
             </form>

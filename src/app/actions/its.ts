@@ -34,6 +34,7 @@ export interface ITItem {
   substitutoAte?: string;
   faqExcecoes?: Array<{ pergunta: string; resposta: string }>;
   pdfOriginalUrl?: string;
+  pdfPath?: string;
 }
 
 export interface AuditLogItem {
@@ -166,6 +167,8 @@ export async function getItsPageData() {
        tempo_leitura_min as "tempoLeituraMin",
        updated_at as "updatedAt",
        hash_versao as "hashVersao",
+       pdf_original_url as "pdfOriginalUrl",
+       pdf_path as "pdfPath",
        ROUND(EXTRACT(EPOCH FROM (NOW() - updated_at)) / 86400)::int as "diasSemRevisao"
      FROM public.fiorix_its
      WHERE tenant_id = $1 AND deleted_at IS NULL
@@ -190,6 +193,8 @@ export async function getItsPageData() {
     errosComuns: Array.isArray(row.errosComuns) ? row.errosComuns : [],
     updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : new Date().toISOString(),
     hashVersao: row.hashVersao || '',
+    pdfOriginalUrl: row.pdfOriginalUrl || undefined,
+    pdfPath: row.pdfPath || undefined,
     diasSemRevisao: Number(row.diasSemRevisao || 0),
   }));
 
@@ -429,6 +434,8 @@ export async function salvarOuAtualizarIt(data: {
   passos?: Array<{ ordem: number; titulo: string; desc: string }>;
   checklist?: string[];
   errosComuns?: string[];
+  pdfOriginalUrl?: string;
+  pdfPath?: string;
 }) {
   const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
   const tenantId = currentUser.tenantId;
@@ -451,6 +458,8 @@ export async function salvarOuAtualizarIt(data: {
          checklist = $8::jsonb,
          erros_comuns = $9::jsonb,
          hash_versao = $10,
+         pdf_original_url = COALESCE($13, pdf_original_url),
+         pdf_path = COALESCE($14, pdf_path),
          updated_at = NOW()
        WHERE id = $11::uuid AND tenant_id = $12`,
       data.titulo,
@@ -464,7 +473,9 @@ export async function salvarOuAtualizarIt(data: {
       JSON.stringify(data.errosComuns || []),
       hashVersao,
       data.id,
-      tenantId
+      tenantId,
+      data.pdfOriginalUrl || null,
+      data.pdfPath || null
     );
 
     // Registra versão no histórico
@@ -496,9 +507,12 @@ export async function salvarOuAtualizarIt(data: {
          checklist,
          erros_comuns,
          hash_versao,
-         autor_id
+         autor_id,
+         guardiao_id,
+         pdf_original_url,
+         pdf_path
        ) VALUES (
-         $1, $2, $3, $4, '1.0', $5, $6, $7, $8::jsonb, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13
+         $1, $2, $3, $4, '1.0', $5, $6, $7, $8::jsonb, $9::jsonb, $10::jsonb, $11::jsonb, $12, $13, $14, $15, $16
        )
        RETURNING id::text`,
       tenantId,
@@ -513,7 +527,10 @@ export async function salvarOuAtualizarIt(data: {
       JSON.stringify(data.checklist || []),
       JSON.stringify(data.errosComuns || []),
       hashVersao,
-      currentUser.id
+      currentUser.id,
+      currentUser.id,
+      data.pdfOriginalUrl || null,
+      data.pdfPath || null
     );
 
     if (result.length > 0) {
@@ -1638,6 +1655,8 @@ export async function criarItRapida(data: {
   titulo: string;
   departamento: string;
   guardiaoId?: string;
+  pdfOriginalUrl?: string;
+  pdfPath?: string;
 }) {
   const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
   const tenantId = currentUser.tenantId;
@@ -1665,9 +1684,9 @@ export async function criarItRapida(data: {
     result = await prisma.$queryRawUnsafe<any[]>(
       `INSERT INTO public.fiorix_its (
          tenant_id, codigo, titulo, departamento, versao, tempo_leitura_min, 
-         objetivo, hash_versao, autor_id, guardiao_id
+         objetivo, hash_versao, autor_id, guardiao_id, pdf_original_url, pdf_path
        ) VALUES (
-         $1, $2, $3, $4, '1.0', 5, 'Instrução de Trabalho', $5, $6, $7
+         $1, $2, $3, $4, '1.0', 5, 'Instrução de Trabalho', $5, $6, $7, $8, $9
        )
        RETURNING id::text`,
       tenantId,
@@ -1676,7 +1695,9 @@ export async function criarItRapida(data: {
       data.departamento,
       hashVersao,
       currentUser.id,
-      data.guardiaoId || currentUser.id
+      data.guardiaoId || currentUser.id,
+      data.pdfOriginalUrl || null,
+      data.pdfPath || null
     );
   } catch (err: any) {
     // Código 23505 = unique_violation no PostgreSQL
