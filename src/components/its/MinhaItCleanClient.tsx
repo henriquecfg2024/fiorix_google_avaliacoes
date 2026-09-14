@@ -527,15 +527,34 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 </div>
               </div>
 
-              {/* Botão Principal: Atualizar Meu PDF Vigente (oculto em supervisão) */}
-              {!isSupervisao && (
-                <button
-                  onClick={() => setIsModalOpen(true)}
-                  className="w-full h-11 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 active:scale-[0.98] text-white font-semibold text-xs rounded-xl shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 transition-all cursor-pointer border border-emerald-400/20"
-                >
-                  <Upload className="w-4 h-4" />
-                  <span>Atualizar Meu PDF Vigente</span>
-                </button>
+              {/* Botão de Upload — visível para SUBSTITUTO/USER na própria IT, oculto para ADMIN/MASTER */}
+              {!isSupervisao && currentUser.role !== 'ADMIN' && currentUser.role !== 'MASTER' && (
+                <>
+                  {/* Alerta de pendência quando PDF não foi carregado */}
+                  {!currentIt.pdfUrl && (
+                    <div className="flex items-start gap-2.5 p-3.5 rounded-xl border border-amber-500/25 bg-amber-500/5">
+                      <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-[11px] font-bold text-amber-300">PDF Pendente</p>
+                        <p className="text-[10px] text-amber-300/70 mt-0.5 leading-relaxed">
+                          Você ainda não fez o upload do documento PDF desta instrução de trabalho. Faça o upload abaixo para que sua equipe possa consultar a versão oficial.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className={`w-full h-11 ${
+                      !currentIt.pdfUrl
+                        ? 'bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 shadow-amber-900/30 border-amber-400/20 animate-pulse'
+                        : 'bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-emerald-900/30 border-emerald-400/20'
+                    } active:scale-[0.98] text-white font-semibold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer border`}
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>{!currentIt.pdfUrl ? 'Enviar Meu PDF (Obrigatório)' : 'Atualizar Meu PDF Vigente'}</span>
+                  </button>
+                </>
               )}
             </div>
 
