@@ -17,16 +17,20 @@ export default async function InstrucaoTrabalhoDetailPage({ params }: PageProps)
     notFound();
   }
 
+  let data = null;
   try {
-    const data = await getItDetailData(id);
-
-    if (!data) {
-      notFound();
+    data = await getItDetailData(id);
+  } catch (err: any) {
+    if (err?.digest?.startsWith?.('NEXT_NOT_FOUND') || err?.message === 'NEXT_NOT_FOUND') {
+      throw err;
     }
-
-    return <ItDetailViewClient initialData={data} />;
-  } catch (err) {
     console.error('Erro ao carregar detalhe da IT:', err);
     notFound();
   }
+
+  if (!data) {
+    notFound();
+  }
+
+  return <ItDetailViewClient initialData={data} />;
 }

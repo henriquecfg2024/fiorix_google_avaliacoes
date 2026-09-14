@@ -17,13 +17,19 @@ export default async function ModuloItsPage() {
     redirect("/login");
   }
 
+  const userRole = String(session.user.role || "USER").toUpperCase();
+
   // Apenas SUBSTITUTO, ADMIN e MASTER acessam a gestão geral de ITs
-  if (session.user.role === 'COLABORADOR' || session.user.role === 'RH' || session.user.role === 'USER') {
-    redirect(session.user.role === 'RH' ? "/sistema/pessoas" : "/minha-it");
+  if (!["SUBSTITUTO", "ADMIN", "MASTER"].includes(userRole)) {
+    redirect(userRole === "RH" ? "/sistema/pessoas" : "/minha-it");
   }
 
-  const initialData = await getItsPageData();
-
-  return <ModuloItsClient initialData={initialData} />;
+  try {
+    const initialData = await getItsPageData();
+    return <ModuloItsClient initialData={initialData} />;
+  } catch (error: any) {
+    console.error("Erro ao carregar dados de governança de ITs:", error);
+    redirect("/minha-it");
+  }
 }
 
