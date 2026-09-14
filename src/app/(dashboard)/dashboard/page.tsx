@@ -32,31 +32,30 @@ export default async function Dashboard({
   }
   const tenantId = user.tenantId;
 
-  // Fetch real data from Prisma
-  const totalReviews = await prisma.review.count({ where: { tenantId, deletedFromGoogle: false } });
-  const googleConnection = await prisma.googleConnection.findFirst({ where: { tenantId } });
+  // Fetch real data from Prisma — queries paralelas para performance
+  const [totalReviews, googleConnection, avgRatingRes, pendentes, respondidasHoje] =
+    await Promise.all([
+      prisma.review.count({ where: { tenantId, deletedFromGoogle: false } }),
+      prisma.googleConnection.findFirst({ where: { tenantId } }),
+      prisma.review.aggregate({
+        where: { tenantId, deletedFromGoogle: false },
+        _avg: { rating: true }
+      }),
+      prisma.review.count({
+        where: { tenantId, status: 'PENDING', deletedFromGoogle: false }
+      }),
+      prisma.review.count({
+        where: {
+          tenantId,
+          status: 'RESPONDED',
+          deletedFromGoogle: false,
+        }
+      }),
+    ]);
   
   const isConnected = !!googleConnection;
   const isDemo = totalReviews === 0;
-
-  // Real KPI aggregation
-  const avgRatingRes = await prisma.review.aggregate({
-    where: { tenantId, deletedFromGoogle: false },
-    _avg: { rating: true }
-  });
   const notaMedia = avgRatingRes._avg.rating || 0;
-
-  const pendentes = await prisma.review.count({
-    where: { tenantId, status: 'PENDING', deletedFromGoogle: false }
-  });
-
-  const respondidasHoje = await prisma.review.count({
-    where: {
-      tenantId,
-      status: 'RESPONDED',
-      deletedFromGoogle: false,
-    }
-  });
 
   const demoReviewsSample = [
     {
@@ -101,27 +100,29 @@ export default async function Dashboard({
     },
   ];
 
-  const latestReviews = !isDemo
-    ? await prisma.review.findMany({
-        where: { tenantId },
-        orderBy: { publishedAt: 'desc' },
-        take: 5,
-      })
-    : demoReviewsSample;
-
-  // Real Collaborator Rankings from DB filtered by time periods
-  const dbColaboradores = await prisma.colaborador.findMany({
-    where: { tenantId, active: true },
-    include: {
-      mentions: {
-        include: { review: true }
+  // Segundo lote paralelo: dados que dependem de isDemo
+  const [latestReviewsRaw, dbColaboradores, allReviews] = await Promise.all([
+    !isDemo
+      ? prisma.review.findMany({
+          where: { tenantId },
+          orderBy: { publishedAt: 'desc' },
+          take: 5,
+        })
+      : Promise.resolve(null),
+    prisma.colaborador.findMany({
+      where: { tenantId, active: true },
+      include: {
+        mentions: {
+          include: { review: true }
+        }
       }
-    }
-  });
+    }),
+    prisma.review.findMany({
+      where: { tenantId }
+    }),
+  ]);
 
-  const allReviews = await prisma.review.findMany({
-    where: { tenantId }
-  });
+  const latestReviews = latestReviewsRaw || demoReviewsSample;
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
