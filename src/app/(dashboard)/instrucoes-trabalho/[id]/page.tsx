@@ -3,18 +3,30 @@ import { notFound } from 'next/navigation';
 import { getItDetailData } from '@/app/actions/its';
 import { ItDetailViewClient } from '@/components/its/ItDetailViewClient';
 
+export const dynamic = 'force-dynamic';
+
 interface PageProps {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }> | { id: string };
 }
 
 export default async function InstrucaoTrabalhoDetailPage({ params }: PageProps) {
-  const data = await getItDetailData(params.id);
+  const resolvedParams = await Promise.resolve(params);
+  const id = resolvedParams.id;
 
-  if (!data) {
+  if (!id) {
     notFound();
   }
 
-  return <ItDetailViewClient initialData={data} />;
+  try {
+    const data = await getItDetailData(id);
+
+    if (!data) {
+      notFound();
+    }
+
+    return <ItDetailViewClient initialData={data} />;
+  } catch (err) {
+    console.error('Erro ao carregar detalhe da IT:', err);
+    notFound();
+  }
 }
