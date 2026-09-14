@@ -53,6 +53,10 @@ export interface MinhaItDocumento {
 
 export interface MinhaItPageData {
   hasCustodia: boolean;
+  /** true quando o usuário NÃO é o responsável técnico da IT (modo supervisão) */
+  isSupervisao: boolean;
+  /** Nome do responsável técnico real (quando em modo supervisão) */
+  responsavelRealNome: string | null;
   currentUser: {
     id: string;
     name: string;
@@ -91,15 +95,19 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
   // 2. Busca as ITs onde o usuário é responsável técnico
   // Se for MASTER e não tiver ITs próprias, carrega todas as ITs ativas do tenant para preview/gestão
   let itsCustodiaRows: any[] = await prisma.$queryRawUnsafe(`
-    SELECT id, codigo, titulo, versao, departamento, status
+    SELECT id, codigo, titulo, versao, departamento, status, responsavel_tecnico_id
     FROM public.fiorix_its
     WHERE responsavel_tecnico_id = $1
     ORDER BY codigo ASC
   `, userId);
 
+  // Flag de supervisão: true se o fallback for usado (usuário não é responsável direto)
+  let isSupervisao = false;
+
   if (itsCustodiaRows.length === 0 && (isMaster || currentUser.role === 'ADMIN' || currentUser.role === 'SUBSTITUTO')) {
+    isSupervisao = true;
     itsCustodiaRows = await prisma.$queryRawUnsafe(`
-      SELECT id, codigo, titulo, versao, departamento, status
+      SELECT id, codigo, titulo, versao, departamento, status, responsavel_tecnico_id
       FROM public.fiorix_its
       ORDER BY codigo ASC
     `);
@@ -118,6 +126,8 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
   if (itsCustodia.length === 0) {
     return {
       hasCustodia: false,
+      isSupervisao: false,
+      responsavelRealNome: null,
       currentUser: {
         id: currentUser.id,
         name: currentUser.name || 'Usuário',
@@ -297,6 +307,8 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
 
   return {
     hasCustodia: true,
+    isSupervisao,
+    responsavelRealNome: isSupervisao ? (itRow.resp_nome || 'Responsável Técnico') : null,
     currentUser: {
       id: currentUser.id,
       name: currentUser.name || 'Usuário',

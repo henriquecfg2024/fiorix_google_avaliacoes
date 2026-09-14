@@ -16,6 +16,7 @@ import {
   Shield,
   Layers,
   ArrowUpRight,
+  Eye,
 } from 'lucide-react';
 import { MinhaItPageData, MinhaItCustodiaItem, publicarNovaVersaoIT } from '@/app/actions/minha-it';
 import { getITUploadSignedUrl } from '@/app/actions/its';
@@ -34,7 +35,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
     setMounted(true);
   }, []);
 
-  const { hasCustodia, currentUser, cartorioNome, cartorioUnidade, itsCustodia, currentIt } = initialData;
+  const { hasCustodia, currentUser, cartorioNome, cartorioUnidade, itsCustodia, currentIt, isSupervisao, responsavelRealNome } = initialData;
 
   // Estado de cópia do Hash
   const [copiedHash, setCopiedHash] = useState(false);
@@ -216,6 +217,20 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
       {/* ── Breadcrumbs & Top Info (FIORIX Dark Standard) ────── */}
       <div className="relative mx-auto max-w-[1200px] px-4 sm:px-6 pt-6 pb-2">
+        {/* Banner de Supervisão */}
+        {isSupervisao && (
+          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-sky-500/20 bg-sky-500/5 px-5 py-3.5">
+            <Eye className="w-5 h-5 text-sky-400 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-bold text-sky-300">MODO SUPERVISÃO</p>
+              <p className="text-xs text-sky-300/70 mt-0.5">
+                Você está visualizando as ITs como {currentUser.role === 'SUBSTITUTO' ? 'Oficial Substituto' : currentUser.role}.
+                {responsavelRealNome && <> O responsável técnico desta IT é <strong className="text-sky-200">{responsavelRealNome}</strong>.</>}
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-white/6">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
@@ -223,18 +238,25 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
               <span className="text-slate-600">/</span>
               <span>Meu Espaço</span>
               <span className="text-slate-600">/</span>
-              <span className="text-emerald-400">Minha IT</span>
+              <span className="text-emerald-400">{isSupervisao ? 'Supervisão ITs' : 'Minha IT'}</span>
             </div>
             <div className="flex items-center gap-3 mt-1.5">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-sans">
-                Minha Instrução de Trabalho
+                {isSupervisao ? 'Supervisão de Instruções de Trabalho' : 'Minha Instrução de Trabalho'}
               </h1>
-              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
-                RESPONSÁVEL TÉCNICO
-              </span>
+              {!isSupervisao && (
+                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
+                  RESPONSÁVEL TÉCNICO
+                </span>
+              )}
+              {isSupervisao && (
+                <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-sky-300">
+                  SOMENTE LEITURA
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              {cartorioNome} • {cartorioUnidade} • Gestão oficial e custódia de versão do setor {currentIt.departamento}
+              {cartorioNome} • {cartorioUnidade} • {isSupervisao ? 'Visão de supervisão' : 'Gestão oficial e custódia de versão'} do setor {currentIt.departamento}
             </p>
           </div>
 
@@ -246,8 +268,8 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
           </div>
         </div>
 
-        {/* ── Alerta Amarelo Vibrante do Responsável Técnico ── */}
-        {alertaVisible && (
+        {/* ── Alerta Amarelo Vibrante do Responsável Técnico (somente para o responsável real) ── */}
+        {!isSupervisao && alertaVisible && (
           <div className="mt-4">
             <AlertaResponsavelTecnico
               codigo={currentIt.codigo}
@@ -505,14 +527,16 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 </div>
               </div>
 
-              {/* Botão Principal: Atualizar Meu PDF Vigente */}
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="w-full h-11 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 active:scale-[0.98] text-white font-semibold text-xs rounded-xl shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 transition-all cursor-pointer border border-emerald-400/20"
-              >
-                <Upload className="w-4 h-4" />
-                <span>Atualizar Meu PDF Vigente</span>
-              </button>
+              {/* Botão Principal: Atualizar Meu PDF Vigente (oculto em supervisão) */}
+              {!isSupervisao && (
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="w-full h-11 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 active:scale-[0.98] text-white font-semibold text-xs rounded-xl shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 transition-all cursor-pointer border border-emerald-400/20"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>Atualizar Meu PDF Vigente</span>
+                </button>
+              )}
             </div>
 
             {/* Box 2: EQUIPE • CIÊNCIAS */}
