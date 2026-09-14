@@ -527,8 +527,8 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 </div>
               </div>
 
-              {/* Botão de Upload — visível para SUBSTITUTO/USER na própria IT, oculto para ADMIN/MASTER */}
-              {!isSupervisao && currentUser.role !== 'ADMIN' && currentUser.role !== 'MASTER' && (
+              {/* Botão de Upload — visível para SUBSTITUTO/USER em qualquer IT, oculto para ADMIN/MASTER */}
+              {currentUser.role !== 'ADMIN' && currentUser.role !== 'MASTER' && (
                 <>
                   {/* Alerta de pendência quando PDF não foi carregado */}
                   {!currentIt.pdfUrl && (
