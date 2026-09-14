@@ -434,71 +434,73 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
       {/* ─────────────────────────────────────────────────────────────────── */}
       {activeTab === "its" && (
         <div className="space-y-6">
-          {/* Banner de Termo de Responsabilidade Mensal (SHA-256) */}
-          <div
-            className={`p-6 rounded-2xl border transition-all ${
-              aceite.assinado
-                ? "border-emerald-500/30 bg-gradient-to-r from-[#0d1a14] to-[#0a1410]"
-                : "border-amber-500/40 bg-gradient-to-r from-[#1a140d] to-[#14100a]"
-            }`}
-          >
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <FileCheck
-                    className={`w-5 h-5 ${aceite.assinado ? "text-emerald-400" : "text-amber-400"}`}
-                  />
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                    Termo de Responsabilidade Operacional — Setembro / 2026
-                  </h3>
-                  <span
-                    className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase ${
-                      aceite.assinado
-                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                        : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                    }`}
-                  >
-                    {aceite.assinado ? "CIÊNCIA HOMOLOGADA" : "PENDENTE DE CIÊNCIA"}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-300">
-                  {aceite.assinado
-                    ? "Sua ciência periódica foi registrada e assinada criptograficamente. Custódia WORM ativa."
-                    : "«Declaro que revisei e minhas ITs estão atualizadas conforme o padrão interno.»"}
-                </p>
-
-                {aceite.assinado && aceite.hash && (
-                  <div className="flex items-center gap-2 pt-2">
-                    <span className="text-[11px] font-mono text-slate-400">Hash SHA-256:</span>
-                    <code className="text-[11px] font-mono text-emerald-300 bg-black/40 px-2.5 py-1 rounded-lg border border-emerald-500/20 truncate max-w-md">
-                      {aceite.hash}
-                    </code>
-                    <button
-                      onClick={copyHashToClipboard}
-                      className="text-slate-400 hover:text-white p-1 rounded-md hover:bg-white/5 transition-colors"
-                      title="Copiar Hash"
+          {/* Banner de Termo de Responsabilidade Mensal (SHA-256) — apenas para responsáveis técnicos */}
+          {!isGestao && (
+            <div
+              className={`p-6 rounded-2xl border transition-all ${
+                aceite.assinado
+                  ? "border-emerald-500/30 bg-gradient-to-r from-[#0d1a14] to-[#0a1410]"
+                  : "border-amber-500/40 bg-gradient-to-r from-[#1a140d] to-[#14100a]"
+              }`}
+            >
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <FileCheck
+                      className={`w-5 h-5 ${aceite.assinado ? "text-emerald-400" : "text-amber-400"}`}
+                    />
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                      Termo de Responsabilidade Operacional — Setembro / 2026
+                    </h3>
+                    <span
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase ${
+                        aceite.assinado
+                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                          : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                      }`}
                     >
-                      {copiedHash ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                    <span className="text-[10px] text-slate-500 font-mono ml-2">
-                      Registrado em: {aceite.dataAssinatura}
+                      {aceite.assinado ? "CIÊNCIA HOMOLOGADA" : "PENDENTE DE CIÊNCIA"}
                     </span>
                   </div>
+                  <p className="text-xs text-slate-300">
+                    {aceite.assinado
+                      ? "Sua ciência periódica foi registrada e assinada criptograficamente. Custódia WORM ativa."
+                      : "«Declaro que revisei e minhas ITs estão atualizadas conforme o padrão interno.»"}
+                  </p>
+
+                  {aceite.assinado && aceite.hash && (
+                    <div className="flex items-center gap-2 pt-2">
+                      <span className="text-[11px] font-mono text-slate-400">Hash SHA-256:</span>
+                      <code className="text-[11px] font-mono text-emerald-300 bg-black/40 px-2.5 py-1 rounded-lg border border-emerald-500/20 truncate max-w-md">
+                        {aceite.hash}
+                      </code>
+                      <button
+                        onClick={copyHashToClipboard}
+                        className="text-slate-400 hover:text-white p-1 rounded-md hover:bg-white/5 transition-colors"
+                        title="Copiar Hash"
+                      >
+                        {copiedHash ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                      <span className="text-[10px] text-slate-500 font-mono ml-2">
+                        Registrado em: {aceite.dataAssinatura}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {!aceite.assinado && (
+                  <Button
+                    onClick={handleAssinarTermo}
+                    disabled={assinando}
+                    className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-bold text-xs rounded-xl px-5 py-2.5 shadow-lg shadow-amber-900/40 gap-2 shrink-0"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>{assinando ? "Gerando Hash..." : "Assinar Termo com Hash SHA-256"}</span>
+                  </Button>
                 )}
               </div>
-
-              {!aceite.assinado && (
-                <Button
-                  onClick={handleAssinarTermo}
-                  disabled={assinando}
-                  className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-bold text-xs rounded-xl px-5 py-2.5 shadow-lg shadow-amber-900/40 gap-2 shrink-0"
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>{assinando ? "Gerando Hash..." : "Assinar Termo com Hash SHA-256"}</span>
-                </Button>
-              )}
             </div>
-          </div>
+          )}
 
           {/* Barra de Filtros e Busca */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border border-white/10 bg-[#10101a]">
