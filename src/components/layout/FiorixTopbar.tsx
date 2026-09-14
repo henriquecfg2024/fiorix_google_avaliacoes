@@ -123,7 +123,7 @@ export function FiorixTopbar() {
 
                 <div className="p-4 flex flex-col gap-2">
                   <Link
-                    prefetch={false}
+  
                     href={homeRoute}
                     onClick={() => { handleNavClick(homeRoute); setIsMobileMenuOpen(false); }}
                     className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all duration-200 ${
@@ -162,7 +162,7 @@ export function FiorixTopbar() {
                               const ItemIcon = item.icon;
                               return (
                                 <Link
-                                  prefetch={false}
+                
                                   key={item.href}
                                   href={item.href}
                                   onClick={() => { handleNavClick(item.href); setIsMobileMenuOpen(false); }}

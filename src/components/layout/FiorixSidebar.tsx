@@ -141,7 +141,7 @@ export function FiorixSidebar() {
               {/* @ts-expect-error Radix UI asChild type mismatch */}
               <TooltipTrigger asChild>
                 <Link
-                  prefetch={false}
+
                   href={homeRoute}
                   className={`flex items-center justify-center h-10 w-full rounded-lg transition-colors ${
                     isActive(homeRoute)
@@ -156,7 +156,6 @@ export function FiorixSidebar() {
             </Tooltip>
           ) : (
             <Link
-              prefetch={false}
               href={homeRoute}
               onClick={() => handleNavClick(homeRoute)}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
@@ -216,7 +215,7 @@ export function FiorixSidebar() {
                         <Link
                           key={item.href}
                           href={item.href}
-                          prefetch={false}
+        
                           className="block"
                           onClick={() => {
                             if (item.href === '/minha-it' && typeof window !== 'undefined') {
@@ -274,7 +273,7 @@ export function FiorixSidebar() {
                         <Link
                           key={item.href}
                           href={item.href}
-                          prefetch={false}
+        
                           className="block"
                           onClick={() => {
                             handleNavClick(item.href);
