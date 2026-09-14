@@ -1255,11 +1255,12 @@ export async function getGovernancaRhData() {
 
   const cienciasAgg = (await prisma.$queryRawUnsafe<any[]>(
     `SELECT 
-       count(*)::int as total,
-       count(CASE WHEN status = 'ciente' THEN 1 END)::int as cientes,
-       count(CASE WHEN status = 'pendente' THEN 1 END)::int as pendentes
-     FROM public.fiorix_its_ciencias
-     WHERE tenant_id = $1`,
+       count(c.id)::int as total,
+       count(CASE WHEN c.status = 'ciente' THEN 1 END)::int as cientes,
+       count(CASE WHEN c.status = 'pendente' THEN 1 END)::int as pendentes
+     FROM public.fiorix_its_ciencias c
+     JOIN public.fiorix_its i ON i.id = c.it_id AND i.deleted_at IS NULL
+     WHERE c.tenant_id = $1`,
     tenantId
   ))[0];
 
