@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { PwaInstallBanner } from '@/components/pwa/PwaInstallBanner';
 import { FiorixSidebar } from '@/components/layout/FiorixSidebar';
 import { FiorixTopbar } from '@/components/layout/FiorixTopbar';
+import { NavigationProgress } from '@/components/layout/NavigationProgress';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -15,6 +16,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen bg-[#070A12] overflow-hidden">
+      {/* Barra de progresso no topo (estilo YouTube) */}
+      <NavigationProgress />
       {/* Sidebar - Desktop Only */}
       <FiorixSidebar />
 
