@@ -204,27 +204,23 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
 
       if (formPdfFile) {
         setUploadingPdf(true);
-        setPdfUploadStatus("Autorizando armazenamento seguro do PDF...");
-        const uploadAuth = await getITUploadSignedUrl(formPdfFile.name, "application/pdf");
-        if (!uploadAuth.success || !uploadAuth.signedUrl) {
-          throw new Error(uploadAuth.error || "Não foi possível autorizar o envio do arquivo PDF.");
-        }
+        setPdfUploadStatus("Enviando arquivo PDF para o servidor seguro...");
+        const formData = new FormData();
+        formData.append("file", formPdfFile);
+        formData.append("codigo", formCodigo || "IT");
 
-        setPdfUploadStatus("Enviando arquivo PDF para o servidor...");
-        const uploadRes = await fetch(uploadAuth.signedUrl, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/pdf",
-          },
-          body: formPdfFile,
+        const uploadRes = await fetch("/api/its/upload-pdf", {
+          method: "POST",
+          body: formData,
         });
 
-        if (!uploadRes.ok) {
-          throw new Error(`Falha no envio do PDF (${uploadRes.status}).`);
+        const uploadJson = await uploadRes.json();
+        if (!uploadRes.ok || !uploadJson.success) {
+          throw new Error(uploadJson.error || `Falha no envio do PDF (${uploadRes.status}).`);
         }
 
-        finalPdfUrl = uploadAuth.publicUrl;
-        finalPdfPath = uploadAuth.storagePath;
+        finalPdfUrl = uploadJson.publicUrl;
+        finalPdfPath = uploadJson.storagePath;
       }
 
       await salvarOuAtualizarIt({

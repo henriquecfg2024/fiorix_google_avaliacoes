@@ -79,25 +79,23 @@ export function UniversalITUploader({ onParseSuccess, onCancel }: UniversalITUpl
         else if (['jpg', 'jpeg', 'png', 'webp', 'heic'].includes(ext)) tipoDetectado = 'imagem-fluxograma';
         else tipoDetectado = ext || 'texto';
 
-        // 3. Upload direto para Supabase Storage via URL assinada (bypassa limite Vercel e não precisa de env vars no cliente)
-        setStatusMessage('Autorizando armazenamento seguro...');
-        const { signedUrl, publicUrl } = await getITUploadSignedUrl(nomeArquivo, file.type);
-
+        // 3. Upload direto para Supabase Storage via endpoint seguro do servidor
         setStatusMessage('Enviando documento para armazenamento seguro...');
-        const uploadRes = await fetch(signedUrl, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': file.type || 'application/octet-stream',
-          },
-          body: file,
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('codigo', 'IT');
+
+        const uploadRes = await fetch('/api/its/upload-pdf', {
+          method: 'POST',
+          body: formData,
         });
 
-        if (!uploadRes.ok) {
-          const errBody = await uploadRes.text().catch(() => '');
-          throw new Error(`Falha no upload do arquivo (${uploadRes.status}): ${errBody || 'Erro no envio'}`);
+        const uploadJson = await uploadRes.json();
+        if (!uploadRes.ok || !uploadJson.success) {
+          throw new Error(uploadJson.error || `Falha no upload do arquivo (${uploadRes.status})`);
         }
 
-        arquivoOriginalUrl = publicUrl;
+        arquivoOriginalUrl = uploadJson.publicUrl;
       } else if (textHtml) {
         tipoDetectado = 'email-arraste-direto';
         nomeArquivo = 'Email_Arrastado.html';

@@ -271,23 +271,22 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
         let pdfPath: string | undefined;
 
         if (novaItPdfFile) {
-          const uploadAuth = await getITUploadSignedUrl(novaItPdfFile.name, 'application/pdf');
-          if (!uploadAuth.success || !uploadAuth.signedUrl) {
-            throw new Error(uploadAuth.error || 'Falha ao autorizar upload do PDF no armazenamento seguro.');
-          }
+          const formData = new FormData();
+          formData.append('file', novaItPdfFile);
+          formData.append('codigo', novaItForm.codigo || 'IT');
 
-          const uploadRes = await fetch(uploadAuth.signedUrl, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/pdf' },
-            body: novaItPdfFile,
+          const uploadRes = await fetch('/api/its/upload-pdf', {
+            method: 'POST',
+            body: formData,
           });
 
-          if (!uploadRes.ok) {
-            throw new Error(`Falha no upload do arquivo PDF (${uploadRes.status}).`);
+          const uploadJson = await uploadRes.json();
+          if (!uploadRes.ok || !uploadJson.success) {
+            throw new Error(uploadJson.error || 'Falha no envio do arquivo PDF.');
           }
 
-          pdfOriginalUrl = uploadAuth.publicUrl;
-          pdfPath = uploadAuth.storagePath;
+          pdfOriginalUrl = uploadJson.publicUrl;
+          pdfPath = uploadJson.storagePath;
         }
 
         await criarItRapida({
