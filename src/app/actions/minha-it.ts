@@ -93,21 +93,20 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
   }
 
   // 2. Busca as ITs para exibição
-  // SUBSTITUTO/ADMIN/MASTER sempre veem TODAS as ITs (supervisão).
-  // Usuários comuns veem apenas as ITs onde são responsável técnico.
+  // "Minha IT" é pessoal: cada usuário vê SOMENTE as ITs onde é responsável técnico.
+  // ADMIN/MASTER veem todas (supervisão administrativa). SUBSTITUTO vê apenas as suas.
   let itsCustodiaRows: any[];
   let isSupervisao = false;
 
-  if (isMaster || currentUser.role === 'ADMIN' || currentUser.role === 'SUBSTITUTO') {
-    // Supervisores: carregar TODAS as ITs
+  if (isMaster || currentUser.role === 'ADMIN') {
+    // Apenas ADMIN/MASTER: carregar TODAS as ITs em modo supervisão
     itsCustodiaRows = await prisma.$queryRawUnsafe(`
       SELECT id, codigo, titulo, versao, departamento, status, responsavel_tecnico_id
       FROM public.fiorix_its
       ORDER BY codigo ASC
     `);
-    // isSupervisao será determinado por IT selecionada (mais abaixo)
   } else {
-    // Usuário comum: apenas ITs onde é responsável técnico
+    // SUBSTITUTO, USER e demais: apenas ITs onde é responsável técnico
     itsCustodiaRows = await prisma.$queryRawUnsafe(`
       SELECT id, codigo, titulo, versao, departamento, status, responsavel_tecnico_id
       FROM public.fiorix_its
@@ -169,8 +168,8 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
   const versao = String(itRow.versao || '1.0');
   const depto = String(itRow.departamento || 'Atendimento');
 
-  // Determina supervisão por IT: se o responsável técnico desta IT não é o usuário logado
-  if (isMaster || currentUser.role === 'ADMIN' || currentUser.role === 'SUBSTITUTO') {
+  // Determina supervisão: apenas ADMIN/MASTER podem estar em modo supervisão
+  if (isMaster || currentUser.role === 'ADMIN') {
     isSupervisao = itRow.resp_id !== userId;
   }
 
