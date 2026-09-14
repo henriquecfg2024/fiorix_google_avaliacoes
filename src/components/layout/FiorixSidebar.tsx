@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, ChevronRight, Home, ChevronDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, Home, ChevronDown, Loader2 } from "lucide-react";
 import { filterNavigationByRole, Role } from "@/lib/navigation/permissions";
 import { getHomeRouteForRole } from "@/lib/permissions";
 import {
@@ -20,6 +20,7 @@ export function FiorixSidebar() {
   const [role, setRole] = useState<Role>("USER");
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
 
   // Fetch navigation stats dynamically if needed, just like FiorixHeader did
   const [navigationStats, setNavigationStats] = useState<NavigationStats>({});
@@ -41,6 +42,19 @@ export function FiorixSidebar() {
       .then(setNavigationStats)
       .catch(() => {});
   }, []);
+
+  // Resetar estado de navegação quando a rota muda
+  useEffect(() => {
+    setNavigatingTo(null);
+  }, [pathname]);
+
+  const handleNavClick = useCallback((href: string) => {
+    // Não marcar se já está na mesma página
+    if (href === pathname) return;
+    setNavigatingTo(href);
+  }, [pathname]);
+
+  const isNavigating = navigatingTo !== null;
 
   const toggleCollapse = () => {
     const newState = !isCollapsed;
@@ -144,13 +158,22 @@ export function FiorixSidebar() {
             <Link
               prefetch={false}
               href={homeRoute}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-                isActive(homeRoute)
+              onClick={() => handleNavClick(homeRoute)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                navigatingTo === homeRoute
+                  ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 pointer-events-none"
+                  : isActive(homeRoute)
                   ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+                  : isNavigating
+                  ? "text-white/40 pointer-events-none border border-transparent"
                   : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
               }`}
             >
-              <Home className="w-4 h-4 opacity-75" />
+              {navigatingTo === homeRoute ? (
+                <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+              ) : (
+                <Home className="w-4 h-4 opacity-75" />
+              )}
               <span>Home</span>
             </Link>
           )}
@@ -254,19 +277,28 @@ export function FiorixSidebar() {
                           prefetch={false}
                           className="block"
                           onClick={() => {
+                            handleNavClick(item.href);
                             if (item.href === '/minha-it' && typeof window !== 'undefined') {
                               window.dispatchEvent(new CustomEvent('fiorix-minha-it-open'));
                             }
                           }}
                         >
                           <div
-                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-                              active
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                              navigatingTo === item.href
+                                ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30"
+                                : active
                                 ? "bg-white/[0.08] text-white border border-white/5"
+                                : isNavigating
+                                ? "text-white/30 pointer-events-none border border-transparent"
                                 : "text-slate-300 hover:bg-white/[0.06] hover:text-white border border-transparent"
                             }`}
                           >
-                            <ItemIcon className="w-4 h-4 opacity-80 shrink-0" />
+                            {navigatingTo === item.href ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-indigo-400 shrink-0" />
+                            ) : (
+                              <ItemIcon className="w-4 h-4 opacity-80 shrink-0" />
+                            )}
                             <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
                               <span className="truncate">{item.label}</span>
                               {item.isNew && (

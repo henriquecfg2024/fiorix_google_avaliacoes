@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Menu, LogOut, Building2, Home } from "lucide-react";
+import { Menu, LogOut, Building2, Home, Loader2 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { handleSignOut } from "@/app/actions/auth";
@@ -27,6 +27,7 @@ export function FiorixTopbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [navigationStats, setNavigationStats] = useState<NavigationStats>({});
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
 
   useEffect(() => {
     loadCurrentUserOnce()
@@ -46,7 +47,15 @@ export function FiorixTopbar() {
   useEffect(() => {
     setIsMobileMenuOpen(false);
     setUserMenuOpen(false);
+    setNavigatingTo(null);
   }, [pathname]);
+
+  const handleNavClick = useCallback((href: string) => {
+    if (href === pathname) return;
+    setNavigatingTo(href);
+  }, [pathname]);
+
+  const isNavigating = navigatingTo !== null;
 
   const getInitials = (name?: string) => {
     if (!name) return "U";
@@ -116,14 +125,22 @@ export function FiorixTopbar() {
                   <Link
                     prefetch={false}
                     href={homeRoute}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${
-                      isActive(homeRoute)
+                    onClick={() => { handleNavClick(homeRoute); setIsMobileMenuOpen(false); }}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all duration-200 ${
+                      navigatingTo === homeRoute
+                        ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 pointer-events-none"
+                        : isActive(homeRoute)
                         ? "bg-white/[0.08] text-white border border-white/10"
+                        : isNavigating
+                        ? "text-white/40 pointer-events-none border border-transparent"
                         : "text-white/70 hover:bg-white/5 hover:text-white border border-transparent"
                     }`}
                   >
-                    <Home className="w-4 h-4 opacity-75" />
+                    {navigatingTo === homeRoute ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+                    ) : (
+                      <Home className="w-4 h-4 opacity-75" />
+                    )}
                     <span>Home</span>
                   </Link>
 
@@ -148,14 +165,22 @@ export function FiorixTopbar() {
                                   prefetch={false}
                                   key={item.href}
                                   href={item.href}
-                                  onClick={() => setIsMobileMenuOpen(false)}
-                                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-colors ${
-                                    active
+                                  onClick={() => { handleNavClick(item.href); setIsMobileMenuOpen(false); }}
+                                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
+                                    navigatingTo === item.href
+                                      ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30"
+                                      : active
                                       ? "bg-white/[0.08] text-white"
+                                      : isNavigating
+                                      ? "text-white/30 pointer-events-none"
                                       : "text-white/60 hover:bg-white/[0.04] hover:text-white"
                                   }`}
                                 >
-                                  <ItemIcon className="w-3.5 h-3.5 opacity-75" />
+                                  {navigatingTo === item.href ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                                  ) : (
+                                    <ItemIcon className="w-3.5 h-3.5 opacity-75" />
+                                  )}
                                   <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
                                     <span className="truncate">{item.label}</span>
                                     {item.isNew && (
