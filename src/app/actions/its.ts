@@ -1656,19 +1656,6 @@ export async function criarItRapida(data: {
     throw new Error(`Já existe uma IT ativa com o código "${data.codigo}". Escolha um código diferente.`);
   }
 
-  // Verifica se existe IT arquivada (soft-deleted) com o mesmo código — a constraint UNIQUE não inclui deleted_at
-  const existingDeleted = await prisma.$queryRawUnsafe<any[]>(
-    `SELECT id, deleted_at FROM public.fiorix_its WHERE tenant_id = $1 AND codigo = $2 AND deleted_at IS NOT NULL`,
-    tenantId,
-    data.codigo.trim()
-  );
-  if (existingDeleted.length > 0) {
-    throw new Error(
-      `O código "${data.codigo}" já foi utilizado por uma IT arquivada. ` +
-      `Por integridade do histórico WORM, use um código novo (ex: ${data.codigo}-V2 ou ${data.codigo.replace(/\d+$/, (n) => String(parseInt(n) + 1))}).`
-    );
-  }
-
   const hashVersao = crypto.createHash('sha256').update(
     JSON.stringify({ tenantId, ...data, timestamp: new Date().toISOString() })
   ).digest('hex');
