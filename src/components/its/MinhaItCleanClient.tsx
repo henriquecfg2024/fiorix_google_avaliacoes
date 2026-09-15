@@ -37,11 +37,17 @@ import {
   Plus,
   XCircle,
   Trash2,
+  Users,
+  UserPlus,
+  UserMinus,
+  ArrowLeftRight,
+  Search,
+  BadgeCheck,
 } from 'lucide-react';
 
 import { MinhaItPageData, MinhaItCustodiaItem, ItEnviadaColaborador, publicarNovaVersaoIT, submeterItColaborador } from '@/app/actions/minha-it';
 
-import { getITUploadSignedUrl, cancelarEnvioIt, excluirRascunhoIt } from '@/app/actions/its';
+import { getITUploadSignedUrl, cancelarEnvioIt, excluirRascunhoIt, getParticipantesIt, adicionarParticipanteIt, removerParticipanteIt, transferirResponsabilidadeIt, buscarColaboradoresParaVincular, ItParticipante, PapelNaIt } from '@/app/actions/its';
 
 import { AlertaResponsavelTecnico } from './AlertaResponsavelTecnico';
 
@@ -73,11 +79,90 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
 
 
-  const { hasCustodia, currentUser, cartorioNome, cartorioUnidade, itsCustodia, currentIt, isSupervisao, responsavelRealNome } = initialData;
+  const { hasCustodia, currentUser, cartorioNome, cartorioUnidade, itsCustodia, currentIt, isSupervisao, responsavelRealNome, itsByParticipation } = initialData;
 
+  // Papel do usuário na IT selecionada (via participants)
+  const [gerenciarItId, setGerenciarItId] = useState<string | null>(null);
+  const [participantes, setParticipantes] = useState<ItParticipante[]>([]);
+  const [loadingParticipantes, setLoadingParticipantes] = useState(false);
+  const [buscaParticipante, setBuscaParticipante] = useState('');
+  const [resultadosBusca, setResultadosBusca] = useState<Array<{ id: string; nome: string; email: string; departamento: string; cargo: string; mesmoSetor: boolean }>>([]);
+  const [buscandoUser, setBuscandoUser] = useState(false);
+  const [adicionandoId, setAdicionandoId] = useState<string | null>(null);
+  const [gerenciarError, setGerenciarError] = useState('');
+  const [gerenciarSuccess, setGerenciarSuccess] = useState('');
+  const [transferirModal, setTransferirModal] = useState(false);
+  const [transferirParaId, setTransferirParaId] = useState('');
+  const [transferirMotivo, setTransferirMotivo] = useState('');
+  const [transferirManter, setTransferirManter] = useState(true);
 
+  async function abrirGerenciarModal(itId: string) {
+    setGerenciarItId(itId);
+    setGerenciarError('');
+    setGerenciarSuccess('');
+    setBuscaParticipante('');
+    setResultadosBusca([]);
+    setLoadingParticipantes(true);
+    const res = await getParticipantesIt(itId);
+    setParticipantes(res.participantes || []);
+    setLoadingParticipantes(false);
+  }
 
-  // Estado de cópia do Hash
+  async function handleBuscarUser(itId: string) {
+    if (!buscaParticipante.trim()) return;
+    setBuscandoUser(true);
+    const res = await buscarColaboradoresParaVincular(itId, buscaParticipante);
+    setResultadosBusca(res.usuarios || []);
+    setBuscandoUser(false);
+  }
+
+  async function handleAdicionarParticipante(itId: string, usuarioId: string, papel: PapelNaIt) {
+    setAdicionandoId(usuarioId);
+    setGerenciarError('');
+    const res = await adicionarParticipanteIt({ itId, usuarioId, papel });
+    if (res.success) {
+      setGerenciarSuccess('Participante adicionado com sucesso.');
+      setResultadosBusca([]);
+      setBuscaParticipante('');
+      const reload = await getParticipantesIt(itId);
+      setParticipantes(reload.participantes || []);
+    } else {
+      setGerenciarError(res.error || 'Erro ao adicionar.');
+    }
+    setAdicionandoId(null);
+  }
+
+  async function handleRemoverParticipante(itId: string, usuarioId: string, nome: string) {
+    const motivo = prompt(`Motivo para remover ${nome} desta IT (obrigatório):`);
+    if (!motivo?.trim()) return;
+    setGerenciarError('');
+    const res = await removerParticipanteIt(itId, usuarioId, motivo);
+    if (res.success) {
+      setGerenciarSuccess('Participante removido.');
+      const reload = await getParticipantesIt(itId);
+      setParticipantes(reload.participantes || []);
+    } else {
+      setGerenciarError(res.error || 'Erro ao remover.');
+    }
+  }
+
+  async function handleTransferirResponsabilidade(itId: string) {
+    if (!transferirParaId || !transferirMotivo.trim()) {
+      setGerenciarError('Selecione o novo responsável e informe o motivo.');
+      return;
+    }
+    const res = await transferirResponsabilidadeIt({ itId, novoResponsavelId: transferirParaId, motivo: transferirMotivo, manterComoCorresponsavel: transferirManter });
+    if (res.success) {
+      setTransferirModal(false);
+      setGerenciarSuccess('Responsabilidade transferida com sucesso.');
+      const reload = await getParticipantesIt(itId);
+      setParticipantes(reload.participantes || []);
+      router.refresh();
+    } else {
+      setGerenciarError(res.error || 'Erro ao transferir.');
+    }
+  }
+
 
   const [copiedHash, setCopiedHash] = useState(false);
 
@@ -546,7 +631,208 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
               </div>
             </div>
           )}
+
+          {/* Participação em outras ITs (CORRESPONSAVEL / LEITOR) */}
+          {itsByParticipation && itsByParticipation.length > 0 && (
+            <div className="mt-6">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Participação em outras ITs</p>
+              <div className="rounded-2xl border border-white/8 bg-[#0B1020]/60 divide-y divide-white/6">
+                {itsByParticipation.map((it) => {
+                  const papelConfig = {
+                    CORRESPONSAVEL: { label: 'Corresponsável', color: 'text-violet-300', bg: 'bg-violet-500/15 border-violet-500/30' },
+                    LEITOR: { label: 'Leitura', color: 'text-slate-300', bg: 'bg-slate-500/15 border-slate-500/30' },
+                    RESPONSAVEL_PRINCIPAL: { label: 'Responsável', color: 'text-indigo-300', bg: 'bg-indigo-500/15 border-indigo-500/30' },
+                  }[it.papelNaIt || 'LEITOR'] || { label: 'Participante', color: 'text-slate-300', bg: 'bg-slate-500/15 border-slate-500/30' };
+                  return (
+                    <div key={it.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-white/[0.02] transition-colors first:rounded-t-2xl last:rounded-b-2xl">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-white text-sm truncate">{it.titulo}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{it.codigo} • versão {it.versao}</p>
+                      </div>
+                      <span className={`shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full border ${papelConfig.bg} ${papelConfig.color}`}>
+                        {papelConfig.label}
+                      </span>
+                      <button
+                        onClick={() => abrirGerenciarModal(it.id)}
+                        className="shrink-0 p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/8 transition-colors"
+                        title="Gerenciar responsáveis"
+                      >
+                        <Users className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Modal GerenciarResponsáveis */}
+        {gerenciarItId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => { setGerenciarItId(null); setTransferirModal(false); }} />
+            <div className="relative w-full max-w-xl rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              {/* Header */}
+              <div className="flex items-center justify-between p-5 border-b border-white/8 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center">
+                    <Users className="w-4 h-4 text-indigo-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-sm">Responsáveis pela IT</h3>
+                    <p className="text-xs text-slate-400">Gerencie quem tem acesso a este documento</p>
+                  </div>
+                </div>
+                <button onClick={() => { setGerenciarItId(null); setTransferirModal(false); }} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="overflow-y-auto flex-1 p-5 space-y-5">
+                {/* Feedback */}
+                {gerenciarError && <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5">{gerenciarError}</div>}
+                {gerenciarSuccess && <div className="text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-2.5">{gerenciarSuccess}</div>}
+
+                {/* Lista de participantes */}
+                {loadingParticipantes ? (
+                  <div className="py-6 text-center text-slate-500 text-xs">Carregando participantes...</div>
+                ) : participantes.length === 0 ? (
+                  <div className="py-6 text-center text-slate-500 text-xs">Nenhum participante registrado ainda.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {participantes.map((p) => {
+                      const papelCfg = {
+                        RESPONSAVEL_PRINCIPAL: { label: 'Responsável principal', color: 'text-indigo-300', bg: 'bg-indigo-500/15 border-indigo-500/25', icon: BadgeCheck },
+                        CORRESPONSAVEL: { label: 'Corresponsável', color: 'text-violet-300', bg: 'bg-violet-500/15 border-violet-500/25', icon: Users },
+                        LEITOR: { label: 'Leitura', color: 'text-slate-300', bg: 'bg-slate-500/15 border-slate-500/25', icon: Eye },
+                      }[p.papel] || { label: p.papel, color: 'text-slate-300', bg: 'bg-slate-500/15 border-slate-500/25', icon: Users };
+                      const PapelIcon = papelCfg.icon;
+                      const isMe = p.usuarioId === currentUser.id;
+                      const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(currentUser.role);
+                      const myPapel = participantes.find(x => x.usuarioId === currentUser.id)?.papel;
+                      const podeRemover = (isGestao || myPapel === 'RESPONSAVEL_PRINCIPAL') && p.papel !== 'RESPONSAVEL_PRINCIPAL';
+                      return (
+                        <div key={p.id} className="flex items-center gap-3 bg-white/[0.03] rounded-xl p-3 border border-white/6">
+                          <div className="w-8 h-8 rounded-full bg-indigo-600/30 flex items-center justify-center text-indigo-200 text-xs font-bold shrink-0">
+                            {p.nome.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-white truncate">{p.nome}{isMe ? ' (você)' : ''}</p>
+                            <p className="text-xs text-slate-500">{p.departamento} · {p.email}</p>
+                          </div>
+                          <span className={`shrink-0 flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full border ${papelCfg.bg} ${papelCfg.color}`}>
+                            <PapelIcon className="w-3 h-3" />
+                            {papelCfg.label}
+                          </span>
+                          {podeRemover && (
+                            <button onClick={() => handleRemoverParticipante(gerenciarItId, p.usuarioId, p.nome)}
+                              className="shrink-0 p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Remover">
+                              <UserMinus className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Buscar e adicionar */}
+                {(['ADMIN','SUBSTITUTO','MASTER'].includes(currentUser.role) ||
+                  participantes.find(x => x.usuarioId === currentUser.id)?.papel === 'RESPONSAVEL_PRINCIPAL') && (
+                  <div className="border-t border-white/8 pt-5 space-y-3">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Adicionar colaborador</p>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                        <input
+                          type="text"
+                          placeholder="Buscar por nome ou e-mail..."
+                          value={buscaParticipante}
+                          onChange={e => setBuscaParticipante(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleBuscarUser(gerenciarItId)}
+                          className="w-full pl-9 pr-4 py-2 rounded-xl border border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-all"
+                        />
+                      </div>
+                      <button onClick={() => handleBuscarUser(gerenciarItId)} disabled={buscandoUser}
+                        className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors disabled:opacity-50">
+                        {buscandoUser ? '...' : 'Buscar'}
+                      </button>
+                    </div>
+                    {resultadosBusca.length > 0 && (
+                      <div className="space-y-1.5">
+                        {resultadosBusca.map(u => (
+                          <div key={u.id} className="flex items-center gap-3 bg-white/[0.03] rounded-xl p-3 border border-white/6">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-white">{u.nome}</p>
+                              <p className="text-[10px] text-slate-500">{u.departamento}</p>
+                              {!u.mesmoSetor && (
+                                <p className="text-[10px] text-amber-400 mt-0.5">⚠ Outro setor — requer aprovação administrativa</p>
+                              )}
+                            </div>
+                            <div className="flex gap-1.5 shrink-0">
+                              <button onClick={() => handleAdicionarParticipante(gerenciarItId, u.id, 'CORRESPONSAVEL')}
+                                disabled={adicionandoId === u.id}
+                                className="px-2.5 py-1.5 rounded-lg bg-violet-600/80 hover:bg-violet-500 text-white text-[10px] font-semibold transition-colors disabled:opacity-50">
+                                + Corresponsável
+                              </button>
+                              <button onClick={() => handleAdicionarParticipante(gerenciarItId, u.id, 'LEITOR')}
+                                disabled={adicionandoId === u.id}
+                                className="px-2.5 py-1.5 rounded-lg bg-slate-600/80 hover:bg-slate-500 text-white text-[10px] font-semibold transition-colors disabled:opacity-50">
+                                + Leitor
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Transferir responsabilidade */}
+                {(participantes.find(x => x.usuarioId === currentUser.id)?.papel === 'RESPONSAVEL_PRINCIPAL' ||
+                  ['ADMIN','MASTER'].includes(currentUser.role)) && (
+                  <div className="border-t border-white/8 pt-4">
+                    {!transferirModal ? (
+                      <button onClick={() => { setTransferirModal(true); setTransferirParaId(''); setTransferirMotivo(''); }}
+                        className="flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors">
+                        <ArrowLeftRight className="w-3.5 h-3.5" /> Transferir responsabilidade principal
+                      </button>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Transferir responsabilidade</p>
+                        <select value={transferirParaId} onChange={e => setTransferirParaId(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-xs text-white focus:outline-none focus:border-indigo-500/60">
+                          <option value="">Selecione o novo responsável...</option>
+                          {participantes.filter(p => p.usuarioId !== currentUser.id && p.papel !== 'RESPONSAVEL_PRINCIPAL').map(p => (
+                            <option key={p.usuarioId} value={p.usuarioId}>{p.nome} ({p.papel === 'CORRESPONSAVEL' ? 'Corresponsável' : 'Leitor'})</option>
+                          ))}
+                        </select>
+                        <textarea placeholder="Motivo da transferência (obrigatório)..." value={transferirMotivo}
+                          onChange={e => setTransferirMotivo(e.target.value)} rows={2}
+                          className="w-full px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 resize-none" />
+                        <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                          <input type="checkbox" checked={transferirManter} onChange={e => setTransferirManter(e.target.checked)} className="rounded" />
+                          Manter responsável atual como corresponsável
+                        </label>
+                        <div className="flex gap-2">
+                          <button onClick={() => handleTransferirResponsabilidade(gerenciarItId)}
+                            className="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors">
+                            Confirmar transferência
+                          </button>
+                          <button onClick={() => setTransferirModal(false)}
+                            className="px-4 py-2 rounded-xl border border-white/15 text-slate-400 hover:text-white text-xs transition-colors">
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {isCadastroOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !cadastroSubmitting && setIsCadastroOpen(false)} />
@@ -1184,6 +1470,18 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                   </svg>
 
                 </a>
+
+                {/* Gerenciar responsáveis — apenas gestão ou responsável principal */}
+                {(currentUser.role === 'ADMIN' || currentUser.role === 'MASTER' ||
+                  itsCustodia.find(i => i.id === currentIt?.id)?.papelNaIt === 'RESPONSAVEL_PRINCIPAL') && currentIt && (
+                  <button
+                    onClick={() => abrirGerenciarModal(currentIt.id)}
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors"
+                  >
+                    <Users className="w-4 h-4 text-indigo-400" />
+                    Gerenciar responsáveis
+                  </button>
+                )}
 
               </div>
 

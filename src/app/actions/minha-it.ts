@@ -12,6 +12,8 @@ export interface MinhaItCustodiaItem {
   versao: string;
   departamento: string;
   status: string;
+  /** Papel do usuário nesta IT (via fiorix_its_participants) */
+  papelNaIt?: 'RESPONSAVEL_PRINCIPAL' | 'CORRESPONSAVEL' | 'LEITOR';
 }
 
 /** IT submetida pelo próprio colaborador (aguardando análise / em fluxo de aprovação) */
@@ -84,6 +86,8 @@ export interface MinhaItPageData {
   cartorioNome: string;
   cartorioUnidade: string;
   itsCustodia: MinhaItCustodiaItem[];
+  /** ITs em que o usuário é CORRESPONSAVEL ou LEITOR (via fiorix_its_participants) */
+  itsByParticipation: MinhaItCustodiaItem[];
   currentIt: MinhaItDocumento | null;
   /** IT submetida pelo colaborador (fora do fluxo de custódia tradicional) */
   colaboradorItEnviada: ItEnviadaColaborador | null;
@@ -140,9 +144,49 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
     versao: String(r.versao || '1.0'),
     departamento: String(r.departamento || 'Geral'),
     status: String(r.status || 'vigente'),
+    papelNaIt: 'RESPONSAVEL_PRINCIPAL' as const,
   }));
 
-  // 2b. IT submetida pelo próprio autor (colaborador) sem custódia formal
+  // 2b. ITs via fiorix_its_participants (CORRESPONSAVEL, LEITOR, RESPONSAVEL_PRINCIPAL não cobertos acima)
+  let itsByParticipation: MinhaItCustodiaItem[] = [];
+  try {
+    const tenantId = currentUser.tenantId || 'global';
+    const partRows: any[] = await prisma.$queryRawUnsafe(
+      `SELECT i.id::text, i.codigo, i.titulo, i.versao, i.departamento, i.status, p.papel
+       FROM public.fiorix_its_participants p
+       JOIN public.fiorix_its i ON i.id = p.it_id
+       WHERE p.usuario_id = $1
+         AND p.tenant_id = $2
+         AND p.status = 'ativo'
+         AND i.deleted_at IS NULL
+       ORDER BY p.papel ASC, i.codigo ASC`,
+      userId, tenantId
+    );
+    // Adicionar ao itsCustodia as de RESPONSAVEL_PRINCIPAL (que não aparecem na query acima por falta de responsavel_tecnico_id)
+    // e ao itsByParticipation as de CORRESPONSAVEL/LEITOR
+    const custodiaIds = new Set(itsCustodia.map(i => i.id));
+    for (const r of partRows) {
+      const item: MinhaItCustodiaItem = {
+        id: String(r.id),
+        codigo: String(r.codigo),
+        titulo: String(r.titulo),
+        versao: String(r.versao || '1.0'),
+        departamento: String(r.departamento || 'Geral'),
+        status: String(r.status || 'vigente'),
+        papelNaIt: r.papel as 'RESPONSAVEL_PRINCIPAL' | 'CORRESPONSAVEL' | 'LEITOR',
+      };
+      if (r.papel === 'RESPONSAVEL_PRINCIPAL' && !custodiaIds.has(item.id)) {
+        itsCustodia.push(item);
+        custodiaIds.add(item.id);
+      } else if (r.papel !== 'RESPONSAVEL_PRINCIPAL' && !custodiaIds.has(item.id)) {
+        itsByParticipation.push(item);
+      }
+    }
+  } catch {
+    // tabela pode não existir ainda — silencioso
+  }
+
+  // 2c. IT submetida pelo próprio autor (colaborador) sem custódia formal
   let colaboradorItEnviada: ItEnviadaColaborador | null = null;
   try {
     const autorRows: any[] = await prisma.$queryRawUnsafe(
@@ -208,6 +252,7 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
       cartorioNome,
       cartorioUnidade,
       itsCustodia: [],
+      itsByParticipation,
       currentIt: null,
       colaboradorItEnviada,
     };
@@ -397,6 +442,7 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
     cartorioNome,
     cartorioUnidade,
     itsCustodia,
+    itsByParticipation,
     currentIt,
     colaboradorItEnviada: null,
   };

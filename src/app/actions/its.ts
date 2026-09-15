@@ -2622,3 +2622,521 @@ export async function getHistoricoVersoes(
     return { success: false, error: err?.message || 'Erro ao carregar histórico.' };
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// RESPONSABILIDADE CONJUNTA — Participantes das ITs
+// ═══════════════════════════════════════════════════════════════
+
+export type PapelNaIt = 'RESPONSAVEL_PRINCIPAL' | 'CORRESPONSAVEL' | 'LEITOR';
+
+export interface ItParticipante {
+  id: string;
+  usuarioId: string;
+  nome: string;
+  email: string;
+  departamento: string;
+  cargo: string;
+  papel: PapelNaIt;
+  status: 'ativo' | 'inativo';
+  podeColaborarRascunho: boolean;
+  incluidoPor: string;
+  vinculadoEm: string;
+}
+
+/**
+ * Retorna todos os participantes ativos de uma IT.
+ * Visível para: ADMIN, SUBSTITUTO, MASTER, e qualquer participante da IT.
+ */
+export async function getParticipantesIt(
+  itId: string
+): Promise<{ success: boolean; participantes?: ItParticipante[]; error?: string }> {
+  try {
+    const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId;
+
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT
+         p.id::text,
+         p.usuario_id as "usuarioId",
+         p.papel,
+         p.status,
+         p.pode_colaborar_rascunho as "podeColaborarRascunho",
+         p.incluido_por as "incluidoPor",
+         p.created_at as "vinculadoEm",
+         u.name,
+         u.email,
+         u.departamento,
+         u.cargo
+       FROM public.fiorix_its_participants p
+       LEFT JOIN public."User" u ON u.id = p.usuario_id
+       WHERE p.it_id = $1::uuid
+         AND p.tenant_id = $2
+         AND p.status = 'ativo'
+       ORDER BY
+         CASE p.papel WHEN 'RESPONSAVEL_PRINCIPAL' THEN 0 WHEN 'CORRESPONSAVEL' THEN 1 ELSE 2 END,
+         p.created_at ASC`,
+      itId, tenantId
+    );
+
+    return {
+      success: true,
+      participantes: rows.map(r => ({
+        id: r.id,
+        usuarioId: r.usuarioId,
+        nome: r.name || 'Usuário',
+        email: r.email || '',
+        departamento: r.departamento || '',
+        cargo: r.cargo || '',
+        papel: r.papel as PapelNaIt,
+        status: r.status,
+        podeColaborarRascunho: r.podeColaborarRascunho || false,
+        incluidoPor: r.incluidoPor || '',
+        vinculadoEm: new Date(r.vinculadoEm).toLocaleDateString('pt-BR'),
+      })),
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao listar participantes.' };
+  }
+}
+
+/**
+ * Adiciona participante a uma IT.
+ * - RESPONSAVEL_PRINCIPAL pode adicionar CORRESPONSAVEL/LEITOR do mesmo setor.
+ * - Cross-setor requer ADMIN ou MASTER.
+ * - ADMIN/MASTER podem adicionar qualquer papel.
+ */
+export async function adicionarParticipanteIt(params: {
+  itId: string;
+  usuarioId: string;
+  papel: PapelNaIt;
+  podeColaborarRascunho?: boolean;
+}): Promise<{ success: boolean; error?: string; pendente?: boolean }> {
+  try {
+    const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId;
+    const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(currentUser.role);
+
+    // Buscar a IT
+    const itRows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id::text, codigo, titulo, departamento, status
+       FROM public.fiorix_its
+       WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL LIMIT 1`,
+      params.itId, tenantId
+    );
+    if (!itRows.length) return { success: false, error: 'IT não encontrada.' };
+    const it = itRows[0];
+
+    // Verificar se o executor é RESPONSAVEL_PRINCIPAL ou gestão
+    if (!isGestao) {
+      const papelAtual = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT papel FROM public.fiorix_its_participants
+         WHERE it_id = $1::uuid AND usuario_id = $2 AND status = 'ativo' AND tenant_id = $3 LIMIT 1`,
+        params.itId, currentUser.id, tenantId
+      );
+      if (!papelAtual.length || papelAtual[0].papel !== 'RESPONSAVEL_PRINCIPAL') {
+        return { success: false, error: 'Apenas o responsável principal ou gestão podem adicionar participantes.' };
+      }
+    }
+
+    // Não permitir duplicação
+    const existente = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id FROM public.fiorix_its_participants
+       WHERE it_id = $1::uuid AND usuario_id = $2 AND status = 'ativo' AND tenant_id = $3 LIMIT 1`,
+      params.itId, params.usuarioId, tenantId
+    );
+    if (existente.length) return { success: false, error: 'Este colaborador já é participante desta IT.' };
+
+    // Não permitir responsável principal como corresponsável
+    if (params.papel !== 'RESPONSAVEL_PRINCIPAL') {
+      const isRespPrincipal = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT id FROM public.fiorix_its_participants
+         WHERE it_id = $1::uuid AND usuario_id = $2 AND papel = 'RESPONSAVEL_PRINCIPAL' AND status = 'ativo' LIMIT 1`,
+        params.itId, params.usuarioId
+      );
+      if (isRespPrincipal.length) return { success: false, error: 'O responsável principal não pode ser adicionado como corresponsável.' };
+    }
+
+    // Verificar setor do novo participante
+    const novoUser = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id, name, email, departamento, "isActive" FROM public."User" WHERE id = $1 LIMIT 1`,
+      params.usuarioId
+    );
+    if (!novoUser.length) return { success: false, error: 'Usuário não encontrado.' };
+    if (novoUser[0].isActive === false) return { success: false, error: 'Não é possível adicionar usuário inativo.' };
+
+    const mesmoSetor = (novoUser[0].departamento || '').trim().toLowerCase() === (it.departamento || '').trim().toLowerCase();
+
+    // Cross-setor: apenas gestão pode adicionar diretamente
+    if (!mesmoSetor && !isGestao) {
+      return {
+        success: false,
+        pendente: true,
+        error: `Este colaborador pertence a outro setor (${novoUser[0].departamento}). A vinculação depende de aprovação administrativa.`,
+      };
+    }
+
+    // Inserir participante
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO public.fiorix_its_participants (
+         tenant_id, it_id, usuario_id, papel, status, incluido_por,
+         pode_colaborar_rascunho, created_at, updated_at
+       ) VALUES (
+         $1, $2::uuid, $3, $4, 'ativo', $5, $6, NOW(), NOW()
+       )`,
+      tenantId, params.itId, params.usuarioId, params.papel,
+      currentUser.id, params.podeColaborarRascunho || false
+    );
+
+    // Audit log
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO public.fiorix_its_audit_log (
+         tenant_id, it_id, versao_anterior, versao_nova, autor_id, motivo, diff_snapshot, hash_sha256, created_at
+       ) VALUES (
+         $1, $2::uuid, 'PARTICIPANTE', 'ADICIONADO', $3, $4, $5::jsonb, '', NOW()
+       )`,
+      tenantId, params.itId, currentUser.id,
+      `Participante adicionado: ${novoUser[0].name} como ${params.papel}`,
+      JSON.stringify({ acao: 'adicionar_participante', papel: params.papel, usuarioId: params.usuarioId, nome: novoUser[0].name, porSetor: mesmoSetor ? 'mesmo' : 'outro' })
+    );
+
+    revalidatePath('/minha-it');
+    revalidatePath('/administracao/its');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao adicionar participante.' };
+  }
+}
+
+/**
+ * Remove (inativa) um participante de uma IT.
+ * - RESPONSAVEL_PRINCIPAL pode remover CORRESPONSAVEL/LEITOR do mesmo setor.
+ * - ADMIN/MASTER podem remover qualquer participante, exceto o próprio RESPONSAVEL_PRINCIPAL (requer transferência).
+ */
+export async function removerParticipanteIt(
+  itId: string,
+  usuarioId: string,
+  motivo: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId;
+    const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(currentUser.role);
+
+    if (!motivo?.trim()) return { success: false, error: 'O motivo da remoção é obrigatório.' };
+
+    // Verificar o participante a ser removido
+    const alvo = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT p.id::text, p.papel, u.name, u.departamento
+       FROM public.fiorix_its_participants p
+       LEFT JOIN public."User" u ON u.id = p.usuario_id
+       WHERE p.it_id = $1::uuid AND p.usuario_id = $2 AND p.status = 'ativo' AND p.tenant_id = $3 LIMIT 1`,
+      itId, usuarioId, tenantId
+    );
+    if (!alvo.length) return { success: false, error: 'Participante não encontrado ou já removido.' };
+    const a = alvo[0];
+
+    // Não permitir remover RESPONSAVEL_PRINCIPAL sem transferência formal
+    if (a.papel === 'RESPONSAVEL_PRINCIPAL') {
+      return { success: false, error: 'Não é possível remover o responsável principal diretamente. Use "Solicitar transferência" para transferir a responsabilidade primeiro.' };
+    }
+
+    // Verificar permissão do executor
+    if (!isGestao) {
+      const papelExecutor = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT papel, u.departamento FROM public.fiorix_its_participants p
+         LEFT JOIN public."User" u ON u.id = p.usuario_id
+         WHERE p.it_id = $1::uuid AND p.usuario_id = $2 AND p.status = 'ativo' AND p.tenant_id = $3 LIMIT 1`,
+        itId, currentUser.id, tenantId
+      );
+      if (!papelExecutor.length || papelExecutor[0].papel !== 'RESPONSAVEL_PRINCIPAL') {
+        return { success: false, error: 'Apenas o responsável principal ou gestão podem remover participantes.' };
+      }
+      // Responsável principal só pode remover do mesmo setor
+      const mesmoSetor = (a.departamento || '').trim().toLowerCase() === (papelExecutor[0].departamento || '').trim().toLowerCase();
+      if (!mesmoSetor) {
+        return { success: false, error: 'O responsável principal só pode remover participantes do mesmo setor. Solicite a remoção ao ADMIN.' };
+      }
+    }
+
+    // Inativar participante (soft-delete — preserva histórico)
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_its_participants
+       SET status = 'inativo', removido_em = NOW(), motivo_remocao = $1, updated_at = NOW()
+       WHERE it_id = $2::uuid AND usuario_id = $3 AND status = 'ativo' AND tenant_id = $4`,
+      motivo.trim(), itId, usuarioId, tenantId
+    );
+
+    // Audit log
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO public.fiorix_its_audit_log (
+         tenant_id, it_id, versao_anterior, versao_nova, autor_id, motivo, diff_snapshot, hash_sha256, created_at
+       ) VALUES ($1, $2::uuid, 'PARTICIPANTE', 'REMOVIDO', $3, $4, $5::jsonb, '', NOW())`,
+      tenantId, itId, currentUser.id,
+      `Remoção de ${a.papel}: ${a.name} — ${motivo.trim()}`,
+      JSON.stringify({ acao: 'remover_participante', papel: a.papel, usuarioId, nome: a.name, motivo })
+    );
+
+    revalidatePath('/minha-it');
+    revalidatePath('/administracao/its');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao remover participante.' };
+  }
+}
+
+/**
+ * Solicita transferência da responsabilidade principal para outro colaborador.
+ * O responsável atual ou ADMIN/MASTER pode solicitar.
+ * Executa a transferência diretamente (sem aprovação separada pois o solicitante
+ * é o responsável atual ou gestão que já tem autoridade).
+ * ADMIN/MASTER → transferência imediata.
+ * RESPONSAVEL_PRINCIPAL → transferência imediata (conforme fluxo simplificado aprovado).
+ */
+export async function transferirResponsabilidadeIt(params: {
+  itId: string;
+  novoResponsavelId: string;
+  motivo: string;
+  manterComoCorresponsavel?: boolean;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId;
+    const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(currentUser.role);
+
+    if (!params.motivo?.trim()) return { success: false, error: 'O motivo da transferência é obrigatório.' };
+
+    // Verificar se o executor é o responsável atual ou gestão
+    if (!isGestao) {
+      const papelAtual = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT papel FROM public.fiorix_its_participants
+         WHERE it_id = $1::uuid AND usuario_id = $2 AND status = 'ativo' AND papel = 'RESPONSAVEL_PRINCIPAL' AND tenant_id = $3`,
+        params.itId, currentUser.id, tenantId
+      );
+      if (!papelAtual.length) return { success: false, error: 'Apenas o responsável principal ou gestão podem transferir a responsabilidade.' };
+    }
+
+    // Verificar se o novo responsável existe e está ativo
+    const novoResp = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id, name, email, "isActive" FROM public."User" WHERE id = $1 LIMIT 1`,
+      params.novoResponsavelId
+    );
+    if (!novoResp.length) return { success: false, error: 'Novo responsável não encontrado.' };
+    if (novoResp[0].isActive === false) return { success: false, error: 'Não é possível transferir para usuário inativo.' };
+
+    // Buscar responsável atual para referência
+    const respAtualRows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT p.id::text, p.usuario_id, u.name FROM public.fiorix_its_participants p
+       LEFT JOIN public."User" u ON u.id = p.usuario_id
+       WHERE p.it_id = $1::uuid AND p.papel = 'RESPONSAVEL_PRINCIPAL' AND p.status = 'ativo' AND p.tenant_id = $2 LIMIT 1`,
+      params.itId, tenantId
+    );
+    const respAtualId = respAtualRows[0]?.usuario_id;
+    const respAtualNome = respAtualRows[0]?.name || 'anterior';
+
+    // 1. Inativar responsável atual
+    if (respAtualId) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE public.fiorix_its_participants
+         SET status = 'inativo', removido_em = NOW(), motivo_remocao = $1, updated_at = NOW()
+         WHERE it_id = $2::uuid AND usuario_id = $3 AND status = 'ativo' AND tenant_id = $4`,
+        `Transferência: ${params.motivo.trim()}`, params.itId, respAtualId, tenantId
+      );
+
+      // 2. Se solicitado, adicionar antigo como CORRESPONSAVEL
+      if (params.manterComoCorresponsavel && respAtualId !== params.novoResponsavelId) {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO public.fiorix_its_participants (tenant_id, it_id, usuario_id, papel, status, incluido_por, created_at, updated_at)
+           VALUES ($1, $2::uuid, $3, 'CORRESPONSAVEL', 'ativo', $4, NOW(), NOW())
+           ON CONFLICT DO NOTHING`,
+          tenantId, params.itId, respAtualId, currentUser.id
+        );
+      }
+    }
+
+    // 3. Se o novo já existe como participante, promover
+    const existeVinculo = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id FROM public.fiorix_its_participants WHERE it_id = $1::uuid AND usuario_id = $2 AND status = 'ativo' AND tenant_id = $3`,
+      params.itId, params.novoResponsavelId, tenantId
+    );
+    if (existeVinculo.length) {
+      await prisma.$executeRawUnsafe(
+        `UPDATE public.fiorix_its_participants
+         SET papel = 'RESPONSAVEL_PRINCIPAL', updated_at = NOW()
+         WHERE it_id = $1::uuid AND usuario_id = $2 AND tenant_id = $3`,
+        params.itId, params.novoResponsavelId, tenantId
+      );
+    } else {
+      // 4. Inserir como novo RESPONSAVEL_PRINCIPAL
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO public.fiorix_its_participants (tenant_id, it_id, usuario_id, papel, status, incluido_por, created_at, updated_at)
+         VALUES ($1, $2::uuid, $3, 'RESPONSAVEL_PRINCIPAL', 'ativo', $4, NOW(), NOW())`,
+        tenantId, params.itId, params.novoResponsavelId, currentUser.id
+      );
+    }
+
+    // Audit log WORM
+    const hash = crypto.createHash('sha256').update(
+      JSON.stringify({ itId: params.itId, de: respAtualId, para: params.novoResponsavelId, motivo: params.motivo, ts: new Date().toISOString() })
+    ).digest('hex');
+
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO public.fiorix_its_audit_log (
+         tenant_id, it_id, versao_anterior, versao_nova, autor_id, motivo, diff_snapshot, hash_sha256, created_at
+       ) VALUES ($1, $2::uuid, 'RESPONSAVEL_PRINCIPAL', $3, $4, $5, $6::jsonb, $7, NOW())`,
+      tenantId, params.itId,
+      `TRANSFERIDO_PARA_${novoResp[0].name}`,
+      currentUser.id,
+      `Transferência de responsabilidade: ${params.motivo.trim()}`,
+      JSON.stringify({ acao: 'transferencia_responsabilidade', de: { id: respAtualId, nome: respAtualNome }, para: { id: params.novoResponsavelId, nome: novoResp[0].name }, motivo: params.motivo, manterComoCorresponsavel: params.manterComoCorresponsavel }),
+      hash
+    );
+
+    revalidatePath('/minha-it');
+    revalidatePath('/administracao/its');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao transferir responsabilidade.' };
+  }
+}
+
+/**
+ * Bloqueia edição de uma IT (evita edição simultânea).
+ * Só o autor do bloqueio, ADMIN ou MASTER pode liberar.
+ */
+export async function bloquearEdicaoIt(itId: string): Promise<{ success: boolean; error?: string; bloqueadoPor?: string }> {
+  try {
+    const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId;
+
+    // Verificar se já está bloqueada por outra pessoa
+    const itRows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT editando_por_id, editando_desde,
+         (SELECT name FROM public."User" WHERE id = editando_por_id) as editando_nome
+       FROM public.fiorix_its
+       WHERE id = $1::uuid AND tenant_id = $2 LIMIT 1`,
+      itId, tenantId
+    );
+    if (!itRows.length) return { success: false, error: 'IT não encontrada.' };
+    const it = itRows[0];
+
+    if (it.editando_por_id && it.editando_por_id !== currentUser.id) {
+      const desde = it.editando_desde ? new Date(it.editando_desde).toLocaleString('pt-BR') : '';
+      return {
+        success: false,
+        bloqueadoPor: it.editando_nome,
+        error: `Atualização em andamento por ${it.editando_nome} desde ${desde}.`,
+      };
+    }
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_its SET editando_por_id = $1, editando_desde = NOW(), updated_at = NOW()
+       WHERE id = $2::uuid AND tenant_id = $3`,
+      currentUser.id, itId, tenantId
+    );
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao bloquear edição.' };
+  }
+}
+
+/**
+ * Libera bloqueio de edição de uma IT.
+ * ADMIN/MASTER podem liberar qualquer bloqueio (com motivo).
+ */
+export async function liberarEdicaoIt(
+  itId: string,
+  motivo?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId;
+    const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(currentUser.role);
+
+    const itRows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT editando_por_id FROM public.fiorix_its WHERE id = $1::uuid AND tenant_id = $2 LIMIT 1`,
+      itId, tenantId
+    );
+    if (!itRows.length) return { success: false, error: 'IT não encontrada.' };
+
+    const bloqueadoPor = itRows[0].editando_por_id;
+    if (bloqueadoPor && bloqueadoPor !== currentUser.id && !isGestao) {
+      return { success: false, error: 'Apenas o editor atual ou gestão pode liberar a edição.' };
+    }
+
+    // Se gestão libera edição de outra pessoa, registrar no audit
+    if (bloqueadoPor && bloqueadoPor !== currentUser.id && isGestao) {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO public.fiorix_its_audit_log (tenant_id, it_id, versao_anterior, versao_nova, autor_id, motivo, diff_snapshot, hash_sha256, created_at)
+         VALUES ($1, $2::uuid, 'EDICAO_BLOQUEADA', 'EDICAO_LIBERADA', $3, $4, $5::jsonb, '', NOW())`,
+        tenantId, itId, currentUser.id,
+        `Edição liberada por gestão: ${motivo || 'sem motivo'}`,
+        JSON.stringify({ acao: 'liberar_edicao_forcado', editandoPor: bloqueadoPor, motivo })
+      );
+    }
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_its SET editando_por_id = NULL, editando_desde = NULL, updated_at = NOW()
+       WHERE id = $1::uuid AND tenant_id = $2`,
+      itId, tenantId
+    );
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao liberar edição.' };
+  }
+}
+
+/**
+ * Busca usuários disponíveis para adicionar como participantes.
+ * Filtra por tenant + ativos + ainda não vinculados à IT.
+ */
+export async function buscarColaboradoresParaVincular(
+  itId: string,
+  termo: string
+): Promise<{ success: boolean; usuarios?: Array<{ id: string; nome: string; email: string; departamento: string; cargo: string; mesmoSetor: boolean }>; error?: string }> {
+  try {
+    const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId;
+
+    // Pegar departamento da IT
+    const itRows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT departamento FROM public.fiorix_its WHERE id = $1::uuid AND tenant_id = $2 LIMIT 1`,
+      itId, tenantId
+    );
+    const itDepto = (itRows[0]?.departamento || '').trim().toLowerCase();
+
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT u.id, u.name, u.email, u.departamento, u.cargo
+       FROM public."User" u
+       WHERE u."tenantId" = $1
+         AND u.id != $2
+         AND (u."isActive" IS NULL OR u."isActive" = true)
+         AND (
+           LOWER(u.name) LIKE LOWER($3)
+           OR LOWER(u.email) LIKE LOWER($3)
+         )
+         AND u.id NOT IN (
+           SELECT usuario_id FROM public.fiorix_its_participants
+           WHERE it_id = $4::uuid AND status = 'ativo' AND tenant_id = $1
+         )
+       ORDER BY u.name ASC
+       LIMIT 20`,
+      tenantId, currentUser.id, `%${termo}%`, itId
+    );
+
+    return {
+      success: true,
+      usuarios: rows.map(u => ({
+        id: u.id,
+        nome: u.name || '',
+        email: u.email || '',
+        departamento: u.departamento || '',
+        cargo: u.cargo || '',
+        mesmoSetor: (u.departamento || '').trim().toLowerCase() === itDepto,
+      })),
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao buscar colaboradores.' };
+  }
+}
