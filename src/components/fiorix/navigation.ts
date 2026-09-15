@@ -100,16 +100,10 @@ export const navigationGroups = {
     icon: BookOpen,
     items: [
       {
-        label: "Catálogo de ITs",
+        label: "Instruções de Trabalho",
         href: "/administracao/its",
         icon: BookOpen,
-        description: "Acervo e matriz de Instruções de Trabalho",
-      },
-      {
-        label: "Fiscalização de ITs",
-        href: "/gestao/rh/instrucoes-trabalho-monitoramento",
-        icon: ShieldCheck,
-        description: "Auditoria WORM & Ciências das equipes",
+        description: "Consulte documentos e acompanhe pendências",
       },
     ],
   },

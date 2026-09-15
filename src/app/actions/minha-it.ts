@@ -14,6 +14,22 @@ export interface MinhaItCustodiaItem {
   status: string;
 }
 
+/** IT submetida pelo próprio colaborador (aguardando análise / em fluxo de aprovação) */
+export interface ItEnviadaColaborador {
+  id: string;
+  codigo: string;
+  titulo: string;
+  departamento: string;
+  versao: string;
+  status: string; // rascunho | enviada_para_analise | correcao_solicitada | aprovada | publicada | rejeitada
+  pdfUrl: string | null;
+  pdfNome: string | null;
+  dataEnvio: string;
+  motivoCorrecao: string | null;
+  responsavelAnalise: string | null;
+  dataAnalise: string | null;
+}
+
 export interface EquipeCienciaItem {
   usuarioId: string;
   nome: string;
@@ -69,6 +85,8 @@ export interface MinhaItPageData {
   cartorioUnidade: string;
   itsCustodia: MinhaItCustodiaItem[];
   currentIt: MinhaItDocumento | null;
+  /** IT submetida pelo colaborador (fora do fluxo de custódia tradicional) */
+  colaboradorItEnviada: ItEnviadaColaborador | null;
 }
 
 /**
@@ -124,8 +142,58 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
     status: String(r.status || 'vigente'),
   }));
 
+  // 2b. IT submetida pelo próprio autor (colaborador) sem custódia formal
+  let colaboradorItEnviada: ItEnviadaColaborador | null = null;
+  try {
+    const autorRows: any[] = await prisma.$queryRawUnsafe(
+      `SELECT id::text, codigo, titulo, departamento, versao, status,
+         pdf_original_url as "pdfUrl",
+         pdf_path as "pdfPath",
+         created_at as "dataEnvio"
+       FROM public.fiorix_its
+       WHERE autor_id = $1
+         AND (responsavel_tecnico_id IS NULL OR responsavel_tecnico_id = $1)
+         AND deleted_at IS NULL
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      userId
+    );
+    if (autorRows.length > 0) {
+      const r = autorRows[0];
+      colaboradorItEnviada = {
+        id: String(r.id),
+        codigo: String(r.codigo || ''),
+        titulo: String(r.titulo),
+        departamento: String(r.departamento || 'Geral'),
+        versao: String(r.versao || '1.0'),
+        status: String(r.status || 'rascunho'),
+        pdfUrl: r.pdfUrl || null,
+        pdfNome: r.pdfPath ? String(r.pdfPath).split('/').pop() || null : null,
+        dataEnvio: r.dataEnvio
+          ? new Date(r.dataEnvio).toLocaleDateString('pt-BR')
+          : new Date().toLocaleDateString('pt-BR'),
+        motivoCorrecao: null,
+        responsavelAnalise: null,
+        dataAnalise: null,
+      };
+    }
+  } catch {
+    // colunas extras podem não existir ainda — silencioso
+  }
+
   // Se não tem custódia de nenhuma IT
   if (itsCustodia.length === 0) {
+    // Busca departamento para pré-preencher formulario do colaborador
+    let userDepartamento = currentUser.departamento || '';
+    if (!userDepartamento) {
+      try {
+        const dRows: any[] = await prisma.$queryRawUnsafe(
+          `SELECT departamento FROM public."User" WHERE id = $1 LIMIT 1`,
+          userId
+        );
+        userDepartamento = dRows[0]?.departamento || 'Geral';
+      } catch { userDepartamento = 'Geral'; }
+    }
     return {
       hasCustodia: false,
       isSupervisao: false,
@@ -135,11 +203,13 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
         name: currentUser.name || 'Usuário',
         email: currentUser.email || '',
         role: currentUser.role,
+        departamento: userDepartamento,
       },
       cartorioNome,
       cartorioUnidade,
       itsCustodia: [],
       currentIt: null,
+      colaboradorItEnviada,
     };
   }
 
@@ -328,6 +398,7 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
     cartorioUnidade,
     itsCustodia,
     currentIt,
+    colaboradorItEnviada: null,
   };
 }
 
@@ -454,5 +525,99 @@ export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
   } catch (err: any) {
     console.error('Erro em publicarNovaVersaoIT:', err);
     return { success: false, error: err?.message || 'Falha ao processar publicação da nova versão.' };
+  }
+}
+
+/**
+ * Permite que qualquer colaborador autenticado cadastre sua propria IT e a
+ * envie para analise. O documento NAO e publicado automaticamente.
+ * Status resultante: 'enviada_para_analise'.
+ */
+export async function submeterItColaborador(params: {
+  titulo: string;
+  objetivo: string;
+  pdfPath: string;
+  pdfUrl: string;
+}): Promise<{ success: boolean; itId?: string; error?: string }> {
+  try {
+    const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId || 'global';
+
+    if (!params.titulo?.trim()) {
+      return { success: false, error: 'O titulo da Instrucao de Trabalho e obrigatorio.' };
+    }
+    if (!params.pdfPath?.trim()) {
+      return { success: false, error: 'O arquivo PDF e obrigatorio.' };
+    }
+
+    // Busca departamento atualizado do colaborador
+    let departamento = currentUser.departamento || '';
+    if (!departamento) {
+      try {
+        const uRows: any[] = await prisma.$queryRawUnsafe(
+          `SELECT departamento FROM public."User" WHERE id = $1 LIMIT 1`,
+          currentUser.id
+        );
+        departamento = uRows[0]?.departamento || 'Geral';
+      } catch { departamento = 'Geral'; }
+    }
+
+    // Evitar duplicatas acidentais
+    const existentes: any[] = await prisma.$queryRawUnsafe(
+      `SELECT id FROM public.fiorix_its
+       WHERE autor_id = $1
+         AND status IN ('enviada_para_analise', 'rascunho', 'correcao_solicitada')
+         AND deleted_at IS NULL
+       LIMIT 1`,
+      currentUser.id
+    );
+    if (existentes.length > 0) {
+      return {
+        success: false,
+        error: 'Voce ja possui uma IT em analise. Aguarde a conclusao antes de enviar outra.',
+      };
+    }
+
+    const codigoTemp = `COL-${currentUser.id.substring(0, 6).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+
+    const result: any[] = await prisma.$queryRawUnsafe(
+      `INSERT INTO public.fiorix_its (
+         tenant_id, codigo, titulo, departamento, versao, status,
+         objetivo, quando_usar, responsavel_raci, passo_a_passo,
+         checklist, erros_comuns, hash_versao, autor_id,
+         pdf_original_url, pdf_path, created_at, updated_at
+       ) VALUES (
+         $1, $2, $3, $4, '1.0', 'enviada_para_analise',
+         $5, '', '{}'::jsonb, '[]'::jsonb,
+         '[]'::jsonb, '[]'::jsonb, '', $6,
+         $7, $8, NOW(), NOW()
+       )
+       RETURNING id::text`,
+      tenantId, codigoTemp, params.titulo.trim(), departamento,
+      params.objetivo?.trim() || '', currentUser.id, params.pdfUrl, params.pdfPath
+    );
+
+    const itId = result[0]?.id;
+    if (!itId) throw new Error('Falha ao criar registro da IT.');
+
+    try {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO public.fiorix_its_versoes (
+           id, it_id, versao, conteudo_snapshot, alteracoes, autor_id, hash_versao, created_at, tenant_id
+         ) VALUES (
+           gen_random_uuid(), $1::uuid, '1.0', '{}'::jsonb,
+           'Cadastro inicial enviado para analise pelo colaborador', $2, '', NOW(), $3
+         )`,
+        itId, currentUser.id, tenantId
+      );
+    } catch (e) {
+      console.warn('Aviso ao registrar historico da IT do colaborador:', e);
+    }
+
+    revalidatePath('/minha-it');
+    return { success: true, itId };
+  } catch (err: any) {
+    console.error('Erro em submeterItColaborador:', err);
+    return { success: false, error: err?.message || 'Erro ao submeter a Instrucao de Trabalho.' };
   }
 }

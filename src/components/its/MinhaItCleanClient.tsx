@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useTransition, useId } from 'react';
 import { useRouter } from 'next/navigation';
@@ -17,8 +17,9 @@ import {
   Layers,
   ArrowUpRight,
   Eye,
+  Plus,
 } from 'lucide-react';
-import { MinhaItPageData, MinhaItCustodiaItem, publicarNovaVersaoIT } from '@/app/actions/minha-it';
+import { MinhaItPageData, MinhaItCustodiaItem, ItEnviadaColaborador, publicarNovaVersaoIT, submeterItColaborador } from '@/app/actions/minha-it';
 import { getITUploadSignedUrl } from '@/app/actions/its';
 import { AlertaResponsavelTecnico } from './AlertaResponsavelTecnico';
 
@@ -37,10 +38,10 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
   const { hasCustodia, currentUser, cartorioNome, cartorioUnidade, itsCustodia, currentIt, isSupervisao, responsavelRealNome } = initialData;
 
-  // Estado de cópia do Hash
+  // Estado de cÃ³pia do Hash
   const [copiedHash, setCopiedHash] = useState(false);
 
-  // Modal de Upload de Nova Versão
+  // Modal de Upload de Nova VersÃ£o
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileHash, setFileHash] = useState<string>('');
@@ -50,7 +51,16 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
-  // Estado do Alerta Amarelo de Responsabilidade Técnica (sempre visível ao entrar em Minha IT)
+  // Modal de Cadastro de IT pelo Colaborador
+  const [isCadastroOpen, setIsCadastroOpen] = useState(false);
+  const [cadastroTitulo, setCadastroTitulo] = useState('');
+  const [cadastroObjetivo, setCadastroObjetivo] = useState('');
+  const [cadastroFile, setCadastroFile] = useState<File | null>(null);
+  const [cadastroError, setCadastroError] = useState('');
+  const [cadastroSubmitting, setCadastroSubmitting] = useState(false);
+  const [cadastroSuccess, setCadastroSuccess] = useState(false);
+
+  // Estado do Alerta Amarelo de Responsabilidade TÃ©cnica (sempre visÃ­vel ao entrar em Minha IT)
   const [alertaVisible, setAlertaVisible] = useState(true);
 
   useEffect(() => {
@@ -89,7 +99,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
     });
   }
 
-  // Cálculo de SHA-256 no browser
+  // CÃ¡lculo de SHA-256 no browser
   async function computeSHA256(file: File): Promise<string> {
     const buffer = await file.arrayBuffer();
     const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
@@ -97,7 +107,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
     return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
   }
 
-  // Manipulação de seleção de arquivo
+  // ManipulaÃ§Ã£o de seleÃ§Ã£o de arquivo
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -117,19 +127,19 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
     }
   }
 
-  // Próxima versão calculada (1.0 -> 1.1)
+  // PrÃ³xima versÃ£o calculada (1.0 -> 1.1)
   const currentVersaoNum = parseFloat(currentIt?.versao || '1.0');
   const nextVersao = (isNaN(currentVersaoNum) ? 1.0 : currentVersaoNum + 0.1).toFixed(1);
 
-  // Envio de nova versão
+  // Envio de nova versÃ£o
   async function handlePublishVersion() {
     if (!selectedFile || !currentIt) {
-      setUploadError('Selecione o arquivo PDF da nova versão.');
+      setUploadError('Selecione o arquivo PDF da nova versÃ£o.');
       return;
     }
 
     if (!confirmouRevisao) {
-      setUploadError('Você deve confirmar que revisou e é o responsável técnico por esta versão.');
+      setUploadError('VocÃª deve confirmar que revisou e Ã© o responsÃ¡vel tÃ©cnico por esta versÃ£o.');
       return;
     }
 
@@ -152,7 +162,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Falha ao processar publicação da nova versão.');
+        throw new Error(data.error || 'Falha ao processar publicaÃ§Ã£o da nova versÃ£o.');
       }
 
       setUploadSuccess(true);
@@ -166,43 +176,360 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
         router.refresh();
       }, 1500);
     } catch (err: any) {
-      console.error('Erro na publicação:', err);
-      setUploadError(err?.message || 'Erro inesperado durante a publicação.');
+      console.error('Erro na publicaÃ§Ã£o:', err);
+      setUploadError(err?.message || 'Erro inesperado durante a publicaÃ§Ã£o.');
     } finally {
       setIsUploading(false);
     }
   }
 
-  // Estado Vazio: Colaborador sem nenhuma IT atribuída
+  // Handlers do Cadastro pelo Colaborador
+  async function handleCadastroFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size === 0) {
+      setCadastroError('O arquivo estÃ¡ vazio ou corrompido. Selecione outro PDF.');
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      setCadastroError('O arquivo excede 20MB. Reduza o tamanho e tente novamente.');
+      return;
+    }
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      setCadastroError('Apenas arquivos no formato PDF sÃ£o aceitos.');
+      return;
+    }
+    setCadastroError('');
+    setCadastroFile(file);
+  }
+
+  async function handleCadastroSubmit() {
+    if (!cadastroTitulo.trim()) { setCadastroError('Informe o tÃ­tulo da IT.'); return; }
+    if (!cadastroFile) { setCadastroError('Selecione o arquivo PDF.'); return; }
+
+    setCadastroSubmitting(true);
+    setCadastroError('');
+
+    try {
+      // 1. Upload do PDF
+      const fd = new FormData();
+      fd.append('file', cadastroFile);
+      fd.append('codigo', 'COL-NOVO');
+      const uploadRes = await fetch('/api/its/upload-pdf', { method: 'POST', body: fd });
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok || !uploadData.success) {
+        throw new Error(uploadData.error || 'Falha no upload do PDF.');
+      }
+
+      // 2. Submeter IT para anÃ¡lise
+      const result = await submeterItColaborador({
+        titulo: cadastroTitulo.trim(),
+        objetivo: cadastroObjetivo.trim(),
+        pdfPath: uploadData.storagePath,
+        pdfUrl: uploadData.publicUrl,
+      });
+
+      if (!result.success) throw new Error(result.error || 'Erro ao submeter a IT.');
+
+      setCadastroSuccess(true);
+      setTimeout(() => {
+        setIsCadastroOpen(false);
+        setCadastroSuccess(false);
+        setCadastroTitulo('');
+        setCadastroObjetivo('');
+        setCadastroFile(null);
+        router.refresh();
+      }, 2000);
+    } catch (err: any) {
+      setCadastroError(err?.message || 'Erro inesperado.');
+    } finally {
+      setCadastroSubmitting(false);
+    }
+  }
+
+  const { colaboradorItEnviada } = initialData;
+  const isColaborador = currentUser.role === 'COLABORADOR';
+
+  // Estado Vazio: usuÃ¡rio sem nenhuma IT atribuÃ­da
   if (!hasCustodia || !currentIt) {
+    const statusLabel: Record<string, { label: string; color: string; bg: string }> = {
+      rascunho: { label: 'Rascunho', color: 'text-slate-300', bg: 'bg-slate-500/20 border-slate-500/30' },
+      enviada_para_analise: { label: 'Enviada para anÃ¡lise', color: 'text-indigo-300', bg: 'bg-indigo-500/20 border-indigo-500/30' },
+      correcao_solicitada: { label: 'CorreÃ§Ã£o solicitada', color: 'text-amber-300', bg: 'bg-amber-500/20 border-amber-500/30' },
+      aprovada: { label: 'Aprovada', color: 'text-emerald-300', bg: 'bg-emerald-500/20 border-emerald-500/30' },
+      publicada: { label: 'Publicada', color: 'text-emerald-300', bg: 'bg-emerald-500/20 border-emerald-500/30' },
+      rejeitada: { label: 'Rejeitada', color: 'text-red-300', bg: 'bg-red-500/20 border-red-500/30' },
+    };
+
     return (
-      <div className="min-h-screen bg-[#070A12] text-white flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
-        {/* Background Ambient Glows */}
+      <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden">
+        {/* Background */}
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-500/12 via-indigo-500/10 to-cyan-500/8 blur-3xl" />
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
         </div>
 
-        <div className="relative z-10 flex flex-col items-center max-w-md">
-          <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/8 flex items-center justify-center text-slate-400 mb-4 shadow-xl">
-            <FileText className="w-8 h-8 text-emerald-400/70" />
+        <div className="relative mx-auto max-w-[900px] px-4 pt-6 pb-12">
+          {/* Header */}
+          <div className="mb-6">
+            <p className="text-xs font-bold tracking-widest text-teal-400 uppercase mb-1">MEU ESPAÃ‡O</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-white">Minha InstruÃ§Ã£o de Trabalho</h1>
+                <p className="text-sm text-slate-400 mt-0.5">Cadastre e acompanhe a IT sob sua responsabilidade.</p>
+              </div>
+              {isColaborador && (
+                <span className="text-xs font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/25 px-3 py-1.5 rounded-full">
+                  Perfil: COLABORADOR
+                </span>
+              )}
+            </div>
           </div>
-          <h1 className="text-xl font-bold text-white mb-2">
-            Nenhuma Instrução de Trabalho sob sua responsabilidade
-          </h1>
-          <div className="text-sm text-slate-400 mb-6 leading-relaxed space-y-2">
-            <p>Você ainda não foi designado como Responsável por uma Instrução de Trabalho.</p>
-            <p>
-              As Instruções de Trabalho sob sua responsabilidade serão exibidas aqui após a sua designação pelo Oficial Substituto no respectivo departamento.
-            </p>
-          </div>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold border border-white/10 transition-colors shadow-sm cursor-pointer"
-          >
-            Voltar para o Painel Geral
-          </button>
+
+          {/* Card de acompanhamento se jÃ¡ enviou uma IT */}
+          {colaboradorItEnviada ? (
+            <div className="rounded-2xl border border-white/10 bg-[#0B1020]/70 p-6 space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">InstruÃ§Ã£o de Trabalho</p>
+                  <h2 className="text-lg font-bold text-white">{colaboradorItEnviada.titulo}</h2>
+                  {colaboradorItEnviada.codigo && (
+                    <p className="text-xs text-slate-400 mt-0.5 font-mono">{colaboradorItEnviada.codigo} â€¢ versÃ£o {colaboradorItEnviada.versao}</p>
+                  )}
+                </div>
+                {(() => {
+                  const s = statusLabel[colaboradorItEnviada.status] || { label: colaboradorItEnviada.status, color: 'text-slate-300', bg: 'bg-slate-500/20 border-slate-500/30' };
+                  return (
+                    <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${s.bg} ${s.color}`}>
+                      {s.label}
+                    </span>
+                  );
+                })()}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className="bg-white/4 rounded-xl p-3">
+                  <p className="text-slate-500 mb-0.5">Setor</p>
+                  <p className="text-slate-200 font-medium">{colaboradorItEnviada.departamento}</p>
+                </div>
+                <div className="bg-white/4 rounded-xl p-3">
+                  <p className="text-slate-500 mb-0.5">VersÃ£o</p>
+                  <p className="text-slate-200 font-medium">{colaboradorItEnviada.versao}</p>
+                </div>
+                <div className="bg-white/4 rounded-xl p-3">
+                  <p className="text-slate-500 mb-0.5">Enviado em</p>
+                  <p className="text-slate-200 font-medium">{colaboradorItEnviada.dataEnvio}</p>
+                </div>
+                {colaboradorItEnviada.pdfNome && (
+                  <div className="bg-white/4 rounded-xl p-3">
+                    <p className="text-slate-500 mb-0.5">Arquivo</p>
+                    <p className="text-slate-200 font-medium truncate">{colaboradorItEnviada.pdfNome}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Motivo de correÃ§Ã£o */}
+              {colaboradorItEnviada.status === 'correcao_solicitada' && colaboradorItEnviada.motivoCorrecao && (
+                <div className="rounded-xl border border-amber-500/25 bg-amber-500/8 p-4">
+                  <p className="text-xs font-bold text-amber-300 mb-1">Motivo da devoluÃ§Ã£o</p>
+                  <p className="text-sm text-amber-200/80">{colaboradorItEnviada.motivoCorrecao}</p>
+                  {colaboradorItEnviada.responsavelAnalise && (
+                    <p className="text-xs text-amber-300/60 mt-2">Por: {colaboradorItEnviada.responsavelAnalise} â€¢ {colaboradorItEnviada.dataAnalise}</p>
+                  )}
+                </div>
+              )}
+
+              {/* AÃ§Ãµes */}
+              <div className="flex items-center gap-3 pt-2">
+                {colaboradorItEnviada.pdfUrl && (
+                  <a
+                    href={colaboradorItEnviada.pdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    Visualizar PDF
+                  </a>
+                )}
+                {colaboradorItEnviada.status === 'correcao_solicitada' && (
+                  <button
+                    onClick={() => setIsCadastroOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition-colors"
+                  >
+                    Corrigir e reenviar
+                  </button>
+                )}
+                {colaboradorItEnviada.status === 'enviada_para_analise' && (
+                  <p className="text-xs text-slate-400 italic">Aguardando anÃ¡lise do responsÃ¡vel...</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Estado Vazio com CTA */
+            <div className="rounded-2xl border border-white/8 bg-[#0B1020]/60 p-10 flex flex-col items-center text-center">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-5">
+                <FileText className="w-7 h-7 text-emerald-400" />
+              </div>
+              <h2 className="text-lg font-bold text-white mb-2">
+                VocÃª ainda nÃ£o cadastrou sua InstruÃ§Ã£o de Trabalho
+              </h2>
+              <p className="text-sm text-slate-400 mb-7 max-w-sm leading-relaxed">
+                Envie o documento em PDF para anÃ¡lise e aprovaÃ§Ã£o do responsÃ¡vel pelo seu setor.
+              </p>
+              {isColaborador && (
+                <button
+                  onClick={() => setIsCadastroOpen(true)}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition-all shadow-lg shadow-indigo-900/40 mb-8"
+                >
+                  <Plus className="w-4 h-4" />
+                  Cadastrar minha IT
+                </button>
+              )}
+              {/* 3 passos */}
+              <div className="flex items-center gap-1 sm:gap-3 text-xs text-slate-500 flex-wrap justify-center">
+                <div className="flex items-center gap-1.5 border border-white/8 bg-white/3 px-3 py-2 rounded-lg">
+                  <span className="w-4 h-4 rounded-full bg-indigo-600/50 text-indigo-300 text-[10px] flex items-center justify-center font-bold">1</span>
+                  Preencha os dados
+                </div>
+                <span className="text-slate-700">â†’</span>
+                <div className="flex items-center gap-1.5 border border-white/8 bg-white/3 px-3 py-2 rounded-lg">
+                  <span className="w-4 h-4 rounded-full bg-indigo-600/50 text-indigo-300 text-[10px] flex items-center justify-center font-bold">2</span>
+                  Envie o PDF
+                </div>
+                <span className="text-slate-700">â†’</span>
+                <div className="flex items-center gap-1.5 border border-white/8 bg-white/3 px-3 py-2 rounded-lg">
+                  <span className="w-4 h-4 rounded-full bg-indigo-600/50 text-indigo-300 text-[10px] flex items-center justify-center font-bold">3</span>
+                  Acompanhe a anÃ¡lise
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Modal Cadastro de IT */}
+        {isCadastroOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !cadastroSubmitting && setIsCadastroOpen(false)} />
+            <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between p-6 border-b border-white/8">
+                <div>
+                  <h3 className="font-bold text-white">Cadastrar minha IT</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Preencha os dados e envie o PDF para anÃ¡lise.</p>
+                </div>
+                <button
+                  onClick={() => !cadastroSubmitting && setIsCadastroOpen(false)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                {/* TÃ­tulo */}
+                <div>
+                  <label className="text-xs font-semibold text-slate-400 mb-1.5 block">TÃ­tulo da IT *</label>
+                  <input
+                    type="text"
+                    placeholder="Ex.: Abertura de Protocolo Digital"
+                    value={cadastroTitulo}
+                    onChange={(e) => setCadastroTitulo(e.target.value)}
+                    disabled={cadastroSubmitting}
+                    className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-all disabled:opacity-50"
+                  />
+                </div>
+
+                {/* Setor - somente leitura */}
+                <div>
+                  <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Setor</label>
+                  <div className="px-4 py-2.5 rounded-xl border border-white/6 bg-white/3 text-sm text-slate-400">
+                    {currentUser.departamento || 'Geral'}
+                    <span className="ml-2 text-xs text-slate-600">(preenchido automaticamente)</span>
+                  </div>
+                </div>
+
+                {/* Objetivo */}
+                <div>
+                  <label className="text-xs font-semibold text-slate-400 mb-1.5 block">DescriÃ§Ã£o breve / Objetivo</label>
+                  <textarea
+                    placeholder="Descreva brevemente o objetivo desta instruÃ§Ã£o..."
+                    value={cadastroObjetivo}
+                    onChange={(e) => setCadastroObjetivo(e.target.value)}
+                    disabled={cadastroSubmitting}
+                    rows={3}
+                    className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-all resize-none disabled:opacity-50"
+                  />
+                </div>
+
+                {/* Upload PDF */}
+                <div>
+                  <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Arquivo PDF *</label>
+                  <label className={`flex items-center gap-3 px-4 py-3 rounded-xl border border-dashed transition-all cursor-pointer ${
+                    cadastroFile
+                      ? 'border-emerald-500/40 bg-emerald-500/8'
+                      : 'border-white/15 bg-white/3 hover:border-indigo-500/40 hover:bg-white/5'
+                  }`}>
+                    <Upload className={`w-5 h-5 shrink-0 ${cadastroFile ? 'text-emerald-400' : 'text-slate-500'}`} />
+                    <div className="flex-1 min-w-0">
+                      {cadastroFile ? (
+                        <>
+                          <p className="text-sm text-emerald-300 font-medium truncate">{cadastroFile.name}</p>
+                          <p className="text-xs text-slate-400">{(cadastroFile.size / 1024).toFixed(0)} KB</p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-slate-400">Clique para selecionar o PDF</p>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      onChange={handleCadastroFileSelect}
+                      disabled={cadastroSubmitting}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* Erro */}
+                {cadastroError && (
+                  <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    {cadastroError}
+                  </div>
+                )}
+
+                {/* Sucesso */}
+                {cadastroSuccess && (
+                  <div className="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    IT enviada para anÃ¡lise com sucesso!
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center gap-3 p-6 border-t border-white/8">
+                <button
+                  onClick={() => !cadastroSubmitting && setIsCadastroOpen(false)}
+                  disabled={cadastroSubmitting || cadastroSuccess}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/8 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleCadastroSubmit}
+                  disabled={cadastroSubmitting || cadastroSuccess || !cadastroTitulo.trim() || !cadastroFile}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {cadastroSubmitting ? (
+                    <><Clock className="w-4 h-4 animate-spin" /> Enviando...</>
+                  ) : (
+                    <><ArrowUpRight className="w-4 h-4" /> Enviar para anÃ¡lise</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -215,17 +542,17 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       </div>
 
-      {/* ── Breadcrumbs & Top Info (FIORIX Dark Standard) ────── */}
+      {/* â”€â”€ Breadcrumbs & Top Info (FIORIX Dark Standard) â”€â”€â”€â”€â”€â”€ */}
       <div className="relative mx-auto max-w-[1200px] px-4 sm:px-6 pt-6 pb-2">
-        {/* Banner de Supervisão */}
+        {/* Banner de SupervisÃ£o */}
         {isSupervisao && (
           <div className="mb-4 flex items-center gap-3 rounded-2xl border border-sky-500/20 bg-sky-500/5 px-5 py-3.5">
             <Eye className="w-5 h-5 text-sky-400 shrink-0" />
             <div className="flex-1">
-              <p className="text-sm font-bold text-sky-300">MODO SUPERVISÃO</p>
+              <p className="text-sm font-bold text-sky-300">MODO SUPERVISÃƒO</p>
               <p className="text-xs text-sky-300/70 mt-0.5">
-                Você está visualizando as ITs como {currentUser.role === 'SUBSTITUTO' ? 'Oficial Substituto' : currentUser.role}.
-                {responsavelRealNome && <> O responsável técnico desta IT é <strong className="text-sky-200">{responsavelRealNome}</strong>.</>}
+                VocÃª estÃ¡ visualizando as ITs como {currentUser.role === 'SUBSTITUTO' ? 'Oficial Substituto' : currentUser.role}.
+                {responsavelRealNome && <> O responsÃ¡vel tÃ©cnico desta IT Ã© <strong className="text-sky-200">{responsavelRealNome}</strong>.</>}
               </p>
             </div>
           </div>
@@ -236,17 +563,17 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <span>Dashboard</span>
               <span className="text-slate-600">/</span>
-              <span>Meu Espaço</span>
+              <span>Meu EspaÃ§o</span>
               <span className="text-slate-600">/</span>
-              <span className="text-emerald-400">{isSupervisao ? 'Supervisão ITs' : 'Minha IT'}</span>
+              <span className="text-emerald-400">{isSupervisao ? 'SupervisÃ£o ITs' : 'Minha IT'}</span>
             </div>
             <div className="flex items-center gap-3 mt-1.5">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-sans">
-                {isSupervisao ? 'Supervisão de Instruções de Trabalho' : 'Minha Instrução de Trabalho'}
+                {isSupervisao ? 'SupervisÃ£o de InstruÃ§Ãµes de Trabalho' : 'Minha InstruÃ§Ã£o de Trabalho'}
               </h1>
               {!isSupervisao && (
                 <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
-                  RESPONSÁVEL TÉCNICO
+                  RESPONSÃVEL TÃ‰CNICO
                 </span>
               )}
               {isSupervisao && (
@@ -256,19 +583,19 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
               )}
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              {cartorioNome} • {cartorioUnidade} • {isSupervisao ? 'Visão de supervisão' : 'Gestão oficial e custódia de versão'} do setor {currentIt.departamento}
+              {cartorioNome} â€¢ {cartorioUnidade} â€¢ {isSupervisao ? 'VisÃ£o de supervisÃ£o' : 'GestÃ£o oficial e custÃ³dia de versÃ£o'} do setor {currentIt.departamento}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-xs font-semibold text-emerald-400">
-              Versão Oficial Homologada
+              VersÃ£o Oficial Homologada
             </span>
           </div>
         </div>
 
-        {/* ── Alerta Amarelo Vibrante do Responsável Técnico (somente para o responsável real) ── */}
+        {/* â”€â”€ Alerta Amarelo Vibrante do ResponsÃ¡vel TÃ©cnico (somente para o responsÃ¡vel real) â”€â”€ */}
         {!isSupervisao && alertaVisible && (
           <div className="mt-4">
             <AlertaResponsavelTecnico
@@ -279,23 +606,23 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
         )}
       </div>
 
-      {/* ── Área Principal (Documento Centralizado + Sidebar 320px) ─ */}
+      {/* â”€â”€ Ãrea Principal (Documento Centralizado + Sidebar 320px) â”€ */}
       <div className="relative flex-1 flex justify-center px-4 sm:px-6 py-6">
         <div className="w-full max-w-[1200px] flex flex-col lg:flex-row gap-6 items-start justify-center">
 
-          {/* ── Documento Centralizado Folha A4 Marfim (820px) ─────────────── */}
+          {/* â”€â”€ Documento Centralizado Folha A4 Marfim (820px) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <main className="w-full lg:w-[820px] flex-shrink-0 rounded-[20px] bg-[#FAF8F5] text-[#1C1A17] border border-[#E7E2D8] p-6 sm:p-12 shadow-[0_25px_60px_rgba(0,0,0,0.5),0_0_1px_rgba(255,255,255,0.2)] relative">
 
-            {/* Barra Controle de Versão Minimalista (36px) */}
+            {/* Barra Controle de VersÃ£o Minimalista (36px) */}
             <div className="h-9 px-4 bg-[#EFECE6] border border-[#DDD7CD] rounded-xl flex items-center justify-between text-[11px] text-[#635D54] mb-8 select-none shadow-xs">
               <div className="flex items-center gap-2 truncate">
-                <span className="font-bold tracking-wider text-[10px] text-[#756E63] uppercase">Controle de Versão</span>
-                <span className="text-[#A39B8E]">•</span>
+                <span className="font-bold tracking-wider text-[10px] text-[#756E63] uppercase">Controle de VersÃ£o</span>
+                <span className="text-[#A39B8E]">â€¢</span>
                 <span className="font-mono text-[#423E37]">
                   Hash SHA-256: {currentIt.hashVersao.slice(0, 10)}...
                 </span>
-                <span className="text-[#A39B8E]">•</span>
-                <span className="font-semibold text-emerald-700">Versão Oficial v{currentIt.versao}</span>
+                <span className="text-[#A39B8E]">â€¢</span>
+                <span className="font-semibold text-emerald-700">VersÃ£o Oficial v{currentIt.versao}</span>
               </div>
 
               <button
@@ -317,7 +644,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
               </button>
             </div>
 
-            {/* Header Documento: Dropdown minimalista de custódia + Badge */}
+            {/* Header Documento: Dropdown minimalista de custÃ³dia + Badge */}
             <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-[#E8E2D8]">
               <div className="relative inline-flex items-center">
                 {itsCustodia.length > 1 ? (
@@ -330,7 +657,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                     >
                       {itsCustodia.map((it) => (
                         <option key={it.id} value={it.codigo} className="bg-[#FAF8F5] text-[#1C1A17] font-medium">
-                          {it.codigo} • {it.titulo}
+                          {it.codigo} â€¢ {it.titulo}
                         </option>
                       ))}
                     </select>
@@ -338,7 +665,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                   </div>
                 ) : (
                   <span className="text-sm font-bold text-[#1C1A17]">
-                    {currentIt.codigo} • {currentIt.titulo}
+                    {currentIt.codigo} â€¢ {currentIt.titulo}
                   </span>
                 )}
               </div>
@@ -349,9 +676,9 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
               </div>
             </div>
 
-            {/* Título Serif H1 */}
+            {/* TÃ­tulo Serif H1 */}
             <h2 className="text-2xl sm:text-[28px] font-bold text-[#1C1A17] tracking-tight leading-tight mb-8 font-serif">
-              {currentIt.titulo} • {currentIt.codigo} v{currentIt.versao}
+              {currentIt.titulo} â€¢ {currentIt.codigo} v{currentIt.versao}
             </h2>
 
             {/* Corpo do Documento */}
@@ -377,10 +704,10 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 </p>
               </section>
 
-              {/* 3. PASSO A PASSO (RESPONSABILIDADE TÉCNICA) */}
+              {/* 3. PASSO A PASSO (RESPONSABILIDADE TÃ‰CNICA) */}
               <section className="space-y-3">
                 <h3 className="text-xs uppercase tracking-wider font-bold text-[#756E63] pb-1.5 border-b border-[#E8E2D8]">
-                  3. Passo a Passo (Responsabilidade Técnica)
+                  3. Passo a Passo (Responsabilidade TÃ©cnica)
                 </h3>
 
                 <div className="space-y-3 pt-1">
@@ -411,13 +738,13 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 </div>
               </section>
 
-              {/* 4. Cards do Rodapé do Documento */}
+              {/* 4. Cards do RodapÃ© do Documento */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-[#E8E2D8]">
-                {/* Checklist Obrigatório */}
+                {/* Checklist ObrigatÃ³rio */}
                 <div className="p-4 rounded-xl border border-[#E8E2D8] bg-white/75 space-y-2 shadow-xs">
                   <div className="text-xs font-bold text-[#1C1A17] uppercase tracking-wider flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-                    <span>Checklist Obrigatório</span>
+                    <span>Checklist ObrigatÃ³rio</span>
                   </div>
                   <ul className="text-xs text-[#474138] space-y-1.5 list-disc list-inside">
                     {currentIt.checklist.map((item, i) => (
@@ -426,11 +753,11 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                   </ul>
                 </div>
 
-                {/* Orientações Práticas */}
+                {/* OrientaÃ§Ãµes PrÃ¡ticas */}
                 <div className="p-4 rounded-xl border border-[#E8E2D8] bg-white/75 space-y-2 shadow-xs">
                   <div className="text-xs font-bold text-[#1C1A17] uppercase tracking-wider flex items-center gap-1.5">
                     <Layers className="w-3.5 h-3.5 text-indigo-700" />
-                    <span>Orientações Práticas</span>
+                    <span>OrientaÃ§Ãµes PrÃ¡ticas</span>
                   </div>
                   <ul className="text-xs text-[#474138] space-y-1.5 list-disc list-inside">
                     {currentIt.casosPraticos.map((item, i) => (
@@ -440,7 +767,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 </div>
               </div>
 
-              {/* Botão de Visualização na Íntegra (PDF) */}
+              {/* BotÃ£o de VisualizaÃ§Ã£o na Ãntegra (PDF) */}
               <div className="pt-6 flex justify-end">
                 <a
                   href={currentIt.pdfUrl || '#'}
@@ -449,12 +776,12 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                   onClick={(e) => {
                     if (!currentIt.pdfUrl) {
                       e.preventDefault();
-                      alert('O documento PDF original desta IT ainda não foi anexado.');
+                      alert('O documento PDF original desta IT ainda nÃ£o foi anexado.');
                     }
                   }}
                   className="group inline-flex items-center gap-3 px-8 py-3.5 rounded-full bg-gradient-to-r from-[#FFD000] via-[#FFB800] to-[#FFA000] text-[#0A0A0A] font-bold text-[12.5px] sm:text-[13px] tracking-[0.08em] shadow-[0_10px_25px_-5px_rgba(255,170,0,0.48),0_4px_10px_-2px_rgba(255,170,0,0.25)] hover:shadow-[0_16px_35px_-4px_rgba(255,160,0,0.65),0_6px_14px_-2px_rgba(255,160,0,0.35)] hover:-translate-y-0.5 hover:brightness-105 active:scale-[0.98] transition-all duration-300 cursor-pointer select-none"
                 >
-                  {/* Ícone Olho com Pupila Preenchida */}
+                  {/* Ãcone Olho com Pupila Preenchida */}
                   <svg
                     width="18"
                     height="18"
@@ -470,9 +797,9 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                     <circle cx="12" cy="12" r="3" fill="currentColor" />
                   </svg>
 
-                  <span>VISUALIZAR NA ÍNTEGRA ESTA IT</span>
+                  <span>VISUALIZAR NA ÃNTEGRA ESTA IT</span>
 
-                  {/* Ícone Seta Horizontal → que desloca no hover */}
+                  {/* Ãcone Seta Horizontal â†’ que desloca no hover */}
                   <svg
                     width="16"
                     height="16"
@@ -492,10 +819,10 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
             </div>
           </main>
 
-          {/* ── Sidebar Direita Minimal (320px) ────────────────────── */}
+          {/* â”€â”€ Sidebar Direita Minimal (320px) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <aside className="w-full lg:w-[320px] flex-shrink-0 space-y-6">
 
-            {/* Box 1: CIÊNCIA CONFIRMADA */}
+            {/* Box 1: CIÃŠNCIA CONFIRMADA */}
             <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] space-y-4">
               <div className="flex items-start gap-3">
                 <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 flex items-center justify-center flex-shrink-0">
@@ -503,7 +830,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 </div>
                 <div>
                   <div className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                    Ciência Confirmada
+                    CiÃªncia Confirmada
                   </div>
                   <div className="text-xs font-semibold text-slate-200 mt-0.5">
                     em {currentIt.responsavelCienteEm}
@@ -513,7 +840,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Adesão da Equipe</span>
+                  <span className="text-slate-400">AdesÃ£o da Equipe</span>
                   <span className="font-bold text-white font-mono">{currentIt.adesaoPercentual}%</span>
                 </div>
                 <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden border border-white/5">
@@ -523,21 +850,21 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                   />
                 </div>
                 <div className="text-[11px] text-slate-400 leading-tight">
-                  Você já deu ciência automática. {currentIt.pendentesCount} colaboradores pendentes.
+                  VocÃª jÃ¡ deu ciÃªncia automÃ¡tica. {currentIt.pendentesCount} colaboradores pendentes.
                 </div>
               </div>
 
-              {/* Botão de Upload — visível para SUBSTITUTO/USER em qualquer IT, oculto para ADMIN/MASTER */}
+              {/* BotÃ£o de Upload â€” visÃ­vel para SUBSTITUTO/USER em qualquer IT, oculto para ADMIN/MASTER */}
               {currentUser.role !== 'ADMIN' && currentUser.role !== 'MASTER' && (
                 <>
-                  {/* Alerta de pendência quando PDF não foi carregado */}
+                  {/* Alerta de pendÃªncia quando PDF nÃ£o foi carregado */}
                   {!currentIt.pdfUrl && (
                     <div className="flex items-start gap-2.5 p-3.5 rounded-xl border border-amber-500/25 bg-amber-500/5">
                       <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                       <div>
                         <p className="text-[11px] font-bold text-amber-300">PDF Pendente</p>
                         <p className="text-[10px] text-amber-300/70 mt-0.5 leading-relaxed">
-                          Você ainda não fez o upload do documento PDF desta instrução de trabalho. Faça o upload abaixo para que sua equipe possa consultar a versão oficial.
+                          VocÃª ainda nÃ£o fez o upload do documento PDF desta instruÃ§Ã£o de trabalho. FaÃ§a o upload abaixo para que sua equipe possa consultar a versÃ£o oficial.
                         </p>
                       </div>
                     </div>
@@ -552,17 +879,17 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                     } active:scale-[0.98] text-white font-semibold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer border`}
                   >
                     <Upload className="w-4 h-4" />
-                    <span>{!currentIt.pdfUrl ? 'Enviar Meu PDF (Obrigatório)' : 'Atualizar Meu PDF Vigente'}</span>
+                    <span>{!currentIt.pdfUrl ? 'Enviar Meu PDF (ObrigatÃ³rio)' : 'Atualizar Meu PDF Vigente'}</span>
                   </button>
                 </>
               )}
             </div>
 
-            {/* Box 2: EQUIPE • CIÊNCIAS */}
+            {/* Box 2: EQUIPE â€¢ CIÃŠNCIAS */}
             <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] space-y-3.5">
               <div className="flex items-center justify-between pb-2 border-b border-white/8">
                 <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Equipe • Ciências
+                  Equipe â€¢ CiÃªncias
                 </div>
                 <span className="text-xs font-mono font-semibold text-emerald-400">
                   {currentIt.totalCientes}/{currentIt.totalColaboradores}
@@ -599,7 +926,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
         </div>
       </div>
 
-      {/* ── Modal Clean: Atualizar Meu PDF Vigente (FIORIX Dark) ────────────────── */}
+      {/* â”€â”€ Modal Clean: Atualizar Meu PDF Vigente (FIORIX Dark) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-[#0B1020] w-full max-w-lg rounded-3xl border border-white/12 shadow-[0_25px_70px_rgba(0,0,0,0.6)] p-6 space-y-5 relative text-white animate-in fade-in zoom-in-95 duration-200">
@@ -609,7 +936,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 <h3 className="text-base font-bold text-white">
                   Atualizar Meu PDF Vigente
                 </h3>
-                <p className="text-xs text-slate-400">Responsável Técnico: {currentIt.codigo}</p>
+                <p className="text-xs text-slate-400">ResponsÃ¡vel TÃ©cnico: {currentIt.codigo}</p>
               </div>
               <button
                 onClick={() => !isUploading && setIsModalOpen(false)}
@@ -622,9 +949,9 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
             {/* Aviso Neutro */}
             <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/8 text-xs text-slate-300 space-y-1">
-              <div className="font-semibold text-white">Controle de Versão Oficial</div>
+              <div className="font-semibold text-white">Controle de VersÃ£o Oficial</div>
               <p className="text-slate-400 leading-relaxed">
-                Este documento representa o registro oficial das rotinas da sua área. Ao publicar um novo PDF, será gerada a versão <strong className="text-emerald-400">v{nextVersao}</strong> e um novo Hash criptográfico SHA-256.
+                Este documento representa o registro oficial das rotinas da sua Ã¡rea. Ao publicar um novo PDF, serÃ¡ gerada a versÃ£o <strong className="text-emerald-400">v{nextVersao}</strong> e um novo Hash criptogrÃ¡fico SHA-256.
               </p>
             </div>
 
@@ -638,7 +965,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
             {uploadSuccess && (
               <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2.5">
                 <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400" />
-                <span>Versão v{nextVersao} publicada com sucesso! Atualizando tela...</span>
+                <span>VersÃ£o v{nextVersao} publicada com sucesso! Atualizando tela...</span>
               </div>
             )}
 
@@ -673,22 +1000,22 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
               )}
             </div>
 
-            {/* O que mudou nesta versão? */}
+            {/* O que mudou nesta versÃ£o? */}
             <div className="space-y-2">
               <label className="block text-xs font-semibold text-slate-300">
-                O que mudou nesta versão?
+                O que mudou nesta versÃ£o?
               </label>
               <textarea
                 value={resumoMudancas}
                 onChange={(e) => setResumoMudancas(e.target.value)}
-                placeholder="Ex: Atualização do fluxo de conferência de certidões e prazos de resposta..."
+                placeholder="Ex: AtualizaÃ§Ã£o do fluxo de conferÃªncia de certidÃµes e prazos de resposta..."
                 disabled={isUploading}
                 rows={3}
                 className="w-full text-xs p-3.5 rounded-xl bg-white/[0.03] border border-white/10 focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/40 text-white placeholder-slate-500 focus:outline-none transition-all"
               />
             </div>
 
-            {/* Checkbox de Responsabilidade Técnica */}
+            {/* Checkbox de Responsabilidade TÃ©cnica */}
             <label className="flex items-start gap-2.5 text-xs text-slate-300 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -698,11 +1025,11 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 className="mt-0.5 w-4 h-4 rounded border-white/20 bg-white/5 text-emerald-500 focus:ring-0 cursor-pointer accent-emerald-500"
               />
               <span className="leading-relaxed">
-                Confirmo que revisei o documento e sou o <strong className="text-emerald-400">Responsável Técnico</strong> oficial por esta versão.
+                Confirmo que revisei o documento e sou o <strong className="text-emerald-400">ResponsÃ¡vel TÃ©cnico</strong> oficial por esta versÃ£o.
               </span>
             </label>
 
-            {/* Rodapé e Botões */}
+            {/* RodapÃ© e BotÃµes */}
             <div className="pt-3 border-t border-white/10 flex items-center justify-between">
               <button
                 type="button"
@@ -720,18 +1047,18 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 className="h-11 px-6 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-40 text-white text-xs font-semibold shadow-lg shadow-emerald-900/30 flex items-center gap-2 transition-all cursor-pointer border border-emerald-400/20"
               >
                 {isUploading ? (
-                  <span>Publicando versão v{nextVersao}...</span>
+                  <span>Publicando versÃ£o v{nextVersao}...</span>
                 ) : (
                   <>
                     <Upload className="w-3.5 h-3.5" />
-                    <span>Publicar Nova Versão v{nextVersao} + Gerar Hash</span>
+                    <span>Publicar Nova VersÃ£o v{nextVersao} + Gerar Hash</span>
                   </>
                 )}
               </button>
             </div>
 
             <div className="text-[11px] text-slate-500 text-center">
-              A ciência da equipe será reiniciada para 0% — os colaboradores precisarão confirmar ciência nesta versão.
+              A ciÃªncia da equipe serÃ¡ reiniciada para 0% â€” os colaboradores precisarÃ£o confirmar ciÃªncia nesta versÃ£o.
             </div>
           </div>
         </div>
@@ -739,3 +1066,4 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
     </div>
   );
 }
+

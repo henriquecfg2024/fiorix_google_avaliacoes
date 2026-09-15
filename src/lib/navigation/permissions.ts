@@ -46,7 +46,6 @@ export function filterNavigationByRole(role: Role = "USER") {
           item.href === "/bi/auditoria" ||
           item.href === "/bi/importacoes" ||
           item.href === "/configuracoes" ||
-          item.href === "/gestao/rh/instrucoes-trabalho-monitoramento" ||
           item.href.startsWith("/administracao") ||
           item.href.startsWith("/sistema") ||
           item.href.startsWith("/configuracoes")
