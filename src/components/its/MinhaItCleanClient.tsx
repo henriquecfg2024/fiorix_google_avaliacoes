@@ -52,7 +52,13 @@ import { getITUploadSignedUrl, cancelarEnvioIt, excluirRascunhoIt, getParticipan
 
 import { AlertaResponsavelTecnico } from './AlertaResponsavelTecnico';
 
-
+function formatTituloPrincipal(titulo?: string): string {
+  if (!titulo) return '';
+  return titulo
+    .replace(/\s*•\s*[A-Z0-9_\-]+\s*(v\d+(\.\d+)?)?/gi, '')
+    .replace(/\s*•\s*v?\d+(\.\d+)?/gi, '')
+    .trim();
+}
 
 interface MinhaItCleanClientProps {
 
@@ -1243,7 +1249,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
 
 
-        {/* ── Alerta Amarelo Vibrante do Responsável Técnico (somente para o responsável real) ── */}
+        {/* ── Alerta Elegante de Atualização da IT (Padrão Preventivo Internacional) ── */}
 
         {!isSupervisao && alertaVisible && (
 
@@ -1252,6 +1258,24 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
             <AlertaResponsavelTecnico
 
               codigo={currentIt.codigo}
+
+              titulo="Mantenha sua Instrução de Trabalho atualizada"
+
+              descricao="Revise esta IT sempre que houver mudança nas atividades, procedimentos, sistemas ou na forma de execução do trabalho."
+
+              dataUltimaRevisao={currentIt.updatedAt}
+
+              estado={['enviada_para_analise', 'correcao_solicitada', 'rascunho'].includes(currentIt.status) ? 'em_analise' : 'preventivo'}
+
+              podeCriarNovaVersao={
+
+                ['publicada', 'vigente'].includes(currentIt.status) &&
+
+                (itsCustodia.find(i => i.id === currentIt.id)?.papelNaIt === 'RESPONSAVEL_PRINCIPAL' || !isSupervisao)
+
+              }
+
+              onCriarNovaVersao={() => setIsModalOpen(true)}
 
               onDismiss={() => setAlertaVisible(false)}
 
@@ -1409,7 +1433,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
             <h2 className="text-2xl sm:text-[28px] font-bold text-[#1C1A17] tracking-tight leading-tight mb-8 font-serif">
 
-              {currentIt.titulo} • {currentIt.codigo} v{currentIt.versao}
+              {formatTituloPrincipal(currentIt.titulo)}
 
             </h2>
 
