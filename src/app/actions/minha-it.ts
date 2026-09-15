@@ -593,7 +593,7 @@ export async function submeterItColaborador(params: {
          $7, $8, NOW(), NOW()
        )
        RETURNING id::text`,
-      tenantId, codigoTemp, params.titulo.trim(), departamento,
+      tenantId, codigoTemp, params.titulo.trim().toUpperCase(), departamento,
       params.objetivo?.trim() || '', currentUser.id, params.pdfUrl, params.pdfPath
     );
 
