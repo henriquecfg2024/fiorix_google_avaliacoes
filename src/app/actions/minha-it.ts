@@ -485,8 +485,30 @@ export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
 
     const current = currentRows[0];
 
-    // Verifica se o usuário é o responsável técnico, ADMIN ou MASTER
-    if (current.responsavel_tecnico_id !== userId && currentUser.role !== 'MASTER' && currentUser.role !== 'ADMIN') {
+    // Verifica se o usuário é o responsável técnico (campo direto na tabela),
+    // ou o RESPONSAVEL_PRINCIPAL na tabela de participantes, ou ADMIN/MASTER
+    let autorizado = current.responsavel_tecnico_id === userId
+      || currentUser.role === 'MASTER'
+      || currentUser.role === 'ADMIN';
+
+    if (!autorizado) {
+      // Verifica também na tabela de participantes (RESPONSAVEL_PRINCIPAL pode atualizar)
+      try {
+        const participRows: any[] = await prisma.$queryRawUnsafe(`
+          SELECT 1 FROM public.fiorix_its_participantes
+          WHERE it_id = $1::uuid
+            AND usuario_id = $2::uuid
+            AND papel = 'RESPONSAVEL_PRINCIPAL'
+            AND ativo = true
+          LIMIT 1
+        `, params.itId, userId);
+        if (participRows.length > 0) autorizado = true;
+      } catch {
+        // tabela pode não existir ainda — ignora e mantém autorizado = false
+      }
+    }
+
+    if (!autorizado) {
       return { success: false, error: 'Apenas o Responsável Técnico ou Administrador pode atualizar esta instrução.' };
     }
 
