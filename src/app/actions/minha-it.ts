@@ -473,7 +473,7 @@ export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
 
     // 1. Busca a IT atual para verificação de permissão e histórico
     const currentRows: any[] = await prisma.$queryRawUnsafe(`
-      SELECT id, codigo, titulo, versao, responsavel_tecnico_id, objetivo, quando_usar, passo_a_passo, checklist, erros_comuns, hash_versao
+      SELECT id, codigo, titulo, versao, responsavel_tecnico_id, guardiao_id, autor_id, objetivo, quando_usar, passo_a_passo, checklist, erros_comuns, hash_versao
       FROM public.fiorix_its
       WHERE id = $1::uuid
       LIMIT 1
@@ -486,25 +486,27 @@ export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
     const current = currentRows[0];
 
     // Verifica se o usuário é o responsável técnico (campo direto na tabela),
-    // ou o RESPONSAVEL_PRINCIPAL na tabela de participantes, ou ADMIN/MASTER
-    let autorizado = current.responsavel_tecnico_id === userId
+    // guardião, autor, ou RESPONSAVEL_PRINCIPAL / CORRESPONSAVEL em fiorix_its_participants, ou ADMIN/MASTER
+    let autorizado = String(current.responsavel_tecnico_id || '') === String(userId)
+      || String(current.guardiao_id || '') === String(userId)
+      || String(current.autor_id || '') === String(userId)
       || currentUser.role === 'MASTER'
       || currentUser.role === 'ADMIN';
 
     if (!autorizado) {
-      // Verifica também na tabela de participantes (RESPONSAVEL_PRINCIPAL pode atualizar)
+      // Verifica na tabela fiorix_its_participants
       try {
         const participRows: any[] = await prisma.$queryRawUnsafe(`
-          SELECT 1 FROM public.fiorix_its_participantes
+          SELECT 1 FROM public.fiorix_its_participants
           WHERE it_id = $1::uuid
-            AND usuario_id = $2::uuid
-            AND papel = 'RESPONSAVEL_PRINCIPAL'
-            AND ativo = true
+            AND usuario_id = $2
+            AND papel IN ('RESPONSAVEL_PRINCIPAL', 'CORRESPONSAVEL')
+            AND status = 'ativo'
           LIMIT 1
-        `, params.itId, userId);
+        `, params.itId, String(userId));
         if (participRows.length > 0) autorizado = true;
-      } catch {
-        // tabela pode não existir ainda — ignora e mantém autorizado = false
+      } catch (err) {
+        console.warn('Aviso ao checar fiorix_its_participants:', err);
       }
     }
 

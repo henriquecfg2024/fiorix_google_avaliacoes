@@ -1095,23 +1095,25 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
               {!isSupervisao && (() => {
                 const cfg = papelItemCustodia === 'RESPONSAVEL_PRINCIPAL'
-                  ? { label: 'RESPONSÁVEL TÉCNICO', cls: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' }
+                  ? { label: 'RESPONSÁVEL TÉCNICO', dot: 'bg-emerald-400', cls: 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300 shadow-xs' }
                   : papelItemCustodia === 'CORRESPONSAVEL'
-                  ? { label: 'CORRESPONSÁVEL', cls: 'border-violet-500/20 bg-violet-500/10 text-violet-300' }
+                  ? { label: 'CORRESPONSÁVEL', dot: 'bg-violet-400', cls: 'border-violet-500/30 bg-violet-500/15 text-violet-300 shadow-xs' }
                   : papelItemCustodia === 'LEITOR'
-                  ? { label: 'COLABORADOR', cls: 'border-slate-500/20 bg-slate-500/10 text-slate-300' }
+                  ? { label: 'COLABORADOR', dot: 'bg-slate-400', cls: 'border-slate-500/30 bg-slate-500/15 text-slate-300 shadow-xs' }
                   : hasCustodia
-                  ? { label: 'RESPONSÁVEL TÉCNICO', cls: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' }
+                  ? { label: 'RESPONSÁVEL TÉCNICO', dot: 'bg-emerald-400', cls: 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300 shadow-xs' }
                   : null;
                 return cfg ? (
-                  <span className={`rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-semibold ${cfg.cls}`}>
+                  <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-semibold ${cfg.cls}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
                     {cfg.label}
                   </span>
                 ) : null;
               })()}
 
               {isSupervisao && (
-                <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-sky-300">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/15 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-sky-300 shadow-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
                   SOMENTE LEITURA
                 </span>
               )}
@@ -1338,7 +1340,13 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
                 </h3>
 
-                <p className="text-xs text-slate-400">Responsável Técnico: {currentIt.codigo}</p>
+                <p className="text-xs text-slate-400">
+                  Responsável Técnico:{' '}
+                  <span className="text-slate-200 font-medium">
+                    {currentIt.responsavelNome || currentUser.name}
+                  </span>
+                  <span className="text-slate-500 ml-1.5 font-mono">({currentIt.codigo})</span>
+                </p>
 
               </div>
 
