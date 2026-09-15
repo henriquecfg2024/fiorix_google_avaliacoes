@@ -2759,13 +2759,22 @@ export async function adicionarParticipanteIt(params: {
     const it = itRows[0];
 
     // Verificar se o executor é RESPONSAVEL_PRINCIPAL ou gestão
+    // Também aceita se for o responsavel_tecnico_id diretamente na IT (para ITs de colaboradores)
     if (!isGestao) {
       const papelAtual = await prisma.$queryRawUnsafe<any[]>(
         `SELECT papel FROM public.fiorix_its_participants
-         WHERE it_id = $1::uuid AND usuario_id = $2 AND status = 'ativo' AND tenant_id = $3 LIMIT 1`,
-        params.itId, currentUser.id, tenantId
+         WHERE it_id = $1::uuid AND usuario_id = $2 AND status = 'ativo' LIMIT 1`,
+        params.itId, currentUser.id
       );
-      if (!papelAtual.length || papelAtual[0].papel !== 'RESPONSAVEL_PRINCIPAL') {
+      // Verifica também se é responsavel_tecnico_id diretamente na tabela fiorix_its
+      const isRespTecnico = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT id FROM public.fiorix_its WHERE id = $1::uuid AND responsavel_tecnico_id = $2 LIMIT 1`,
+        params.itId, currentUser.id
+      );
+      const temPermissao =
+        (papelAtual.length > 0 && papelAtual[0].papel === 'RESPONSAVEL_PRINCIPAL') ||
+        isRespTecnico.length > 0;
+      if (!temPermissao) {
         return { success: false, error: 'Apenas o responsável principal ou gestão podem adicionar participantes.' };
       }
     }
