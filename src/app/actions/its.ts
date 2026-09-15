@@ -3198,6 +3198,68 @@ export async function buscarColaboradoresParaVincular(
   }
 }
 
+/**
+ * Retorna todos os participantes ativos de uma IT para a view de "Gerenciar equipe".
+ * Inclui todos os papéis. Operações de desvinculação são restritas no servidor
+ * a papéis diferentes de RESPONSAVEL_PRINCIPAL.
+ */
+export async function getEquipeLeitorIt(itId: string): Promise<{
+  success: boolean;
+  membros?: Array<{
+    id: string;
+    usuarioId: string;
+    nome: string;
+    email: string;
+    departamento: string;
+    cargo: string;
+    papel: PapelNaIt;
+    vinculadoEm: string;
+  }>;
+  error?: string;
+}> {
+  try {
+    const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId;
+
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT
+         p.id::text,
+         p.usuario_id as "usuarioId",
+         p.papel,
+         p.created_at as "vinculadoEm",
+         u.name,
+         u.email,
+         u.departamento,
+         u.cargo
+       FROM public.fiorix_its_participants p
+       LEFT JOIN public."User" u ON u.id = p.usuario_id
+       WHERE p.it_id = $1::uuid
+         AND p.tenant_id = $2
+         AND p.status = 'ativo'
+       ORDER BY
+         CASE p.papel WHEN 'RESPONSAVEL_PRINCIPAL' THEN 0 WHEN 'CORRESPONSAVEL' THEN 1 ELSE 2 END,
+         p.created_at ASC`,
+      itId, tenantId
+    );
+
+    return {
+      success: true,
+      membros: rows.map(r => ({
+        id: r.id,
+        usuarioId: r.usuarioId,
+        nome: r.name || 'Usuário',
+        email: r.email || '',
+        departamento: r.departamento || '',
+        cargo: r.cargo || '',
+        papel: r.papel as PapelNaIt,
+        vinculadoEm: new Date(r.vinculadoEm).toLocaleDateString('pt-BR'),
+      })),
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao carregar equipe.' };
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // FASE 3 — PROPOSTAS DE ATUALIZAÇÃO (CORRESPONSÁVEL)
 // ═══════════════════════════════════════════════════════════════

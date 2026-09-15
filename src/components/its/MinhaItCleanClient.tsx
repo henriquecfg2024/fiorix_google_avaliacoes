@@ -1633,17 +1633,22 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
         <CienciasDrawer
           isOpen={cienciasDrawerOpen}
           onClose={() => setCienciasDrawerOpen(false)}
+          itId={currentIt.id}
           codigo={currentIt.codigo}
           titulo={currentIt.titulo}
+          versao={currentIt.versao}
           responsavelCienteEm={currentIt.responsavelCienteEm}
           adesaoPercentual={currentIt.adesaoPercentual}
           totalCientes={currentIt.totalCientes}
           totalColaboradores={currentIt.totalColaboradores}
           pendentesCount={currentIt.pendentesCount}
           equipeCiencias={currentIt.equipeCiencias}
+          podeGerenciar={podeGerenciar}
+          onEquipeUpdated={() => router.refresh()}
           triggerButtonRef={cienciasButtonRef}
         />
       )}
+
 
       {/* Modal de Gerenciamento de Responsáveis */}
       <GerenciarResponsaveisModal
