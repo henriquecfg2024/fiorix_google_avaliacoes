@@ -327,7 +327,7 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
       SELECT * FROM (
         SELECT DISTINCT u.id, u.name, u.cargo, u.departamento
         FROM public.fiorix_its_participants p
-        JOIN public."User" u ON u.id = p.user_id
+        JOIN public."User" u ON u.id = p.usuario_id
         WHERE p.it_id = $1::uuid
         UNION
         SELECT u.id, u.name, u.cargo, u.departamento
