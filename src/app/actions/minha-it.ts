@@ -320,17 +320,33 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
 
   // 6. Busca apenas os participantes vinculados a esta IT (fiorix_its_participants)
   // inclui também o próprio responsável técnico caso não esteja na tabela
-  const colabs: any[] = await prisma.$queryRawUnsafe(`
-    SELECT DISTINCT u.id, u.name, u.cargo, u.departamento
-    FROM public.fiorix_its_participants p
-    JOIN public."User" u ON u.id = p.user_id
-    WHERE p.it_id = $1::uuid
-    UNION
-    SELECT u.id, u.name, u.cargo, u.departamento
-    FROM public."User" u
-    WHERE u.id = $2
-    ORDER BY name ASC
-  `, itId, userId);
+  // Wrapped em subquery para ORDER BY funcionar corretamente após UNION no PostgreSQL
+  let colabs: any[] = [];
+  try {
+    colabs = await prisma.$queryRawUnsafe(`
+      SELECT * FROM (
+        SELECT DISTINCT u.id, u.name, u.cargo, u.departamento
+        FROM public.fiorix_its_participants p
+        JOIN public."User" u ON u.id = p.user_id
+        WHERE p.it_id = $1::uuid
+        UNION
+        SELECT u.id, u.name, u.cargo, u.departamento
+        FROM public."User" u
+        WHERE u.id = $2
+      ) sub
+      ORDER BY name ASC
+    `, itId, userId);
+  } catch (err) {
+    console.warn('Aviso ao buscar participantes da IT para ciências, usando fallback do departamento:', err);
+    // Fallback: busca todos do departamento para não quebrar a tela
+    colabs = await prisma.$queryRawUnsafe(`
+      SELECT id, name, cargo, departamento
+      FROM public."User"
+      WHERE departamento ILIKE $1
+      ORDER BY name ASC
+      LIMIT 40
+    `, `%${depto}%`);
+  }
 
   // Busca quem deu ciência para esta versão
   const cienciasRows: any[] = await prisma.$queryRawUnsafe(`
