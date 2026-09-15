@@ -1178,20 +1178,27 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
             {/* Seletor de custódia (apenas quando há múltiplas ITs) */}
             {itsCustodia.length > 1 && (
-              <div className="relative inline-flex items-center mb-5">
-                <select
-                  value={currentIt.codigo}
-                  onChange={(e) => handleSelectIt(e.target.value)}
-                  disabled={isPending}
-                  className="appearance-none bg-[#EFECE6] hover:bg-[#E8E4DC] text-[#1C1A17] border border-[#DDD7CD] pr-8 pl-3 py-1.5 rounded-xl text-sm font-bold focus:border-emerald-600 focus:outline-none cursor-pointer transition-colors shadow-xs"
-                >
-                  {itsCustodia.map((it) => (
-                    <option key={it.id} value={it.codigo} className="bg-[#FAF8F5] text-[#1C1A17] font-medium">
-                      {it.titulo}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-[#756E63] absolute right-2.5 pointer-events-none" />
+              <div className="mb-5 flex items-center gap-3 bg-[#EFECE6] border border-[#DDD7CD] rounded-2xl px-4 py-3">
+                <div className="flex items-center gap-2 shrink-0">
+                  <FileText className="w-4 h-4 text-emerald-700" />
+                  <span className="text-xs font-bold text-[#756E63] uppercase tracking-wide">Suas ITs</span>
+                  <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded-full">{itsCustodia.length}</span>
+                </div>
+                <div className="relative flex-1 min-w-0">
+                  <select
+                    value={currentIt.codigo}
+                    onChange={(e) => handleSelectIt(e.target.value)}
+                    disabled={isPending}
+                    className="w-full appearance-none bg-white hover:bg-[#FAFAF8] text-[#1C1A17] border border-[#DDD7CD] pr-8 pl-3 py-2 rounded-xl text-sm font-bold focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 focus:outline-none cursor-pointer transition-all shadow-xs"
+                  >
+                    {itsCustodia.map((it) => (
+                      <option key={it.id} value={it.codigo} className="bg-white text-[#1C1A17] font-medium">
+                        {it.titulo} — {it.departamento} • v{it.versao}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-[#756E63] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
             )}
 
