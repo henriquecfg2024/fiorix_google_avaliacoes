@@ -3140,3 +3140,412 @@ export async function buscarColaboradoresParaVincular(
     return { success: false, error: err?.message || 'Erro ao buscar colaboradores.' };
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// FASE 3 — PROPOSTAS DE ATUALIZAÇÃO (CORRESPONSÁVEL)
+// ═══════════════════════════════════════════════════════════════
+
+export interface ItProposta {
+  id: string;
+  itId: string;
+  itCodigo: string;
+  itTitulo: string;
+  autorId: string;
+  autorNome: string;
+  autorDepartamento: string;
+  motivo: string;
+  resumo: string;
+  pdfUrl: string | null;
+  observacoes: string | null;
+  status: 'pendente' | 'aceita' | 'recusada' | 'esclarecimento' | 'cancelada';
+  respondidoPor: string | null;
+  resposta: string | null;
+  criadoEm: string;
+  atualizadoEm: string;
+}
+
+/** Helper interno — cria notificação sem expor ao cliente diretamente. */
+async function criarNotificacaoInterna(params: {
+  tenantId: string;
+  usuarioId: string;
+  tipo: string;
+  titulo: string;
+  mensagem?: string;
+  referenciaId?: string | null;
+  referenciaTipo?: string | null;
+}): Promise<void> {
+  try {
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO public.fiorix_notificacoes (tenant_id, usuario_id, tipo, titulo, mensagem, referencia_id, referencia_tipo, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+      params.tenantId, params.usuarioId, params.tipo, params.titulo,
+      params.mensagem || null,
+      params.referenciaId || null,
+      params.referenciaTipo || null
+    );
+  } catch {
+    // Silencioso — notificação não deve bloquear a ação principal
+  }
+}
+
+/**
+ * Corresponsável (ou responsável principal) cria uma proposta de atualização para a IT.
+ * Não publica nem substitui a versão vigente automaticamente.
+ */
+export async function criarPropostaAtualizacao(params: {
+  itId: string;
+  motivo: string;
+  resumo: string;
+  pdfUrl?: string;
+  pdfPath?: string;
+  observacoes?: string;
+}): Promise<{ success: boolean; propostaId?: string; error?: string }> {
+  try {
+    const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId;
+
+    if (!params.motivo?.trim()) return { success: false, error: 'O motivo é obrigatório.' };
+    if (!params.resumo?.trim()) return { success: false, error: 'O resumo da sugestão é obrigatório.' };
+
+    // Verificar participação ativa na IT
+    const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(currentUser.role);
+    if (!isGestao) {
+      const papelRows = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT papel FROM public.fiorix_its_participants
+         WHERE it_id = $1::uuid AND usuario_id = $2 AND status = 'ativo' AND tenant_id = $3 LIMIT 1`,
+        params.itId, currentUser.id, tenantId
+      );
+      if (!papelRows.length) return { success: false, error: 'Você não é participante desta IT.' };
+      if (papelRows[0].papel === 'LEITOR') return { success: false, error: 'Leitores não podem propor atualizações.' };
+    }
+
+    // Buscar IT e responsável principal para notificação
+    const itRows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT i.id::text, i.codigo, i.titulo,
+         p.usuario_id as resp_id
+       FROM public.fiorix_its i
+       LEFT JOIN public.fiorix_its_participants p ON p.it_id = i.id
+         AND p.papel = 'RESPONSAVEL_PRINCIPAL' AND p.status = 'ativo' AND p.tenant_id = $2
+       WHERE i.id = $1::uuid AND i.tenant_id = $2 AND i.deleted_at IS NULL LIMIT 1`,
+      params.itId, tenantId
+    );
+    if (!itRows.length) return { success: false, error: 'IT não encontrada.' };
+    const it = itRows[0];
+
+    // Criar proposta
+    const result = await prisma.$queryRawUnsafe<any[]>(
+      `INSERT INTO public.fiorix_its_propostas (
+         tenant_id, it_id, autor_id, motivo, resumo, pdf_url, pdf_path, observacoes, status, created_at, updated_at
+       ) VALUES ($1, $2::uuid, $3, $4, $5, $6, $7, $8, 'pendente', NOW(), NOW())
+       RETURNING id::text`,
+      tenantId, params.itId, currentUser.id,
+      params.motivo.trim(), params.resumo.trim(),
+      params.pdfUrl || null, params.pdfPath || null,
+      params.observacoes?.trim() || null
+    );
+    const propostaId = result[0]?.id;
+
+    // Notificar responsável principal
+    if (it.resp_id && it.resp_id !== currentUser.id) {
+      await criarNotificacaoInterna({
+        tenantId, usuarioId: it.resp_id,
+        tipo: 'NOVA_PROPOSTA_ATUALIZACAO',
+        titulo: 'Nova proposta de atualização',
+        mensagem: `${currentUser.name || 'Um corresponsável'} propôs uma atualização para "${it.titulo}": ${params.resumo.trim().substring(0, 120)}`,
+        referenciaId: propostaId,
+        referenciaTipo: 'PROPOSTA',
+      });
+    }
+
+    // Audit log
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO public.fiorix_its_audit_log (tenant_id, it_id, versao_anterior, versao_nova, autor_id, motivo, diff_snapshot, hash_sha256, created_at)
+       VALUES ($1, $2::uuid, 'PROPOSTA', 'CRIADA', $3, $4, $5::jsonb, '', NOW())`,
+      tenantId, params.itId, currentUser.id,
+      `Proposta de atualização criada por ${currentUser.name || currentUser.id}`,
+      JSON.stringify({ propostaId, motivo: params.motivo, resumo: params.resumo })
+    );
+
+    revalidatePath('/minha-it');
+    return { success: true, propostaId };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao criar proposta.' };
+  }
+}
+
+/**
+ * Responsável principal (ou ADMIN/MASTER) responde a uma proposta.
+ * Aceitar NÃO publica automaticamente — o responsável deve criar nova versão manualmente.
+ */
+export async function responderPropostaAtualizacao(params: {
+  propostaId: string;
+  acao: 'aceita' | 'recusada' | 'esclarecimento';
+  resposta: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId;
+    const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(currentUser.role);
+
+    if (!params.resposta?.trim()) return { success: false, error: 'A resposta é obrigatória.' };
+
+    const propRows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT p.id::text, p.it_id::text, p.autor_id, p.status,
+         i.titulo as it_titulo,
+         part.usuario_id as resp_id
+       FROM public.fiorix_its_propostas p
+       JOIN public.fiorix_its i ON i.id = p.it_id
+       LEFT JOIN public.fiorix_its_participants part ON part.it_id = p.it_id
+         AND part.papel = 'RESPONSAVEL_PRINCIPAL' AND part.status = 'ativo' AND part.tenant_id = $2
+       WHERE p.id = $1::uuid AND p.tenant_id = $2 LIMIT 1`,
+      params.propostaId, tenantId
+    );
+    if (!propRows.length) return { success: false, error: 'Proposta não encontrada.' };
+    const prop = propRows[0];
+
+    if (prop.status !== 'pendente' && prop.status !== 'esclarecimento') {
+      return { success: false, error: `Esta proposta já foi ${prop.status}.` };
+    }
+    if (!isGestao && prop.resp_id !== currentUser.id) {
+      return { success: false, error: 'Apenas o responsável principal ou gestão pode responder propostas.' };
+    }
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_its_propostas
+       SET status = $1, respondido_por = $2, resposta = $3, updated_at = NOW()
+       WHERE id = $4::uuid AND tenant_id = $5`,
+      params.acao, currentUser.id, params.resposta.trim(), params.propostaId, tenantId
+    );
+
+    // Notificar autor
+    const acaoLabel = { aceita: 'aceita ✅', recusada: 'recusada ❌', esclarecimento: 'devolvida para esclarecimento 💬' }[params.acao];
+    await criarNotificacaoInterna({
+      tenantId, usuarioId: prop.autor_id,
+      tipo: `PROPOSTA_${params.acao.toUpperCase()}`,
+      titulo: `Proposta ${acaoLabel}`,
+      mensagem: `Sua proposta para "${prop.it_titulo}" foi ${acaoLabel}. Resposta: ${params.resposta.trim().substring(0, 150)}`,
+      referenciaId: params.propostaId,
+      referenciaTipo: 'PROPOSTA',
+    });
+
+    // Audit log
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO public.fiorix_its_audit_log (tenant_id, it_id, versao_anterior, versao_nova, autor_id, motivo, diff_snapshot, hash_sha256, created_at)
+       VALUES ($1, $2::uuid, 'PROPOSTA_PENDENTE', $3, $4, $5, $6::jsonb, '', NOW())`,
+      tenantId, prop.it_id,
+      `PROPOSTA_${params.acao.toUpperCase()}`,
+      currentUser.id,
+      `Proposta ${params.acao} por ${currentUser.name}: ${params.resposta.trim().substring(0, 200)}`,
+      JSON.stringify({ propostaId: params.propostaId, acao: params.acao, resposta: params.resposta })
+    );
+
+    revalidatePath('/minha-it');
+    revalidatePath('/administracao/its');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao responder proposta.' };
+  }
+}
+
+/**
+ * Cancela uma proposta pendente (autor ou gestão).
+ */
+export async function cancelarProposta(
+  propostaId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId;
+    const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(currentUser.role);
+
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT autor_id, status FROM public.fiorix_its_propostas WHERE id = $1::uuid AND tenant_id = $2 LIMIT 1`,
+      propostaId, tenantId
+    );
+    if (!rows.length) return { success: false, error: 'Proposta não encontrada.' };
+    const p = rows[0];
+    if (p.status !== 'pendente' && p.status !== 'esclarecimento') {
+      return { success: false, error: 'Apenas propostas pendentes podem ser canceladas.' };
+    }
+    if (p.autor_id !== currentUser.id && !isGestao) {
+      return { success: false, error: 'Apenas o autor ou gestão pode cancelar esta proposta.' };
+    }
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_its_propostas SET status = 'cancelada', updated_at = NOW()
+       WHERE id = $1::uuid AND tenant_id = $2`,
+      propostaId, tenantId
+    );
+
+    revalidatePath('/minha-it');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao cancelar proposta.' };
+  }
+}
+
+/**
+ * Lista propostas de uma IT específica.
+ */
+export async function getPropostasIt(
+  itId: string
+): Promise<{ success: boolean; propostas?: ItProposta[]; error?: string }> {
+  try {
+    const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId;
+
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT p.id::text, p.it_id::text as "itId",
+         i.codigo as "itCodigo", i.titulo as "itTitulo",
+         p.autor_id as "autorId", u.name as "autorNome",
+         COALESCE(u.departamento, '') as "autorDepartamento",
+         p.motivo, p.resumo, p.pdf_url as "pdfUrl", p.observacoes, p.status,
+         p.respondido_por as "respondidoPor", p.resposta,
+         p.created_at as "criadoEm", p.updated_at as "atualizadoEm"
+       FROM public.fiorix_its_propostas p
+       JOIN public.fiorix_its i ON i.id = p.it_id
+       LEFT JOIN public."User" u ON u.id = p.autor_id
+       WHERE p.it_id = $1::uuid AND p.tenant_id = $2
+       ORDER BY p.created_at DESC LIMIT 50`,
+      itId, tenantId
+    );
+
+    return {
+      success: true,
+      propostas: rows.map(r => ({
+        ...r,
+        criadoEm: new Date(r.criadoEm).toLocaleDateString('pt-BR'),
+        atualizadoEm: new Date(r.atualizadoEm).toLocaleDateString('pt-BR'),
+      })),
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao listar propostas.' };
+  }
+}
+
+/**
+ * Propostas pendentes onde o usuário logado é responsável principal.
+ */
+export async function getMinhasPropostasPendentes(): Promise<{ success: boolean; propostas?: ItProposta[]; error?: string }> {
+  try {
+    const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId;
+
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT p.id::text, p.it_id::text as "itId",
+         i.codigo as "itCodigo", i.titulo as "itTitulo",
+         p.autor_id as "autorId", u.name as "autorNome",
+         COALESCE(u.departamento, '') as "autorDepartamento",
+         p.motivo, p.resumo, p.pdf_url as "pdfUrl", p.observacoes, p.status,
+         p.respondido_por as "respondidoPor", p.resposta,
+         p.created_at as "criadoEm", p.updated_at as "atualizadoEm"
+       FROM public.fiorix_its_propostas p
+       JOIN public.fiorix_its i ON i.id = p.it_id
+       JOIN public.fiorix_its_participants part ON part.it_id = p.it_id
+         AND part.usuario_id = $1 AND part.papel = 'RESPONSAVEL_PRINCIPAL'
+         AND part.status = 'ativo' AND part.tenant_id = $2
+       LEFT JOIN public."User" u ON u.id = p.autor_id
+       WHERE p.tenant_id = $2 AND p.status IN ('pendente', 'esclarecimento')
+       ORDER BY p.created_at DESC`,
+      currentUser.id, tenantId
+    );
+
+    return {
+      success: true,
+      propostas: rows.map(r => ({
+        ...r,
+        criadoEm: new Date(r.criadoEm).toLocaleDateString('pt-BR'),
+        atualizadoEm: new Date(r.atualizadoEm).toLocaleDateString('pt-BR'),
+      })),
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao buscar propostas pendentes.' };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FASE 4 — NOTIFICAÇÕES INTERNAS
+// ═══════════════════════════════════════════════════════════════
+
+export interface FiorixNotificacao {
+  id: string;
+  tipo: string;
+  titulo: string;
+  mensagem: string | null;
+  lida: boolean;
+  referenciaId: string | null;
+  referenciaTipo: string | null;
+  criadoEm: string;
+}
+
+/**
+ * Busca notificações do usuário logado.
+ */
+export async function getNotificacoesUsuario(
+  apenasNaoLidas = false
+): Promise<{ success: boolean; notificacoes?: FiorixNotificacao[]; naoLidas?: number; error?: string }> {
+  try {
+    const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId;
+
+    const filtro = apenasNaoLidas ? 'AND lida = false' : '';
+
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id::text, tipo, titulo, mensagem, lida,
+         referencia_id::text as "referenciaId", referencia_tipo as "referenciaTipo",
+         created_at as "criadoEm"
+       FROM public.fiorix_notificacoes
+       WHERE usuario_id = $1 AND tenant_id = $2 ${filtro}
+       ORDER BY created_at DESC LIMIT 50`,
+      currentUser.id, tenantId
+    );
+
+    const naoLidas = rows.filter(r => !r.lida).length;
+
+    return {
+      success: true,
+      naoLidas,
+      notificacoes: rows.map(r => ({
+        ...r,
+        criadoEm: new Date(r.criadoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+      })),
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao buscar notificações.' };
+  }
+}
+
+/**
+ * Marca uma notificação como lida.
+ */
+export async function marcarNotificacaoLida(
+  notificacaoId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await requireAuth();
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_notificacoes SET lida = true WHERE id = $1::uuid AND usuario_id = $2`,
+      notificacaoId, currentUser.id
+    );
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message };
+  }
+}
+
+/**
+ * Marca todas as notificações do usuário como lidas.
+ */
+export async function marcarTodasNotificacoesLidas(): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId;
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_notificacoes SET lida = true WHERE usuario_id = $1 AND tenant_id = $2 AND lida = false`,
+      currentUser.id, tenantId
+    );
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message };
+  }
+}

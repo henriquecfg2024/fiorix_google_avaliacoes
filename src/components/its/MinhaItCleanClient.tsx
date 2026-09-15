@@ -43,11 +43,12 @@ import {
   ArrowLeftRight,
   Search,
   BadgeCheck,
+  Bell,
 } from 'lucide-react';
 
 import { MinhaItPageData, MinhaItCustodiaItem, ItEnviadaColaborador, publicarNovaVersaoIT, submeterItColaborador } from '@/app/actions/minha-it';
 
-import { getITUploadSignedUrl, cancelarEnvioIt, excluirRascunhoIt, getParticipantesIt, adicionarParticipanteIt, removerParticipanteIt, transferirResponsabilidadeIt, buscarColaboradoresParaVincular, ItParticipante, PapelNaIt } from '@/app/actions/its';
+import { getITUploadSignedUrl, cancelarEnvioIt, excluirRascunhoIt, getParticipantesIt, adicionarParticipanteIt, removerParticipanteIt, transferirResponsabilidadeIt, buscarColaboradoresParaVincular, ItParticipante, PapelNaIt, criarPropostaAtualizacao, getPropostasIt, responderPropostaAtualizacao, cancelarProposta, ItProposta, getNotificacoesUsuario, marcarNotificacaoLida, marcarTodasNotificacoesLidas, FiorixNotificacao } from '@/app/actions/its';
 
 import { AlertaResponsavelTecnico } from './AlertaResponsavelTecnico';
 
@@ -163,6 +164,95 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
     }
   }
 
+  // ── FASE 3: Propostas de atualização ──────────────────────────
+  const [propostaModal, setPropostaModal] = useState(false);
+  const [propostaItId, setPropostaItId] = useState<string | null>(null);
+  const [propostaMotivo, setPropostaMotivo] = useState('');
+  const [propostaResumo, setPropostaResumo] = useState('');
+  const [propostaObs, setPropostaObs] = useState('');
+  const [propostaEnviando, setPropostaEnviando] = useState(false);
+  const [propostaError, setPropostaError] = useState('');
+  const [propostaSuccess, setPropostaSuccess] = useState('');
+
+  const [listaPropostas, setListaPropostas] = useState<ItProposta[]>([]);
+  const [propostasLoading, setPropostasLoading] = useState(false);
+  const [propostaRespondendoId, setPropostaRespondendoId] = useState<string | null>(null);
+  const [propostaResposta, setPropostaResposta] = useState('');
+  const [propostaRespostaError, setPropostaRespostaError] = useState('');
+
+  async function abrirPropostaModal(itId: string) {
+    setPropostaItId(itId);
+    setPropostaMotivo('');
+    setPropostaResumo('');
+    setPropostaObs('');
+    setPropostaError('');
+    setPropostaSuccess('');
+    setPropostaModal(true);
+  }
+
+  async function handleEnviarProposta() {
+    if (!propostaItId) return;
+    setPropostaEnviando(true);
+    setPropostaError('');
+    const res = await criarPropostaAtualizacao({ itId: propostaItId, motivo: propostaMotivo, resumo: propostaResumo, observacoes: propostaObs });
+    if (res.success) {
+      setPropostaSuccess('Proposta enviada ao responsável principal!');
+      setPropostaMotivo(''); setPropostaResumo(''); setPropostaObs('');
+      setTimeout(() => setPropostaModal(false), 1800);
+    } else {
+      setPropostaError(res.error || 'Erro ao enviar proposta.');
+    }
+    setPropostaEnviando(false);
+  }
+
+  async function carregarPropostas(itId: string) {
+    setPropostasLoading(true);
+    const res = await getPropostasIt(itId);
+    setListaPropostas(res.propostas || []);
+    setPropostasLoading(false);
+  }
+
+  async function handleResponderProposta(propostaId: string, acao: 'aceita' | 'recusada' | 'esclarecimento') {
+    if (!propostaResposta.trim()) { setPropostaRespostaError('A resposta é obrigatória.'); return; }
+    const res = await responderPropostaAtualizacao({ propostaId, acao, resposta: propostaResposta });
+    if (res.success) {
+      setPropostaRespondendoId(null);
+      setPropostaResposta('');
+      setPropostaRespostaError('');
+      if (currentIt) await carregarPropostas(currentIt.id);
+    } else {
+      setPropostaRespostaError(res.error || 'Erro ao responder.');
+    }
+  }
+
+  // ── FASE 4: Notificações ──────────────────────────────────────
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notificacoes, setNotificacoes] = useState<FiorixNotificacao[]>([]);
+  const [naoLidas, setNaoLidas] = useState(0);
+  const [notifLoading, setNotifLoading] = useState(false);
+
+  async function carregarNotificacoes() {
+    setNotifLoading(true);
+    const res = await getNotificacoesUsuario();
+    setNotificacoes(res.notificacoes || []);
+    setNaoLidas(res.naoLidas || 0);
+    setNotifLoading(false);
+  }
+
+  async function handleMarcarLida(id: string) {
+    await marcarNotificacaoLida(id);
+    setNotificacoes(prev => prev.map(n => n.id === id ? { ...n, lida: true } : n));
+    setNaoLidas(prev => Math.max(0, prev - 1));
+  }
+
+  async function handleMarcarTodasLidas() {
+    await marcarTodasNotificacoesLidas();
+    setNotificacoes(prev => prev.map(n => ({ ...n, lida: true })));
+    setNaoLidas(0);
+  }
+
+  // Carregar notificações na montagem
+  useEffect(() => { carregarNotificacoes(); }, []);
 
   const [copiedHash, setCopiedHash] = useState(false);
 
@@ -513,11 +603,23 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 <h1 className="text-2xl font-bold text-white">Minha Instrução de Trabalho</h1>
                 <p className="text-sm text-slate-400 mt-0.5">Cadastre e acompanhe a IT sob sua responsabilidade.</p>
               </div>
-              {isColaborador && (
-                <span className="text-xs font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/25 px-3 py-1.5 rounded-full">
-                  Perfil: COLABORADOR
-                </span>
-              )}
+              <div className="flex items-center gap-3">
+                {isColaborador && (
+                  <span className="text-xs font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/25 px-3 py-1.5 rounded-full">
+                    Perfil: COLABORADOR
+                  </span>
+                )}
+                {/* Sino de notificações */}
+                <button onClick={() => { setNotifOpen(true); carregarNotificacoes(); }}
+                  className="relative p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+                  <Bell className="w-5 h-5" />
+                  {naoLidas > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-indigo-500 text-white text-[9px] font-bold flex items-center justify-center">
+                      {naoLidas > 9 ? '9+' : naoLidas}
+                    </span>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
           {colaboradorItEnviada ? (
@@ -652,6 +754,15 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                       <span className={`shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full border ${papelConfig.bg} ${papelConfig.color}`}>
                         {papelConfig.label}
                       </span>
+                      {it.papelNaIt === 'CORRESPONSAVEL' && (
+                        <button
+                          onClick={() => abrirPropostaModal(it.id)}
+                          className="shrink-0 p-1.5 rounded-lg text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 transition-colors"
+                          title="Propor atualização"
+                        >
+                          <ArrowUpRight className="w-4 h-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => abrirGerenciarModal(it.id)}
                         className="shrink-0 p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/8 transition-colors"
@@ -666,6 +777,107 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
             </div>
           )}
         </div>
+
+        {/* Modal — Propor Atualização */}
+        {propostaModal && propostaItId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !propostaEnviando && setPropostaModal(false)} />
+            <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between p-5 border-b border-white/8">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center">
+                    <ArrowUpRight className="w-4 h-4 text-violet-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-sm">Propor atualização</h3>
+                    <p className="text-xs text-slate-400">Sua sugestão será enviada ao responsável principal</p>
+                  </div>
+                </div>
+                <button onClick={() => !propostaEnviando && setPropostaModal(false)} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-5 space-y-4">
+                {propostaError && <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5">{propostaError}</div>}
+                {propostaSuccess && <div className="text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-2.5">{propostaSuccess}</div>}
+                <div>
+                  <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Motivo da alteração *</label>
+                  <input type="text" placeholder="Ex.: Processo desatualizado após nova norma"
+                    value={propostaMotivo} onChange={e => setPropostaMotivo(e.target.value)} disabled={propostaEnviando}
+                    className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500/60 transition-all disabled:opacity-50" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Resumo da sugestão *</label>
+                  <textarea placeholder="Descreva o que deve ser alterado e como..." rows={4}
+                    value={propostaResumo} onChange={e => setPropostaResumo(e.target.value)} disabled={propostaEnviando}
+                    className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500/60 transition-all resize-none disabled:opacity-50" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Observações (opcional)</label>
+                  <textarea placeholder="Informações adicionais..." rows={2}
+                    value={propostaObs} onChange={e => setPropostaObs(e.target.value)} disabled={propostaEnviando}
+                    className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500/60 transition-all resize-none disabled:opacity-50" />
+                </div>
+                <button onClick={handleEnviarProposta} disabled={propostaEnviando || !propostaMotivo.trim() || !propostaResumo.trim()}
+                  className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold transition-colors disabled:opacity-50">
+                  {propostaEnviando ? 'Enviando...' : 'Enviar proposta'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Painel de Notificações */}
+        {notifOpen && (
+          <div className="fixed inset-0 z-50 flex items-start justify-end p-4 pt-16">
+            <div className="absolute inset-0" onClick={() => setNotifOpen(false)} />
+            <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+              <div className="flex items-center justify-between p-4 border-b border-white/8 shrink-0">
+                <div className="flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-indigo-400" />
+                  <span className="font-bold text-white text-sm">Notificações</span>
+                  {naoLidas > 0 && <span className="text-[10px] bg-indigo-500 text-white px-1.5 py-0.5 rounded-full font-bold">{naoLidas}</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  {naoLidas > 0 && (
+                    <button onClick={handleMarcarTodasLidas} className="text-[10px] text-slate-400 hover:text-white transition-colors">
+                      Marcar todas como lidas
+                    </button>
+                  )}
+                  <button onClick={() => setNotifOpen(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-y-auto flex-1">
+                {notifLoading ? (
+                  <div className="py-8 text-center text-slate-500 text-xs">Carregando...</div>
+                ) : notificacoes.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <Bell className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+                    <p className="text-xs text-slate-500">Nenhuma notificação</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-white/5">
+                    {notificacoes.map(n => (
+                      <div key={n.id} onClick={() => !n.lida && handleMarcarLida(n.id)}
+                        className={`px-4 py-3 cursor-pointer transition-colors hover:bg-white/[0.03] ${!n.lida ? 'bg-indigo-500/5' : ''}`}>
+                        <div className="flex items-start gap-2.5">
+                          {!n.lida && <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0 mt-1.5" />}
+                          <div className={`flex-1 ${n.lida ? 'pl-4' : ''}`}>
+                            <p className={`text-xs font-semibold ${n.lida ? 'text-slate-400' : 'text-white'}`}>{n.titulo}</p>
+                            {n.mensagem && <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{n.mensagem}</p>}
+                            <p className="text-[10px] text-slate-600 mt-1">{n.criadoEm}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Modal GerenciarResponsáveis */}
         {gerenciarItId && (
