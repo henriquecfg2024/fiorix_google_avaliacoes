@@ -1180,143 +1180,46 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
           {/* ── Documento Centralizado Folha A4 Marfim ─────────────── */}
 
-          <main className="w-full rounded-[20px] bg-[#FAF8F5] text-[#1C1A17] border border-[#E7E2D8] p-6 sm:p-12 shadow-[0_25px_60px_rgba(0,0,0,0.5),0_0_1px_rgba(255,255,255,0.2)] relative">
+          <main className="w-full rounded-[20px] bg-[#FAF8F5] text-[#1C1A17] border border-[#E7E2D8] p-6 sm:p-10 shadow-[0_25px_60px_rgba(0,0,0,0.5),0_0_1px_rgba(255,255,255,0.2)] relative">
 
 
 
-            {/* Barra Controle de Versão Minimalista (36px) */}
-
-            <div className="h-9 px-4 bg-[#EFECE6] border border-[#DDD7CD] rounded-xl flex items-center justify-between text-[11px] text-[#635D54] mb-8 select-none shadow-xs">
-
-              <div className="flex items-center gap-2 truncate">
-
-                <span className="font-bold tracking-wider text-[10px] text-[#756E63] uppercase">Controle de Versão</span>
-
-                <span className="text-[#A39B8E]">•</span>
-
-                <span className="font-mono text-[#423E37]">
-
-                  Hash SHA-256: {currentIt.hashVersao.slice(0, 10)}...
-
-                </span>
-
-                <span className="text-[#A39B8E]">•</span>
-
-                <span className="font-semibold text-emerald-700">Versão Oficial v{currentIt.versao}</span>
-
+            {/* Seletor de custódia (apenas quando há múltiplas ITs) */}
+            {itsCustodia.length > 1 && (
+              <div className="relative inline-flex items-center mb-5">
+                <select
+                  value={currentIt.codigo}
+                  onChange={(e) => handleSelectIt(e.target.value)}
+                  disabled={isPending}
+                  className="appearance-none bg-[#EFECE6] hover:bg-[#E8E4DC] text-[#1C1A17] border border-[#DDD7CD] pr-8 pl-3 py-1.5 rounded-xl text-sm font-bold focus:border-emerald-600 focus:outline-none cursor-pointer transition-colors shadow-xs"
+                >
+                  {itsCustodia.map((it) => (
+                    <option key={it.id} value={it.codigo} className="bg-[#FAF8F5] text-[#1C1A17] font-medium">
+                      {it.titulo}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-[#756E63] absolute right-2.5 pointer-events-none" />
               </div>
+            )}
 
-
-
-              <button
-
-                onClick={handleCopyHash}
-
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-[#E2DDD3] text-[#2C2824] font-medium transition-colors cursor-pointer text-[11px]"
-
-                title="Copiar Hash SHA-256 completo"
-
-              >
-
-                {copiedHash ? (
-
-                  <>
-
-                    <Check className="w-3.5 h-3.5 text-emerald-700" />
-
-                    <span className="text-emerald-700 font-semibold">Copiado</span>
-
-                  </>
-
-                ) : (
-
-                  <>
-
-                    <Copy className="w-3 h-3 text-[#756E63]" />
-
-                    <span>Copiar Hash</span>
-
-                  </>
-
-                )}
-
-              </button>
-
-            </div>
-
-
-
-            {/* Header Documento: Dropdown minimalista de custódia + Badge */}
-
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-[#E8E2D8]">
-
-              <div className="relative inline-flex items-center">
-
-                {itsCustodia.length > 1 ? (
-
-                  <div className="relative flex items-center">
-
-                    <select
-
-                      value={currentIt.codigo}
-
-                      onChange={(e) => handleSelectIt(e.target.value)}
-
-                      disabled={isPending}
-
-                      className="appearance-none bg-[#EFECE6] hover:bg-[#E8E4DC] text-[#1C1A17] border border-[#DDD7CD] pr-8 pl-3 py-1.5 rounded-xl text-sm font-bold focus:border-emerald-600 focus:outline-none cursor-pointer transition-colors shadow-xs"
-
-                    >
-
-                      {itsCustodia.map((it) => (
-
-                        <option key={it.id} value={it.codigo} className="bg-[#FAF8F5] text-[#1C1A17] font-medium">
-
-                          {it.codigo} • {it.titulo}
-
-                        </option>
-
-                      ))}
-
-                    </select>
-
-                    <ChevronDown className="w-4 h-4 text-[#756E63] absolute right-2.5 pointer-events-none" />
-
-                  </div>
-
-                ) : (
-
-                  <span className="text-sm font-bold text-[#1C1A17]">
-
-                    {currentIt.codigo} • {currentIt.titulo}
-
+            {/* Cabeçalho: Título + Selo de versão oficial */}
+            <div className="mb-6 pb-5 border-b border-[#E8E2D8]">
+              <div className="flex flex-wrap items-start gap-3 mb-1.5">
+                <h2 className="text-2xl sm:text-[28px] font-bold text-[#1C1A17] tracking-tight leading-tight flex-1 min-w-0 font-serif">
+                  {formatTituloPrincipal(currentIt.titulo)}
+                </h2>
+                {(['publicada', 'vigente'] as string[]).includes(currentIt.status) && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold tracking-wide shadow-xs whitespace-nowrap shrink-0 mt-1">
+                    <Shield className="w-3.5 h-3.5 text-emerald-700" />
+                    Versão oficial {currentIt.versao}&nbsp;•&nbsp;Somente leitura
                   </span>
-
                 )}
-
               </div>
-
-
-
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-600/10 text-emerald-800 border border-emerald-600/25 text-[11px] font-bold tracking-wide shadow-xs">
-
-                <Shield className="w-3.5 h-3.5 text-emerald-700" />
-
-                <span>MEU PDF VIGENTE</span>
-
-              </div>
-
+              <p className="text-xs text-[#8B8378] leading-relaxed">
+                Alterações somente em nova versão, sujeita à aprovação.
+              </p>
             </div>
-
-
-
-            {/* Título Serif H1 */}
-
-            <h2 className="text-2xl sm:text-[28px] font-bold text-[#1C1A17] tracking-tight leading-tight mb-8 font-serif">
-
-              {formatTituloPrincipal(currentIt.titulo)}
-
-            </h2>
 
 
 
@@ -1346,155 +1249,11 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
 
 
-              {/* 2. QUANDO USAR */}
 
-              <section className="space-y-2">
+              {/* ── Rodapé de Ações do Documento ── */}
+              <div className="pt-6 border-t border-[#E8E2D8] flex flex-col gap-3 select-none">
 
-                <h3 className="text-xs uppercase tracking-wider font-bold text-[#756E63] pb-1.5 border-b border-[#E8E2D8]">
-
-                  2. Quando Usar
-
-                </h3>
-
-                <p className="text-[#2D2A26] pt-1 leading-relaxed">
-
-                  {currentIt.quandoUsar}
-
-                </p>
-
-              </section>
-
-
-
-              {/* 3. PASSO A PASSO (RESPONSABILIDADE TÉCNICA) */}
-
-              <section className="space-y-3">
-
-                <h3 className="text-xs uppercase tracking-wider font-bold text-[#756E63] pb-1.5 border-b border-[#E8E2D8]">
-
-                  3. Passo a Passo (Responsabilidade Técnica)
-
-                </h3>
-
-
-
-                <div className="space-y-3 pt-1">
-
-                  {currentIt.passoAPasso.length > 0 ? (
-
-                    currentIt.passoAPasso.map((item, idx) => {
-
-                      const isString = typeof item === 'string';
-
-                      const titulo = isString ? item : item.titulo;
-
-                      const desc = isString ? '' : item.desc;
-
-
-
-                      return (
-
-                        <div
-
-                          key={idx}
-
-                          className="flex items-start gap-3.5 p-4 rounded-xl bg-white/75 border border-[#E8E2D8] hover:border-emerald-600/40 hover:bg-white transition-all shadow-xs"
-
-                        >
-
-                          <span className="w-7 h-7 rounded-full bg-emerald-700/10 border border-emerald-700/20 font-bold text-xs text-emerald-800 flex items-center justify-center flex-shrink-0 shadow-xs">
-
-                            {idx + 1}
-
-                          </span>
-
-                          <div className="flex-1">
-
-                            <div className="font-semibold text-sm text-[#1C1A17]">{titulo}</div>
-
-                            {desc && <div className="text-xs text-[#5C564D] mt-1 leading-relaxed">{desc}</div>}
-
-                          </div>
-
-                        </div>
-
-                      );
-
-                    })
-
-                  ) : (
-
-                    <div className="text-xs text-[#756E63] italic">Nenhum passo a passo cadastrado para esta rotina.</div>
-
-                  )}
-
-                </div>
-
-              </section>
-
-
-
-              {/* 4. Cards do Rodapé do Documento */}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-[#E8E2D8]">
-
-                {/* Checklist Obrigatório */}
-
-                <div className="p-4 rounded-xl border border-[#E8E2D8] bg-white/75 space-y-2 shadow-xs">
-
-                  <div className="text-xs font-bold text-[#1C1A17] uppercase tracking-wider flex items-center gap-1.5">
-
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-
-                    <span>Checklist Obrigatório</span>
-
-                  </div>
-
-                  <ul className="text-xs text-[#474138] space-y-1.5 list-disc list-inside">
-
-                    {currentIt.checklist.map((item, i) => (
-
-                      <li key={i}>{item}</li>
-
-                    ))}
-
-                  </ul>
-
-                </div>
-
-
-
-                {/* Orientações Práticas */}
-
-                <div className="p-4 rounded-xl border border-[#E8E2D8] bg-white/75 space-y-2 shadow-xs">
-
-                  <div className="text-xs font-bold text-[#1C1A17] uppercase tracking-wider flex items-center gap-1.5">
-
-                    <Layers className="w-3.5 h-3.5 text-indigo-700" />
-
-                    <span>Orientações Práticas</span>
-
-                  </div>
-
-                  <ul className="text-xs text-[#474138] space-y-1.5 list-disc list-inside">
-
-                    {currentIt.casosPraticos.map((item, i) => (
-
-                      <li key={i}>{item}</li>
-
-                    ))}
-
-                  </ul>
-
-                </div>
-
-              </div>
-
-
-
-              {/* ── Rodapé de Ações do Documento (Visualizar na Íntegra + Gerenciar Responsáveis + Ver Ciências) ── */}
-              <div className="pt-8 border-t border-[#E8E2D8] flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3.5 select-none">
-                {/* 1. VISUALIZAR NA ÍNTEGRA ESTA IT → */}
+                {/* Linha 1 — Botão amarelo full-width */}
                 <a
                   href={currentIt.pdfUrl || '#'}
                   target={currentIt.pdfUrl ? '_blank' : undefined}
@@ -1505,38 +1264,48 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                       alert('O documento PDF original desta IT ainda não foi anexado.');
                     }
                   }}
-                  className="group inline-flex items-center justify-center gap-2.5 px-6 sm:px-7 py-3 rounded-full bg-gradient-to-r from-[#FFC200] via-[#FFB100] to-[#FFA000] text-[#1A1200] font-bold text-xs sm:text-[13px] tracking-wider shadow-[0_8px_22px_-3px_rgba(255,174,0,0.5)] hover:shadow-[0_12px_28px_-3px_rgba(255,174,0,0.65)] hover:-translate-y-0.5 hover:brightness-105 active:scale-[0.98] transition-all duration-200 cursor-pointer"
+                  className="group w-full inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#FFC200] via-[#FFB100] to-[#FFA000] text-[#1A1200] font-bold text-[13px] tracking-wider shadow-[0_8px_22px_-3px_rgba(255,174,0,0.45)] hover:shadow-[0_12px_28px_-3px_rgba(255,174,0,0.6)] hover:-translate-y-0.5 hover:brightness-105 active:scale-[0.98] transition-all duration-200 cursor-pointer"
                 >
                   <Eye className="w-4 h-4 text-[#1A1200] flex-shrink-0 stroke-[2.5]" />
                   <span>VISUALIZAR NA ÍNTEGRA ESTA IT</span>
-                  <ArrowRight className="w-4 h-4 text-[#1A1200] flex-shrink-0 stroke-[2.5] transition-transform duration-200 group-hover:translate-x-1" />
+                  <ArrowRight className="w-4 h-4 text-[#1A1200] flex-shrink-0 stroke-[2.5] transition-transform duration-200 group-hover:translate-x-1 ml-auto" />
                 </a>
 
-                {/* 2. Gerenciar responsáveis (Visível apenas para Responsável Principal ou Gestão) */}
-                {podeGerenciar && (
+                {/* Linha 2 — Dois botões secundários de mesma largura */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                  {/* Gerenciar responsáveis — visível para todos; permissões gerenciadas dentro do modal */}
                   <button
                     type="button"
+                    id="btn-gerenciar-responsaveis"
                     onClick={() => abrirGerenciarModal(currentIt.id)}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-white hover:bg-[#F7F5F0] text-[#1C1A17] border border-[#D8D2C6] hover:border-[#C4BCAD] text-xs font-semibold shadow-xs hover:shadow-sm active:scale-[0.98] transition-all cursor-pointer"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-white hover:bg-[#F7F5F0] text-[#1C1A17] border border-[#D8D2C6] hover:border-[#C4BCAD] text-xs font-semibold shadow-xs hover:shadow-sm active:scale-[0.98] transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
                   >
                     <Users className="w-4 h-4 text-indigo-600 flex-shrink-0" />
                     <span>Gerenciar responsáveis</span>
+                    {participantes.length > 0 && (
+                      <span className="ml-1 px-2 py-0.5 rounded-full bg-indigo-100 text-[11px] font-bold text-indigo-700">
+                        {participantes.length}
+                      </span>
+                    )}
                   </button>
-                )}
 
-                {/* 3. Ver ciências (Abre Drawer Lateral de Ciências) */}
-                <button
-                  ref={cienciasButtonRef}
-                  type="button"
-                  onClick={() => setCienciasDrawerOpen(true)}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-[#ECFDF5] hover:bg-[#D1FAE5] text-emerald-900 border border-emerald-300/90 hover:border-emerald-400 text-xs font-semibold shadow-xs hover:shadow-sm active:scale-[0.98] transition-all cursor-pointer"
-                >
-                  <Users className="w-4 h-4 text-emerald-700 flex-shrink-0" />
-                  <span>Ver ciências</span>
-                  <span className="ml-0.5 px-2 py-0.5 rounded-full bg-emerald-200/80 text-[11px] font-bold text-emerald-800 font-mono">
-                    {currentIt.adesaoPercentual}%
-                  </span>
-                </button>
+                  {/* Ver ciências — abre Drawer lateral */}
+                  <button
+                    ref={cienciasButtonRef}
+                    type="button"
+                    id="btn-ver-ciencias"
+                    onClick={() => setCienciasDrawerOpen(true)}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#ECFDF5] hover:bg-[#D1FAE5] text-emerald-900 border border-emerald-300/90 hover:border-emerald-400 text-xs font-semibold shadow-xs hover:shadow-sm active:scale-[0.98] transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1"
+                  >
+                    <CheckCheck className="w-4 h-4 text-emerald-700 flex-shrink-0" />
+                    <span>Ver ciências</span>
+                    <span className="ml-1 px-2 py-0.5 rounded-full bg-emerald-200/80 text-[11px] font-bold text-emerald-800 font-mono">
+                      {currentIt.totalCientes}/{currentIt.totalColaboradores > 0 ? currentIt.totalColaboradores : '—'}
+                    </span>
+                  </button>
+
+                </div>
               </div>
 
             </div>
