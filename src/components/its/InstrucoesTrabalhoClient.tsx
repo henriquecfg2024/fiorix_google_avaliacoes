@@ -774,13 +774,13 @@ export function InstrucoesTrabalhoClient({
                 <p className="text-sm text-slate-500 mt-1">Tente outro termo ou setor.</p>
               </div>
             ) : (
-              <div className="rounded-2xl border border-white/8 bg-[#0B1020]/60 overflow-hidden divide-y divide-white/6">
+              <div className="rounded-2xl border border-white/8 bg-[#0B1020]/60 divide-y divide-white/6">
                 {itsFiltradas.map((it) => {
                   const revisao = getStatusRevisao(it.diasSemRevisao);
                   return (
                     <div
                       key={it.id}
-                      className="flex items-center gap-4 px-5 py-4 hover:bg-white/[0.025] transition-colors group"
+                      className="relative flex items-center gap-4 px-5 py-4 hover:bg-white/[0.025] transition-colors group first:rounded-t-2xl last:rounded-b-2xl"
                     >
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-white text-sm group-hover:text-indigo-300 transition-colors truncate">
