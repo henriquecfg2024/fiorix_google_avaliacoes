@@ -238,24 +238,32 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
         userDepartamento = dRows[0]?.departamento || 'Geral';
       } catch { userDepartamento = 'Geral'; }
     }
-    return {
-      hasCustodia: false,
-      isSupervisao: false,
-      responsavelRealNome: null,
-      currentUser: {
-        id: currentUser.id,
-        name: currentUser.name || 'Usuário',
-        email: currentUser.email || '',
-        role: currentUser.role,
-        departamento: userDepartamento,
-      },
-      cartorioNome,
-      cartorioUnidade,
-      itsCustodia: [],
-      itsByParticipation,
-      currentIt: null,
-      colaboradorItEnviada,
-    };
+
+    // Se tem ITs via participação (LEITOR/CORRESPONSAVEL), promove a primeira
+    // para que o usuário veja o resumo rico da IT (igual ao Responsável Técnico)
+    if (itsByParticipation.length > 0) {
+      // Adiciona a primeira IT participante como custódia temporária para carregar os detalhes
+      itsCustodia.push(...itsByParticipation);
+    } else {
+      return {
+        hasCustodia: false,
+        isSupervisao: false,
+        responsavelRealNome: null,
+        currentUser: {
+          id: currentUser.id,
+          name: currentUser.name || 'Usuário',
+          email: currentUser.email || '',
+          role: currentUser.role,
+          departamento: userDepartamento,
+        },
+        cartorioNome,
+        cartorioUnidade,
+        itsCustodia: [],
+        itsByParticipation,
+        currentIt: null,
+        colaboradorItEnviada,
+      };
+    }
   }
 
   // 3. Determina a IT selecionada (por parâmetro de código ou a primeira da lista)
