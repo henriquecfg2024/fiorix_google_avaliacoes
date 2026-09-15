@@ -207,7 +207,7 @@ export function AlertaResponsavelTecnico({
         </div>
 
         {/* 3. Área de Ação: Data da última revisão + Botão Criar nova versão */}
-        <div className="flex flex-col sm:flex-row sm:items-center md:flex-col lg:flex-row gap-2.5 sm:gap-3 shrink-0 self-stretch sm:self-auto md:items-end lg:items-center">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 shrink-0">
           
           {/* Etiqueta discreta da última revisão */}
           {dataUltimaRevisao && (
@@ -231,7 +231,7 @@ export function AlertaResponsavelTecnico({
             <button
               type="button"
               onClick={onCriarNovaVersao}
-              className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-[13px] font-bold shadow-xs transition-colors cursor-pointer select-none active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2 motion-reduce:transition-none ${estilo.buttonHover}`}
+              className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-[13px] font-bold shadow-xs transition-colors cursor-pointer select-none active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2 motion-reduce:transition-none ${estilo.buttonHover}`}
               style={{
                 backgroundColor: estilo.buttonBg,
                 color: estilo.buttonText,

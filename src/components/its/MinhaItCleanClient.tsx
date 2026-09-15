@@ -1082,32 +1082,35 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
               </h1>
 
-              {!isSupervisao && (
-
-                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
-
-                  RESPONSÁVEL TÉCNICO
-
-                </span>
-
-              )}
+              {!isSupervisao && (() => {
+                const cfg = papelItemCustodia === 'RESPONSAVEL_PRINCIPAL'
+                  ? { label: 'RESPONSÁVEL TÉCNICO', cls: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' }
+                  : papelItemCustodia === 'CORRESPONSAVEL'
+                  ? { label: 'CORRESPONSÁVEL', cls: 'border-violet-500/20 bg-violet-500/10 text-violet-300' }
+                  : papelItemCustodia === 'LEITOR'
+                  ? { label: 'COLABORADOR', cls: 'border-slate-500/20 bg-slate-500/10 text-slate-300' }
+                  : hasCustodia
+                  ? { label: 'RESPONSÁVEL TÉCNICO', cls: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' }
+                  : null;
+                return cfg ? (
+                  <span className={`rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-semibold ${cfg.cls}`}>
+                    {cfg.label}
+                  </span>
+                ) : null;
+              })()}
 
               {isSupervisao && (
-
                 <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-sky-300">
-
                   SOMENTE LEITURA
-
                 </span>
-
               )}
 
             </div>
 
             <p className="text-xs text-slate-400 mt-1">
-
-              {cartorioNome} • {cartorioUnidade} • {isSupervisao ? 'Visão de supervisão' : 'Gestão oficial e custódia de versão'} do setor {currentIt.departamento}
-
+              {isSupervisao
+                ? `${cartorioNome} • ${cartorioUnidade} • Visão de supervisão`
+                : `${cartorioNome} • ${currentIt.departamento}`}
             </p>
 
           </div>
