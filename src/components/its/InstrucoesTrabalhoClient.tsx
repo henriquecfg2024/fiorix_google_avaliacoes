@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useState, useTransition, useCallback } from 'react';
 import {
   BookOpen,
   Search,
@@ -15,8 +15,21 @@ import {
   Eye,
   RotateCcw,
   Send,
+  AlertCircle,
+  ThumbsUp,
+  ThumbsDown,
+  ExternalLink,
+  Loader2,
 } from 'lucide-react';
-import { ITItem, AuditLogItem } from '@/app/actions/its';
+import { ITItem } from '@/app/actions/its';
+import {
+  analisarItColaborador,
+  aprovarItColaborador,
+  publicarItColaborador,
+  solicitarCorrecaoIt,
+  rejeitarItColaborador,
+  ItPendenteAprovacaoDetalhe,
+} from '@/app/actions/its';
 
 // ═══════════════════════════════════════════════
 // TIPOS
@@ -34,6 +47,22 @@ interface ConformidadeItem {
   cientesCount: number;
   pendentesCount: number;
   pendentesNomes: string[];
+}
+
+interface ItPendenteResumo {
+  id: string;
+  codigo: string;
+  titulo: string;
+  departamento: string;
+  versao: string;
+  status: string;
+  objetivo: string;
+  pdfUrl: string | null;
+  pdfPath: string | null;
+  autorNome: string;
+  autorEmail: string;
+  criadoEm: string;
+  itSimilar: { codigo: string; titulo: string } | null;
 }
 
 interface InstrucoesTrabalhoData {
@@ -54,6 +83,7 @@ interface InstrucoesTrabalhoData {
     itsVencidas: number;
   };
   conformidadePorIt: ConformidadeItem[];
+  itsPendentesAprovacao: ItPendenteResumo[];
 }
 
 interface InstrucoesTrabalhoClientProps {
@@ -65,6 +95,14 @@ interface InstrucoesTrabalhoClientProps {
 // HELPERS
 // ═══════════════════════════════════════════════
 
+const STATUS_FLUXO_LABELS: Record<string, { label: string; color: string; bg: string }> = {
+  enviada_para_analise: { label: 'Aguardando análise', color: 'text-indigo-300', bg: 'bg-indigo-500/20 border-indigo-500/30' },
+  correcao_solicitada: { label: 'Correção solicitada', color: 'text-amber-300', bg: 'bg-amber-500/20 border-amber-500/30' },
+  aprovada: { label: 'Aguardando publicação', color: 'text-teal-300', bg: 'bg-teal-500/20 border-teal-500/30' },
+  rejeitada: { label: 'Rejeitada', color: 'text-red-300', bg: 'bg-red-500/20 border-red-500/30' },
+};
+
+/** Badge de revisão — só para ITs efetivamente publicadas */
 function getStatusRevisao(diasSemRevisao: number): {
   label: string;
   color: string;
@@ -82,7 +120,7 @@ function getStatusRevisao(diasSemRevisao: number): {
 }
 
 // ═══════════════════════════════════════════════
-// MODAL — DETALHES DA IT
+// MODAL — DETALHES DA IT PUBLICADA
 // ═══════════════════════════════════════════════
 
 function ItDetailModal({
@@ -99,75 +137,41 @@ function ItDetailModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-2xl rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 p-6 border-b border-white/8">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xs font-mono text-slate-400">{it.codigo}</span>
-              <span className="text-slate-600">•</span>
-              <span className="text-xs text-slate-400">versão {it.versao}</span>
-              <span className={`ml-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${revisao.bg} ${revisao.color}`}>
-                {revisao.label}
-              </span>
-            </div>
-            <h2 className="text-lg font-bold text-white">{it.titulo}</h2>
-            <p className="text-sm text-slate-400 mt-0.5">{it.departamento}</p>
+      <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden">
+        <div className="flex items-start justify-between p-6 border-b border-white/8 gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{it.codigo} • v{it.versao}</p>
+            <h2 className="font-bold text-white text-base leading-tight">{it.titulo}</h2>
+            <p className="text-xs text-slate-400 mt-1">{it.departamento}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="shrink-0 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${revisao.bg} ${revisao.color}`}>
+              {revisao.label}
+            </span>
+            <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-
-        {/* Corpo */}
-        <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+        <div className="p-6 space-y-3 max-h-72 overflow-y-auto">
           {it.objetivo && (
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Objetivo</p>
-              <p className="text-sm text-slate-300 leading-relaxed">{it.objetivo}</p>
+              <p className="text-xs font-semibold text-slate-500 mb-1">Objetivo</p>
+              <p className="text-sm text-slate-300">{it.objetivo}</p>
             </div>
           )}
-          {it.quandoUsar && (
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Quando usar</p>
-              <p className="text-sm text-slate-300 leading-relaxed">{it.quandoUsar}</p>
-            </div>
-          )}
-          {it.passoAPasso && it.passoAPasso.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Passo a passo</p>
-              <ol className="space-y-1.5">
-                {it.passoAPasso.map((p, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                    <span className="shrink-0 w-5 h-5 rounded-full bg-indigo-600/30 text-indigo-300 text-xs flex items-center justify-center font-bold">
-                      {i + 1}
-                    </span>
-                    <span>{typeof p === 'string' ? p : p.titulo}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
+          {it.pdfOriginalUrl && (
+            <a
+              href={it.pdfOriginalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              <ExternalLink className="w-3.5 h-3.5" /> Visualizar PDF
+            </a>
           )}
         </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between gap-3 p-6 border-t border-white/8">
-          <div className="flex items-center gap-2">
-            {it.pdfOriginalUrl && (
-              <a
-                href={it.pdfOriginalUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/8 hover:bg-white/12 text-white text-xs font-semibold transition-colors border border-white/10"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                Ver PDF
-              </a>
-            )}
-          </div>
+        <div className="p-4 border-t border-white/8 flex justify-end">
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-xl bg-white/8 hover:bg-white/12 text-white text-xs font-semibold transition-colors border border-white/10"
@@ -181,7 +185,7 @@ function ItDetailModal({
 }
 
 // ═══════════════════════════════════════════════
-// MODAL — VER PESSOAS PENDENTES
+// MODAL — PESSOAS PENDENTES DE CIÊNCIA
 // ═══════════════════════════════════════════════
 
 function PessoasPendentesModal({
@@ -194,18 +198,15 @@ function PessoasPendentesModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b border-white/8">
+      <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b border-white/8">
           <div>
             <h3 className="font-bold text-white text-sm">{item.titulo}</h3>
             <p className="text-xs text-slate-400 mt-0.5">
               {item.pendentesCount} colaborador{item.pendentesCount !== 1 ? 'es' : ''} com ciência pendente
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors"
-          >
+          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -227,12 +228,338 @@ function PessoasPendentesModal({
           )}
         </div>
         <div className="p-4 border-t border-white/8">
-          <button
-            onClick={onClose}
-            className="w-full px-4 py-2 rounded-xl bg-white/8 hover:bg-white/12 text-white text-xs font-semibold transition-colors border border-white/10"
-          >
+          <button onClick={onClose} className="w-full px-4 py-2 rounded-xl bg-white/8 hover:bg-white/12 text-white text-xs font-semibold transition-colors border border-white/10">
             Fechar
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════
+// MODAL — ANALISAR IT (Aprovar / Corrigir / Rejeitar)
+// ═══════════════════════════════════════════════
+
+type AnalisarStep = 'view' | 'confirmar_aprovacao' | 'solicitar_correcao' | 'rejeitar' | 'publicar' | 'done';
+
+function AnalisarItModal({
+  itResumo,
+  onClose,
+  onActioned,
+}: {
+  itResumo: ItPendenteResumo;
+  onClose: () => void;
+  onActioned: () => void;
+}) {
+  const [step, setStep] = useState<AnalisarStep>('view');
+  const [detalhe, setDetalhe] = useState<ItPendenteAprovacaoDetalhe | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [pending, startTransition] = useTransition();
+  const [motivo, setMotivo] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
+  // Carrega detalhes ao abrir
+  React.useEffect(() => {
+    let cancelled = false;
+    analisarItColaborador(itResumo.id).then((res) => {
+      if (cancelled) return;
+      if (res.success && res.data) setDetalhe(res.data);
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [itResumo.id]);
+
+  async function handleAprovar() {
+    setErrorMsg('');
+    startTransition(async () => {
+      const res = await aprovarItColaborador(itResumo.id);
+      if (res.success) {
+        setSuccessMsg('IT aprovada! Agora você pode publicá-la.');
+        setStep('publicar');
+      } else {
+        setErrorMsg(res.error || 'Erro ao aprovar.');
+      }
+    });
+  }
+
+  async function handlePublicar() {
+    setErrorMsg('');
+    startTransition(async () => {
+      const res = await publicarItColaborador(itResumo.id);
+      if (res.success) {
+        setSuccessMsg('IT publicada com sucesso! Ela agora aparece no Catálogo.');
+        setStep('done');
+        setTimeout(() => { onActioned(); onClose(); }, 1500);
+      } else {
+        setErrorMsg(res.error || 'Erro ao publicar.');
+      }
+    });
+  }
+
+  async function handleCorrecao() {
+    if (!motivo.trim()) { setErrorMsg('Informe o motivo da correção.'); return; }
+    setErrorMsg('');
+    startTransition(async () => {
+      const res = await solicitarCorrecaoIt(itResumo.id, motivo.trim());
+      if (res.success) {
+        setSuccessMsg('Correção solicitada. O colaborador será notificado.');
+        setStep('done');
+        setTimeout(() => { onActioned(); onClose(); }, 1500);
+      } else {
+        setErrorMsg(res.error || 'Erro ao solicitar correção.');
+      }
+    });
+  }
+
+  async function handleRejeitar() {
+    if (!motivo.trim()) { setErrorMsg('Informe o motivo da rejeição.'); return; }
+    setErrorMsg('');
+    startTransition(async () => {
+      const res = await rejeitarItColaborador(itResumo.id, motivo.trim());
+      if (res.success) {
+        setSuccessMsg('IT rejeitada e arquivada.');
+        setStep('done');
+        setTimeout(() => { onActioned(); onClose(); }, 1500);
+      } else {
+        setErrorMsg(res.error || 'Erro ao rejeitar.');
+      }
+    });
+  }
+
+  const statusInfo = STATUS_FLUXO_LABELS[itResumo.status] || { label: itResumo.status, color: 'text-slate-300', bg: 'bg-slate-500/20 border-slate-500/30' };
+  const isAprovada = itResumo.status === 'aprovada';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !pending && onClose()} />
+      <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-start justify-between p-6 border-b border-white/8 gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+              {step === 'publicar' ? 'Publicar IT' : step === 'solicitar_correcao' ? 'Solicitar Correção' : step === 'rejeitar' ? 'Rejeitar IT' : 'Analisar IT'}
+            </p>
+            <h2 className="font-bold text-white text-base leading-tight">{itResumo.titulo}</h2>
+            <p className="text-xs text-slate-400 mt-1">{itResumo.codigo} • {itResumo.departamento}</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${statusInfo.bg} ${statusInfo.color}`}>
+              {statusInfo.label}
+            </span>
+            <button onClick={() => !pending && onClose()} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+          {loading && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
+            </div>
+          )}
+
+          {!loading && detalhe && (step === 'view' || step === 'confirmar_aprovacao' || step === 'publicar') && (
+            <>
+              {/* IT Similar Warning */}
+              {detalhe.itSimilar && (
+                <div className="flex items-start gap-3 rounded-xl border border-amber-500/25 bg-amber-500/8 p-4">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-semibold text-amber-300 mb-0.5">IT similar já publicada</p>
+                    <p className="text-amber-200/70">
+                      Já existe uma IT publicada com título semelhante: <span className="font-mono font-bold">{detalhe.itSimilar.codigo}</span> — {detalhe.itSimilar.titulo}.
+                      O aprovador decide se esta substituirá a existente, é independente, ou deve ser devolvida/rejeitada.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Dados */}
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="bg-white/4 rounded-xl p-3">
+                  <p className="text-slate-500 mb-0.5">Autor</p>
+                  <p className="text-slate-200 font-medium">{detalhe.autorNome}</p>
+                </div>
+                <div className="bg-white/4 rounded-xl p-3">
+                  <p className="text-slate-500 mb-0.5">Setor</p>
+                  <p className="text-slate-200 font-medium">{detalhe.departamento}</p>
+                </div>
+                <div className="bg-white/4 rounded-xl p-3">
+                  <p className="text-slate-500 mb-0.5">Enviado em</p>
+                  <p className="text-slate-200 font-medium">{detalhe.criadoEm}</p>
+                </div>
+                <div className="bg-white/4 rounded-xl p-3">
+                  <p className="text-slate-500 mb-0.5">Versão</p>
+                  <p className="text-slate-200 font-medium">{detalhe.versao}</p>
+                </div>
+              </div>
+
+              {detalhe.objetivo && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 mb-1">Objetivo / Descrição</p>
+                  <p className="text-sm text-slate-300 leading-relaxed">{detalhe.objetivo}</p>
+                </div>
+              )}
+
+              {detalhe.pdfUrl && (
+                <a
+                  href={detalhe.pdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 text-sm font-semibold transition-colors"
+                >
+                  <Eye className="w-4 h-4" /> Visualizar PDF enviado
+                  <ExternalLink className="w-3.5 h-3.5 ml-auto opacity-60" />
+                </a>
+              )}
+
+              {step === 'publicar' && (
+                <div className="rounded-xl border border-teal-500/25 bg-teal-500/8 p-4">
+                  <p className="text-sm font-semibold text-teal-300 mb-1">IT aprovada — pronta para publicação</p>
+                  <p className="text-xs text-teal-200/70">
+                    Após publicar, esta IT aparecerá no Catálogo e será contabilizada nos indicadores.
+                    Apenas usuários autorizados podem publicar.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Solicitar Correção */}
+          {step === 'solicitar_correcao' && (
+            <div className="space-y-3">
+              <p className="text-sm text-slate-300">Descreva o que precisa ser corrigido. O colaborador receberá este motivo.</p>
+              <textarea
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                placeholder="Ex.: O PDF está ilegível nas páginas 3 e 4. Solicito que reenvie com qualidade maior."
+                rows={4}
+                disabled={pending}
+                className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/60 transition-all resize-none disabled:opacity-50"
+              />
+            </div>
+          )}
+
+          {/* Rejeitar */}
+          {step === 'rejeitar' && (
+            <div className="space-y-3">
+              <p className="text-sm text-slate-300">Esta IT será arquivada como rejeitada. Informe o motivo obrigatoriamente.</p>
+              <textarea
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                placeholder="Ex.: Duplicata da IT-ATE-001. O documento submetido é idêntico ao já publicado."
+                rows={4}
+                disabled={pending}
+                className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-red-500/60 transition-all resize-none disabled:opacity-50"
+              />
+            </div>
+          )}
+
+          {errorMsg && (
+            <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+              <AlertCircle className="w-4 h-4 shrink-0" />{errorMsg}
+            </div>
+          )}
+          {successMsg && (
+            <div className="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />{successMsg}
+            </div>
+          )}
+        </div>
+
+        {/* Footer actions */}
+        <div className="flex items-center gap-3 p-6 border-t border-white/8 flex-wrap">
+          {step === 'view' && !isAprovada && (
+            <>
+              <button onClick={() => { setMotivo(''); setStep('rejeitar'); }} disabled={pending}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 text-xs font-semibold transition-colors disabled:opacity-50">
+                <ThumbsDown className="w-3.5 h-3.5" /> Rejeitar
+              </button>
+              <button onClick={() => { setMotivo(''); setStep('solicitar_correcao'); }} disabled={pending}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 text-xs font-semibold transition-colors disabled:opacity-50">
+                <RotateCcw className="w-3.5 h-3.5" /> Solicitar correção
+              </button>
+              <button onClick={() => setStep('confirmar_aprovacao')} disabled={pending || loading}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors disabled:opacity-50 ml-auto">
+                <ThumbsUp className="w-3.5 h-3.5" /> Aprovar
+              </button>
+            </>
+          )}
+
+          {step === 'confirmar_aprovacao' && (
+            <>
+              <button onClick={() => setStep('view')} disabled={pending}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+                Voltar
+              </button>
+              <button onClick={handleAprovar} disabled={pending}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition-colors disabled:opacity-50">
+                {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsUp className="w-4 h-4" />}
+                Confirmar aprovação
+              </button>
+            </>
+          )}
+
+          {step === 'publicar' && (
+            <>
+              <button onClick={onClose} disabled={pending}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+                Publicar depois
+              </button>
+              <button onClick={handlePublicar} disabled={pending}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition-colors disabled:opacity-50">
+                {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                Publicar agora
+              </button>
+            </>
+          )}
+
+          {step === 'solicitar_correcao' && (
+            <>
+              <button onClick={() => setStep('view')} disabled={pending}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+                Voltar
+              </button>
+              <button onClick={handleCorrecao} disabled={pending || !motivo.trim()}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold transition-colors disabled:opacity-50">
+                {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+                Enviar devolução
+              </button>
+            </>
+          )}
+
+          {step === 'rejeitar' && (
+            <>
+              <button onClick={() => setStep('view')} disabled={pending}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+                Voltar
+              </button>
+              <button onClick={handleRejeitar} disabled={pending || !motivo.trim()}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-700 hover:bg-red-600 text-white text-sm font-bold transition-colors disabled:opacity-50">
+                {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsDown className="w-4 h-4" />}
+                Confirmar rejeição
+              </button>
+            </>
+          )}
+
+          {/* Publicar IT já aprovada */}
+          {step === 'view' && isAprovada && (
+            <>
+              <button onClick={onClose} disabled={pending}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+                Fechar
+              </button>
+              <button onClick={handlePublicar} disabled={pending || loading}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition-colors disabled:opacity-50">
+                {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                Publicar IT
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -248,6 +575,7 @@ export function InstrucoesTrabalhoClient({
   initialTab = 'catalogo',
 }: InstrucoesTrabalhoClientProps) {
   const { its, kpis, conformidadePorIt, currentUser } = initialData;
+  const itsPendentesAprovacao: ItPendenteResumo[] = initialData.itsPendentesAprovacao ?? [];
   const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(currentUser.role);
 
   const [activeTab, setActiveTab] = useState<'catalogo' | 'fiscalizacao'>(initialTab);
@@ -255,11 +583,19 @@ export function InstrucoesTrabalhoClient({
   const [filterSetor, setFilterSetor] = useState('TODOS');
   const [viewItModal, setViewItModal] = useState<ITItem | null>(null);
   const [pessoasModal, setPessoasModal] = useState<ConformidadeItem | null>(null);
+  const [analisarModal, setAnalisarModal] = useState<ItPendenteResumo | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // Setores únicos para o filtro
+  const handleActioned = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+    // Recarregar página para refletir mudanças de status
+    if (typeof window !== 'undefined') window.location.reload();
+  }, []);
+
+  // Setores únicos (catálogo = ITs publicadas)
   const setores = ['TODOS', ...Array.from(new Set(its.map((it) => it.departamento).filter(Boolean))).sort()];
 
-  // ITs filtradas
+  // ITs filtradas do catálogo
   const itsFiltradas = its.filter((it) => {
     const termLower = searchTerm.toLowerCase();
     const matchSearch =
@@ -270,16 +606,42 @@ export function InstrucoesTrabalhoClient({
     return matchSearch && matchSetor;
   });
 
-  // Pendências da fiscalização
-  const pendencias: Array<{ item: ConformidadeItem; tipo: 'revisao_vencida' | 'revisao_proxima' | 'ciencia_pendente' }> = [];
+  // ── Pendências da Fiscalização ──────────────────────────
+
+  type TipoPendencia =
+    | 'aguardando_analise'
+    | 'correcao_solicitada'
+    | 'aguardando_publicacao'
+    | 'revisao_vencida'
+    | 'revisao_proxima'
+    | 'ciencia_pendente';
+
+  type Pendencia =
+    | { tipo: 'aguardando_analise' | 'correcao_solicitada' | 'aguardando_publicacao'; itPendente: ItPendenteResumo }
+    | { tipo: 'revisao_vencida' | 'revisao_proxima' | 'ciencia_pendente'; item: ConformidadeItem };
+
+  const pendencias: Pendencia[] = [];
+
+  // 1. ITs aguardando análise / correção / publicação
+  for (const p of itsPendentesAprovacao) {
+    if (p.status === 'enviada_para_analise') {
+      pendencias.push({ tipo: 'aguardando_analise', itPendente: p });
+    } else if (p.status === 'correcao_solicitada') {
+      pendencias.push({ tipo: 'correcao_solicitada', itPendente: p });
+    } else if (p.status === 'aprovada') {
+      pendencias.push({ tipo: 'aguardando_publicacao', itPendente: p });
+    }
+  }
+
+  // 2. Revisão e ciência das ITs publicadas
   for (const item of conformidadePorIt) {
     if (item.diasSemRevisao >= 120) {
-      pendencias.push({ item, tipo: 'revisao_vencida' });
+      pendencias.push({ tipo: 'revisao_vencida', item });
     } else if (item.diasSemRevisao >= 90) {
-      pendencias.push({ item, tipo: 'revisao_proxima' });
+      pendencias.push({ tipo: 'revisao_proxima', item });
     }
     if (item.pendentesCount > 0) {
-      pendencias.push({ item, tipo: 'ciencia_pendente' });
+      pendencias.push({ tipo: 'ciencia_pendente', item });
     }
   }
 
@@ -342,7 +704,7 @@ export function InstrucoesTrabalhoClient({
         </div>
 
         {/* ════════════════════════════════════════════════
-            ABA CATÁLOGO
+            ABA CATÁLOGO — somente ITs publicadas/vigentes
         ════════════════════════════════════════════════ */}
         {activeTab === 'catalogo' && (
           <div className="space-y-4">
@@ -387,7 +749,7 @@ export function InstrucoesTrabalhoClient({
               {itsFiltradas.length} {itsFiltradas.length === 1 ? 'instrução de trabalho' : 'instruções de trabalho'}
             </p>
 
-            {/* Lista */}
+            {/* Lista — apenas ITs publicadas */}
             {itsFiltradas.length === 0 ? (
               <div className="rounded-2xl border border-white/8 bg-white/[0.02] py-16 text-center">
                 <FileText className="mx-auto w-10 h-10 text-slate-600 mb-3" />
@@ -403,7 +765,6 @@ export function InstrucoesTrabalhoClient({
                       key={it.id}
                       className="flex items-center gap-4 px-5 py-4 hover:bg-white/[0.025] transition-colors group"
                     >
-                      {/* Info */}
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-white text-sm group-hover:text-indigo-300 transition-colors truncate">
                           {it.titulo}
@@ -413,17 +774,15 @@ export function InstrucoesTrabalhoClient({
                         </p>
                       </div>
 
-                      {/* Setor */}
                       <span className="hidden sm:inline-flex shrink-0 text-xs text-slate-400 bg-white/5 border border-white/8 px-2.5 py-1 rounded-lg">
                         {it.departamento}
                       </span>
 
-                      {/* Badge status */}
+                      {/* Badge de revisão — só aparece para ITs publicadas */}
                       <span className={`shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full border ${revisao.bg} ${revisao.color}`}>
                         {revisao.label}
                       </span>
 
-                      {/* Abrir */}
                       <button
                         onClick={() => setViewItModal(it)}
                         className="shrink-0 px-4 py-1.5 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors"
@@ -446,7 +805,9 @@ export function InstrucoesTrabalhoClient({
             {/* 3 Indicadores */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="rounded-2xl border border-white/8 bg-[#0B1020]/60 p-5">
-                <p className="text-3xl font-bold text-white">{pendencias.length}</p>
+                <p className={`text-3xl font-bold ${pendencias.length > 0 ? 'text-rose-400' : 'text-white'}`}>
+                  {pendencias.length}
+                </p>
                 <p className="text-sm text-slate-400 mt-1">itens precisam de atenção</p>
               </div>
               <div className="rounded-2xl border border-white/8 bg-[#0B1020]/60 p-5">
@@ -454,6 +815,7 @@ export function InstrucoesTrabalhoClient({
                 <p className="text-sm text-slate-400 mt-1">leituras concluídas</p>
               </div>
               <div className="rounded-2xl border border-white/8 bg-[#0B1020]/60 p-5">
+                {/* totalIts agora só conta ITs publicadas */}
                 <p className="text-3xl font-bold text-white">{kpis.totalIts}</p>
                 <p className="text-sm text-slate-400 mt-1">ITs publicadas</p>
               </div>
@@ -475,40 +837,110 @@ export function InstrucoesTrabalhoClient({
                 </div>
               ) : (
                 <div className="divide-y divide-white/6">
-                  {pendencias.map(({ item, tipo }, idx) => {
-                    const isVencida = tipo === 'revisao_vencida';
-                    const isProxima = tipo === 'revisao_proxima';
-                    const isCiencia = tipo === 'ciencia_pendente';
+                  {pendencias.map((pendencia, idx) => {
+                    // ── Pendências de aprovação ──
+                    if (
+                      pendencia.tipo === 'aguardando_analise' ||
+                      pendencia.tipo === 'correcao_solicitada' ||
+                      pendencia.tipo === 'aguardando_publicacao'
+                    ) {
+                      const p = pendencia.itPendente;
+                      const isAnalise = pendencia.tipo === 'aguardando_analise';
+                      const isCorrecao = pendencia.tipo === 'correcao_solicitada';
+                      const isPublicacao = pendencia.tipo === 'aguardando_publicacao';
 
-                    let motivo = '';
-                    let badgeText = '';
-                    let badgeColor = '';
-                    let acaoLabel = '';
+                      let motivo = '';
+                      let badgeText = '';
+                      let badgeColor = '';
+                      let iconColor = '';
+                      let acaoLabel = '';
+
+                      if (isAnalise) {
+                        motivo = 'Nova IT aguardando análise';
+                        badgeText = 'Aguardando análise';
+                        badgeColor = 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30';
+                        iconColor = 'bg-indigo-500/15';
+                        acaoLabel = 'Analisar';
+                      } else if (isCorrecao) {
+                        motivo = 'Correção solicitada — aguardando reenvio';
+                        badgeText = 'Correção solicitada';
+                        badgeColor = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+                        iconColor = 'bg-amber-500/15';
+                        acaoLabel = 'Ver IT';
+                      } else {
+                        motivo = 'IT aprovada — aguardando publicação';
+                        badgeText = 'Aguardando publicação';
+                        badgeColor = 'bg-teal-500/20 text-teal-300 border-teal-500/30';
+                        iconColor = 'bg-teal-500/15';
+                        acaoLabel = 'Publicar';
+                      }
+
+                      return (
+                        <div
+                          key={`${p.id}-${pendencia.tipo}`}
+                          className="flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition-colors"
+                        >
+                          <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center ${iconColor}`}>
+                            <FileText className={`w-4 h-4 ${isAnalise ? 'text-indigo-400' : isCorrecao ? 'text-amber-400' : 'text-teal-400'}`} />
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-white text-sm truncate">{p.titulo}</p>
+                            <p className="text-xs text-slate-400 mt-0.5">{p.codigo} • {motivo}</p>
+                          </div>
+
+                          <span className="hidden sm:inline-flex shrink-0 text-xs text-slate-400 bg-white/5 border border-white/8 px-2.5 py-1 rounded-lg">
+                            {p.departamento}
+                          </span>
+
+                          <span className={`shrink-0 text-xs font-bold px-2.5 py-1 rounded-full border ${badgeColor}`}>
+                            {badgeText}
+                          </span>
+
+                          <button
+                            onClick={() => setAnalisarModal(p)}
+                            className="shrink-0 px-4 py-1.5 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors"
+                          >
+                            {acaoLabel}
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    // ── Pendências de revisão e ciência ──
+                    const item = (pendencia as { tipo: string; item: ConformidadeItem }).item;
+                    const isVencida = pendencia.tipo === 'revisao_vencida';
+                    const isProxima = pendencia.tipo === 'revisao_proxima';
+                    const isCiencia = pendencia.tipo === 'ciencia_pendente';
+
+                    let motivo2 = '';
+                    let badgeText2 = '';
+                    let badgeColor2 = '';
+                    let acaoLabel2 = '';
 
                     if (isVencida) {
-                      motivo = 'Revisão vencida';
-                      badgeText = `${item.diasSemRevisao - 120}d em atraso`;
-                      badgeColor = 'bg-red-500/20 text-red-300 border-red-500/30';
-                      acaoLabel = 'Revisar';
+                      motivo2 = 'Revisão vencida';
+                      badgeText2 = `${item.diasSemRevisao - 120}d em atraso`;
+                      badgeColor2 = 'bg-red-500/20 text-red-300 border-red-500/30';
+                      acaoLabel2 = 'Revisar';
                     } else if (isProxima) {
                       const diasRestantes = 120 - item.diasSemRevisao;
-                      motivo = 'Revisão próxima do vencimento';
-                      badgeText = `${diasRestantes}d`;
-                      badgeColor = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
-                      acaoLabel = 'Revisar';
+                      motivo2 = 'Revisão próxima do vencimento';
+                      badgeText2 = `${diasRestantes}d`;
+                      badgeColor2 = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+                      acaoLabel2 = 'Revisar';
                     } else {
-                      motivo = `${item.pendentesCount} colaborador${item.pendentesCount !== 1 ? 'es' : ''} ainda não confirmaram a leitura`;
-                      badgeText = `${item.pendentesCount} pendente${item.pendentesCount !== 1 ? 's' : ''}`;
-                      badgeColor = 'bg-rose-500/20 text-rose-300 border-rose-500/30';
-                      acaoLabel = 'Ver pessoas';
+                      motivo2 = `${item.pendentesCount} colaborador${item.pendentesCount !== 1 ? 'es' : ''} ainda não confirmaram a leitura`;
+                      badgeText2 = `${item.pendentesCount} pendente${item.pendentesCount !== 1 ? 's' : ''}`;
+                      badgeColor2 = 'bg-rose-500/20 text-rose-300 border-rose-500/30';
+                      acaoLabel2 = 'Ver pessoas';
                     }
 
                     return (
                       <div
-                        key={`${item.id}-${tipo}`}
+                        key={`${item.id}-${pendencia.tipo}`}
                         className="flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition-colors"
                       >
-                        {/* Ícone */}
                         <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center ${
                           isVencida ? 'bg-red-500/15' : isProxima ? 'bg-amber-500/15' : 'bg-rose-500/15'
                         }`}>
@@ -518,30 +950,24 @@ export function InstrucoesTrabalhoClient({
                           }
                         </div>
 
-                        {/* Info */}
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-white text-sm truncate">{item.titulo}</p>
-                          <p className="text-xs text-slate-400 mt-0.5">{motivo}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">{motivo2}</p>
                         </div>
 
-                        {/* Setor */}
                         <span className="hidden sm:inline-flex shrink-0 text-xs text-slate-400 bg-white/5 border border-white/8 px-2.5 py-1 rounded-lg">
                           {item.departamento}
                         </span>
 
-                        {/* Badge urgência */}
-                        <span className={`shrink-0 text-xs font-bold px-2.5 py-1 rounded-full border ${badgeColor}`}>
-                          {badgeText}
+                        <span className={`shrink-0 text-xs font-bold px-2.5 py-1 rounded-full border ${badgeColor2}`}>
+                          {badgeText2}
                         </span>
 
-                        {/* Ação */}
                         <button
-                          onClick={() => {
-                            if (isCiencia) setPessoasModal(item);
-                          }}
+                          onClick={() => { if (isCiencia) setPessoasModal(item); }}
                           className="shrink-0 px-4 py-1.5 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors"
                         >
-                          {acaoLabel}
+                          {acaoLabel2}
                         </button>
                       </div>
                     );
@@ -565,6 +991,13 @@ export function InstrucoesTrabalhoClient({
         <PessoasPendentesModal
           item={pessoasModal}
           onClose={() => setPessoasModal(null)}
+        />
+      )}
+      {analisarModal && (
+        <AnalisarItModal
+          itResumo={analisarModal}
+          onClose={() => setAnalisarModal(null)}
+          onActioned={handleActioned}
         />
       )}
     </div>

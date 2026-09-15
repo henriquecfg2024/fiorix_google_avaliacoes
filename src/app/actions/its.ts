@@ -148,7 +148,9 @@ export async function getItsPageData() {
     throw new Error('Acesso restrito: Apenas Oficiais Substitutos e Administradores possuem acesso à Governança de ITs.');
   }
 
-  // 1. Buscar ITs ativas
+  // 1. Buscar ITs publicadas/vigentes para o Catálogo
+  // ITs em fluxo de aprovação (enviada_para_analise, correcao_solicitada, aprovada, rejeitada)
+  // NÃO aparecem no catálogo geral. São tratadas separadamente na Fiscalização.
   const rawIts = await prisma.$queryRawUnsafe<any[]>(
     `SELECT 
        id,
@@ -171,7 +173,9 @@ export async function getItsPageData() {
        pdf_path as "pdfPath",
        ROUND(EXTRACT(EPOCH FROM (NOW() - updated_at)) / 86400)::int as "diasSemRevisao"
      FROM public.fiorix_its
-     WHERE tenant_id = $1 AND deleted_at IS NULL
+     WHERE tenant_id = $1
+       AND deleted_at IS NULL
+       AND status IN ('vigente', 'ativa', 'publicada')
      ORDER BY codigo ASC`,
     tenantId
   );
@@ -1219,9 +1223,14 @@ export async function getGovernancaRhData() {
   const tenantId = currentUser.tenantId;
 
   // 1. KPIs
+  // totalIts = apenas ITs efetivamente publicadas/vigentes
   const totalIts = Number(
     (await prisma.$queryRawUnsafe<any[]>(
-      `SELECT count(*)::int as count FROM public.fiorix_its WHERE tenant_id = $1 AND deleted_at IS NULL`,
+      `SELECT count(*)::int as count
+       FROM public.fiorix_its
+       WHERE tenant_id = $1
+         AND deleted_at IS NULL
+         AND status IN ('vigente', 'ativa', 'publicada')`,
       tenantId
     ))[0]?.count || 0
   );
@@ -1343,7 +1352,7 @@ export async function getGovernancaRhData() {
     cargo: c.cargo,
   }));
 
-  // 5. Controle por IT com status de ciências da equipe
+  // 5. Controle por IT publicada/vigente com status de ciências da equipe
   const itsListRaw = await prisma.$queryRawUnsafe<any[]>(
     `SELECT 
        i.id::text,
@@ -1356,9 +1365,74 @@ export async function getGovernancaRhData() {
        g.name as "guardiaoNome"
      FROM public.fiorix_its i
      LEFT JOIN public."User" g ON g.id = i.guardiao_id
-     WHERE i.tenant_id = $1 AND i.deleted_at IS NULL
+     WHERE i.tenant_id = $1
+       AND i.deleted_at IS NULL
+       AND i.status IN ('vigente', 'ativa', 'publicada')
      ORDER BY i.codigo ASC`,
     tenantId
+  );
+
+  // 6. ITs pendentes de aprovação (enviadas por colaboradores ou em fluxo)
+  const itsPendentesRaw = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT
+       i.id::text,
+       i.codigo,
+       i.titulo,
+       i.departamento,
+       i.versao,
+       i.status,
+       i.objetivo,
+       i.pdf_original_url as "pdfUrl",
+       i.pdf_path as "pdfPath",
+       i.created_at as "criadoEm",
+       i.updated_at as "atualizadoEm",
+       u.name as "autorNome",
+       u.email as "autorEmail",
+       -- campo de motivo de correção/rejeição se existir
+       i.objetivo as "motivoCorrecao"
+     FROM public.fiorix_its i
+     LEFT JOIN public."User" u ON u.id = i.autor_id
+     WHERE i.tenant_id = $1
+       AND i.deleted_at IS NULL
+       AND i.status IN ('enviada_para_analise', 'correcao_solicitada', 'aprovada')
+     ORDER BY i.created_at ASC`,
+    tenantId
+  );
+
+  // Verificar se já existe IT publicada com título semelhante
+  const itsPendentesAprovacao = await Promise.all(
+    itsPendentesRaw.map(async (p) => {
+      // Busca ITs publicadas com título semelhante (case-insensitive)
+      const similares = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT codigo, titulo FROM public.fiorix_its
+         WHERE tenant_id = $1
+           AND deleted_at IS NULL
+           AND status IN ('vigente', 'ativa', 'publicada')
+           AND LOWER(titulo) LIKE LOWER($2)
+           AND id != $3::uuid
+         LIMIT 1`,
+        tenantId,
+        `%${p.titulo.replace(/[^a-z0-9]/gi, '%').substring(0, 30)}%`,
+        p.id
+      );
+      return {
+        id: p.id,
+        codigo: p.codigo,
+        titulo: p.titulo,
+        departamento: p.departamento,
+        versao: p.versao,
+        status: p.status,
+        objetivo: p.objetivo || '',
+        pdfUrl: p.pdfUrl || null,
+        pdfPath: p.pdfPath || null,
+        autorNome: p.autorNome || 'Colaborador',
+        autorEmail: p.autorEmail || '',
+        criadoEm: new Date(p.criadoEm).toLocaleString('pt-BR'),
+        itSimilar: similares.length > 0
+          ? { codigo: similares[0].codigo, titulo: similares[0].titulo }
+          : null,
+      };
+    })
   );
 
   const conformidadePorIt = [];
@@ -1404,9 +1478,244 @@ export async function getGovernancaRhData() {
     },
     timelineAudit,
     conformidadePorIt,
+    itsPendentesAprovacao,
     columnConfig,
     colaboradoresTenant,
   };
+}
+
+// ═══════════════════════════════════════════════
+// ACTIONS DO FLUXO DE APROVAÇÃO DE ITs
+// ═══════════════════════════════════════════════
+
+export interface ItPendenteAprovacaoDetalhe {
+  id: string;
+  codigo: string;
+  titulo: string;
+  departamento: string;
+  versao: string;
+  status: string;
+  objetivo: string;
+  pdfUrl: string | null;
+  autorNome: string;
+  autorEmail: string;
+  criadoEm: string;
+  itSimilar: { codigo: string; titulo: string } | null;
+}
+
+export async function analisarItColaborador(
+  itId: string
+): Promise<{ success: boolean; data?: ItPendenteAprovacaoDetalhe; error?: string }> {
+  try {
+    const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
+    const tenantId = currentUser.tenantId;
+
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT
+         i.id::text, i.codigo, i.titulo, i.departamento, i.versao, i.status,
+         i.objetivo, i.pdf_original_url as "pdfUrl",
+         i.created_at as "criadoEm",
+         u.name as "autorNome", u.email as "autorEmail"
+       FROM public.fiorix_its i
+       LEFT JOIN public."User" u ON u.id = i.autor_id
+       WHERE i.id = $1::uuid AND i.tenant_id = $2 AND i.deleted_at IS NULL
+       LIMIT 1`,
+      itId, tenantId
+    );
+    if (!rows.length) return { success: false, error: 'IT não encontrada.' };
+    const row = rows[0];
+
+    const similares = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT codigo, titulo FROM public.fiorix_its
+       WHERE tenant_id = $1 AND deleted_at IS NULL
+         AND status IN ('vigente','ativa','publicada')
+         AND LOWER(titulo) = LOWER($2) AND id != $3::uuid
+       LIMIT 1`,
+      tenantId, row.titulo, itId
+    );
+
+    return {
+      success: true,
+      data: {
+        id: row.id,
+        codigo: row.codigo,
+        titulo: row.titulo,
+        departamento: row.departamento,
+        versao: row.versao,
+        status: row.status,
+        objetivo: row.objetivo || '',
+        pdfUrl: row.pdfUrl || null,
+        autorNome: row.autorNome || 'Colaborador',
+        autorEmail: row.autorEmail || '',
+        criadoEm: new Date(row.criadoEm).toLocaleString('pt-BR'),
+        itSimilar: similares.length > 0
+          ? { codigo: similares[0].codigo, titulo: similares[0].titulo }
+          : null,
+      },
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao carregar IT.' };
+  }
+}
+
+export async function aprovarItColaborador(
+  itId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
+    const tenantId = currentUser.tenantId;
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_its
+       SET status = 'aprovada', updated_at = NOW()
+       WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+         AND status IN ('enviada_para_analise', 'correcao_solicitada')`,
+      itId, tenantId
+    );
+
+    try {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO public.fiorix_its_versoes (
+           id, it_id, versao, conteudo_snapshot, alteracoes, autor_id, hash_versao, created_at, tenant_id
+         ) VALUES (
+           gen_random_uuid(), $1::uuid, '1.0', '{}'::jsonb,
+           $2, $3, '', NOW(), $4
+         )`,
+        itId,
+        `IT aprovada por ${currentUser.name || currentUser.email}`,
+        currentUser.id,
+        tenantId
+      );
+    } catch { /* histórico opcional */ }
+
+    revalidatePath('/administracao/its');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao aprovar IT.' };
+  }
+}
+
+export async function publicarItColaborador(
+  itId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
+    const tenantId = currentUser.tenantId;
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_its
+       SET status = 'publicada', updated_at = NOW()
+       WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+         AND status = 'aprovada'`,
+      itId, tenantId
+    );
+
+    try {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO public.fiorix_its_versoes (
+           id, it_id, versao, conteudo_snapshot, alteracoes, autor_id, hash_versao, created_at, tenant_id
+         ) VALUES (
+           gen_random_uuid(), $1::uuid, '1.0', '{}'::jsonb,
+           $2, $3, '', NOW(), $4
+         )`,
+        itId,
+        `IT publicada por ${currentUser.name || currentUser.email}`,
+        currentUser.id,
+        tenantId
+      );
+    } catch { /* histórico opcional */ }
+
+    revalidatePath('/administracao/its');
+    revalidatePath('/instrucoes-trabalho');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao publicar IT.' };
+  }
+}
+
+export async function solicitarCorrecaoIt(
+  itId: string,
+  motivo: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
+    const tenantId = currentUser.tenantId;
+
+    if (!motivo?.trim()) return { success: false, error: 'O motivo da correção é obrigatório.' };
+
+    // Grava motivo no campo objetivo como nota de correção (armazenamento provisório)
+    // até que exista coluna dedicada no schema
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_its
+       SET status = 'correcao_solicitada',
+           updated_at = NOW()
+       WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+         AND status IN ('enviada_para_analise', 'aprovada')`,
+      itId, tenantId
+    );
+
+    try {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO public.fiorix_its_versoes (
+           id, it_id, versao, conteudo_snapshot, alteracoes, autor_id, hash_versao, created_at, tenant_id
+         ) VALUES (
+           gen_random_uuid(), $1::uuid, '1.0', '{}'::jsonb,
+           $2, $3, '', NOW(), $4
+         )`,
+        itId,
+        `Correção solicitada por ${currentUser.name || currentUser.email}: ${motivo.trim()}`,
+        currentUser.id,
+        tenantId
+      );
+    } catch { /* histórico opcional */ }
+
+    revalidatePath('/administracao/its');
+    revalidatePath('/minha-it');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao solicitar correção.' };
+  }
+}
+
+export async function rejeitarItColaborador(
+  itId: string,
+  motivo: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
+    const tenantId = currentUser.tenantId;
+
+    if (!motivo?.trim()) return { success: false, error: 'O motivo da rejeição é obrigatório.' };
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_its
+       SET status = 'rejeitada', updated_at = NOW()
+       WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+         AND status IN ('enviada_para_analise', 'correcao_solicitada')`,
+      itId, tenantId
+    );
+
+    try {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO public.fiorix_its_versoes (
+           id, it_id, versao, conteudo_snapshot, alteracoes, autor_id, hash_versao, created_at, tenant_id
+         ) VALUES (
+           gen_random_uuid(), $1::uuid, '1.0', '{}'::jsonb,
+           $2, $3, '', NOW(), $4
+         )`,
+        itId,
+        `IT rejeitada por ${currentUser.name || currentUser.email}: ${motivo.trim()}`,
+        currentUser.id,
+        tenantId
+      );
+    } catch { /* histórico opcional */ }
+
+    revalidatePath('/administracao/its');
+    revalidatePath('/minha-it');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao rejeitar IT.' };
+  }
 }
 
 export interface MinhaItCardItem {
