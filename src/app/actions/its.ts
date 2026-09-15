@@ -2678,6 +2678,38 @@ export async function getParticipantesIt(
       itId, tenantId
     );
 
+    // Se ainda não há participantes registrados, auto-sincroniza com o responsavel_tecnico_id de fiorix_its
+    if (rows.length === 0) {
+      try {
+        const itRows = await prisma.$queryRawUnsafe<any[]>(
+          `SELECT responsavel_tecnico_id FROM public.fiorix_its WHERE id = $1::uuid AND tenant_id = $2 LIMIT 1`,
+          itId, tenantId
+        );
+        if (itRows.length && itRows[0].responsavel_tecnico_id) {
+          const respId = itRows[0].responsavel_tecnico_id;
+          await prisma.$executeRawUnsafe(
+            `INSERT INTO public.fiorix_its_participants (tenant_id, it_id, usuario_id, papel, status, incluido_por, created_at, updated_at)
+             VALUES ($1, $2::uuid, $3, 'RESPONSAVEL_PRINCIPAL', 'ativo', $3, NOW(), NOW())
+             ON CONFLICT DO NOTHING`,
+            tenantId, itId, respId
+          );
+          const syncRows = await prisma.$queryRawUnsafe<any[]>(
+            `SELECT
+               p.id::text, p.usuario_id as "usuarioId", p.papel, p.status,
+               p.pode_colaborar_rascunho as "podeColaborarRascunho", p.incluido_por as "incluidoPor",
+               p.created_at as "vinculadoEm", u.name, u.email, u.departamento, u.cargo
+             FROM public.fiorix_its_participants p
+             LEFT JOIN public."User" u ON u.id = p.usuario_id
+             WHERE p.it_id = $1::uuid AND p.tenant_id = $2 AND p.status = 'ativo'`,
+            itId, tenantId
+          );
+          if (syncRows.length) rows.push(...syncRows);
+        }
+      } catch (seedErr) {
+        console.warn('Aviso ao sincronizar responsável técnico inicial:', seedErr);
+      }
+    }
+
     return {
       success: true,
       participantes: rows.map(r => ({
@@ -3093,8 +3125,14 @@ export async function liberarEdicaoIt(
  */
 export async function buscarColaboradoresParaVincular(
   itId: string,
-  termo: string
-): Promise<{ success: boolean; usuarios?: Array<{ id: string; nome: string; email: string; departamento: string; cargo: string; mesmoSetor: boolean }>; error?: string }> {
+  termo: string,
+  setorFiltro?: string
+): Promise<{
+  success: boolean;
+  usuarios?: Array<{ id: string; nome: string; email: string; departamento: string; cargo: string; mesmoSetor: boolean }>;
+  setoresDisponiveis?: string[];
+  error?: string;
+}> {
   try {
     const currentUser = await requireAuth();
     const tenantId = currentUser.tenantId;
@@ -3106,6 +3144,23 @@ export async function buscarColaboradoresParaVincular(
     );
     const itDepto = (itRows[0]?.departamento || '').trim().toLowerCase();
 
+    // Buscar lista de todos os setores/departamentos disponíveis no cartório
+    const deptRows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT DISTINCT departamento FROM public."User"
+       WHERE "tenantId" = $1 AND departamento IS NOT NULL AND departamento != ''
+       ORDER BY departamento ASC`,
+      tenantId
+    );
+    const setoresDisponiveis = deptRows.map(d => String(d.departamento));
+
+    let querySetor = '';
+    const queryParams: any[] = [tenantId, currentUser.id, `%${termo || ''}%`, itId];
+
+    if (setorFiltro && setorFiltro !== 'TODOS') {
+      queryParams.push(setorFiltro);
+      querySetor = `AND LOWER(u.departamento) = LOWER($${queryParams.length})`;
+    }
+
     const rows = await prisma.$queryRawUnsafe<any[]>(
       `SELECT u.id, u.name, u.email, u.departamento, u.cargo
        FROM public."User" u
@@ -3116,17 +3171,19 @@ export async function buscarColaboradoresParaVincular(
            LOWER(u.name) LIKE LOWER($3)
            OR LOWER(u.email) LIKE LOWER($3)
          )
+         ${querySetor}
          AND u.id NOT IN (
            SELECT usuario_id FROM public.fiorix_its_participants
            WHERE it_id = $4::uuid AND status = 'ativo' AND tenant_id = $1
          )
        ORDER BY u.name ASC
-       LIMIT 20`,
-      tenantId, currentUser.id, `%${termo}%`, itId
+       LIMIT 25`,
+      ...queryParams
     );
 
     return {
       success: true,
+      setoresDisponiveis,
       usuarios: rows.map(u => ({
         id: u.id,
         nome: u.name || '',

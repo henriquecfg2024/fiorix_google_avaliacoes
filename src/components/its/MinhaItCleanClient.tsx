@@ -2,7 +2,7 @@
 
 
 
-import React, { useState, useEffect, useTransition, useId } from 'react';
+import React, { useState, useEffect, useTransition, useId, useRef } from 'react';
 
 import { useRouter } from 'next/navigation';
 
@@ -44,6 +44,8 @@ import {
   Search,
   BadgeCheck,
   Bell,
+  ArrowRight,
+  CheckCheck,
 } from 'lucide-react';
 
 import { MinhaItPageData, MinhaItCustodiaItem, ItEnviadaColaborador, publicarNovaVersaoIT, submeterItColaborador } from '@/app/actions/minha-it';
@@ -51,6 +53,8 @@ import { MinhaItPageData, MinhaItCustodiaItem, ItEnviadaColaborador, publicarNov
 import { getITUploadSignedUrl, cancelarEnvioIt, excluirRascunhoIt, getParticipantesIt, adicionarParticipanteIt, removerParticipanteIt, transferirResponsabilidadeIt, buscarColaboradoresParaVincular, ItParticipante, PapelNaIt, criarPropostaAtualizacao, getPropostasIt, responderPropostaAtualizacao, cancelarProposta, ItProposta, getNotificacoesUsuario, marcarNotificacaoLida, marcarTodasNotificacoesLidas, FiorixNotificacao } from '@/app/actions/its';
 
 import { AlertaResponsavelTecnico } from './AlertaResponsavelTecnico';
+import { CienciasDrawer } from './CienciasDrawer';
+import { GerenciarResponsaveisModal } from './GerenciarResponsaveisModal';
 
 function formatTituloPrincipal(titulo?: string): string {
   if (!titulo) return '';
@@ -282,6 +286,17 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
+  // Título da IT na nova versão (Renomeação controlada)
+  const [novoTitulo, setNovoTitulo] = useState('');
+  const [novoTituloError, setNovoTituloError] = useState('');
+
+  useEffect(() => {
+    if (isModalOpen && currentIt?.titulo) {
+      setNovoTitulo(formatTituloPrincipal(currentIt.titulo));
+      setNovoTituloError('');
+    }
+  }, [isModalOpen, currentIt?.titulo]);
+
   // Modal de Cadastro de IT pelo Colaborador
   const [isCadastroOpen, setIsCadastroOpen] = useState(false);
   const [cadastroTitulo, setCadastroTitulo] = useState('');
@@ -290,6 +305,16 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
   const [cadastroError, setCadastroError] = useState('');
   const [cadastroSubmitting, setCadastroSubmitting] = useState(false);
   const [cadastroSuccess, setCadastroSuccess] = useState(false);
+
+  // Drawer Lateral de Ciências da Equipe
+  const [cienciasDrawerOpen, setCienciasDrawerOpen] = useState(false);
+  const cienciasButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  // Permissão para gerenciar responsáveis
+  const isGestao = ['ADMIN', 'MASTER'].includes(currentUser.role);
+  const papelItemCustodia = itsCustodia.find(i => i.id === currentIt?.id)?.papelNaIt;
+  const isRespPrincipal = papelItemCustodia === 'RESPONSAVEL_PRINCIPAL' || (!isSupervisao && hasCustodia);
+  const podeGerenciar = (isGestao || isRespPrincipal) && Boolean(currentIt);
 
   // Estado do Alerta Amarelo de Responsabilidade Técnica (sempre visível ao entrar em Minha IT)
 
@@ -455,7 +480,18 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
     }
 
-
+    const tituloLimpo = novoTitulo.trim();
+    if (!tituloLimpo) {
+      setNovoTituloError('O título da Instrução de Trabalho é obrigatório.');
+      setUploadError('Informe o título da Instrução de Trabalho.');
+      return;
+    }
+    if (tituloLimpo.length > 120) {
+      setNovoTituloError('O título deve conter no máximo 120 caracteres.');
+      setUploadError('O título não pode exceder 120 caracteres.');
+      return;
+    }
+    setNovoTituloError('');
 
     setIsUploading(true);
 
@@ -478,6 +514,8 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
       formData.append('hashSha256', fileHash || currentIt.hashVersao);
 
       formData.append('resumoMudancas', resumoMudancas);
+
+      formData.append('titulo', tituloLimpo.toUpperCase());
 
 
 
@@ -886,170 +924,13 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
         )}
 
         {/* Modal GerenciarResponsáveis */}
-        {gerenciarItId && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => { setGerenciarItId(null); setTransferirModal(false); }} />
-            <div className="relative w-full max-w-xl rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-              {/* Header */}
-              <div className="flex items-center justify-between p-5 border-b border-white/8 shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center">
-                    <Users className="w-4 h-4 text-indigo-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-white text-sm">Responsáveis pela IT</h3>
-                    <p className="text-xs text-slate-400">Gerencie quem tem acesso a este documento</p>
-                  </div>
-                </div>
-                <button onClick={() => { setGerenciarItId(null); setTransferirModal(false); }} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="overflow-y-auto flex-1 p-5 space-y-5">
-                {/* Feedback */}
-                {gerenciarError && <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2.5">{gerenciarError}</div>}
-                {gerenciarSuccess && <div className="text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-2.5">{gerenciarSuccess}</div>}
-
-                {/* Lista de participantes */}
-                {loadingParticipantes ? (
-                  <div className="py-6 text-center text-slate-500 text-xs">Carregando participantes...</div>
-                ) : participantes.length === 0 ? (
-                  <div className="py-6 text-center text-slate-500 text-xs">Nenhum participante registrado ainda.</div>
-                ) : (
-                  <div className="space-y-2">
-                    {participantes.map((p) => {
-                      const papelCfg = {
-                        RESPONSAVEL_PRINCIPAL: { label: 'Responsável principal', color: 'text-indigo-300', bg: 'bg-indigo-500/15 border-indigo-500/25', icon: BadgeCheck },
-                        CORRESPONSAVEL: { label: 'Corresponsável', color: 'text-violet-300', bg: 'bg-violet-500/15 border-violet-500/25', icon: Users },
-                        LEITOR: { label: 'Leitura', color: 'text-slate-300', bg: 'bg-slate-500/15 border-slate-500/25', icon: Eye },
-                      }[p.papel] || { label: p.papel, color: 'text-slate-300', bg: 'bg-slate-500/15 border-slate-500/25', icon: Users };
-                      const PapelIcon = papelCfg.icon;
-                      const isMe = p.usuarioId === currentUser.id;
-                      const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(currentUser.role);
-                      const myPapel = participantes.find(x => x.usuarioId === currentUser.id)?.papel;
-                      const podeRemover = (isGestao || myPapel === 'RESPONSAVEL_PRINCIPAL') && p.papel !== 'RESPONSAVEL_PRINCIPAL';
-                      return (
-                        <div key={p.id} className="flex items-center gap-3 bg-white/[0.03] rounded-xl p-3 border border-white/6">
-                          <div className="w-8 h-8 rounded-full bg-indigo-600/30 flex items-center justify-center text-indigo-200 text-xs font-bold shrink-0">
-                            {p.nome.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-white truncate">{p.nome}{isMe ? ' (você)' : ''}</p>
-                            <p className="text-xs text-slate-500">{p.departamento} · {p.email}</p>
-                          </div>
-                          <span className={`shrink-0 flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full border ${papelCfg.bg} ${papelCfg.color}`}>
-                            <PapelIcon className="w-3 h-3" />
-                            {papelCfg.label}
-                          </span>
-                          {podeRemover && (
-                            <button onClick={() => handleRemoverParticipante(gerenciarItId, p.usuarioId, p.nome)}
-                              className="shrink-0 p-1.5 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Remover">
-                              <UserMinus className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Buscar e adicionar */}
-                {(['ADMIN','SUBSTITUTO','MASTER'].includes(currentUser.role) ||
-                  participantes.find(x => x.usuarioId === currentUser.id)?.papel === 'RESPONSAVEL_PRINCIPAL') && (
-                  <div className="border-t border-white/8 pt-5 space-y-3">
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Adicionar colaborador</p>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-                        <input
-                          type="text"
-                          placeholder="Buscar por nome ou e-mail..."
-                          value={buscaParticipante}
-                          onChange={e => setBuscaParticipante(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && handleBuscarUser(gerenciarItId)}
-                          className="w-full pl-9 pr-4 py-2 rounded-xl border border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-all"
-                        />
-                      </div>
-                      <button onClick={() => handleBuscarUser(gerenciarItId)} disabled={buscandoUser}
-                        className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors disabled:opacity-50">
-                        {buscandoUser ? '...' : 'Buscar'}
-                      </button>
-                    </div>
-                    {resultadosBusca.length > 0 && (
-                      <div className="space-y-1.5">
-                        {resultadosBusca.map(u => (
-                          <div key={u.id} className="flex items-center gap-3 bg-white/[0.03] rounded-xl p-3 border border-white/6">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-white">{u.nome}</p>
-                              <p className="text-[10px] text-slate-500">{u.departamento}</p>
-                              {!u.mesmoSetor && (
-                                <p className="text-[10px] text-amber-400 mt-0.5">⚠ Outro setor — requer aprovação administrativa</p>
-                              )}
-                            </div>
-                            <div className="flex gap-1.5 shrink-0">
-                              <button onClick={() => handleAdicionarParticipante(gerenciarItId, u.id, 'CORRESPONSAVEL')}
-                                disabled={adicionandoId === u.id}
-                                className="px-2.5 py-1.5 rounded-lg bg-violet-600/80 hover:bg-violet-500 text-white text-[10px] font-semibold transition-colors disabled:opacity-50">
-                                + Corresponsável
-                              </button>
-                              <button onClick={() => handleAdicionarParticipante(gerenciarItId, u.id, 'LEITOR')}
-                                disabled={adicionandoId === u.id}
-                                className="px-2.5 py-1.5 rounded-lg bg-slate-600/80 hover:bg-slate-500 text-white text-[10px] font-semibold transition-colors disabled:opacity-50">
-                                + Leitor
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Transferir responsabilidade */}
-                {(participantes.find(x => x.usuarioId === currentUser.id)?.papel === 'RESPONSAVEL_PRINCIPAL' ||
-                  ['ADMIN','MASTER'].includes(currentUser.role)) && (
-                  <div className="border-t border-white/8 pt-4">
-                    {!transferirModal ? (
-                      <button onClick={() => { setTransferirModal(true); setTransferirParaId(''); setTransferirMotivo(''); }}
-                        className="flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors">
-                        <ArrowLeftRight className="w-3.5 h-3.5" /> Transferir responsabilidade principal
-                      </button>
-                    ) : (
-                      <div className="space-y-3">
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Transferir responsabilidade</p>
-                        <select value={transferirParaId} onChange={e => setTransferirParaId(e.target.value)}
-                          className="w-full px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-xs text-white focus:outline-none focus:border-indigo-500/60">
-                          <option value="">Selecione o novo responsável...</option>
-                          {participantes.filter(p => p.usuarioId !== currentUser.id && p.papel !== 'RESPONSAVEL_PRINCIPAL').map(p => (
-                            <option key={p.usuarioId} value={p.usuarioId}>{p.nome} ({p.papel === 'CORRESPONSAVEL' ? 'Corresponsável' : 'Leitor'})</option>
-                          ))}
-                        </select>
-                        <textarea placeholder="Motivo da transferência (obrigatório)..." value={transferirMotivo}
-                          onChange={e => setTransferirMotivo(e.target.value)} rows={2}
-                          className="w-full px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 resize-none" />
-                        <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
-                          <input type="checkbox" checked={transferirManter} onChange={e => setTransferirManter(e.target.checked)} className="rounded" />
-                          Manter responsável atual como corresponsável
-                        </label>
-                        <div className="flex gap-2">
-                          <button onClick={() => handleTransferirResponsabilidade(gerenciarItId)}
-                            className="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors">
-                            Confirmar transferência
-                          </button>
-                          <button onClick={() => setTransferirModal(false)}
-                            className="px-4 py-2 rounded-xl border border-white/15 text-slate-400 hover:text-white text-xs transition-colors">
-                            Cancelar
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        <GerenciarResponsaveisModal
+          isOpen={Boolean(gerenciarItId)}
+          itId={gerenciarItId}
+          currentUser={currentUser}
+          onClose={() => setGerenciarItId(null)}
+          onSuccess={() => router.refresh()}
+        />
 
         {isCadastroOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1289,17 +1170,17 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
 
 
-      {/* ── Área Principal (Documento Centralizado + Sidebar 320px) ─ */}
+      {/* ── Área Principal (Documento Centralizado Amplo sem Sidebar) ─ */}
 
       <div className="relative flex-1 flex justify-center px-4 sm:px-6 py-6">
 
-        <div className="w-full max-w-[1200px] flex flex-col lg:flex-row gap-6 items-start justify-center">
+        <div className="w-full max-w-[1060px]">
 
 
 
-          {/* ── Documento Centralizado Folha A4 Marfim (820px) ─────────────── */}
+          {/* ── Documento Centralizado Folha A4 Marfim ─────────────── */}
 
-          <main className="w-full lg:w-[820px] flex-shrink-0 rounded-[20px] bg-[#FAF8F5] text-[#1C1A17] border border-[#E7E2D8] p-6 sm:p-12 shadow-[0_25px_60px_rgba(0,0,0,0.5),0_0_1px_rgba(255,255,255,0.2)] relative">
+          <main className="w-full rounded-[20px] bg-[#FAF8F5] text-[#1C1A17] border border-[#E7E2D8] p-6 sm:p-12 shadow-[0_25px_60px_rgba(0,0,0,0.5),0_0_1px_rgba(255,255,255,0.2)] relative">
 
 
 
@@ -1611,329 +1492,56 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
 
 
-              {/* Botão de Visualização na Íntegra (PDF) */}
-
-              <div className="pt-6 flex justify-end">
-
+              {/* ── Rodapé de Ações do Documento (Visualizar na Íntegra + Gerenciar Responsáveis + Ver Ciências) ── */}
+              <div className="pt-8 border-t border-[#E8E2D8] flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3.5 select-none">
+                {/* 1. VISUALIZAR NA ÍNTEGRA ESTA IT → */}
                 <a
-
                   href={currentIt.pdfUrl || '#'}
-
                   target={currentIt.pdfUrl ? '_blank' : undefined}
-
                   rel="noopener noreferrer"
-
                   onClick={(e) => {
-
                     if (!currentIt.pdfUrl) {
-
                       e.preventDefault();
-
                       alert('O documento PDF original desta IT ainda não foi anexado.');
-
                     }
-
                   }}
-
-                  className="group inline-flex items-center gap-3 px-8 py-3.5 rounded-full bg-gradient-to-r from-[#FFD000] via-[#FFB800] to-[#FFA000] text-[#0A0A0A] font-bold text-[12.5px] sm:text-[13px] tracking-[0.08em] shadow-[0_10px_25px_-5px_rgba(255,170,0,0.48),0_4px_10px_-2px_rgba(255,170,0,0.25)] hover:shadow-[0_16px_35px_-4px_rgba(255,160,0,0.65),0_6px_14px_-2px_rgba(255,160,0,0.35)] hover:-translate-y-0.5 hover:brightness-105 active:scale-[0.98] transition-all duration-300 cursor-pointer select-none"
-
+                  className="group inline-flex items-center justify-center gap-2.5 px-6 sm:px-7 py-3 rounded-full bg-gradient-to-r from-[#FFC200] via-[#FFB100] to-[#FFA000] text-[#1A1200] font-bold text-xs sm:text-[13px] tracking-wider shadow-[0_8px_22px_-3px_rgba(255,174,0,0.5)] hover:shadow-[0_12px_28px_-3px_rgba(255,174,0,0.65)] hover:-translate-y-0.5 hover:brightness-105 active:scale-[0.98] transition-all duration-200 cursor-pointer"
                 >
-
-                  {/* Ícone Olho com Pupila Preenchida */}
-
-                  <svg
-
-                    width="18"
-
-                    height="18"
-
-                    viewBox="0 0 24 24"
-
-                    fill="none"
-
-                    stroke="currentColor"
-
-                    strokeWidth="2.2"
-
-                    strokeLinecap="round"
-
-                    strokeLinejoin="round"
-
-                    className="flex-shrink-0"
-
-                  >
-
-                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
-
-                    <circle cx="12" cy="12" r="3" fill="currentColor" />
-
-                  </svg>
-
-
-
+                  <Eye className="w-4 h-4 text-[#1A1200] flex-shrink-0 stroke-[2.5]" />
                   <span>VISUALIZAR NA ÍNTEGRA ESTA IT</span>
-
-
-
-                  {/* Ícone Seta Horizontal → que desloca no hover */}
-
-                  <svg
-
-                    width="16"
-
-                    height="16"
-
-                    viewBox="0 0 24 24"
-
-                    fill="none"
-
-                    stroke="currentColor"
-
-                    strokeWidth="2.5"
-
-                    strokeLinecap="round"
-
-                    strokeLinejoin="round"
-
-                    className="flex-shrink-0 transition-transform duration-300 group-hover:translate-x-1"
-
-                  >
-
-                    <line x1="5" y1="12" x2="19" y2="12" />
-
-                    <polyline points="12 5 19 12 12 19" />
-
-                  </svg>
-
+                  <ArrowRight className="w-4 h-4 text-[#1A1200] flex-shrink-0 stroke-[2.5] transition-transform duration-200 group-hover:translate-x-1" />
                 </a>
 
-                {/* Gerenciar responsáveis — apenas gestão ou responsável principal */}
-                {(currentUser.role === 'ADMIN' || currentUser.role === 'MASTER' ||
-                  itsCustodia.find(i => i.id === currentIt?.id)?.papelNaIt === 'RESPONSAVEL_PRINCIPAL') && currentIt && (
+                {/* 2. Gerenciar responsáveis (Visível apenas para Responsável Principal ou Gestão) */}
+                {podeGerenciar && (
                   <button
+                    type="button"
                     onClick={() => abrirGerenciarModal(currentIt.id)}
-                    className="inline-flex items-center gap-2 px-5 py-3 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-white hover:bg-[#F7F5F0] text-[#1C1A17] border border-[#D8D2C6] hover:border-[#C4BCAD] text-xs font-semibold shadow-xs hover:shadow-sm active:scale-[0.98] transition-all cursor-pointer"
                   >
-                    <Users className="w-4 h-4 text-indigo-400" />
-                    Gerenciar responsáveis
+                    <Users className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+                    <span>Gerenciar responsáveis</span>
                   </button>
                 )}
 
+                {/* 3. Ver ciências (Abre Drawer Lateral de Ciências) */}
+                <button
+                  ref={cienciasButtonRef}
+                  type="button"
+                  onClick={() => setCienciasDrawerOpen(true)}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-[#ECFDF5] hover:bg-[#D1FAE5] text-emerald-900 border border-emerald-300/90 hover:border-emerald-400 text-xs font-semibold shadow-xs hover:shadow-sm active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <Users className="w-4 h-4 text-emerald-700 flex-shrink-0" />
+                  <span>Ver ciências</span>
+                  <span className="ml-0.5 px-2 py-0.5 rounded-full bg-emerald-200/80 text-[11px] font-bold text-emerald-800 font-mono">
+                    {currentIt.adesaoPercentual}%
+                  </span>
+                </button>
               </div>
 
             </div>
 
           </main>
-
-
-
-          {/* ── Sidebar Direita Minimal (320px) ────────────────────── */}
-
-          <aside className="w-full lg:w-[320px] flex-shrink-0 space-y-6">
-
-
-
-            {/* Box 1: CIÊNCIA CONFIRMADA */}
-
-            <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] space-y-4">
-
-              <div className="flex items-start gap-3">
-
-                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 flex items-center justify-center flex-shrink-0">
-
-                  <Check className="w-4 h-4 stroke-[3]" />
-
-                </div>
-
-                <div>
-
-                  <div className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-
-                    Ciência Confirmada
-
-                  </div>
-
-                  <div className="text-xs font-semibold text-slate-200 mt-0.5">
-
-                    em {currentIt.responsavelCienteEm}
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-
-              <div className="space-y-2">
-
-                <div className="flex items-center justify-between text-xs">
-
-                  <span className="text-slate-400">Adesão da Equipe</span>
-
-                  <span className="font-bold text-white font-mono">{currentIt.adesaoPercentual}%</span>
-
-                </div>
-
-                <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden border border-white/5">
-
-                  <div
-
-                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full shadow-[0_0_12px_rgba(16,185,129,0.5)] transition-all duration-500"
-
-                    style={{ width: `${currentIt.adesaoPercentual}%` }}
-
-                  />
-
-                </div>
-
-                <div className="text-[11px] text-slate-400 leading-tight">
-
-                  Você já deu ciência automática. {currentIt.pendentesCount} colaboradores pendentes.
-
-                </div>
-
-              </div>
-
-
-
-              {/* Botão de Upload — visível para SUBSTITUTO/USER em qualquer IT, oculto para ADMIN/MASTER */}
-
-              {currentUser.role !== 'ADMIN' && currentUser.role !== 'MASTER' && (
-
-                <>
-
-                  {/* Alerta de pendência quando PDF não foi carregado */}
-
-                  {!currentIt.pdfUrl && (
-
-                    <div className="flex items-start gap-2.5 p-3.5 rounded-xl border border-amber-500/25 bg-amber-500/5">
-
-                      <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-
-                      <div>
-
-                        <p className="text-[11px] font-bold text-amber-300">PDF Pendente</p>
-
-                        <p className="text-[10px] text-amber-300/70 mt-0.5 leading-relaxed">
-
-                          Você ainda não fez o upload do documento PDF desta instrução de trabalho. Faça o upload abaixo para que sua equipe possa consultar a versão oficial.
-
-                        </p>
-
-                      </div>
-
-                    </div>
-
-                  )}
-
-
-
-                  <button
-
-                    onClick={() => setIsModalOpen(true)}
-
-                    className={`w-full h-11 ${
-
-                      !currentIt.pdfUrl
-
-                        ? 'bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 shadow-amber-900/30 border-amber-400/20 animate-pulse'
-
-                        : 'bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 shadow-emerald-900/30 border-emerald-400/20'
-
-                    } active:scale-[0.98] text-white font-semibold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer border`}
-
-                  >
-
-                    <Upload className="w-4 h-4" />
-
-                    <span>{!currentIt.pdfUrl ? 'Enviar Meu PDF (Obrigatório)' : 'Atualizar Meu PDF Vigente'}</span>
-
-                  </button>
-
-                </>
-
-              )}
-
-            </div>
-
-
-
-            {/* Box 2: EQUIPE • CIÊNCIAS */}
-
-            <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] space-y-3.5">
-
-              <div className="flex items-center justify-between pb-2 border-b border-white/8">
-
-                <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
-
-                  Equipe • Ciências
-
-                </div>
-
-                <span className="text-xs font-mono font-semibold text-emerald-400">
-
-                  {currentIt.totalCientes}/{currentIt.totalColaboradores}
-
-                </span>
-
-              </div>
-
-
-
-              <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
-
-                {currentIt.equipeCiencias.map((colab) => (
-
-                  <div
-
-                    key={colab.usuarioId}
-
-                    className="flex items-center justify-between text-xs py-1.5 border-b border-white/5 last:border-0"
-
-                  >
-
-                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
-
-                      {colab.ciente ? (
-
-                        <div className="w-4 h-4 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center flex-shrink-0">
-
-                          <Check className="w-2.5 h-2.5 stroke-[3]" />
-
-                        </div>
-
-                      ) : (
-
-                        <div className="w-4 h-4 rounded-full border border-white/20 flex items-center justify-center flex-shrink-0" />
-
-                      )}
-
-                      <span className={`truncate ${colab.isCurrentUser ? 'font-bold text-white' : 'text-slate-300'}`}>
-
-                        {colab.nome}
-
-                      </span>
-
-                    </div>
-
-
-
-                    <span className={`text-[10px] font-mono flex-shrink-0 ${colab.ciente ? 'text-emerald-400 font-semibold' : 'text-slate-500'}`}>
-
-                      {colab.ciente ? 'Ciente' : 'Pendente'}
-
-                    </span>
-
-                  </div>
-
-                ))}
-
-              </div>
-
-            </div>
-
-          </aside>
 
         </div>
 
@@ -2025,7 +1633,43 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
             )}
 
-
+            {/* Campo: Título da Instrução de Trabalho (Editável no fluxo de nova versão) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <label htmlFor="input-novo-titulo" className="font-semibold text-slate-200 flex items-center gap-1">
+                  <span>Título da Instrução de Trabalho</span>
+                  <span className="text-amber-400 font-bold" title="Campo obrigatório">*</span>
+                </label>
+                <span className={`text-[11px] font-mono ${novoTitulo.length > 120 ? 'text-rose-400 font-bold' : 'text-slate-500'}`}>
+                  {novoTitulo.length}/120
+                </span>
+              </div>
+              <input
+                id="input-novo-titulo"
+                type="text"
+                value={novoTitulo}
+                onChange={(e) => {
+                  setNovoTitulo(e.target.value);
+                  if (novoTituloError) setNovoTituloError('');
+                }}
+                maxLength={120}
+                placeholder="Ex: NOÇÕES BÁSICAS..."
+                disabled={isUploading}
+                className={`w-full text-xs px-3.5 py-2.5 rounded-xl bg-white/[0.03] border ${
+                  novoTituloError ? 'border-rose-500/60 focus:border-rose-500 focus:ring-1 focus:ring-rose-500/40' : 'border-white/10 focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/40'
+                } text-white placeholder-slate-500 focus:outline-none transition-all uppercase tracking-wide font-medium`}
+              />
+              {novoTituloError ? (
+                <p className="text-[11px] text-rose-400 flex items-center gap-1 mt-1">
+                  <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                  <span>{novoTituloError}</span>
+                </p>
+              ) : (
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  A alteração será publicada após a aprovação desta versão.
+                </p>
+              )}
+            </div>
 
             {/* Dropzone PDF */}
 
@@ -2214,6 +1858,32 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
         </div>
 
       )}
+
+      {/* Drawer Lateral de Ciências da Equipe */}
+      {currentIt && (
+        <CienciasDrawer
+          isOpen={cienciasDrawerOpen}
+          onClose={() => setCienciasDrawerOpen(false)}
+          codigo={currentIt.codigo}
+          titulo={currentIt.titulo}
+          responsavelCienteEm={currentIt.responsavelCienteEm}
+          adesaoPercentual={currentIt.adesaoPercentual}
+          totalCientes={currentIt.totalCientes}
+          totalColaboradores={currentIt.totalColaboradores}
+          pendentesCount={currentIt.pendentesCount}
+          equipeCiencias={currentIt.equipeCiencias}
+          triggerButtonRef={cienciasButtonRef}
+        />
+      )}
+
+      {/* Modal de Gerenciamento de Responsáveis */}
+      <GerenciarResponsaveisModal
+        isOpen={Boolean(gerenciarItId)}
+        itId={gerenciarItId}
+        currentUser={currentUser}
+        onClose={() => setGerenciarItId(null)}
+        onSuccess={() => router.refresh()}
+      />
 
     </div>
 

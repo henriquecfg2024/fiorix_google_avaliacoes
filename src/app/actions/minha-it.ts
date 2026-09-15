@@ -455,13 +455,14 @@ export interface PublicarNovaVersaoParams {
   pdfPath: string;
   hashSha256: string;
   resumoMudancas: string;
+  titulo?: string;
 }
 
 /**
  * Publica nova versão da IT pelo Responsável Técnico:
  * - Incrementa a versão no banco
- * - Atualiza pdf_path e hash_versao
- * - Registra no histórico fiorix_its_versoes
+ * - Atualiza pdf_path, hash_versao e opcionalmente titulo (em maiúsculas)
+ * - Registra no histórico fiorix_its_versoes com detalhes da renomeação se houver
  * - Reseta ciências da equipe (nova versão começa com 0% exceto responsável ciente)
  */
 export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
@@ -472,7 +473,7 @@ export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
 
     // 1. Busca a IT atual para verificação de permissão e histórico
     const currentRows: any[] = await prisma.$queryRawUnsafe(`
-      SELECT id, codigo, versao, responsavel_tecnico_id, objetivo, quando_usar, passo_a_passo, checklist, erros_comuns, hash_versao
+      SELECT id, codigo, titulo, versao, responsavel_tecnico_id, objetivo, quando_usar, passo_a_passo, checklist, erros_comuns, hash_versao
       FROM public.fiorix_its
       WHERE id = $1::uuid
       LIMIT 1
@@ -489,6 +490,14 @@ export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
       return { success: false, error: 'Apenas o Responsável Técnico ou Administrador pode atualizar esta instrução.' };
     }
 
+    const novoTitulo = params.titulo?.trim() ? params.titulo.trim().toUpperCase() : current.titulo;
+    const tituloAlterado = novoTitulo && novoTitulo !== current.titulo;
+
+    let alteracoesRegistro = params.resumoMudancas || 'Atualização de versão pelo Responsável Técnico';
+    if (tituloAlterado) {
+      alteracoesRegistro = `Título alterado de "${current.titulo}" para "${novoTitulo}". ${alteracoesRegistro}`;
+    }
+
     // 2. Registra versão anterior em fiorix_its_versoes
     try {
       await prisma.$executeRawUnsafe(`
@@ -502,12 +511,14 @@ export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
         current.id,
         current.versao,
         JSON.stringify({
+          tituloAnterior: current.titulo,
+          novoTitulo,
           objetivo: current.objetivo,
           quando_usar: current.quando_usar,
           passo_a_passo: current.passo_a_passo,
           checklist: current.checklist,
         }),
-        params.resumoMudancas || 'Atualização de versão pelo Responsável Técnico',
+        alteracoesRegistro,
         userId,
         current.hash_versao,
         tenantId
@@ -534,13 +545,15 @@ export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
         hash_versao = $2,
         pdf_path = $3,
         pdf_original_url = $4,
+        titulo = $5,
         updated_at = NOW()
-      WHERE id = $5::uuid
+      WHERE id = $6::uuid
     `,
       params.novaVersao,
       params.hashSha256,
       params.pdfPath,
       publicUrl,
+      novoTitulo,
       params.itId
     );
 

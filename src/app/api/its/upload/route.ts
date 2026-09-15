@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
     const novaVersao = formData.get('novaVersao') as string | null;
     const hashSha256 = formData.get('hashSha256') as string | null;
     const resumoMudancas = (formData.get('resumoMudancas') as string | null) || '';
+    const titulo = (formData.get('titulo') as string | null)?.trim() || undefined;
 
     if (!file || !itId || !codigo || !novaVersao) {
       return NextResponse.json(
@@ -94,6 +95,7 @@ export async function POST(req: NextRequest) {
       pdfPath: storagePath,
       hashSha256: hashSha256 || '0000000000000000000000000000000000000000000000000000000000000000',
       resumoMudancas,
+      titulo,
     });
 
     if (!pubRes.success) {
