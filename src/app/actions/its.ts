@@ -3154,7 +3154,7 @@ export async function buscarColaboradoresParaVincular(
     const setoresDisponiveis = deptRows.map(d => String(d.departamento));
 
     let querySetor = '';
-    const queryParams: any[] = [tenantId, currentUser.id, `%${termo || ''}%`, itId];
+    const queryParams: any[] = [tenantId, currentUser.id, `%${termo || ''}%`, itId, itDepto];
 
     if (setorFiltro && setorFiltro !== 'TODOS') {
       queryParams.push(setorFiltro);
@@ -3168,16 +3168,25 @@ export async function buscarColaboradoresParaVincular(
          AND u.id != $2
          AND (u."isActive" IS NULL OR u."isActive" = true)
          AND (
-           LOWER(u.name) LIKE LOWER($3)
+           $3 = '%%'
+           OR LOWER(u.name) LIKE LOWER($3)
            OR LOWER(u.email) LIKE LOWER($3)
+           OR LOWER(COALESCE(u.cargo, '')) LIKE LOWER($3)
+           OR LOWER(COALESCE(u.departamento, '')) LIKE LOWER($3)
          )
          ${querySetor}
          AND u.id NOT IN (
            SELECT usuario_id FROM public.fiorix_its_participants
-           WHERE it_id = $4::uuid AND status = 'ativo' AND tenant_id = $1
+           WHERE it_id = $4::uuid AND status = 'ativo'
          )
-       ORDER BY u.name ASC
-       LIMIT 25`,
+         AND u.id NOT IN (
+           SELECT COALESCE(responsavel_tecnico_id, '') FROM public.fiorix_its
+           WHERE id = $4::uuid
+         )
+       ORDER BY 
+         (CASE WHEN LOWER(COALESCE(u.departamento, '')) = LOWER($5) THEN 0 ELSE 1 END) ASC,
+         u.name ASC
+       LIMIT 50`,
       ...queryParams
     );
 

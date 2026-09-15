@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
@@ -138,12 +138,30 @@ export function CienciasDrawer({
 
   function irParaEquipe() { setModo('equipe'); carregarMembros(); }
 
-  async function handleBuscarParaAdicionar() {
-    if (!itId || !termoBusca.trim()) return;
-    setBuscando(true); setErroAdicionar('');
-    const res = await buscarColaboradoresParaVincular(itId, termoBusca);
-    setResultadosBusca(res.usuarios || []);
+  const carregarColaboradoresParaAdicionar = useCallback(async (termo: string = '') => {
+    if (!itId) return;
+    setBuscando(true);
+    setErroAdicionar('');
+    const res = await buscarColaboradoresParaVincular(itId, termo);
+    if (res.success) {
+      setResultadosBusca(res.usuarios || []);
+    } else {
+      setErroAdicionar(res.error || 'Erro ao carregar colaboradores.');
+    }
     setBuscando(false);
+  }, [itId]);
+
+  function irParaAdicionar() {
+    setModo('adicionar');
+    setTermoBusca('');
+    setSelecionados(new Set());
+    setErroAdicionar('');
+    setSucessoAdicionar('');
+    carregarColaboradoresParaAdicionar('');
+  }
+
+  async function handleBuscarParaAdicionar() {
+    carregarColaboradoresParaAdicionar(termoBusca);
   }
 
   function toggleSelecionado(id: string) {
@@ -163,8 +181,11 @@ export function CienciasDrawer({
     else {
       const qtd = selecionados.size;
       setSucessoAdicionar(`${qtd} colaborador${qtd > 1 ? 'es vinculados' : ' vinculado'} com sucesso.`);
-      setSelecionados(new Set()); setResultadosBusca([]); setTermoBusca('');
-      await carregarMembros(); onEquipeUpdated?.();
+      setSelecionados(new Set());
+      setTermoBusca('');
+      await carregarMembros();
+      await carregarColaboradoresParaAdicionar('');
+      onEquipeUpdated?.();
     }
   }
 
@@ -337,7 +358,7 @@ export function CienciasDrawer({
           {modo === 'equipe' && (
             <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
               <div className="space-y-3">
-                <button type="button" onClick={() => { setModo('adicionar'); setTermoBusca(''); setResultadosBusca([]); setSelecionados(new Set()); setErroAdicionar(''); setSucessoAdicionar(''); }}
+                <button type="button" onClick={irParaAdicionar}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-white font-semibold text-sm transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400">
                   <UserPlus className="w-4 h-4" />
                   Adicionar colaboradores
@@ -415,11 +436,27 @@ export function CienciasDrawer({
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input type="text" placeholder="Nome ou cargo..." value={termoBusca} onChange={e => setTermoBusca(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleBuscarParaAdicionar()}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/60 transition-all" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por nome, cargo ou setor..."
+                      value={termoBusca}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setTermoBusca(val);
+                        if (val === '') {
+                          carregarColaboradoresParaAdicionar('');
+                        }
+                      }}
+                      onKeyDown={e => e.key === 'Enter' && handleBuscarParaAdicionar()}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/60 transition-all"
+                    />
                   </div>
-                  <button type="button" onClick={handleBuscarParaAdicionar} disabled={buscando || !termoBusca.trim()}
-                    className="px-4 py-2 rounded-xl bg-white/8 hover:bg-white/12 border border-white/10 text-white text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleBuscarParaAdicionar}
+                    disabled={buscando}
+                    className="px-4 py-2 rounded-xl bg-white/8 hover:bg-white/12 border border-white/10 text-white text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  >
                     {buscando ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Buscar'}
                   </button>
                 </div>
@@ -434,33 +471,60 @@ export function CienciasDrawer({
                   <CheckCheck className="w-4 h-4 shrink-0" />{sucessoAdicionar}
                 </div>
               )}
-              {resultadosBusca.length > 0 && (
+              {buscando ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-slate-400 text-xs">
+                  <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
+                  Carregando colaboradores disponíveis...
+                </div>
+              ) : resultadosBusca.length > 0 ? (
                 <div className="space-y-2">
-                  <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">{resultadosBusca.length} resultado{resultadosBusca.length !== 1 ? 's' : ''}</p>
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-semibold uppercase tracking-wider">
+                    <span>{resultadosBusca.length} colaborador{resultadosBusca.length !== 1 ? 'es' : ''} disponível{resultadosBusca.length !== 1 ? 'is' : ''}</span>
+                    {selecionados.size > 0 && (
+                      <span className="text-emerald-400 normal-case">{selecionados.size} selecionado{selecionados.size !== 1 ? 's' : ''}</span>
+                    )}
+                  </div>
                   {resultadosBusca.map(u => {
                     const sel = selecionados.has(u.id);
                     return (
-                      <button key={u.id} type="button" onClick={() => toggleSelecionado(u.id)}
-                        className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${sel ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-white/6 bg-white/[0.02] hover:bg-white/[0.05]'}`}>
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${sel ? 'border-emerald-400 bg-emerald-500' : 'border-white/30'}`}>
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => toggleSelecionado(u.id)}
+                        className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                          sel ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-white/6 bg-white/[0.02] hover:bg-white/[0.05]'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                          sel ? 'border-emerald-400 bg-emerald-500' : 'border-white/30'
+                        }`}>
                           {sel && <Check className="w-3 h-3 text-white stroke-[3]" />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-semibold text-white truncate">{u.nome}</p>
-                          <p className="text-[10px] text-slate-400 truncate">{u.cargo} • {u.departamento}</p>
+                          <p className="text-[10px] text-slate-400 truncate">{u.cargo ? `${u.cargo} • ` : ''}{u.departamento}</p>
                         </div>
-                        {!u.mesmoSetor && <span className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md shrink-0 whitespace-nowrap">Outro setor</span>}
+                        {u.mesmoSetor ? (
+                          <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md shrink-0 whitespace-nowrap">
+                            Mesmo setor
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded-md shrink-0 whitespace-nowrap">
+                            Outro setor
+                          </span>
+                        )}
                       </button>
                     );
                   })}
                 </div>
-              )}
-              {resultadosBusca.length === 0 && termoBusca && !buscando && (
+              ) : !buscando ? (
                 <div className="p-8 text-center rounded-2xl border border-white/8 bg-white/[0.02]">
                   <Users className="w-8 h-8 text-slate-500 mx-auto mb-2 opacity-50" />
-                  <p className="text-xs text-slate-400">Nenhum resultado. Tente outro termo.</p>
+                  <p className="text-xs text-slate-400">
+                    {termoBusca ? 'Nenhum resultado para a busca. Tente outro termo.' : 'Todos os colaboradores ativos já estão vinculados a esta IT.'}
+                  </p>
                 </div>
-              )}
+              ) : null}
               {selecionados.size > 0 && (
                 <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/8 p-4 space-y-3">
                   <p className="text-xs font-semibold text-emerald-300">{selecionados.size} colaborador{selecionados.size !== 1 ? 'es' : ''} selecionado{selecionados.size !== 1 ? 's' : ''}</p>
