@@ -315,6 +315,17 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
   const papelItemCustodia = itsCustodia.find(i => i.id === currentIt?.id)?.papelNaIt;
   const isRespPrincipal = papelItemCustodia === 'RESPONSAVEL_PRINCIPAL' || (!isSupervisao && hasCustodia);
   const podeGerenciar = (isGestao || isRespPrincipal) && Boolean(currentIt);
+  const papelLabel = papelItemCustodia === 'RESPONSAVEL_PRINCIPAL'
+    ? 'Responsável técnico'
+    : papelItemCustodia === 'CORRESPONSAVEL'
+    ? 'Corresponsável'
+    : papelItemCustodia === 'LEITOR'
+    ? 'Colaborador'
+    : hasCustodia
+    ? 'Responsável técnico'
+    : isSupervisao
+    ? 'Supervisão'
+    : 'Colaborador';
 
   // Estado do Alerta Amarelo de Responsabilidade Técnica (sempre visível ao entrar em Minha IT)
 
@@ -1115,20 +1126,6 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
           </div>
 
-
-
-          <div className="flex items-center gap-2">
-
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-
-            <span className="text-xs font-semibold text-emerald-400">
-
-              Versão Oficial Homologada
-
-            </span>
-
-          </div>
-
         </div>
 
 
@@ -1219,8 +1216,8 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-[#8B8378] leading-relaxed">
-                Alterações somente em nova versão, sujeita à aprovação.
+              <p className="text-xs text-[#756E63] font-medium tracking-wide">
+                {currentIt.departamento} • {papelLabel}
               </p>
             </div>
 
