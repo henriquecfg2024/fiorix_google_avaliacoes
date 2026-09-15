@@ -150,17 +150,15 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
   // 2b. ITs via fiorix_its_participants (CORRESPONSAVEL, LEITOR, RESPONSAVEL_PRINCIPAL não cobertos acima)
   let itsByParticipation: MinhaItCustodiaItem[] = [];
   try {
-    const tenantId = currentUser.tenantId || 'global';
     const partRows: any[] = await prisma.$queryRawUnsafe(
       `SELECT i.id::text, i.codigo, i.titulo, i.versao, i.departamento, i.status, p.papel
        FROM public.fiorix_its_participants p
        JOIN public.fiorix_its i ON i.id = p.it_id
        WHERE p.usuario_id = $1
-         AND p.tenant_id = $2
          AND p.status = 'ativo'
          AND i.deleted_at IS NULL
        ORDER BY p.papel ASC, i.codigo ASC`,
-      userId, tenantId
+      userId
     );
     // Adicionar ao itsCustodia as de RESPONSAVEL_PRINCIPAL (que não aparecem na query acima por falta de responsavel_tecnico_id)
     // e ao itsByParticipation as de CORRESPONSAVEL/LEITOR
@@ -182,8 +180,8 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
         itsByParticipation.push(item);
       }
     }
-  } catch {
-    // tabela pode não existir ainda — silencioso
+  } catch (err) {
+    console.warn('Aviso ao buscar itsByParticipation:', err);
   }
 
   // 2c. IT submetida pelo próprio autor (colaborador) sem custódia formal
