@@ -696,11 +696,13 @@ export async function submeterItColaborador(params: {
          tenant_id, codigo, titulo, departamento, versao, status,
          objetivo, quando_usar, responsavel_raci, passo_a_passo,
          checklist, erros_comuns, hash_versao, autor_id,
+         responsavel_tecnico_id,
          pdf_original_url, pdf_path, created_at, updated_at
        ) VALUES (
          $1, $2, $3, $4, '1.0', 'enviada_para_analise',
          $5, '', '{}'::jsonb, '[]'::jsonb,
          '[]'::jsonb, '[]'::jsonb, '', $6,
+         $6,
          $7, $8, NOW(), NOW()
        )
        RETURNING id::text`,
@@ -710,6 +712,22 @@ export async function submeterItColaborador(params: {
 
     const itId = result[0]?.id;
     if (!itId) throw new Error('Falha ao criar registro da IT.');
+
+    // Registra o colaborador como RESPONSAVEL_PRINCIPAL na tabela de participantes
+    try {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO public.fiorix_its_participants (
+           tenant_id, it_id, usuario_id, papel, status, incluido_por,
+           pode_colaborar_rascunho, created_at, updated_at
+         ) VALUES (
+           $1, $2::uuid, $3, 'RESPONSAVEL_PRINCIPAL', 'ativo', $3, true, NOW(), NOW()
+         )
+         ON CONFLICT DO NOTHING`,
+        tenantId, itId, currentUser.id
+      );
+    } catch (e) {
+      console.warn('Aviso ao registrar responsavel_principal em participants:', e);
+    }
 
     try {
       await prisma.$executeRawUnsafe(
