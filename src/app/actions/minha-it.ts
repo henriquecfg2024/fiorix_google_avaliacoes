@@ -115,8 +115,8 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
   }
 
   // 2. Busca as ITs para exibição
-  // "Minha IT" é pessoal: cada usuário vê SOMENTE as ITs onde é responsável técnico.
-  // ADMIN/MASTER veem todas (supervisão administrativa). SUBSTITUTO vê apenas as suas.
+  // Inclui: ITs onde é responsável técnico OU onde é autor (IT submetida pelo próprio colaborador)
+  // ADMIN/MASTER veem todas (supervisão administrativa).
   let itsCustodiaRows: any[];
   let isSupervisao = false;
 
@@ -128,11 +128,12 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
       ORDER BY codigo ASC
     `);
   } else {
-    // SUBSTITUTO, USER e demais: apenas ITs onde é responsável técnico
+    // Demais: ITs onde é responsável técnico OU onde é autor (IT submetida sem resp. técnico formal)
     itsCustodiaRows = await prisma.$queryRawUnsafe(`
       SELECT id, codigo, titulo, versao, departamento, status, responsavel_tecnico_id
       FROM public.fiorix_its
       WHERE responsavel_tecnico_id = $1
+         OR (autor_id = $1 AND (responsavel_tecnico_id IS NULL OR responsavel_tecnico_id = $1))
       ORDER BY codigo ASC
     `, userId);
   }
