@@ -2807,13 +2807,29 @@ export async function adicionarParticipanteIt(params: {
 
     const mesmoSetor = (novoUser[0].departamento || '').trim().toLowerCase() === (it.departamento || '').trim().toLowerCase();
 
-    // Cross-setor: apenas gestão pode adicionar diretamente
+    // Cross-setor: responsável técnico/autor pode adicionar de qualquer setor
+    // Apenas bloqueia se NÃO for gestão E NÃO for responsável/autor da IT
     if (!mesmoSetor && !isGestao) {
-      return {
-        success: false,
-        pendente: true,
-        error: `Este colaborador pertence a outro setor (${novoUser[0].departamento}). A vinculação depende de aprovação administrativa.`,
-      };
+      // Verifica se é responsável técnico ou autor — eles podem adicionar de qualquer setor
+      const isRespOuAutor = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT id FROM public.fiorix_its
+         WHERE id = $1::uuid AND (responsavel_tecnico_id = $2 OR autor_id = $2)
+         LIMIT 1`,
+        params.itId, currentUser.id
+      );
+      const isRespPart = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT id FROM public.fiorix_its_participants
+         WHERE it_id = $1::uuid AND usuario_id = $2 AND papel = 'RESPONSAVEL_PRINCIPAL' AND status = 'ativo'
+         LIMIT 1`,
+        params.itId, currentUser.id
+      );
+      if (isRespOuAutor.length === 0 && isRespPart.length === 0) {
+        return {
+          success: false,
+          pendente: true,
+          error: `Este colaborador pertence a outro setor (${novoUser[0].departamento}). A vinculação depende de aprovação administrativa.`,
+        };
+      }
     }
 
     // Inserir participante
