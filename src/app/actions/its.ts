@@ -2790,11 +2790,10 @@ export async function adicionarParticipanteIt(params: {
 
     // Verificar setor do novo participante
     const novoUser = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id, name, email, departamento, "isActive" FROM public."User" WHERE id = $1 LIMIT 1`,
+      `SELECT id, name, email, departamento FROM public."User" WHERE id = $1 LIMIT 1`,
       params.usuarioId
     );
     if (!novoUser.length) return { success: false, error: 'Usuário não encontrado.' };
-    if (novoUser[0].isActive === false) return { success: false, error: 'Não é possível adicionar usuário inativo.' };
 
     const mesmoSetor = (novoUser[0].departamento || '').trim().toLowerCase() === (it.departamento || '').trim().toLowerCase();
 
@@ -2947,13 +2946,12 @@ export async function transferirResponsabilidadeIt(params: {
       if (!papelAtual.length) return { success: false, error: 'Apenas o responsável principal ou gestão podem transferir a responsabilidade.' };
     }
 
-    // Verificar se o novo responsável existe e está ativo
+    // Verificar se o novo responsável existe
     const novoResp = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT id, name, email, "isActive" FROM public."User" WHERE id = $1 LIMIT 1`,
+      `SELECT id, name, email FROM public."User" WHERE id = $1 LIMIT 1`,
       params.novoResponsavelId
     );
     if (!novoResp.length) return { success: false, error: 'Novo responsável não encontrado.' };
-    if (novoResp[0].isActive === false) return { success: false, error: 'Não é possível transferir para usuário inativo.' };
 
     // Buscar responsável atual para referência
     const respAtualRows = await prisma.$queryRawUnsafe<any[]>(
@@ -3166,7 +3164,6 @@ export async function buscarColaboradoresParaVincular(
        FROM public."User" u
        WHERE u."tenantId" = $1
          AND u.id != $2
-         AND (u."isActive" IS NULL OR u."isActive" = true)
          AND (
            $3 = '%%'
            OR LOWER(u.name) LIKE LOWER($3)

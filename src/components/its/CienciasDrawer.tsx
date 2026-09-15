@@ -415,10 +415,16 @@ export function CienciasDrawer({
                         {papelLabel[m.papel] || m.papel}
                       </span>
                       {m.papel !== 'RESPONSAVEL_PRINCIPAL' && (
-                        <button type="button" onClick={() => { setConfirmDesvinc(m); setErroDesvinc(''); setMotivoDesvinc(''); }} disabled={!!desvinculando}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer shrink-0 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-                          title={`Desvincular ${m.nome}`} aria-label={`Desvincular ${m.nome}`}>
-                          <UserMinus className="w-4 h-4" />
+                        <button
+                          type="button"
+                          onClick={() => { setConfirmDesvinc(m); setErroDesvinc(''); setMotivoDesvinc(''); }}
+                          disabled={!!desvinculando}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-colors cursor-pointer text-[11px] font-semibold shrink-0 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                          title={`Desvincular ${m.nome}`}
+                          aria-label={`Desvincular ${m.nome}`}
+                        >
+                          <UserMinus className="w-3.5 h-3.5" />
+                          <span>Desvincular</span>
                         </button>
                       )}
                     </div>

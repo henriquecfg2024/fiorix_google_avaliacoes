@@ -346,11 +346,12 @@ export function GerenciarResponsaveisModal({
                           <button
                             type="button"
                             onClick={() => handleRemover(p.usuarioId, p.nome)}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
-                            title={`Remover ${p.nome}`}
-                            aria-label={`Remover ${p.nome}`}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-colors cursor-pointer text-[11px] font-semibold"
+                            title={`Desvincular ${p.nome}`}
+                            aria-label={`Desvincular ${p.nome}`}
                           >
-                            <UserMinus className="w-3.5 h-3.5" />
+                            <UserMinus className="w-3 h-3" />
+                            <span>Desvincular</span>
                           </button>
                         )}
                       </div>

@@ -1035,15 +1035,15 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
 
 
-      {/* ── Breadcrumbs & Top Info (FIORIX Dark Standard) ────── */}
+      {/* ── Container Unificado Centralizado (Cabeçalho + Alerta + Card Folha A4) ── */}
 
-      <div className="relative mx-auto max-w-[1200px] px-4 sm:px-6 pt-6 pb-2">
+      <div className="relative mx-auto w-full max-w-[1060px] px-4 sm:px-6 pt-6 pb-12 space-y-5">
 
         {/* Banner de Supervisão */}
 
         {isSupervisao && (
 
-          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-sky-500/20 bg-sky-500/5 px-5 py-3.5">
+          <div className="flex items-center gap-3 rounded-2xl border border-sky-500/20 bg-sky-500/5 px-5 py-3.5">
 
             <Eye className="w-5 h-5 text-sky-400 shrink-0" />
 
@@ -1136,7 +1136,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
         {!isSupervisao && alertaVisible && (
 
-          <div className="mt-4">
+          <div>
 
             <AlertaResponsavelTecnico
 
@@ -1168,21 +1168,11 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
         )}
 
-      </div>
 
 
+        {/* ── Documento Centralizado Folha A4 Marfim ─────────────── */}
 
-      {/* ── Área Principal (Documento Centralizado Amplo sem Sidebar) ─ */}
-
-      <div className="relative flex-1 flex justify-center px-4 sm:px-6 py-6">
-
-        <div className="w-full max-w-[1060px]">
-
-
-
-          {/* ── Documento Centralizado Folha A4 Marfim ─────────────── */}
-
-          <main className="w-full rounded-[20px] bg-[#FAF8F5] text-[#1C1A17] border border-[#E7E2D8] p-6 sm:p-10 shadow-[0_25px_60px_rgba(0,0,0,0.5),0_0_1px_rgba(255,255,255,0.2)] relative">
+        <main className="w-full rounded-[20px] bg-[#FAF8F5] text-[#1C1A17] border border-[#E7E2D8] p-6 sm:p-10 shadow-[0_25px_60px_rgba(0,0,0,0.5),0_0_1px_rgba(255,255,255,0.2)] relative">
 
 
 
@@ -1315,8 +1305,6 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
           </main>
 
         </div>
-
-      </div>
 
 
 
