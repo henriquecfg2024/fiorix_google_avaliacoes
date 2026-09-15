@@ -20,6 +20,13 @@ import {
   ThumbsDown,
   ExternalLink,
   Loader2,
+  Archive,
+  History,
+  Trash2,
+  MoreVertical,
+  ShieldAlert,
+  GitBranch,
+  Hash,
 } from 'lucide-react';
 import { ITItem } from '@/app/actions/its';
 import {
@@ -28,7 +35,11 @@ import {
   publicarItColaborador,
   solicitarCorrecaoIt,
   rejeitarItColaborador,
+  arquivarItPublicada,
+  excluirPermanenteIt,
+  getHistoricoVersoes,
   ItPendenteAprovacaoDetalhe,
+  HistoricoVersoesData,
 } from '@/app/actions/its';
 
 // ═══════════════════════════════════════════════
@@ -586,6 +597,12 @@ export function InstrucoesTrabalhoClient({
   const [analisarModal, setAnalisarModal] = useState<ItPendenteResumo | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Estados dos novos modais de ciclo de vida
+  const [arquivarModal, setArquivarModal] = useState<ITItem | null>(null);
+  const [historicoModal, setHistoricoModal] = useState<ITItem | null>(null);
+  const [excluirPermanenteModal, setExcluirPermanenteModal] = useState<ITItem | null>(null);
+  const [menuAberto, setMenuAberto] = useState<string | null>(null); // id da IT com menu aberto
+
   const handleActioned = useCallback(() => {
     setRefreshKey((k) => k + 1);
     // Recarregar página para refletir mudanças de status
@@ -789,6 +806,48 @@ export function InstrucoesTrabalhoClient({
                       >
                         Abrir
                       </button>
+
+                      {/* Menu de ações (apenas gestão) */}
+                      {isGestao && (
+                        <div className="relative shrink-0">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setMenuAberto(menuAberto === it.id ? null : it.id); }}
+                            className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/8 transition-colors"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+                          {menuAberto === it.id && (
+                            <div
+                              className="absolute right-0 top-8 z-20 w-48 rounded-xl border border-white/10 bg-[#0D1424] shadow-xl py-1 overflow-hidden"
+                              onMouseLeave={() => setMenuAberto(null)}
+                            >
+                              <button
+                                onClick={() => { setMenuAberto(null); setHistoricoModal(it); }}
+                                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs text-slate-300 hover:bg-white/6 hover:text-white transition-colors"
+                              >
+                                <History className="w-3.5 h-3.5" /> Ver histórico
+                              </button>
+                              <button
+                                onClick={() => { setMenuAberto(null); setArquivarModal(it); }}
+                                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs text-slate-300 hover:bg-white/6 hover:text-white transition-colors"
+                              >
+                                <Archive className="w-3.5 h-3.5" /> Arquivar IT
+                              </button>
+                              {currentUser.role === 'MASTER' && (
+                                <>
+                                  <div className="h-px bg-white/6 mx-3 my-1" />
+                                  <button
+                                    onClick={() => { setMenuAberto(null); setExcluirPermanenteModal(it); }}
+                                    className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
+                                  >
+                                    <ShieldAlert className="w-3.5 h-3.5" /> Excluir permanentemente
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1000,6 +1059,430 @@ export function InstrucoesTrabalhoClient({
           onActioned={handleActioned}
         />
       )}
+      {arquivarModal && (
+        <ArquivarItModal
+          it={arquivarModal}
+          onClose={() => setArquivarModal(null)}
+          onActioned={handleActioned}
+        />
+      )}
+      {historicoModal && (
+        <HistoricoVersoesModal
+          it={historicoModal}
+          onClose={() => setHistoricoModal(null)}
+        />
+      )}
+      {excluirPermanenteModal && (
+        <ExclusaoPermanenteModal
+          it={excluirPermanenteModal}
+          onClose={() => setExcluirPermanenteModal(null)}
+          onActioned={handleActioned}
+        />
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════
+// MODAL — ARQUIVAR IT
+// ═══════════════════════════════════════════════
+
+function ArquivarItModal({
+  it,
+  onClose,
+  onActioned,
+}: {
+  it: ITItem;
+  onClose: () => void;
+  onActioned: () => void;
+}) {
+  const [motivo, setMotivo] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  function handleArquivar() {
+    if (!motivo.trim()) { setError('O motivo é obrigatório.'); return; }
+    setError('');
+    startTransition(async () => {
+      const res = await arquivarItPublicada(it.id, motivo.trim());
+      if (res.success) {
+        setSuccess(true);
+        setTimeout(() => { onActioned(); onClose(); }, 1200);
+      } else {
+        setError(res.error || 'Erro ao arquivar.');
+      }
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !pending && onClose()} />
+      <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden">
+        <div className="flex items-start justify-between p-6 border-b border-white/8">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Archive className="w-4 h-4 text-slate-400" />
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Arquivar IT</p>
+            </div>
+            <h2 className="font-bold text-white">{it.titulo}</h2>
+            <p className="text-xs text-slate-400 mt-0.5">{it.codigo} • v{it.versao}</p>
+          </div>
+          <button onClick={() => !pending && onClose()} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/8 p-4 text-sm text-amber-200/80">
+            <p className="font-semibold text-amber-300 mb-1">A IT será arquivada</p>
+            <ul className="space-y-1 text-xs list-disc list-inside">
+              <li>Deixa de aparecer no Catálogo principal</li>
+              <li>Mantém histórico, versões, PDFs e registros de leitura</li>
+              <li>Não pode ser editada diretamente após arquivamento</li>
+              <li>Pode ser consultada no histórico de auditoria</li>
+            </ul>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Motivo do arquivamento *</label>
+            <textarea
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              placeholder="Ex.: Substituída pela versão 2.0. Procedimento revisado e publicado como nova IT."
+              rows={3}
+              disabled={pending}
+              className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 transition-all resize-none disabled:opacity-50"
+            />
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+              <AlertCircle className="w-4 h-4 shrink-0" />{error}
+            </div>
+          )}
+          {success && (
+            <div className="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />IT arquivada com sucesso.
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-3 p-6 border-t border-white/8">
+          <button onClick={() => !pending && onClose()} disabled={pending || success}
+            className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+            Cancelar
+          </button>
+          <button onClick={handleArquivar} disabled={pending || success || !motivo.trim()}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold transition-colors disabled:opacity-50">
+            {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Archive className="w-4 h-4" />}
+            Arquivar IT
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════
+// MODAL — HISTÓRICO DE VERSÕES
+// ═══════════════════════════════════════════════
+
+function HistoricoVersoesModal({
+  it,
+  onClose,
+}: {
+  it: ITItem;
+  onClose: () => void;
+}) {
+  const [data, setData] = useState<HistoricoVersoesData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [activeSection, setActiveSection] = useState<'versoes' | 'audit'>('audit');
+
+  React.useEffect(() => {
+    let cancelled = false;
+    getHistoricoVersoes(it.id).then((res) => {
+      if (cancelled) return;
+      if (res.success && res.data) setData(res.data);
+      else setError(res.error || 'Erro ao carregar histórico.');
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [it.id]);
+
+  const auditColorMap: Record<string, string> = {
+    EXCLUÍDO: 'text-red-400 bg-red-500/10 border-red-500/25',
+    ARQUIVADA: 'text-amber-400 bg-amber-500/10 border-amber-500/25',
+    'EXCLUÍDA PERMANENTEMENTE': 'text-red-500 bg-red-500/15 border-red-500/30',
+    'EXCLUÍDO PERMANENTEMENTE': 'text-red-500 bg-red-500/15 border-red-500/30',
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-2xl rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+        {/* Header */}
+        <div className="flex items-start justify-between p-6 border-b border-white/8 shrink-0">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <History className="w-4 h-4 text-slate-400" />
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Histórico</p>
+            </div>
+            <h2 className="font-bold text-white">{it.titulo}</h2>
+            <p className="text-xs text-slate-400 mt-0.5">{it.codigo} • v{it.versao} atual</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Tab switcher */}
+        <div className="flex items-center gap-1 px-6 pt-4 pb-0 shrink-0">
+          <button
+            onClick={() => setActiveSection('audit')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeSection === 'audit' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Audit Log
+          </button>
+          <button
+            onClick={() => setActiveSection('versoes')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeSection === 'versoes' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Versões
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
+            </div>
+          )}
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+              <AlertCircle className="w-4 h-4 shrink-0" />{error}
+            </div>
+          )}
+
+          {/* Audit Log */}
+          {!loading && data && activeSection === 'audit' && (
+            <div className="space-y-3">
+              {data.auditLog.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-8">Nenhum registro de auditoria encontrado.</p>
+              ) : (
+                data.auditLog.map((entry) => {
+                  const isFinal = entry.versaoNova.includes('EXCLUÍD') || entry.versaoNova === 'ARQUIVADA';
+                  const colorClass = auditColorMap[entry.versaoNova] || 'text-slate-300 bg-white/4 border-white/8';
+                  return (
+                    <div key={entry.id} className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">{entry.motivo}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{entry.autorNome} • {entry.criadoEm}</p>
+                        </div>
+                        <span className={`shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full border ${colorClass}`}>
+                          {entry.versaoAnterior || '—'} → {entry.versaoNova}
+                        </span>
+                      </div>
+                      {entry.hashSha256 && (
+                        <div className="flex items-center gap-1.5 mt-2">
+                          <Hash className="w-3 h-3 text-slate-600" />
+                          <p className="text-[10px] font-mono text-slate-600 truncate">{entry.hashSha256.substring(0, 48)}…</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {/* Versões */}
+          {!loading && data && activeSection === 'versoes' && (
+            <div className="space-y-3">
+              {data.versoes.length === 0 ? (
+                <p className="text-sm text-slate-400 text-center py-8">Nenhuma versão registrada.</p>
+              ) : (
+                data.versoes.map((v) => (
+                  <div key={v.id} className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <GitBranch className="w-3.5 h-3.5 text-indigo-400" />
+                          <span className="text-xs font-bold text-indigo-300">v{v.versao}</span>
+                        </div>
+                        <p className="text-sm text-slate-300 leading-relaxed">{v.alteracoes}</p>
+                        <p className="text-xs text-slate-500 mt-1">{v.autorNome} • {v.criadoEm}</p>
+                      </div>
+                    </div>
+                    {v.hashVersao && (
+                      <div className="flex items-center gap-1.5 mt-2">
+                        <Hash className="w-3 h-3 text-slate-600" />
+                        <p className="text-[10px] font-mono text-slate-600 truncate">{v.hashVersao.substring(0, 48)}…</p>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="p-4 border-t border-white/8 shrink-0">
+          <button onClick={onClose}
+            className="w-full px-4 py-2 rounded-xl bg-white/8 hover:bg-white/12 text-white text-xs font-semibold transition-colors border border-white/10">
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════
+// MODAL — EXCLUSÃO PERMANENTE (MASTER only)
+// ═══════════════════════════════════════════════
+
+function ExclusaoPermanenteModal({
+  it,
+  onClose,
+  onActioned,
+}: {
+  it: ITItem;
+  onClose: () => void;
+  onActioned: () => void;
+}) {
+  const [codigoInput, setCodigoInput] = useState('');
+  const [motivo, setMotivo] = useState('');
+  const [senha, setSenha] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  const codigoOk = codigoInput.trim().toUpperCase() === it.codigo.toUpperCase();
+  const motivoOk = motivo.trim().length >= 20;
+  const podeContinuar = codigoOk && motivoOk && senha.trim().length >= 4;
+
+  function handleExcluir() {
+    if (!podeContinuar) return;
+    setError('');
+    startTransition(async () => {
+      const res = await excluirPermanenteIt({
+        itId: it.id,
+        codigoConfirmacao: codigoInput.trim(),
+        motivo: motivo.trim(),
+        senha: senha,
+      });
+      if (res.success) {
+        setSuccess(true);
+        setTimeout(() => { onActioned(); onClose(); }, 1500);
+      } else {
+        setError(res.error || 'Erro na exclusão permanente.');
+      }
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !pending && onClose()} />
+      <div className="relative w-full max-w-md rounded-2xl border border-red-500/30 bg-[#0D1424] shadow-2xl overflow-hidden">
+        <div className="flex items-start justify-between p-6 border-b border-red-500/20">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <ShieldAlert className="w-4 h-4 text-red-400" />
+              <p className="text-xs font-bold text-red-400 uppercase tracking-wider">Exclusão Permanente — MASTER</p>
+            </div>
+            <h2 className="font-bold text-white">{it.titulo}</h2>
+            <p className="text-xs text-slate-400 mt-0.5">{it.codigo}</p>
+          </div>
+          <button onClick={() => !pending && onClose()} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {/* Aviso de consequências */}
+          <div className="rounded-xl border border-red-500/30 bg-red-500/8 p-4">
+            <p className="text-sm font-bold text-red-300 mb-2">⚠ Esta ação é irreversível</p>
+            <ul className="space-y-1 text-xs text-red-200/70 list-disc list-inside">
+              <li>O registro receberá soft-delete definitivo com flag</li>
+              <li>A ação será registrada no audit log WORM imutável</li>
+              <li>Histórico, versões, ciências e PDFs são preservados</li>
+              <li>Não é possível desfazer — apenas um MASTER pode fazer isso</li>
+            </ul>
+          </div>
+
+          {/* Código de confirmação */}
+          <div>
+            <label className="text-xs font-semibold text-slate-400 mb-1.5 block">
+              Digite o código da IT para confirmar: <span className="font-mono text-red-400">{it.codigo}</span>
+            </label>
+            <input
+              type="text"
+              value={codigoInput}
+              onChange={(e) => setCodigoInput(e.target.value)}
+              placeholder={it.codigo}
+              disabled={pending}
+              className={`w-full px-4 py-2.5 rounded-xl border bg-white/5 text-sm text-white placeholder-slate-600 focus:outline-none transition-all disabled:opacity-50 font-mono ${
+                codigoOk ? 'border-emerald-500/50 focus:border-emerald-500' : 'border-white/10 focus:border-red-500/60'
+              }`}
+            />
+          </div>
+
+          {/* Motivo */}
+          <div>
+            <label className="text-xs font-semibold text-slate-400 mb-1.5 block">
+              Motivo detalhado * <span className="text-slate-600">(mín. 20 chars — {motivo.length}/20)</span>
+            </label>
+            <textarea
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              placeholder="Descreva detalhadamente o motivo desta exclusão permanente..."
+              rows={3}
+              disabled={pending}
+              className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-red-500/50 transition-all resize-none disabled:opacity-50"
+            />
+          </div>
+
+          {/* Senha */}
+          <div>
+            <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Sua senha *</label>
+            <input
+              type="password"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              placeholder="••••••••"
+              disabled={pending}
+              className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-red-500/50 transition-all disabled:opacity-50"
+            />
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+              <AlertCircle className="w-4 h-4 shrink-0" />{error}
+            </div>
+          )}
+          {success && (
+            <div className="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />IT excluída permanentemente. Registro no audit log gravado.
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 p-6 border-t border-red-500/20">
+          <button onClick={() => !pending && onClose()} disabled={pending || success}
+            className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+            Cancelar
+          </button>
+          <button onClick={handleExcluir} disabled={pending || success || !podeContinuar}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-700 hover:bg-red-600 text-white text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            Excluir permanentemente
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

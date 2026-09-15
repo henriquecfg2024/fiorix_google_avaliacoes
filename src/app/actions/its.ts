@@ -2193,3 +2193,432 @@ export async function getColaboradoresParaCiencia(itId: string, versao: string):
       : undefined,
   }));
 }
+
+// ═══════════════════════════════════════════════════════════════
+// CICLO DE VIDA DAS ITs — Exclusão, Cancelamento, Arquivamento
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Exclui um rascunho ou submissão não aprovada.
+ * Permitido para: COLABORADOR (somente o próprio), ADMIN, SUBSTITUTO, MASTER.
+ * Realiza soft-delete + audit log. Não requer senha (nunca foi publicada).
+ */
+export async function excluirRascunhoIt(
+  itId: string,
+  motivo: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId;
+    const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(currentUser.role);
+
+    if (!motivo?.trim()) {
+      return { success: false, error: 'O motivo da exclusão é obrigatório.' };
+    }
+
+    // Busca a IT para validar status e propriedade
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id::text, codigo, titulo, status, autor_id
+       FROM public.fiorix_its
+       WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+       LIMIT 1`,
+      itId, tenantId
+    );
+    if (!rows.length) return { success: false, error: 'IT não encontrada.' };
+    const it = rows[0];
+
+    // Validação: status deve ser rascunho/enviada/correcao/rejeitada — nunca aprovada/publicada
+    const statusPermitidos = ['rascunho', 'enviada_para_analise', 'correcao_solicitada', 'rejeitada'];
+    if (!statusPermitidos.includes(it.status)) {
+      return {
+        success: false,
+        error: `Não é possível excluir uma IT com status "${it.status}". Use "Arquivar" para ITs publicadas.`,
+      };
+    }
+
+    // Colaborador só pode excluir o próprio registro
+    if (!isGestao && it.autor_id !== currentUser.id) {
+      return { success: false, error: 'Você só pode excluir suas próprias submissões.' };
+    }
+
+    // Soft-delete
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_its
+       SET deleted_at = NOW(), updated_at = NOW()
+       WHERE id = $1::uuid AND tenant_id = $2`,
+      itId, tenantId
+    );
+
+    // Audit log
+    const hash = crypto.createHash('sha256').update(
+      JSON.stringify({ itId, motivo, autor: currentUser.id, acao: 'EXCLUSAO_RASCUNHO', timestamp: new Date().toISOString() })
+    ).digest('hex');
+
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO public.fiorix_its_audit_log (
+         tenant_id, it_id, versao_anterior, versao_nova, autor_id, motivo, diff_snapshot, hash_sha256, created_at
+       ) VALUES (
+         $1, $2::uuid, $3, 'EXCLUÍDO', $4, $5, $6::jsonb, $7, NOW()
+       )`,
+      tenantId, itId, it.status, currentUser.id,
+      `Exclusão de rascunho: ${motivo.trim()}`,
+      JSON.stringify({ acao: 'exclusao_rascunho', statusAnterior: it.status, motivo, autor: currentUser.name }),
+      hash
+    );
+
+    revalidatePath('/administracao/its');
+    revalidatePath('/minha-it');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao excluir rascunho.' };
+  }
+}
+
+/**
+ * Cancela um envio que ainda está em análise, revertendo para "rascunho".
+ * Permitido para: COLABORADOR (somente o próprio), ADMIN, SUBSTITUTO, MASTER.
+ */
+export async function cancelarEnvioIt(
+  itId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await requireAuth();
+    const tenantId = currentUser.tenantId;
+    const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(currentUser.role);
+
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id::text, codigo, status, autor_id
+       FROM public.fiorix_its
+       WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+       LIMIT 1`,
+      itId, tenantId
+    );
+    if (!rows.length) return { success: false, error: 'IT não encontrada.' };
+    const it = rows[0];
+
+    if (it.status !== 'enviada_para_analise') {
+      return { success: false, error: `Não é possível cancelar: o status atual é "${it.status}".` };
+    }
+    if (!isGestao && it.autor_id !== currentUser.id) {
+      return { success: false, error: 'Você só pode cancelar suas próprias submissões.' };
+    }
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_its
+       SET status = 'rascunho', updated_at = NOW()
+       WHERE id = $1::uuid AND tenant_id = $2`,
+      itId, tenantId
+    );
+
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO public.fiorix_its_versoes (
+         id, it_id, versao, conteudo_snapshot, alteracoes, autor_id, hash_versao, created_at, tenant_id
+       ) VALUES (
+         gen_random_uuid(), $1::uuid, '1.0', '{}'::jsonb, $2, $3, '', NOW(), $4
+       )`,
+      itId,
+      `Envio cancelado por ${currentUser.name || currentUser.email} — IT retornou ao estado de rascunho`,
+      currentUser.id, tenantId
+    );
+
+    revalidatePath('/minha-it');
+    revalidatePath('/administracao/its');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao cancelar envio.' };
+  }
+}
+
+/**
+ * Arquiva uma IT publicada/vigente/ativa.
+ * IT arquivada não aparece no Catálogo mas mantém histórico completo.
+ * Requer: ADMIN, SUBSTITUTO ou MASTER + motivo obrigatório.
+ */
+export async function arquivarItPublicada(
+  itId: string,
+  motivo: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
+    const tenantId = currentUser.tenantId;
+
+    if (!motivo?.trim()) {
+      return { success: false, error: 'O motivo do arquivamento é obrigatório.' };
+    }
+
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id::text, codigo, titulo, versao, status
+       FROM public.fiorix_its
+       WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+       LIMIT 1`,
+      itId, tenantId
+    );
+    if (!rows.length) return { success: false, error: 'IT não encontrada.' };
+    const it = rows[0];
+
+    const statusPublicados = ['vigente', 'ativa', 'publicada'];
+    if (!statusPublicados.includes(it.status)) {
+      return {
+        success: false,
+        error: `Somente ITs publicadas podem ser arquivadas. Status atual: "${it.status}".`,
+      };
+    }
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_its
+       SET status = 'arquivada', updated_at = NOW()
+       WHERE id = $1::uuid AND tenant_id = $2`,
+      itId, tenantId
+    );
+
+    const hash = crypto.createHash('sha256').update(
+      JSON.stringify({ itId, motivo, autor: currentUser.id, acao: 'ARQUIVAMENTO', timestamp: new Date().toISOString() })
+    ).digest('hex');
+
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO public.fiorix_its_audit_log (
+         tenant_id, it_id, versao_anterior, versao_nova, autor_id, motivo, diff_snapshot, hash_sha256, created_at
+       ) VALUES (
+         $1, $2::uuid, $3, 'ARQUIVADA', $4, $5, $6::jsonb, $7, NOW()
+       )`,
+      tenantId, itId, it.versao, currentUser.id,
+      `Arquivamento: ${motivo.trim()}`,
+      JSON.stringify({ acao: 'arquivamento', statusAnterior: it.status, motivo, autor: currentUser.name }),
+      hash
+    );
+
+    await recordAuditLog({
+      modulo: 'ITS',
+      acao: 'EXCLUSAO',
+      registroId: itId,
+      registroDescricao: `IT "${it.codigo} — ${it.titulo}" arquivada`,
+      detalhes: { motivo, statusAnterior: it.status, tipoAcao: 'ARQUIVAMENTO' },
+      userOverride: currentUser,
+    });
+
+    revalidatePath('/administracao/its');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao arquivar IT.' };
+  }
+}
+
+/**
+ * Exclusão permanente — SOMENTE MASTER.
+ * Realiza soft-delete definitivo com flag no audit_log (preserva integridade referencial).
+ * Exige: senha, código da IT digitado corretamente, motivo (mín. 20 chars).
+ */
+export async function excluirPermanenteIt(params: {
+  itId: string;
+  codigoConfirmacao: string;
+  motivo: string;
+  senha: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await requireRole('MASTER');
+    const tenantId = currentUser.tenantId;
+
+    if (!params.motivo?.trim() || params.motivo.trim().length < 20) {
+      return { success: false, error: 'O motivo deve ter no mínimo 20 caracteres.' };
+    }
+
+    // Validar senha
+    const userRecord = await prisma.user.findUnique({
+      where: { id: currentUser.id },
+      select: { passwordHash: true },
+    });
+    if (!userRecord?.passwordHash) {
+      return { success: false, error: 'Usuário sem senha cadastrada.' };
+    }
+    const senhaValida = await bcrypt.compare(params.senha, userRecord.passwordHash);
+    if (!senhaValida) {
+      return { success: false, error: 'Senha incorreta. A exclusão permanente requer confirmação.' };
+    }
+
+    // Buscar IT
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id::text, codigo, titulo, versao, status
+       FROM public.fiorix_its
+       WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+       LIMIT 1`,
+      params.itId, tenantId
+    );
+    if (!rows.length) return { success: false, error: 'IT não encontrada.' };
+    const it = rows[0];
+
+    // Validar código de confirmação
+    if (params.codigoConfirmacao.trim().toUpperCase() !== it.codigo.toUpperCase()) {
+      return { success: false, error: `Código incorreto. Digite exatamente: ${it.codigo}` };
+    }
+
+    // AUDIT LOG antes de qualquer alteração (registro imutável)
+    const hash = crypto.createHash('sha256').update(
+      JSON.stringify({
+        itId: params.itId, codigo: it.codigo, motivo: params.motivo,
+        autor: currentUser.id, acao: 'EXCLUSAO_PERMANENTE',
+        timestamp: new Date().toISOString(),
+      })
+    ).digest('hex');
+
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO public.fiorix_its_audit_log (
+         tenant_id, it_id, versao_anterior, versao_nova, autor_id, motivo, diff_snapshot, hash_sha256, created_at
+       ) VALUES (
+         $1, $2::uuid, $3, 'EXCLUÍDA PERMANENTEMENTE', $4, $5, $6::jsonb, $7, NOW()
+       )`,
+      tenantId, params.itId, it.versao, currentUser.id,
+      `EXCLUSÃO PERMANENTE (MASTER): ${params.motivo.trim()}`,
+      JSON.stringify({
+        acao: 'exclusao_permanente',
+        codigo: it.codigo,
+        titulo: it.titulo,
+        statusAnterior: it.status,
+        motivo: params.motivo,
+        executor: { id: currentUser.id, name: currentUser.name, email: currentUser.email },
+      }),
+      hash
+    );
+
+    // Soft-delete definitivo: deleted_at + status marcado
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_its
+       SET deleted_at = NOW(), status = 'excluida_permanentemente', updated_at = NOW()
+       WHERE id = $1::uuid AND tenant_id = $2`,
+      params.itId, tenantId
+    );
+
+    await recordAuditLog({
+      modulo: 'ITS',
+      acao: 'EXCLUSAO',
+      registroId: params.itId,
+      registroDescricao: `IT "${it.codigo} — ${it.titulo}" excluída permanentemente por MASTER`,
+      detalhes: { motivo: params.motivo, codigo: it.codigo, hashProva: hash, tipoAcao: 'EXCLUSAO_PERMANENTE' },
+      userOverride: currentUser,
+    });
+
+    revalidatePath('/administracao/its');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro na exclusão permanente.' };
+  }
+}
+
+// Tipos do histórico
+export interface VersaoHistoricoItem {
+  id: string;
+  versao: string;
+  alteracoes: string;
+  autorNome: string;
+  autorEmail: string;
+  criadoEm: string;
+  hashVersao: string;
+}
+
+export interface AuditHistoricoItem {
+  id: string;
+  versaoAnterior: string;
+  versaoNova: string;
+  autorNome: string;
+  autorEmail: string;
+  motivo: string;
+  diffSnapshot: any;
+  hashSha256: string;
+  criadoEm: string;
+}
+
+export interface HistoricoVersoesData {
+  it: { id: string; codigo: string; titulo: string; status: string; versaoAtual: string };
+  versoes: VersaoHistoricoItem[];
+  auditLog: AuditHistoricoItem[];
+}
+
+/**
+ * Retorna histórico completo de versões + audit log de uma IT.
+ * Requer: ADMIN, SUBSTITUTO, MASTER ou RH.
+ */
+export async function getHistoricoVersoes(
+  itId: string
+): Promise<{ success: boolean; data?: HistoricoVersoesData; error?: string }> {
+  try {
+    const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER', 'RH');
+    const tenantId = currentUser.tenantId;
+
+    // Dados da IT
+    const itRows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id::text, codigo, titulo, status, versao
+       FROM public.fiorix_its
+       WHERE id = $1::uuid AND tenant_id = $2
+       LIMIT 1`,
+      itId, tenantId
+    );
+    if (!itRows.length) return { success: false, error: 'IT não encontrada.' };
+    const it = itRows[0];
+
+    // Versões
+    const versoesRaw = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT
+         v.id::text,
+         v.versao,
+         v.alteracoes,
+         u.name as "autorNome",
+         u.email as "autorEmail",
+         v.created_at as "criadoEm",
+         v.hash_versao as "hashVersao"
+       FROM public.fiorix_its_versoes v
+       LEFT JOIN public."User" u ON u.id = v.autor_id
+       WHERE v.it_id = $1::uuid AND v.tenant_id = $2
+       ORDER BY v.created_at DESC
+       LIMIT 50`,
+      itId, tenantId
+    );
+
+    // Audit log
+    const auditRaw = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT
+         a.id::text,
+         a.versao_anterior as "versaoAnterior",
+         a.versao_nova as "versaoNova",
+         u.name as "autorNome",
+         u.email as "autorEmail",
+         a.motivo,
+         a.diff_snapshot as "diffSnapshot",
+         a.hash_sha256 as "hashSha256",
+         a.created_at as "criadoEm"
+       FROM public.fiorix_its_audit_log a
+       LEFT JOIN public."User" u ON u.id = a.autor_id
+       WHERE a.it_id = $1::uuid AND a.tenant_id = $2
+       ORDER BY a.created_at DESC
+       LIMIT 50`,
+      itId, tenantId
+    );
+
+    return {
+      success: true,
+      data: {
+        it: { id: it.id, codigo: it.codigo, titulo: it.titulo, status: it.status, versaoAtual: it.versao },
+        versoes: versoesRaw.map(v => ({
+          id: v.id,
+          versao: v.versao,
+          alteracoes: v.alteracoes || '',
+          autorNome: v.autorNome || 'Sistema',
+          autorEmail: v.autorEmail || '',
+          criadoEm: new Date(v.criadoEm).toLocaleString('pt-BR'),
+          hashVersao: v.hashVersao || '',
+        })),
+        auditLog: auditRaw.map(a => ({
+          id: a.id,
+          versaoAnterior: a.versaoAnterior || '',
+          versaoNova: a.versaoNova || '',
+          autorNome: a.autorNome || 'Sistema',
+          autorEmail: a.autorEmail || '',
+          motivo: a.motivo || '',
+          diffSnapshot: a.diffSnapshot || null,
+          hashSha256: a.hashSha256 || '',
+          criadoEm: new Date(a.criadoEm).toLocaleString('pt-BR'),
+        })),
+      },
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao carregar histórico.' };
+  }
+}

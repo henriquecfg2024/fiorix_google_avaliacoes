@@ -35,11 +35,13 @@ import {
   ArrowUpRight,
   Eye,
   Plus,
+  XCircle,
+  Trash2,
 } from 'lucide-react';
 
 import { MinhaItPageData, MinhaItCustodiaItem, ItEnviadaColaborador, publicarNovaVersaoIT, submeterItColaborador } from '@/app/actions/minha-it';
 
-import { getITUploadSignedUrl } from '@/app/actions/its';
+import { getITUploadSignedUrl, cancelarEnvioIt, excluirRascunhoIt } from '@/app/actions/its';
 
 import { AlertaResponsavelTecnico } from './AlertaResponsavelTecnico';
 
@@ -479,7 +481,35 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                   </button>
                 )}
                 {colaboradorItEnviada.status === 'enviada_para_analise' && (
-                  <p className="text-xs text-slate-400 italic">Aguardando análise do responsável...</p>
+                  <>
+                    <p className="text-xs text-slate-400 italic">Aguardando análise do responsável...</p>
+                    <button
+                      onClick={async () => {
+                        if (!confirm('Cancelar o envio? A IT voltará ao estado de rascunho.')) return;
+                        const res = await cancelarEnvioIt(colaboradorItEnviada.id);
+                        if (res.success) { router.refresh(); }
+                        else { alert(res.error || 'Erro ao cancelar.'); }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/15 bg-white/5 hover:bg-red-500/15 hover:border-red-500/30 text-slate-400 hover:text-red-300 text-xs font-semibold transition-colors"
+                    >
+                      <XCircle className="w-3.5 h-3.5" /> Cancelar envio
+                    </button>
+                  </>
+                )}
+                {(['rascunho', 'correcao_solicitada', 'rejeitada'] as string[]).includes(colaboradorItEnviada.status) && (
+                  <button
+                    onClick={async () => {
+                      const motivo = prompt('Motivo da exclusão (obrigatório):');
+                      if (!motivo?.trim()) return;
+                      if (!confirm(`Excluir "${colaboradorItEnviada.titulo}"? Esta ação não pode ser desfeita.`)) return;
+                      const res = await excluirRascunhoIt(colaboradorItEnviada.id, motivo);
+                      if (res.success) { router.refresh(); }
+                      else { alert(res.error || 'Erro ao excluir.'); }
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-500/20 bg-red-500/8 hover:bg-red-500/20 text-red-400 hover:text-red-300 text-xs font-semibold transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Excluir
+                  </button>
                 )}
               </div>
             </div>
