@@ -318,14 +318,19 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
     console.warn('Aviso ao buscar data da ciência do responsável:', err);
   }
 
-  // 6. Busca colaboradores do setor e verifica ciências da equipe
+  // 6. Busca apenas os participantes vinculados a esta IT (fiorix_its_participants)
+  // inclui também o próprio responsável técnico caso não esteja na tabela
   const colabs: any[] = await prisma.$queryRawUnsafe(`
-    SELECT id, name, cargo, departamento
-    FROM public."User"
-    WHERE departamento ILIKE $1 AND (status = 'ativo' OR status IS NULL)
+    SELECT DISTINCT u.id, u.name, u.cargo, u.departamento
+    FROM public.fiorix_its_participants p
+    JOIN public."User" u ON u.id = p.user_id
+    WHERE p.it_id = $1::uuid
+    UNION
+    SELECT u.id, u.name, u.cargo, u.departamento
+    FROM public."User" u
+    WHERE u.id = $2
     ORDER BY name ASC
-    LIMIT 40
-  `, `%${depto}%`);
+  `, itId, userId);
 
   // Busca quem deu ciência para esta versão
   const cienciasRows: any[] = await prisma.$queryRawUnsafe(`
