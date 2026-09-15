@@ -2758,22 +2758,23 @@ export async function adicionarParticipanteIt(params: {
     if (!itRows.length) return { success: false, error: 'IT não encontrada.' };
     const it = itRows[0];
 
-    // Verificar se o executor é RESPONSAVEL_PRINCIPAL ou gestão
-    // Também aceita se for o responsavel_tecnico_id diretamente na IT (para ITs de colaboradores)
+    // Verificar se o executor é RESPONSAVEL_PRINCIPAL, responsavel_tecnico ou autor da IT
     if (!isGestao) {
       const papelAtual = await prisma.$queryRawUnsafe<any[]>(
         `SELECT papel FROM public.fiorix_its_participants
          WHERE it_id = $1::uuid AND usuario_id = $2 AND status = 'ativo' LIMIT 1`,
         params.itId, currentUser.id
       );
-      // Verifica também se é responsavel_tecnico_id diretamente na tabela fiorix_its
-      const isRespTecnico = await prisma.$queryRawUnsafe<any[]>(
-        `SELECT id FROM public.fiorix_its WHERE id = $1::uuid AND responsavel_tecnico_id = $2 LIMIT 1`,
+      // Verifica se é responsavel_tecnico_id OU autor_id (cobre ITs legadas sem responsavel_tecnico_id)
+      const isRespOuAutor = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT id FROM public.fiorix_its
+         WHERE id = $1::uuid AND (responsavel_tecnico_id = $2 OR autor_id = $2)
+         LIMIT 1`,
         params.itId, currentUser.id
       );
       const temPermissao =
         (papelAtual.length > 0 && papelAtual[0].papel === 'RESPONSAVEL_PRINCIPAL') ||
-        isRespTecnico.length > 0;
+        isRespOuAutor.length > 0;
       if (!temPermissao) {
         return { success: false, error: 'Apenas o responsável principal ou gestão podem adicionar participantes.' };
       }
