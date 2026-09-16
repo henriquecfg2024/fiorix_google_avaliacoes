@@ -16,6 +16,36 @@ interface UserContext {
   name: string;
   role: string;
   itTitulo?: string;
+  itCodigo?: string;
+  itVersao?: string;
+  itDepartamento?: string;
+  itPapel?: string;
+  isResponsavel?: boolean;
+}
+
+// ─── Extrator dinâmico de contexto do DOM ─────────
+function extractContext(): UserContext {
+  if (typeof document === 'undefined') {
+    return { name: 'Colaborador', role: 'COLABORADOR' };
+  }
+
+  const mainEl = document.querySelector('main[data-it-titulo]') || document.querySelector('[data-it-titulo]');
+  const nameEl = document.querySelector('[data-user-name]');
+  const roleEl = document.querySelector('[data-user-role]');
+
+  const headerName = document.querySelector('.fiorix-user-name')?.textContent?.trim();
+  const badgeRole = document.querySelector('.fiorix-user-role')?.textContent?.trim();
+
+  return {
+    name: mainEl?.getAttribute('data-user-name') || nameEl?.getAttribute('data-user-name') || headerName || 'Colaborador',
+    role: mainEl?.getAttribute('data-user-role') || roleEl?.getAttribute('data-user-role') || badgeRole || 'COLABORADOR',
+    itTitulo: mainEl?.getAttribute('data-it-titulo') || undefined,
+    itCodigo: mainEl?.getAttribute('data-it-codigo') || undefined,
+    itVersao: mainEl?.getAttribute('data-it-versao') || undefined,
+    itDepartamento: mainEl?.getAttribute('data-it-departamento') || undefined,
+    itPapel: mainEl?.getAttribute('data-it-papel') || undefined,
+    isResponsavel: mainEl?.getAttribute('data-it-is-responsavel') === 'sim',
+  };
 }
 
 // ─── Mensagens contextuais por rota ───────────────
@@ -24,9 +54,9 @@ function getContextMessage(pathname: string, ctx: UserContext): string {
 
   if (pathname.startsWith('/minha-it')) {
     if (ctx.itTitulo) {
-      return `Olá, ${nome}! 👋 Sou o FIORIX, seu tutor digital! Vi que você participa da IT **${ctx.itTitulo}**. Quer uma dica rápida de 20s para manter ela sempre atualizada? ✨`;
+      return `Olá, ${nome}! 👋 Sou o FIORIX, seu tutor digital! Vi que você está na IT **${ctx.itTitulo}**${ctx.isResponsavel ? ' como Responsável Técnico' : ''}. Quer tirar alguma dúvida sobre ela? ✨`;
     }
-    return `Olá, ${nome}! 👋 Sou o FIORIX! Aqui na Minha IT você cadastra e acompanha suas Instruções de Trabalho. Posso te ajudar? ✨`;
+    return `Olá, ${nome}! 👋 Sou o FIORIX! Aqui na Minha IT você acompanha suas Instruções de Trabalho e ciências. Como posso ajudar? ✨`;
   }
   if (pathname.startsWith('/dashboard')) {
     return `Olá, ${nome}! 👋 Bem-vindo ao FIORIX! Este é seu painel principal. Precisa de ajuda para navegar? 🚀`;
@@ -45,36 +75,55 @@ function getContextMessage(pathname: string, ctx: UserContext): string {
 
 function getSuggestions(pathname: string): string[] {
   if (pathname.startsWith('/minha-it')) {
-    return ['Como criar nova versão?', 'O que é ciência?', 'Tour pela página'];
+    return ['Qual o nome de minha IT?', 'Sou responsável técnico?', 'Como criar nova versão?', 'O que é ciência?'];
   }
   if (pathname.startsWith('/avaliacoes')) {
     return ['Como responder avaliações?', 'Filtrar por período', 'Exportar relatório'];
   }
   if (pathname.startsWith('/instrucoes-trabalho')) {
-    return ['Como buscar uma IT?', 'Entender versionamento', 'Visualizar PDF'];
+    return ['Como propor uma nova IT?', 'Como buscar uma IT?', 'Visualizar PDF'];
   }
-  return ['Navegar pelo sistema', 'Minha IT', 'Minhas avaliações'];
+  return ['Qual o nome de minha IT?', 'Minha IT', 'Avaliações Google', 'Navegar pelo sistema'];
 }
 
-// ─── Respostas pré-definidas (fallback sem API) ───
-function getQuickReply(question: string): string {
+// ─── Respostas pré-definidas (fallback instantâneo) ───
+function getQuickReply(question: string, ctx?: UserContext): string {
   const q = question.toLowerCase();
-  if (q.includes('nova versão') || q.includes('criar versão')) {
-    return 'Para criar uma nova versão da sua IT:\n\n1. Acesse **Minha IT**\n2. Clique em **"Criar nova versão"** no alerta amarelo\n3. Faça upload do novo PDF\n4. A versão será atualizada para todos os participantes automaticamente! 📄✨';
+
+  if (q.includes('nome') && (q.includes('it') || q.includes('minha'))) {
+    const tit = ctx?.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO';
+    const v = ctx?.itVersao ? ` (versão ${ctx.itVersao})` : ' (versão 1.1)';
+    const d = ctx?.itDepartamento ? ` do setor ${ctx.itDepartamento}` : '';
+    return `A sua IT atual é **${tit}**${v}${d}. 📄✨`;
   }
+
+  if (q.includes('responsável') || q.includes('responsavel')) {
+    if (ctx?.isResponsavel) {
+      return `Sim! Você é o **Responsável Técnico** desta IT (**${ctx?.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO'}**). Você é o encarregado de mantê-la atualizada e gerenciar os participantes! 🛡️✨`;
+    }
+    if (ctx?.itPapel) {
+      return `Nesta IT, seu papel é **${ctx.itPapel}**. ${ctx.itPapel === 'Responsável técnico' ? 'Sim, você é o responsável técnico!' : 'O responsável técnico é quem faz a gestão e atualização desta IT.'} 👤`;
+    }
+    return 'Sim! Você está vinculado a esta IT como Responsável Técnico. Você pode gerenciar participantes e criar novas versões no alerta amarelo! 🛡️';
+  }
+
+  if (q.includes('criar') && q.includes('it') && !q.includes('versão') && !q.includes('versao')) {
+    return 'Para propor ou cadastrar uma nova IT:\n\n1. Acesse o menu **Instruções de Trabalho** na barra lateral\n2. Clique em **"+ Nova IT"** ou **"Cadastrar IT"**\n3. Preencha título, objetivo e anexe o arquivo PDF\n4. Envie para análise da supervisão! 📋✨';
+  }
+
+  if (q.includes('nova versão') || q.includes('criar versão') || q.includes('atualizar it')) {
+    return 'Para criar uma nova versão da sua IT:\n\n1. Acesse **Minha IT**\n2. Clique em **"+ Criar nova versão"** no alerta amarelo no topo\n3. Faça upload do novo PDF atualizado\n4. A versão será atualizada para todos os participantes automaticamente! 📄✨';
+  }
+
   if (q.includes('ciência') || q.includes('ciencias')) {
-    return 'A **ciência** confirma que um colaborador leu e entendeu a IT. Cada vez que uma nova versão é publicada, todos os participantes precisam dar ciência novamente. Você acompanha o progresso em **"Ver ciências"**. ✅';
+    return 'A **ciência** confirma que um colaborador leu e entendeu a IT. Cada nova versão publicada requer nova ciência de todos os participantes. Acompanhe em **"Ver ciências"**. ✅';
   }
+
   if (q.includes('tour') || q.includes('guia')) {
     return 'Na página **Minha IT** você encontra:\n\n📄 **Card principal** — resumo da sua IT com título, versão e objetivo\n👁️ **Visualizar na Íntegra** — abre o PDF completo\n👥 **Gerenciar responsáveis** — adiciona/remove participantes\n✅ **Ver ciências** — acompanha quem já leu a IT';
   }
-  if (q.includes('responder avaliação') || q.includes('responder avaliacoes')) {
-    return 'Para responder uma avaliação do Google:\n\n1. Acesse **Avaliações**\n2. Clique na avaliação pendente\n3. Use o campo de resposta sugerida ou escreva a sua\n4. Clique em **Enviar** 💬';
-  }
-  if (q.includes('navegar') || q.includes('sistema')) {
-    return 'O FIORIX tem várias áreas:\n\n🏠 **Dashboard** — visão geral\n📄 **Minha IT** — suas Instruções de Trabalho\n⭐ **Avaliações** — Google Reviews\n📊 **Estatísticas** — métricas e relatórios\n👥 **Gestão** — equipe e colaboradores';
-  }
-  return 'Boa pergunta! Infelizmente ainda estou aprendendo sobre esse tema. Em breve terei mais informações para te ajudar. 🧠✨';
+
+  return 'Essa informação está fora do meu conhecimento atual. Em breve terei mais funcionalidades para te ajudar! 🧠';
 }
 
 // ─── Componente Principal ─────────────────────────
@@ -83,6 +132,8 @@ export function FiorixAgent() {
   const [isVisible, setIsVisible] = useState(false);
   const [showBubble, setShowBubble] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [position, setPosition] = useState<'right' | 'left'>('right');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -90,31 +141,34 @@ export function FiorixAgent() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Busca contexto do usuário da página
+  // Carrega posição salva
   useEffect(() => {
-    // Tenta extrair dados do DOM (nomes, cargo, IT título)
-    const tryExtractContext = () => {
-      const nameEl = document.querySelector('[data-user-name]');
-      const roleEl = document.querySelector('[data-user-role]');
-      const itEl = document.querySelector('[data-it-titulo]');
+    const savedPos = localStorage.getItem('fiorix-agent-pos') as 'right' | 'left';
+    if (savedPos === 'left' || savedPos === 'right') {
+      setPosition(savedPos);
+    }
+  }, []);
 
-      // Fallback: busca do header/topbar
-      const headerName = document.querySelector('.fiorix-user-name')?.textContent;
-      const badgeRole = document.querySelector('.fiorix-user-role')?.textContent;
+  const togglePosition = useCallback(() => {
+    setPosition(prev => {
+      const next = prev === 'right' ? 'left' : 'right';
+      localStorage.setItem('fiorix-agent-pos', next);
+      return next;
+    });
+  }, []);
 
-      setUserContext({
-        name: nameEl?.getAttribute('data-user-name') || headerName || 'Colaborador',
-        role: roleEl?.getAttribute('data-user-role') || badgeRole || 'COLABORADOR',
-        itTitulo: itEl?.getAttribute('data-it-titulo') || undefined,
-      });
+  // Extrai contexto do DOM
+  useEffect(() => {
+    const updateContext = () => {
+      const ctx = extractContext();
+      setUserContext(ctx);
     };
 
-    // Pequeno delay para garantir que o DOM está renderizado
-    const timer = setTimeout(tryExtractContext, 800);
+    const timer = setTimeout(updateContext, 800);
     return () => clearTimeout(timer);
   }, [pathname]);
 
-  // Controla aparição e "não mostrar por 7 dias"
+  // Aparição do avatar
   useEffect(() => {
     const dismissedAt = localStorage.getItem('fiorix-agent-dismissed');
     if (dismissedAt) {
@@ -125,25 +179,36 @@ export function FiorixAgent() {
 
     const showTimer = setTimeout(() => {
       setIsVisible(true);
-      // Bubble aparece após a animação de entrada do avatar
-      const bubbleTimer = setTimeout(() => setShowBubble(true), 600);
+      const bubbleTimer = setTimeout(() => setShowBubble(true), 800);
       return () => clearTimeout(bubbleTimer);
-    }, 1500);
+    }, 1200);
 
     return () => clearTimeout(showTimer);
   }, [pathname]);
 
-  // Scroll automático para última mensagem
+  // Auto-dismiss do balão após 15s para não ficar cobrindo o texto
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (showBubble && !isChatOpen) {
+      const autoCloseTimer = setTimeout(() => {
+        setShowBubble(false);
+      }, 15000);
+      return () => clearTimeout(autoCloseTimer);
+    }
+  }, [showBubble, isChatOpen]);
 
-  // Focus no input ao abrir chat
+  // Scroll automático
   useEffect(() => {
-    if (isChatOpen) {
+    if (isChatOpen && !isMinimized) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isChatOpen, isMinimized]);
+
+  // Focus no input
+  useEffect(() => {
+    if (isChatOpen && !isMinimized) {
       setTimeout(() => inputRef.current?.focus(), 300);
     }
-  }, [isChatOpen]);
+  }, [isChatOpen, isMinimized]);
 
   const dismissFor7Days = useCallback(() => {
     localStorage.setItem('fiorix-agent-dismissed', Date.now().toString());
@@ -156,20 +221,26 @@ export function FiorixAgent() {
   }, []);
 
   const openChat = useCallback(() => {
+    const freshCtx = extractContext();
+    setUserContext(freshCtx);
     setShowBubble(false);
+    setIsMinimized(false);
     setIsChatOpen(true);
     if (messages.length === 0) {
       setMessages([{
         id: 'welcome',
         role: 'agent',
-        content: getContextMessage(pathname, userContext),
+        content: getContextMessage(pathname, freshCtx),
         timestamp: new Date(),
       }]);
     }
-  }, [pathname, userContext, messages.length]);
+  }, [pathname, messages.length]);
 
   const handleSendMessage = useCallback(async (text: string) => {
     if (!text.trim()) return;
+    const freshCtx = extractContext();
+    setUserContext(freshCtx);
+
     const userMsg: Message = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -187,15 +258,20 @@ export function FiorixAgent() {
         body: JSON.stringify({
           message: text.trim(),
           context: {
-            departamento: userContext.role,
-            itTitulo: userContext.itTitulo,
+            departamento: freshCtx.itDepartamento || freshCtx.role,
+            itTitulo: freshCtx.itTitulo,
+            itCodigo: freshCtx.itCodigo,
+            itVersao: freshCtx.itVersao,
+            itDepartamento: freshCtx.itDepartamento,
+            itPapel: freshCtx.itPapel,
+            isResponsavel: freshCtx.isResponsavel,
             pathname,
           },
         }),
       });
 
       const data = await res.json();
-      const reply = data.reply || data.error || 'Desculpe, não consegui processar sua pergunta.';
+      const reply = data.reply || data.error || getQuickReply(text, freshCtx);
 
       const agentMsg: Message = {
         id: `agent-${Date.now()}`,
@@ -205,18 +281,17 @@ export function FiorixAgent() {
       };
       setMessages(prev => [...prev, agentMsg]);
     } catch {
-      // Fallback local se a API falhar
       const agentMsg: Message = {
         id: `agent-${Date.now()}`,
         role: 'agent',
-        content: getQuickReply(text),
+        content: getQuickReply(text, freshCtx),
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, agentMsg]);
     } finally {
       setIsTyping(false);
     }
-  }, [pathname, userContext]);
+  }, [pathname]);
 
   const handleSuggestionClick = useCallback((suggestion: string) => {
     handleSendMessage(suggestion);
@@ -231,35 +306,43 @@ export function FiorixAgent() {
 
   const suggestions = getSuggestions(pathname);
 
+  // Classes de posicionamento dinâmico
+  const positionClasses = position === 'left'
+    ? 'bottom-6 left-4 lg:left-72 items-start'
+    : 'bottom-6 right-4 lg:right-6 items-end';
+
+  const chatPositionClasses = position === 'left'
+    ? 'bottom-6 left-4 lg:left-72'
+    : 'bottom-6 right-4 lg:right-6';
+
   return (
     <>
       {/* ─── CSS Animations ─── */}
       <style jsx global>{`
         @keyframes fiorix-float {
           0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-6px); }
+          50% { transform: translateY(-5px); }
         }
         @keyframes fiorix-slide-up {
-          0% { opacity: 0; transform: translateY(24px) scale(0.9); }
-          70% { transform: translateY(-4px) scale(1.05); }
+          0% { opacity: 0; transform: translateY(20px) scale(0.95); }
           100% { opacity: 1; transform: translateY(0) scale(1); }
         }
         @keyframes fiorix-bubble-in {
-          0% { opacity: 0; transform: translateY(8px) scale(0.95); }
+          0% { opacity: 0; transform: translateY(8px) scale(0.96); }
           100% { opacity: 1; transform: translateY(0) scale(1); }
         }
         @keyframes fiorix-chat-in {
-          0% { opacity: 0; transform: translateY(16px) scale(0.96); }
+          0% { opacity: 0; transform: translateY(12px) scale(0.97); }
           100% { opacity: 1; transform: translateY(0) scale(1); }
         }
         @keyframes fiorix-typing-dot {
           0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
           30% { transform: translateY(-4px); opacity: 1; }
         }
-        .fiorix-float { animation: fiorix-float 3s ease-in-out infinite; }
-        .fiorix-slide-up { animation: fiorix-slide-up 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
-        .fiorix-bubble-in { animation: fiorix-bubble-in 0.4s ease-out forwards; }
-        .fiorix-chat-in { animation: fiorix-chat-in 0.35s ease-out forwards; }
+        .fiorix-float { animation: fiorix-float 3.5s ease-in-out infinite; }
+        .fiorix-slide-up { animation: fiorix-slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .fiorix-bubble-in { animation: fiorix-bubble-in 0.3s ease-out forwards; }
+        .fiorix-chat-in { animation: fiorix-chat-in 0.25s ease-out forwards; }
         .fiorix-typing-dot:nth-child(1) { animation: fiorix-typing-dot 1.4s ease-in-out infinite 0s; }
         .fiorix-typing-dot:nth-child(2) { animation: fiorix-typing-dot 1.4s ease-in-out infinite 0.2s; }
         .fiorix-typing-dot:nth-child(3) { animation: fiorix-typing-dot 1.4s ease-in-out infinite 0.4s; }
@@ -267,118 +350,208 @@ export function FiorixAgent() {
 
       {/* ─── Avatar Flutuante ─── */}
       {isVisible && !isChatOpen && (
-        <div className="fixed bottom-6 right-6 z-[9999] flex flex-col items-center gap-2 fiorix-slide-up">
+        <div className={`fixed ${positionClasses} z-[9998] flex flex-col gap-2 fiorix-slide-up select-none`}>
           {/* Bubble de mensagem */}
           {showBubble && (
-            <div className="fiorix-bubble-in relative mb-2">
-              <div className="bg-white border border-[#e5e7eb] rounded-2xl rounded-br-none p-5 shadow-2xl max-w-[360px]">
+            <div className="fiorix-bubble-in relative mb-1">
+              <div className="bg-white border border-[#e5e7eb] rounded-2xl p-4 shadow-2xl max-w-[290px]">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold text-[#7c3aed] uppercase tracking-widest">FIORIX • seu tutor</span>
-                    <span className="text-[10px] text-[#9ca3af]">agora</span>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-[#7c3aed] uppercase tracking-wider">FIORIX • TUTOR</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                   </div>
-                  <button
-                    onClick={closeBubble}
-                    className="w-5 h-5 flex items-center justify-center text-[#9ca3af] hover:text-[#111827] transition-colors"
-                    aria-label="Fechar"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={togglePosition}
+                      className="p-1 text-[#9ca3af] hover:text-[#7c3aed] transition-colors rounded"
+                      title={position === 'right' ? 'Mover para a esquerda' : 'Mover para a direita'}
+                      aria-label="Mover lado"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M8 3L4 7l4 4" /><path d="M4 7h16" /><path d="M16 21l4-4-4-4" /><path d="M20 17H4" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={closeBubble}
+                      className="p-1 text-[#9ca3af] hover:text-[#111827] transition-colors rounded"
+                      aria-label="Fechar aviso"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Mensagem */}
-                <p className="text-[13px] text-[#374151] leading-relaxed mb-4">
+                <p className="text-[12px] text-[#374151] leading-relaxed mb-3">
                   {getContextMessage(pathname, userContext)}
                 </p>
 
                 {/* Botões de ação */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <button
                     onClick={openChat}
-                    className="bg-gradient-to-r from-[#facc15] to-[#f59e0b] text-[#111827] font-bold rounded-full px-5 py-2.5 text-[13px] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md shadow-yellow-500/20"
+                    className="bg-gradient-to-r from-[#facc15] to-[#f59e0b] text-[#111827] font-bold rounded-full px-4 py-1.5 text-[12px] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm"
                   >
-                    Sim, me mostra! 😊
+                    Tirar dúvida 😊
                   </button>
                   <button
                     onClick={dismissFor7Days}
-                    className="text-[13px] text-[#6b7280] hover:text-[#111827] transition-colors"
+                    className="text-[11px] text-[#9ca3af] hover:text-[#4b5563] transition-colors px-2 py-1"
                   >
                     Depois
                   </button>
                 </div>
               </div>
-              {/* Seta apontando para avatar */}
-              <div className="absolute -bottom-2 right-8 w-4 h-4 bg-white border-r border-b border-[#e5e7eb] transform rotate-45" />
+
+              {/* Seta da Bubble */}
+              <div className={`absolute -bottom-2 ${position === 'left' ? 'left-6' : 'right-6'} w-3.5 h-3.5 bg-white border-r border-b border-[#e5e7eb] transform rotate-45`} />
             </div>
           )}
 
-          {/* Avatar */}
+          {/* Botão do Avatar */}
           <button
             onClick={openChat}
-            className="relative group fiorix-float"
+            className="relative group fiorix-float focus:outline-none"
             aria-label="Abrir FIORIX tutor"
           >
-            <div className="w-[72px] h-[72px] rounded-2xl border-[3px] border-[#facc15] shadow-xl shadow-yellow-500/20 bg-white overflow-hidden transition-transform group-hover:scale-105">
+            <div className="w-[62px] h-[62px] rounded-2xl border-[2.5px] border-[#facc15] shadow-lg shadow-yellow-500/20 bg-white overflow-hidden transition-transform group-hover:scale-105">
               <Image
                 src="/fiorix-avatar.jpg"
                 alt="FIORIX tutor"
-                width={72}
-                height={72}
+                width={62}
+                height={62}
                 className="w-full h-full object-cover"
                 priority
               />
             </div>
             {/* Dot online */}
-            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white" />
+            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white shadow-xs" />
           </button>
 
           {/* Badge */}
-          <span className="bg-[#7c3aed] text-white rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide shadow-md">
+          <span className="bg-[#7c3aed] text-white rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-sm">
             FIORIX
           </span>
         </div>
       )}
 
+      {/* ─── Chat Minimizado (Barra Dock Discreta) ─── */}
+      {isChatOpen && isMinimized && (
+        <div className={`fixed ${chatPositionClasses} z-[9999] fiorix-chat-in select-none`}>
+          <div className="bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] text-white rounded-2xl shadow-xl px-3.5 py-2 flex items-center gap-2.5 border border-white/20">
+            <div className="relative w-7 h-7 rounded-xl overflow-hidden border border-white/40 bg-white shrink-0">
+              <Image src="/fiorix-avatar.jpg" alt="FIORIX" width={28} height={28} className="w-full h-full object-cover" />
+              <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full border border-[#7c3aed]" />
+            </div>
+            <div className="flex flex-col min-w-0 pr-1">
+              <span className="text-xs font-bold leading-tight flex items-center gap-1.5">
+                FIORIX
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+              </span>
+              <span className="text-[10px] text-white/70 truncate max-w-[130px]">
+                {userContext.itTitulo || 'Tutor digital'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 ml-auto shrink-0">
+              <button
+                onClick={togglePosition}
+                className="p-1 hover:bg-white/15 rounded-md text-white/80 hover:text-white transition-all"
+                title={position === 'right' ? 'Mover para esquerda' : 'Mover para direita'}
+                aria-label="Mover lado"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M8 3L4 7l4 4" /><path d="M4 7h16" /><path d="M16 21l4-4-4-4" /><path d="M20 17H4" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setIsMinimized(false)}
+                className="px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded-md text-[11px] font-bold transition-all flex items-center gap-1"
+              >
+                <span>Abrir</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
+              </button>
+              <button
+                onClick={() => { setIsMinimized(false); setIsChatOpen(false); }}
+                className="p-1 hover:bg-white/15 rounded-md text-white/80 hover:text-white transition-all"
+                title="Fechar"
+                aria-label="Fechar"
+              >
+                <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─── Chat Expandido ─── */}
-      {isChatOpen && (
-        <div className="fixed bottom-6 right-6 z-[9999] fiorix-chat-in">
-          <div className="w-[400px] max-h-[560px] bg-white rounded-3xl shadow-2xl border border-[#e5e7eb] flex flex-col overflow-hidden">
+      {isChatOpen && !isMinimized && (
+        <div className={`fixed ${chatPositionClasses} z-[9999] fiorix-chat-in`}>
+          <div className="w-[340px] sm:w-[365px] max-h-[490px] bg-white rounded-3xl shadow-2xl border border-[#e5e7eb] flex flex-col overflow-hidden">
             {/* Chat Header */}
-            <div className="bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-5 py-4 flex items-center gap-3 shrink-0">
-              <div className="relative">
-                <div className="w-10 h-10 rounded-xl border-2 border-white/30 bg-white overflow-hidden">
-                  <Image src="/fiorix-avatar.jpg" alt="FIORIX" width={40} height={40} className="w-full h-full object-cover" />
+            <div className="bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 py-3 flex items-center gap-2.5 shrink-0 select-none">
+              <div className="relative shrink-0">
+                <div className="w-9 h-9 rounded-xl border-2 border-white/30 bg-white overflow-hidden">
+                  <Image src="/fiorix-avatar.jpg" alt="FIORIX" width={36} height={36} className="w-full h-full object-cover" />
                 </div>
                 <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-[1.5px] border-[#7c3aed]" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-white text-sm font-bold">FIORIX</h3>
-                <p className="text-white/60 text-[11px]">Seu tutor digital • Online</p>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-white text-xs font-bold leading-tight">FIORIX</h3>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                </div>
+                <p className="text-white/70 text-[10px] truncate leading-tight mt-0.5">
+                  {userContext.itTitulo ? `IT: ${userContext.itTitulo}` : 'Seu tutor digital • Online'}
+                </p>
               </div>
-              <button
-                onClick={() => setIsChatOpen(false)}
-                className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-all"
-                aria-label="Fechar chat"
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-              </button>
+              <div className="flex items-center gap-1 shrink-0">
+                {/* Botão de mover lado */}
+                <button
+                  onClick={togglePosition}
+                  className="w-7 h-7 flex items-center justify-center text-white/75 hover:text-white hover:bg-white/15 rounded-lg transition-all"
+                  title={position === 'right' ? 'Mover para esquerda (não cobrir a IT)' : 'Mover para direita'}
+                  aria-label="Mover lado do chat"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M8 3L4 7l4 4" /><path d="M4 7h16" /><path d="M16 21l4-4-4-4" /><path d="M20 17H4" />
+                  </svg>
+                </button>
+                {/* Botão de minimizar */}
+                <button
+                  onClick={() => setIsMinimized(true)}
+                  className="w-7 h-7 flex items-center justify-center text-white/75 hover:text-white hover:bg-white/15 rounded-lg transition-all text-xs font-bold"
+                  title="Minimizar chat"
+                  aria-label="Minimizar chat"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                </button>
+                {/* Botão de fechar */}
+                <button
+                  onClick={() => setIsChatOpen(false)}
+                  className="w-7 h-7 flex items-center justify-center text-white/75 hover:text-white hover:bg-white/15 rounded-lg transition-all"
+                  title="Fechar chat"
+                  aria-label="Fechar chat"
+                >
+                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                </button>
+              </div>
             </div>
 
             {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px] max-h-[340px] bg-[#fafafa]">
+            <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5 min-h-[180px] max-h-[290px] bg-[#fafafa]">
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] px-4 py-2.5 text-[13px] leading-relaxed ${
+                  <div className={`max-w-[88%] px-3.5 py-2 text-[12.5px] leading-relaxed ${
                     msg.role === 'user'
                       ? 'bg-[#7c3aed] text-white rounded-2xl rounded-br-sm'
-                      : 'bg-white text-[#374151] border border-[#e5e7eb] rounded-2xl rounded-bl-sm shadow-sm'
+                      : 'bg-white text-[#374151] border border-[#e5e7eb] rounded-2xl rounded-bl-sm shadow-xs'
                   }`}>
                     {msg.content.split('\n').map((line, i) => (
                       <span key={i}>
                         {line.split(/(\*\*.*?\*\*)/).map((part, j) =>
                           part.startsWith('**') && part.endsWith('**')
-                            ? <strong key={j}>{part.slice(2, -2)}</strong>
+                            ? <strong key={j} className="font-semibold text-inherit">{part.slice(2, -2)}</strong>
                             : part
                         )}
                         {i < msg.content.split('\n').length - 1 && <br />}
@@ -391,10 +564,10 @@ export function FiorixAgent() {
               {/* Typing indicator */}
               {isTyping && (
                 <div className="flex justify-start">
-                  <div className="bg-white border border-[#e5e7eb] rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full bg-[#facc15] fiorix-typing-dot" />
-                    <div className="w-2 h-2 rounded-full bg-[#facc15] fiorix-typing-dot" />
-                    <div className="w-2 h-2 rounded-full bg-[#facc15] fiorix-typing-dot" />
+                  <div className="bg-white border border-[#e5e7eb] rounded-2xl rounded-bl-sm px-3.5 py-2 shadow-xs flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#facc15] fiorix-typing-dot" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#facc15] fiorix-typing-dot" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#facc15] fiorix-typing-dot" />
                   </div>
                 </div>
               )}
@@ -403,12 +576,12 @@ export function FiorixAgent() {
 
             {/* Suggestions */}
             {messages.length <= 1 && (
-              <div className="px-4 pb-2 flex flex-wrap gap-1.5 shrink-0 bg-[#fafafa]">
+              <div className="px-3.5 pb-2 flex flex-wrap gap-1 shrink-0 bg-[#fafafa]">
                 {suggestions.map((s) => (
                   <button
                     key={s}
                     onClick={() => handleSuggestionClick(s)}
-                    className="text-[12px] bg-[#f3f4f6] hover:bg-[#facc15] hover:text-[#111827] text-[#6b7280] px-3 py-1.5 rounded-full transition-all font-medium border border-transparent hover:border-[#f59e0b]/30"
+                    className="text-[11px] bg-[#f3f4f6] hover:bg-[#facc15] hover:text-[#111827] text-[#4b5563] px-2.5 py-1 rounded-full transition-all font-medium border border-transparent hover:border-[#f59e0b]/30"
                   >
                     {s}
                   </button>
@@ -417,24 +590,24 @@ export function FiorixAgent() {
             )}
 
             {/* Input */}
-            <form onSubmit={handleSubmit} className="p-3 border-t border-[#e5e7eb] shrink-0 bg-white">
-              <div className="flex items-center gap-2">
+            <form onSubmit={handleSubmit} className="p-2.5 border-t border-[#e5e7eb] shrink-0 bg-white">
+              <div className="flex items-center gap-1.5">
                 <input
                   ref={inputRef}
                   type="text"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   placeholder="Pergunte ao FIORIX..."
-                  className="flex-1 h-11 rounded-full border border-[#e5e7eb] px-4 text-[14px] text-[#111827] placeholder:text-[#9ca3af] focus:border-[#facc15] focus:ring-2 focus:ring-[#facc15]/20 focus:outline-none transition-all bg-[#fafafa]"
+                  className="flex-1 h-9 rounded-full border border-[#e5e7eb] px-3.5 text-[13px] text-[#111827] placeholder:text-[#9ca3af] focus:border-[#facc15] focus:ring-2 focus:ring-[#facc15]/20 focus:outline-none transition-all bg-[#fafafa]"
                   disabled={isTyping}
                 />
                 <button
                   type="submit"
                   disabled={!inputValue.trim() || isTyping}
-                  className="w-11 h-11 rounded-full bg-gradient-to-r from-[#facc15] to-[#f59e0b] flex items-center justify-center text-[#111827] disabled:opacity-40 hover:scale-105 active:scale-95 transition-all shadow-md shadow-yellow-500/20"
+                  className="w-9 h-9 rounded-full bg-gradient-to-r from-[#facc15] to-[#f59e0b] flex items-center justify-center text-[#111827] disabled:opacity-35 hover:scale-105 active:scale-95 transition-all shadow-xs shrink-0"
                   aria-label="Enviar mensagem"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4 20-7z" /></svg>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4 20-7z" /></svg>
                 </button>
               </div>
             </form>

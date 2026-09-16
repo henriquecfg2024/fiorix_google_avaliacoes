@@ -1021,7 +1021,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
   return (
 
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-emerald-500/30 transition-colors duration-300 relative overflow-hidden pb-16 font-sans">
+    <div className="min-h-screen bg-[#070A12] text-white selection:bg-emerald-500/30 transition-colors duration-300 relative overflow-hidden pb-36 font-sans">
 
       {/* Background Ambient Glows */}
 
@@ -1170,9 +1170,17 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
 
 
-        {/* ── Documento Centralizado Folha A4 Marfim ─────────────── */}
-
-        <main className="w-full rounded-[20px] bg-[#FAF8F5] text-[#1C1A17] border border-[#E7E2D8] p-6 sm:p-10 shadow-[0_25px_60px_rgba(0,0,0,0.5),0_0_1px_rgba(255,255,255,0.2)] relative">
+        <main
+          data-it-titulo={currentIt.titulo}
+          data-it-codigo={currentIt.codigo}
+          data-it-versao={currentIt.versao}
+          data-it-departamento={currentIt.departamento}
+          data-it-papel={papelLabel}
+          data-it-is-responsavel={isRespPrincipal ? 'sim' : 'nao'}
+          data-user-name={currentUser.name}
+          data-user-role={currentUser.role}
+          className="w-full rounded-[20px] bg-[#FAF8F5] text-[#1C1A17] border border-[#E7E2D8] p-6 sm:p-10 shadow-[0_25px_60px_rgba(0,0,0,0.5),0_0_1px_rgba(255,255,255,0.2)] relative"
+        >
 
 
 

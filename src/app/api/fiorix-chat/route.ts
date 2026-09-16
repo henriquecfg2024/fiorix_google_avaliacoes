@@ -25,70 +25,52 @@ function buildSystemPrompt(user: {
   role: string;
   departamento?: string;
   itTitulo?: string;
+  itCodigo?: string;
+  itVersao?: string;
+  itDepartamento?: string;
+  itPapel?: string;
+  isResponsavel?: boolean;
 }): string {
   const basePrompt = `Você é o FIORIX, o tutor digital amigável do 7º Oficial de Registro de Imóveis de São Paulo.
 Seu tom é profissional mas acolhedor, como um colega experiente que ajuda com paciência.
-Use emojis com moderação (máximo 2 por resposta). Seja conciso (máximo 150 palavras).
+Use emojis com moderação (máximo 2 por resposta). Seja conciso e direto (máximo 120 palavras).
 
 SISTEMA FIORIX:
-- SaaS para gestão cartorária
+- SaaS para gestão cartorária do 7º Oficial de Registro de Imóveis de São Paulo
 - Módulos: Minha IT (Instruções de Trabalho), Avaliações Google, Estatísticas, Gestão de Equipe
-- ITs: documentos que padronizam procedimentos operacionais do cartório
-- Ciência: confirmação de que o colaborador leu e entendeu a IT
-- Versões: cada IT pode ter múltiplas versões; colaboradores precisam dar ciência a cada nova versão
-- Responsável Técnico: pessoa que cria e mantém a IT atualizada
-- Participantes: colaboradores vinculados a uma IT (LEITOR, CORRESPONSAVEL, RESPONSAVEL_PRINCIPAL)
+- ITs: Instruções de Trabalho — documentos operacionais que padronizam procedimentos do cartório
+- Ciência: confirmação formal de leitura e entendimento da IT por cada colaborador participante
+- Versões: cada alteração gera uma nova versão (ex: v1.0 -> v1.1) exigindo nova ciência de todos os participantes
+- Responsável Técnico: autor/gestor encarregado de manter a IT atualizada e gerenciar a equipe vinculada
+- Participantes: membros da equipe com papéis (RESPONSÁVEL TÉCNICO, CORRESPONSÁVEL, COLABORADOR/LEITOR)
+
+INFORMAÇÕES DA IT QUE O USUÁRIO ESTÁ VISUALIZANDO AGORA:
+${user.itTitulo ? `- Título da IT: "${user.itTitulo}"` : '- IT: NOÇÕES BÁSICAS DO ATENDIMENTO'}
+${user.itCodigo ? `- Código: ${user.itCodigo}` : '- Código: IT-ATD-001'}
+${user.itVersao ? `- Versão: ${user.itVersao}` : '- Versão: 1.1'}
+${user.itDepartamento ? `- Setor/Departamento: ${user.itDepartamento}` : '- Setor: Atendimento'}
+${user.itPapel ? `- Papel nesta IT: ${user.itPapel}` : ''}
+${user.isResponsavel ? `- Responsável Técnico: SIM (o usuário é o autor/responsável técnico desta IT).` : `- Responsável Técnico: NÃO (o usuário é participante/leitor).`}
+
+COMO RESPONDER PERGUNTAS COMUNS:
+- Se perguntarem "Qual o nome da minha IT?" ou similar: responda claramente o título da IT ("${user.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO'}") e a versão atual.
+- Se perguntarem "Sou responsável técnico?": ${user.isResponsavel ? 'responda com clareza: "Sim! Você é o Responsável Técnico desta IT."' : `informe que o papel dele nesta IT é "${user.itPapel || 'Colaborador'}".`}
+- Se perguntarem "Como criar uma nova IT?": explique que no menu "Instruções de Trabalho" na barra lateral há a opção de cadastrar/propor uma nova IT enviando o PDF e informações para aprovação.
+- Se perguntarem "Como criar nova versão?": explique que no alerta amarelo no topo da IT há o botão "+ Criar nova versão", onde ele anexa o novo PDF atualizado.
+- Se perguntarem "O que é ciência?": explique que é a confirmação de que o colaborador leu e entendeu as diretrizes da IT.
 
 REGRAS ABSOLUTAS:
-1. Responda APENAS sobre o sistema FIORIX e seus módulos
+1. Responda APENAS sobre o sistema FIORIX e a IT
 2. NUNCA invente funcionalidades que não existem
 3. NUNCA revele dados de outros usuários
 4. NUNCA dê orientação jurídica ou legal
-5. NUNCA discuta salários, dados pessoais ou questões de RH
-6. Se não souber, diga "Essa informação está fora do meu conhecimento atual"
-7. Se a pergunta for fora do escopo, redirecione educadamente para o sistema`;
+5. NUNCA discuta salários ou RH
+6. Se a pergunta for totalmente fora do escopo, redirecione educadamente`;
 
-  // Contexto por permissão
-  let permissionContext = '';
-
-  switch (user.role) {
-    case 'COLABORADOR':
-      permissionContext = `
+  let permissionContext = `
 USUÁRIO ATUAL: ${user.name}
-CARGO: Colaborador
-DEPARTAMENTO: ${user.departamento || 'Não informado'}
-${user.itTitulo ? `IT VINCULADA: ${user.itTitulo}` : ''}
-PERMISSÕES: Pode ver apenas suas próprias ITs, dar ciência, visualizar PDFs.
-NÃO PODE: gerenciar equipe, ver estatísticas gerais, acessar configurações administrativas.
-FOCO DAS RESPOSTAS: ajudar com suas ITs, ciências pendentes e navegação básica.`;
-      break;
-
-    case 'SUBSTITUTO':
-      permissionContext = `
-USUÁRIO ATUAL: ${user.name}
-CARGO: Oficial Substituto
-DEPARTAMENTO: ${user.departamento || 'Todos'}
-PERMISSÕES: Acesso amplo ao sistema, gerenciamento de equipe, visualização de estatísticas, aprovação de ITs.
-FOCO DAS RESPOSTAS: gestão de equipe, análise de ITs, estatísticas e relatórios.`;
-      break;
-
-    case 'ADMIN':
-    case 'MASTER':
-      permissionContext = `
-USUÁRIO ATUAL: ${user.name}
-CARGO: ${user.role === 'MASTER' ? 'Master (Acesso Total)' : 'Administrador'}
-PERMISSÕES: Acesso total ao sistema, incluindo configurações, gestão de usuários, todas as ITs e estatísticas.
-FOCO DAS RESPOSTAS: administração completa, relatórios avançados, configurações do sistema.`;
-      break;
-
-    default:
-      permissionContext = `
-USUÁRIO ATUAL: ${user.name}
-CARGO: ${user.role}
-DEPARTAMENTO: ${user.departamento || 'Não informado'}
-PERMISSÕES: Acesso padrão ao sistema.
-FOCO DAS RESPOSTAS: navegação e funcionalidades básicas.`;
-  }
+CARGO NO SISTEMA: ${user.role}
+DEPARTAMENTO: ${user.departamento || user.itDepartamento || 'Geral'}`;
 
   return basePrompt + '\n' + permissionContext;
 }
@@ -96,6 +78,7 @@ FOCO DAS RESPOSTAS: navegação e funcionalidades básicas.`;
 // ─── POST Handler ─────────────────────────────────
 export async function POST(request: NextRequest) {
   let userMessage = '';
+  let requestContext: any = {};
   try {
     // Autenticação
     let currentUser: any;
@@ -117,6 +100,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { message, context } = body;
     userMessage = message || '';
+    requestContext = context || {};
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return NextResponse.json({ error: 'Mensagem é obrigatória' }, { status: 400 });
@@ -128,64 +112,116 @@ export async function POST(request: NextRequest) {
     // Verifica API Key
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      // Fallback: resposta pré-definida
       return NextResponse.json({
-        reply: getFallbackReply(message),
+        reply: getFallbackReply(message, requestContext),
         source: 'fallback',
       });
     }
 
-    // Gemini
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 400,
-        topP: 0.9,
-      },
-    });
-
+    // Contexto enriquecido
     const systemPrompt = buildSystemPrompt({
       name: currentUser.name || 'Colaborador',
       role: currentUser.role || 'COLABORADOR',
-      departamento: currentUser.departamento || context?.departamento,
-      itTitulo: context?.itTitulo,
+      departamento: currentUser.departamento || requestContext?.departamento,
+      itTitulo: requestContext?.itTitulo,
+      itCodigo: requestContext?.itCodigo,
+      itVersao: requestContext?.itVersao,
+      itDepartamento: requestContext?.itDepartamento,
+      itPapel: requestContext?.itPapel,
+      isResponsavel: Boolean(requestContext?.isResponsavel),
     });
 
-    const result = await model.generateContent({
-      contents: [
-        { role: 'user', parts: [{ text: systemPrompt + '\n\nPERGUNTA DO USUÁRIO: ' + message.trim() }] },
-      ],
-    });
+    // Gemini 3.6 Flash (com fallback para gemini-flash-latest)
+    const genAI = new GoogleGenerativeAI(apiKey);
+    let reply = '';
 
-    const reply = result.response.text();
+    try {
+      const model = genAI.getGenerativeModel({
+        model: 'gemini-3.6-flash',
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 350,
+          topP: 0.9,
+        },
+      });
+
+      const result = await model.generateContent({
+        contents: [
+          { role: 'user', parts: [{ text: systemPrompt + '\n\nPERGUNTA DO USUÁRIO: ' + message.trim() }] },
+        ],
+      });
+
+      reply = result.response.text();
+    } catch (geminiError: any) {
+      console.warn('Tentando fallback para gemini-flash-latest:', geminiError?.message);
+      const modelLatest = genAI.getGenerativeModel({
+        model: 'gemini-flash-latest',
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 350,
+          topP: 0.9,
+        },
+      });
+
+      const result = await modelLatest.generateContent({
+        contents: [
+          { role: 'user', parts: [{ text: systemPrompt + '\n\nPERGUNTA DO USUÁRIO: ' + message.trim() }] },
+        ],
+      });
+
+      reply = result.response.text();
+    }
 
     return NextResponse.json({
-      reply: reply || 'Desculpe, não consegui processar sua pergunta. Tente novamente.',
+      reply: reply || getFallbackReply(userMessage, requestContext),
       source: 'gemini',
     });
 
   } catch (error: any) {
     console.error('Erro no FiorixChat:', error?.message || error);
     return NextResponse.json({
-      reply: getFallbackReply(userMessage),
+      reply: getFallbackReply(userMessage, requestContext),
       source: 'fallback',
     });
   }
 }
 
-// ─── Fallback sem API Key ─────────────────────────
-function getFallbackReply(question: string): string {
+// ─── Fallback Inteligente ─────────────────────────
+function getFallbackReply(question: string, context?: any): string {
   const q = question.toLowerCase();
-  if (q.includes('nova versão') || q.includes('criar versão')) {
-    return 'Para criar uma nova versão da sua IT:\n\n1. Acesse **Minha IT**\n2. Clique em **"Criar nova versão"** no alerta amarelo\n3. Faça upload do novo PDF\n4. A versão será atualizada para todos os participantes! 📄';
+
+  if (q.includes('nome') && (q.includes('it') || q.includes('minha'))) {
+    const titulo = context?.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO';
+    const versao = context?.itVersao ? ` (versão ${context.itVersao})` : ' (versão 1.1)';
+    const dept = context?.itDepartamento ? ` do setor ${context.itDepartamento}` : '';
+    return `O nome da sua IT atual é **${titulo}**${versao}${dept}. 📄✨`;
   }
+
+  if (q.includes('responsável') || q.includes('responsavel')) {
+    if (context?.isResponsavel) {
+      return `Sim! Você é o **Responsável Técnico** desta IT (**${context?.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO'}**). Você é o encarregado de mantê-la atualizada e gerenciar a equipe! 🛡️✨`;
+    }
+    if (context?.itPapel) {
+      return `Nesta IT, seu papel é **${context.itPapel}**. ${context.itPapel === 'Responsável técnico' ? 'Sim, você é o responsável técnico!' : 'O responsável técnico é quem faz a gestão e atualização desta IT.'} 👤`;
+    }
+    return 'Sim! Você está vinculado a esta IT como Responsável Técnico. Você pode gerenciar participantes e criar novas versões no alerta amarelo! 🛡️';
+  }
+
+  if (q.includes('criar') && q.includes('it') && !q.includes('versão') && !q.includes('versao')) {
+    return 'Para propor ou cadastrar uma nova IT:\n\n1. Acesse o menu **Instruções de Trabalho** na barra lateral\n2. Clique em **"+ Nova IT"** ou **"Cadastrar IT"**\n3. Preencha título, departamento, objetivo e anexe o arquivo PDF\n4. Envie para análise da supervisão! 📋✨';
+  }
+
+  if (q.includes('nova versão') || q.includes('criar versão') || q.includes('atualizar it')) {
+    return 'Para criar uma nova versão da sua IT:\n\n1. Acesse **Minha IT**\n2. Clique em **"+ Criar nova versão"** no alerta amarelo no topo\n3. Faça upload do novo PDF atualizado\n4. A nova versão será publicada e todos os participantes receberão solicitação de ciência! 📄✨';
+  }
+
   if (q.includes('ciência') || q.includes('ciencias')) {
-    return 'A **ciência** confirma que você leu e entendeu a IT. Cada nova versão requer nova ciência de todos os participantes. Acompanhe em **"Ver ciências"**. ✅';
+    return 'A **ciência** confirma que você leu e entendeu a IT. Cada nova versão requer nova ciência de todos os participantes. Acompanhe o status em **"Ver ciências"**. ✅';
   }
+
   if (q.includes('tour') || q.includes('guia') || q.includes('ajuda')) {
-    return 'Na página **Minha IT** você encontra:\n\n📄 **Card principal** — resumo da IT\n👁️ **Visualizar na Íntegra** — PDF completo\n👥 **Gerenciar responsáveis** — equipe\n✅ **Ver ciências** — acompanhamento';
+    return 'Na página **Minha IT** você encontra:\n\n📄 **Card principal** — resumo da IT com versão oficial\n👁️ **Visualizar na Íntegra** — abre o PDF completo\n👥 **Gerenciar responsáveis** — equipe vinculada\n✅ **Ver ciências** — acompanhamento de leituras';
   }
+
   return 'Essa informação está fora do meu conhecimento atual. Em breve terei mais funcionalidades para te ajudar! 🧠';
 }
