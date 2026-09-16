@@ -135,41 +135,36 @@ export async function POST(request: NextRequest) {
     const genAI = new GoogleGenerativeAI(apiKey);
     let reply = '';
 
-    try {
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-3.6-flash',
-        generationConfig: {
+    const modelsToTry = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.6-flash'];
+
+    for (const modelName of modelsToTry) {
+      try {
+        const isThinkingModel = modelName.includes('3.6');
+        const generationConfig: any = {
           temperature: 0.7,
-          maxOutputTokens: 350,
+          maxOutputTokens: 600,
           topP: 0.9,
-        },
-      });
+        };
+        if (isThinkingModel) {
+          generationConfig.thinkingConfig = { thinkingBudget: 0 };
+        }
 
-      const result = await model.generateContent({
-        contents: [
-          { role: 'user', parts: [{ text: systemPrompt + '\n\nPERGUNTA DO USUÁRIO: ' + message.trim() }] },
-        ],
-      });
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig,
+        });
 
-      reply = result.response.text();
-    } catch (geminiError: any) {
-      console.warn('Tentando fallback para gemini-flash-latest:', geminiError?.message);
-      const modelLatest = genAI.getGenerativeModel({
-        model: 'gemini-flash-latest',
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 350,
-          topP: 0.9,
-        },
-      });
+        const result = await model.generateContent({
+          contents: [
+            { role: 'user', parts: [{ text: systemPrompt + '\n\nPERGUNTA DO USUÁRIO: ' + message.trim() }] },
+          ],
+        });
 
-      const result = await modelLatest.generateContent({
-        contents: [
-          { role: 'user', parts: [{ text: systemPrompt + '\n\nPERGUNTA DO USUÁRIO: ' + message.trim() }] },
-        ],
-      });
-
-      reply = result.response.text();
+        reply = result.response.text();
+        if (reply && reply.trim().length > 0) break;
+      } catch (err: any) {
+        console.warn(`Tentativa com ${modelName} falhou (${err?.status || err?.message}), tentando próximo modelo...`);
+      }
     }
 
     return NextResponse.json({
