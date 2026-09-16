@@ -95,6 +95,7 @@ FOCO DAS RESPOSTAS: navegação e funcionalidades básicas.`;
 
 // ─── POST Handler ─────────────────────────────────
 export async function POST(request: NextRequest) {
+  let userMessage = '';
   try {
     // Autenticação
     let currentUser: any;
@@ -115,6 +116,7 @@ export async function POST(request: NextRequest) {
     // Validação do body
     const body = await request.json();
     const { message, context } = body;
+    userMessage = message || '';
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return NextResponse.json({ error: 'Mensagem é obrigatória' }, { status: 400 });
@@ -166,10 +168,8 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Erro no FiorixChat:', error?.message || error);
-    // Fallback gracioso: retorna resposta pré-definida ao invés de erro
-    const body = await request.clone().json().catch(() => ({ message: '' }));
     return NextResponse.json({
-      reply: getFallbackReply(body.message || ''),
+      reply: getFallbackReply(userMessage),
       source: 'fallback',
     });
   }
