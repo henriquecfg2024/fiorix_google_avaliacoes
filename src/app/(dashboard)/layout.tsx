@@ -7,6 +7,8 @@ import { FiorixSidebar } from '@/components/layout/FiorixSidebar';
 import { FiorixTopbar } from '@/components/layout/FiorixTopbar';
 import { NavigationProgress } from '@/components/layout/NavigationProgress';
 
+import { FiorixAgent } from '@/components/agent/FiorixAgent';
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
@@ -29,6 +31,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </main>
       </div>
+
+      {/* Tutor digital FIORIX — global em todas as páginas */}
+      <FiorixAgent />
     </div>
   );
 }
