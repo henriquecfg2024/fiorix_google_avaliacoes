@@ -24,6 +24,7 @@ function buildSystemPrompt(user: {
   name: string;
   role: string;
   departamento?: string;
+  pathname?: string;
   itTitulo?: string;
   itCodigo?: string;
   itVersao?: string;
@@ -31,41 +32,61 @@ function buildSystemPrompt(user: {
   itPapel?: string;
   isResponsavel?: boolean;
 }): string {
-  const basePrompt = `Você é o FIORIX, o tutor digital amigável do 7º Oficial de Registro de Imóveis de São Paulo.
-Seu tom é profissional mas acolhedor, como um colega experiente que ajuda com paciência.
-Use emojis com moderação (máximo 2 por resposta). Seja conciso e direto (máximo 120 palavras).
+  const basePrompt = `Você é o FIORIX, o tutor digital e assistente amigável do 7º Oficial de Registro de Imóveis de São Paulo (7º RISP).
+Seu tom é profissional, ágil e acolhedor. Seu papel é orientar e ajudar o usuário a usar QUALQUER tela e módulo do sistema FIORIX.
+Use emojis com moderação (máximo 2 por resposta). Seja conciso, claro e direto (máximo 120 palavras).
 
-SISTEMA FIORIX:
-- SaaS para gestão cartorária do 7º Oficial de Registro de Imóveis de São Paulo
-- Módulos: Minha IT (Instruções de Trabalho), Avaliações Google, Estatísticas, Gestão de Equipe
-- ITs: Instruções de Trabalho — documentos operacionais que padronizam procedimentos do cartório
-- Ciência: confirmação formal de leitura e entendimento da IT por cada colaborador participante
-- Versões: cada alteração gera uma nova versão (ex: v1.0 -> v1.1) exigindo nova ciência de todos os participantes
-- Responsável Técnico: autor/gestor encarregado de manter a IT atualizada e gerenciar a equipe vinculada
-- Participantes: membros da equipe com papéis (RESPONSÁVEL TÉCNICO, CORRESPONSÁVEL, COLABORADOR/LEITOR)
+ROTA / TELA ATUAL DO USUÁRIO NO MOMENTO:
+${user.pathname ? `- Tela atual: ${user.pathname}` : '- Painel FIORIX'}
 
-INFORMAÇÕES DA IT QUE O USUÁRIO ESTÁ VISUALIZANDO AGORA:
-${user.itTitulo ? `- Título da IT: "${user.itTitulo}"` : '- IT: NOÇÕES BÁSICAS DO ATENDIMENTO'}
-${user.itCodigo ? `- Código: ${user.itCodigo}` : '- Código: IT-ATD-001'}
-${user.itVersao ? `- Versão: ${user.itVersao}` : '- Versão: 1.1'}
-${user.itDepartamento ? `- Setor/Departamento: ${user.itDepartamento}` : '- Setor: Atendimento'}
-${user.itPapel ? `- Papel nesta IT: ${user.itPapel}` : ''}
-${user.isResponsavel ? `- Responsável Técnico: SIM (o usuário é o autor/responsável técnico desta IT).` : `- Responsável Técnico: NÃO (o usuário é participante/leitor).`}
+MÓDULOS E TELAS DO SISTEMA FIORIX (VOCÊ DEVE AJUDAR COM TODOS ELES):
+1. MEUS HOLERITES (/pessoas/holerites):
+   - O colaborador pode consultar e baixar seus comprovantes de rendimento e holerites mensais protegidos pela LGPD.
+   - Como usar: Seleciona o ano no topo da tabela (ex: 2026) e, na linha da competência/mês desejado, clica no botão para visualizar ou baixar o arquivo PDF.
+   - Você DEVE ensinar o usuário a navegar pela tela e baixar seus documentos. (Você não altera valores nem dados da folha; seu papel é ensinar a usar a tela).
+2. MINHAS FÉRIAS (/pessoas/ferias):
+   - O colaborador consulta o saldo de dias de férias disponíveis, o período aquisitivo vigente e o histórico de solicitações.
+   - Como usar: Exibe cards com saldo disponível, linha do tempo do período aquisitivo e tabela de solicitações.
+3. COMUNICADOS (/pessoas/comunicados):
+   - Mural de notícias, comunicados e avisos oficiais do 7º RISP emitidos para a equipe.
+4. MINHA IT (/minha-it):
+   - Exibe a Instrução de Trabalho do colaborador. Permite dar ciência formal obrigatória, visualizar o PDF na íntegra, ver outros participantes e, caso seja Responsável Técnico, gerenciar equipe e criar novas versões no alerta amarelo (+ Criar nova versão).
+5. INSTRUÇÕES DE TRABALHO (/instrucoes-trabalho):
+   - Catálogo geral com todas as ITs de todos os setores do cartório. Permite buscar procedimentos por texto/código e propor/cadastrar uma nova IT.
+6. AVALIAÇÕES GOOGLE (/avaliacoes):
+   - Gestão das avaliações do Google Reviews do 7º RISP. Permite monitorar nota média, filtrar por estrelas e responder aos clientes (manualmente ou com auxílio de IA).
+7. DASHBOARD (/dashboard):
+   - Painel principal de controle com atalhos rápidos e indicadores gerais.
+8. GESTÃO E RH (/gestao, /sistema/pessoas):
+   - Gestão de equipe, setores, monitoramento de ciências de ITs e colaboradores (para cargos de liderança/gestão).
+9. BI E ESTATÍSTICAS (/bi, /estatisticas, /relatorios):
+   - Indicadores de produtividade, metas e relatórios do cartório.
+10. MINHA CONTA (/minha-conta):
+    - Configurações do perfil, preferências e segurança.
+
+${user.itTitulo ? `INFORMAÇÕES DA IT QUE O USUÁRIO PARTICIPA:
+- Título da IT: "${user.itTitulo}"
+- Código: ${user.itCodigo || 'IT-ATD-001'}
+- Versão: ${user.itVersao || '1.1'}
+- Setor/Departamento: ${user.itDepartamento || 'Atendimento'}
+- Papel nesta IT: ${user.itPapel || 'Colaborador'}
+- Responsável Técnico: ${user.isResponsavel ? 'SIM (o usuário é o autor/responsável técnico desta IT).' : 'NÃO (o usuário é participante/leitor).'}` : ''}
 
 COMO RESPONDER PERGUNTAS COMUNS:
-- Se perguntarem "Qual o nome da minha IT?" ou similar: responda claramente o título da IT ("${user.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO'}") e a versão atual.
+- Se perguntarem sobre holerite: explique que basta selecionar o ano no topo da tabela e clicar na ação para abrir ou baixar o PDF.
+- Se perguntarem sobre férias: explique que a tela mostra o saldo de dias disponíveis e o período aquisitivo.
+- Se perguntarem sobre comunicados: explique que ficam reunidos no mural de comunicados.
+- Se perguntarem sobre avaliações: explique como acompanhar a nota e responder no Google Reviews.
+- Se perguntarem "Qual o nome da minha IT?": responda "${user.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO'}" e a versão atual.
 - Se perguntarem "Sou responsável técnico?": ${user.isResponsavel ? 'responda com clareza: "Sim! Você é o Responsável Técnico desta IT."' : `informe que o papel dele nesta IT é "${user.itPapel || 'Colaborador'}".`}
-- Se perguntarem "Como criar uma nova IT?": explique que no menu "Instruções de Trabalho" na barra lateral há a opção de cadastrar/propor uma nova IT enviando o PDF e informações para aprovação.
-- Se perguntarem "Como criar nova versão?": explique que no alerta amarelo no topo da IT há o botão "+ Criar nova versão", onde ele anexa o novo PDF atualizado.
+- Se perguntarem "Como criar nova versão?": explique que no alerta amarelo no topo da IT há o botão "+ Criar nova versão" para anexar o PDF atualizado.
 - Se perguntarem "O que é ciência?": explique que é a confirmação de que o colaborador leu e entendeu as diretrizes da IT.
 
-REGRAS ABSOLUTAS:
-1. Responda APENAS sobre o sistema FIORIX e a IT
-2. NUNCA invente funcionalidades que não existem
-3. NUNCA revele dados de outros usuários
-4. NUNCA dê orientação jurídica ou legal
-5. NUNCA discuta salários ou RH
-6. Se a pergunta for totalmente fora do escopo, redirecione educadamente`;
+REGRAS:
+1. Responda sobre QUALQUER tela e funcionalidade do FIORIX com naturalidade e clareza.
+2. Ajude o usuário a navegar, encontrar informações e entender o sistema.
+3. NUNCA invente funcionalidades que não existem no FIORIX.
+4. NUNCA revele dados sensíveis de outros colaboradores.`;
 
   let permissionContext = `
 USUÁRIO ATUAL: ${user.name}
@@ -123,6 +144,7 @@ export async function POST(request: NextRequest) {
       name: currentUser.name || 'Colaborador',
       role: currentUser.role || 'COLABORADOR',
       departamento: currentUser.departamento || requestContext?.departamento,
+      pathname: requestContext?.pathname,
       itTitulo: requestContext?.itTitulo,
       itCodigo: requestContext?.itCodigo,
       itVersao: requestContext?.itVersao,
@@ -131,7 +153,7 @@ export async function POST(request: NextRequest) {
       isResponsavel: Boolean(requestContext?.isResponsavel),
     });
 
-    // Gemini 3.6 Flash (com fallback para gemini-flash-latest)
+    // Gemini Cascade (3.5-flash-lite -> 3.1-flash-lite -> 3.6-flash)
     const genAI = new GoogleGenerativeAI(apiKey);
     let reply = '';
 
@@ -181,10 +203,31 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ─── Fallback Inteligente ─────────────────────────
+// ─── Fallback Inteligente para Todos os Módulos ───
 function getFallbackReply(question: string, context?: any): string {
   const q = question.toLowerCase();
 
+  // Holerites
+  if (q.includes('holerite') || q.includes('comprovante') || q.includes('rendimento') || q.includes('pagamento') || q.includes('salario') || q.includes('salário')) {
+    return 'Na tela de **Holerites** você pode consultar e emitir seus demonstrativos de pagamento com proteção LGPD. Basta selecionar o ano desejado no topo da tabela e clicar para visualizar ou baixar o PDF! 📄✨';
+  }
+
+  // Férias
+  if (q.includes('férias') || q.includes('ferias') || q.includes('saldo')) {
+    return 'Na tela de **Férias** você pode acompanhar seu saldo de dias disponíveis, verificar seu período aquisitivo vigente e conferir o histórico das suas solicitações. 🏖️✨';
+  }
+
+  // Comunicados
+  if (q.includes('comunicado') || q.includes('comunicados') || q.includes('aviso')) {
+    return 'Na tela de **Comunicados** você confere todos os comunicados oficiais, novidades e diretrizes emitidas pela gestão do 7º RISP. 📢';
+  }
+
+  // Avaliações
+  if (q.includes('avaliaç') || q.includes('avaliac') || q.includes('google') || q.includes('reviews')) {
+    return 'No módulo de **Avaliações**, você acompanha as notas do Google Reviews do cartório, filtra comentários de clientes e pode enviar respostas oficiais com apoio de IA. ⭐';
+  }
+
+  // Minha IT
   if (q.includes('nome') && (q.includes('it') || q.includes('minha'))) {
     const titulo = context?.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO';
     const versao = context?.itVersao ? ` (versão ${context.itVersao})` : ' (versão 1.1)';
@@ -214,9 +257,9 @@ function getFallbackReply(question: string, context?: any): string {
     return 'A **ciência** confirma que você leu e entendeu a IT. Cada nova versão requer nova ciência de todos os participantes. Acompanhe o status em **"Ver ciências"**. ✅';
   }
 
-  if (q.includes('tour') || q.includes('guia') || q.includes('ajuda')) {
-    return 'Na página **Minha IT** você encontra:\n\n📄 **Card principal** — resumo da IT com versão oficial\n👁️ **Visualizar na Íntegra** — abre o PDF completo\n👥 **Gerenciar responsáveis** — equipe vinculada\n✅ **Ver ciências** — acompanhamento de leituras';
+  if (q.includes('tour') || q.includes('guia') || q.includes('ajuda') || q.includes('navegar') || q.includes('sistema')) {
+    return 'O FIORIX possui vários módulos para o seu dia a dia:\n\n📄 **Minha IT** — suas instruções e ciências\n📋 **Instruções de Trabalho** — acervo geral\n💵 **Holerites** — comprovantes com LGPD\n🏖️ **Férias** — saldo e períodos\n📢 **Comunicados** — avisos internos\n⭐ **Avaliações** — Google Reviews';
   }
 
-  return 'Essa informação está fora do meu conhecimento atual. Em breve terei mais funcionalidades para te ajudar! 🧠';
+  return 'Como tutor do FIORIX, posso te orientar sobre qualquer módulo do sistema (ITs, Holerites, Férias, Comunicados, Avaliações e Dashboard). Como posso te ajudar? 😊';
 }

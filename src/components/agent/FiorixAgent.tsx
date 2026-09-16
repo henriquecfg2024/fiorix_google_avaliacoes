@@ -48,48 +48,103 @@ function extractContext(): UserContext {
   };
 }
 
+// ─── Subtítulo do Header por Rota ─────────────────
+function getHeaderSubtitle(pathname: string, ctx: UserContext): string {
+  if (pathname.includes('/holerites')) return 'Meus Holerites • Online';
+  if (pathname.includes('/ferias')) return 'Minhas Férias • Online';
+  if (pathname.includes('/comunicados')) return 'Mural de Comunicados • Online';
+  if (pathname.startsWith('/minha-it')) return ctx.itTitulo ? `IT: ${ctx.itTitulo}` : 'Minha IT • Online';
+  if (pathname.startsWith('/instrucoes-trabalho')) return 'Instruções de Trabalho • Online';
+  if (pathname.startsWith('/avaliacoes')) return 'Avaliações Google • Online';
+  if (pathname.startsWith('/gestao') || pathname.startsWith('/sistema')) return 'Gestão e RH • Online';
+  if (pathname.startsWith('/bi') || pathname.startsWith('/estatisticas')) return 'Estatísticas & BI • Online';
+  return 'Seu tutor digital • Online';
+}
+
 // ─── Mensagens contextuais por rota ───────────────
 function getContextMessage(pathname: string, ctx: UserContext): string {
   const nome = ctx.name?.split(' ')[0] || 'você';
 
+  if (pathname.includes('/holerites')) {
+    return `Olá, ${nome}! 👋 Aqui em **Holerites** você pode consultar e baixar seus comprovantes de rendimento mensais protegidos pela LGPD. Quer ajuda para filtrar por ano ou baixar seu PDF? 📄`;
+  }
+  if (pathname.includes('/ferias')) {
+    return `Olá, ${nome}! 👋 Aqui em **Férias** você acompanha seu saldo de dias disponíveis e seus períodos aquisitivos. Posso te ajudar a navegar por esta área? 🏖️`;
+  }
+  if (pathname.includes('/comunicados')) {
+    return `Olá, ${nome}! 👋 Aqui em **Comunicados** você confere todos os comunicados oficiais e novidades do 7º RISP. 📢`;
+  }
   if (pathname.startsWith('/minha-it')) {
     if (ctx.itTitulo) {
-      return `Olá, ${nome}! 👋 Sou o FIORIX, seu tutor digital! Vi que você está na IT **${ctx.itTitulo}**${ctx.isResponsavel ? ' como Responsável Técnico' : ''}. Quer tirar alguma dúvida sobre ela? ✨`;
+      return `Olá, ${nome}! 👋 Sou o FIORIX! Vi que você está na IT **${ctx.itTitulo}**${ctx.isResponsavel ? ' como Responsável Técnico' : ''}. Quer tirar alguma dúvida sobre ela? ✨`;
     }
     return `Olá, ${nome}! 👋 Sou o FIORIX! Aqui na Minha IT você acompanha suas Instruções de Trabalho e ciências. Como posso ajudar? ✨`;
   }
-  if (pathname.startsWith('/dashboard')) {
-    return `Olá, ${nome}! 👋 Bem-vindo ao FIORIX! Este é seu painel principal. Precisa de ajuda para navegar? 🚀`;
+  if (pathname.startsWith('/instrucoes-trabalho')) {
+    return `Olá, ${nome}! 👋 Nesta área você encontra todo o acervo de Instruções de Trabalho do cartório. Posso te ajudar a buscar ou propor uma nova IT? 📋`;
   }
   if (pathname.startsWith('/avaliacoes')) {
-    return `Olá, ${nome}! 👋 Aqui você gerencia as avaliações do Google. Quer saber como responder uma avaliação? ⭐`;
+    return `Olá, ${nome}! 👋 Aqui você gerencia as avaliações do Google Reviews. Quer saber como responder avaliações ou filtrar por estrelas? ⭐`;
   }
-  if (pathname.startsWith('/instrucoes-trabalho')) {
-    return `Olá, ${nome}! 👋 Nesta área você encontra todas as Instruções de Trabalho do cartório. Posso te guiar? 📋`;
+  if (pathname.startsWith('/dashboard')) {
+    return `Olá, ${nome}! 👋 Bem-vindo ao FIORIX! Este é seu painel principal. Precisa de ajuda para navegar pelos módulos? 🚀`;
   }
-  if (pathname.startsWith('/gestao')) {
-    return `Olá, ${nome}! 👋 Área de gestão de equipe e colaboradores. Precisa de ajuda? 👥`;
+  if (pathname.startsWith('/gestao') || pathname.startsWith('/sistema')) {
+    return `Olá, ${nome}! 👋 Área de gestão de equipe e administração do cartório. Como posso te orientar? 👥`;
   }
-  return `Olá, ${nome}! 👋 Sou o FIORIX, seu tutor digital. Como posso te ajudar hoje? 😊`;
+  if (pathname.startsWith('/minha-conta')) {
+    return `Olá, ${nome}! 👋 Aqui você gerencia seus dados de perfil e preferências. 👤`;
+  }
+  return `Olá, ${nome}! 👋 Sou o FIORIX, seu tutor digital. Posso tirar dúvidas sobre qualquer tela ou função do sistema. Como posso te ajudar? 😊`;
 }
 
 function getSuggestions(pathname: string): string[] {
+  if (pathname.includes('/holerites')) {
+    return ['Como baixar meu holerite?', 'Filtrar por ano', 'Segurança e LGPD', 'Minha IT'];
+  }
+  if (pathname.includes('/ferias')) {
+    return ['Como consultar saldo de férias?', 'Período aquisitivo', 'Minha IT', 'Holerites'];
+  }
+  if (pathname.includes('/comunicados')) {
+    return ['Ver últimos comunicados', 'Minha IT', 'Holerites', 'Férias'];
+  }
   if (pathname.startsWith('/minha-it')) {
     return ['Qual o nome de minha IT?', 'Sou responsável técnico?', 'Como criar nova versão?', 'O que é ciência?'];
   }
   if (pathname.startsWith('/avaliacoes')) {
-    return ['Como responder avaliações?', 'Filtrar por período', 'Exportar relatório'];
+    return ['Como responder avaliações?', 'Filtrar por nota', 'Métricas de satisfação'];
   }
   if (pathname.startsWith('/instrucoes-trabalho')) {
     return ['Como propor uma nova IT?', 'Como buscar uma IT?', 'Visualizar PDF'];
   }
-  return ['Qual o nome de minha IT?', 'Minha IT', 'Avaliações Google', 'Navegar pelo sistema'];
+  return ['Minha IT', 'Como ver holerite?', 'Minhas férias', 'Navegar pelo sistema'];
 }
 
 // ─── Respostas pré-definidas (fallback instantâneo) ───
 function getQuickReply(question: string, ctx?: UserContext): string {
   const q = question.toLowerCase();
 
+  // Holerites
+  if (q.includes('holerite') || q.includes('comprovante') || q.includes('rendimento') || q.includes('pagamento') || q.includes('salario') || q.includes('salário')) {
+    return 'Na tela de **Holerites** você pode consultar e emitir seus demonstrativos com proteção LGPD. Basta selecionar o ano desejado no topo da tabela e clicar para visualizar ou baixar o PDF! 📄✨';
+  }
+
+  // Férias
+  if (q.includes('férias') || q.includes('ferias') || q.includes('saldo')) {
+    return 'Na tela de **Férias** você pode acompanhar seu saldo de dias disponíveis, verificar seu período aquisitivo vigente e conferir o histórico das suas solicitações. 🏖️✨';
+  }
+
+  // Comunicados
+  if (q.includes('comunicado') || q.includes('comunicados') || q.includes('aviso')) {
+    return 'Na tela de **Comunicados** você confere todos os comunicados oficiais, novidades e diretrizes emitidas pela gestão do 7º RISP. 📢';
+  }
+
+  // Avaliações
+  if (q.includes('avaliaç') || q.includes('avaliac') || q.includes('google') || q.includes('reviews')) {
+    return 'No módulo de **Avaliações**, você acompanha as notas do Google Reviews do cartório, filtra comentários de clientes e pode enviar respostas oficiais com apoio de IA. ⭐';
+  }
+
+  // Minha IT
   if (q.includes('nome') && (q.includes('it') || q.includes('minha'))) {
     const tit = ctx?.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO';
     const v = ctx?.itVersao ? ` (versão ${ctx.itVersao})` : ' (versão 1.1)';
@@ -119,11 +174,11 @@ function getQuickReply(question: string, ctx?: UserContext): string {
     return 'A **ciência** confirma que um colaborador leu e entendeu a IT. Cada nova versão publicada requer nova ciência de todos os participantes. Acompanhe em **"Ver ciências"**. ✅';
   }
 
-  if (q.includes('tour') || q.includes('guia')) {
-    return 'Na página **Minha IT** você encontra:\n\n📄 **Card principal** — resumo da sua IT com título, versão e objetivo\n👁️ **Visualizar na Íntegra** — abre o PDF completo\n👥 **Gerenciar responsáveis** — adiciona/remove participantes\n✅ **Ver ciências** — acompanha quem já leu a IT';
+  if (q.includes('tour') || q.includes('guia') || q.includes('ajuda') || q.includes('navegar') || q.includes('sistema')) {
+    return 'O FIORIX possui vários módulos para o seu dia a dia:\n\n📄 **Minha IT** — suas instruções e ciências\n📋 **Instruções de Trabalho** — acervo geral\n💵 **Holerites** — comprovantes com LGPD\n🏖️ **Férias** — saldo e períodos\n📢 **Comunicados** — avisos internos\n⭐ **Avaliações** — Google Reviews';
   }
 
-  return 'Essa informação está fora do meu conhecimento atual. Em breve terei mais funcionalidades para te ajudar! 🧠';
+  return 'Como tutor do FIORIX, posso tirar qualquer dúvida sobre o sistema (ITs, Holerites, Férias, Comunicados, Avaliações e Dashboard). Como posso te ajudar? 😊';
 }
 
 // ─── Componente Principal ─────────────────────────
@@ -450,7 +505,7 @@ export function FiorixAgent() {
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
               </span>
               <span className="text-[10px] text-white/70 truncate max-w-[130px]">
-                {userContext.itTitulo || 'Tutor digital'}
+                {getHeaderSubtitle(pathname, userContext)}
               </span>
             </div>
             <div className="flex items-center gap-1 ml-auto shrink-0">
@@ -502,7 +557,7 @@ export function FiorixAgent() {
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
                 </div>
                 <p className="text-white/70 text-[10px] truncate leading-tight mt-0.5">
-                  {userContext.itTitulo ? `IT: ${userContext.itTitulo}` : 'Seu tutor digital • Online'}
+                  {getHeaderSubtitle(pathname, userContext)}
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
