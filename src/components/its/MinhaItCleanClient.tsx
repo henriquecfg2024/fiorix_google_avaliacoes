@@ -46,6 +46,7 @@ import {
   Bell,
   ArrowRight,
   CheckCheck,
+  ChevronRight,
 } from 'lucide-react';
 
 import { MinhaItPageData, MinhaItCustodiaItem, ItEnviadaColaborador, publicarNovaVersaoIT, submeterItColaborador } from '@/app/actions/minha-it';
@@ -1278,40 +1279,39 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                   <ArrowRight className="w-4 h-4 text-[#1A1200] flex-shrink-0 stroke-[2.5] transition-transform duration-200 group-hover:translate-x-1 ml-auto" />
                 </a>
 
-                {/* Linha 2 — Dois botões secundários de mesma largura */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-
-                  {/* Gerenciar responsáveis — visível para todos; permissões gerenciadas dentro do modal */}
-                  <button
-                    type="button"
-                    id="btn-gerenciar-responsaveis"
-                    onClick={() => abrirGerenciarModal(currentIt.id)}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-white hover:bg-[#F7F5F0] text-[#1C1A17] border border-[#D8D2C6] hover:border-[#C4BCAD] text-xs font-semibold shadow-xs hover:shadow-sm active:scale-[0.98] transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
-                  >
-                    <Users className="w-4 h-4 text-indigo-600 flex-shrink-0" />
-                    <span>Gerenciar responsáveis</span>
-                    {participantes.length > 0 && (
-                      <span className="ml-1 px-2 py-0.5 rounded-full bg-indigo-100 text-[11px] font-bold text-indigo-700">
-                        {participantes.length}
-                      </span>
-                    )}
-                  </button>
-
-                  {/* Ver ciências — abre Drawer lateral */}
+                {/* Linha 2 — Botão Unificado: Equipe & Ciências */}
+                <div>
                   <button
                     ref={cienciasButtonRef}
                     type="button"
                     id="btn-ver-ciencias"
                     onClick={() => setCienciasDrawerOpen(true)}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#ECFDF5] hover:bg-[#D1FAE5] text-emerald-900 border border-emerald-300/90 hover:border-emerald-400 text-xs font-semibold shadow-xs hover:shadow-sm active:scale-[0.98] transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1"
+                    className="w-full inline-flex items-center justify-between px-4 py-3 sm:px-5 sm:py-3.5 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] text-white border border-white/10 hover:border-emerald-500/40 text-xs font-semibold shadow-xs hover:shadow-md active:scale-[0.99] transition-all cursor-pointer group focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1"
                   >
-                    <CheckCheck className="w-4 h-4 text-emerald-700 flex-shrink-0" />
-                    <span>Ver ciências</span>
-                    <span className="ml-1 px-2 py-0.5 rounded-full bg-emerald-200/80 text-[11px] font-bold text-emerald-800 font-mono">
-                      {currentIt.totalCientes}/{currentIt.totalColaboradores > 0 ? currentIt.totalColaboradores : '—'}
-                    </span>
-                  </button>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
+                        <Users className="w-4 h-4" />
+                      </div>
+                      <div className="text-left">
+                        <span className="text-white font-bold block text-sm group-hover:text-emerald-300 transition-colors">
+                          Equipe & Ciências
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-normal">
+                          {currentIt.totalColaboradores > 0 ? `${currentIt.totalColaboradores} participante${currentIt.totalColaboradores !== 1 ? 's' : ''}` : 'Participantes'} • {podeGerenciar ? 'Gerenciar e acompanhar' : 'Visualizar adesão'}
+                        </span>
+                      </div>
+                    </div>
 
+                    <div className="flex items-center gap-2.5">
+                      <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono font-bold text-xs">
+                        {currentIt.totalCientes}/{currentIt.totalColaboradores > 0 ? currentIt.totalColaboradores : '—'} cientes
+                      </span>
+                      <span className="hidden sm:inline-block px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-slate-300 font-mono text-xs font-semibold">
+                        {currentIt.adesaoPercentual}%
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+                    </div>
+                  </button>
                 </div>
               </div>
 
@@ -1655,6 +1655,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
           pendentesCount={currentIt.pendentesCount}
           equipeCiencias={currentIt.equipeCiencias}
           podeGerenciar={podeGerenciar}
+          currentUser={currentUser}
           onEquipeUpdated={() => router.refresh()}
           triggerButtonRef={cienciasButtonRef}
         />
