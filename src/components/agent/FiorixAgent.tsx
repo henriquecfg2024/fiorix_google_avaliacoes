@@ -390,22 +390,22 @@ export function FiorixAgent() {
     return () => clearTimeout(timer);
   }, [pathname]);
 
-  // Aparição do avatar
+  // Aparição do avatar e remoção de qualquer trava de 7 dias
   useEffect(() => {
-    const dismissedAt = localStorage.getItem('fiorix-agent-dismissed');
-    if (dismissedAt) {
-      const diff = Date.now() - parseInt(dismissedAt, 10);
-      const sevenDays = 7 * 24 * 60 * 60 * 1000;
-      if (diff < sevenDays) return;
-    }
+    // Remove qualquer trava legada que impedia o avatar de aparecer
+    try {
+      localStorage.removeItem('fiorix-agent-dismissed');
+    } catch {}
 
-    const showTimer = setTimeout(() => {
-      setIsVisible(true);
+    // O avatar flutuante fica sempre ativo e acessível
+    setIsVisible(true);
+
+    // Balão de introdução abre discretamente se ainda não foi fechado nesta rota/sessão
+    const isDismissed = sessionStorage.getItem(`fiorix-bubble-${pathname}`);
+    if (!isDismissed) {
       const bubbleTimer = setTimeout(() => setShowBubble(true), 800);
       return () => clearTimeout(bubbleTimer);
-    }, 1200);
-
-    return () => clearTimeout(showTimer);
+    }
   }, [pathname]);
 
   // Auto-dismiss do balão após 15s para não ficar cobrindo o texto
@@ -432,15 +432,12 @@ export function FiorixAgent() {
     }
   }, [isChatOpen, isMinimized]);
 
-  const dismissFor7Days = useCallback(() => {
-    localStorage.setItem('fiorix-agent-dismissed', Date.now().toString());
+  const dismissBubble = useCallback(() => {
     setShowBubble(false);
-    setIsVisible(false);
-  }, []);
-
-  const closeBubble = useCallback(() => {
-    setShowBubble(false);
-  }, []);
+    try {
+      sessionStorage.setItem(`fiorix-bubble-${pathname}`, '1');
+    } catch {}
+  }, [pathname]);
 
   const openChat = useCallback(() => {
     const freshCtx = extractContext();
@@ -623,7 +620,7 @@ export function FiorixAgent() {
                       </svg>
                     </button>
                     <button
-                      onClick={closeBubble}
+                      onClick={dismissBubble}
                       className="p-1 text-[#9ca3af] hover:text-[#111827] transition-colors rounded"
                       aria-label="Fechar aviso"
                     >
@@ -646,7 +643,7 @@ export function FiorixAgent() {
                     Tirar dúvida 😊
                   </button>
                   <button
-                    onClick={dismissFor7Days}
+                    onClick={dismissBubble}
                     className="text-[11px] text-[#9ca3af] hover:text-[#4b5563] transition-colors px-2 py-1"
                   >
                     Depois
