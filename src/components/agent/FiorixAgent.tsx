@@ -62,6 +62,70 @@ function getHeaderSubtitle(pathname: string, ctx: UserContext): string {
   return 'FIORIX • IA • Online';
 }
 
+// ─── Ícones temáticos por Rota ────────────────────
+function getRouteIcon(href: string) {
+  if (href.includes('/holerites')) {
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-emerald-600">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
+      </svg>
+    );
+  }
+  if (href.includes('/ferias')) {
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-amber-500">
+        <circle cx="12" cy="12" r="5" />
+        <line x1="12" y1="1" x2="12" y2="3" />
+        <line x1="12" y1="21" x2="12" y2="23" />
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+        <line x1="1" y1="12" x2="3" y2="12" />
+        <line x1="21" y1="12" x2="23" y2="12" />
+      </svg>
+    );
+  }
+  if (href.includes('/comunicados')) {
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-sky-500">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      </svg>
+    );
+  }
+  if (href.includes('/minha-it') || href.includes('/administracao/its') || href.includes('/instrucoes-trabalho')) {
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[#7c3aed]">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      </svg>
+    );
+  }
+  if (href.includes('/avaliacoes')) {
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="shrink-0 text-amber-400">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+      </svg>
+    );
+  }
+  if (href.includes('/dashboard')) {
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-indigo-500">
+        <rect x="3" y="3" width="7" height="7" />
+        <rect x="14" y="3" width="7" height="7" />
+        <rect x="14" y="14" width="7" height="7" />
+        <rect x="3" y="14" width="7" height="7" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-[#7c3aed]">
+      <circle cx="12" cy="12" r="10" />
+    </svg>
+  );
+}
+
 // ─── Renderizador de Mensagens (Markdown + Links) ─
 function renderFormattedMessage(content: string, isUser: boolean) {
   return content.split('\n').map((line, lineIdx, arr) => {
@@ -86,12 +150,13 @@ function renderFormattedMessage(content: string, isUser: boolean) {
               <Link
                 key={tokenIdx}
                 href={href}
-                className={`inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md transition-all mx-0.5 my-0.5 text-[11px] shadow-2xs ${
+                className={`inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-lg transition-all mx-0.5 my-0.5 text-[11.5px] shadow-2xs ${
                   isUser
                     ? 'bg-white/20 hover:bg-white/30 text-white underline underline-offset-2'
-                    : 'bg-[#7c3aed]/10 hover:bg-[#7c3aed]/20 text-[#7c3aed] border border-[#7c3aed]/30 hover:border-[#7c3aed]/50 hover:scale-[1.02] active:scale-[0.98]'
+                    : 'bg-[#7c3aed]/10 hover:bg-[#7c3aed]/20 text-[#6d28d9] border border-[#7c3aed]/30 hover:border-[#7c3aed]/50 hover:scale-[1.02] active:scale-[0.98]'
                 }`}
               >
+                {getRouteIcon(href)}
                 <span>{label}</span>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
               </Link>
@@ -101,12 +166,13 @@ function renderFormattedMessage(content: string, isUser: boolean) {
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md transition-all mx-0.5 my-0.5 text-[11px] shadow-2xs ${
+                className={`inline-flex items-center gap-1.5 font-bold px-2.5 py-1 rounded-lg transition-all mx-0.5 my-0.5 text-[11.5px] shadow-2xs ${
                   isUser
                     ? 'bg-white/20 hover:bg-white/30 text-white underline underline-offset-2'
-                    : 'bg-[#7c3aed]/10 hover:bg-[#7c3aed]/20 text-[#7c3aed] border border-[#7c3aed]/30 hover:border-[#7c3aed]/50 hover:scale-[1.02] active:scale-[0.98]'
+                    : 'bg-[#7c3aed]/10 hover:bg-[#7c3aed]/20 text-[#6d28d9] border border-[#7c3aed]/30 hover:border-[#7c3aed]/50 hover:scale-[1.02] active:scale-[0.98]'
                 }`}
               >
+                {getRouteIcon(href)}
                 <span>{label}</span>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
               </a>
@@ -257,13 +323,45 @@ export function FiorixAgent() {
   const [showBubble, setShowBubble] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [position, setPosition] = useState<'right' | 'left'>('right');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
+  const [sensitiveWarning, setSensitiveWarning] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [userContext, setUserContext] = useState<UserContext>({ name: '', role: '' });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Limpeza de sessão LGPD: carregar mensagens apenas da sessão corrente da aba
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('fiorix-session-msgs');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Salva no sessionStorage para manter histórico apenas durante a sessão da aba
+  useEffect(() => {
+    if (messages.length > 0) {
+      try {
+        sessionStorage.setItem('fiorix-session-msgs', JSON.stringify(messages));
+      } catch {}
+    }
+  }, [messages]);
+
+  // Se trocar para tela de login ou raiz pública, limpa por privacidade
+  useEffect(() => {
+    if (pathname === '/login' || pathname === '/') {
+      sessionStorage.removeItem('fiorix-session-msgs');
+      setMessages([]);
+    }
+  }, [pathname]);
 
   // Carrega posição salva
   useEffect(() => {
@@ -363,13 +461,30 @@ export function FiorixAgent() {
   const handleClearChat = useCallback(() => {
     const freshCtx = extractContext();
     setUserContext(freshCtx);
-    setMessages([{
+    const initialMsg: Message = {
       id: `welcome-${Date.now()}`,
       role: 'agent',
       content: getContextMessage(pathname, freshCtx),
       timestamp: new Date(),
-    }]);
+    };
+    setMessages([initialMsg]);
+    sessionStorage.setItem('fiorix-session-msgs', JSON.stringify([initialMsg]));
   }, [pathname]);
+
+  // Detector DLP de dados sensíveis no input (LGPD)
+  const handleInputChange = useCallback((val: string) => {
+    setInputValue(val);
+    const hasCpf = /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/.test(val) || /\b\d{11}\b/.test(val);
+    const hasSenha = /\b(minha senha|minhasenha|password|senha:|token:)\b/i.test(val);
+
+    if (hasCpf) {
+      setSensitiveWarning('⚠️ Atenção LGPD: Evite enviar CPFs de terceiros no chat.');
+    } else if (hasSenha) {
+      setSensitiveWarning('⚠️ Segurança: Nunca compartilhe senhas ou credenciais de acesso.');
+    } else {
+      setSensitiveWarning(null);
+    }
+  }, []);
 
   const handleSendMessage = useCallback(async (text: string) => {
     if (!text.trim()) return;
@@ -622,7 +737,9 @@ export function FiorixAgent() {
       {/* ─── Chat Expandido ─── */}
       {isChatOpen && !isMinimized && (
         <div className={`fixed ${chatPositionClasses} z-[9999] fiorix-chat-in`}>
-          <div className="w-[340px] sm:w-[365px] max-h-[490px] bg-white rounded-3xl shadow-2xl border border-[#e5e7eb] flex flex-col overflow-hidden">
+          <div className={`${
+            isExpanded ? 'w-[360px] sm:w-[500px] max-h-[640px]' : 'w-[340px] sm:w-[365px] max-h-[490px]'
+          } bg-white rounded-3xl shadow-2xl border border-[#e5e7eb] flex flex-col overflow-hidden transition-all duration-300 ease-in-out`}>
             {/* Chat Header */}
             <div className="bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 py-3 flex items-center gap-2.5 shrink-0 select-none">
               <div className="relative shrink-0">
@@ -654,6 +771,23 @@ export function FiorixAgent() {
                     <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
                     <path d="M8 16H3v5" />
                   </svg>
+                </button>
+                {/* Botão de expandir / restaurar tamanho */}
+                <button
+                  onClick={() => setIsExpanded(prev => !prev)}
+                  className="w-7 h-7 flex items-center justify-center text-white/75 hover:text-white hover:bg-white/15 rounded-lg transition-all"
+                  title={isExpanded ? 'Restaurar tamanho compacto' : 'Expandir tamanho do chat'}
+                  aria-label={isExpanded ? 'Restaurar' : 'Expandir'}
+                >
+                  {isExpanded ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 14h6v6" /><path d="M20 10h-6V4" /><path d="M14 10l7-7" /><path d="M3 21l7-7" />
+                    </svg>
+                  ) : (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" />
+                    </svg>
+                  )}
                 </button>
                 {/* Botão de mover lado */}
                 <button
@@ -688,7 +822,9 @@ export function FiorixAgent() {
             </div>
 
             {/* Chat Messages */}
-            <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5 min-h-[180px] max-h-[290px] bg-[#fafafa]">
+            <div className={`flex-1 overflow-y-auto p-3.5 space-y-2.5 min-h-[180px] ${
+              isExpanded ? 'max-h-[440px]' : 'max-h-[290px]'
+            } bg-[#fafafa] transition-all duration-300`}>
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[88%] px-3.5 py-2 text-[12.5px] leading-relaxed ${
@@ -729,6 +865,13 @@ export function FiorixAgent() {
               </div>
             )}
 
+            {/* DLP Sensitive Data Warning Banner */}
+            {sensitiveWarning && (
+              <div className="px-3 py-1.5 bg-amber-500/10 border-t border-amber-500/20 text-amber-800 text-[11px] font-medium flex items-center gap-1.5 animate-fadeIn select-none">
+                <span>{sensitiveWarning}</span>
+              </div>
+            )}
+
             {/* Input */}
             <form onSubmit={handleSubmit} className="p-2.5 border-t border-[#e5e7eb] shrink-0 bg-white">
               <div className="flex items-center gap-1.5">
@@ -736,7 +879,7 @@ export function FiorixAgent() {
                   ref={inputRef}
                   type="text"
                   value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
+                  onChange={(e) => handleInputChange(e.target.value)}
                   placeholder="Pergunte ao FIORIX..."
                   className="flex-1 h-9 rounded-full border border-[#e5e7eb] px-3.5 text-[13px] text-[#111827] placeholder:text-[#9ca3af] focus:border-[#facc15] focus:ring-2 focus:ring-[#facc15]/20 focus:outline-none transition-all bg-[#fafafa]"
                   disabled={isTyping}
