@@ -80,6 +80,7 @@ export function FiorixTopbar() {
   const role = (currentUser?.role as Role) || "USER";
   const homeRoute = getHomeRouteForRole(role);
   const visibleGroups = filterNavigationByRole(role);
+  const canViewReviews = ["MASTER", "ADMIN", "SUBSTITUTO"].includes(role.toUpperCase());
 
   return (
     <header className="sticky top-0 z-50 h-14 w-full border-b border-white/[0.06] bg-[#080A12]/90 backdrop-blur-md">
@@ -260,22 +261,24 @@ export function FiorixTopbar() {
 
         {/* Direita: Badge Status, User Profile */}
         <div className="flex items-center gap-4">
-          <Link
-            prefetch={false}
-            href="/avaliacoes?status=PENDING"
-            className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all ${
-              pendingCount > 0
-                ? "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
-                : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
-            }`}
-          >
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                pendingCount > 0 ? "bg-red-500 animate-pulse" : "bg-emerald-500"
+          {canViewReviews && (
+            <Link
+              prefetch={false}
+              href="/avaliacoes?status=PENDING"
+              className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all ${
+                pendingCount > 0
+                  ? "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
+                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
               }`}
-            />
-            {pendingCount > 0 ? `${pendingCount} pendentes` : "✓ Todas respondidas"}
-          </Link>
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  pendingCount > 0 ? "bg-red-500 animate-pulse" : "bg-emerald-500"
+                }`}
+              />
+              {pendingCount > 0 ? `${pendingCount} pendentes` : "✓ Todas respondidas"}
+            </Link>
+          )}
 
           {/* User Profile Dropdown */}
           <div className="relative">

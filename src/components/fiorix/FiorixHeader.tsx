@@ -33,7 +33,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { navigationGroups } from "./navigation";
-import { filterNavigationByRole } from "@/lib/navigation/permissions";
+import { filterNavigationByRole, Role } from "@/lib/navigation/permissions";
 import { handleSignOut, getCurrentUser } from "@/app/actions/auth";
 import { getPendingCount } from "@/app/actions/reviews";
 import { getHomeRouteForRole } from "@/lib/permissions";
@@ -127,7 +127,9 @@ export function FiorixHeader() {
     return "bg-white/10 text-white/90 border border-white/20";
   };
 
+  const role = ((currentUser?.role as Role) || "USER").toUpperCase();
   const homeRoute = getHomeRouteForRole(currentUser?.role);
+  const canViewReviews = ["MASTER", "ADMIN", "SUBSTITUTO"].includes(role);
 
   return (
     <header className="sticky top-0 z-50 h-14 w-full border-b border-white/[0.06] bg-[#080A12]/90 backdrop-blur-md">
@@ -286,21 +288,23 @@ export function FiorixHeader() {
         {/* Direita: Badge Status, Selector, User Profile + Mobile Menu Trigger */}
         <div className="flex items-center gap-4">
           {/* Badge de resposta */}
-          <Link
-            href="/avaliacoes?status=PENDING"
-            className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all ${
-              pendingCount > 0
-                ? "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
-                : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
-            }`}
-          >
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                pendingCount > 0 ? "bg-red-500 animate-pulse" : "bg-emerald-500"
+          {canViewReviews && (
+            <Link
+              href="/avaliacoes?status=PENDING"
+              className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all ${
+                pendingCount > 0
+                  ? "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
+                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
               }`}
-            />
-            {pendingCount > 0 ? `${pendingCount} pendentes` : "✓ Todas respondidas"}
-          </Link>
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  pendingCount > 0 ? "bg-red-500 animate-pulse" : "bg-emerald-500"
+                }`}
+              />
+              {pendingCount > 0 ? `${pendingCount} pendentes` : "✓ Todas respondidas"}
+            </Link>
+          )}
 
           {/* Selector 7º RI São Paulo */}
           <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-lg border border-white/5 bg-white/[0.02] text-xs font-semibold text-white/70">
