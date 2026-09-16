@@ -55,7 +55,7 @@ function getHeaderSubtitle(pathname: string, ctx: UserContext): string {
   if (pathname.includes('/ferias')) return 'Minhas Férias • Online';
   if (pathname.includes('/comunicados')) return 'Mural de Comunicados • Online';
   if (pathname.startsWith('/minha-it')) return ctx.itTitulo ? `IT: ${ctx.itTitulo}` : 'Minha IT • Online';
-  if (pathname.startsWith('/instrucoes-trabalho')) return 'Instruções de Trabalho • Online';
+  if (pathname.startsWith('/administracao/its') || pathname.startsWith('/instrucoes-trabalho')) return 'Instruções de Trabalho • Online';
   if (pathname.startsWith('/avaliacoes')) return 'Avaliações Google • Online';
   if (pathname.startsWith('/gestao') || pathname.startsWith('/sistema')) return 'Gestão e RH • Online';
   if (pathname.startsWith('/minha-conta')) return 'Minha Conta • Online';
