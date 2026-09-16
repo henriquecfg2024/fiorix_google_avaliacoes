@@ -73,8 +73,15 @@ function renderFormattedMessage(content: string, isUser: boolean) {
           // Link [Texto](url)
           const linkMatch = token.match(/^\[(.*?)\]\((.*?)\)$/);
           if (linkMatch) {
-            const [, label, href] = linkMatch;
+            const [, label, rawHref] = linkMatch;
+            const href = (rawHref || '').trim();
             const isInternal = href.startsWith('/');
+            const isSafeExternal = href.startsWith('https://') || href.startsWith('http://');
+
+            // Proteção contra esquemas maliciosos (javascript:, data:, vbscript:)
+            if (!isInternal && !isSafeExternal) {
+              return <span key={tokenIdx}>{label}</span>;
+            }
             return isInternal ? (
               <Link
                 key={tokenIdx}
@@ -353,6 +360,17 @@ export function FiorixAgent() {
     }
   }, [pathname, messages.length]);
 
+  const handleClearChat = useCallback(() => {
+    const freshCtx = extractContext();
+    setUserContext(freshCtx);
+    setMessages([{
+      id: `welcome-${Date.now()}`,
+      role: 'agent',
+      content: getContextMessage(pathname, freshCtx),
+      timestamp: new Date(),
+    }]);
+  }, [pathname]);
+
   const handleSendMessage = useCallback(async (text: string) => {
     if (!text.trim()) return;
     const freshCtx = extractContext();
@@ -623,6 +641,20 @@ export function FiorixAgent() {
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
+                {/* Botão de nova conversa / limpar */}
+                <button
+                  onClick={handleClearChat}
+                  className="w-7 h-7 flex items-center justify-center text-white/75 hover:text-white hover:bg-white/15 rounded-lg transition-all"
+                  title="Nova conversa / Limpar chat"
+                  aria-label="Nova conversa"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                    <path d="M21 3v5h-5" />
+                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                    <path d="M8 16H3v5" />
+                  </svg>
+                </button>
                 {/* Botão de mover lado */}
                 <button
                   onClick={togglePosition}
@@ -717,6 +749,10 @@ export function FiorixAgent() {
                 >
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4 20-7z" /></svg>
                 </button>
+              </div>
+              <div className="mt-1.5 flex items-center justify-center gap-1 text-[10px] text-[#9ca3af] select-none">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <span>Canal seguro & confidencial • 7º RISP</span>
               </div>
             </form>
           </div>

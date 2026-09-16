@@ -2,13 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { requireAuth } from '@/lib/auth-helpers';
 
-// ─── Rate limiting simples em memória ─────────────
+// ─── Rate limiting simples em memória com purga automática ────
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 30; // max 30 requests por hora por usuário
+const RATE_LIMIT = 40; // max 40 requests por hora por usuário
 const RATE_WINDOW = 60 * 60 * 1000; // 1 hora
 
 function checkRateLimit(userId: string): boolean {
   const now = Date.now();
+  // Limpeza preventiva periódica contra memory leak
+  if (rateLimitMap.size > 250) {
+    for (const [id, entry] of rateLimitMap.entries()) {
+      if (now > entry.resetAt) rateLimitMap.delete(id);
+    }
+  }
+
   const entry = rateLimitMap.get(userId);
   if (!entry || now > entry.resetAt) {
     rateLimitMap.set(userId, { count: 1, resetAt: now + RATE_WINDOW });
@@ -17,6 +24,12 @@ function checkRateLimit(userId: string): boolean {
   if (entry.count >= RATE_LIMIT) return false;
   entry.count++;
   return true;
+}
+
+// ─── Sanitizador de strings de entrada contra Prompt Injection ─
+function sanitizeInput(val: any, maxLen = 120): string {
+  if (typeof val !== 'string') return '';
+  return val.replace(/[\r\n\t]/g, ' ').trim().slice(0, maxLen);
 }
 
 // ─── System Prompt por role ───────────────────────
@@ -153,21 +166,21 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Contexto enriquecido
+    // Contexto enriquecido e sanitizado
     const systemPrompt = buildSystemPrompt({
-      name: currentUser.name || 'Colaborador',
-      role: currentUser.role || 'COLABORADOR',
-      departamento: currentUser.departamento || requestContext?.departamento,
-      pathname: requestContext?.pathname,
-      itTitulo: requestContext?.itTitulo,
-      itCodigo: requestContext?.itCodigo,
-      itVersao: requestContext?.itVersao,
-      itDepartamento: requestContext?.itDepartamento,
-      itPapel: requestContext?.itPapel,
+      name: sanitizeInput(currentUser.name, 80) || 'Colaborador',
+      role: sanitizeInput(currentUser.role, 30) || 'COLABORADOR',
+      departamento: sanitizeInput(currentUser.departamento || requestContext?.departamento, 60),
+      pathname: sanitizeInput(requestContext?.pathname, 100),
+      itTitulo: sanitizeInput(requestContext?.itTitulo, 100),
+      itCodigo: sanitizeInput(requestContext?.itCodigo, 30),
+      itVersao: sanitizeInput(requestContext?.itVersao, 20),
+      itDepartamento: sanitizeInput(requestContext?.itDepartamento, 60),
+      itPapel: sanitizeInput(requestContext?.itPapel, 40),
       isResponsavel: Boolean(requestContext?.isResponsavel),
     });
 
-    // Gemini Cascade (3.5-flash-lite -> 3.1-flash-lite -> 3.6-flash)
+    // Gemini Cascade com systemInstruction nativo e Timeout de 7s por tentativa
     const genAI = new GoogleGenerativeAI(apiKey);
     let reply = '';
 
@@ -187,15 +200,22 @@ export async function POST(request: NextRequest) {
 
         const model = genAI.getGenerativeModel({
           model: modelName,
+          systemInstruction: systemPrompt,
           generationConfig,
         });
 
-        const result = await model.generateContent({
+        // Timeout preventivo de 7s por modelo para não travar o cliente
+        const generatePromise = model.generateContent({
           contents: [
-            { role: 'user', parts: [{ text: systemPrompt + '\n\nPERGUNTA DO USUÁRIO: ' + message.trim() }] },
+            { role: 'user', parts: [{ text: message.trim() }] },
           ],
         });
 
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout de resposta da IA (7s)')), 7000)
+        );
+
+        const result: any = await Promise.race([generatePromise, timeoutPromise]);
         reply = result.response.text();
         if (reply && reply.trim().length > 0) break;
       } catch (err: any) {
@@ -205,7 +225,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       reply: reply || getFallbackReply(userMessage, requestContext),
-      source: 'gemini',
+      source: reply ? 'gemini' : 'fallback',
     });
 
   } catch (error: any) {
