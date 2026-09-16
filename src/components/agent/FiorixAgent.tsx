@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 
 // ─── Types ────────────────────────────────────────
 interface Message {
@@ -57,8 +58,69 @@ function getHeaderSubtitle(pathname: string, ctx: UserContext): string {
   if (pathname.startsWith('/instrucoes-trabalho')) return 'Instruções de Trabalho • Online';
   if (pathname.startsWith('/avaliacoes')) return 'Avaliações Google • Online';
   if (pathname.startsWith('/gestao') || pathname.startsWith('/sistema')) return 'Gestão e RH • Online';
-  if (pathname.startsWith('/bi') || pathname.startsWith('/estatisticas')) return 'Estatísticas & BI • Online';
-  return 'Seu tutor digital • Online';
+  if (pathname.startsWith('/minha-conta')) return 'Minha Conta • Online';
+  return 'FIORIX • IA • Online';
+}
+
+// ─── Renderizador de Mensagens (Markdown + Links) ─
+function renderFormattedMessage(content: string, isUser: boolean) {
+  return content.split('\n').map((line, lineIdx, arr) => {
+    const tokens = line.split(/(\[.*?\]\(.*?\)|\*\*.*?\*\*)/);
+
+    return (
+      <span key={lineIdx}>
+        {tokens.map((token, tokenIdx) => {
+          // Link [Texto](url)
+          const linkMatch = token.match(/^\[(.*?)\]\((.*?)\)$/);
+          if (linkMatch) {
+            const [, label, href] = linkMatch;
+            const isInternal = href.startsWith('/');
+            return isInternal ? (
+              <Link
+                key={tokenIdx}
+                href={href}
+                className={`inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md transition-all mx-0.5 my-0.5 text-[11px] shadow-2xs ${
+                  isUser
+                    ? 'bg-white/20 hover:bg-white/30 text-white underline underline-offset-2'
+                    : 'bg-[#7c3aed]/10 hover:bg-[#7c3aed]/20 text-[#7c3aed] border border-[#7c3aed]/30 hover:border-[#7c3aed]/50 hover:scale-[1.02] active:scale-[0.98]'
+                }`}
+              >
+                <span>{label}</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </Link>
+            ) : (
+              <a
+                key={tokenIdx}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md transition-all mx-0.5 my-0.5 text-[11px] shadow-2xs ${
+                  isUser
+                    ? 'bg-white/20 hover:bg-white/30 text-white underline underline-offset-2'
+                    : 'bg-[#7c3aed]/10 hover:bg-[#7c3aed]/20 text-[#7c3aed] border border-[#7c3aed]/30 hover:border-[#7c3aed]/50 hover:scale-[1.02] active:scale-[0.98]'
+                }`}
+              >
+                <span>{label}</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
+              </a>
+            );
+          }
+
+          // Bold **texto**
+          if (token.startsWith('**') && token.endsWith('**')) {
+            return (
+              <strong key={tokenIdx} className="font-semibold text-inherit">
+                {token.slice(2, -2)}
+              </strong>
+            );
+          }
+
+          return token;
+        })}
+        {lineIdx < arr.length - 1 && <br />}
+      </span>
+    );
+  });
 }
 
 // ─── Mensagens contextuais por rota ───────────────
@@ -95,7 +157,7 @@ function getContextMessage(pathname: string, ctx: UserContext): string {
   if (pathname.startsWith('/minha-conta')) {
     return `Olá, ${nome}! 👋 Aqui você gerencia seus dados de perfil e preferências. 👤`;
   }
-  return `Olá, ${nome}! 👋 Sou o FIORIX, seu tutor digital. Posso tirar dúvidas sobre qualquer tela ou função do sistema. Como posso te ajudar? 😊`;
+  return `Olá, ${nome}! 👋 Sou o FIORIX, a inteligência artificial do sistema. Posso tirar dúvidas sobre qualquer tela ou função. Como posso te ajudar? 😊`;
 }
 
 function getSuggestions(pathname: string): string[] {
@@ -126,22 +188,22 @@ function getQuickReply(question: string, ctx?: UserContext): string {
 
   // Holerites
   if (q.includes('holerite') || q.includes('comprovante') || q.includes('rendimento') || q.includes('pagamento') || q.includes('salario') || q.includes('salário')) {
-    return 'Na tela de **Holerites** você pode consultar e emitir seus demonstrativos com proteção LGPD. Basta selecionar o ano desejado no topo da tabela e clicar para visualizar ou baixar o PDF! 📄✨';
+    return 'Na tela de **Holerites** você pode consultar e emitir seus demonstrativos com proteção LGPD. Basta selecionar o ano desejado na tabela e clicar para visualizar ou baixar o PDF!\n\n👉 [Ir para Meus Holerites](/pessoas/holerites) 📄✨';
   }
 
   // Férias
   if (q.includes('férias') || q.includes('ferias') || q.includes('saldo')) {
-    return 'Na tela de **Férias** você pode acompanhar seu saldo de dias disponíveis, verificar seu período aquisitivo vigente e conferir o histórico das suas solicitações. 🏖️✨';
+    return 'Na tela de **Férias** você pode acompanhar seu saldo de dias disponíveis, verificar seu período aquisitivo vigente e conferir o histórico das suas solicitações.\n\n👉 [Ir para Minhas Férias](/pessoas/ferias) 🏖️✨';
   }
 
   // Comunicados
   if (q.includes('comunicado') || q.includes('comunicados') || q.includes('aviso')) {
-    return 'Na tela de **Comunicados** você confere todos os comunicados oficiais, novidades e diretrizes emitidas pela gestão do 7º RISP. 📢';
+    return 'Na tela de **Comunicados** você confere todos os comunicados oficiais, novidades e diretrizes emitidas pela gestão do 7º RISP.\n\n👉 [Ver Comunicados](/pessoas/comunicados) 📢';
   }
 
   // Avaliações
   if (q.includes('avaliaç') || q.includes('avaliac') || q.includes('google') || q.includes('reviews')) {
-    return 'No módulo de **Avaliações**, você acompanha as notas do Google Reviews do cartório, filtra comentários de clientes e pode enviar respostas oficiais com apoio de IA. ⭐';
+    return 'No módulo de **Avaliações**, você acompanha as notas do Google Reviews do cartório, filtra comentários de clientes e pode enviar respostas oficiais com apoio de IA.\n\n👉 [Ir para Avaliações](/avaliacoes) ⭐';
   }
 
   // Minha IT
@@ -149,36 +211,36 @@ function getQuickReply(question: string, ctx?: UserContext): string {
     const tit = ctx?.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO';
     const v = ctx?.itVersao ? ` (versão ${ctx.itVersao})` : ' (versão 1.1)';
     const d = ctx?.itDepartamento ? ` do setor ${ctx.itDepartamento}` : '';
-    return `A sua IT atual é **${tit}**${v}${d}. 📄✨`;
+    return `A sua IT atual é **${tit}**${v}${d}.\n\n👉 [Ir para Minha IT](/minha-it) 📄✨`;
   }
 
   if (q.includes('responsável') || q.includes('responsavel')) {
     if (ctx?.isResponsavel) {
-      return `Sim! Você é o **Responsável Técnico** desta IT (**${ctx?.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO'}**). Você é o encarregado de mantê-la atualizada e gerenciar os participantes! 🛡️✨`;
+      return `Sim! Você é o **Responsável Técnico** desta IT (**${ctx?.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO'}**). Você é o encarregado de mantê-la atualizada e gerenciar os participantes!\n\n👉 [Gerenciar Minha IT](/minha-it) 🛡️✨`;
     }
     if (ctx?.itPapel) {
-      return `Nesta IT, seu papel é **${ctx.itPapel}**. ${ctx.itPapel === 'Responsável técnico' ? 'Sim, você é o responsável técnico!' : 'O responsável técnico é quem faz a gestão e atualização desta IT.'} 👤`;
+      return `Nesta IT, seu papel é **${ctx.itPapel}**. ${ctx.itPapel === 'Responsável técnico' ? 'Sim, você é o responsável técnico!' : 'O responsável técnico é quem faz a gestão e atualização desta IT.'}\n\n👉 [Acessar Minha IT](/minha-it) 👤`;
     }
-    return 'Sim! Você está vinculado a esta IT como Responsável Técnico. Você pode gerenciar participantes e criar novas versões no alerta amarelo! 🛡️';
+    return 'Sim! Você está vinculado a esta IT como Responsável Técnico. Você pode gerenciar participantes e criar novas versões no alerta amarelo!\n\n👉 [Acessar Minha IT](/minha-it) 🛡️';
   }
 
   if (q.includes('criar') && q.includes('it') && !q.includes('versão') && !q.includes('versao')) {
-    return 'Para propor ou cadastrar uma nova IT:\n\n1. Acesse o menu **Instruções de Trabalho** na barra lateral\n2. Clique em **"+ Nova IT"** ou **"Cadastrar IT"**\n3. Preencha título, objetivo e anexe o arquivo PDF\n4. Envie para análise da supervisão! 📋✨';
+    return 'Para propor ou cadastrar uma nova IT:\n\n1. Acesse o menu **Instruções de Trabalho** na barra lateral\n2. Clique em **"+ Nova IT"** ou **"Cadastrar IT"**\n3. Preencha título, objetivo e anexe o arquivo PDF\n4. Envie para análise da supervisão!\n\n👉 [Ir para Instruções de Trabalho](/instrucoes-trabalho) 📋✨';
   }
 
   if (q.includes('nova versão') || q.includes('criar versão') || q.includes('atualizar it')) {
-    return 'Para criar uma nova versão da sua IT:\n\n1. Acesse **Minha IT**\n2. Clique em **"+ Criar nova versão"** no alerta amarelo no topo\n3. Faça upload do novo PDF atualizado\n4. A versão será atualizada para todos os participantes automaticamente! 📄✨';
+    return 'Para criar uma nova versão da sua IT:\n\n1. Acesse **Minha IT**\n2. Clique em **"+ Criar nova versão"** no alerta amarelo no topo\n3. Faça upload do novo PDF atualizado\n4. A versão será atualizada para todos os participantes automaticamente!\n\n👉 [Ir para Minha IT](/minha-it) 📄✨';
   }
 
   if (q.includes('ciência') || q.includes('ciencias')) {
-    return 'A **ciência** confirma que um colaborador leu e entendeu a IT. Cada nova versão publicada requer nova ciência de todos os participantes. Acompanhe em **"Ver ciências"**. ✅';
+    return 'A **ciência** confirma que um colaborador leu e entendeu a IT. Cada nova versão publicada requer nova ciência de todos os participantes. Acompanhe em **"Ver ciências"**.\n\n👉 [Ir para Minha IT](/minha-it) ✅';
   }
 
   if (q.includes('tour') || q.includes('guia') || q.includes('ajuda') || q.includes('navegar') || q.includes('sistema')) {
-    return 'O FIORIX possui vários módulos para o seu dia a dia:\n\n📄 **Minha IT** — suas instruções e ciências\n📋 **Instruções de Trabalho** — acervo geral\n💵 **Holerites** — comprovantes com LGPD\n🏖️ **Férias** — saldo e períodos\n📢 **Comunicados** — avisos internos\n⭐ **Avaliações** — Google Reviews';
+    return 'O FIORIX possui vários módulos para o seu dia a dia:\n\n📄 [Minha IT](/minha-it) — suas instruções e ciências\n📋 [Instruções de Trabalho](/instrucoes-trabalho) — acervo geral\n💵 [Holerites](/pessoas/holerites) — comprovantes com LGPD\n🏖️ [Férias](/pessoas/ferias) — saldo e períodos\n📢 [Comunicados](/pessoas/comunicados) — avisos internos\n⭐ [Avaliações](/avaliacoes) — Google Reviews';
   }
 
-  return 'Como tutor do FIORIX, posso tirar qualquer dúvida sobre o sistema (ITs, Holerites, Férias, Comunicados, Avaliações e Dashboard). Como posso te ajudar? 😊';
+  return 'Como inteligência artificial do FIORIX, posso tirar dúvidas e te direcionar para qualquer tela:\n\n• [Minha IT](/minha-it)\n• [Holerites](/pessoas/holerites)\n• [Férias](/pessoas/ferias)\n• [Comunicados](/pessoas/comunicados)\n• [Avaliações](/avaliacoes)\n• [Dashboard](/dashboard)\n\nComo posso te ajudar? 😊';
 }
 
 // ─── Componente Principal ─────────────────────────
@@ -413,7 +475,7 @@ export function FiorixAgent() {
                 {/* Header */}
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold text-[#7c3aed] uppercase tracking-wider">FIORIX • TUTOR</span>
+                    <span className="text-[10px] font-bold text-[#7c3aed] uppercase tracking-wider">FIORIX • IA</span>
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                   </div>
                   <div className="flex items-center gap-1">
@@ -468,12 +530,12 @@ export function FiorixAgent() {
           <button
             onClick={openChat}
             className="relative group fiorix-float focus:outline-none"
-            aria-label="Abrir FIORIX tutor"
+            aria-label="Abrir assistente FIORIX IA"
           >
             <div className="w-[62px] h-[62px] rounded-2xl border-[2.5px] border-[#facc15] shadow-lg shadow-yellow-500/20 bg-white overflow-hidden transition-transform group-hover:scale-105">
               <Image
                 src="/fiorix-avatar.jpg"
-                alt="FIORIX tutor"
+                alt="FIORIX IA"
                 width={62}
                 height={62}
                 className="w-full h-full object-cover"
@@ -486,7 +548,7 @@ export function FiorixAgent() {
 
           {/* Badge */}
           <span className="bg-[#7c3aed] text-white rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-sm">
-            FIORIX
+            FIORIX • IA
           </span>
         </div>
       )}
@@ -501,7 +563,7 @@ export function FiorixAgent() {
             </div>
             <div className="flex flex-col min-w-0 pr-1">
               <span className="text-xs font-bold leading-tight flex items-center gap-1.5">
-                FIORIX
+                FIORIX • IA
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
               </span>
               <span className="text-[10px] text-white/70 truncate max-w-[130px]">
@@ -553,7 +615,7 @@ export function FiorixAgent() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <h3 className="text-white text-xs font-bold leading-tight">FIORIX</h3>
+                  <h3 className="text-white text-xs font-bold leading-tight">FIORIX • IA</h3>
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
                 </div>
                 <p className="text-white/70 text-[10px] truncate leading-tight mt-0.5">
@@ -602,16 +664,7 @@ export function FiorixAgent() {
                       ? 'bg-[#7c3aed] text-white rounded-2xl rounded-br-sm'
                       : 'bg-white text-[#374151] border border-[#e5e7eb] rounded-2xl rounded-bl-sm shadow-xs'
                   }`}>
-                    {msg.content.split('\n').map((line, i) => (
-                      <span key={i}>
-                        {line.split(/(\*\*.*?\*\*)/).map((part, j) =>
-                          part.startsWith('**') && part.endsWith('**')
-                            ? <strong key={j} className="font-semibold text-inherit">{part.slice(2, -2)}</strong>
-                            : part
-                        )}
-                        {i < msg.content.split('\n').length - 1 && <br />}
-                      </span>
-                    ))}
+                    {renderFormattedMessage(msg.content, msg.role === 'user')}
                   </div>
                 </div>
               ))}

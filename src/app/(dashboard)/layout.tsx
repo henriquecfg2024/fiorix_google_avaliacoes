@@ -32,7 +32,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
       </div>
 
-      {/* Tutor digital FIORIX — global em todas as páginas */}
+      {/* Assistente FIORIX • IA — global em todas as páginas */}
       <FiorixAgent />
     </div>
   );
