@@ -165,11 +165,13 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Erro no FiorixChat:', error);
-    return NextResponse.json(
-      { error: 'Erro interno. Tente novamente.' },
-      { status: 500 }
-    );
+    console.error('Erro no FiorixChat:', error?.message || error);
+    // Fallback gracioso: retorna resposta pré-definida ao invés de erro
+    const body = await request.clone().json().catch(() => ({ message: '' }));
+    return NextResponse.json({
+      reply: getFallbackReply(body.message || ''),
+      source: 'fallback',
+    });
   }
 }
 
