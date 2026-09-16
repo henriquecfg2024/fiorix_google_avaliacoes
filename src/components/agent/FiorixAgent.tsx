@@ -180,19 +180,43 @@ export function FiorixAgent() {
     setInputValue('');
     setIsTyping(true);
 
-    // Simula tempo de "digitação" e usa resposta pré-definida
-    await new Promise(r => setTimeout(r, 800 + Math.random() * 600));
+    try {
+      const res = await fetch('/api/fiorix-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: text.trim(),
+          context: {
+            departamento: userContext.role,
+            itTitulo: userContext.itTitulo,
+            pathname,
+          },
+        }),
+      });
 
-    const reply = getQuickReply(text);
-    const agentMsg: Message = {
-      id: `agent-${Date.now()}`,
-      role: 'agent',
-      content: reply,
-      timestamp: new Date(),
-    };
-    setMessages(prev => [...prev, agentMsg]);
-    setIsTyping(false);
-  }, []);
+      const data = await res.json();
+      const reply = data.reply || data.error || 'Desculpe, não consegui processar sua pergunta.';
+
+      const agentMsg: Message = {
+        id: `agent-${Date.now()}`,
+        role: 'agent',
+        content: reply,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, agentMsg]);
+    } catch {
+      // Fallback local se a API falhar
+      const agentMsg: Message = {
+        id: `agent-${Date.now()}`,
+        role: 'agent',
+        content: getQuickReply(text),
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, agentMsg]);
+    } finally {
+      setIsTyping(false);
+    }
+  }, [pathname, userContext]);
 
   const handleSuggestionClick = useCallback((suggestion: string) => {
     handleSendMessage(suggestion);
