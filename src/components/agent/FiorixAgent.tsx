@@ -4,6 +4,13 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import {
+  speakText,
+  stopSpeaking,
+  createSpeechRecognizer,
+  SpeechRecognitionController,
+} from '@/lib/agent/speech';
+import { ItGeneratorModal } from './ItGeneratorModal';
 
 // ─── Types ────────────────────────────────────────
 interface Message {
@@ -16,6 +23,7 @@ interface Message {
 interface UserContext {
   name: string;
   role: string;
+  itId?: string;
   itTitulo?: string;
   itCodigo?: string;
   itVersao?: string;
@@ -40,6 +48,7 @@ function extractContext(): UserContext {
   return {
     name: mainEl?.getAttribute('data-user-name') || nameEl?.getAttribute('data-user-name') || headerName || 'Colaborador',
     role: mainEl?.getAttribute('data-user-role') || roleEl?.getAttribute('data-user-role') || badgeRole || 'COLABORADOR',
+    itId: mainEl?.getAttribute('data-it-id') || undefined,
     itTitulo: mainEl?.getAttribute('data-it-titulo') || undefined,
     itCodigo: mainEl?.getAttribute('data-it-codigo') || undefined,
     itVersao: mainEl?.getAttribute('data-it-versao') || undefined,
@@ -59,7 +68,7 @@ function getHeaderSubtitle(pathname: string, ctx: UserContext): string {
   if (pathname.startsWith('/avaliacoes')) return 'Avaliações Google • Online';
   if (pathname.startsWith('/gestao') || pathname.startsWith('/sistema')) return 'Gestão e RH • Online';
   if (pathname.startsWith('/minha-conta')) return 'Minha Conta • Online';
-  return 'FIORIX • IA • Online';
+  return 'FIORIX • IA • Nível 4';
 }
 
 // ─── Ícones temáticos por Rota ────────────────────
@@ -142,7 +151,6 @@ function renderFormattedMessage(content: string, isUser: boolean) {
             const isInternal = href.startsWith('/');
             const isSafeExternal = href.startsWith('https://') || href.startsWith('http://');
 
-            // Proteção contra esquemas maliciosos (javascript:, data:, vbscript:)
             if (!isInternal && !isSafeExternal) {
               return <span key={tokenIdx}>{label}</span>;
             }
@@ -201,39 +209,37 @@ function getContextMessage(pathname: string, ctx: UserContext): string {
   const nome = ctx.name?.split(' ')[0] || 'você';
 
   if (pathname.includes('/holerites')) {
-    return `Olá, ${nome}! 👋 Aqui em **Holerites** você pode consultar e baixar seus comprovantes de rendimento mensais protegidos pela LGPD. Quer ajuda para filtrar por ano ou baixar seu PDF? 📄`;
+    return `Olá, ${nome}! 👋 Aqui em **Holerites** você pode consultar e baixar seus comprovantes de rendimento mensais com segurança LGPD. Quer ajuda para filtrar por ano ou baixar seu PDF? 📄`;
   }
   if (pathname.includes('/ferias')) {
-    return `Olá, ${nome}! 👋 Aqui em **Férias** você acompanha seu saldo de dias disponíveis e seus períodos aquisitivos. Posso te ajudar a navegar por esta área? 🏖️`;
+    return `Olá, ${nome}! 👋 Aqui em **Férias** você acompanha seu saldo de dias disponíveis e seus períodos aquisitivos. Posso te orientar sobre as regras de agendamento? 🏖️`;
   }
   if (pathname.includes('/comunicados')) {
-    return `Olá, ${nome}! 👋 Aqui em **Comunicados** você confere todos os comunicados oficiais e novidades do 7º RISP. 📢`;
+    return `Olá, ${nome}! 👋 Aqui em **Comunicados** você confere todos os comunicados oficiais e diretrizes do 7º RISP. 📢`;
   }
   if (pathname.startsWith('/minha-it')) {
     if (ctx.itTitulo) {
-      return `Olá, ${nome}! 👋 Sou o FIORIX! Vi que você está na IT **${ctx.itTitulo}**${ctx.isResponsavel ? ' como Responsável Técnico' : ''}. Quer tirar alguma dúvida sobre ela? ✨`;
+      return `Olá, ${nome}! 👋 Vi que você está na IT **${ctx.itTitulo}**${ctx.isResponsavel ? ' como Responsável Técnico' : ''}. Posso te ajudar a revisar o procedimento ou estruturar uma atualização com IA! ✨`;
     }
-    return `Olá, ${nome}! 👋 Sou o FIORIX! Aqui na Minha IT você acompanha suas Instruções de Trabalho e ciências. Como posso ajudar? ✨`;
+    return `Olá, ${nome}! 👋 Aqui na Minha IT você acompanha suas Instruções de Trabalho e ciências. Como posso ajudar? ✨`;
   }
   if (pathname.startsWith('/instrucoes-trabalho')) {
     return `Olá, ${nome}! 👋 Nesta área você encontra todo o acervo de Instruções de Trabalho do cartório. Posso te ajudar a buscar ou propor uma nova IT? 📋`;
   }
   if (pathname.startsWith('/avaliacoes')) {
-    return `Olá, ${nome}! 👋 Aqui você gerencia as avaliações do Google Reviews. Quer saber como responder avaliações ou filtrar por estrelas? ⭐`;
+    return `Olá, ${nome}! 👋 Aqui você gerencia as avaliações do Google Reviews do cartório. Deseja analisar os comentários ou gerar respostas oficiais? ⭐`;
   }
-  if (pathname.startsWith('/dashboard')) {
-    return `Olá, ${nome}! 👋 Bem-vindo ao FIORIX! Este é seu painel principal. Precisa de ajuda para navegar pelos módulos? 🚀`;
-  }
-  if (pathname.startsWith('/gestao') || pathname.startsWith('/sistema')) {
-    return `Olá, ${nome}! 👋 Área de gestão de equipe e administração do cartório. Como posso te orientar? 👥`;
-  }
-  if (pathname.startsWith('/minha-conta')) {
-    return `Olá, ${nome}! 👋 Aqui você gerencia seus dados de perfil e preferências. 👤`;
-  }
-  return `Olá, ${nome}! 👋 Sou o FIORIX, a inteligência artificial do sistema. Posso tirar dúvidas sobre qualquer tela ou função. Como posso te ajudar? 😊`;
+  return `Olá, ${nome}! 👋 Sou o FIORIX, seu copiloto de IA. Posso tirar dúvidas sobre qualquer tela, gerar atualizações de procedimentos ou orientar seu dia a dia! 😊`;
 }
 
-function getSuggestions(pathname: string): string[] {
+function getSuggestions(pathname: string, ctx: UserContext): string[] {
+  const isGestao = ['SUBSTITUTO', 'ADMIN', 'MASTER'].includes(String(ctx.role || '').toUpperCase());
+
+  if (pathname.startsWith('/minha-it')) {
+    const list = ['✨ Atualizar IT com IA', 'O que é ciência?', 'Ver ciências da equipe'];
+    if (isGestao) list.push('📲 Cobrar ciências via WhatsApp');
+    return list;
+  }
   if (pathname.includes('/holerites')) {
     return ['Como baixar meu holerite?', 'Filtrar por ano', 'Segurança e LGPD', 'Minha IT'];
   }
@@ -243,14 +249,8 @@ function getSuggestions(pathname: string): string[] {
   if (pathname.includes('/comunicados')) {
     return ['Ver últimos comunicados', 'Minha IT', 'Holerites', 'Férias'];
   }
-  if (pathname.startsWith('/minha-it')) {
-    return ['Qual o nome de minha IT?', 'Sou responsável técnico?', 'Como criar nova versão?', 'O que é ciência?'];
-  }
   if (pathname.startsWith('/avaliacoes')) {
     return ['Como responder avaliações?', 'Filtrar por nota', 'Métricas de satisfação'];
-  }
-  if (pathname.startsWith('/instrucoes-trabalho')) {
-    return ['Como propor uma nova IT?', 'Como buscar uma IT?', 'Visualizar PDF'];
   }
   return ['Minha IT', 'Como ver holerite?', 'Minhas férias', 'Navegar pelo sistema'];
 }
@@ -291,29 +291,18 @@ function getQuickReply(question: string, ctx?: UserContext): string {
     if (ctx?.isResponsavel) {
       return `Sim! Você é o **Responsável Técnico** desta IT (**${ctx?.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO'}**). Você é o encarregado de mantê-la atualizada e gerenciar os participantes!\n\n👉 [Gerenciar Minha IT](/minha-it) 🛡️✨`;
     }
-    if (ctx?.itPapel) {
-      return `Nesta IT, seu papel é **${ctx.itPapel}**. ${ctx.itPapel === 'Responsável técnico' ? 'Sim, você é o responsável técnico!' : 'O responsável técnico é quem faz a gestão e atualização desta IT.'}\n\n👉 [Acessar Minha IT](/minha-it) 👤`;
-    }
-    return 'Sim! Você está vinculado a esta IT como Responsável Técnico. Você pode gerenciar participantes e criar novas versões no alerta amarelo!\n\n👉 [Acessar Minha IT](/minha-it) 🛡️';
+    return `Nesta IT, seu papel é **${ctx?.itPapel || 'Colaborador'}**. O responsável técnico é encarregado da gestão e atualização periódica do documento.\n\n👉 [Acessar Minha IT](/minha-it) 👤`;
   }
 
-  if (q.includes('criar') && q.includes('it') && !q.includes('versão') && !q.includes('versao')) {
-    return 'Para propor ou cadastrar uma nova IT:\n\n1. Acesse o menu **Instruções de Trabalho** na barra lateral\n2. Clique em **"+ Nova IT"** ou **"Cadastrar IT"**\n3. Preencha título, objetivo e anexe o arquivo PDF\n4. Envie para análise da supervisão!\n\n👉 [Ir para Instruções de Trabalho](/instrucoes-trabalho) 📋✨';
-  }
-
-  if (q.includes('nova versão') || q.includes('criar versão') || q.includes('atualizar it')) {
-    return 'Para criar uma nova versão da sua IT:\n\n1. Acesse **Minha IT**\n2. Clique em **"+ Criar nova versão"** no alerta amarelo no topo\n3. Faça upload do novo PDF atualizado\n4. A versão será atualizada para todos os participantes automaticamente!\n\n👉 [Ir para Minha IT](/minha-it) 📄✨';
+  if (q.includes('atualizar it') || q.includes('escrever it') || q.includes('nova versão') || q.includes('gerar it')) {
+    return 'Você pode atualizar a sua IT em poucos segundos utilizando nossa inteligência artificial! Basta clicar no botão **"✨ Atualizar IT com IA"** aqui no chat ou no card da Minha IT para descrever a nova rotina e gerar o rascunho formatado.';
   }
 
   if (q.includes('ciência') || q.includes('ciencias')) {
-    return 'A **ciência** confirma que um colaborador leu e entendeu a IT. Cada nova versão publicada requer nova ciência de todos os participantes. Acompanhe em **"Ver ciências"**.\n\n👉 [Ir para Minha IT](/minha-it) ✅';
+    return 'A **ciência** confirma que um colaborador leu e entendeu o procedimento. Cada nova versão publicada requer nova ciência de todos os participantes para conformidade com o Provimento 213/2026.\n\n👉 [Ir para Minha IT](/minha-it) ✅';
   }
 
-  if (q.includes('tour') || q.includes('guia') || q.includes('ajuda') || q.includes('navegar') || q.includes('sistema')) {
-    return 'O FIORIX possui vários módulos para o seu dia a dia:\n\n📄 [Minha IT](/minha-it) — suas instruções e ciências\n📋 [Instruções de Trabalho](/instrucoes-trabalho) — acervo geral\n💵 [Holerites](/pessoas/holerites) — comprovantes com LGPD\n🏖️ [Férias](/pessoas/ferias) — saldo e períodos\n📢 [Comunicados](/pessoas/comunicados) — avisos internos\n⭐ [Avaliações](/avaliacoes) — Google Reviews';
-  }
-
-  return 'Como inteligência artificial do FIORIX, posso tirar dúvidas e te direcionar para qualquer tela:\n\n• [Minha IT](/minha-it)\n• [Holerites](/pessoas/holerites)\n• [Férias](/pessoas/ferias)\n• [Comunicados](/pessoas/comunicados)\n• [Avaliações](/avaliacoes)\n• [Dashboard](/dashboard)\n\nComo posso te ajudar? 😊';
+  return 'Como copiloto do FIORIX, posso tirar dúvidas, gerar minutas e te direcionar para qualquer tela:\n\n• [Minha IT](/minha-it)\n• [Holerites](/pessoas/holerites)\n• [Férias](/pessoas/ferias)\n• [Comunicados](/pessoas/comunicados)\n• [Avaliações](/avaliacoes)\n\nComo posso te ajudar agora? 😊';
 }
 
 // ─── Componente Principal ─────────────────────────
@@ -330,10 +319,27 @@ export function FiorixAgent() {
   const [sensitiveWarning, setSensitiveWarning] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [userContext, setUserContext] = useState<UserContext>({ name: '', role: '' });
+
+  // ─── Nível 4: Estados de Voz & IA ────────────────
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [isVoiceMuted, setIsVoiceMuted] = useState(false);
+  const [isItModalOpen, setIsItModalOpen] = useState(false);
+  const [complianceWarning, setComplianceWarning] = useState(false);
+
+  const recognizerRef = useRef<SpeechRecognitionController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Limpeza de sessão LGPD: carregar mensagens apenas da sessão corrente da aba
+  // Carrega preferência de mudo
+  useEffect(() => {
+    try {
+      const savedMute = localStorage.getItem('fiorix-voice-muted');
+      if (savedMute === 'true') setIsVoiceMuted(true);
+    } catch {}
+  }, []);
+
+  // Limpeza de sessão LGPD: carregar mensagens da sessão corrente
   useEffect(() => {
     try {
       const saved = sessionStorage.getItem('fiorix-session-msgs');
@@ -346,7 +352,7 @@ export function FiorixAgent() {
     } catch {}
   }, []);
 
-  // Salva no sessionStorage para manter histórico apenas durante a sessão da aba
+  // Salva no sessionStorage para manter histórico durante a sessão da aba
   useEffect(() => {
     if (messages.length > 0) {
       try {
@@ -360,6 +366,7 @@ export function FiorixAgent() {
     if (pathname === '/login' || pathname === '/') {
       sessionStorage.removeItem('fiorix-session-msgs');
       setMessages([]);
+      stopSpeaking();
     }
   }, [pathname]);
 
@@ -372,195 +379,305 @@ export function FiorixAgent() {
   }, []);
 
   const togglePosition = useCallback(() => {
-    setPosition(prev => {
+    setPosition((prev) => {
       const next = prev === 'right' ? 'left' : 'right';
       localStorage.setItem('fiorix-agent-pos', next);
       return next;
     });
   }, []);
 
-  // Extrai contexto do DOM
+  // ─── Compliance Check Proativo em /minha-it ──────
   useEffect(() => {
-    const updateContext = () => {
+    if (pathname.startsWith('/minha-it')) {
+      const dismissed = sessionStorage.getItem('fiorix-compliance-dismissed');
+      // Simula / detecta necessidade de revisão (>30 dias)
+      if (!dismissed) {
+        setComplianceWarning(true);
+      }
+    } else {
+      setComplianceWarning(false);
+    }
+  }, [pathname]);
+
+  // Atualização de contexto DOM
+  useEffect(() => {
+    const updateCtx = () => {
       const ctx = extractContext();
       setUserContext(ctx);
     };
 
-    const timer = setTimeout(updateContext, 800);
+    updateCtx();
+    const timer = setTimeout(updateCtx, 800);
     return () => clearTimeout(timer);
   }, [pathname]);
 
-  // Aparição do avatar e remoção de qualquer trava de 7 dias
+  // Aparição inicial do agente
   useEffect(() => {
-    // Remove qualquer trava legada que impedia o avatar de aparecer
-    try {
-      localStorage.removeItem('fiorix-agent-dismissed');
-    } catch {}
-
-    // O avatar flutuante fica sempre ativo e acessível
-    setIsVisible(true);
-
-    // Balão de introdução abre discretamente se ainda não foi fechado nesta rota/sessão
-    const isDismissed = sessionStorage.getItem(`fiorix-bubble-${pathname}`);
-    if (!isDismissed) {
-      const bubbleTimer = setTimeout(() => setShowBubble(true), 800);
-      return () => clearTimeout(bubbleTimer);
+    if (pathname === '/login' || pathname === '/') {
+      setIsVisible(false);
+      setShowBubble(false);
+      return;
     }
+
+    const timer = setTimeout(() => {
+      setIsVisible(true);
+      setShowBubble(true);
+    }, 1200);
+
+    return () => clearTimeout(timer);
   }, [pathname]);
 
-  // Auto-dismiss do balão após 15s para não ficar cobrindo o texto
-  useEffect(() => {
-    if (showBubble && !isChatOpen) {
-      const autoCloseTimer = setTimeout(() => {
-        setShowBubble(false);
-      }, 15000);
-      return () => clearTimeout(autoCloseTimer);
-    }
-  }, [showBubble, isChatOpen]);
-
-  // Scroll automático
+  // Scroll automático para a última mensagem
   useEffect(() => {
     if (isChatOpen && !isMinimized) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, isChatOpen, isMinimized]);
+  }, [messages, isTyping, isChatOpen, isMinimized]);
 
-  // Focus no input
-  useEffect(() => {
-    if (isChatOpen && !isMinimized) {
-      setTimeout(() => inputRef.current?.focus(), 300);
+  // Toggle de Mudo
+  const handleToggleMute = useCallback(() => {
+    setIsVoiceMuted((prev) => {
+      const next = !prev;
+      if (next) stopSpeaking();
+      try {
+        localStorage.setItem('fiorix-voice-muted', String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  // Fala uma mensagem individual
+  const handleSpeakMessage = useCallback(
+    (text: string) => {
+      if (isSpeaking) {
+        stopSpeaking();
+        setIsSpeaking(false);
+        return;
+      }
+
+      speakText(text, {
+        onStart: () => setIsSpeaking(true),
+        onEnd: () => setIsSpeaking(false),
+        onError: () => setIsSpeaking(false),
+      });
+    },
+    [isSpeaking]
+  );
+
+  // Microfone (SpeechRecognition)
+  const handleToggleMic = useCallback(() => {
+    if (isListening) {
+      recognizerRef.current?.stop();
+      setIsListening(false);
+      return;
     }
-  }, [isChatOpen, isMinimized]);
+
+    const recognizer = createSpeechRecognizer({
+      onStart: () => setIsListening(true),
+      onResult: (transcript, isFinal) => {
+        setInputValue(transcript);
+        if (isFinal && transcript.trim().length > 2) {
+          setIsListening(false);
+        }
+      },
+      onError: (err) => {
+        console.warn('Erro no reconhecimento de voz:', err);
+        setIsListening(false);
+      },
+      onEnd: () => {
+        setIsListening(false);
+      },
+    });
+
+    if (recognizer) {
+      recognizerRef.current = recognizer;
+      recognizer.start();
+    } else {
+      alert('Seu navegador não possui suporte à captura de voz nativa. Recomendamos Google Chrome ou Edge.');
+    }
+  }, [isListening]);
 
   const dismissBubble = useCallback(() => {
     setShowBubble(false);
-    try {
-      sessionStorage.setItem(`fiorix-bubble-${pathname}`, '1');
-    } catch {}
-  }, [pathname]);
+    sessionStorage.setItem('fiorix-compliance-dismissed', 'true');
+    setComplianceWarning(false);
+  }, []);
 
   const openChat = useCallback(() => {
-    const freshCtx = extractContext();
-    setUserContext(freshCtx);
     setShowBubble(false);
-    setIsMinimized(false);
     setIsChatOpen(true);
+    setIsMinimized(false);
+
     if (messages.length === 0) {
-      setMessages([{
+      const freshCtx = extractContext();
+      setUserContext(freshCtx);
+      const welcomeMsg: Message = {
         id: 'welcome',
         role: 'agent',
         content: getContextMessage(pathname, freshCtx),
         timestamp: new Date(),
-      }]);
+      };
+      setMessages([welcomeMsg]);
+
+      // Fala boas-vindas se o áudio não estiver mutado
+      if (!isVoiceMuted) {
+        speakText(welcomeMsg.content, {
+          onStart: () => setIsSpeaking(true),
+          onEnd: () => setIsSpeaking(false),
+          onError: () => setIsSpeaking(false),
+        });
+      }
     }
-  }, [pathname, messages.length]);
+  }, [pathname, messages.length, isVoiceMuted]);
 
   const handleClearChat = useCallback(() => {
+    stopSpeaking();
+    setIsSpeaking(false);
+    sessionStorage.removeItem('fiorix-session-msgs');
     const freshCtx = extractContext();
     setUserContext(freshCtx);
-    const initialMsg: Message = {
-      id: `welcome-${Date.now()}`,
+    const welcomeMsg: Message = {
+      id: 'welcome-new',
       role: 'agent',
       content: getContextMessage(pathname, freshCtx),
       timestamp: new Date(),
     };
-    setMessages([initialMsg]);
-    sessionStorage.setItem('fiorix-session-msgs', JSON.stringify([initialMsg]));
+    setMessages([welcomeMsg]);
   }, [pathname]);
 
-  // Detector DLP de dados sensíveis no input (LGPD)
-  const handleInputChange = useCallback((val: string) => {
+  // Validador DLP no input
+  const handleInputChange = (val: string) => {
     setInputValue(val);
-    const hasCpf = /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/.test(val) || /\b\d{11}\b/.test(val);
-    const hasSenha = /\b(minha senha|minhasenha|password|senha:|token:)\b/i.test(val);
-
-    if (hasCpf) {
-      setSensitiveWarning('⚠️ Atenção LGPD: Evite enviar CPFs de terceiros no chat.');
-    } else if (hasSenha) {
-      setSensitiveWarning('⚠️ Segurança: Nunca compartilhe senhas ou credenciais de acesso.');
+    const cpfRegex = /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/;
+    if (cpfRegex.test(val)) {
+      setSensitiveWarning('⚠️ Atenção LGPD: Evite inserir CPF de clientes ou dados sigilosos no chat.');
     } else {
       setSensitiveWarning(null);
     }
-  }, []);
+  };
 
-  const handleSendMessage = useCallback(async (text: string) => {
-    if (!text.trim()) return;
-    const freshCtx = extractContext();
-    setUserContext(freshCtx);
+  // Disparo de Mensagem
+  const handleSendMessage = useCallback(
+    async (text: string) => {
+      if (!text.trim()) return;
 
-    const userMsg: Message = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: text.trim(),
-      timestamp: new Date(),
-    };
-    setMessages(prev => [...prev, userMsg]);
-    setInputValue('');
-    setIsTyping(true);
+      // Se for ação especial de abrir o modal de IA
+      if (text.includes('Atualizar IT com IA') || text.includes('escrever com IA')) {
+        setIsItModalOpen(true);
+        return;
+      }
 
-    try {
-      const res = await fetch('/api/fiorix-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text.trim(),
-          context: {
-            departamento: freshCtx.itDepartamento || freshCtx.role,
-            itTitulo: freshCtx.itTitulo,
-            itCodigo: freshCtx.itCodigo,
-            itVersao: freshCtx.itVersao,
-            itDepartamento: freshCtx.itDepartamento,
-            itPapel: freshCtx.itPapel,
-            isResponsavel: freshCtx.isResponsavel,
-            pathname,
-          },
-        }),
-      });
+      // Se for ação especial de cobrança por WhatsApp
+      if (text.includes('Cobrar ciências via WhatsApp') || text.includes('Lembrar equipe via WhatsApp')) {
+        const freshCtx = extractContext();
+        const waMsg = encodeURIComponent(
+          `*Prezado(a) Colega,*\n\nLembramos da importância de registrar a sua ciência formal na Instrução de Trabalho *"${freshCtx.itTitulo || 'Vigente'}"* no sistema FIORIX (conforme Provimento CNJ 213/2026).\n\n👉 Acesse agora: https://fiorix.app/minha-it\n\nAtenciosamente,\n7º Registro de Imóveis de São Paulo`
+        );
+        window.open(`https://wa.me/?text=${waMsg}`, '_blank');
+        return;
+      }
 
-      const data = await res.json();
-      const reply = data.reply || data.error || getQuickReply(text, freshCtx);
-
-      const agentMsg: Message = {
-        id: `agent-${Date.now()}`,
-        role: 'agent',
-        content: reply,
+      const userMsg: Message = {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: text.trim(),
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, agentMsg]);
-    } catch {
-      const agentMsg: Message = {
-        id: `agent-${Date.now()}`,
-        role: 'agent',
-        content: getQuickReply(text, freshCtx),
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, agentMsg]);
-    } finally {
-      setIsTyping(false);
-    }
-  }, [pathname]);
 
-  const handleSuggestionClick = useCallback((suggestion: string) => {
-    handleSendMessage(suggestion);
-  }, [handleSendMessage]);
+      setMessages((prev) => [...prev, userMsg]);
+      setInputValue('');
+      setSensitiveWarning(null);
+      setIsTyping(true);
 
-  const handleSubmit = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    handleSendMessage(inputValue);
-  }, [inputValue, handleSendMessage]);
+      const freshCtx = extractContext();
+      setUserContext(freshCtx);
+
+      try {
+        const res = await fetch('/api/fiorix-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text.trim(),
+            context: {
+              departamento: freshCtx.itDepartamento || freshCtx.role,
+              itTitulo: freshCtx.itTitulo,
+              itCodigo: freshCtx.itCodigo,
+              itVersao: freshCtx.itVersao,
+              itDepartamento: freshCtx.itDepartamento,
+              itPapel: freshCtx.itPapel,
+              isResponsavel: freshCtx.isResponsavel,
+              pathname,
+            },
+          }),
+        });
+
+        const data = await res.json();
+        const reply = data.reply || data.error || getQuickReply(text, freshCtx);
+
+        const agentMsg: Message = {
+          id: `agent-${Date.now()}`,
+          role: 'agent',
+          content: reply,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, agentMsg]);
+
+        // Síntese de voz automática se habilitada
+        if (!isVoiceMuted) {
+          speakText(reply, {
+            onStart: () => setIsSpeaking(true),
+            onEnd: () => setIsSpeaking(false),
+            onError: () => setIsSpeaking(false),
+          });
+        }
+      } catch {
+        const fallbackReply = getQuickReply(text, freshCtx);
+        const agentMsg: Message = {
+          id: `agent-${Date.now()}`,
+          role: 'agent',
+          content: fallbackReply,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, agentMsg]);
+
+        if (!isVoiceMuted) {
+          speakText(fallbackReply, {
+            onStart: () => setIsSpeaking(true),
+            onEnd: () => setIsSpeaking(false),
+            onError: () => setIsSpeaking(false),
+          });
+        }
+      } finally {
+        setIsTyping(false);
+      }
+    },
+    [pathname, isVoiceMuted]
+  );
+
+  const handleSuggestionClick = useCallback(
+    (suggestion: string) => {
+      handleSendMessage(suggestion);
+    },
+    [handleSendMessage]
+  );
+
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      handleSendMessage(inputValue);
+    },
+    [inputValue, handleSendMessage]
+  );
 
   if (!isVisible && !isChatOpen) return null;
 
-  const suggestions = getSuggestions(pathname);
+  const suggestions = getSuggestions(pathname, userContext);
 
-  // Classes de posicionamento dinâmico
-  const positionClasses = position === 'left'
-    ? 'bottom-6 left-4 lg:left-72 items-start'
-    : 'bottom-6 right-4 lg:right-6 items-end';
+  const positionClasses =
+    position === 'left' ? 'bottom-6 left-4 lg:left-72 items-start' : 'bottom-6 right-4 lg:right-6 items-end';
 
-  const chatPositionClasses = position === 'left'
-    ? 'bottom-6 left-4 lg:left-72'
-    : 'bottom-6 right-4 lg:right-6';
+  const chatPositionClasses =
+    position === 'left' ? 'bottom-6 left-4 lg:left-72' : 'bottom-6 right-4 lg:right-6';
 
   return (
     <>
@@ -598,15 +715,20 @@ export function FiorixAgent() {
       {/* ─── Avatar Flutuante ─── */}
       {isVisible && !isChatOpen && (
         <div className={`fixed ${positionClasses} z-[9998] flex flex-col gap-2 fiorix-slide-up select-none`}>
-          {/* Bubble de mensagem */}
+          {/* Bubble de mensagem proativa */}
           {showBubble && (
             <div className="fiorix-bubble-in relative mb-1">
-              <div className="bg-white border border-[#e5e7eb] rounded-2xl p-4 shadow-2xl max-w-[290px]">
-                {/* Header */}
+              <div className="bg-white border border-[#e5e7eb] rounded-2xl p-4 shadow-2xl max-w-[300px]">
+                {/* Header da Bubble */}
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-bold text-[#7c3aed] uppercase tracking-wider">FIORIX • IA</span>
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    {complianceWarning && (
+                      <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-700 border border-amber-500/30">
+                        Compliance
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
                     <button
@@ -629,19 +751,33 @@ export function FiorixAgent() {
                   </div>
                 </div>
 
-                {/* Mensagem */}
+                {/* Mensagem Proativa */}
                 <p className="text-[12px] text-[#374151] leading-relaxed mb-3">
-                  {getContextMessage(pathname, userContext)}
+                  {complianceWarning
+                    ? '⚠️ Esta IT está sem revisão há mais de 30 dias. Deseja que eu auxilie na reestruturação e atualização da rotina com IA?'
+                    : getContextMessage(pathname, userContext)}
                 </p>
 
-                {/* Botões de ação */}
+                {/* Botões de Ação */}
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={openChat}
-                    className="bg-gradient-to-r from-[#facc15] to-[#f59e0b] text-[#111827] font-bold rounded-full px-4 py-1.5 text-[12px] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm"
-                  >
-                    Tirar dúvida 😊
-                  </button>
+                  {complianceWarning ? (
+                    <button
+                      onClick={() => {
+                        setShowBubble(false);
+                        setIsItModalOpen(true);
+                      }}
+                      className="bg-gradient-to-r from-amber-500 to-amber-600 text-black font-bold rounded-full px-3.5 py-1.5 text-[11.5px] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm"
+                    >
+                      ✨ Atualizar com IA
+                    </button>
+                  ) : (
+                    <button
+                      onClick={openChat}
+                      className="bg-gradient-to-r from-[#facc15] to-[#f59e0b] text-[#111827] font-bold rounded-full px-4 py-1.5 text-[12px] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm"
+                    >
+                      Tirar dúvida 😊
+                    </button>
+                  )}
                   <button
                     onClick={dismissBubble}
                     className="text-[11px] text-[#9ca3af] hover:text-[#4b5563] transition-colors px-2 py-1"
@@ -656,13 +792,24 @@ export function FiorixAgent() {
             </div>
           )}
 
-          {/* Botão do Avatar */}
+          {/* Botão do Avatar com Aura de Voz e Ponto de Compliance */}
           <button
             onClick={openChat}
             className="relative group fiorix-float focus:outline-none"
             aria-label="Abrir assistente FIORIX IA"
           >
-            <div className="w-[62px] h-[62px] rounded-2xl border-[2.5px] border-[#facc15] shadow-lg shadow-yellow-500/20 bg-white overflow-hidden transition-transform group-hover:scale-105">
+            {/* Aura Sonora se estiver falando */}
+            {isSpeaking && (
+              <span className="absolute -inset-2 rounded-3xl bg-[#facc15]/30 animate-ping pointer-events-none" />
+            )}
+
+            <div
+              className={`w-[62px] h-[62px] rounded-2xl border-[2.5px] bg-white overflow-hidden transition-all group-hover:scale-105 ${
+                isSpeaking
+                  ? 'border-[#facc15] shadow-[0_0_20px_rgba(250,204,21,0.6)] ring-4 ring-[#facc15]/40'
+                  : 'border-[#facc15] shadow-lg shadow-yellow-500/20'
+              }`}
+            >
               <Image
                 src="/fiorix-avatar.jpg"
                 alt="FIORIX IA"
@@ -672,18 +819,27 @@ export function FiorixAgent() {
                 priority
               />
             </div>
+
             {/* Dot online */}
             <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white shadow-xs" />
+
+            {/* Alerta de Compliance no topo do avatar */}
+            {complianceWarning && (
+              <span
+                className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-400 border-2 border-white animate-pulse"
+                title="Revisão periódica de IT recomendada"
+              />
+            )}
           </button>
 
           {/* Badge */}
-          <span className="bg-[#7c3aed] text-white rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-sm">
-            FIORIX • IA
+          <span className="bg-[#7c3aed] text-white rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-sm flex items-center gap-1">
+            {isSpeaking ? '🔊 FALANDO...' : 'FIORIX • IA'}
           </span>
         </div>
       )}
 
-      {/* ─── Chat Minimizado (Barra Dock Discreta) ─── */}
+      {/* ─── Chat Minimizado (Barra Dock) ─── */}
       {isChatOpen && isMinimized && (
         <div className={`fixed ${chatPositionClasses} z-[9999] fiorix-chat-in select-none`}>
           <div className="bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] text-white rounded-2xl shadow-xl px-3.5 py-2 flex items-center gap-2.5 border border-white/20">
@@ -719,7 +875,11 @@ export function FiorixAgent() {
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
               </button>
               <button
-                onClick={() => { setIsMinimized(false); setIsChatOpen(false); }}
+                onClick={() => {
+                  setIsMinimized(false);
+                  setIsChatOpen(false);
+                  stopSpeaking();
+                }}
                 className="p-1 hover:bg-white/15 rounded-md text-white/80 hover:text-white transition-all"
                 title="Fechar"
                 aria-label="Fechar"
@@ -734,32 +894,67 @@ export function FiorixAgent() {
       {/* ─── Chat Expandido ─── */}
       {isChatOpen && !isMinimized && (
         <div className={`fixed ${chatPositionClasses} z-[9999] fiorix-chat-in`}>
-          <div className={`${
-            isExpanded ? 'w-[360px] sm:w-[500px] max-h-[640px]' : 'w-[340px] sm:w-[365px] max-h-[490px]'
-          } bg-white rounded-3xl shadow-2xl border border-[#e5e7eb] flex flex-col overflow-hidden transition-all duration-300 ease-in-out`}>
+          <div
+            className={`${
+              isExpanded ? 'w-[360px] sm:w-[500px] max-h-[640px]' : 'w-[340px] sm:w-[375px] max-h-[500px]'
+            } bg-white rounded-3xl shadow-2xl border border-[#e5e7eb] flex flex-col overflow-hidden transition-all duration-300 ease-in-out`}
+          >
             {/* Chat Header */}
             <div className="bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 py-3 flex items-center gap-2.5 shrink-0 select-none">
               <div className="relative shrink-0">
-                <div className="w-9 h-9 rounded-xl border-2 border-white/30 bg-white overflow-hidden">
+                <div
+                  className={`w-9 h-9 rounded-xl border-2 bg-white overflow-hidden transition-all ${
+                    isSpeaking ? 'border-amber-300 ring-2 ring-amber-300' : 'border-white/30'
+                  }`}
+                >
                   <Image src="/fiorix-avatar.jpg" alt="FIORIX" width={36} height={36} className="w-full h-full object-cover" />
                 </div>
                 <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-[1.5px] border-[#7c3aed]" />
               </div>
+
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <h3 className="text-white text-xs font-bold leading-tight">FIORIX • IA</h3>
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 uppercase tracking-wide">
+                    Nível 4
+                  </span>
                 </div>
                 <p className="text-white/70 text-[10px] truncate leading-tight mt-0.5">
                   {getHeaderSubtitle(pathname, userContext)}
                 </p>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                {/* Botão de nova conversa / limpar */}
+
+              <div className="flex items-center gap-0.5 shrink-0">
+                {/* Botão de Toggle de Mudo / Áudio */}
+                <button
+                  onClick={handleToggleMute}
+                  className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all ${
+                    isVoiceMuted ? 'text-white/40 hover:text-white/80' : 'text-amber-300 hover:bg-white/15'
+                  }`}
+                  title={isVoiceMuted ? 'Ativar fala com voz do FIORIX' : 'Silenciar voz do FIORIX'}
+                  aria-label={isVoiceMuted ? 'Ativar voz' : 'Silenciar'}
+                >
+                  {isVoiceMuted ? (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                      <line x1="23" y1="9" x2="17" y2="15" />
+                      <line x1="17" y1="9" x2="23" y2="15" />
+                    </svg>
+                  ) : (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                    </svg>
+                  )}
+                </button>
+
+                {/* Botão de limpar conversa */}
                 <button
                   onClick={handleClearChat}
                   className="w-7 h-7 flex items-center justify-center text-white/75 hover:text-white hover:bg-white/15 rounded-lg transition-all"
-                  title="Nova conversa / Limpar chat"
+                  title="Limpar histórico da conversa"
                   aria-label="Nova conversa"
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -769,12 +964,12 @@ export function FiorixAgent() {
                     <path d="M8 16H3v5" />
                   </svg>
                 </button>
-                {/* Botão de expandir / restaurar tamanho */}
+
+                {/* Botão de expandir */}
                 <button
-                  onClick={() => setIsExpanded(prev => !prev)}
+                  onClick={() => setIsExpanded((prev) => !prev)}
                   className="w-7 h-7 flex items-center justify-center text-white/75 hover:text-white hover:bg-white/15 rounded-lg transition-all"
                   title={isExpanded ? 'Restaurar tamanho compacto' : 'Expandir tamanho do chat'}
-                  aria-label={isExpanded ? 'Restaurar' : 'Expandir'}
                 >
                   {isExpanded ? (
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -786,32 +981,38 @@ export function FiorixAgent() {
                     </svg>
                   )}
                 </button>
+
                 {/* Botão de mover lado */}
                 <button
                   onClick={togglePosition}
                   className="w-7 h-7 flex items-center justify-center text-white/75 hover:text-white hover:bg-white/15 rounded-lg transition-all"
-                  title={position === 'right' ? 'Mover para esquerda (não cobrir a IT)' : 'Mover para direita'}
-                  aria-label="Mover lado do chat"
+                  title={position === 'right' ? 'Mover para a esquerda' : 'Mover para a direita'}
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M8 3L4 7l4 4" /><path d="M4 7h16" /><path d="M16 21l4-4-4-4" /><path d="M20 17H4" />
                   </svg>
                 </button>
+
                 {/* Botão de minimizar */}
                 <button
-                  onClick={() => setIsMinimized(true)}
-                  className="w-7 h-7 flex items-center justify-center text-white/75 hover:text-white hover:bg-white/15 rounded-lg transition-all text-xs font-bold"
-                  title="Minimizar chat"
-                  aria-label="Minimizar chat"
+                  onClick={() => {
+                    setIsMinimized(true);
+                    stopSpeaking();
+                  }}
+                  className="w-7 h-7 flex items-center justify-center text-white/75 hover:text-white hover:bg-white/15 rounded-lg transition-all"
+                  title="Minimizar"
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12" /></svg>
                 </button>
+
                 {/* Botão de fechar */}
                 <button
-                  onClick={() => setIsChatOpen(false)}
+                  onClick={() => {
+                    setIsChatOpen(false);
+                    stopSpeaking();
+                  }}
                   className="w-7 h-7 flex items-center justify-center text-white/75 hover:text-white hover:bg-white/15 rounded-lg transition-all"
-                  title="Fechar chat"
-                  aria-label="Fechar chat"
+                  title="Fechar"
                 >
                   <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
                 </button>
@@ -819,17 +1020,39 @@ export function FiorixAgent() {
             </div>
 
             {/* Chat Messages */}
-            <div className={`flex-1 overflow-y-auto p-3.5 space-y-2.5 min-h-[180px] ${
-              isExpanded ? 'max-h-[440px]' : 'max-h-[290px]'
-            } bg-[#fafafa] transition-all duration-300`}>
+            <div
+              className={`flex-1 overflow-y-auto p-3.5 space-y-2.5 min-h-[180px] ${
+                isExpanded ? 'max-h-[440px]' : 'max-h-[290px]'
+              } bg-[#fafafa] transition-all duration-300`}
+            >
               {messages.map((msg) => (
-                <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[88%] px-3.5 py-2 text-[12.5px] leading-relaxed ${
-                    msg.role === 'user'
-                      ? 'bg-[#7c3aed] text-white rounded-2xl rounded-br-sm'
-                      : 'bg-white text-[#374151] border border-[#e5e7eb] rounded-2xl rounded-bl-sm shadow-xs'
-                  }`}>
+                <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                  <div
+                    className={`max-w-[88%] px-3.5 py-2 text-[12.5px] leading-relaxed ${
+                      msg.role === 'user'
+                        ? 'bg-[#7c3aed] text-white rounded-2xl rounded-br-sm'
+                        : 'bg-white text-[#374151] border border-[#e5e7eb] rounded-2xl rounded-bl-sm shadow-xs'
+                    }`}
+                  >
                     {renderFormattedMessage(msg.content, msg.role === 'user')}
+
+                    {/* Botão de ouvir resposta individual */}
+                    {msg.role === 'agent' && (
+                      <div className="mt-1 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleSpeakMessage(msg.content)}
+                          className="text-[10px] text-slate-400 hover:text-[#7c3aed] flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Ouvir resposta com voz"
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                            <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                          </svg>
+                          <span>Ouvir</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -847,20 +1070,29 @@ export function FiorixAgent() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Suggestions */}
-            {messages.length <= 1 && (
-              <div className="px-3.5 pb-2 flex flex-wrap gap-1 shrink-0 bg-[#fafafa]">
-                {suggestions.map((s) => (
+            {/* Suggestions e Chips Rápidos */}
+            <div className="px-3.5 pb-2 flex flex-wrap gap-1.5 shrink-0 bg-[#fafafa]">
+              {suggestions.map((s) => {
+                const isIaAction = s.includes('✨');
+                const isWaAction = s.includes('📲');
+
+                return (
                   <button
                     key={s}
                     onClick={() => handleSuggestionClick(s)}
-                    className="text-[11px] bg-[#f3f4f6] hover:bg-[#facc15] hover:text-[#111827] text-[#4b5563] px-2.5 py-1 rounded-full transition-all font-medium border border-transparent hover:border-[#f59e0b]/30"
+                    className={`text-[11px] px-2.5 py-1 rounded-full transition-all font-semibold flex items-center gap-1 cursor-pointer ${
+                      isIaAction
+                        ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-black shadow-xs hover:scale-105'
+                        : isWaAction
+                        ? 'bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/25'
+                        : 'bg-[#f3f4f6] hover:bg-[#facc15] hover:text-[#111827] text-[#4b5563]'
+                    }`}
                   >
                     {s}
                   </button>
-                ))}
-              </div>
-            )}
+                );
+              })}
+            </div>
 
             {/* DLP Sensitive Data Warning Banner */}
             {sensitiveWarning && (
@@ -869,7 +1101,7 @@ export function FiorixAgent() {
               </div>
             )}
 
-            {/* Input */}
+            {/* Input Form com Microfone */}
             <form onSubmit={handleSubmit} className="p-2.5 border-t border-[#e5e7eb] shrink-0 bg-white">
               <div className="flex items-center gap-1.5">
                 <input
@@ -877,27 +1109,82 @@ export function FiorixAgent() {
                   type="text"
                   value={inputValue}
                   onChange={(e) => handleInputChange(e.target.value)}
-                  placeholder="Pergunte ao FIORIX..."
-                  className="flex-1 h-9 rounded-full border border-[#e5e7eb] px-3.5 text-[13px] text-[#111827] placeholder:text-[#9ca3af] focus:border-[#facc15] focus:ring-2 focus:ring-[#facc15]/20 focus:outline-none transition-all bg-[#fafafa]"
+                  placeholder={isListening ? '🎙️ Ouvindo... Fale agora' : 'Pergunte ao FIORIX...'}
+                  className={`flex-1 h-9 rounded-full border px-3.5 text-[13px] text-[#111827] placeholder:text-[#9ca3af] focus:outline-none transition-all ${
+                    isListening
+                      ? 'border-red-400 bg-red-500/5 ring-2 ring-red-400/20'
+                      : 'border-[#e5e7eb] bg-[#fafafa] focus:border-[#facc15] focus:ring-2 focus:ring-[#facc15]/20'
+                  }`}
                   disabled={isTyping}
                 />
+
+                {/* Botão de Microfone */}
+                <button
+                  type="button"
+                  onClick={handleToggleMic}
+                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-all shrink-0 cursor-pointer ${
+                    isListening
+                      ? 'bg-red-500 text-white animate-pulse shadow-md shadow-red-500/30'
+                      : 'bg-white hover:bg-slate-100 border border-[#e5e7eb] text-slate-600 hover:text-black'
+                  }`}
+                  title={isListening ? 'Parar captura de voz' : 'Falar com FIORIX (Voz)'}
+                  aria-label="Microfone"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" y1="19" x2="12" y2="23" />
+                    <line x1="8" y1="23" x2="16" y2="23" />
+                  </svg>
+                </button>
+
+                {/* Botão de Enviar */}
                 <button
                   type="submit"
                   disabled={!inputValue.trim() || isTyping}
-                  className="w-9 h-9 rounded-full bg-gradient-to-r from-[#facc15] to-[#f59e0b] flex items-center justify-center text-[#111827] disabled:opacity-35 hover:scale-105 active:scale-95 transition-all shadow-xs shrink-0"
+                  className="w-9 h-9 rounded-full bg-gradient-to-r from-[#facc15] to-[#f59e0b] flex items-center justify-center text-[#111827] disabled:opacity-35 hover:scale-105 active:scale-95 transition-all shadow-xs shrink-0 cursor-pointer"
                   aria-label="Enviar mensagem"
                 >
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4 20-7z" /></svg>
                 </button>
               </div>
-              <div className="mt-1.5 flex items-center justify-center gap-1 text-[10px] text-[#9ca3af] select-none">
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                <span>Canal seguro & confidencial • 7º RISP</span>
+
+              <div className="mt-1.5 flex items-center justify-between text-[10px] text-[#9ca3af] px-1 select-none">
+                <span className="flex items-center gap-1">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  Canal seguro & confidencial • 7º RISP
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsItModalOpen(true)}
+                  className="text-amber-600 hover:text-amber-700 font-bold underline"
+                >
+                  ✨ Escrever IT com IA
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* ─── Modal de Escrita de IT com IA (Nível 4) ─── */}
+      <ItGeneratorModal
+        isOpen={isItModalOpen}
+        onClose={() => setIsItModalOpen(false)}
+        itId={userContext.itId}
+        itCodigo={userContext.itCodigo}
+        itTitulo={userContext.itTitulo}
+        itVersao={userContext.itVersao}
+        onSuccess={() => {
+          const successMsg: Message = {
+            id: `agent-success-${Date.now()}`,
+            role: 'agent',
+            content: '🎉 Sua proposta de atualização de IT foi gerada com IA e enviada com sucesso ao Oficial Substituto para homologação formal!',
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, successMsg]);
+        }}
+      />
     </>
   );
 }

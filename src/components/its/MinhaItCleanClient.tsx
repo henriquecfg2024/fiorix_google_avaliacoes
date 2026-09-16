@@ -1172,6 +1172,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
 
         <main
+          data-it-id={currentIt.id}
           data-it-titulo={currentIt.titulo}
           data-it-codigo={currentIt.codigo}
           data-it-versao={currentIt.versao}
