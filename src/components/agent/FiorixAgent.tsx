@@ -68,7 +68,7 @@ function getHeaderSubtitle(pathname: string, ctx: UserContext): string {
   if (pathname.startsWith('/avaliacoes')) return 'Avaliações Google • Online';
   if (pathname.startsWith('/gestao') || pathname.startsWith('/sistema')) return 'Gestão e RH • Online';
   if (pathname.startsWith('/minha-conta')) return 'Minha Conta • Online';
-  return 'FIORIX • IA • Nível 4';
+  return 'FIORIX • IA • Online';
 }
 
 // ─── Ícones temáticos por Rota ────────────────────
@@ -916,9 +916,6 @@ export function FiorixAgent() {
                 <div className="flex items-center gap-1.5">
                   <h3 className="text-white text-xs font-bold leading-tight">FIORIX • IA</h3>
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 uppercase tracking-wide">
-                    Nível 4
-                  </span>
                 </div>
                 <p className="text-white/70 text-[10px] truncate leading-tight mt-0.5">
                   {getHeaderSubtitle(pathname, userContext)}
