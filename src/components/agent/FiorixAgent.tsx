@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -236,7 +236,7 @@ function getSuggestions(pathname: string, ctx: UserContext): string[] {
   const isGestao = ['SUBSTITUTO', 'ADMIN', 'MASTER'].includes(String(ctx.role || '').toUpperCase());
 
   if (pathname.startsWith('/minha-it')) {
-    const list = ['✨ Atualizar IT com IA', 'O que é ciência?', 'Ver ciências da equipe'];
+    const list = ['✨ Atualizar Minha IT', 'O que é ciência?', 'Ver ciências da equipe'];
     if (isGestao) list.push('📲 Cobrar ciências via WhatsApp');
     return list;
   }
@@ -294,8 +294,8 @@ function getQuickReply(question: string, ctx?: UserContext): string {
     return `Nesta IT, seu papel é **${ctx?.itPapel || 'Colaborador'}**. O responsável técnico é encarregado da gestão e atualização periódica do documento.\n\n👉 [Acessar Minha IT](/minha-it) 👤`;
   }
 
-  if (q.includes('atualizar it') || q.includes('escrever it') || q.includes('nova versão') || q.includes('gerar it')) {
-    return 'Você pode atualizar a sua IT em poucos segundos utilizando nossa inteligência artificial! Basta clicar no botão **"✨ Atualizar IT com IA"** aqui no chat ou no card da Minha IT para descrever a nova rotina e gerar o rascunho formatado.';
+  if (q.includes('atualizar it') || q.includes('escrever it') || q.includes('nova versão') || q.includes('gerar it') || q.includes('atualizar minha it')) {
+    return 'Para atualizar a sua IT e publicar uma nova versão oficial com novo Hash SHA-256, basta clicar na ação **"✨ Atualizar Minha IT"** aqui no chat ou no botão **"+ Criar nova versão"** no topo da página.\n\n👉 [Ir para Minha IT](/minha-it) 📄✨';
   }
 
   if (q.includes('ciência') || q.includes('ciencias')) {
@@ -308,6 +308,7 @@ function getQuickReply(question: string, ctx?: UserContext): string {
 // ─── Componente Principal ─────────────────────────
 export function FiorixAgent() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isVisible, setIsVisible] = useState(false);
   const [showBubble, setShowBubble] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -589,10 +590,29 @@ export function FiorixAgent() {
     async (text: string) => {
       if (!text.trim()) return;
 
-      // Se for ação especial de abrir o modal de IA
-      if (text.includes('Atualizar IT com IA') || text.includes('escrever com IA')) {
-        setIsItModalOpen(true);
-        return;
+      // Se for ação de Atualizar IT / Criar Nova Versão Oficial
+      const lower = text.toLowerCase();
+      if (
+        lower.includes('atualizar minha it') ||
+        lower.includes('atualizar it com ia') ||
+        lower.includes('atualizar it') ||
+        lower.includes('criar nova versão') ||
+        lower.includes('criar nova versao') ||
+        lower.includes('nova versão')
+      ) {
+        if (pathname.startsWith('/minha-it')) {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('fiorix-abrir-nova-versao'));
+          }
+          setIsMinimized(true);
+          stopSpeaking();
+          return;
+        } else {
+          router.push('/minha-it?nova_versao=true');
+          setIsMinimized(true);
+          stopSpeaking();
+          return;
+        }
       }
 
       // Se for ação especial de cobrança por WhatsApp
@@ -792,11 +812,21 @@ export function FiorixAgent() {
                     <button
                       onClick={() => {
                         setShowBubble(false);
-                        setIsItModalOpen(true);
+                        if (pathname.startsWith('/minha-it')) {
+                          if (typeof window !== 'undefined') {
+                            window.dispatchEvent(new CustomEvent('fiorix-abrir-nova-versao'));
+                          }
+                          setIsMinimized(true);
+                          stopSpeaking();
+                        } else {
+                          router.push('/minha-it?nova_versao=true');
+                          setIsMinimized(true);
+                          stopSpeaking();
+                        }
                       }}
                       className="bg-gradient-to-r from-amber-500 to-amber-600 text-black font-bold rounded-full px-3.5 py-1.5 text-[11.5px] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm"
                     >
-                      ✨ Atualizar com IA
+                      ✨ Atualizar Minha IT
                     </button>
                   ) : (
                     <button

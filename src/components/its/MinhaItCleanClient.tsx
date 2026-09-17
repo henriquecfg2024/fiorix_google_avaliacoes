@@ -349,6 +349,32 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
     }
   }, [isModalOpen, currentIt?.titulo]);
 
+  // Listener do evento disparado pelo FIORIX • IA para abrir "Criar Nova Versão"
+  useEffect(() => {
+    const handleAbrirNovaVersao = () => {
+      if (!isSupervisao) {
+        setIsModalOpen(true);
+      }
+    };
+    window.addEventListener('fiorix-abrir-nova-versao', handleAbrirNovaVersao);
+    return () => window.removeEventListener('fiorix-abrir-nova-versao', handleAbrirNovaVersao);
+  }, [isSupervisao]);
+
+  // Abertura automática ao carregar ou redirecionar com ?nova_versao=true
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('nova_versao') === 'true') {
+        if (!isSupervisao) {
+          setIsModalOpen(true);
+        }
+        params.delete('nova_versao');
+        const newSearch = params.toString() ? `?${params.toString()}` : '';
+        window.history.replaceState({}, '', `${window.location.pathname}${newSearch}`);
+      }
+    }
+  }, [isSupervisao]);
+
   // Modal de Cadastro de IT pelo Colaborador
   const [isCadastroOpen, setIsCadastroOpen] = useState(false);
   const [cadastroTitulo, setCadastroTitulo] = useState('');
@@ -1336,7 +1362,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
       {isModalOpen && (
 
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
 
           <div className="bg-[#0B1020] w-full max-w-lg rounded-3xl border border-white/12 shadow-[0_25px_70px_rgba(0,0,0,0.6)] p-6 space-y-5 relative text-white animate-in fade-in zoom-in-95 duration-200">
 
