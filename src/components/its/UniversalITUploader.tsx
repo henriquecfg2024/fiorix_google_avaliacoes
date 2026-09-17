@@ -17,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { getITUploadSignedUrl } from '@/app/actions/its';
+import { uploadItPdfDirectly } from '@/lib/it-upload-helper';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
@@ -79,22 +80,9 @@ export function UniversalITUploader({ onParseSuccess, onCancel }: UniversalITUpl
         else if (['jpg', 'jpeg', 'png', 'webp', 'heic'].includes(ext)) tipoDetectado = 'imagem-fluxograma';
         else tipoDetectado = ext || 'texto';
 
-        // 3. Upload direto para Supabase Storage via endpoint seguro do servidor
+        // 3. Upload direto para Supabase Storage via Signed URL
         setStatusMessage('Enviando documento para armazenamento seguro...');
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('codigo', 'IT');
-
-        const uploadRes = await fetch('/api/its/upload-pdf', {
-          method: 'POST',
-          body: formData,
-        });
-
-        const uploadJson = await uploadRes.json();
-        if (!uploadRes.ok || !uploadJson.success) {
-          throw new Error(uploadJson.error || `Falha no upload do arquivo (${uploadRes.status})`);
-        }
-
+        const uploadJson = await uploadItPdfDirectly(file, 'IT');
         arquivoOriginalUrl = uploadJson.publicUrl;
       } else if (textHtml) {
         tipoDetectado = 'email-arraste-direto';

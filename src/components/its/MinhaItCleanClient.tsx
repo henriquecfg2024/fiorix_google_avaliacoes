@@ -52,6 +52,7 @@ import {
 import { MinhaItPageData, MinhaItCustodiaItem, ItEnviadaColaborador, publicarNovaVersaoIT, submeterItColaborador } from '@/app/actions/minha-it';
 
 import { getITUploadSignedUrl, cancelarEnvioIt, excluirRascunhoIt, getParticipantesIt, adicionarParticipanteIt, removerParticipanteIt, transferirResponsabilidadeIt, buscarColaboradoresParaVincular, ItParticipante, PapelNaIt, criarPropostaAtualizacao, getPropostasIt, responderPropostaAtualizacao, cancelarProposta, ItProposta, getNotificacoesUsuario, marcarNotificacaoLida, marcarTodasNotificacoesLidas, FiorixNotificacao } from '@/app/actions/its';
+import { uploadItPdfDirectly } from '@/lib/it-upload-helper';
 
 import { AlertaResponsavelTecnico } from './AlertaResponsavelTecnico';
 import { CienciasDrawer } from './CienciasDrawer';
@@ -512,80 +513,38 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
 
     try {
-
-      const formData = new FormData();
-
-      formData.append('file', selectedFile);
-
-      formData.append('itId', currentIt.id);
-
-      formData.append('codigo', currentIt.codigo);
-
-      formData.append('novaVersao', nextVersao);
-
-      formData.append('hashSha256', fileHash || currentIt.hashVersao);
-
-      formData.append('resumoMudancas', resumoMudancas);
-
-      formData.append('titulo', tituloLimpo.toUpperCase());
-
-
-
-      const res = await fetch('/api/its/upload', {
-
-        method: 'POST',
-
-        body: formData,
-
+      const uploadRes = await uploadItPdfDirectly(selectedFile, currentIt.codigo);
+      const pubRes = await publicarNovaVersaoIT({
+        itId: currentIt.id,
+        codigo: currentIt.codigo,
+        novaVersao: nextVersao,
+        pdfPath: uploadRes.storagePath,
+        hashSha256: fileHash || currentIt.hashVersao,
+        resumoMudancas,
+        titulo: tituloLimpo.toUpperCase(),
       });
 
-
-
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-
-        throw new Error(data.error || 'Falha ao processar publicação da nova versão.');
-
+      if (!pubRes.success) {
+        throw new Error(pubRes.error || 'Falha ao processar publicação da nova versão.');
       }
 
-
-
       setUploadSuccess(true);
-
       setTimeout(() => {
-
         setIsModalOpen(false);
-
         setSelectedFile(null);
-
         setFileHash('');
-
         setResumoMudancas('');
-
         setConfirmouRevisao(false);
-
         setUploadSuccess(false);
-
         router.refresh();
-
       }, 1500);
-
     } catch (err: any) {
-
       console.error('Erro na publicação:', err);
-
       setUploadError(err?.message || 'Erro inesperado durante a publicação.');
-
     } finally {
-
       setIsUploading(false);
-
     }
-
   }
-
-
 
   // Handlers do Cadastro pelo Colaborador
   async function handleCadastroFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -606,17 +565,12 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
     setCadastroSubmitting(true);
     setCadastroError('');
     try {
-      const fd = new FormData();
-      fd.append('file', cadastroFile);
-      fd.append('codigo', 'COL-NOVO');
-      const uploadRes = await fetch('/api/its/upload-pdf', { method: 'POST', body: fd });
-      const uploadData = await uploadRes.json();
-      if (!uploadRes.ok || !uploadData.success) throw new Error(uploadData.error || 'Falha no upload do PDF.');
+      const uploadRes = await uploadItPdfDirectly(cadastroFile, 'COL-NOVO');
       const result = await submeterItColaborador({
         titulo: cadastroTitulo.trim(),
         objetivo: cadastroObjetivo.trim(),
-        pdfPath: uploadData.storagePath,
-        pdfUrl: uploadData.publicUrl,
+        pdfPath: uploadRes.storagePath,
+        pdfUrl: uploadRes.publicUrl,
       });
       if (!result.success) throw new Error(result.error || 'Erro ao submeter a IT.');
       setCadastroSuccess(true);

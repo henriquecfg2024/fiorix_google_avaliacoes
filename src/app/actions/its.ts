@@ -995,7 +995,7 @@ export async function getITUploadSignedUrl(fileName: string, contentType?: strin
 
     const { data, error } = await supabaseAdmin.storage
       .from('it-documentos')
-      .createSignedUploadUrl(storagePath);
+      .createSignedUploadUrl(storagePath, { upsert: true });
 
     if (error || !data?.signedUrl) {
       console.error('Erro ao gerar Signed URL no Supabase:', error);
@@ -1005,6 +1005,8 @@ export async function getITUploadSignedUrl(fileName: string, contentType?: strin
         signedUrl: '',
         publicUrl: '',
         storagePath: '',
+        token: '',
+        path: '',
       };
     }
 
@@ -1015,6 +1017,8 @@ export async function getITUploadSignedUrl(fileName: string, contentType?: strin
     return {
       success: true,
       signedUrl: data.signedUrl,
+      token: data.token,
+      path: data.path,
       publicUrl: publicUrlData.publicUrl,
       storagePath,
     };
@@ -1026,6 +1030,8 @@ export async function getITUploadSignedUrl(fileName: string, contentType?: strin
       signedUrl: '',
       publicUrl: '',
       storagePath: '',
+      token: '',
+      path: '',
     };
   }
 }

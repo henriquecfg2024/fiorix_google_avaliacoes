@@ -19,6 +19,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (file.size > 4.5 * 1024 * 1024) {
+      return NextResponse.json(
+        { success: false, error: 'O arquivo excede o limite de envio via servidor proxy (4.5 MB). Utilize o envio direto pela nuvem.' },
+        { status: 413 }
+      );
+    }
+
     // Normaliza o nome do arquivo para padrão seguro ASCII
     const safeFileName = (file.name || 'documento.pdf')
       .normalize('NFD')

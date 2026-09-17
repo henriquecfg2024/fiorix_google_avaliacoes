@@ -44,6 +44,7 @@ import {
   getColaboradoresParaCiencia,
   ColaboradorCienciaOption,
 } from '@/app/actions/its';
+import { uploadItPdfDirectly } from '@/lib/it-upload-helper';
 
 // ═══════════════════════════════════════════════════
 // INTERFACES
@@ -271,20 +272,7 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
         let pdfPath: string | undefined;
 
         if (novaItPdfFile) {
-          const formData = new FormData();
-          formData.append('file', novaItPdfFile);
-          formData.append('codigo', novaItForm.codigo || 'IT');
-
-          const uploadRes = await fetch('/api/its/upload-pdf', {
-            method: 'POST',
-            body: formData,
-          });
-
-          const uploadJson = await uploadRes.json();
-          if (!uploadRes.ok || !uploadJson.success) {
-            throw new Error(uploadJson.error || 'Falha no envio do arquivo PDF.');
-          }
-
+          const uploadJson = await uploadItPdfDirectly(novaItPdfFile, novaItForm.codigo || 'IT');
           pdfOriginalUrl = uploadJson.publicUrl;
           pdfPath = uploadJson.storagePath;
         }

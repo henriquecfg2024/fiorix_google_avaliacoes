@@ -51,6 +51,7 @@ import {
   atualizarNivelMatriz,
   toggleColaboradorTutor,
 } from "@/app/actions/its";
+import { uploadItPdfDirectly } from "@/lib/it-upload-helper";
 
 interface ModuloItsClientProps {
   initialData: {
@@ -204,21 +205,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
 
       if (formPdfFile) {
         setUploadingPdf(true);
-        setPdfUploadStatus("Enviando arquivo PDF para o servidor seguro...");
-        const formData = new FormData();
-        formData.append("file", formPdfFile);
-        formData.append("codigo", formCodigo || "IT");
-
-        const uploadRes = await fetch("/api/its/upload-pdf", {
-          method: "POST",
-          body: formData,
-        });
-
-        const uploadJson = await uploadRes.json();
-        if (!uploadRes.ok || !uploadJson.success) {
-          throw new Error(uploadJson.error || `Falha no envio do PDF (${uploadRes.status}).`);
-        }
-
+        const uploadJson = await uploadItPdfDirectly(formPdfFile, formCodigo || "IT");
         finalPdfUrl = uploadJson.publicUrl;
         finalPdfPath = uploadJson.storagePath;
       }
