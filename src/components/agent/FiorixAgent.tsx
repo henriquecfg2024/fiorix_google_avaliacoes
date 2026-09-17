@@ -1146,18 +1146,11 @@ export function FiorixAgent() {
                 </button>
               </div>
 
-              <div className="mt-1.5 flex items-center justify-between text-[10px] text-[#9ca3af] px-1 select-none">
+              <div className="mt-1.5 flex items-center justify-center text-[10px] text-[#9ca3af] px-1 select-none">
                 <span className="flex items-center gap-1">
                   <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                   Canal seguro & confidencial • 7º RISP
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setIsItModalOpen(true)}
-                  className="text-amber-600 hover:text-amber-700 font-bold underline"
-                >
-                  ✨ Escrever IT com IA
-                </button>
               </div>
             </form>
           </div>
