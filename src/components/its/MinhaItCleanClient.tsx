@@ -85,10 +85,60 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
 
   useEffect(() => {
-
     setMounted(true);
-
   }, []);
+
+  // Sincronização inteligente de layout com o FIORIX • IA (Companion Side-by-Side Mode)
+  const [fiorixChatState, setFiorixChatState] = useState<{
+    isOpen: boolean;
+    position: 'right' | 'left';
+    isExpanded: boolean;
+  }>({
+    isOpen: false,
+    position: 'right',
+    isExpanded: false,
+  });
+
+  useEffect(() => {
+    const handleAgentState = (e: Event) => {
+      const customEvent = e as CustomEvent<{ isOpen?: boolean; position?: 'right' | 'left'; isExpanded?: boolean }>;
+      if (customEvent.detail) {
+        setFiorixChatState({
+          isOpen: !!customEvent.detail.isOpen,
+          position: customEvent.detail.position || 'right',
+          isExpanded: !!customEvent.detail.isExpanded,
+        });
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      const isOpen = document.body.getAttribute('data-fiorix-chat') === 'open';
+      let position = (document.body.getAttribute('data-fiorix-side') as 'right' | 'left') || 'right';
+      if (!position) {
+        try {
+          const savedPos = localStorage.getItem('fiorix-agent-pos');
+          if (savedPos === 'left' || savedPos === 'right') position = savedPos;
+        } catch {}
+      }
+      const isExpanded = document.body.getAttribute('data-fiorix-expanded') === 'true';
+      setFiorixChatState({ isOpen, position, isExpanded });
+    }
+
+    window.addEventListener('fiorix-agent-state', handleAgentState);
+    return () => {
+      window.removeEventListener('fiorix-agent-state', handleAgentState);
+    };
+  }, []);
+
+  const companionGutterClass = fiorixChatState.isOpen
+    ? fiorixChatState.position === 'right'
+      ? fiorixChatState.isExpanded
+        ? 'xl:pr-[530px]'
+        : 'xl:pr-[400px]'
+      : fiorixChatState.isExpanded
+      ? 'xl:pl-[530px]'
+      : 'xl:pl-[400px]'
+    : '';
 
 
 
@@ -605,7 +655,8 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
           <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-500/12 via-indigo-500/10 to-cyan-500/8 blur-3xl" />
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
         </div>
-        <div className="relative mx-auto max-w-[900px] px-4 pt-6 pb-12">
+        <div className={`w-full transition-all duration-300 ease-in-out ${companionGutterClass}`}>
+          <div className="relative mx-auto max-w-[900px] px-4 pt-6 pb-12 transition-all duration-300 ease-in-out">
           <div className="mb-6">
             <p className="text-xs font-bold tracking-widest text-teal-400 uppercase mb-1">MEU ESPAÇO</p>
             <div className="flex items-center justify-between">
@@ -786,6 +837,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
               </div>
             </div>
           )}
+          </div>
         </div>
 
         {/* Modal — Propor Atualização */}
@@ -990,9 +1042,10 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
 
 
-      {/* ── Container Unificado Centralizado (Cabeçalho + Alerta + Card Folha A4) ── */}
-
-      <div className="relative mx-auto w-full max-w-[1060px] px-4 sm:px-6 pt-6 pb-12 space-y-5">
+      {/* ── Wrapper Companion Dinâmico para Desobstrução do FIORIX • IA ── */}
+      <div className={`w-full transition-all duration-300 ease-in-out ${companionGutterClass}`}>
+        {/* ── Container Unificado Centralizado (Cabeçalho + Alerta + Card Folha A4) ── */}
+        <div className="relative mx-auto w-full max-w-[960px] px-4 sm:px-6 pt-6 pb-12 space-y-5 transition-all duration-300 ease-in-out">
 
         {/* Banner de Supervisão */}
 
@@ -1275,6 +1328,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
           </main>
 
         </div>
+      </div>
 
 
 

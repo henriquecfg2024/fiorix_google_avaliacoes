@@ -386,6 +386,34 @@ export function FiorixAgent() {
     });
   }, []);
 
+  // Sincroniza estado do agente com o DOM e dispara evento para layout companion (ex: /minha-it)
+  useEffect(() => {
+    const isOpen = isChatOpen && !isMinimized;
+    if (typeof document !== 'undefined') {
+      document.body.setAttribute('data-fiorix-chat', isOpen ? 'open' : 'closed');
+      document.body.setAttribute('data-fiorix-side', position);
+      document.body.setAttribute('data-fiorix-expanded', isExpanded ? 'true' : 'false');
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('fiorix-agent-state', {
+          detail: {
+            isOpen,
+            position,
+            isExpanded,
+          },
+        })
+      );
+    }
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.body.removeAttribute('data-fiorix-chat');
+        document.body.removeAttribute('data-fiorix-side');
+        document.body.removeAttribute('data-fiorix-expanded');
+      }
+    };
+  }, [isChatOpen, isMinimized, position, isExpanded]);
+
   // ─── Compliance Check Proativo em /minha-it ──────
   useEffect(() => {
     if (pathname.startsWith('/minha-it')) {
