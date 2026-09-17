@@ -37,11 +37,11 @@ const nextConfig = {
           },
           {
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()',
+            value: 'camera=(), microphone=(self), geolocation=()',
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleapis.com https://*.gstatic.com; font-src 'self' data:; connect-src 'self' https://*.googleapis.com https://api.openai.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self';",
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleapis.com https://*.gstatic.com https://*.supabase.co https://uvieekfizuzujpwfbjww.supabase.co; font-src 'self' data:; connect-src 'self' https://*.googleapis.com https://api.openai.com https://*.supabase.co https://uvieekfizuzujpwfbjww.supabase.co wss://*.supabase.co; frame-src 'self' blob: data: https://*.supabase.co; frame-ancestors 'none'; object-src 'self' blob: data:; base-uri 'self';",
           },
         ],
       },
