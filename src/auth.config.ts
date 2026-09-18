@@ -7,22 +7,23 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isOnDashboard = nextUrl.pathname.startsWith('/dashboard') || 
-                            nextUrl.pathname.startsWith('/avaliacoes') || 
-                            nextUrl.pathname.startsWith('/estatisticas') ||
-                            nextUrl.pathname.startsWith('/relatorios') ||
-                            nextUrl.pathname.startsWith('/admin') ||
-                            nextUrl.pathname.startsWith('/administracao') ||
-                            nextUrl.pathname.startsWith('/bi') ||
-                            nextUrl.pathname.startsWith('/configuracoes') ||
-                            nextUrl.pathname.startsWith('/pessoas') ||
-                            nextUrl.pathname.startsWith('/sistema') ||
-                            nextUrl.pathname.startsWith('/minha-it') ||
-                            nextUrl.pathname.startsWith('/minha-conta') ||
-                            nextUrl.pathname.startsWith('/gestao') ||
-                            nextUrl.pathname.startsWith('/master') ||
-                            nextUrl.pathname.startsWith('/instrucoes-trabalho');
-                            
+      const isOnDashboard = nextUrl.pathname.startsWith('/dashboard') ||
+        nextUrl.pathname.startsWith('/avaliacoes') ||
+        nextUrl.pathname.startsWith('/estatisticas') ||
+        nextUrl.pathname.startsWith('/relatorios') ||
+        nextUrl.pathname.startsWith('/admin') ||
+        nextUrl.pathname.startsWith('/administracao') ||
+        nextUrl.pathname.startsWith('/bi') ||
+        nextUrl.pathname.startsWith('/configuracoes') ||
+        nextUrl.pathname.startsWith('/pessoas') ||
+        nextUrl.pathname.startsWith('/sistema') ||
+        nextUrl.pathname.startsWith('/minha-it') ||
+        nextUrl.pathname.startsWith('/minha-conta') ||
+        nextUrl.pathname.startsWith('/gestao') ||
+        nextUrl.pathname.startsWith('/master') ||
+        nextUrl.pathname.startsWith('/trajetoria-titulo') ||
+        nextUrl.pathname.startsWith('/instrucoes-trabalho');
+
       if (isOnDashboard) {
         if (!isLoggedIn) return false;
         const role = auth.user.role || 'USER';
@@ -45,6 +46,7 @@ export const authConfig = {
             nextUrl.pathname.startsWith('/pessoas') ||
             nextUrl.pathname === '/minha-conta' ||
             nextUrl.pathname.startsWith('/minha-it') ||
+            nextUrl.pathname.startsWith('/trajetoria-titulo') ||
             nextUrl.pathname.startsWith('/instrucoes-trabalho')
           ) {
             return true;
@@ -59,6 +61,7 @@ export const authConfig = {
             nextUrl.pathname.startsWith('/sistema/pessoas') ||
             nextUrl.pathname === '/minha-conta' ||
             nextUrl.pathname.startsWith('/minha-it') ||
+            nextUrl.pathname.startsWith('/trajetoria-titulo') ||
             nextUrl.pathname.startsWith('/configuracoes/departamentos')
           ) {
             return true;
@@ -72,6 +75,7 @@ export const authConfig = {
             nextUrl.pathname.startsWith('/pessoas') ||
             nextUrl.pathname === '/minha-conta' ||
             nextUrl.pathname.startsWith('/minha-it') ||
+            nextUrl.pathname.startsWith('/trajetoria-titulo') ||
             nextUrl.pathname.startsWith('/instrucoes-trabalho') ||
             nextUrl.pathname.startsWith('/administracao') ||
             nextUrl.pathname.startsWith('/gestao') ||

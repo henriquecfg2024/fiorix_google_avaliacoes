@@ -14,9 +14,9 @@ import {
   Activity,
   UserCheck,
   BookOpen,
-  ShieldCheck,
   Crown,
   Building2,
+  MapPin,
 } from "lucide-react";
 
 export const navigationGroups = {
@@ -107,9 +107,10 @@ export const navigationGroups = {
       },
     ],
   },
-  pessoas: {
-    label: "MEU ESPAÇO",
-    icon: Target,
+  // GRUPO TRABALHO: Operações do dia a dia do colaborador (Missão 4.3.6)
+  trabalho: {
+    label: "TRABALHO",
+    icon: Briefcase,
     items: [
       {
         label: "Comunicados",
@@ -117,6 +118,25 @@ export const navigationGroups = {
         icon: FileText,
         description: "Mural interno e minhas ciências",
       },
+      {
+        label: "Minha IT",
+        href: "/minha-it",
+        icon: BookOpen,
+        description: "Instrução oficial • Responsável Técnico",
+      },
+      {
+        label: "Rastreio do Título",
+        href: "/trajetoria-titulo",
+        icon: MapPin,
+        description: "Última localização e situação do protocolo",
+      },
+    ],
+  },
+  // MEU ESPAÇO: apenas itens pessoais (Comunicados e Minha IT migraram para o grupo 'trabalho' — Opção A)
+  pessoas: {
+    label: "MEU ESPAÇO",
+    icon: Target,
+    items: [
       {
         label: "Férias",
         href: "/pessoas/ferias",
@@ -128,12 +148,6 @@ export const navigationGroups = {
         href: "/pessoas/holerites",
         icon: FileText,
         description: "Meus contracheques e comprovantes",
-      },
-      {
-        label: "Minha IT",
-        href: "/minha-it",
-        icon: BookOpen,
-        description: "Instrução oficial • Responsável Técnico",
       },
     ],
   },
