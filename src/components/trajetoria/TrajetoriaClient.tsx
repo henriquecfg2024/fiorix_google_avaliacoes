@@ -4,11 +4,19 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   MapPin, Search, X, RotateCcw, Check, AlertCircle,
   FileText, Clock, Loader2, Info, AlertTriangle, Copy,
+  User, ChevronDown, ChevronUp, Layers,
 } from 'lucide-react';
-import type { TrajetoriaData } from '@/app/api/trajetoria/[protocolo]/route';
+import type { TrajetoriaData } from '@/lib/trajetoria/engine';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function fmtDate(iso: string | null): string {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch { return '—'; }
+}
 
 function fmtDateTime(iso: string | null): string {
   if (!iso) return 'sem registro de horário';
@@ -222,7 +230,7 @@ function ProtocoloStrip({ data }: { data: TrajetoriaData }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/[0.06] rounded-xl overflow-hidden border border-white/[0.07]">
       {/* Protocolo */}
-      <div className="bg-[#0a0d17] px-4 py-2 flex flex-col gap-0.5">
+      <div className="bg-[#0a0d17] px-4 py-2.5 flex flex-col gap-1">
         <div className="flex items-center gap-1.5">
           <FileText className="w-3 h-3 text-white/35" />
           <span className="text-[10px] text-white/40 font-semibold uppercase tracking-wider">
@@ -233,10 +241,12 @@ function ProtocoloStrip({ data }: { data: TrajetoriaData }) {
           <span className="text-xl font-black text-white tracking-tight">
             {data.protocolo}
           </span>
-          <span className="text-[9px] font-black uppercase tracking-wider
-            bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-1.5 py-0.5 rounded-md">
-            Ativo
-          </span>
+          {data.tipo && (
+            <span className="text-[9px] font-black uppercase tracking-wider
+              bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-1.5 py-0.5 rounded-md">
+              {data.tipo}
+            </span>
+          )}
 
           {/* Badge de Desfecho Cartorial (Registrado / Devolvido) */}
           {data.desfecho === 'REGISTRADO' && (
@@ -250,7 +260,14 @@ function ProtocoloStrip({ data }: { data: TrajetoriaData }) {
             <span className="text-[9px] font-black uppercase tracking-wider
               bg-amber-500/20 text-amber-300 border border-amber-400/40 px-1.5 py-0.5 rounded-md inline-flex items-center gap-1">
               <RotateCcw className="w-2.5 h-2.5" strokeWidth={3} />
-              Devolvido
+              Devolvido {data.dtDevolucao ? `(${fmtDate(data.dtDevolucao)})` : ''}
+            </span>
+          )}
+          {data.dtRetirada && (
+            <span className="text-[9px] font-black uppercase tracking-wider
+              bg-sky-500/20 text-sky-300 border border-sky-400/40 px-1.5 py-0.5 rounded-md inline-flex items-center gap-1">
+              <Check className="w-2.5 h-2.5" strokeWidth={3} />
+              Retirado ({fmtDate(data.dtRetirada)})
             </span>
           )}
 
@@ -263,14 +280,29 @@ function ProtocoloStrip({ data }: { data: TrajetoriaData }) {
             {copied ? 'Copiado!' : 'Copiar'}
           </button>
         </div>
-        <span className="text-[10px] font-bold text-emerald-400 inline-flex items-center gap-1 mt-0.5">
-          <Clock className="w-2.5 h-2.5" />
-          Prazo Legal: No Prazo (Restam 4 dias)
-        </span>
+
+        {data.desfecho === 'DEVOLVIDO' ? (
+          data.dtRetirada ? (
+            <span className="text-[10px] font-bold text-sky-400 inline-flex items-center gap-1 mt-0.5">
+              <Check className="w-2.5 h-2.5" />
+              Título entregue e retirado no balcão
+            </span>
+          ) : (
+            <span className="text-[10px] font-bold text-amber-400 inline-flex items-center gap-1 mt-0.5">
+              <Clock className="w-2.5 h-2.5" />
+              Disponível para retirada no balcão
+            </span>
+          )
+        ) : (
+          <span className="text-[10px] font-bold text-emerald-400 inline-flex items-center gap-1 mt-0.5">
+            <Clock className="w-2.5 h-2.5" />
+            Prazo Legal: No Prazo
+          </span>
+        )}
       </div>
 
       {/* Último setor identificado */}
-      <div className="bg-[#0a0d17] px-4 py-2 flex flex-col gap-0.5">
+      <div className="bg-[#0a0d17] px-4 py-2.5 flex flex-col gap-1">
         <div className="flex items-center gap-1.5">
           <MapPin className="w-3 h-3 text-white/35" />
           <span className="text-[10px] text-white/40 font-semibold uppercase tracking-wider">
@@ -290,7 +322,7 @@ function ProtocoloStrip({ data }: { data: TrajetoriaData }) {
       </div>
 
       {/* Evidência */}
-      <div className="bg-[#0a0d17] px-4 py-2 flex flex-col gap-0.5">
+      <div className="bg-[#0a0d17] px-4 py-2.5 flex flex-col gap-1">
         <div className="flex items-center gap-1.5">
           <Clock className="w-3 h-3 text-white/35" />
           <span className="text-[10px] text-white/40 font-semibold uppercase tracking-wider">
@@ -305,14 +337,14 @@ function ProtocoloStrip({ data }: { data: TrajetoriaData }) {
       </div>
 
       {/* Natureza */}
-      <div className="bg-[#0a0d17] px-4 py-2 flex flex-col gap-0.5">
+      <div className="bg-[#0a0d17] px-4 py-2.5 flex flex-col gap-1">
         <div className="flex items-center gap-1.5">
           <FileText className="w-3 h-3 text-white/35" />
           <span className="text-[10px] text-white/40 font-semibold uppercase tracking-wider">
             Natureza
           </span>
         </div>
-        <p className="text-sm font-bold text-white leading-tight">
+        <p className="text-sm font-bold text-white leading-tight truncate" title={data.natureza}>
           {data.natureza}
         </p>
         {data.dataEntrada && (
@@ -403,6 +435,50 @@ function RespostaImediataLocalizacao({ data }: { data: TrajetoriaData }) {
     ? NOMES_SETORES_OFICIAIS[data.ultimoSetorNum]
     : null;
 
+  // Tratamento de destaque para títulos Devolvidos
+  if (data.desfecho === 'DEVOLVIDO') {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl
+          bg-gradient-to-r from-amber-950/40 via-[#181109] to-[#0a0d17]
+          border border-amber-500/30 shadow-lg shadow-amber-950/20"
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-amber-600 flex items-center justify-center text-slate-950 font-black shrink-0 shadow-md shadow-amber-600/30">
+            <RotateCcw className="w-5 h-5" strokeWidth={2.5} />
+          </div>
+          <div>
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-400/80 block">
+              STATUS CARTORIAL:
+            </span>
+            <span className="text-2xl font-black text-amber-300 tracking-tight uppercase block leading-tight">
+              {data.dtRetirada ? 'TÍTULO DEVOLVIDO E RETIRADO' : 'TÍTULO DEVOLVIDO'}
+            </span>
+          </div>
+        </div>
+
+        <div className="hidden lg:block h-9 w-px bg-white/10 mx-2" />
+        <p className="text-xs text-white/60 leading-relaxed max-w-md">
+          {data.dtRetirada
+            ? `Devolução formalizada em ${fmtDate(data.dtDevolucao)} e retirada no balcão em ${fmtDate(data.dtRetirada)}.`
+            : `Devolução formalizada em ${fmtDate(data.dtDevolucao)}. O documento está disponível no balcão para retirada.`}
+        </p>
+
+        <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-amber-950/40 border border-amber-500/20 text-white/80 shrink-0 md:ml-auto">
+          <Info className="w-4 h-4 text-amber-400 shrink-0" />
+          <div className="text-left leading-tight">
+            <p className="text-xs font-bold text-white">
+              {data.dtRetirada ? 'Retirado na Saída (Setor 11)' : 'Aguardando no Balcão (Setor 8)'}
+            </p>
+            <p className="text-[10px] text-white/40">Consulte o percurso completo abaixo.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isIdentificado && nomeSetor) {
     return (
       <div
@@ -474,6 +550,82 @@ function RespostaImediataLocalizacao({ data }: { data: TrajetoriaData }) {
       <span className="text-[11px] font-medium text-white/40 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/5 shrink-0 md:ml-auto">
         Sem evidência no sistema
       </span>
+    </div>
+  );
+}
+
+// ─── Histórico de Tarefas & Setores Percorridos ───────────────────────────────
+
+function HistoricoTarefas({ tarefas }: { tarefas?: TrajetoriaData['tarefas'] }) {
+  const [expandido, setExpandido] = useState(true);
+  if (!tarefas || tarefas.length === 0) return null;
+
+  return (
+    <div className="mt-4 rounded-xl border border-white/[0.08] bg-[#0a0d17] overflow-hidden">
+      <button
+        onClick={() => setExpandido(!expandido)}
+        className="w-full flex items-center justify-between p-4 text-left hover:bg-white/[0.02] transition-colors cursor-pointer"
+      >
+        <div className="flex items-center gap-2.5">
+          <Layers className="w-4 h-4 text-sky-400" />
+          <span className="text-xs font-bold uppercase tracking-wider text-white/90">
+            Evidências & Tarefas Cartoriais ({tarefas.length})
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-white/40 text-xs">
+          <span>{expandido ? 'Ocultar detalhes' : 'Ver todas'}</span>
+          {expandido ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </div>
+      </button>
+
+      {expandido && (
+        <div className="p-4 pt-0 border-t border-white/5 space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-3">
+            {tarefas.map((t, idx) => (
+              <div
+                key={idx}
+                className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06] flex flex-col justify-between gap-2"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-xs font-bold text-white leading-tight truncate" title={t.tarefa}>
+                    {t.tarefa}
+                  </span>
+                  <span
+                    className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                      t.situacao === 'FINALIZADA'
+                        ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                        : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                    }`}
+                  >
+                    {t.situacao}
+                  </span>
+                </div>
+
+                <div className="space-y-1 text-[11px] text-white/50">
+                  {t.setorNum && (
+                    <div className="flex items-center gap-1.5 text-sky-400/90 font-medium">
+                      <MapPin className="w-3 h-3 shrink-0" />
+                      <span>{NOMES_SETORES_OFICIAIS[t.setorNum]} (Setor {t.setorNum})</span>
+                    </div>
+                  )}
+                  {t.responsavel && (
+                    <div className="flex items-center gap-1.5">
+                      <User className="w-3 h-3 shrink-0 text-white/30" />
+                      <span className="truncate">{t.responsavel}</span>
+                    </div>
+                  )}
+                  {t.data && (
+                    <div className="flex items-center gap-1.5 text-white/40">
+                      <Clock className="w-3 h-3 shrink-0 text-white/30" />
+                      <span>{fmtDateTime(t.data)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -748,6 +900,9 @@ export function TrajetoriaClient({ initialProtocolo }: TrajetoriaClientProps) {
 
             {/* Legend */}
             <Legenda />
+
+            {/* Histórico & Evidências Cartoriais */}
+            <HistoricoTarefas tarefas={data.tarefas} />
           </div>
         </div>
       )}
