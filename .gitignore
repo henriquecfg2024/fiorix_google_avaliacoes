@@ -51,3 +51,9 @@ chunk_*.js
 
 # Importações temporárias com dados sensíveis
 .codex-import/
+
+# Código experimental /jornada (referência local apenas — não versionado)
+src/app/(dashboard)/jornada/
+src/app/api/jornada/
+src/components/jornada/
+src/lib/jornada/

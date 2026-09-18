@@ -132,9 +132,9 @@ export const navigationGroups = {
       },
     ],
   },
-  // MEU ESPAÇO: apenas itens pessoais (Comunicados e Minha IT migraram para o grupo 'trabalho' — Opção A)
+  // PESSOAL: apenas itens pessoais (Férias e Holerites)
   pessoas: {
-    label: "MEU ESPAÇO",
+    label: "PESSOAL",
     icon: Target,
     items: [
       {
