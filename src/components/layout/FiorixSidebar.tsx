@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, ChevronRight, Home, ChevronDown, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Home, Loader2 } from "lucide-react";
 import { filterNavigationByRole, Role } from "@/lib/navigation/permissions";
 import { getHomeRouteForRole } from "@/lib/permissions";
 import {
@@ -261,9 +261,8 @@ export function FiorixSidebar() {
               // @ts-expect-error Radix UI type mismatch
               <Accordion type="single" collapsible key={key} defaultValue={(isGroupActive || role === "RH" || key === "rhGestao" ? key : undefined) as any}>
                 <AccordionItem value={key} className="border-none">
-                  <AccordionTrigger className="flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-extrabold text-white/75 uppercase tracking-wider hover:bg-white/5 hover:text-white hover:no-underline [&[data-state=open]>svg.chevron]:rotate-180">
+                  <AccordionTrigger className="flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-extrabold text-white/75 uppercase tracking-wider hover:bg-white/5 hover:text-white hover:no-underline [&_[data-slot=accordion-trigger-icon]]:text-white/60 [&_[data-slot=accordion-trigger-icon]]:size-3.5 group-hover/accordion-trigger:[&_[data-slot=accordion-trigger-icon]]:text-white">
                     <span className="truncate">{group.label}</span>
-                    <ChevronDown className="chevron w-3.5 h-3.5 opacity-60 transition-transform duration-200" />
                   </AccordionTrigger>
                   <AccordionContent className="pt-1 pb-1 space-y-1">
                     {group.items.map((item: any) => {
