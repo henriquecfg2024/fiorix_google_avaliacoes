@@ -51,7 +51,7 @@ export const authConfig = {
           ) {
             return true;
           }
-          return Response.redirect(new URL('/pessoas', nextUrl));
+          return Response.redirect(new URL('/minha-it', nextUrl));
         }
 
         // Regras para perfil RH: foco exclusivo em Pessoas (comunicados, férias, holerites)
@@ -106,7 +106,7 @@ export const authConfig = {
       } else if (isLoggedIn && nextUrl.pathname === '/login') {
         const role = auth.user.role || 'USER';
         if (role === 'COLABORADOR') {
-          return Response.redirect(new URL('/pessoas', nextUrl));
+          return Response.redirect(new URL('/minha-it', nextUrl));
         }
         if (role === 'RH') {
           return Response.redirect(new URL('/sistema/pessoas', nextUrl));
