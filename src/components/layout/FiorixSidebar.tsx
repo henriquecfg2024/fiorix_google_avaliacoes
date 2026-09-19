@@ -152,7 +152,7 @@ export function FiorixSidebar() {
                   <Home className="w-5 h-5" />
                 </Link>
               </TooltipTrigger>
-              <TooltipContent side="right">Home</TooltipContent>
+              <TooltipContent side="right">Início</TooltipContent>
             </Tooltip>
           ) : (
             <Link
@@ -173,7 +173,7 @@ export function FiorixSidebar() {
               ) : (
                 <Home className="w-4 h-4 opacity-75" />
               )}
-              <span>Home</span>
+              <span>Início</span>
             </Link>
           )}
 

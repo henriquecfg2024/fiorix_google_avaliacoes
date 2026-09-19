@@ -21,7 +21,7 @@ import {
 
 export const navigationGroups = {
   gestao: {
-    label: "GESTÃO & ANÁLISES",
+    label: "GESTÃO & INDICADORES",
     icon: PieChart,
     items: [
       { label: "Avaliações", href: "/avaliacoes", icon: Star },
@@ -30,7 +30,7 @@ export const navigationGroups = {
     ],
   },
   operacional: {
-    label: "OPERACIONAL & BI",
+    label: "OPERAÇÃO & BI",
     icon: Briefcase,
     items: [
       {
@@ -66,7 +66,7 @@ export const navigationGroups = {
     ],
   },
   rhGestao: {
-    label: "GESTÃO DE RH",
+    label: "PESSOAS & RH",
     icon: UserCheck,
     items: [
       {
@@ -96,7 +96,7 @@ export const navigationGroups = {
     ],
   },
   governancaIts: {
-    label: "GOVERNANÇA DE ITS",
+    label: "INSTRUÇÕES DE TRABALHO",
     icon: BookOpen,
     items: [
       {
@@ -109,7 +109,7 @@ export const navigationGroups = {
   },
   // GRUPO TRABALHO: Operações do dia a dia do colaborador (Missão 4.3.6)
   trabalho: {
-    label: "TRABALHO",
+    label: "ROTINA DE TRABALHO",
     icon: Briefcase,
     items: [
       {
@@ -134,7 +134,7 @@ export const navigationGroups = {
   },
   // PESSOAL: apenas itens pessoais (Férias e Holerites)
   pessoas: {
-    label: "PESSOAL",
+    label: "MEU ESPAÇO",
     icon: Target,
     items: [
       {
@@ -152,7 +152,7 @@ export const navigationGroups = {
     ],
   },
   sistema: {
-    label: "SISTEMA & INFRA",
+    label: "SISTEMA & TECNOLOGIA",
     icon: Settings,
     items: [
       {

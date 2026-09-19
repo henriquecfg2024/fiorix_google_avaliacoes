@@ -26,7 +26,7 @@ export function filterNavigationByRole(role: Role = "USER") {
     // SUBSTITUTO: vê governancaIts, operacional, gestao, pessoas e trabalho; não vê rhGestao nem sistema
     if (isSubstituto && (key === "rhGestao" || key === "sistema")) continue;
 
-    // USER: não vê SISTEMA, GESTÃO DE RH nem GOVERNANÇA DE ITS; mas vê 'trabalho' (Opção A)
+    // USER: não vê SISTEMA & TECNOLOGIA, PESSOAS & RH nem INSTRUÇÕES DE TRABALHO; mas vê 'trabalho' (Opção A)
     if (isUser && (key === "sistema" || key === "rhGestao" || key === "governancaIts")) continue;
 
     const visibleItems = group.items.filter((item) => {

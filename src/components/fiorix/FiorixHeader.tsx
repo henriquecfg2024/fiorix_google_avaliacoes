@@ -350,7 +350,7 @@ export function FiorixHeader() {
                     }}
                     className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-white/70 hover:bg-white/[0.04] hover:text-white text-left cursor-pointer"
                   >
-                    👤 Minha conta
+                    👤 Minha Conta
                   </button>
 
                   <form action={handleSignOut} className="mt-1">
@@ -413,7 +413,7 @@ export function FiorixHeader() {
                         : "border-transparent text-white/70 hover:bg-white/5 hover:text-white"
                     }`}
                   >
-                    Home
+                    Início
                   </Link>
 
                   {/* Accordion dos grupos */}
@@ -488,7 +488,7 @@ export function FiorixHeader() {
                   }}
                   className="w-full bg-white/5 hover:bg-white/10 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 border border-white/10 cursor-pointer"
                 >
-                  <span>👤 Minha conta</span>
+                  <span>👤 Minha Conta</span>
                 </button>
 
                 <div className="flex items-center gap-3 pt-1 border-t border-white/10">
@@ -514,7 +514,7 @@ export function FiorixHeader() {
                     className="w-full bg-red-500/10 hover:bg-red-500/15 text-red-300 font-bold px-4 py-2.5 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 border border-red-500/20 cursor-pointer"
                   >
                     <LogOut className="w-4 h-4" />
-                    <span>Sair do Sistema</span>
+                    <span>Sair</span>
                   </button>
                 </form>
               </div>
