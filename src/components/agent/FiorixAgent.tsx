@@ -7,6 +7,7 @@ import Link from 'next/link';
 import {
   speakText,
   stopSpeaking,
+  unlockAudioForIOS,
   createSpeechRecognizer,
   SpeechRecognitionController,
 } from '@/lib/agent/speech';
@@ -467,7 +468,11 @@ export function FiorixAgent() {
   const handleToggleMute = useCallback(() => {
     setIsVoiceMuted((prev) => {
       const next = !prev;
-      if (next) stopSpeaking();
+      if (next) {
+        stopSpeaking();
+      } else {
+        unlockAudioForIOS();
+      }
       try {
         localStorage.setItem('fiorix-voice-muted', String(next));
       } catch {}
@@ -478,6 +483,7 @@ export function FiorixAgent() {
   // Fala uma mensagem individual
   const handleSpeakMessage = useCallback(
     (text: string) => {
+      unlockAudioForIOS();
       if (isSpeaking) {
         stopSpeaking();
         setIsSpeaking(false);
@@ -533,6 +539,7 @@ export function FiorixAgent() {
   }, []);
 
   const openChat = useCallback(() => {
+    unlockAudioForIOS();
     setShowBubble(false);
     setIsChatOpen(true);
     setIsMinimized(false);
@@ -589,6 +596,10 @@ export function FiorixAgent() {
   const handleSendMessage = useCallback(
     async (text: string) => {
       if (!text.trim()) return;
+
+      if (!isVoiceMuted) {
+        unlockAudioForIOS();
+      }
 
       // Se for ação de Atualizar IT / Criar Nova Versão Oficial
       const lower = text.toLowerCase();
@@ -704,9 +715,12 @@ export function FiorixAgent() {
 
   const handleSuggestionClick = useCallback(
     (suggestion: string) => {
+      if (!isVoiceMuted) {
+        unlockAudioForIOS();
+      }
       handleSendMessage(suggestion);
     },
-    [handleSendMessage]
+    [isVoiceMuted, handleSendMessage]
   );
 
   const handleSubmit = useCallback(

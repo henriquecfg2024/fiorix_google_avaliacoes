@@ -34,8 +34,86 @@ export function cleanMarkdownForSpeech(text: string): string {
     .trim();
 }
 
+// ─── Referência global para evitar o bug de Garbage Collection no Safari/WebKit
+let activeUtterance: SpeechSynthesisUtterance | null = null;
+let globalAudioCtx: any = null;
+
 /**
- * Fala um texto utilizando SpeechSynthesis do navegador
+ * Pré-carrega vozes do navegador assim que disponíveis (especialmente no iOS/Safari)
+ */
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  try {
+    window.speechSynthesis.onvoiceschanged = () => {
+      try {
+        window.speechSynthesis.getVoices();
+      } catch {}
+    };
+  } catch {}
+}
+
+/**
+ * Seleciona a melhor voz em português disponível no sistema (Windows, Mac, Android, iOS)
+ */
+function getBestPortugueseVoice(): SpeechSynthesisVoice | undefined {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return undefined;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) return undefined;
+
+  // 1. Vozes brasileiras de destaque (Apple: Luciana, Felipe / Google / Microsoft: Francisca, Antonio / Natural)
+  const premiumVoice = voices.find(
+    (v) =>
+      /pt[-_]br/i.test(v.lang) &&
+      /(Luciana|Felipe|Leticia|Yelda|Google|Natural|Premium|Siri|Francisca|Antonio)/i.test(v.name)
+  );
+  if (premiumVoice) return premiumVoice;
+
+  // 2. Qualquer voz pt-BR
+  const anyPtBr = voices.find((v) => /pt[-_]br/i.test(v.lang));
+  if (anyPtBr) return anyPtBr;
+
+  // 3. Fallback para qualquer variação de português
+  return voices.find((v) => /^pt/i.test(v.lang));
+}
+
+/**
+ * Desbloqueia o subsistema de áudio no iOS (Safari / iPhone).
+ * No iOS, o navegador exige ativação por gesto do usuário (click/touch) antes de tocar áudio,
+ * e a Web Speech API é mapeada para o canal de som ambiente a menos que o AudioContext seja ativado.
+ */
+export function unlockAudioForIOS(): void {
+  if (typeof window === 'undefined') return;
+
+  // 1. Ativa AudioContext para elevar a sessão de áudio para modo de reprodução (Playback)
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (AudioContextClass) {
+      if (!globalAudioCtx || globalAudioCtx.state === 'closed') {
+        globalAudioCtx = new AudioContextClass();
+      }
+      if (globalAudioCtx.state === 'suspended') {
+        globalAudioCtx.resume();
+      }
+      // Toca um buffer silencioso de 1 amostra para registrar o toque físico no subsistema CoreAudio do iOS
+      const buffer = globalAudioCtx.createBuffer(1, 1, 22050);
+      const source = globalAudioCtx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(globalAudioCtx.destination);
+      source.start(0);
+    }
+  } catch {}
+
+  // 2. Garante que o motor de síntese não está em pausa (bug clássico do WebKit)
+  if ('speechSynthesis' in window) {
+    try {
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+    } catch {}
+  }
+}
+
+/**
+ * Fala um texto utilizando SpeechSynthesis do navegador com compatibilidade multiplataforma (Windows e iOS/iPhone)
  */
 export function speakText(
   text: string,
@@ -54,28 +132,59 @@ export function speakText(
   if (!cleanText) return null;
 
   try {
-    window.speechSynthesis.cancel(); // Cancela falas anteriores pendentes
+    // Desbloqueia audio context preventivamente
+    unlockAudioForIOS();
+
+    // No iOS/WebKit, despausa o sintetizador se estiver travado
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+
+    // Cancela falas anteriores pendentes
+    window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'pt-BR';
-    utterance.rate = 1.05; // Levemente mais ágil e natural
+    utterance.rate = 1.0;
     utterance.pitch = 1.0;
 
-    // Tentar selecionar voz brasileira de qualidade se disponível
-    const voices = window.speechSynthesis.getVoices();
-    const ptVoice = voices.find(
-      (v) => v.lang === 'pt-BR' && (v.name.includes('Google') || v.name.includes('Luciana') || v.name.includes('Natural'))
-    ) || voices.find((v) => v.lang.startsWith('pt'));
-
+    const ptVoice = getBestPortugueseVoice();
     if (ptVoice) {
       utterance.voice = ptVoice;
     }
 
-    if (options?.onStart) utterance.onstart = options.onStart;
-    if (options?.onEnd) utterance.onend = options.onEnd;
-    if (options?.onError) utterance.onerror = options.onError;
+    utterance.onstart = () => {
+      options?.onStart?.();
+    };
 
-    window.speechSynthesis.speak(utterance);
+    utterance.onend = () => {
+      activeUtterance = null;
+      if (typeof window !== 'undefined') (window as any)._fiorixActiveUtterance = null;
+      options?.onEnd?.();
+    };
+
+    utterance.onerror = (err) => {
+      activeUtterance = null;
+      if (typeof window !== 'undefined') (window as any)._fiorixActiveUtterance = null;
+      options?.onError?.(err);
+    };
+
+    // Previne que o Garbage Collector do Safari descarte a utterance no meio da fala
+    activeUtterance = utterance;
+    (window as any)._fiorixActiveUtterance = utterance;
+
+    // No iOS, um micro-delay após o cancel() previne que o WebKit ignore o comando speak()
+    setTimeout(() => {
+      try {
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        options?.onError?.(err);
+      }
+    }, 30);
+
     return utterance;
   } catch (err) {
     options?.onError?.(err);
@@ -87,8 +196,12 @@ export function speakText(
  * Cancela qualquer fala ativa no navegador
  */
 export function stopSpeaking(): void {
-  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-    window.speechSynthesis.cancel();
+  activeUtterance = null;
+  if (typeof window !== 'undefined') {
+    (window as any)._fiorixActiveUtterance = null;
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
   }
 }
 
