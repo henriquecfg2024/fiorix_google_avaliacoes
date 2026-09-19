@@ -5,30 +5,39 @@
  */
 
 /**
+ * Remove todos os emojis e símbolos figurativos/pictográficos de uma string
+ */
+export function removeEmojis(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/[\p{Extended_Pictographic}\uFE0E\uFE0F\u200D\u20E3\u2600-\u27BF\u2B50\u2300-\u23FF\u2B00-\u2BFF]/gu, '')
+    .replace(/^[ \t]+/gm, '')
+    .replace(/[ \t]+$/gm, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
  * Remove formatação Markdown, URLs, emojis em excesso e hashes técnicos
  * para que o sintetizador de voz leia com naturalidade humana em português.
  */
 export function cleanMarkdownForSpeech(text: string): string {
   if (!text) return '';
 
-  return text
+  const cleaned = removeEmojis(text);
+
+  return cleaned
     // Remove blocos de código
     .replace(/```[\s\S]*?```/g, '')
     .replace(/`([^`]+)`/g, '$1')
-    // Remove links markdown [texto](url) -> texto
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    // Remove títulos markdown #, ##, etc.
     .replace(/^#+\s+/gm, '')
-    // Remove negrito e itálico **, *, __, _
     .replace(/[*_]{1,3}([^*_]+)[*_]{1,3}/g, '$1')
-    // Remove listas com marcadores -, *, 1.
     .replace(/^[\s*-]+(?=\S)/gm, '')
     .replace(/^\d+\.\s+/gm, '')
-    // Remove separadores horizontais ---
     .replace(/^-{3,}$/gm, '')
-    // Remove tags HTML
     .replace(/<[^>]*>/g, '')
-    // Limpa pontuações repetidas e espaços excessivos
     .replace(/[#>/|]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();

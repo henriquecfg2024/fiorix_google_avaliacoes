@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { requireAuth } from '@/lib/auth-helpers';
+import { removeEmojis } from '@/lib/agent/speech';
 
 // ─── Rate limiting simples em memória com purga automática ────
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -47,9 +48,9 @@ function buildSystemPrompt(user: {
 }): string {
   const isGestao = ['SUBSTITUTO', 'ADMIN', 'MASTER'].includes(String(user.role || '').toUpperCase());
 
-  const basePrompt = `Você é o FIORIX, a inteligência artificial e assistente amigável do 7º Oficial de Registro de Imóveis de São Paulo (7º RISP).
+  const basePrompt = `Você é o FIORIX, a inteligência artificial e assistente corporativo do 7º Oficial de Registro de Imóveis de São Paulo (7º RISP).
 Seu tom é profissional, ágil e acolhedor. Seu papel é orientar e ajudar o usuário a usar QUALQUER tela e módulo do sistema FIORIX.
-Use emojis com moderação (máximo 2 por resposta). Seja conciso, claro e direto (máximo 120 palavras).
+REGRA OBRIGATÓRIA: NÃO use nenhum emoji ou símbolo pictográfico nas suas respostas. O texto deve ser 100% livre de emojis, mantendo um padrão sóbrio, claro e direto (máximo 120 palavras).
 
 ROTA / TELA ATUAL DO USUÁRIO NO MOMENTO:
 ${user.pathname ? `- Tela atual: ${user.pathname}` : '- Painel FIORIX'}
@@ -217,21 +218,26 @@ export async function POST(request: NextRequest) {
 
         const result: any = await Promise.race([generatePromise, timeoutPromise]);
         reply = result.response.text();
-        if (reply && reply.trim().length > 0) break;
+        if (reply && reply.trim().length > 0) {
+          reply = removeEmojis(reply);
+          break;
+        }
       } catch (err: any) {
         console.warn(`Tentativa com ${modelName} falhou (${err?.status || err?.message}), tentando próximo modelo...`);
       }
     }
 
+    const finalReply = removeEmojis(reply || getFallbackReply(userMessage, requestContext));
+
     return NextResponse.json({
-      reply: reply || getFallbackReply(userMessage, requestContext),
+      reply: finalReply,
       source: reply ? 'gemini' : 'fallback',
     });
 
   } catch (error: any) {
     console.error('Erro no FiorixChat:', error?.message || error);
     return NextResponse.json({
-      reply: getFallbackReply(userMessage, requestContext),
+      reply: removeEmojis(getFallbackReply(userMessage, requestContext)),
       source: 'fallback',
     });
   }
@@ -243,22 +249,22 @@ function getFallbackReply(question: string, context?: any): string {
 
   // Holerites
   if (q.includes('holerite') || q.includes('comprovante') || q.includes('rendimento') || q.includes('pagamento') || q.includes('salario') || q.includes('salário')) {
-    return 'Na tela de **Holerites** você pode consultar e emitir seus demonstrativos com proteção LGPD. Basta selecionar o ano desejado na tabela e clicar para visualizar ou baixar o PDF!\n\n👉 [Ir para Meus Holerites](/pessoas/holerites) 📄✨';
+    return 'Na tela de **Holerites** você pode consultar e emitir seus demonstrativos com proteção LGPD. Basta selecionar o ano desejado na tabela e clicar para visualizar ou baixar o PDF.\n\n• [Ir para Meus Holerites](/pessoas/holerites)';
   }
 
   // Férias
   if (q.includes('férias') || q.includes('ferias') || q.includes('saldo')) {
-    return 'Na tela de **Férias** você pode acompanhar seu saldo de dias disponíveis, verificar seu período aquisitivo vigente e conferir o histórico das suas solicitações.\n\n👉 [Ir para Minhas Férias](/pessoas/ferias) 🏖️✨';
+    return 'Na tela de **Férias** você pode acompanhar seu saldo de dias disponíveis, verificar seu período aquisitivo vigente e conferir o histórico das suas solicitações.\n\n• [Ir para Minhas Férias](/pessoas/ferias)';
   }
 
   // Comunicados
   if (q.includes('comunicado') || q.includes('comunicados') || q.includes('aviso')) {
-    return 'Na tela de **Comunicados** você confere todos os avisos oficiais, novidades e comunicados emitidos pela gestão do 7º RISP.\n\n👉 [Ver Comunicados](/pessoas/comunicados) 📢';
+    return 'Na tela de **Comunicados** você confere todos os avisos oficiais, novidades e comunicados emitidos pela gestão do 7º RISP.\n\n• [Ver Comunicados](/pessoas/comunicados)';
   }
 
   // Avaliações
   if (q.includes('avaliaç') || q.includes('avaliac') || q.includes('google') || q.includes('reviews')) {
-    return 'No módulo de **Avaliações**, você acompanha as notas do Google Reviews do cartório, lê comentários e pode enviar respostas oficiais com auxílio de IA.\n\n👉 [Ir para Avaliações do Google](/avaliacoes) ⭐';
+    return 'No módulo de **Avaliações**, você acompanha as notas do Google Reviews do cartório, lê comentários e pode enviar respostas oficiais com auxílio de IA.\n\n• [Ir para Avaliações do Google](/avaliacoes)';
   }
 
   // Minha IT
@@ -266,34 +272,34 @@ function getFallbackReply(question: string, context?: any): string {
     const titulo = context?.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO';
     const versao = context?.itVersao ? ` (versão ${context.itVersao})` : ' (versão 1.1)';
     const dept = context?.itDepartamento ? ` do setor ${context.itDepartamento}` : '';
-    return `O nome da sua IT atual é **${titulo}**${versao}${dept}.\n\n👉 [Ir para Minha IT](/minha-it) 📄✨`;
+    return `O nome da sua IT atual é **${titulo}**${versao}${dept}.\n\n• [Ir para Minha IT](/minha-it)`;
   }
 
   if (q.includes('responsável') || q.includes('responsavel')) {
     if (context?.isResponsavel) {
-      return `Sim! Você é o **Responsável Técnico** desta IT (**${context?.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO'}**). Você é o encarregado de mantê-la atualizada e gerenciar a equipe!\n\n👉 [Gerenciar Minha IT](/minha-it) 🛡️✨`;
+      return `Sim! Você é o **Responsável Técnico** desta IT (**${context?.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO'}**). Você é o encarregado de mantê-la atualizada e gerenciar a equipe.\n\n• [Gerenciar Minha IT](/minha-it)`;
     }
     if (context?.itPapel) {
-      return `Nesta IT, seu papel é **${context.itPapel}**. ${context.itPapel === 'Responsável técnico' ? 'Sim, você é o responsável técnico!' : 'O responsável técnico é quem faz a gestão desta IT.'}\n\n👉 [Acessar Minha IT](/minha-it) 👤`;
+      return `Nesta IT, seu papel é **${context.itPapel}**. ${context.itPapel === 'Responsável técnico' ? 'Sim, você é o responsável técnico!' : 'O responsável técnico é quem faz a gestão desta IT.'}\n\n• [Acessar Minha IT](/minha-it)`;
     }
-    return 'Sim! Você está vinculado a esta IT como Responsável Técnico. Você pode gerenciar participantes e criar novas versões no alerta amarelo!\n\n👉 [Acessar Minha IT](/minha-it) 🛡️';
+    return 'Sim! Você está vinculado a esta IT como Responsável Técnico. Você pode gerenciar participantes e criar novas versões no alerta amarelo.\n\n• [Acessar Minha IT](/minha-it)';
   }
 
   if (q.includes('criar') && q.includes('it') && !q.includes('versão') && !q.includes('versao')) {
-    return 'Para propor ou cadastrar uma nova IT:\n\n1. Acesse o menu **Instruções de Trabalho**\n2. Clique em **"+ Nova IT"** ou **"Cadastrar IT"**\n3. Preencha título, departamento, objetivo e anexe o arquivo PDF\n4. Envie para análise da supervisão!\n\n👉 [Ir para Instruções de Trabalho](/instrucoes-trabalho) 📋✨';
+    return 'Para propor ou cadastrar uma nova IT:\n\n1. Acesse o menu **Instruções de Trabalho**\n2. Clique em **"+ Nova IT"** ou **"Cadastrar IT"**\n3. Preencha título, departamento, objetivo e anexe o arquivo PDF\n4. Envie para análise da supervisão.\n\n• [Ir para Instruções de Trabalho](/instrucoes-trabalho)';
   }
 
   if (q.includes('nova versão') || q.includes('criar versão') || q.includes('atualizar it')) {
-    return 'Para criar uma nova versão da sua IT:\n\n1. Acesse **Minha IT**\n2. Clique em **"+ Criar nova versão"** no alerta amarelo no topo\n3. Faça upload do novo PDF atualizado\n4. A nova versão será publicada e todos os participantes receberão solicitação de ciência!\n\n👉 [Ir para Minha IT](/minha-it) 📄✨';
+    return 'Para criar uma nova versão da sua IT:\n\n1. Acesse **Minha IT**\n2. Clique em **"+ Criar nova versão"** no alerta amarelo no topo\n3. Faça upload do novo PDF atualizado\n4. A nova versão será publicada e todos os participantes receberão solicitação de ciência.\n\n• [Ir para Minha IT](/minha-it)';
   }
 
   if (q.includes('ciência') || q.includes('ciencias')) {
-    return 'A **ciência** confirma que você leu e entendeu a IT. Cada nova versão requer nova ciência de todos os participantes. Acompanhe o status em **"Ver ciências"**.\n\n👉 [Ir para Minha IT](/minha-it) ✅';
+    return 'A **ciência** confirma que você leu e entendeu a IT. Cada nova versão requer nova ciência de todos os participantes. Acompanhe o status em **"Ver ciências"**.\n\n• [Ir para Minha IT](/minha-it)';
   }
 
   if (q.includes('tour') || q.includes('guia') || q.includes('ajuda') || q.includes('navegar') || q.includes('sistema')) {
-    return 'O FIORIX possui vários módulos para o seu dia a dia:\n\n📄 [Minha IT](/minha-it) — suas instruções e ciências\n📋 [Instruções de Trabalho](/instrucoes-trabalho) — catálogo geral\n💵 [Holerites](/pessoas/holerites) — comprovantes com LGPD\n🏖️ [Férias](/pessoas/ferias) — saldo e períodos\n📢 [Comunicados](/pessoas/comunicados) — avisos internos\n⭐ [Avaliações](/avaliacoes) — Google Reviews';
+    return 'O FIORIX possui vários módulos para o seu dia a dia:\n\n• [Minha IT](/minha-it) — suas instruções e ciências\n• [Instruções de Trabalho](/instrucoes-trabalho) — catálogo geral\n• [Holerites](/pessoas/holerites) — comprovantes com LGPD\n• [Férias](/pessoas/ferias) — saldo e períodos\n• [Comunicados](/pessoas/comunicados) — avisos internos\n• [Avaliações](/avaliacoes) — Google Reviews';
   }
 
-  return 'Como inteligência artificial do FIORIX, posso tirar qualquer dúvida e te levar direto para qualquer tela do sistema:\n\n• [Minha IT](/minha-it)\n• [Holerites](/pessoas/holerites)\n• [Férias](/pessoas/ferias)\n• [Comunicados](/pessoas/comunicados)\n• [Avaliações](/avaliacoes)\n• [Dashboard](/dashboard)\n\nComo posso te ajudar hoje? 😊';
+  return 'Como inteligência artificial do FIORIX, posso tirar dúvidas e te direcionar para qualquer tela do sistema:\n\n• [Minha IT](/minha-it)\n• [Holerites](/pessoas/holerites)\n• [Férias](/pessoas/ferias)\n• [Comunicados](/pessoas/comunicados)\n• [Avaliações](/avaliacoes)\n• [Dashboard](/dashboard)\n\nComo posso te ajudar hoje?';
 }

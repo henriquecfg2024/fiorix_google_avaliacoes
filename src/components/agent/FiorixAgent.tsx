@@ -10,6 +10,7 @@ import {
   unlockAudioForIOS,
   createSpeechRecognizer,
   SpeechRecognitionController,
+  removeEmojis,
 } from '@/lib/agent/speech';
 import { ItGeneratorModal } from './ItGeneratorModal';
 
@@ -210,35 +211,35 @@ function getContextMessage(pathname: string, ctx: UserContext): string {
   const nome = ctx.name?.split(' ')[0] || 'você';
 
   if (pathname.includes('/holerites')) {
-    return `Olá, ${nome}! 👋 Aqui em **Holerites** você pode consultar e baixar seus comprovantes de rendimento mensais com segurança LGPD. Quer ajuda para filtrar por ano ou baixar seu PDF? 📄`;
+    return `Olá, ${nome}! Aqui em **Holerites** você pode consultar e baixar seus comprovantes de rendimento mensais com segurança LGPD. Quer ajuda para filtrar por ano ou baixar seu PDF?`;
   }
   if (pathname.includes('/ferias')) {
-    return `Olá, ${nome}! 👋 Aqui em **Férias** você acompanha seu saldo de dias disponíveis e seus períodos aquisitivos. Posso te orientar sobre as regras de agendamento? 🏖️`;
+    return `Olá, ${nome}! Aqui em **Férias** você acompanha seu saldo de dias disponíveis e seus períodos aquisitivos. Posso te orientar sobre as regras de agendamento?`;
   }
   if (pathname.includes('/comunicados')) {
-    return `Olá, ${nome}! 👋 Aqui em **Comunicados** você confere todos os comunicados oficiais e diretrizes do 7º RISP. 📢`;
+    return `Olá, ${nome}! Aqui em **Comunicados** você confere todos os comunicados oficiais e diretrizes do 7º RISP.`;
   }
   if (pathname.startsWith('/minha-it')) {
     if (ctx.itTitulo) {
-      return `Olá, ${nome}! 👋 Vi que você está na IT **${ctx.itTitulo}**${ctx.isResponsavel ? ' como Responsável Técnico' : ''}. Posso te ajudar a revisar o procedimento ou estruturar uma atualização com IA! ✨`;
+      return `Olá, ${nome}! Vi que você está na IT **${ctx.itTitulo}**${ctx.isResponsavel ? ' como Responsável Técnico' : ''}. Posso te ajudar a revisar o procedimento ou estruturar uma atualização com IA!`;
     }
-    return `Olá, ${nome}! 👋 Aqui na Minha IT você acompanha suas Instruções de Trabalho e ciências. Como posso ajudar? ✨`;
+    return `Olá, ${nome}! Aqui na Minha IT você acompanha suas Instruções de Trabalho e ciências. Como posso ajudar?`;
   }
   if (pathname.startsWith('/instrucoes-trabalho')) {
-    return `Olá, ${nome}! 👋 Nesta área você encontra todo o acervo de Instruções de Trabalho do cartório. Posso te ajudar a buscar ou propor uma nova IT? 📋`;
+    return `Olá, ${nome}! Nesta área você encontra todo o acervo de Instruções de Trabalho do cartório. Posso te ajudar a buscar ou propor uma nova IT?`;
   }
   if (pathname.startsWith('/avaliacoes')) {
-    return `Olá, ${nome}! 👋 Aqui você gerencia as avaliações do Google Reviews do cartório. Deseja analisar os comentários ou gerar respostas oficiais? ⭐`;
+    return `Olá, ${nome}! Aqui você gerencia as avaliações do Google Reviews do cartório. Deseja analisar os comentários ou gerar respostas oficiais?`;
   }
-  return `Olá, ${nome}! 👋 Sou o FIORIX, seu copiloto de IA. Posso tirar dúvidas sobre qualquer tela, gerar atualizações de procedimentos ou orientar seu dia a dia! 😊`;
+  return `Olá, ${nome}! Sou o FIORIX, seu copiloto de IA. Posso tirar dúvidas sobre qualquer tela, gerar atualizações de procedimentos ou orientar seu dia a dia!`;
 }
 
 function getSuggestions(pathname: string, ctx: UserContext): string[] {
   const isGestao = ['SUBSTITUTO', 'ADMIN', 'MASTER'].includes(String(ctx.role || '').toUpperCase());
 
   if (pathname.startsWith('/minha-it')) {
-    const list = ['✨ Atualizar Minha IT', 'O que é ciência?', 'Ver ciências da equipe'];
-    if (isGestao) list.push('📲 Cobrar ciências via WhatsApp');
+    const list = ['Atualizar Minha IT', 'O que é ciência?', 'Ver ciências da equipe'];
+    if (isGestao) list.push('Cobrar ciências via WhatsApp');
     return list;
   }
   if (pathname.includes('/holerites')) {
@@ -262,22 +263,22 @@ function getQuickReply(question: string, ctx?: UserContext): string {
 
   // Holerites
   if (q.includes('holerite') || q.includes('comprovante') || q.includes('rendimento') || q.includes('pagamento') || q.includes('salario') || q.includes('salário')) {
-    return 'Na tela de **Holerites** você pode consultar e emitir seus demonstrativos com proteção LGPD. Basta selecionar o ano desejado na tabela e clicar para visualizar ou baixar o PDF!\n\n👉 [Ir para Meus Holerites](/pessoas/holerites) 📄✨';
+    return 'Na tela de **Holerites** você pode consultar e emitir seus demonstrativos com proteção LGPD. Basta selecionar o ano desejado na tabela e clicar para visualizar ou baixar o PDF!\n\n[Ir para Meus Holerites](/pessoas/holerites)';
   }
 
   // Férias
   if (q.includes('férias') || q.includes('ferias') || q.includes('saldo')) {
-    return 'Na tela de **Férias** você pode acompanhar seu saldo de dias disponíveis, verificar seu período aquisitivo vigente e conferir o histórico das suas solicitações.\n\n👉 [Ir para Minhas Férias](/pessoas/ferias) 🏖️✨';
+    return 'Na tela de **Férias** você pode acompanhar seu saldo de dias disponíveis, verificar seu período aquisitivo vigente e conferir o histórico das suas solicitações.\n\n[Ir para Minhas Férias](/pessoas/ferias)';
   }
 
   // Comunicados
   if (q.includes('comunicado') || q.includes('comunicados') || q.includes('aviso')) {
-    return 'Na tela de **Comunicados** você confere todos os comunicados oficiais, novidades e diretrizes emitidas pela gestão do 7º RISP.\n\n👉 [Ver Comunicados](/pessoas/comunicados) 📢';
+    return 'Na tela de **Comunicados** você confere todos os comunicados oficiais, novidades e diretrizes emitidas pela gestão do 7º RISP.\n\n[Ver Comunicados](/pessoas/comunicados)';
   }
 
   // Avaliações
   if (q.includes('avaliaç') || q.includes('avaliac') || q.includes('google') || q.includes('reviews')) {
-    return 'No módulo de **Avaliações**, você acompanha as notas do Google Reviews do cartório, filtra comentários de clientes e pode enviar respostas oficiais com apoio de IA.\n\n👉 [Ir para Avaliações](/avaliacoes) ⭐';
+    return 'No módulo de **Avaliações**, você acompanha as notas do Google Reviews do cartório, filtra comentários de clientes e pode enviar respostas oficiais com apoio de IA.\n\n[Ir para Avaliações](/avaliacoes)';
   }
 
   // Minha IT
@@ -285,25 +286,25 @@ function getQuickReply(question: string, ctx?: UserContext): string {
     const tit = ctx?.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO';
     const v = ctx?.itVersao ? ` (versão ${ctx.itVersao})` : ' (versão 1.1)';
     const d = ctx?.itDepartamento ? ` do setor ${ctx.itDepartamento}` : '';
-    return `A sua IT atual é **${tit}**${v}${d}.\n\n👉 [Ir para Minha IT](/minha-it) 📄✨`;
+    return `A sua IT atual é **${tit}**${v}${d}.\n\n[Ir para Minha IT](/minha-it)`;
   }
 
   if (q.includes('responsável') || q.includes('responsavel')) {
     if (ctx?.isResponsavel) {
-      return `Sim! Você é o **Responsável Técnico** desta IT (**${ctx?.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO'}**). Você é o encarregado de mantê-la atualizada e gerenciar os participantes!\n\n👉 [Gerenciar Minha IT](/minha-it) 🛡️✨`;
+      return `Sim! Você é o **Responsável Técnico** desta IT (**${ctx?.itTitulo || 'NOÇÕES BÁSICAS DO ATENDIMENTO'}**). Você é o encarregado de mantê-la atualizada e gerenciar os participantes!\n\n[Gerenciar Minha IT](/minha-it)`;
     }
-    return `Nesta IT, seu papel é **${ctx?.itPapel || 'Colaborador'}**. O responsável técnico é encarregado da gestão e atualização periódica do documento.\n\n👉 [Acessar Minha IT](/minha-it) 👤`;
+    return `Nesta IT, seu papel é **${ctx?.itPapel || 'Colaborador'}**. O responsável técnico é encarregado da gestão e atualização periódica do documento.\n\n[Acessar Minha IT](/minha-it)`;
   }
 
   if (q.includes('atualizar it') || q.includes('escrever it') || q.includes('nova versão') || q.includes('gerar it') || q.includes('atualizar minha it')) {
-    return 'Para atualizar a sua IT e publicar uma nova versão oficial com novo Hash SHA-256, basta clicar na ação **"✨ Atualizar Minha IT"** aqui no chat ou no botão **"+ Criar nova versão"** no topo da página.\n\n👉 [Ir para Minha IT](/minha-it) 📄✨';
+    return 'Para atualizar a sua IT e publicar uma nova versão oficial com novo Hash SHA-256, basta clicar na ação **"Atualizar Minha IT"** aqui no chat ou no botão **"+ Criar nova versão"** no topo da página.\n\n[Ir para Minha IT](/minha-it)';
   }
 
   if (q.includes('ciência') || q.includes('ciencias')) {
-    return 'A **ciência** confirma que um colaborador leu e entendeu o procedimento. Cada nova versão publicada requer nova ciência de todos os participantes para conformidade com o Provimento 213/2026.\n\n👉 [Ir para Minha IT](/minha-it) ✅';
+    return 'A **ciência** confirma que um colaborador leu e entendeu o procedimento. Cada nova versão publicada requer nova ciência de todos os participantes para conformidade com o Provimento 213/2026.\n\n[Ir para Minha IT](/minha-it)';
   }
 
-  return 'Como copiloto do FIORIX, posso tirar dúvidas, gerar minutas e te direcionar para qualquer tela:\n\n• [Minha IT](/minha-it)\n• [Holerites](/pessoas/holerites)\n• [Férias](/pessoas/ferias)\n• [Comunicados](/pessoas/comunicados)\n• [Avaliações](/avaliacoes)\n\nComo posso te ajudar agora? 😊';
+  return 'Como copiloto do FIORIX, posso tirar dúvidas, gerar minutas e te direcionar para qualquer tela:\n\n• [Minha IT](/minha-it)\n• [Holerites](/pessoas/holerites)\n• [Férias](/pessoas/ferias)\n• [Comunicados](/pessoas/comunicados)\n• [Avaliações](/avaliacoes)\n\nComo posso te ajudar agora?';
 }
 
 // ─── Componente Principal ─────────────────────────
@@ -348,7 +349,11 @@ export function FiorixAgent() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setMessages(parsed);
+          const sanitized = parsed.map((m: Message) => ({
+            ...m,
+            content: removeEmojis(m.content),
+          }));
+          setMessages(sanitized);
         }
       }
     } catch {}
@@ -586,7 +591,7 @@ export function FiorixAgent() {
     setInputValue(val);
     const cpfRegex = /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/;
     if (cpfRegex.test(val)) {
-      setSensitiveWarning('⚠️ Atenção LGPD: Evite inserir CPF de clientes ou dados sigilosos no chat.');
+      setSensitiveWarning('Atenção LGPD: Evite inserir CPF de clientes ou dados sigilosos no chat.');
     } else {
       setSensitiveWarning(null);
     }
@@ -630,7 +635,7 @@ export function FiorixAgent() {
       if (text.includes('Cobrar ciências via WhatsApp') || text.includes('Lembrar equipe via WhatsApp')) {
         const freshCtx = extractContext();
         const waMsg = encodeURIComponent(
-          `*Prezado(a) Colega,*\n\nLembramos da importância de registrar a sua ciência formal na Instrução de Trabalho *"${freshCtx.itTitulo || 'Vigente'}"* no sistema FIORIX (conforme Provimento CNJ 213/2026).\n\n👉 Acesse agora: https://fiorix.app/minha-it\n\nAtenciosamente,\n7º Registro de Imóveis de São Paulo`
+          `*Prezado(a) Colega,*\n\nLembramos da importância de registrar a sua ciência formal na Instrução de Trabalho *"${freshCtx.itTitulo || 'Vigente'}"* no sistema FIORIX (conforme Provimento CNJ 213/2026).\n\nAcesse agora: https://fiorix.app/minha-it\n\nAtenciosamente,\n7º Registro de Imóveis de São Paulo`
         );
         window.open(`https://wa.me/?text=${waMsg}`, '_blank');
         return;
@@ -671,7 +676,7 @@ export function FiorixAgent() {
         });
 
         const data = await res.json();
-        const reply = data.reply || data.error || getQuickReply(text, freshCtx);
+        const reply = removeEmojis(data.reply || data.error || getQuickReply(text, freshCtx));
 
         const agentMsg: Message = {
           id: `agent-${Date.now()}`,
@@ -690,7 +695,7 @@ export function FiorixAgent() {
           });
         }
       } catch {
-        const fallbackReply = getQuickReply(text, freshCtx);
+        const fallbackReply = removeEmojis(getQuickReply(text, freshCtx));
         const agentMsg: Message = {
           id: `agent-${Date.now()}`,
           role: 'agent',
@@ -816,7 +821,7 @@ export function FiorixAgent() {
                 {/* Mensagem Proativa */}
                 <p className="text-[12px] text-[#374151] leading-relaxed mb-3">
                   {complianceWarning
-                    ? '⚠️ Esta IT está sem revisão há mais de 30 dias. Deseja que eu auxilie na reestruturação e atualização da rotina com IA?'
+                    ? 'Esta IT está sem revisão há mais de 30 dias. Deseja que eu auxilie na reestruturação e atualização da rotina com IA?'
                     : getContextMessage(pathname, userContext)}
                 </p>
 
@@ -840,14 +845,14 @@ export function FiorixAgent() {
                       }}
                       className="bg-gradient-to-r from-amber-500 to-amber-600 text-black font-bold rounded-full px-3.5 py-1.5 text-[11.5px] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm"
                     >
-                      ✨ Atualizar Minha IT
+                      Atualizar Minha IT
                     </button>
                   ) : (
                     <button
                       onClick={openChat}
                       className="bg-gradient-to-r from-[#facc15] to-[#f59e0b] text-[#111827] font-bold rounded-full px-4 py-1.5 text-[12px] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm"
                     >
-                      Tirar dúvida 😊
+                      Tirar dúvida
                     </button>
                   )}
                   <button
@@ -906,7 +911,7 @@ export function FiorixAgent() {
 
           {/* Badge */}
           <span className="bg-[#7c3aed] text-white rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-sm flex items-center gap-1">
-            {isSpeaking ? '🔊 FALANDO...' : 'FIORIX • IA'}
+            {isSpeaking ? 'FALANDO...' : 'FIORIX • IA'}
           </span>
         </div>
       )}
@@ -1142,8 +1147,8 @@ export function FiorixAgent() {
             {/* Suggestions e Chips Rápidos */}
             <div className="px-3.5 pb-2 flex flex-wrap gap-1.5 shrink-0 bg-[#fafafa]">
               {suggestions.map((s) => {
-                const isIaAction = s.includes('✨');
-                const isWaAction = s.includes('📲');
+                const isIaAction = s.toLowerCase().includes('atualizar');
+                const isWaAction = s.toLowerCase().includes('whatsapp');
 
                 return (
                   <button
@@ -1178,7 +1183,7 @@ export function FiorixAgent() {
                   type="text"
                   value={inputValue}
                   onChange={(e) => handleInputChange(e.target.value)}
-                  placeholder={isListening ? '🎙️ Ouvindo... Fale agora' : 'Pergunte ao FIORIX...'}
+                  placeholder={isListening ? 'Ouvindo... Fale agora' : 'Pergunte ao FIORIX...'}
                   className={`flex-1 h-9 rounded-full border px-3.5 text-[13px] text-[#111827] placeholder:text-[#9ca3af] focus:outline-none transition-all ${
                     isListening
                       ? 'border-red-400 bg-red-500/5 ring-2 ring-red-400/20'
@@ -1241,7 +1246,7 @@ export function FiorixAgent() {
           const successMsg: Message = {
             id: `agent-success-${Date.now()}`,
             role: 'agent',
-            content: '🎉 Sua proposta de atualização de IT foi gerada com IA e enviada com sucesso ao Oficial Substituto para homologação formal!',
+            content: 'Sua proposta de atualização de IT foi gerada com IA e enviada com sucesso ao Oficial Substituto para homologação formal!',
             timestamp: new Date(),
           };
           setMessages((prev) => [...prev, successMsg]);
