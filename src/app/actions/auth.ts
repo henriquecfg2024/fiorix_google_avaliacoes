@@ -34,6 +34,15 @@ export async function authenticate(
   }
 }
 
+import {
+  checkLoginLockout,
+  recordFailedLogin,
+  clearLoginAttempts,
+  DUMMY_BCRYPT_HASH,
+} from '@/lib/security/login-lockout';
+
+export { checkLoginLockout, recordFailedLogin, clearLoginAttempts };
+
 /**
  * Verifica se o email/senha são válidos e se precisa de 2FA
  * (chamada antes do signIn para determinar se deve mostrar o input TOTP)
@@ -46,16 +55,42 @@ export async function checkCredentials(email: string, password: string): Promise
   secret?: string;
   error?: string;
 }> {
+  const normalizedEmail = (email || '').trim().toLowerCase();
+  if (!normalizedEmail || !password) {
+    return { valid: false, requires2FA: false, error: 'Credenciais inválidas.' };
+  }
+
+  // Checa bloqueio por força bruta
+  const lockout = await checkLoginLockout(normalizedEmail);
+  if (lockout.isLocked) {
+    return {
+      valid: false,
+      requires2FA: false,
+      error: `Conta temporariamente bloqueada por excesso de tentativas incorretas. Tente novamente em ${lockout.remainingMinutes} minuto(s).`,
+    };
+  }
+
   try {
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
       select: { id: true, email: true, passwordHash: true, role: true, totpEnabled: true, totpSecret: true },
     });
 
-    if (!user) return { valid: false, requires2FA: false, error: 'Credenciais inválidas.' };
+    // Mitigação de timing attack: sempre executa bcrypt.compare mesmo se usuário não existir
+    if (!user) {
+      await bcrypt.compare(password, DUMMY_BCRYPT_HASH);
+      await recordFailedLogin(normalizedEmail);
+      return { valid: false, requires2FA: false, error: 'Credenciais inválidas.' };
+    }
 
     const match = await bcrypt.compare(password, user.passwordHash);
-    if (!match) return { valid: false, requires2FA: false, error: 'Credenciais inválidas.' };
+    if (!match) {
+      await recordFailedLogin(normalizedEmail);
+      return { valid: false, requires2FA: false, error: 'Credenciais inválidas.' };
+    }
+
+    // Sucesso na verificação de senha -> limpa histórico de falhas
+    await clearLoginAttempts(normalizedEmail);
 
     const mustUse2FA = roleRequires2FA(user.role);
     if (mustUse2FA) {

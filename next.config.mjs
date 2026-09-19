@@ -10,11 +10,16 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // TODO(seguranca): Tratar erros de tipo remanescentes e remover ignoreBuildErrors
+  // Reativação da checagem estrita de tipos no build
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   async headers() {
+    const isDev = process.env.NODE_ENV !== 'production';
+    const cspScriptSrc = isDev
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval';"
+      : "script-src 'self' 'unsafe-inline';";
+
     return [
       {
         source: '/(.*)',
@@ -41,7 +46,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleapis.com https://*.gstatic.com https://*.supabase.co https://uvieekfizuzujpwfbjww.supabase.co; font-src 'self' data:; connect-src 'self' https://*.googleapis.com https://api.openai.com https://*.supabase.co https://uvieekfizuzujpwfbjww.supabase.co wss://*.supabase.co; frame-src 'self' blob: data: https://*.supabase.co; frame-ancestors 'none'; object-src 'self' blob: data:; base-uri 'self';",
+            value: `default-src 'self'; ${cspScriptSrc} style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleapis.com https://*.gstatic.com https://*.supabase.co https://uvieekfizuzujpwfbjww.supabase.co; font-src 'self' data:; connect-src 'self' https://*.googleapis.com https://api.openai.com https://*.supabase.co https://uvieekfizuzujpwfbjww.supabase.co wss://*.supabase.co; frame-src 'self' blob: data: https://*.supabase.co; frame-ancestors 'none'; object-src 'self' blob: data:; base-uri 'self';`,
           },
         ],
       },

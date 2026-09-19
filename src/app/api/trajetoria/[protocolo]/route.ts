@@ -49,7 +49,7 @@ export async function GET(
                     d5_calculo, d8_impressao, d9_preparacao, d9_conferencia,
                     d10_entrega, d_balcao_registrado, d_balcao_devolvido, qtd_retrabalho
              FROM public.fiorix_metas_dados
-             WHERE protocolo = $1 AND (tenant_id = $2 OR tenant_id IS NULL)
+             WHERE protocolo = $1 AND tenant_id = $2
              LIMIT 1`,
             protocoloNum,
             userTenantId
@@ -69,7 +69,7 @@ export async function GET(
         ? prisma.$queryRawUnsafe<RawBi[]>(
             `SELECT "IsRegistrado", "IsDevolucao", "SituacaoPrazo"
              FROM public.fiorix_bi_data
-             WHERE "Protocolo" = $1 AND (tenant_id = $2 OR tenant_id IS NULL)
+             WHERE "Protocolo" = $1 AND tenant_id = $2
              LIMIT 1`,
             String(protocoloNum),
             userTenantId
@@ -87,7 +87,7 @@ export async function GET(
                     data_servico, data_entrada, situacao_tarefa, responsavel,
                     natureza, tipo, status_previsao, dt_devolucao, dt_retirada
              FROM public.fiorix_tarefas_dados
-             WHERE protocolo = $1 AND (tenant_id = $2 OR tenant_id IS NULL)
+             WHERE protocolo = $1 AND tenant_id = $2
              ORDER BY data_servico ASC, data_cadastro_tarefa ASC, id ASC`,
             protocoloNum,
             userTenantId

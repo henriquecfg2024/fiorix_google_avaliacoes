@@ -46,6 +46,14 @@ export async function POST(req: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    // Validação estrita de magic bytes para garantir que se trata de PDF autêntico
+    if (buffer.length < 5 || buffer.toString('utf-8', 0, 5) !== '%PDF-') {
+      return NextResponse.json(
+        { success: false, error: 'Formato de arquivo inválido. O documento deve ser um arquivo PDF autêntico.' },
+        { status: 400 }
+      );
+    }
+
     // 1. Tenta upload no bucket oficial 'it-documentos'
     let uploadRes = await supabase.storage
       .from('it-documentos')
