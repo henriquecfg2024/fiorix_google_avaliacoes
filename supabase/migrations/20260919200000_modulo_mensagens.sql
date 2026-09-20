@@ -2,11 +2,20 @@
 -- Tabelas, Índices de Performance e Políticas de Row Level Security (RLS)
 
 DO $$ BEGIN
+  -- 0. ENUMS DO MÓDULO MENSAGENS
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'ConversaTipo') THEN
+    CREATE TYPE public."ConversaTipo" AS ENUM ('DIRECT', 'GROUP');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'MembroPapel') THEN
+    CREATE TYPE public."MembroPapel" AS ENUM ('ADMIN', 'MEMBER');
+  END IF;
+
   -- 1. CONVERSAS
   CREATE TABLE IF NOT EXISTS public.fiorix_conversas (
     id TEXT PRIMARY KEY DEFAULT ('c_' || substr(md5(random()::text || clock_timestamp()::text), 1, 24)),
     tenant_id TEXT NOT NULL REFERENCES public."Tenant"(id) ON DELETE CASCADE,
-    tipo TEXT NOT NULL DEFAULT 'DIRECT' CHECK (tipo IN ('DIRECT', 'GROUP')),
+    tipo public."ConversaTipo" NOT NULL DEFAULT 'DIRECT'::public."ConversaTipo",
     titulo TEXT,
     descricao TEXT,
     avatar_url TEXT,
@@ -25,7 +34,7 @@ DO $$ BEGIN
     tenant_id TEXT NOT NULL REFERENCES public."Tenant"(id) ON DELETE CASCADE,
     conversa_id TEXT NOT NULL REFERENCES public.fiorix_conversas(id) ON DELETE CASCADE,
     usuario_id TEXT NOT NULL REFERENCES public."User"(id) ON DELETE CASCADE,
-    papel TEXT NOT NULL DEFAULT 'MEMBER' CHECK (papel IN ('ADMIN', 'MEMBER')),
+    papel public."MembroPapel" NOT NULL DEFAULT 'MEMBER'::public."MembroPapel",
     joined_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     last_read_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
     muted BOOLEAN NOT NULL DEFAULT FALSE,
