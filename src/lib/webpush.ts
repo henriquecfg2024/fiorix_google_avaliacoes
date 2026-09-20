@@ -1,42 +1,51 @@
 import webpush from 'web-push';
 import { prisma } from '@/lib/prisma';
 
-// Chaves VAPID oficiais ou de contingência para desenvolvimento/homologação
-// Em produção, devem ser configuradas via NEXT_PUBLIC_VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY
-const DEFAULT_VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY || 'BM2Fq6l_W6eH_Rz34e8k45n5G0ZfP_nK3B9A9W_7b7pL7V_2mN9K3B9A9W7b7pL7V2mN9K3B9A9W7b7pL7V2mNA=';
-const DEFAULT_VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || 'q9x9K3B9A9W7b7pL7V2mN9K3B9A9W7b7pL7V2mN9K3A=';
+// VAPID — chaves obrigatórias via variáveis de ambiente.
+// NUNCA hardcodar chaves privadas no código-fonte.
+// Variáveis necessárias:
+//   NEXT_PUBLIC_VAPID_PUBLIC_KEY — chave pública (exposta ao frontend)
+//   VAPID_PRIVATE_KEY — chave privada (somente servidor, nunca no frontend)
+//   VAPID_SUBJECT — identificação do remetente (mailto: ou URL)
+const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY || '';
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || '';
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:suporte@fiorix.com.br';
 
 let vapidConfigured = false;
+let vapidAvailable = false;
 
 function ensureVapidConfigured() {
   if (vapidConfigured) return;
-  try {
-    webpush.setVapidDetails(
-      VAPID_SUBJECT,
-      DEFAULT_VAPID_PUBLIC,
-      DEFAULT_VAPID_PRIVATE
+  vapidConfigured = true; // Marca como tentado para não repetir
+
+  if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+    console.error(
+      '[WebPush] ⛔ VAPID keys não configuradas. ' +
+      'Defina NEXT_PUBLIC_VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY nas variáveis de ambiente. ' +
+      'Web Push ficará desabilitado.'
     );
-    vapidConfigured = true;
-  } catch (err) {
-    console.warn('[WebPush] Erro ao inicializar VAPID keys. Gerando chaves automáticas:', err);
-    try {
-      const generated = webpush.generateVAPIDKeys();
-      webpush.setVapidDetails(
-        VAPID_SUBJECT,
-        generated.publicKey,
-        generated.privateKey
-      );
-      vapidConfigured = true;
-    } catch (e) {
-      console.error('[WebPush] Falha crítica na configuração do VAPID:', e);
-    }
+    vapidAvailable = false;
+    return;
   }
+
+  try {
+    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE);
+    vapidAvailable = true;
+  } catch (err) {
+    console.error('[WebPush] ⛔ Falha crítica na configuração VAPID:', err);
+    vapidAvailable = false;
+  }
+}
+
+/** Verifica se o Web Push está disponível (VAPID configurado corretamente) */
+export function isWebPushAvailable(): boolean {
+  ensureVapidConfigured();
+  return vapidAvailable;
 }
 
 export function getVapidPublicKey(): string {
   ensureVapidConfigured();
-  return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || DEFAULT_VAPID_PUBLIC;
+  return VAPID_PUBLIC;
 }
 
 export interface PushNotificationPayload {
@@ -70,6 +79,10 @@ export async function sendWebPushNotification(
   payload: PushNotificationPayload
 ): Promise<{ success: boolean; error?: string; expired?: boolean }> {
   ensureVapidConfigured();
+  if (!vapidAvailable) {
+    return { success: false, error: 'Web Push não disponível: VAPID keys não configuradas.' };
+  }
+
 
   const pushSubscription = {
     endpoint: subscription.endpoint,

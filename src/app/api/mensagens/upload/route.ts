@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 import { supabaseAdmin } from '@/lib/supabase';
 import { validateAttachmentFile, logMessagingAudit } from '@/lib/mensagens/security';
+import { checkRateLimit } from '@/lib/mensagens/rate-limiter';
 import { getRequestIp } from '@/lib/security/requestIp';
 import crypto from 'crypto';
 
@@ -52,6 +53,16 @@ export async function POST(req: NextRequest) {
     }
 
     const user = await requireAuth();
+
+    // Rate limit: upload (5/30s compartilhado entre instâncias)
+    const allowed = await checkRateLimit(user.id, 'upload');
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Limite de uploads atingido. Aguarde alguns segundos.' },
+        { status: 429 }
+      );
+    }
+
     const formData = await req.formData();
 
     const file = formData.get('file') as File | null;

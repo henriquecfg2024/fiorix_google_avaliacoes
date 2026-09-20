@@ -14,7 +14,7 @@ interface FiorixCardSelectorProps {
   onClose: () => void;
 }
 
-type CardTipo = 'IT' | 'TAREFA' | 'COMUNICADO';
+type CardTipo = 'COMUNICADO'; // IT e TAREFA desabilitados até implementação de autorização real
 
 const TIPOS: {
   key: CardTipo;
@@ -23,8 +23,10 @@ const TIPOS: {
   color: string;
   apiPath: string;
 }[] = [
-  { key: 'IT', label: 'Instrução de Trabalho', icon: FileText, color: 'text-blue-400', apiPath: '/api/cards/it' },
-  { key: 'TAREFA', label: 'Tarefa', icon: CheckSquare, color: 'text-emerald-400', apiPath: '/api/cards/tarefas' },
+  // IT e TAREFA desabilitados: sem modelo Prisma, sem API /api/cards/*, sem autorização real.
+  // Reativar SOMENTE quando existir: modelo Prisma + API route + validação server-side.
+  // { key: 'IT', label: 'Instrução de Trabalho', icon: FileText, color: 'text-blue-400', apiPath: '/api/cards/it' },
+  // { key: 'TAREFA', label: 'Tarefa', icon: CheckSquare, color: 'text-emerald-400', apiPath: '/api/cards/tarefas' },
   { key: 'COMUNICADO', label: 'Comunicado', icon: Megaphone, color: 'text-amber-400', apiPath: '/api/cards/comunicados' },
 ];
 

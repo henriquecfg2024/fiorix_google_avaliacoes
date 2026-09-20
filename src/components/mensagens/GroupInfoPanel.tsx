@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import QRCode from 'qrcode';
 import {
   X, Users, Shield, Link2, Copy, Check, RefreshCw, Trash2, Plus,
   Crown, UserMinus, ChevronDown, QrCode, Lock, Unlock, Edit3, Loader2,
@@ -33,6 +34,8 @@ export function GroupInfoPanel({
 }: GroupInfoPanelProps) {
   const [tab, setTab] = useState<Tab>('members');
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [qrToken, setQrToken] = useState<string | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   // Settings
   const [titulo, setTitulo] = useState(conversation.titulo);
@@ -330,6 +333,44 @@ export function GroupInfoPanel({
                     )}
                     <span>Criado: {new Date(l.createdAt).toLocaleDateString('pt-BR')}</span>
                   </div>
+                  {/* QR Code Toggle */}
+                  <div className="flex items-center gap-2 mt-1">
+                    <button
+                      onClick={async () => {
+                        if (qrToken === l.token) {
+                          setQrToken(null);
+                          setQrDataUrl(null);
+                        } else {
+                          setQrToken(l.token);
+                          const fullUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/mensagens/convite/${l.token}`;
+                          try {
+                            const url = await QRCode.toDataURL(fullUrl, {
+                              width: 200,
+                              margin: 2,
+                              color: { dark: '#10b981', light: '#0d1117' },
+                            });
+                            setQrDataUrl(url);
+                          } catch {
+                            setQrDataUrl(null);
+                          }
+                        }
+                      }}
+                      className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-emerald-400 transition"
+                    >
+                      <QrCode className="w-3.5 h-3.5" />
+                      {qrToken === l.token ? 'Ocultar QR' : 'QR Code'}
+                    </button>
+                  </div>
+                  {qrToken === l.token && qrDataUrl && (
+                    <div className="flex flex-col items-center mt-2 p-2 bg-[#0d1117] rounded-lg border border-white/10">
+                      <img
+                        src={qrDataUrl}
+                        alt="QR Code do convite"
+                        className="w-[160px] h-[160px] rounded"
+                      />
+                      <p className="text-[9px] text-slate-500 mt-1">Escaneie para entrar no grupo</p>
+                    </div>
+                  )}
                 </div>
               ))
             )}

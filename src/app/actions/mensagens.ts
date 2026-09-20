@@ -4,9 +4,9 @@ import { requireAuth, requireRole } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 import {
   sanitizeMessageContent,
-  checkMessageRateLimit,
   logMessagingAudit,
 } from '@/lib/mensagens/security';
+import { checkRateLimit } from '@/lib/mensagens/rate-limiter';
 import { dispatchRealtimeAndPush } from '@/lib/mensagens/realtime';
 
 export interface SerializedConversation {
@@ -321,8 +321,8 @@ export async function sendMessage(params: {
     const user = await requireAuth();
     const { conversationId, conteudo: rawConteudo, replyToId, attachmentData } = params;
 
-    // Rate limiting
-    if (!checkMessageRateLimit(user.id)) {
+    // Rate limiting (compartilhado entre instâncias)
+    if (!await checkRateLimit(user.id, 'sendMessage')) {
       return { success: false, error: 'Você está enviando mensagens rápido demais. Aguarde alguns segundos.' };
     }
 
@@ -552,6 +552,10 @@ export async function createGroupConversation(params: {
 }): Promise<{ success: boolean; conversationId?: string; error?: string }> {
   try {
     const user = await requireAuth();
+    // Rate limit: criação de grupo (compartilhado)
+    if (!await checkRateLimit(user.id, 'createGroup')) {
+      return { success: false, error: 'Limite de criação de grupos atingido. Aguarde.' };
+    }
     const { titulo, descricao, memberUserIds } = params;
 
     if (!titulo?.trim()) {
@@ -708,6 +712,10 @@ export async function deleteMessage(messageId: string): Promise<{ success: boole
 export async function toggleReaction(messageId: string, emoji: string): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await requireAuth();
+    // Rate limit: reações (compartilhado)
+    if (!await checkRateLimit(user.id, 'toggleReaction')) {
+      return { success: false, error: 'Muitas reações consecutivas. Aguarde.' };
+    }
 
     // Valida se usuário é membro da conversa da mensagem
     const msg = await prisma.mensagem.findFirst({
@@ -1204,6 +1212,10 @@ export async function editMessage(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await requireAuth();
+    // Rate limit: edição (compartilhado)
+    if (!await checkRateLimit(user.id, 'editMessage')) {
+      return { success: false, error: 'Limite de edições atingido. Aguarde.' };
+    }
     const msg = await prisma.mensagem.findFirst({
       where: { id: messageId, tenantId: user.tenantId, remetenteId: user.id, isDeleted: false },
     });
@@ -1263,7 +1275,7 @@ export async function forwardMessage(
     });
     if (!targetMembership) return { success: false, error: 'Sem acesso à conversa de destino.' };
 
-    if (!checkMessageRateLimit(user.id)) return { success: false, error: 'Limite de envio atingido. Aguarde.' };
+    if (!await checkRateLimit(user.id, 'forwardMessage')) return { success: false, error: 'Limite de envio atingido. Aguarde.' };
 
     const newMsg = await prisma.mensagem.create({
       data: {
@@ -1356,6 +1368,10 @@ export async function searchMessages(
   try {
     const user = await requireAuth();
     if (!query || query.trim().length < 2) return { success: true, results: [] };
+    // Rate limit: busca (compartilhado)
+    if (!await checkRateLimit(user.id, 'searchMessages')) {
+      return { success: false, error: 'Muitas buscas consecutivas. Aguarde.' };
+    }
 
     // IDs das conversas que o usuário participa (RLS)
     const memberships = await prisma.conversaMembro.findMany({
@@ -1663,6 +1679,10 @@ export async function generateGroupInviteLink(
 ): Promise<{ success: boolean; token?: string; link?: string; error?: string }> {
   try {
     const user = await requireAuth();
+    // Rate limit: geração de convites (compartilhado)
+    if (!await checkRateLimit(user.id, 'generateInvite')) {
+      return { success: false, error: 'Limite de geração de links atingido. Aguarde.' };
+    }
 
     const actorMembership = await prisma.conversaMembro.findFirst({
       where: { conversaId: conversationId, usuarioId: user.id, tenantId: user.tenantId, papel: 'ADMIN' },
@@ -1861,7 +1881,7 @@ export async function sendFiorixCard(params: {
     if (membership.conversa.permissaoEnvio === 'ADMIN_ONLY' && membership.papel !== 'ADMIN')
       return { success: false, error: 'Somente administradores podem enviar mensagens neste grupo.' };
 
-    if (!checkMessageRateLimit(user.id)) return { success: false, error: 'Limite de envio atingido.' };
+    if (!await checkRateLimit(user.id, 'sendFiorixCard')) return { success: false, error: 'Limite de envio atingido.' };
 
     // IMPORTANTE: NÃO copiamos o conteúdo do objeto, apenas a referência e metadados públicos
     const msg = await prisma.mensagem.create({
@@ -1921,15 +1941,65 @@ export async function validateFiorixCardAccess(
     if (!msg || msg.conversa.membros.length === 0)
       return { success: false, error: 'Card não encontrado ou sem acesso à conversa.' };
 
-    // Aqui retornamos apenas o tipo e ID — a validação de acesso real ao objeto
-    // deve ser feita pelo módulo responsável (IT, Tarefas, Comunicados)
+    const cardTipo = msg.cardTipo;
+    const cardReferenciaId = msg.cardReferenciaId;
+
+    if (!cardTipo || !cardReferenciaId)
+      return { success: false, error: 'Card sem tipo ou referência válida.' };
+
+    // ======================================================================
+    // VALIDAÇÃO REAL DE ACESSO — FAIL CLOSED
+    // Cada tipo exige fonte autorizativa real no banco.
+    // Sem fonte real → hasAccess = false (NUNCA fallback permissivo).
+    // ======================================================================
+    let hasAccess = false;
+
+    switch (cardTipo) {
+      case 'IT': {
+        // FAIL CLOSED: tabela fiorix_its existe no banco mas NÃO tem modelo Prisma.
+        // Sem fonte autorizativa real → acesso negado até implementação.
+        hasAccess = false;
+        break;
+      }
+
+      case 'TAREFA': {
+        // FAIL CLOSED: tabela fiorix_tarefas_dados existe no banco mas NÃO tem modelo Prisma.
+        // Sem fonte autorizativa real → acesso negado até implementação.
+        hasAccess = false;
+        break;
+      }
+
+      case 'COMUNICADO': {
+        // Autorização real usando mesma regra de PessoasRepository.getComunicados:
+        // destinatarios contém "TODOS" OR userId OR user.role
+        const comunicado = await prisma.fiorixComunicado.findFirst({
+          where: {
+            id: cardReferenciaId,
+            tenantId: user.tenantId,
+            status: 'PUBLICADO',
+            OR: [
+              { destinatarios: { has: 'TODOS' } },
+              { destinatarios: { has: user.id } },
+              { destinatarios: { has: String(user.role) } },
+            ],
+          },
+        });
+        hasAccess = !!comunicado;
+        break;
+      }
+
+      default:
+        hasAccess = false;
+    }
+
     return {
       success: true,
-      cardTipo: msg.cardTipo ?? undefined,
-      cardReferenciaId: msg.cardReferenciaId ?? undefined,
-      hasAccess: true, // acesso à referência confirmado; acesso ao conteúdo validado pelo módulo
+      cardTipo: cardTipo ?? undefined,
+      cardReferenciaId: cardReferenciaId ?? undefined,
+      hasAccess,
     };
   } catch (error: any) {
     return { success: false, error: error?.message };
   }
 }
+

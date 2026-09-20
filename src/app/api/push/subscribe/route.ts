@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
 import { getRequestIp } from '@/lib/security/requestIp';
+import { checkRateLimit } from '@/lib/mensagens/rate-limiter';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,16 @@ const MAX_DEVICES_PER_USER = 10;
 export async function POST(req: NextRequest) {
   try {
     const user = await requireAuth();
+
+    // Rate limit: push subscribe (5/60s compartilhado)
+    const allowed = await checkRateLimit(user.id, 'pushSubscribe');
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Limite de registros de dispositivo atingido. Aguarde.' },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
 
     const { endpoint, p256dh, auth: authKey, deviceName, userAgent } = body;
