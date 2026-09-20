@@ -65,6 +65,7 @@ describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
     ]);
 
     expect(navigationGroups.trabalho.items.map((i) => i.href)).toEqual([
+      '/mensagens',
       '/pessoas/comunicados',
       '/minha-it',
       '/trajetoria-titulo',
@@ -79,10 +80,12 @@ describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
       '/sistema/operacoes',
       '/bi/importacoes',
       '/configuracoes',
+      '/administracao/mensagens',
     ]);
 
     expect(navigationGroups.master.items.map((i) => i.href)).toEqual([
       '/master/tenants',
+      '/master/mensagens',
     ]);
   });
 });

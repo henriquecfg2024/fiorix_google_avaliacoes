@@ -17,6 +17,8 @@ import {
   Crown,
   Building2,
   MapPin,
+  MessageSquare,
+  MessageCircle,
 } from "lucide-react";
 
 export const navigationGroups = {
@@ -113,6 +115,12 @@ export const navigationGroups = {
     icon: Briefcase,
     items: [
       {
+        label: "Mensagens",
+        href: "/mensagens",
+        icon: MessageSquare,
+        description: "Comunicação corporativa em tempo real",
+      },
+      {
         label: "Comunicados",
         href: "/pessoas/comunicados",
         icon: FileText,
@@ -168,6 +176,12 @@ export const navigationGroups = {
         description: "4 falhas ontem",
       },
       { label: "Configurações", href: "/configuracoes", icon: Settings2 },
+      {
+        label: "Gestão de Mensagens",
+        href: "/administracao/mensagens",
+        icon: MessageCircle,
+        description: "Políticas, métricas e governança",
+      },
     ],
   },
   master: {
@@ -179,6 +193,12 @@ export const navigationGroups = {
         href: "/master/tenants",
         icon: Building2,
         description: "Gestão multi-tenant da plataforma",
+      },
+      {
+        label: "Mensagens SaaS",
+        href: "/master/mensagens",
+        icon: MessageSquare,
+        description: "Telemetria e volume global de mensageria",
       },
     ],
   },

@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { PasswordForm } from '@/components/configuracoes/PasswordForm';
+import { NotificacoesConfig } from '@/components/configuracoes/NotificacoesConfig';
+import { DispositivosConectados } from '@/components/configuracoes/DispositivosConectados';
 
 export default async function MinhaContaPage() {
   const session = await auth();
@@ -113,6 +115,30 @@ export default async function MinhaContaPage() {
           </div>
 
           <PasswordForm />
+        </section>
+
+        {/* MÓDULO MENSAGENS — NOTIFICAÇÕES & PRIVACIDADE */}
+        <section className="rounded-3xl border border-white/10 bg-[#111827] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.25)] md:p-6">
+          <div className="mb-5 space-y-1">
+            <h2 className="text-lg font-semibold text-white">Notificações & Privacidade</h2>
+            <p className="text-sm text-white/55">
+              Personalize alertas de mensagens diretas, grupos, sons e prévias na tela de bloqueio.
+            </p>
+          </div>
+
+          <NotificacoesConfig />
+        </section>
+
+        {/* MÓDULO MENSAGENS — DISPOSITIVOS CONECTADOS */}
+        <section className="rounded-3xl border border-white/10 bg-[#111827] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.25)] md:p-6">
+          <div className="mb-5 space-y-1">
+            <h2 className="text-lg font-semibold text-white">Segurança & Dispositivos Conectados</h2>
+            <p className="text-sm text-white/55">
+              Gerencie aparelhos autorizados a receber notificações Web Push e revogue acessos instantaneamente.
+            </p>
+          </div>
+
+          <DispositivosConectados />
         </section>
       </main>
     </div>

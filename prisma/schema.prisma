@@ -92,6 +92,17 @@ model Tenant {
   fiorixFeriasPrevistaHistoricos FiorixFeriasPrevistaHistorico[]
   fiorixFeriasAvisos FiorixFeriasAviso[]
   fiorixAcessoLogs FiorixAcessoLog[]
+
+  // MENSAGENS CORPORATIVAS
+  conversas                  Conversa[]
+  conversaMembros            ConversaMembro[]
+  mensagens                  Mensagem[]
+  mensagemAnexos             MensagemAnexo[]
+  mensagemReacoes            MensagemReacao[]
+  pushSubscriptions          PushSubscription[]
+  messagingSettings          MessagingNotificationSettings[]
+  messagingPolicy            MessagingPolicy?
+  messagingAuditLogs         MessagingAuditLog[]
 }
 
 // ── USERS ─────────────────────────────────────────────────────────────
@@ -126,6 +137,15 @@ model User {
   totpSecret     String?    // Segredo TOTP criptografado (base32)
   totpEnabled    Boolean    @default(false)
   totpVerifiedAt DateTime?  // Data em que ativou 2FA
+
+  // MENSAGENS CORPORATIVAS
+  conversasCriadas           Conversa[] @relation("ConversasCriadas")
+  conversaMembros            ConversaMembro[]
+  mensagensEnviadas          Mensagem[] @relation("MensagensEnviadas")
+  mensagensReacoes           MensagemReacao[]
+  pushSubscriptions          PushSubscription[]
+  messagingSettings          MessagingNotificationSettings?
+  messagingAuditLogs         MessagingAuditLog[]
 }
 
 // ── CARTÓRIO DATA (DYNAMIC) ───────────────────────────────────────────
@@ -708,4 +728,195 @@ model FiorixAcessoLog {
   @@index([usuarioId])
   @@index([tipo])
   @@map("fiorix_acesso_log")
+}
+
+// ── MENSAGENS CORPORATIVAS ───────────────────────────────────────────
+
+enum ConversaTipo {
+  DIRECT
+  GROUP
+}
+
+enum MembroPapel {
+  ADMIN
+  MEMBER
+}
+
+model Conversa {
+  id            String         @id @default(cuid())
+  tenantId      String         @map("tenant_id")
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tipo          ConversaTipo   @default(DIRECT)
+  titulo        String?
+  descricao     String?        @db.Text
+  avatarUrl     String?        @map("avatar_url")
+  criadoPor     String?        @map("criado_por")
+  criador       User?          @relation("ConversasCriadas", fields: [criadoPor], references: [id], onDelete: SetNull)
+  lastMessageAt DateTime       @default(now()) @map("last_message_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  membros       ConversaMembro[]
+  mensagens     Mensagem[]
+
+  @@index([tenantId])
+  @@index([tenantId, lastMessageAt])
+  @@map("fiorix_conversas")
+}
+
+model ConversaMembro {
+  id             String      @id @default(cuid())
+  tenantId       String      @map("tenant_id")
+  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversaId     String      @map("conversa_id")
+  conversa       Conversa    @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+  usuarioId      String      @map("usuario_id")
+  usuario        User        @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  papel          MembroPapel @default(MEMBER)
+  joinedAt       DateTime    @default(now()) @map("joined_at")
+  lastReadAt     DateTime    @default(now()) @map("last_read_at")
+  muted          Boolean     @default(false)
+
+  @@unique([conversaId, usuarioId])
+  @@index([tenantId])
+  @@index([usuarioId])
+  @@map("fiorix_conversa_membros")
+}
+
+model Mensagem {
+  id           String             @id @default(cuid())
+  tenantId     String             @map("tenant_id")
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversaId   String             @map("conversa_id")
+  conversa     Conversa           @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+  remetenteId  String             @map("remetente_id")
+  remetente    User               @relation("MensagensEnviadas", fields: [remetenteId], references: [id], onDelete: Cascade)
+  conteudo     String             @db.Text
+  respostaAId  String?            @map("resposta_a_id")
+  respostaA    Mensagem?          @relation("MensagemRespostas", fields: [respostaAId], references: [id], onDelete: SetNull)
+  respostas    Mensagem[]         @relation("MensagemRespostas")
+  isDeleted    Boolean            @default(false) @map("is_deleted")
+  deletedAt    DateTime?          @map("deleted_at")
+  editedAt     DateTime?          @map("edited_at")
+  createdAt    DateTime           @default(now()) @map("created_at")
+
+  anexos       MensagemAnexo[]
+  reacoes      MensagemReacao[]
+
+  @@index([tenantId])
+  @@index([conversaId, createdAt])
+  @@index([remetenteId])
+  @@map("fiorix_mensagens")
+}
+
+model MensagemAnexo {
+  id           String    @id @default(cuid())
+  tenantId     String    @map("tenant_id")
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mensagemId   String    @map("mensagem_id")
+  mensagem     Mensagem  @relation(fields: [mensagemId], references: [id], onDelete: Cascade)
+  nomeArquivo  String    @map("nome_arquivo")
+  tamanhoBytes Int       @map("tamanho_bytes")
+  mimeType     String    @map("mime_type")
+  storagePath  String    @map("storage_path")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([mensagemId])
+  @@map("fiorix_mensagem_anexos")
+}
+
+model MensagemReacao {
+  id           String    @id @default(cuid())
+  tenantId     String    @map("tenant_id")
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mensagemId   String    @map("mensagem_id")
+  mensagem     Mensagem  @relation(fields: [mensagemId], references: [id], onDelete: Cascade)
+  usuarioId    String    @map("usuario_id")
+  usuario      User      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  emoji        String
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@unique([mensagemId, usuarioId, emoji])
+  @@index([tenantId])
+  @@index([mensagemId])
+  @@map("fiorix_mensagem_reacoes")
+}
+
+model PushSubscription {
+  id           String    @id @default(cuid())
+  tenantId     String    @map("tenant_id")
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuarioId    String    @map("usuario_id")
+  usuario      User      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  endpoint     String    @unique
+  p256dh       String
+  auth         String
+  deviceName   String?   @map("device_name")
+  userAgent    String?   @map("user_agent")
+  ipAddress    String?   @map("ip_address")
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  lastUsedAt   DateTime  @default(now()) @map("last_used_at")
+  revokedAt    DateTime? @map("revoked_at")
+
+  @@index([tenantId])
+  @@index([usuarioId])
+  @@map("fiorix_push_subscriptions")
+}
+
+model MessagingNotificationSettings {
+  id                   String   @id @default(cuid())
+  tenantId             String   @map("tenant_id")
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuarioId            String   @unique @map("usuario_id")
+  usuario              User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  directMessages       Boolean  @default(true) @map("direct_messages")
+  groupMessages        Boolean  @default(true) @map("group_messages")
+  sound                Boolean  @default(true)
+  previewContent       Boolean  @default(false) @map("preview_content")
+  browserNotifications Boolean  @default(true) @map("browser_notifications")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("fiorix_messaging_notification_settings")
+}
+
+model MessagingPolicy {
+  id                   String   @id @default(cuid())
+  tenantId             String   @unique @map("tenant_id")
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  directEnabled        Boolean  @default(true) @map("direct_enabled")
+  groupsEnabled        Boolean  @default(true) @map("groups_enabled")
+  attachmentsEnabled   Boolean  @default(true) @map("attachments_enabled")
+  maxAttachmentBytes   Int      @default(26214400) @map("max_attachment_bytes")
+  allowedMimes         String[] @default(["image/jpeg", "image/png", "image/webp", "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]) @map("allowed_mimes")
+  retentionDays        Int      @default(365) @map("retention_days")
+  allowDelete          Boolean  @default(true) @map("allow_delete")
+  allowEdit            Boolean  @default(true) @map("allow_edit")
+  editWindowMinutes    Int      @default(15) @map("edit_window_minutes")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@map("fiorix_messaging_policies")
+}
+
+model MessagingAuditLog {
+  id           String    @id @default(cuid())
+  tenantId     String    @map("tenant_id")
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actorUserId  String    @map("actor_user_id")
+  actorUser    User      @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+  action       String
+  targetType   String?   @map("target_type")
+  targetId     String?   @map("target_id")
+  metadata     Json?
+  ipAddress    String?   @map("ip_address")
+  userAgent    String?   @map("user_agent")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([actorUserId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("fiorix_messaging_audit_logs")
 }
