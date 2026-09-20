@@ -10,23 +10,47 @@ export const dynamic = 'force-dynamic';
 
 const BUCKET_NAME = 'fiorix-mensagens-anexos';
 
+// Detecta se a service role key está configurada
+function hasServiceRoleKey(): boolean {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return !!(key && !key.includes('[SENSITIVE]') && key.length > 20);
+}
+
 async function ensurePrivateBucketExists() {
   try {
-    const { data: buckets } = await supabaseAdmin.storage.listBuckets();
+    const { data: buckets, error: listError } = await supabaseAdmin.storage.listBuckets();
+    if (listError) {
+      console.error('[Upload Anexo] Erro ao listar buckets (service role key ausente?):', listError);
+      throw listError;
+    }
     const exists = buckets?.some((b) => b.name === BUCKET_NAME);
     if (!exists) {
-      await supabaseAdmin.storage.createBucket(BUCKET_NAME, {
+      const { error: createError } = await supabaseAdmin.storage.createBucket(BUCKET_NAME, {
         public: false,
         fileSizeLimit: 26214400, // 25 MB
       });
+      if (createError) {
+        console.error('[Upload Anexo] Erro ao criar bucket:', createError);
+        throw createError;
+      }
     }
   } catch (err) {
-    // Ignora erro se já existir
+    console.error('[Upload Anexo] Falha na verificação/criação do bucket:', err);
+    throw err;
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
+    // Verificação antecipada: service role key obrigatória para storage privado
+    if (!hasServiceRoleKey()) {
+      console.error('[Upload Anexo] SUPABASE_SERVICE_ROLE_KEY não configurada. Adicione ao .env ou variáveis de produção.');
+      return NextResponse.json(
+        { error: 'Configuração de storage incompleta. Contate o administrador do sistema.' },
+        { status: 503 }
+      );
+    }
+
     const user = await requireAuth();
     const formData = await req.formData();
 
@@ -100,9 +124,9 @@ export async function POST(req: NextRequest) {
       });
 
     if (uploadError) {
-      console.error('[Upload Anexo] Erro Supabase Storage:', uploadError);
+      console.error('[Upload Anexo] Erro Supabase Storage:', JSON.stringify(uploadError));
       return NextResponse.json(
-        { error: 'Falha ao armazenar o anexo na nuvem privada.' },
+        { error: `Falha ao armazenar o anexo na nuvem privada. (${uploadError.message || 'erro desconhecido'})` },
         { status: 500 }
       );
     }
