@@ -425,168 +425,170 @@ export function ChatArea({
       )}
 
       {/* Área Central de Mensagens */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-        {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-500 text-xs">
-            <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center mb-3 text-slate-400">
-              <FileText className="w-6 h-6" />
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="flex flex-col justify-end min-h-full p-4 space-y-3">
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center text-center py-12 text-slate-500 text-xs">
+              <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center mb-3 text-slate-400">
+                <FileText className="w-6 h-6" />
+              </div>
+              <p className="font-semibold text-slate-300 text-sm">Início da conversa</p>
+              <p className="max-w-xs mt-1 text-slate-500">
+                Envie uma mensagem ou documento para se comunicar com sua equipe em tempo real.
+              </p>
             </div>
-            <p className="font-semibold text-slate-300 text-sm">Início da conversa</p>
-            <p className="max-w-xs mt-1 text-slate-500">
-              Envie uma mensagem ou documento para se comunicar com sua equipe em tempo real.
-            </p>
-          </div>
-        ) : (
-          messages.map((msg) => {
-            const isSelf = msg.remetenteId === currentUserId;
+          ) : (
+            messages.map((msg) => {
+              const isSelf = msg.remetenteId === currentUserId;
 
-            return (
-              <div
-                key={msg.id}
-                className={`flex flex-col group ${isSelf ? 'items-end' : 'items-start'}`}
-              >
-                {/* Cabeçalho da mensagem (remetente em grupos ou mensagens recebidas) */}
-                {!isSelf && (
-                  <div className="flex items-center gap-2 mb-1 px-1">
-                    <span className="text-xs font-semibold text-slate-300">{msg.remetenteNome}</span>
-                    <span className="text-[10px] font-mono text-slate-500 uppercase">
-                      {msg.remetenteRole}
-                    </span>
-                  </div>
-                )}
-
-                {/* Balão de Mensagem */}
+              return (
                 <div
-                  className={`relative max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-2.5 shadow-sm text-xs leading-relaxed transition ${
-                    isSelf
-                      ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white rounded-tr-sm border border-indigo-500/40'
-                      : 'bg-[#182035] text-slate-100 rounded-tl-sm border border-white/10'
-                  }`}
+                  key={msg.id}
+                  className={`flex flex-col group ${isSelf ? 'items-end' : 'items-start'}`}
                 >
-                  {/* Resposta citada */}
-                  {msg.respostaA && (
-                    <div className="mb-2 p-2 rounded-lg bg-black/20 border-l-2 border-indigo-400 text-[11px] text-slate-300">
-                      <p className="font-bold text-indigo-300 mb-0.5">{msg.respostaA.remetenteNome}</p>
-                      <p className="truncate opacity-90">{msg.respostaA.conteudo}</p>
-                    </div>
-                  )}
-
-                  {/* Conteúdo textual */}
-                  <p className={`whitespace-pre-wrap break-words ${msg.isDeleted ? 'italic text-slate-400' : ''}`}>
-                    {msg.conteudo}
-                  </p>
-
-                  {/* Anexos */}
-                  {msg.anexos && msg.anexos.length > 0 && !msg.isDeleted && (
-                    <div className="mt-2 space-y-1.5">
-                      {msg.anexos.map((anexo) => (
-                        <a
-                          key={anexo.id}
-                          href={`/api/mensagens/anexo/${anexo.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2.5 p-2 rounded-xl bg-black/30 hover:bg-black/40 border border-white/10 text-white transition group/anexo"
-                        >
-                          <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 shrink-0">
-                            <FileText className="w-4 h-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium truncate group-hover/anexo:underline">
-                              {anexo.nomeArquivo}
-                            </p>
-                            <p className="text-[10px] text-slate-400">
-                              {(anexo.tamanhoBytes / 1024).toFixed(0)} KB
-                            </p>
-                          </div>
-                          <Download className="w-4 h-4 text-slate-400 group-hover/anexo:text-white shrink-0" />
-                        </a>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Horário e confirmação */}
-                  <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-white/50">
-                    <span>
-                      {new Date(msg.createdAt).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                    {isSelf && (
-                      <span className="text-indigo-200">
-                        <CheckCheck className="w-3 h-3" />
+                  {/* Cabeçalho da mensagem (remetente em grupos ou mensagens recebidas) */}
+                  {!isSelf && (
+                    <div className="flex items-center gap-2 mb-1 px-1">
+                      <span className="text-xs font-semibold text-slate-300">{msg.remetenteNome}</span>
+                      <span className="text-[10px] font-mono text-slate-500 uppercase">
+                        {msg.remetenteRole}
                       </span>
-                    )}
-                  </div>
-
-                  {/* Barra de Reações Abaixo do Balão */}
-                  {msg.reacoes && msg.reacoes.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1.5 pt-1 border-t border-white/10">
-                      {msg.reacoes.map((r) => (
-                        <button
-                          key={r.emoji}
-                          onClick={() => handleReaction(msg.id, r.emoji)}
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border transition ${
-                            r.hasReacted
-                              ? 'bg-indigo-500/30 border-indigo-400 text-white'
-                              : 'bg-black/20 border-white/10 text-slate-300 hover:border-white/30'
-                          }`}
-                        >
-                          <span>{r.emoji}</span>
-                          <span>{r.count}</span>
-                        </button>
-                      ))}
                     </div>
                   )}
 
-                  {/* Barra de Ações Hover (Responder, Reagir, Deletar) */}
-                  {!msg.isDeleted && (
-                    <div
-                      className={`absolute top-0 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition flex items-center gap-1 p-1 rounded-xl bg-slate-900/90 border border-white/10 shadow-lg backdrop-blur z-10 ${
-                        isSelf ? 'right-2' : 'left-2'
-                      }`}
-                    >
-                      {/* Emojis Rápidos */}
-                      <div className="flex items-center gap-0.5 pr-1 border-r border-white/10">
-                        {QUICK_EMOJIS.map((emoji) => (
-                          <button
-                            key={emoji}
-                            onClick={() => handleReaction(msg.id, emoji)}
-                            className="p-1 hover:scale-125 transition text-xs"
-                            title={`Reagir com ${emoji}`}
+                  {/* Balão de Mensagem */}
+                  <div
+                    className={`relative max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-2.5 shadow-sm text-xs leading-relaxed transition ${
+                      isSelf
+                        ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white rounded-tr-sm border border-indigo-500/40'
+                        : 'bg-[#182035] text-slate-100 rounded-tl-sm border border-white/10'
+                    }`}
+                  >
+                    {/* Resposta citada */}
+                    {msg.respostaA && (
+                      <div className="mb-2 p-2 rounded-lg bg-black/20 border-l-2 border-indigo-400 text-[11px] text-slate-300">
+                        <p className="font-bold text-indigo-300 mb-0.5">{msg.respostaA.remetenteNome}</p>
+                        <p className="truncate opacity-90">{msg.respostaA.conteudo}</p>
+                      </div>
+                    )}
+
+                    {/* Conteúdo textual */}
+                    <p className={`whitespace-pre-wrap break-words ${msg.isDeleted ? 'italic text-slate-400' : ''}`}>
+                      {msg.conteudo}
+                    </p>
+
+                    {/* Anexos */}
+                    {msg.anexos && msg.anexos.length > 0 && !msg.isDeleted && (
+                      <div className="mt-2 space-y-1.5">
+                        {msg.anexos.map((anexo) => (
+                          <a
+                            key={anexo.id}
+                            href={`/api/mensagens/anexo/${anexo.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2.5 p-2 rounded-xl bg-black/30 hover:bg-black/40 border border-white/10 text-white transition group/anexo"
                           >
-                            {emoji}
+                            <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 shrink-0">
+                              <FileText className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate group-hover/anexo:underline">
+                                {anexo.nomeArquivo}
+                              </p>
+                              <p className="text-[10px] text-slate-400">
+                                {(anexo.tamanhoBytes / 1024).toFixed(0)} KB
+                              </p>
+                            </div>
+                            <Download className="w-4 h-4 text-slate-400 group-hover/anexo:text-white shrink-0" />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Horário e confirmação */}
+                    <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-white/50">
+                      <span>
+                        {new Date(msg.createdAt).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                      {isSelf && (
+                        <span className="text-indigo-200">
+                          <CheckCheck className="w-3 h-3" />
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Barra de Reações Abaixo do Balão */}
+                    {msg.reacoes && msg.reacoes.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5 pt-1 border-t border-white/10">
+                        {msg.reacoes.map((r) => (
+                          <button
+                            key={r.emoji}
+                            onClick={() => handleReaction(msg.id, r.emoji)}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border transition ${
+                              r.hasReacted
+                                ? 'bg-indigo-500/30 border-indigo-400 text-white'
+                                : 'bg-black/20 border-white/10 text-slate-300 hover:border-white/30'
+                            }`}
+                          >
+                            <span>{r.emoji}</span>
+                            <span>{r.count}</span>
                           </button>
                         ))}
                       </div>
+                    )}
 
-                      {/* Responder */}
-                      <button
-                        onClick={() => setReplyTo(msg)}
-                        title="Responder"
-                        className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition"
+                    {/* Barra de Ações Hover (Responder, Reagir, Deletar) */}
+                    {!msg.isDeleted && (
+                      <div
+                        className={`absolute top-0 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition flex items-center gap-1 p-1 rounded-xl bg-slate-900/90 border border-white/10 shadow-lg backdrop-blur z-10 ${
+                          isSelf ? 'right-2' : 'left-2'
+                        }`}
                       >
-                        <Reply className="w-3.5 h-3.5" />
-                      </button>
+                        {/* Emojis Rápidos */}
+                        <div className="flex items-center gap-0.5 pr-1 border-r border-white/10">
+                          {QUICK_EMOJIS.map((emoji) => (
+                            <button
+                              key={emoji}
+                              onClick={() => handleReaction(msg.id, emoji)}
+                              className="p-1 hover:scale-125 transition text-xs"
+                              title={`Reagir com ${emoji}`}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
 
-                      {/* Excluir (somente autor ou admin) */}
-                      {(isSelf || conversation.membros.some((m) => m.userId === currentUserId && m.papel === 'ADMIN')) && (
+                        {/* Responder */}
                         <button
-                          onClick={() => handleDelete(msg.id)}
-                          title="Remover mensagem"
-                          className="p-1.5 text-slate-400 hover:text-red-400 rounded-lg hover:bg-white/10 transition"
+                          onClick={() => setReplyTo(msg)}
+                          title="Responder"
+                          className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Reply className="w-3.5 h-3.5" />
                         </button>
-                      )}
-                    </div>
-                  )}
+
+                        {/* Excluir (somente autor ou admin) */}
+                        {(isSelf || conversation.membros.some((m) => m.userId === currentUserId && m.papel === 'ADMIN')) && (
+                          <button
+                            onClick={() => handleDelete(msg.id)}
+                            title="Remover mensagem"
+                            className="p-1.5 text-slate-400 hover:text-red-400 rounded-lg hover:bg-white/10 transition"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })
-        )}
-        <div ref={messagesEndRef} />
+              );
+            })
+          )}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
       {/* Barra Inferior Fixa de Envio de Mensagem */}
