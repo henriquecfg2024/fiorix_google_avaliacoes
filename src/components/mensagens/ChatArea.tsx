@@ -17,6 +17,8 @@ import {
   Loader2,
   Shield,
   AlertTriangle,
+  Search,
+  Plus,
 } from 'lucide-react';
 import {
   SerializedConversation,
@@ -24,6 +26,8 @@ import {
   sendMessage,
   deleteMessage,
   toggleReaction,
+  addMemberToConversation,
+  getAvailableUsers,
 } from '@/app/actions/mensagens';
 
 interface ChatAreaProps {
@@ -34,6 +38,7 @@ interface ChatAreaProps {
   onMessageSent: (message: SerializedMessage) => void;
   onMessageDeleted: (messageId: string) => void;
   onReactionToggled: (messageId: string, emoji: string) => void;
+  onConversationUpdated?: () => void;
 }
 
 const QUICK_EMOJIS = ['👍', '❤️', '👏', '😂', '⚠️', '🔒'];
@@ -46,6 +51,7 @@ export function ChatArea({
   onMessageSent,
   onMessageDeleted,
   onReactionToggled,
+  onConversationUpdated,
 }: ChatAreaProps) {
   const [inputText, setInputText] = useState('');
   const [replyTo, setReplyTo] = useState<SerializedMessage | null>(null);
@@ -53,6 +59,14 @@ export function ChatArea({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [showMembers, setShowMembers] = useState(false);
+
+  // Estados para adicionar participante
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [addMemberSearch, setAddMemberSearch] = useState('');
+  const [addMemberUsers, setAddMemberUsers] = useState<{ id: string; name: string; role: string }[]>([]);
+  const [loadingAddUsers, setLoadingAddUsers] = useState(false);
+  const [addingMemberId, setAddingMemberId] = useState<string | null>(null);
+  const [addMemberError, setAddMemberError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -151,6 +165,48 @@ export function ChatArea({
   const isGroup = conversation.tipo === 'GROUP';
   const otherMember = conversation.otherMember;
 
+  const existingMemberIds = new Set(conversation.membros.map((m) => m.userId));
+
+  const openAddMember = () => {
+    setShowAddMember(true);
+    setAddMemberSearch('');
+    setAddMemberError(null);
+    setLoadingAddUsers(true);
+    getAvailableUsers()
+      .then((res) => {
+        if (res.success && res.users) {
+          // Filtra usuários que já são membros
+          setAddMemberUsers(res.users.filter((u) => !existingMemberIds.has(u.id)));
+        }
+      })
+      .catch(() => setAddMemberError('Erro ao carregar contatos.'))
+      .finally(() => setLoadingAddUsers(false));
+  };
+
+  const handleAddMember = async (targetUserId: string) => {
+    if (addingMemberId) return;
+    setAddingMemberId(targetUserId);
+    setAddMemberError(null);
+    try {
+      const res = await addMemberToConversation(conversation.id, targetUserId);
+      if (res.success) {
+        setShowAddMember(false);
+        setShowMembers(false);
+        onConversationUpdated?.();
+      } else {
+        setAddMemberError(res.error || 'Não foi possível adicionar o participante.');
+      }
+    } catch {
+      setAddMemberError('Erro inesperado ao adicionar participante.');
+    } finally {
+      setAddingMemberId(null);
+    }
+  };
+
+  const filteredAddUsers = addMemberUsers.filter((u) =>
+    u.name.toLowerCase().includes(addMemberSearch.toLowerCase())
+  );
+
   return (
     <div className="flex-1 h-full flex flex-col bg-[#070A12] relative overflow-hidden select-text">
       {/* Header do Chat */}
@@ -215,53 +271,143 @@ export function ChatArea({
       {/* Painel lateral sob demanda com detalhes dos participantes */}
       {showMembers && (
         <div className="absolute right-0 top-[57px] bottom-0 w-72 bg-[#0e1424] border-l border-white/10 p-4 z-20 shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-200">
-          <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-              Participantes ({conversation.membros.length})
-            </h4>
-            <button
-              onClick={() => setShowMembers(false)}
-              className="p-1 text-slate-400 hover:text-white rounded"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="space-y-2">
-            {conversation.membros.map((m) => (
-              <div
-                key={m.id}
-                className="flex items-center justify-between p-2 rounded-xl bg-white/[0.02] border border-white/5"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-7 h-7 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-[10px] font-bold shrink-0">
-                    {m.name.substring(0, 2).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-white truncate">
-                      {m.name} {m.userId === currentUserId && '(Você)'}
-                    </p>
-                    <span className="text-[10px] text-slate-400 uppercase font-mono">
-                      {m.role}
-                    </span>
-                  </div>
-                </div>
-
-                {m.papel === 'ADMIN' && (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
-                    Admin
-                  </span>
-                )}
+          {!showAddMember ? (
+            <>
+              <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                  Participantes ({conversation.membros.length})
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setShowMembers(false)}
+                  className="p-1 text-slate-400 hover:text-white rounded"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-            ))}
-          </div>
 
-          <div className="mt-6 p-3 rounded-xl bg-slate-900/60 border border-white/5 text-[11px] text-slate-400 flex items-start gap-2">
-            <Shield className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-            <span>
-              Isolamento estrito ativo: todas as comunicações e anexos são restritos a colaboradores autorizados da sua organização.
-            </span>
-          </div>
+              <div className="space-y-2">
+                {conversation.membros.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center justify-between p-2 rounded-xl bg-white/[0.02] border border-white/5"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-7 h-7 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-[10px] font-bold shrink-0">
+                        {m.name.substring(0, 2).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-white truncate">
+                          {m.name} {m.userId === currentUserId && '(Você)'}
+                        </p>
+                        <span className="text-[10px] text-slate-400 uppercase font-mono">
+                          {m.role}
+                        </span>
+                      </div>
+                    </div>
+
+                    {m.papel === 'ADMIN' && (
+                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                        Admin
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Botão adicionar participante */}
+              <button
+                type="button"
+                onClick={openAddMember}
+                className="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-600/30 hover:text-white text-xs font-semibold transition"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Adicionar participante
+              </button>
+
+              <div className="mt-4 p-3 rounded-xl bg-slate-900/60 border border-white/5 text-[11px] text-slate-400 flex items-start gap-2">
+                <Shield className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span>
+                  Isolamento estrito ativo: todas as comunicações são restritas a colaboradores autorizados da sua organização.
+                </span>
+              </div>
+            </>
+          ) : (
+            /* Painel de adicionar participante */
+            <>
+              <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                  Adicionar Participante
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setShowAddMember(false)}
+                  className="p-1 text-slate-400 hover:text-white rounded"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+              </div>
+
+              {!isGroup && (
+                <div className="mb-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 flex items-start gap-2">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>Adicionar alguém aqui vai converter esta conversa em um <strong>grupo</strong>.</span>
+                </div>
+              )}
+
+              {addMemberError && (
+                <div className="mb-3 p-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-[11px] text-red-300">
+                  {addMemberError}
+                </div>
+              )}
+
+              <div className="relative mb-3">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                <input
+                  type="text"
+                  value={addMemberSearch}
+                  onChange={(e) => setAddMemberSearch(e.target.value)}
+                  placeholder="Buscar colaborador..."
+                  className="w-full pl-8 pr-3 py-2 text-xs rounded-xl bg-slate-900 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+                />
+              </div>
+
+              {loadingAddUsers ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
+                </div>
+              ) : filteredAddUsers.length === 0 ? (
+                <p className="text-center text-xs text-slate-500 py-6">
+                  {addMemberSearch ? 'Nenhum colaborador encontrado.' : 'Todos os colaboradores já são participantes.'}
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {filteredAddUsers.map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      disabled={!!addingMemberId}
+                      onClick={() => handleAddMember(u.id)}
+                      className="w-full flex items-center gap-2.5 p-2 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-indigo-600/10 hover:border-indigo-500/30 transition text-left disabled:opacity-50 cursor-pointer"
+                    >
+                      <div className="w-7 h-7 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-[10px] font-bold shrink-0">
+                        {addingMemberId === u.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                        ) : (
+                          u.name.substring(0, 2).toUpperCase()
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-white truncate">{u.name}</p>
+                        <span className="text-[10px] text-slate-400 uppercase font-mono">{u.role}</span>
+                      </div>
+                      <Plus className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 

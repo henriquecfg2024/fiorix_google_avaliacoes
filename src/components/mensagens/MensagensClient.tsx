@@ -174,6 +174,15 @@ export function MensagensClient({
     router.replace(`/mensagens?c=${id}`);
   };
 
+  // Chamado quando um participante é adicionado à conversa ativa
+  const handleConversationUpdated = useCallback(() => {
+    getConversations().then((res) => {
+      if (res.success && res.conversations) {
+        setConversations(res.conversations);
+      }
+    });
+  }, []);
+
   const handleMessageSent = (newMsg: SerializedMessage) => {
     setMessages((prev) => [...prev, newMsg]);
 
@@ -272,6 +281,7 @@ export function MensagensClient({
             onMessageSent={handleMessageSent}
             onMessageDeleted={handleMessageDeleted}
             onReactionToggled={handleReactionToggled}
+            onConversationUpdated={handleConversationUpdated}
           />
         ) : (
           <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-500">

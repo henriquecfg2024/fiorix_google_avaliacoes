@@ -921,3 +921,89 @@ export async function updateAdminMessagingPolicy(data: {
     return { success: false, error: error?.message || 'Falha ao atualizar políticas' };
   }
 }
+
+/**
+ * 14. Adicionar participante a uma conversa
+ * Se a conversa for DIRECT, ela é convertida automaticamente para GROUP.
+ */
+export async function addMemberToConversation(
+  conversationId: string,
+  newUserId: string
+): Promise<{ success: boolean; error?: string; promoted?: boolean }> {
+  try {
+    const user = await requireAuth();
+
+    // REGRA CRÍTICA MULTI-TENANT: valida que o novo usuário pertence à mesma organização
+    const newUser = await prisma.user.findFirst({
+      where: { id: newUserId, tenantId: user.tenantId },
+      select: { id: true, name: true },
+    });
+    if (!newUser) {
+      return { success: false, error: 'Usuário não encontrado na sua organização.' };
+    }
+
+    // Busca a conversa e valida que o solicitante é membro
+    const conversa = await prisma.conversa.findFirst({
+      where: {
+        id: conversationId,
+        tenantId: user.tenantId,
+        membros: { some: { usuarioId: user.id } },
+      },
+      include: {
+        membros: {
+          include: {
+            usuario: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    if (!conversa) {
+      return { success: false, error: 'Conversa não encontrada ou acesso negado.' };
+    }
+
+    // Verifica se o usuário já é membro
+    if (conversa.membros.some((m) => m.usuarioId === newUserId)) {
+      return { success: false, error: 'Este usuário já é participante desta conversa.' };
+    }
+
+    let promoted = false;
+
+    await prisma.$transaction(async (tx) => {
+      // Se for DIRECT, converte para GROUP com título automático
+      if (conversa.tipo === 'DIRECT') {
+        const memberNames = conversa.membros.map((m) => m.usuario.name || 'Colaborador');
+        const groupTitle = `Grupo: ${[...memberNames, newUser.name || 'Colaborador'].join(', ')}`;
+        await tx.conversa.update({
+          where: { id: conversationId },
+          data: { tipo: 'GROUP', titulo: groupTitle },
+        });
+        promoted = true;
+      }
+
+      // Adiciona o novo membro
+      await tx.conversaMembro.create({
+        data: {
+          tenantId: user.tenantId,
+          conversaId: conversationId,
+          usuarioId: newUserId,
+          papel: 'MEMBER',
+        },
+      });
+    });
+
+    await logMessagingAudit({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: 'ADD_MEMBER',
+      targetType: 'CONVERSATION',
+      targetId: conversationId,
+      metadata: { newUserId, promoted },
+    });
+
+    return { success: true, promoted };
+  } catch (error: any) {
+    console.error('[addMemberToConversation] Erro:', error);
+    return { success: false, error: error?.message || 'Falha ao adicionar participante' };
+  }
+}
