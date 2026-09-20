@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { requireAuth } from '@/lib/auth-helpers';
@@ -23,10 +24,12 @@ export default async function MensagensPage() {
   const initialConversations = res.success && res.conversations ? res.conversations : [];
 
   return (
-    <MensagensClient
-      initialConversations={initialConversations}
-      currentUserId={user.id}
-      tenantId={user.tenantId}
-    />
+    <Suspense fallback={null}>
+      <MensagensClient
+        initialConversations={initialConversations}
+        currentUserId={user.id}
+        tenantId={user.tenantId}
+      />
+    </Suspense>
   );
 }

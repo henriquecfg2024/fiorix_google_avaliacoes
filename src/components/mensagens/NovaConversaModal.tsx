@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X,
   Search,
@@ -28,6 +29,7 @@ export function NovaConversaModal({
   onClose,
   onConversationCreated,
 }: NovaConversaModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [tab, setTab] = useState<'direct' | 'group'>('direct');
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -40,6 +42,20 @@ export function NovaConversaModal({
   const [groupTitle, setGroupTitle] = useState('');
   const [groupDesc, setGroupDesc] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Fecha modal ao pressionar Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     if (isOpen) {
@@ -63,7 +79,7 @@ export function NovaConversaModal({
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const filteredUsers = users.filter((u) =>
     u.name.toLowerCase().includes(search.toLowerCase())
@@ -128,9 +144,17 @@ export function NovaConversaModal({
     );
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[#111827] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[#111827] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#151C2F]">
           <div className="flex items-center gap-2.5">
@@ -140,6 +164,7 @@ export function NovaConversaModal({
             <h3 className="text-base font-semibold text-white">Nova Conversa</h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition"
           >
@@ -209,6 +234,7 @@ export function NovaConversaModal({
                 filteredUsers.map((u) => (
                   <button
                     key={u.id}
+                    type="button"
                     disabled={submitting}
                     onClick={() => handleStartDirect(u.id)}
                     className="w-full flex items-center justify-between p-2.5 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5 text-left transition group"
@@ -343,6 +369,7 @@ export function NovaConversaModal({
           </form>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

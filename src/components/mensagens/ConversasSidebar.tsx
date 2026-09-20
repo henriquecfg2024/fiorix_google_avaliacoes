@@ -82,9 +82,10 @@ export function ConversasSidebar({
 
         <div className={`flex items-center gap-1 ${isCollapsed ? 'mx-auto' : ''}`}>
           <button
+            type="button"
             onClick={onOpenNovaConversa}
             title="Nova Conversa"
-            className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm"
+            className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm cursor-pointer"
           >
             <Plus className="w-4 h-4" />
           </button>

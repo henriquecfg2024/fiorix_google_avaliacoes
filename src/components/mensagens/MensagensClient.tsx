@@ -283,8 +283,9 @@ export function MensagensClient({
               Selecione uma conversa ao lado ou inicie um novo diálogo corporativo seguro com um colega da sua organização.
             </p>
             <button
+              type="button"
               onClick={() => setIsModalOpen(true)}
-              className="px-4 py-2 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg transition"
+              className="px-4 py-2 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg transition cursor-pointer"
             >
               Nova Conversa
             </button>
