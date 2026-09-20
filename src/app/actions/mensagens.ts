@@ -17,6 +17,13 @@ export interface SerializedConversation {
   avatarUrl?: string | null;
   lastMessageAt: string;
   unreadCount: number;
+  // V1 fields
+  pinnedAt?: string | null;
+  archivedAt?: string | null;
+  draft?: string | null;
+  isMuted?: boolean;
+  permissaoEnvio?: string;
+  permissaoEdicaoDados?: string;
   otherMember?: {
     id: string;
     name: string;
@@ -46,9 +53,16 @@ export interface SerializedMessage {
   remetenteNome: string;
   remetenteRole: string;
   conteudo: string;
+  tipo: 'TEXT' | 'VOICE' | 'FIORIX_CARD';
   isDeleted: boolean;
   createdAt: string;
   editedAt?: string | null;
+  // V1 fields
+  forwardedFrom?: { id: string; remetenteNome: string } | null;
+  cardTipo?: string | null;
+  cardReferenciaId?: string | null;
+  cardMetadata?: Record<string, string | undefined> | null;
+  isFavorited?: boolean;
   respostaA?: {
     id: string;
     conteudo: string;
@@ -137,6 +151,13 @@ export async function getConversations(): Promise<{ success: boolean; conversati
         avatarUrl: conv.avatarUrl,
         lastMessageAt: conv.lastMessageAt.toISOString(),
         unreadCount,
+        // V1 fields
+        pinnedAt: m.pinnedAt?.toISOString() ?? null,
+        archivedAt: m.archivedAt?.toISOString() ?? null,
+        draft: m.draft ?? null,
+        isMuted: m.muted || (m.mutedUntil ? m.mutedUntil > new Date() : false),
+        permissaoEnvio: conv.permissaoEnvio,
+        permissaoEdicaoDados: conv.permissaoEdicaoDados,
         otherMember: otherMemberData
           ? {
               id: otherMemberData.usuario.id,
@@ -218,6 +239,13 @@ export async function getMessages(
             remetente: { select: { name: true } },
           },
         },
+        forwardedFrom: {
+          select: { id: true, remetente: { select: { name: true } } },
+        },
+        favoritos: {
+          where: { usuarioId: user.id },
+          select: { id: true },
+        },
       },
     });
 
@@ -244,9 +272,18 @@ export async function getMessages(
         remetenteNome: msg.remetente.name || 'Usuário',
         remetenteRole: msg.remetente.role,
         conteudo: msg.isDeleted ? 'Mensagem removida' : msg.conteudo,
+        tipo: (msg.tipo || 'TEXT') as 'TEXT' | 'VOICE' | 'FIORIX_CARD',
         isDeleted: msg.isDeleted,
         createdAt: msg.createdAt.toISOString(),
         editedAt: msg.editedAt?.toISOString() || null,
+        // V1 fields
+        forwardedFrom: msg.forwardedFrom
+          ? { id: msg.forwardedFrom.id, remetenteNome: msg.forwardedFrom.remetente.name || 'Usuário' }
+          : null,
+        cardTipo: msg.cardTipo ?? null,
+        cardReferenciaId: msg.cardReferenciaId ?? null,
+        cardMetadata: (msg.cardMetadata as Record<string, string | undefined> | null) ?? null,
+        isFavorited: msg.favoritos.length > 0,
         respostaA: msg.respostaA
           ? {
               id: msg.respostaA.id,
@@ -393,6 +430,7 @@ export async function sendMessage(params: {
       remetenteNome: created.msg.remetente.name || 'Usuário',
       remetenteRole: created.msg.remetente.role,
       conteudo: created.msg.conteudo,
+      tipo: 'TEXT',
       isDeleted: false,
       createdAt: created.msg.createdAt.toISOString(),
       respostaA: created.msg.respostaA
@@ -722,7 +760,10 @@ export async function toggleReaction(messageId: string, emoji: string): Promise<
  * 9. Lista contatos autorizados da organização para "Nova Conversa"
  * Projeção mínima segura (sem senhas, totp, cpf ou dados sensíveis)
  */
-export async function getAvailableUsers(): Promise<{
+export async function getAvailableUsers(
+  conversationId?: string,
+  query?: string
+): Promise<{
   success: boolean;
   users?: { id: string; name: string; role: string }[];
   error?: string;
@@ -730,10 +771,21 @@ export async function getAvailableUsers(): Promise<{
   try {
     const user = await requireAuth();
 
+    // Exclui membros já na conversa (se conversationId fornecido)
+    let excludeIds: string[] = [user.id];
+    if (conversationId) {
+      const existingMembers = await prisma.conversaMembro.findMany({
+        where: { conversaId: conversationId, tenantId: user.tenantId },
+        select: { usuarioId: true },
+      });
+      excludeIds = [...excludeIds, ...existingMembers.map((m) => m.usuarioId)];
+    }
+
     const users = await prisma.user.findMany({
       where: {
         tenantId: user.tenantId,
-        id: { not: user.id },
+        id: { notIn: excludeIds },
+        ...(query ? { name: { contains: query, mode: 'insensitive' } } : {}),
       },
       select: {
         id: true,
@@ -741,6 +793,7 @@ export async function getAvailableUsers(): Promise<{
         role: true,
       },
       orderBy: { name: 'asc' },
+      take: 20,
     });
 
     return {
@@ -1005,5 +1058,878 @@ export async function addMemberToConversation(
   } catch (error: any) {
     console.error('[addMemberToConversation] Erro:', error);
     return { success: false, error: error?.message || 'Falha ao adicionar participante' };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ONDA 2 — NOVAS ACTIONS V1
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Fixar / desafixar conversa para o usuário atual
+ */
+export async function pinConversation(
+  conversationId: string,
+  pin: boolean
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await requireAuth();
+    const membership = await prisma.conversaMembro.findFirst({
+      where: { conversaId: conversationId, usuarioId: user.id, tenantId: user.tenantId },
+    });
+    if (!membership) return { success: false, error: 'Não autorizado.' };
+
+    await prisma.conversaMembro.update({
+      where: { id: membership.id },
+      data: { pinnedAt: pin ? new Date() : null },
+    });
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+/**
+ * Arquivar / desarquivar conversa para o usuário atual
+ */
+export async function archiveConversation(
+  conversationId: string,
+  archive: boolean
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await requireAuth();
+    const membership = await prisma.conversaMembro.findFirst({
+      where: { conversaId: conversationId, usuarioId: user.id, tenantId: user.tenantId },
+    });
+    if (!membership) return { success: false, error: 'Não autorizado.' };
+
+    await prisma.conversaMembro.update({
+      where: { id: membership.id },
+      data: { archivedAt: archive ? new Date() : null },
+    });
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+/**
+ * Marcar conversa como não lida (força unreadCount > 0 ao resetar lastReadAt)
+ */
+export async function markConversationUnread(
+  conversationId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await requireAuth();
+    const membership = await prisma.conversaMembro.findFirst({
+      where: { conversaId: conversationId, usuarioId: user.id, tenantId: user.tenantId },
+    });
+    if (!membership) return { success: false, error: 'Não autorizado.' };
+
+    // Retrocede o lastReadAt para um momento antes da última mensagem
+    const lastMsg = await prisma.mensagem.findFirst({
+      where: { conversaId: conversationId, tenantId: user.tenantId, isDeleted: false },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (lastMsg) {
+      const oneDayBefore = new Date(lastMsg.createdAt.getTime() - 86_400_000);
+      await prisma.conversaMembro.update({
+        where: { id: membership.id },
+        data: { lastReadAt: oneDayBefore },
+      });
+    }
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+/**
+ * Salvar rascunho de texto para uma conversa (por usuário)
+ */
+export async function saveDraft(
+  conversationId: string,
+  text: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await requireAuth();
+    const membership = await prisma.conversaMembro.findFirst({
+      where: { conversaId: conversationId, usuarioId: user.id, tenantId: user.tenantId },
+    });
+    if (!membership) return { success: false, error: 'Não autorizado.' };
+
+    await prisma.conversaMembro.update({
+      where: { id: membership.id },
+      data: { draft: text.trim() || null },
+    });
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+/**
+ * Silenciar / reativar notificações de uma conversa
+ */
+export async function silenceConversation(
+  conversationId: string,
+  until: Date | null // null = dessilenciar
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await requireAuth();
+    const membership = await prisma.conversaMembro.findFirst({
+      where: { conversaId: conversationId, usuarioId: user.id, tenantId: user.tenantId },
+    });
+    if (!membership) return { success: false, error: 'Não autorizado.' };
+
+    await prisma.conversaMembro.update({
+      where: { id: membership.id },
+      data: {
+        mutedUntil: until,
+        muted: until !== null,
+      },
+    });
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+/**
+ * Editar mensagem dentro da janela de tempo configurada
+ */
+export async function editMessage(
+  messageId: string,
+  newContent: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await requireAuth();
+    const msg = await prisma.mensagem.findFirst({
+      where: { id: messageId, tenantId: user.tenantId, remetenteId: user.id, isDeleted: false },
+    });
+    if (!msg) return { success: false, error: 'Mensagem não encontrada ou sem permissão.' };
+
+    // Valida janela de edição via política do tenant
+    const policy = await prisma.messagingPolicy.findUnique({ where: { tenantId: user.tenantId } });
+    if (policy && !policy.allowEdit) return { success: false, error: 'Edição de mensagens desativada pela organização.' };
+    const windowMin = policy?.editWindowMinutes ?? 15;
+    const ageMin = (Date.now() - msg.createdAt.getTime()) / 60_000;
+    if (ageMin > windowMin) return { success: false, error: `A mensagem só pode ser editada até ${windowMin} minutos após o envio.` };
+
+    const sanitized = sanitizeMessageContent(newContent);
+    if (!sanitized) return { success: false, error: 'Conteúdo inválido.' };
+
+    await prisma.mensagem.update({
+      where: { id: messageId },
+      data: { conteudo: sanitized, editedAt: new Date() },
+    });
+
+    await logMessagingAudit({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: 'MESSAGE_EDITED',
+      targetType: 'MESSAGE',
+      targetId: messageId,
+      metadata: { conversaId: msg.conversaId },
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+/**
+ * Encaminhar mensagem para outra conversa
+ */
+export async function forwardMessage(
+  messageId: string,
+  targetConversationId: string
+): Promise<{ success: boolean; error?: string; newMessageId?: string }> {
+  try {
+    const user = await requireAuth();
+
+    // Valida acesso à mensagem original
+    const original = await prisma.mensagem.findFirst({
+      where: { id: messageId, tenantId: user.tenantId, isDeleted: false },
+      include: { conversa: { include: { membros: { where: { usuarioId: user.id } } } } },
+    });
+    if (!original || original.conversa.membros.length === 0)
+      return { success: false, error: 'Mensagem não encontrada ou sem permissão.' };
+
+    // Valida acesso à conversa de destino
+    const targetMembership = await prisma.conversaMembro.findFirst({
+      where: { conversaId: targetConversationId, usuarioId: user.id, tenantId: user.tenantId },
+    });
+    if (!targetMembership) return { success: false, error: 'Sem acesso à conversa de destino.' };
+
+    if (!checkMessageRateLimit(user.id)) return { success: false, error: 'Limite de envio atingido. Aguarde.' };
+
+    const newMsg = await prisma.mensagem.create({
+      data: {
+        tenantId: user.tenantId,
+        conversaId: targetConversationId,
+        remetenteId: user.id,
+        conteudo: original.conteudo,
+        tipo: original.tipo,
+        forwardedFromId: original.id,
+        cardTipo: original.cardTipo,
+        cardReferenciaId: original.cardReferenciaId,
+        cardMetadata: original.cardMetadata ?? undefined,
+      },
+    });
+
+    await prisma.conversa.update({
+      where: { id: targetConversationId },
+      data: { lastMessageAt: new Date() },
+    });
+
+    await logMessagingAudit({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: 'MESSAGE_FORWARDED',
+      targetType: 'MESSAGE',
+      targetId: newMsg.id,
+      metadata: { originalMessageId: messageId, targetConversationId },
+    });
+
+    return { success: true, newMessageId: newMsg.id };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+/**
+ * Favoritar / desfavoritar mensagem
+ */
+export async function favoriteMessage(
+  messageId: string,
+  favorite: boolean
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await requireAuth();
+
+    // Verifica que a mensagem existe e o usuário tem acesso
+    const msg = await prisma.mensagem.findFirst({
+      where: { id: messageId, tenantId: user.tenantId },
+      include: { conversa: { include: { membros: { where: { usuarioId: user.id } } } } },
+    });
+    if (!msg || msg.conversa.membros.length === 0)
+      return { success: false, error: 'Mensagem não encontrada ou sem permissão.' };
+
+    if (favorite) {
+      await prisma.mensagemFavorito.upsert({
+        where: { mensagemId_usuarioId: { mensagemId: messageId, usuarioId: user.id } },
+        create: { tenantId: user.tenantId, mensagemId: messageId, usuarioId: user.id },
+        update: {},
+      });
+    } else {
+      await prisma.mensagemFavorito.deleteMany({
+        where: { mensagemId: messageId, usuarioId: user.id, tenantId: user.tenantId },
+      });
+    }
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+/**
+ * Busca global de mensagens (apenas nas conversas do usuário)
+ */
+export async function searchMessages(
+  query: string,
+  filter: 'all' | 'messages' | 'files' | 'links' = 'all'
+): Promise<{
+  success: boolean;
+  results?: {
+    type: 'message' | 'file' | 'link';
+    messageId: string;
+    conversaId: string;
+    conversaTitulo: string;
+    conteudo: string;
+    remetenteNome: string;
+    createdAt: string;
+  }[];
+  error?: string;
+}> {
+  try {
+    const user = await requireAuth();
+    if (!query || query.trim().length < 2) return { success: true, results: [] };
+
+    // IDs das conversas que o usuário participa (RLS)
+    const memberships = await prisma.conversaMembro.findMany({
+      where: { usuarioId: user.id, tenantId: user.tenantId },
+      select: { conversaId: true, conversa: { select: { titulo: true } } },
+    });
+    const conversaIds = memberships.map((m) => m.conversaId);
+    const titulos: Record<string, string> = {};
+    memberships.forEach((m) => {
+      titulos[m.conversaId] = m.conversa.titulo ?? '';
+    });
+
+    const results: NonNullable<Awaited<ReturnType<typeof searchMessages>>['results']> = [];
+
+    if (filter === 'all' || filter === 'messages') {
+      const msgs = await prisma.mensagem.findMany({
+        where: {
+          conversaId: { in: conversaIds },
+          tenantId: user.tenantId,
+          isDeleted: false,
+          tipo: 'TEXT',
+          conteudo: { contains: query, mode: 'insensitive' },
+        },
+        include: { remetente: { select: { name: true } } },
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+      });
+      msgs.forEach((m) => {
+        results.push({
+          type: 'message',
+          messageId: m.id,
+          conversaId: m.conversaId,
+          conversaTitulo: titulos[m.conversaId] ?? '',
+          conteudo: m.conteudo,
+          remetenteNome: m.remetente.name ?? '',
+          createdAt: m.createdAt.toISOString(),
+        });
+      });
+    }
+
+    if (filter === 'all' || filter === 'files') {
+      const anexos = await prisma.mensagemAnexo.findMany({
+        where: {
+          tenantId: user.tenantId,
+          mensagem: { conversaId: { in: conversaIds }, isDeleted: false },
+          nomeArquivo: { contains: query, mode: 'insensitive' },
+        },
+        include: { mensagem: { include: { remetente: { select: { name: true } } } } },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      });
+      anexos.forEach((a) => {
+        results.push({
+          type: 'file',
+          messageId: a.mensagemId,
+          conversaId: a.mensagem.conversaId,
+          conversaTitulo: titulos[a.mensagem.conversaId] ?? '',
+          conteudo: `${a.nomeArquivo} (${(a.tamanhoBytes / 1024).toFixed(0)} KB)`,
+          remetenteNome: a.mensagem.remetente.name ?? '',
+          createdAt: a.createdAt.toISOString(),
+        });
+      });
+    }
+
+    // Ordenar por data decrescente
+    results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return { success: true, results: results.slice(0, 50) };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+/**
+ * Listar arquivos de uma conversa (documentos, imagens, links)
+ */
+export async function getConversationFiles(
+  conversationId: string
+): Promise<{
+  success: boolean;
+  files?: { id: string; nomeArquivo: string; mimeType: string; tamanhoBytes: number; remetenteNome: string; createdAt: string }[];
+  error?: string;
+}> {
+  try {
+    const user = await requireAuth();
+    const membership = await prisma.conversaMembro.findFirst({
+      where: { conversaId: conversationId, usuarioId: user.id, tenantId: user.tenantId },
+    });
+    if (!membership) return { success: false, error: 'Não autorizado.' };
+
+    const anexos = await prisma.mensagemAnexo.findMany({
+      where: {
+        tenantId: user.tenantId,
+        mensagem: { conversaId: conversationId, isDeleted: false },
+      },
+      include: { mensagem: { include: { remetente: { select: { name: true } } } } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      success: true,
+      files: anexos.map((a) => ({
+        id: a.id,
+        nomeArquivo: a.nomeArquivo,
+        mimeType: a.mimeType,
+        tamanhoBytes: a.tamanhoBytes,
+        remetenteNome: a.mensagem.remetente.name ?? '',
+        createdAt: a.createdAt.toISOString(),
+      })),
+    };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+/**
+ * Atualizar dados do grupo (nome, descrição, avatar)
+ */
+export async function updateGroupSettings(
+  conversationId: string,
+  data: { titulo?: string; descricao?: string; avatarUrl?: string }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await requireAuth();
+    const membership = await prisma.conversaMembro.findFirst({
+      where: { conversaId: conversationId, usuarioId: user.id, tenantId: user.tenantId },
+      include: { conversa: true },
+    });
+    if (!membership) return { success: false, error: 'Não autorizado.' };
+
+    const conversa = membership.conversa;
+    if (conversa.tipo !== 'GROUP') return { success: false, error: 'Apenas grupos podem ter dados alterados.' };
+
+    // Valida permissão de edição de dados
+    if (conversa.permissaoEdicaoDados === 'ADMIN_ONLY' && membership.papel !== 'ADMIN')
+      return { success: false, error: 'Somente administradores podem alterar dados deste grupo.' };
+
+    await prisma.conversa.update({
+      where: { id: conversationId },
+      data: {
+        titulo: data.titulo ?? undefined,
+        descricao: data.descricao ?? undefined,
+        avatarUrl: data.avatarUrl ?? undefined,
+      },
+    });
+
+    await logMessagingAudit({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: 'GROUP_UPDATED',
+      targetType: 'CONVERSATION',
+      targetId: conversationId,
+      metadata: { changes: data },
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+/**
+ * Atualizar permissões de privacidade do grupo
+ */
+export async function updateGroupPrivacy(
+  conversationId: string,
+  data: { permissaoEnvio?: 'ALL' | 'ADMIN_ONLY'; permissaoEdicaoDados?: 'ALL' | 'ADMIN_ONLY' }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await requireAuth();
+    const membership = await prisma.conversaMembro.findFirst({
+      where: { conversaId: conversationId, usuarioId: user.id, tenantId: user.tenantId, papel: 'ADMIN' },
+    });
+    if (!membership) return { success: false, error: 'Somente administradores podem alterar permissões do grupo.' };
+
+    await prisma.conversa.update({
+      where: { id: conversationId },
+      data: {
+        permissaoEnvio: data.permissaoEnvio ?? undefined,
+        permissaoEdicaoDados: data.permissaoEdicaoDados ?? undefined,
+      },
+    });
+
+    await logMessagingAudit({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: 'GROUP_PRIVACY_CHANGED',
+      targetType: 'CONVERSATION',
+      targetId: conversationId,
+      metadata: data,
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+/**
+ * Remover participante do grupo
+ */
+export async function removeMemberFromConversation(
+  conversationId: string,
+  targetUserId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await requireAuth();
+
+    // Actor deve ser ADMIN do grupo
+    const actorMembership = await prisma.conversaMembro.findFirst({
+      where: { conversaId: conversationId, usuarioId: user.id, tenantId: user.tenantId, papel: 'ADMIN' },
+    });
+    if (!actorMembership) return { success: false, error: 'Somente administradores podem remover participantes.' };
+
+    // Não pode remover a si mesmo (use "Sair do grupo")
+    if (targetUserId === user.id) return { success: false, error: 'Use "Sair do grupo" para se remover.' };
+
+    await prisma.conversaMembro.deleteMany({
+      where: { conversaId: conversationId, usuarioId: targetUserId, tenantId: user.tenantId },
+    });
+
+    await logMessagingAudit({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: 'MEMBER_REMOVED',
+      targetType: 'CONVERSATION',
+      targetId: conversationId,
+      metadata: { removedUserId: targetUserId },
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+/**
+ * Promover / rebaixar participante
+ */
+export async function changeMemberRole(
+  conversationId: string,
+  targetUserId: string,
+  papel: 'ADMIN' | 'MEMBER'
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await requireAuth();
+
+    const actorMembership = await prisma.conversaMembro.findFirst({
+      where: { conversaId: conversationId, usuarioId: user.id, tenantId: user.tenantId, papel: 'ADMIN' },
+    });
+    if (!actorMembership) return { success: false, error: 'Somente administradores podem alterar funções.' };
+
+    await prisma.conversaMembro.updateMany({
+      where: { conversaId: conversationId, usuarioId: targetUserId, tenantId: user.tenantId },
+      data: { papel },
+    });
+
+    await logMessagingAudit({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: 'ROLE_CHANGED',
+      targetType: 'CONVERSATION',
+      targetId: conversationId,
+      metadata: { targetUserId, newPapel: papel },
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+/**
+ * Buscar conversa por ID com validação de membership (para deep links)
+ */
+export async function getConversationById(
+  conversationId: string
+): Promise<{ success: boolean; conversation?: SerializedConversation; error?: string }> {
+  try {
+    const user = await requireAuth();
+    const membership = await prisma.conversaMembro.findFirst({
+      where: { conversaId: conversationId, usuarioId: user.id, tenantId: user.tenantId },
+    });
+    if (!membership) return { success: false, error: 'Acesso negado.' };
+
+    const result = await getConversations();
+    if (!result.success || !result.conversations) return { success: false, error: 'Erro ao buscar conversa.' };
+    const conv = result.conversations.find((c) => c.id === conversationId);
+    return conv ? { success: true, conversation: conv } : { success: false, error: 'Conversa não encontrada.' };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+// ─── LINKS DE CONVITE DE GRUPO ────────────────────────────────────────
+
+import crypto from 'crypto';
+
+/**
+ * Gerar link de convite para grupo
+ */
+export async function generateGroupInviteLink(
+  conversationId: string,
+  options?: { expiresInHours?: number; maxUses?: number }
+): Promise<{ success: boolean; token?: string; link?: string; error?: string }> {
+  try {
+    const user = await requireAuth();
+
+    const actorMembership = await prisma.conversaMembro.findFirst({
+      where: { conversaId: conversationId, usuarioId: user.id, tenantId: user.tenantId, papel: 'ADMIN' },
+      include: { conversa: true },
+    });
+    if (!actorMembership) return { success: false, error: 'Somente administradores podem gerar links de convite.' };
+    if (actorMembership.conversa.tipo !== 'GROUP') return { success: false, error: 'Links de convite são apenas para grupos.' };
+
+    const token = crypto.randomBytes(24).toString('base64url');
+    const expiresAt = options?.expiresInHours
+      ? new Date(Date.now() + options.expiresInHours * 3_600_000)
+      : null;
+
+    await prisma.groupInviteLink.create({
+      data: {
+        tenantId: user.tenantId,
+        conversaId: conversationId,
+        criadoPorId: user.id,
+        token,
+        expiresAt,
+        maxUses: options?.maxUses ?? null,
+      },
+    });
+
+    await logMessagingAudit({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: 'INVITE_LINK_GENERATED',
+      targetType: 'CONVERSATION',
+      targetId: conversationId,
+      metadata: { expiresAt, maxUses: options?.maxUses },
+    });
+
+    return { success: true, token, link: `/mensagens/convite/${token}` };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+/**
+ * Revogar link de convite
+ */
+export async function revokeGroupInviteLink(
+  token: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const user = await requireAuth();
+    const link = await prisma.groupInviteLink.findUnique({ where: { token } });
+    if (!link || link.tenantId !== user.tenantId) return { success: false, error: 'Link não encontrado.' };
+
+    const actorMembership = await prisma.conversaMembro.findFirst({
+      where: { conversaId: link.conversaId, usuarioId: user.id, tenantId: user.tenantId, papel: 'ADMIN' },
+    });
+    if (!actorMembership) return { success: false, error: 'Sem permissão para revogar este link.' };
+
+    await prisma.groupInviteLink.update({
+      where: { token },
+      data: { isActive: false, revokedAt: new Date() },
+    });
+
+    await logMessagingAudit({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: 'INVITE_LINK_REVOKED',
+      targetType: 'CONVERSATION',
+      targetId: link.conversaId,
+      metadata: { token },
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+/**
+ * Ingressar em grupo via token de convite
+ */
+export async function joinGroupViaInviteLink(
+  token: string
+): Promise<{ success: boolean; conversationId?: string; error?: string }> {
+  try {
+    const user = await requireAuth();
+
+    const link = await prisma.groupInviteLink.findUnique({
+      where: { token },
+      include: { conversa: true },
+    });
+
+    // Validações de segurança
+    if (!link || !link.isActive) return { success: false, error: 'Link inválido ou expirado.' };
+    if (link.tenantId !== user.tenantId) return { success: false, error: 'Este link pertence a outra organização.' };
+    if (link.expiresAt && link.expiresAt < new Date()) return { success: false, error: 'Este link de convite expirou.' };
+    if (link.maxUses !== null && link.usageCount >= link.maxUses) return { success: false, error: 'Este link atingiu o limite de usos.' };
+
+    // Verifica se já é membro
+    const existing = await prisma.conversaMembro.findFirst({
+      where: { conversaId: link.conversaId, usuarioId: user.id },
+    });
+    if (existing) return { success: true, conversationId: link.conversaId };
+
+    // Ingresso + incremento de uso
+    await prisma.$transaction([
+      prisma.conversaMembro.create({
+        data: {
+          tenantId: user.tenantId,
+          conversaId: link.conversaId,
+          usuarioId: user.id,
+          papel: 'MEMBER',
+        },
+      }),
+      prisma.groupInviteLink.update({
+        where: { token },
+        data: { usageCount: { increment: 1 } },
+      }),
+    ]);
+
+    await logMessagingAudit({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: 'MEMBER_JOINED_VIA_INVITE',
+      targetType: 'CONVERSATION',
+      targetId: link.conversaId,
+      metadata: { token },
+    });
+
+    return { success: true, conversationId: link.conversaId };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+/**
+ * Listar links de convite ativos de um grupo
+ */
+export async function getGroupInviteLinks(
+  conversationId: string
+): Promise<{
+  success: boolean;
+  links?: { token: string; usageCount: number; maxUses: number | null; expiresAt: string | null; createdAt: string }[];
+  error?: string;
+}> {
+  try {
+    const user = await requireAuth();
+    const actorMembership = await prisma.conversaMembro.findFirst({
+      where: { conversaId: conversationId, usuarioId: user.id, tenantId: user.tenantId, papel: 'ADMIN' },
+    });
+    if (!actorMembership) return { success: false, error: 'Sem permissão.' };
+
+    const links = await prisma.groupInviteLink.findMany({
+      where: { conversaId: conversationId, tenantId: user.tenantId, isActive: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      success: true,
+      links: links.map((l) => ({
+        token: l.token,
+        usageCount: l.usageCount,
+        maxUses: l.maxUses,
+        expiresAt: l.expiresAt?.toISOString() ?? null,
+        createdAt: l.createdAt.toISOString(),
+      })),
+    };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+// ─── FIORIX CARDS ─────────────────────────────────────────────────────
+
+/**
+ * Enviar FIORIX Card para uma conversa (referência segura ao objeto interno)
+ */
+export async function sendFiorixCard(params: {
+  conversationId: string;
+  cardTipo: 'IT' | 'TAREFA' | 'COMUNICADO';
+  cardReferenciaId: string;
+  cardMetadata: {
+    titulo: string;
+    versao?: string;
+    situacao?: string;
+    [key: string]: string | undefined;
+  };
+}): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    const user = await requireAuth();
+
+    const membership = await prisma.conversaMembro.findFirst({
+      where: { conversaId: params.conversationId, usuarioId: user.id, tenantId: user.tenantId },
+      include: { conversa: true },
+    });
+    if (!membership) return { success: false, error: 'Não autorizado.' };
+
+    // Valida permissão de envio
+    if (membership.conversa.permissaoEnvio === 'ADMIN_ONLY' && membership.papel !== 'ADMIN')
+      return { success: false, error: 'Somente administradores podem enviar mensagens neste grupo.' };
+
+    if (!checkMessageRateLimit(user.id)) return { success: false, error: 'Limite de envio atingido.' };
+
+    // IMPORTANTE: NÃO copiamos o conteúdo do objeto, apenas a referência e metadados públicos
+    const msg = await prisma.mensagem.create({
+      data: {
+        tenantId: user.tenantId,
+        conversaId: params.conversationId,
+        remetenteId: user.id,
+        conteudo: `[${params.cardTipo}] ${params.cardMetadata.titulo}`, // fallback textual
+        tipo: 'FIORIX_CARD',
+        cardTipo: params.cardTipo,
+        cardReferenciaId: params.cardReferenciaId,
+        cardMetadata: params.cardMetadata,
+      },
+    });
+
+    await prisma.conversa.update({
+      where: { id: params.conversationId },
+      data: { lastMessageAt: new Date() },
+    });
+
+    await logMessagingAudit({
+      tenantId: user.tenantId,
+      actorUserId: user.id,
+      action: 'FIORIX_CARD_SENT',
+      targetType: 'MESSAGE',
+      targetId: msg.id,
+      metadata: { cardTipo: params.cardTipo, cardReferenciaId: params.cardReferenciaId },
+    });
+
+    return { success: true, messageId: msg.id };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
+  }
+}
+
+/**
+ * Validar acesso a um FIORIX Card (chamado ao clicar "Abrir")
+ * Revalida permissão em tempo real — posse do card ≠ acesso permanente
+ */
+export async function validateFiorixCardAccess(
+  messageId: string
+): Promise<{
+  success: boolean;
+  cardTipo?: string;
+  cardReferenciaId?: string;
+  hasAccess?: boolean;
+  error?: string;
+}> {
+  try {
+    const user = await requireAuth();
+
+    const msg = await prisma.mensagem.findFirst({
+      where: { id: messageId, tenantId: user.tenantId, tipo: 'FIORIX_CARD' },
+      include: { conversa: { include: { membros: { where: { usuarioId: user.id } } } } },
+    });
+
+    if (!msg || msg.conversa.membros.length === 0)
+      return { success: false, error: 'Card não encontrado ou sem acesso à conversa.' };
+
+    // Aqui retornamos apenas o tipo e ID — a validação de acesso real ao objeto
+    // deve ser feita pelo módulo responsável (IT, Tarefas, Comunicados)
+    return {
+      success: true,
+      cardTipo: msg.cardTipo ?? undefined,
+      cardReferenciaId: msg.cardReferenciaId ?? undefined,
+      hasAccess: true, // acesso à referência confirmado; acesso ao conteúdo validado pelo módulo
+    };
+  } catch (error: any) {
+    return { success: false, error: error?.message };
   }
 }

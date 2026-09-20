@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ── ENUMS ─────────────────────────────────────────────────────────────
@@ -99,10 +100,12 @@ model Tenant {
   mensagens                  Mensagem[]
   mensagemAnexos             MensagemAnexo[]
   mensagemReacoes            MensagemReacao[]
+  mensagemFavoritos          MensagemFavorito[]
   pushSubscriptions          PushSubscription[]
   messagingSettings          MessagingNotificationSettings[]
   messagingPolicy            MessagingPolicy?
   messagingAuditLogs         MessagingAuditLog[]
+  groupInviteLinks           GroupInviteLink[]
 }
 
 // ── USERS ─────────────────────────────────────────────────────────────
@@ -143,9 +146,11 @@ model User {
   conversaMembros            ConversaMembro[]
   mensagensEnviadas          Mensagem[] @relation("MensagensEnviadas")
   mensagensReacoes           MensagemReacao[]
+  mensagemFavoritos          MensagemFavorito[]
   pushSubscriptions          PushSubscription[]
   messagingSettings          MessagingNotificationSettings?
   messagingAuditLogs         MessagingAuditLog[]
+  groupInviteLinks           GroupInviteLink[]
 }
 
 // ── CARTÓRIO DATA (DYNAMIC) ───────────────────────────────────────────
@@ -746,18 +751,22 @@ model Conversa {
   id            String         @id @default(cuid())
   tenantId      String         @map("tenant_id")
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  tipo          ConversaTipo   @default(DIRECT)
-  titulo        String?
-  descricao     String?        @db.Text
-  avatarUrl     String?        @map("avatar_url")
-  criadoPor     String?        @map("criado_por")
-  criador       User?          @relation("ConversasCriadas", fields: [criadoPor], references: [id], onDelete: SetNull)
-  lastMessageAt DateTime       @default(now()) @map("last_message_at")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
+  tipo                 ConversaTipo   @default(DIRECT)
+  titulo               String?
+  descricao            String?        @db.Text
+  avatarUrl            String?        @map("avatar_url")
+  criadoPor            String?        @map("criado_por")
+  criador              User?          @relation("ConversasCriadas", fields: [criadoPor], references: [id], onDelete: SetNull)
+  lastMessageAt        DateTime       @default(now()) @map("last_message_at")
+  // Permissões do grupo
+  permissaoEnvio       String         @default("ALL") @map("permissao_envio")        // ALL | ADMIN_ONLY
+  permissaoEdicaoDados String         @default("ALL") @map("permissao_edicao_dados") // ALL | ADMIN_ONLY
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
 
   membros       ConversaMembro[]
   mensagens     Mensagem[]
+  inviteLinks   GroupInviteLink[]
 
   @@index([tenantId])
   @@index([tenantId, lastMessageAt])
@@ -776,6 +785,11 @@ model ConversaMembro {
   joinedAt       DateTime    @default(now()) @map("joined_at")
   lastReadAt     DateTime    @default(now()) @map("last_read_at")
   muted          Boolean     @default(false)
+  // V1 — preferências por membro
+  pinnedAt       DateTime?   @map("pinned_at")      // NULL = não fixada
+  archivedAt     DateTime?   @map("archived_at")    // NULL = não arquivada
+  draft          String?     @db.Text               // Rascunho de texto não enviado
+  mutedUntil     DateTime?   @map("muted_until")    // NULL = não silenciada; future = silenciada até
 
   @@unique([conversaId, usuarioId])
   @@index([tenantId])
@@ -791,17 +805,27 @@ model Mensagem {
   conversa     Conversa           @relation(fields: [conversaId], references: [id], onDelete: Cascade)
   remetenteId  String             @map("remetente_id")
   remetente    User               @relation("MensagensEnviadas", fields: [remetenteId], references: [id], onDelete: Cascade)
-  conteudo     String             @db.Text
-  respostaAId  String?            @map("resposta_a_id")
-  respostaA    Mensagem?          @relation("MensagemRespostas", fields: [respostaAId], references: [id], onDelete: SetNull)
-  respostas    Mensagem[]         @relation("MensagemRespostas")
-  isDeleted    Boolean            @default(false) @map("is_deleted")
-  deletedAt    DateTime?          @map("deleted_at")
-  editedAt     DateTime?          @map("edited_at")
-  createdAt    DateTime           @default(now()) @map("created_at")
+  conteudo           String             @db.Text
+  // tipo: TEXT | VOICE | FIORIX_CARD
+  tipo               String             @default("TEXT")
+  // FIORIX Cards (tipo = FIORIX_CARD)
+  cardTipo           String?            @map("card_tipo")           // IT | TAREFA | COMUNICADO | etc.
+  cardReferenciaId   String?            @map("card_referencia_id") // ID do objeto de origem
+  cardMetadata       Json?              @map("card_metadata")       // titulo, versao, situacao (sem copiar dado protegido)
+  respostaAId        String?            @map("resposta_a_id")
+  respostaA          Mensagem?          @relation("MensagemRespostas", fields: [respostaAId], references: [id], onDelete: SetNull)
+  respostas          Mensagem[]         @relation("MensagemRespostas")
+  forwardedFromId    String?            @map("forwarded_from_id")
+  forwardedFrom      Mensagem?          @relation("MensagemEncaminhamentos", fields: [forwardedFromId], references: [id], onDelete: SetNull)
+  encaminhamentos    Mensagem[]         @relation("MensagemEncaminhamentos")
+  isDeleted          Boolean            @default(false) @map("is_deleted")
+  deletedAt          DateTime?          @map("deleted_at")
+  editedAt           DateTime?          @map("edited_at")
+  createdAt          DateTime           @default(now()) @map("created_at")
 
   anexos       MensagemAnexo[]
   reacoes      MensagemReacao[]
+  favoritos    MensagemFavorito[]
 
   @@index([tenantId])
   @@index([conversaId, createdAt])
@@ -841,6 +865,44 @@ model MensagemReacao {
   @@index([tenantId])
   @@index([mensagemId])
   @@map("fiorix_mensagem_reacoes")
+}
+
+model MensagemFavorito {
+  id           String    @id @default(cuid())
+  tenantId     String    @map("tenant_id")
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mensagemId   String    @map("mensagem_id")
+  mensagem     Mensagem  @relation(fields: [mensagemId], references: [id], onDelete: Cascade)
+  usuarioId    String    @map("usuario_id")
+  usuario      User      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@unique([mensagemId, usuarioId])
+  @@index([tenantId])
+  @@index([usuarioId])
+  @@map("fiorix_mensagem_favoritos")
+}
+
+model GroupInviteLink {
+  id           String    @id @default(cuid())
+  tenantId     String    @map("tenant_id")
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversaId   String    @map("conversa_id")
+  conversa     Conversa  @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+  criadoPorId  String    @map("criado_por_id")
+  criadoPor    User      @relation(fields: [criadoPorId], references: [id], onDelete: Cascade)
+  token        String    @unique                       // Token criptograficamente seguro (UUID v4 ou crypto.randomBytes)
+  isActive     Boolean   @default(true) @map("is_active")
+  expiresAt    DateTime? @map("expires_at")            // NULL = sem expiração por data (revogável)
+  revokedAt    DateTime? @map("revoked_at")
+  usageCount   Int       @default(0) @map("usage_count")
+  maxUses      Int?      @map("max_uses")              // NULL = ilimitado
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([conversaId])
+  @@index([token])
+  @@map("fiorix_group_invite_links")
 }
 
 model PushSubscription {
