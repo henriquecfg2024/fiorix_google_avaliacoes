@@ -3,18 +3,16 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Send, Paperclip, Smile, X, Reply, Trash2, FileText, Download,
-  Users, ArrowLeft, Loader2, Shield, Search, Plus, Mic, MicOff,
-  Star, Forward, Edit3, ChevronDown, Info, Lock, AlertTriangle,
+  Users, ArrowLeft, Loader2, Shield, Search, Plus,
+  Edit3, ChevronDown, Info, Lock, AlertTriangle,
   MoreVertical, Check, CheckCheck, ExternalLink,
 } from 'lucide-react';
 import {
   SerializedConversation, SerializedMessage,
   sendMessage, deleteMessage, toggleReaction,
   addMemberToConversation, getAvailableUsers,
-  editMessage, favoriteMessage, forwardMessage,
+  editMessage,
 } from '@/app/actions/mensagens';
-import { FiorixCardDisplay } from './FiorixCardDisplay';
-import { VoiceRecorder } from './VoiceRecorder';
 import { GroupInfoPanel } from './GroupInfoPanel';
 
 interface ChatAreaProps {
@@ -114,16 +112,9 @@ export function ChatArea({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
 
-  // Encaminhar mensagem
-  const [forwardMsg, setForwardMsg] = useState<SerializedMessage | null>(null);
-  const [forwardTarget, setForwardTarget] = useState('');
-
   // Painel lateral (info do grupo, busca)
   const [sidePanel, setSidePanel] = useState<'none' | 'info' | 'search'>('none');
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Recorder de voz
-  const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
 
   // Adicionar membro
   const [showAddMember, setShowAddMember] = useState(false);
@@ -290,11 +281,6 @@ export function ChatArea({
     onReactionToggled(msgId, emoji);
   }, [onReactionToggled]);
 
-  // ── Favoritar ─────────────────────────────────────────────────────────
-  const handleFavorite = useCallback(async (msg: SerializedMessage) => {
-    setContextMenu(null);
-    await favoriteMessage(msg.id, !msg.isFavorited);
-  }, []);
 
   // ── Permissão de envio (grupo) ────────────────────────────────────────
   const canSend =
@@ -480,13 +466,6 @@ export function ChatArea({
                               </span>
                             )}
 
-                            {/* Encaminhado */}
-                            {msg.forwardedFrom && (
-                              <div className="text-[10px] text-slate-500 flex items-center gap-1 mb-1 mx-1">
-                                <Forward className="w-3 h-3" />
-                                Encaminhado de {msg.forwardedFrom.remetenteNome}
-                              </div>
-                            )}
 
                             {/* Resposta */}
                             {msg.respostaA && (
@@ -520,8 +499,6 @@ export function ChatArea({
                                   </button>
                                 </div>
                               </div>
-                            ) : msg.tipo === 'FIORIX_CARD' ? (
-                              <FiorixCardDisplay message={msg} isMine={isMine} />
                             ) : (
                               <div
                                 className={`rounded-2xl px-3 py-2 text-xs leading-relaxed break-words relative ${
@@ -530,33 +507,9 @@ export function ChatArea({
                                     : 'bg-white/[0.06] border border-white/10 text-slate-100 rounded-bl-sm'
                                 } ${msg.isDeleted ? 'opacity-50 italic' : ''}`}
                               >
-                                {/* Tipo voz */}
-                                {msg.tipo === 'VOICE' && !msg.isDeleted && (
-                                  <div className="flex items-center gap-2">
-                                    <button className="w-7 h-7 rounded-full bg-emerald-600 flex items-center justify-center text-white hover:bg-emerald-500 transition">
-                                      <Mic className="w-3.5 h-3.5" />
-                                    </button>
-                                    <div className="flex gap-0.5 items-end h-4">
-                                      {Array.from({ length: 18 }).map((_, i) => (
-                                        <div
-                                          key={i}
-                                          className="w-0.5 rounded-full bg-emerald-400/60"
-                                          style={{ height: `${Math.random() * 14 + 2}px` }}
-                                        />
-                                      ))}
-                                    </div>
-                                    <span className="text-[10px] text-slate-400 font-mono">
-                                      {msg.cardMetadata?.duracao ?? '0:00'}
-                                    </span>
-                                  </div>
-                                )}
-
-                                {/* Texto */}
-                                {msg.tipo !== 'VOICE' && (
-                                  <span className={msg.isDeleted ? 'text-slate-500' : ''}>
-                                    {msg.conteudo}
-                                  </span>
-                                )}
+                                <span className={msg.isDeleted ? 'text-slate-500' : ''}>
+                                  {msg.conteudo}
+                                </span>
 
                                 {/* Anexos */}
                                 {!msg.isDeleted && msg.anexos.length > 0 && (
@@ -590,7 +543,6 @@ export function ChatArea({
                                   {msg.editedAt && (
                                     <span className="text-[9px] text-slate-500 italic">editado</span>
                                   )}
-                                  {msg.isFavorited && <Star className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />}
                                   <span className="text-[10px] text-slate-500 font-mono">{formatTime(msg.createdAt)}</span>
                                   {isMine && <CheckCheck className="w-3 h-3 text-emerald-400" />}
                                 </div>
@@ -695,14 +647,6 @@ export function ChatArea({
             </div>
           )}
 
-          {/* VoiceRecorder */}
-          {showVoiceRecorder ? (
-            <VoiceRecorder
-              conversationId={conversation.id}
-              onSent={onMessageSent}
-              onCancel={() => setShowVoiceRecorder(false)}
-            />
-          ) : (
             <form
               onSubmit={handleSend}
               className="flex items-end gap-2"
@@ -736,16 +680,6 @@ export function ChatArea({
                 />
               </div>
 
-              {/* Voz */}
-              <button
-                type="button"
-                onClick={() => setShowVoiceRecorder(true)}
-                disabled={!canSend}
-                className="p-2 rounded-xl text-slate-400 hover:text-emerald-400 hover:bg-white/10 transition disabled:opacity-40"
-              >
-                <Mic className="w-4 h-4" />
-              </button>
-
               {/* Enviar */}
               <button
                 type="submit"
@@ -755,13 +689,12 @@ export function ChatArea({
                 {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </button>
             </form>
-          )}
 
           <input
             ref={fileInputRef}
             type="file"
             className="hidden"
-            accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
             onChange={handleFileSelect}
           />
         </div>
@@ -801,8 +734,6 @@ export function ChatArea({
           {/* Ações */}
           {[
             { icon: Reply, label: 'Responder', action: () => { setReplyTo(contextMenu.msg); setContextMenu(null); textareaRef.current?.focus(); } },
-            { icon: Forward, label: 'Encaminhar', action: () => { setForwardMsg(contextMenu.msg); setContextMenu(null); }, always: true },
-            { icon: Star, label: contextMenu.msg.isFavorited ? 'Remover favorito' : 'Favoritar', action: () => handleFavorite(contextMenu.msg) },
             ...(contextMenu.msg.remetenteId === currentUserId ? [
               { icon: Edit3, label: 'Editar', action: () => { setEditingId(contextMenu.msg.id); setEditText(contextMenu.msg.conteudo); setContextMenu(null); } },
               { icon: Trash2, label: 'Apagar', action: () => handleDelete(contextMenu.msg.id), danger: true },

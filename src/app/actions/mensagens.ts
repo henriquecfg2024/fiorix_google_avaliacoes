@@ -53,16 +53,10 @@ export interface SerializedMessage {
   remetenteNome: string;
   remetenteRole: string;
   conteudo: string;
-  tipo: 'TEXT' | 'VOICE' | 'FIORIX_CARD';
+  tipo: 'TEXT';
   isDeleted: boolean;
   createdAt: string;
   editedAt?: string | null;
-  // V1 fields
-  forwardedFrom?: { id: string; remetenteNome: string } | null;
-  cardTipo?: string | null;
-  cardReferenciaId?: string | null;
-  cardMetadata?: Record<string, string | undefined> | null;
-  isFavorited?: boolean;
   respostaA?: {
     id: string;
     conteudo: string;
@@ -239,13 +233,6 @@ export async function getMessages(
             remetente: { select: { name: true } },
           },
         },
-        forwardedFrom: {
-          select: { id: true, remetente: { select: { name: true } } },
-        },
-        favoritos: {
-          where: { usuarioId: user.id },
-          select: { id: true },
-        },
       },
     });
 
@@ -272,18 +259,10 @@ export async function getMessages(
         remetenteNome: msg.remetente.name || 'Usuário',
         remetenteRole: msg.remetente.role,
         conteudo: msg.isDeleted ? 'Mensagem removida' : msg.conteudo,
-        tipo: (msg.tipo || 'TEXT') as 'TEXT' | 'VOICE' | 'FIORIX_CARD',
+        tipo: 'TEXT',
         isDeleted: msg.isDeleted,
         createdAt: msg.createdAt.toISOString(),
         editedAt: msg.editedAt?.toISOString() || null,
-        // V1 fields
-        forwardedFrom: msg.forwardedFrom
-          ? { id: msg.forwardedFrom.id, remetenteNome: msg.forwardedFrom.remetente.name || 'Usuário' }
-          : null,
-        cardTipo: msg.cardTipo ?? null,
-        cardReferenciaId: msg.cardReferenciaId ?? null,
-        cardMetadata: (msg.cardMetadata as Record<string, string | undefined> | null) ?? null,
-        isFavorited: msg.favoritos.length > 0,
         respostaA: msg.respostaA
           ? {
               id: msg.respostaA.id,
@@ -1252,101 +1231,6 @@ export async function editMessage(
 }
 
 /**
- * Encaminhar mensagem para outra conversa
- */
-export async function forwardMessage(
-  messageId: string,
-  targetConversationId: string
-): Promise<{ success: boolean; error?: string; newMessageId?: string }> {
-  try {
-    const user = await requireAuth();
-
-    // Valida acesso à mensagem original
-    const original = await prisma.mensagem.findFirst({
-      where: { id: messageId, tenantId: user.tenantId, isDeleted: false },
-      include: { conversa: { include: { membros: { where: { usuarioId: user.id } } } } },
-    });
-    if (!original || original.conversa.membros.length === 0)
-      return { success: false, error: 'Mensagem não encontrada ou sem permissão.' };
-
-    // Valida acesso à conversa de destino
-    const targetMembership = await prisma.conversaMembro.findFirst({
-      where: { conversaId: targetConversationId, usuarioId: user.id, tenantId: user.tenantId },
-    });
-    if (!targetMembership) return { success: false, error: 'Sem acesso à conversa de destino.' };
-
-    if (!await checkRateLimit(user.id, 'forwardMessage')) return { success: false, error: 'Limite de envio atingido. Aguarde.' };
-
-    const newMsg = await prisma.mensagem.create({
-      data: {
-        tenantId: user.tenantId,
-        conversaId: targetConversationId,
-        remetenteId: user.id,
-        conteudo: original.conteudo,
-        tipo: original.tipo,
-        forwardedFromId: original.id,
-        cardTipo: original.cardTipo,
-        cardReferenciaId: original.cardReferenciaId,
-        cardMetadata: original.cardMetadata ?? undefined,
-      },
-    });
-
-    await prisma.conversa.update({
-      where: { id: targetConversationId },
-      data: { lastMessageAt: new Date() },
-    });
-
-    await logMessagingAudit({
-      tenantId: user.tenantId,
-      actorUserId: user.id,
-      action: 'MESSAGE_FORWARDED',
-      targetType: 'MESSAGE',
-      targetId: newMsg.id,
-      metadata: { originalMessageId: messageId, targetConversationId },
-    });
-
-    return { success: true, newMessageId: newMsg.id };
-  } catch (error: any) {
-    return { success: false, error: error?.message };
-  }
-}
-
-/**
- * Favoritar / desfavoritar mensagem
- */
-export async function favoriteMessage(
-  messageId: string,
-  favorite: boolean
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const user = await requireAuth();
-
-    // Verifica que a mensagem existe e o usuário tem acesso
-    const msg = await prisma.mensagem.findFirst({
-      where: { id: messageId, tenantId: user.tenantId },
-      include: { conversa: { include: { membros: { where: { usuarioId: user.id } } } } },
-    });
-    if (!msg || msg.conversa.membros.length === 0)
-      return { success: false, error: 'Mensagem não encontrada ou sem permissão.' };
-
-    if (favorite) {
-      await prisma.mensagemFavorito.upsert({
-        where: { mensagemId_usuarioId: { mensagemId: messageId, usuarioId: user.id } },
-        create: { tenantId: user.tenantId, mensagemId: messageId, usuarioId: user.id },
-        update: {},
-      });
-    } else {
-      await prisma.mensagemFavorito.deleteMany({
-        where: { mensagemId: messageId, usuarioId: user.id, tenantId: user.tenantId },
-      });
-    }
-    return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error?.message };
-  }
-}
-
-/**
  * Busca global de mensagens (apenas nas conversas do usuário)
  */
 export async function searchMessages(
@@ -1666,154 +1550,4 @@ export async function getConversationById(
   }
 }
 
-// ─── FIORIX CARDS ─────────────────────────────────────────────────────
-
-/**
- * Enviar FIORIX Card para uma conversa (referência segura ao objeto interno)
- */
-export async function sendFiorixCard(params: {
-  conversationId: string;
-  cardTipo: 'IT' | 'TAREFA' | 'COMUNICADO';
-  cardReferenciaId: string;
-  cardMetadata: {
-    titulo: string;
-    versao?: string;
-    situacao?: string;
-    [key: string]: string | undefined;
-  };
-}): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  try {
-    const user = await requireAuth();
-
-    const membership = await prisma.conversaMembro.findFirst({
-      where: { conversaId: params.conversationId, usuarioId: user.id, tenantId: user.tenantId },
-      include: { conversa: true },
-    });
-    if (!membership) return { success: false, error: 'Não autorizado.' };
-
-    // Valida permissão de envio
-    if (membership.conversa.permissaoEnvio === 'ADMIN_ONLY' && membership.papel !== 'ADMIN')
-      return { success: false, error: 'Somente administradores podem enviar mensagens neste grupo.' };
-
-    if (!await checkRateLimit(user.id, 'sendFiorixCard')) return { success: false, error: 'Limite de envio atingido.' };
-
-    // IMPORTANTE: NÃO copiamos o conteúdo do objeto, apenas a referência e metadados públicos
-    const msg = await prisma.mensagem.create({
-      data: {
-        tenantId: user.tenantId,
-        conversaId: params.conversationId,
-        remetenteId: user.id,
-        conteudo: `[${params.cardTipo}] ${params.cardMetadata.titulo}`, // fallback textual
-        tipo: 'FIORIX_CARD',
-        cardTipo: params.cardTipo,
-        cardReferenciaId: params.cardReferenciaId,
-        cardMetadata: params.cardMetadata,
-      },
-    });
-
-    await prisma.conversa.update({
-      where: { id: params.conversationId },
-      data: { lastMessageAt: new Date() },
-    });
-
-    await logMessagingAudit({
-      tenantId: user.tenantId,
-      actorUserId: user.id,
-      action: 'FIORIX_CARD_SENT',
-      targetType: 'MESSAGE',
-      targetId: msg.id,
-      metadata: { cardTipo: params.cardTipo, cardReferenciaId: params.cardReferenciaId },
-    });
-
-    return { success: true, messageId: msg.id };
-  } catch (error: any) {
-    return { success: false, error: error?.message };
-  }
-}
-
-/**
- * Validar acesso a um FIORIX Card (chamado ao clicar "Abrir")
- * Revalida permissão em tempo real — posse do card ≠ acesso permanente
- */
-export async function validateFiorixCardAccess(
-  messageId: string
-): Promise<{
-  success: boolean;
-  cardTipo?: string;
-  cardReferenciaId?: string;
-  hasAccess?: boolean;
-  error?: string;
-}> {
-  try {
-    const user = await requireAuth();
-
-    const msg = await prisma.mensagem.findFirst({
-      where: { id: messageId, tenantId: user.tenantId, tipo: 'FIORIX_CARD' },
-      include: { conversa: { include: { membros: { where: { usuarioId: user.id } } } } },
-    });
-
-    if (!msg || msg.conversa.membros.length === 0)
-      return { success: false, error: 'Card não encontrado ou sem acesso à conversa.' };
-
-    const cardTipo = msg.cardTipo;
-    const cardReferenciaId = msg.cardReferenciaId;
-
-    if (!cardTipo || !cardReferenciaId)
-      return { success: false, error: 'Card sem tipo ou referência válida.' };
-
-    // ======================================================================
-    // VALIDAÇÃO REAL DE ACESSO — FAIL CLOSED
-    // Cada tipo exige fonte autorizativa real no banco.
-    // Sem fonte real → hasAccess = false (NUNCA fallback permissivo).
-    // ======================================================================
-    let hasAccess = false;
-
-    switch (cardTipo) {
-      case 'IT': {
-        // FAIL CLOSED: tabela fiorix_its existe no banco mas NÃO tem modelo Prisma.
-        // Sem fonte autorizativa real → acesso negado até implementação.
-        hasAccess = false;
-        break;
-      }
-
-      case 'TAREFA': {
-        // FAIL CLOSED: tabela fiorix_tarefas_dados existe no banco mas NÃO tem modelo Prisma.
-        // Sem fonte autorizativa real → acesso negado até implementação.
-        hasAccess = false;
-        break;
-      }
-
-      case 'COMUNICADO': {
-        // Autorização real usando mesma regra de PessoasRepository.getComunicados:
-        // destinatarios contém "TODOS" OR userId OR user.role
-        const comunicado = await prisma.fiorixComunicado.findFirst({
-          where: {
-            id: cardReferenciaId,
-            tenantId: user.tenantId,
-            status: 'PUBLICADO',
-            OR: [
-              { destinatarios: { has: 'TODOS' } },
-              { destinatarios: { has: user.id } },
-              { destinatarios: { has: String(user.role) } },
-            ],
-          },
-        });
-        hasAccess = !!comunicado;
-        break;
-      }
-
-      default:
-        hasAccess = false;
-    }
-
-    return {
-      success: true,
-      cardTipo: cardTipo ?? undefined,
-      cardReferenciaId: cardReferenciaId ?? undefined,
-      hasAccess,
-    };
-  } catch (error: any) {
-    return { success: false, error: error?.message };
-  }
-}
 

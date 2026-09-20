@@ -100,7 +100,6 @@ model Tenant {
   mensagens          Mensagem[]
   mensagemAnexos     MensagemAnexo[]
   mensagemReacoes    MensagemReacao[]
-  mensagemFavoritos  MensagemFavorito[]
   pushSubscriptions  PushSubscription[]
   messagingSettings  MessagingNotificationSettings[]
   messagingPolicy    MessagingPolicy?
@@ -145,7 +144,6 @@ model User {
   conversaMembros    ConversaMembro[]
   mensagensEnviadas  Mensagem[]                     @relation("MensagensEnviadas")
   mensagensReacoes   MensagemReacao[]
-  mensagemFavoritos  MensagemFavorito[]
   pushSubscriptions  PushSubscription[]
   messagingSettings  MessagingNotificationSettings?
   messagingAuditLogs MessagingAuditLog[]
@@ -803,12 +801,12 @@ model Mensagem {
   remetenteId      String     @map("remetente_id")
   remetente        User       @relation("MensagensEnviadas", fields: [remetenteId], references: [id], onDelete: Cascade)
   conteudo         String     @db.Text
-  // tipo: TEXT | VOICE | FIORIX_CARD
+  // tipo: TEXT (V1)
   tipo             String     @default("TEXT")
-  // FIORIX Cards (tipo = FIORIX_CARD)
-  cardTipo         String?    @map("card_tipo") // IT | TAREFA | COMUNICADO | etc.
-  cardReferenciaId String?    @map("card_referencia_id") // ID do objeto de origem
-  cardMetadata     Json?      @map("card_metadata") // titulo, versao, situacao (sem copiar dado protegido)
+  // LEGADO NÃO UTILIZADO — V1 (colunas mantidas no banco para evitar ALTER TABLE desnecessário)
+  cardTipo         String?    @map("card_tipo")
+  cardReferenciaId String?    @map("card_referencia_id")
+  cardMetadata     Json?      @map("card_metadata")
   respostaAId      String?    @map("resposta_a_id")
   respostaA        Mensagem?  @relation("MensagemRespostas", fields: [respostaAId], references: [id], onDelete: SetNull)
   respostas        Mensagem[] @relation("MensagemRespostas")
@@ -820,9 +818,8 @@ model Mensagem {
   editedAt         DateTime?  @map("edited_at")
   createdAt        DateTime   @default(now()) @map("created_at")
 
-  anexos    MensagemAnexo[]
-  reacoes   MensagemReacao[]
-  favoritos MensagemFavorito[]
+  anexos  MensagemAnexo[]
+  reacoes MensagemReacao[]
 
   @@index([tenantId])
   @@index([conversaId, createdAt])
@@ -862,22 +859,6 @@ model MensagemReacao {
   @@index([tenantId])
   @@index([mensagemId])
   @@map("fiorix_mensagem_reacoes")
-}
-
-model MensagemFavorito {
-  id         String   @id @default(cuid())
-  tenantId   String   @map("tenant_id")
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  mensagemId String   @map("mensagem_id")
-  mensagem   Mensagem @relation(fields: [mensagemId], references: [id], onDelete: Cascade)
-  usuarioId  String   @map("usuario_id")
-  usuario    User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  @@unique([mensagemId, usuarioId])
-  @@index([tenantId])
-  @@index([usuarioId])
-  @@map("fiorix_mensagem_favoritos")
 }
 
 model PushSubscription {

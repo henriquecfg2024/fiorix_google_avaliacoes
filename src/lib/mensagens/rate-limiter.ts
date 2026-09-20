@@ -16,8 +16,6 @@ import { prisma } from '@/lib/prisma';
 export const RATE_LIMITS = {
   // Mensagens — limite alto (uso frequente)
   sendMessage:     { maxRequests: 20, windowMs: 10_000 },
-  forwardMessage:  { maxRequests: 10, windowMs: 10_000 },
-  sendFiorixCard:  { maxRequests: 10, windowMs: 10_000 },
 
   // Upload — restritivo (custo de storage)
   upload:          { maxRequests: 5,  windowMs: 30_000 },
