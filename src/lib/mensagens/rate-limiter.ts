@@ -34,9 +34,6 @@ export const RATE_LIMITS = {
   // Criação de grupo — baixo (operação pesada)
   createGroup:     { maxRequests: 3,  windowMs: 60_000 },
 
-  // Convites — baixo
-  generateInvite:  { maxRequests: 5,  windowMs: 60_000 },
-
   // Push subscribe — baixo (já tem quota de 10 dispositivos)
   pushSubscribe:   { maxRequests: 5,  windowMs: 60_000 },
 } as const;

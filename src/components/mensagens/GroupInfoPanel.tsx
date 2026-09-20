@@ -1,16 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import QRCode from 'qrcode';
 import {
-  X, Users, Shield, Link2, Copy, Check, RefreshCw, Trash2, Plus,
-  Crown, UserMinus, ChevronDown, QrCode, Lock, Unlock, Edit3, Loader2,
+  X, Users, Shield, Plus,
+  Crown, UserMinus, ChevronDown, Lock, Unlock, Edit3, Loader2,
 } from 'lucide-react';
 import {
   SerializedConversation,
   updateGroupSettings, updateGroupPrivacy,
   removeMemberFromConversation, changeMemberRole,
-  generateGroupInviteLink, revokeGroupInviteLink, getGroupInviteLinks,
   addMemberToConversation, getAvailableUsers,
 } from '@/app/actions/mensagens';
 import { toast } from 'sonner';
@@ -23,7 +21,7 @@ interface GroupInfoPanelProps {
   onUpdated?: () => void;
 }
 
-type Tab = 'members' | 'links' | 'settings';
+type Tab = 'members' | 'settings';
 
 export function GroupInfoPanel({
   conversation,
@@ -33,9 +31,6 @@ export function GroupInfoPanel({
   onUpdated,
 }: GroupInfoPanelProps) {
   const [tab, setTab] = useState<Tab>('members');
-  const [copiedToken, setCopiedToken] = useState<string | null>(null);
-  const [qrToken, setQrToken] = useState<string | null>(null);
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   // Settings
   const [titulo, setTitulo] = useState(conversation.titulo);
@@ -48,13 +43,6 @@ export function GroupInfoPanel({
     (conversation.permissaoEdicaoDados as 'ALL' | 'ADMIN_ONLY') ?? 'ALL'
   );
 
-  // Invite links
-  const [links, setLinks] = useState<
-    { token: string; usageCount: number; maxUses: number | null; expiresAt: string | null; createdAt: string }[]
-  >([]);
-  const [loadingLinks, setLoadingLinks] = useState(false);
-  const [generatingLink, setGeneratingLink] = useState(false);
-
   // Add member
   const [showAddMember, setShowAddMember] = useState(false);
   const [addSearch, setAddSearch] = useState('');
@@ -62,53 +50,11 @@ export function GroupInfoPanel({
   const [addingId, setAddingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (tab === 'links' && isAdmin) {
-      loadLinks();
-    }
-  }, [tab, isAdmin]);
-
-  useEffect(() => {
     if (!showAddMember) return;
     getAvailableUsers(conversation.id, addSearch).then((res) => {
       if (res.success && res.users) setAvailableUsers(res.users);
     });
   }, [showAddMember, addSearch, conversation.id]);
-
-  const loadLinks = async () => {
-    setLoadingLinks(true);
-    const res = await getGroupInviteLinks(conversation.id);
-    if (res.success && res.links) setLinks(res.links);
-    setLoadingLinks(false);
-  };
-
-  const handleCopyLink = async (token: string) => {
-    const url = `${window.location.origin}/mensagens/convite/${token}`;
-    await navigator.clipboard.writeText(url);
-    setCopiedToken(token);
-    setTimeout(() => setCopiedToken(null), 2000);
-  };
-
-  const handleGenerateLink = async () => {
-    setGeneratingLink(true);
-    const res = await generateGroupInviteLink(conversation.id);
-    if (res.success) {
-      toast.success('Link gerado com sucesso!');
-      await loadLinks();
-    } else {
-      toast.error(res.error ?? 'Falha ao gerar link.');
-    }
-    setGeneratingLink(false);
-  };
-
-  const handleRevokeLink = async (token: string) => {
-    const res = await revokeGroupInviteLink(token);
-    if (res.success) {
-      toast.success('Link revogado.');
-      await loadLinks();
-    } else {
-      toast.error(res.error ?? 'Falha ao revogar.');
-    }
-  };
 
   const handleSaveSettings = async () => {
     setSavingSettings(true);
@@ -161,7 +107,6 @@ export function GroupInfoPanel({
   const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
     { key: 'members', label: 'Membros', icon: Users },
     ...(isAdmin ? [
-      { key: 'links' as Tab, label: 'Convites', icon: Link2 },
       { key: 'settings' as Tab, label: 'Config.', icon: Shield },
     ] : []),
   ];
@@ -276,104 +221,6 @@ export function GroupInfoPanel({
                 )}
               </div>
             ))}
-          </>
-        )}
-
-        {/* ── LINKS DE CONVITE ── */}
-        {tab === 'links' && isAdmin && (
-          <>
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Links Ativos</p>
-              <button
-                onClick={handleGenerateLink}
-                disabled={generatingLink}
-                className="flex items-center gap-1 text-[10px] text-emerald-400 hover:text-emerald-300 transition disabled:opacity-50"
-              >
-                {generatingLink ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                Novo link
-              </button>
-            </div>
-
-            <div className="text-[10px] text-slate-500 bg-amber-500/5 border border-amber-500/20 rounded-lg p-2">
-              <strong className="text-amber-400">Atenção:</strong> Possuir o link não garante acesso automático. 
-              O usuário deve estar autenticado e pertencer à sua organização.
-            </div>
-
-            {loadingLinks ? (
-              <div className="flex justify-center py-4">
-                <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
-              </div>
-            ) : links.length === 0 ? (
-              <p className="text-[10px] text-slate-500 text-center py-4">Nenhum link ativo.</p>
-            ) : (
-              links.map((l) => (
-                <div key={l.token} className="bg-white/[0.03] border border-white/10 rounded-xl p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <code className="text-[10px] text-emerald-400 bg-black/20 px-2 py-0.5 rounded font-mono truncate flex-1">
-                      {l.token.substring(0, 16)}…
-                    </code>
-                    <button
-                      onClick={() => handleCopyLink(l.token)}
-                      className="p-1 rounded text-slate-400 hover:text-emerald-400 transition"
-                    >
-                      {copiedToken === l.token ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                    <button
-                      onClick={() => handleRevokeLink(l.token)}
-                      className="p-1 rounded text-slate-400 hover:text-rose-400 transition"
-                      title="Revogar link"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <div className="flex gap-3 text-[9px] text-slate-500">
-                    <span>{l.usageCount} uso{l.usageCount !== 1 ? 's' : ''}{l.maxUses ? ` / ${l.maxUses}` : ''}</span>
-                    {l.expiresAt && (
-                      <span>Expira: {new Date(l.expiresAt).toLocaleDateString('pt-BR')}</span>
-                    )}
-                    <span>Criado: {new Date(l.createdAt).toLocaleDateString('pt-BR')}</span>
-                  </div>
-                  {/* QR Code Toggle */}
-                  <div className="flex items-center gap-2 mt-1">
-                    <button
-                      onClick={async () => {
-                        if (qrToken === l.token) {
-                          setQrToken(null);
-                          setQrDataUrl(null);
-                        } else {
-                          setQrToken(l.token);
-                          const fullUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/mensagens/convite/${l.token}`;
-                          try {
-                            const url = await QRCode.toDataURL(fullUrl, {
-                              width: 200,
-                              margin: 2,
-                              color: { dark: '#10b981', light: '#0d1117' },
-                            });
-                            setQrDataUrl(url);
-                          } catch {
-                            setQrDataUrl(null);
-                          }
-                        }
-                      }}
-                      className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-emerald-400 transition"
-                    >
-                      <QrCode className="w-3.5 h-3.5" />
-                      {qrToken === l.token ? 'Ocultar QR' : 'QR Code'}
-                    </button>
-                  </div>
-                  {qrToken === l.token && qrDataUrl && (
-                    <div className="flex flex-col items-center mt-2 p-2 bg-[#0d1117] rounded-lg border border-white/10">
-                      <img
-                        src={qrDataUrl}
-                        alt="QR Code do convite"
-                        className="w-[160px] h-[160px] rounded"
-                      />
-                      <p className="text-[9px] text-slate-500 mt-1">Escaneie para entrar no grupo</p>
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
           </>
         )}
 

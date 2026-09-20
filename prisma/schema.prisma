@@ -85,27 +85,26 @@ model Tenant {
   syncRecords     ConnectorSyncRecord[]
 
   // FIORIX PESSOAS
-  fiorixComunicados FiorixComunicado[]
-  fiorixComunicadoAnexos FiorixComunicadoAnexo[]
-  fiorixComunicadoCiencias FiorixComunicadoCiencia[]
-  fiorixHolerites FiorixHolerite[]
-  fiorixFeriasPrevistas FiorixFeriasPrevista[]
+  fiorixComunicados              FiorixComunicado[]
+  fiorixComunicadoAnexos         FiorixComunicadoAnexo[]
+  fiorixComunicadoCiencias       FiorixComunicadoCiencia[]
+  fiorixHolerites                FiorixHolerite[]
+  fiorixFeriasPrevistas          FiorixFeriasPrevista[]
   fiorixFeriasPrevistaHistoricos FiorixFeriasPrevistaHistorico[]
-  fiorixFeriasAvisos FiorixFeriasAviso[]
-  fiorixAcessoLogs FiorixAcessoLog[]
+  fiorixFeriasAvisos             FiorixFeriasAviso[]
+  fiorixAcessoLogs               FiorixAcessoLog[]
 
   // MENSAGENS CORPORATIVAS
-  conversas                  Conversa[]
-  conversaMembros            ConversaMembro[]
-  mensagens                  Mensagem[]
-  mensagemAnexos             MensagemAnexo[]
-  mensagemReacoes            MensagemReacao[]
-  mensagemFavoritos          MensagemFavorito[]
-  pushSubscriptions          PushSubscription[]
-  messagingSettings          MessagingNotificationSettings[]
-  messagingPolicy            MessagingPolicy?
-  messagingAuditLogs         MessagingAuditLog[]
-  groupInviteLinks           GroupInviteLink[]
+  conversas          Conversa[]
+  conversaMembros    ConversaMembro[]
+  mensagens          Mensagem[]
+  mensagemAnexos     MensagemAnexo[]
+  mensagemReacoes    MensagemReacao[]
+  mensagemFavoritos  MensagemFavorito[]
+  pushSubscriptions  PushSubscription[]
+  messagingSettings  MessagingNotificationSettings[]
+  messagingPolicy    MessagingPolicy?
+  messagingAuditLogs MessagingAuditLog[]
 }
 
 // ── USERS ─────────────────────────────────────────────────────────────
@@ -122,35 +121,34 @@ model User {
   updatedAt    DateTime @updatedAt
 
   // FIORIX PESSOAS
-  comunicadosCriados FiorixComunicado[] @relation("ComunicadosCriados")
-  comunicadoAnexos FiorixComunicadoAnexo[]
-  comunicadoCiencias FiorixComunicadoCiencia[]
-  holerites FiorixHolerite[]
-  holeritesUploaded FiorixHolerite[] @relation("HoleritesUploaded")
-  feriasPrevistas FiorixFeriasPrevista[]
-  feriasPrevistasUpdated FiorixFeriasPrevista[] @relation("FeriasPrevistasUpdated")
+  comunicadosCriados       FiorixComunicado[]              @relation("ComunicadosCriados")
+  comunicadoAnexos         FiorixComunicadoAnexo[]
+  comunicadoCiencias       FiorixComunicadoCiencia[]
+  holerites                FiorixHolerite[]
+  holeritesUploaded        FiorixHolerite[]                @relation("HoleritesUploaded")
+  feriasPrevistas          FiorixFeriasPrevista[]
+  feriasPrevistasUpdated   FiorixFeriasPrevista[]          @relation("FeriasPrevistasUpdated")
   feriasPrevistaHistoricos FiorixFeriasPrevistaHistorico[]
   feriasHistoricoAlterador FiorixFeriasPrevistaHistorico[] @relation("FeriasHistoricoAlterador")
-  feriasAvisos FiorixFeriasAviso[]
-  feriasAvisoUploaded FiorixFeriasAviso[] @relation("FeriasAvisoUploaded")
-  acessoLogs FiorixAcessoLog[]
-  acessoLogsAlvo FiorixAcessoLog[] @relation("AcessoLogAlvo")
+  feriasAvisos             FiorixFeriasAviso[]
+  feriasAvisoUploaded      FiorixFeriasAviso[]             @relation("FeriasAvisoUploaded")
+  acessoLogs               FiorixAcessoLog[]
+  acessoLogsAlvo           FiorixAcessoLog[]               @relation("AcessoLogAlvo")
 
   // Google Authenticator 2FA (TOTP) — somente ADMIN/MASTER
-  totpSecret     String?    // Segredo TOTP criptografado (base32)
-  totpEnabled    Boolean    @default(false)
-  totpVerifiedAt DateTime?  // Data em que ativou 2FA
+  totpSecret     String? // Segredo TOTP criptografado (base32)
+  totpEnabled    Boolean   @default(false)
+  totpVerifiedAt DateTime? // Data em que ativou 2FA
 
   // MENSAGENS CORPORATIVAS
-  conversasCriadas           Conversa[] @relation("ConversasCriadas")
-  conversaMembros            ConversaMembro[]
-  mensagensEnviadas          Mensagem[] @relation("MensagensEnviadas")
-  mensagensReacoes           MensagemReacao[]
-  mensagemFavoritos          MensagemFavorito[]
-  pushSubscriptions          PushSubscription[]
-  messagingSettings          MessagingNotificationSettings?
-  messagingAuditLogs         MessagingAuditLog[]
-  groupInviteLinks           GroupInviteLink[]
+  conversasCriadas   Conversa[]                     @relation("ConversasCriadas")
+  conversaMembros    ConversaMembro[]
+  mensagensEnviadas  Mensagem[]                     @relation("MensagensEnviadas")
+  mensagensReacoes   MensagemReacao[]
+  mensagemFavoritos  MensagemFavorito[]
+  pushSubscriptions  PushSubscription[]
+  messagingSettings  MessagingNotificationSettings?
+  messagingAuditLogs MessagingAuditLog[]
 }
 
 // ── CARTÓRIO DATA (DYNAMIC) ───────────────────────────────────────────
@@ -547,47 +545,47 @@ model ConnectorSyncRecord {
 // ── FIORIX PESSOAS MODULE ─────────────────────────────────────────────
 
 model FiorixComunicado {
-  id              String   @id @default(cuid())
-  tenantId        String   @map("tenant_id")
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  titulo          String
-  conteudo        String   @db.Text
-  conteudoHash    String   @map("conteudo_hash")
-  versao          Int      @default(1)
-  prioridade      String   @default("NORMAL") // URGENTE, IMPORTANTE, NORMAL
-  autorId         String   @map("autor_id")
-  autor           User     @relation("ComunicadosCriados", fields: [autorId], references: [id])
-  destinatarios   String[] // Array of roles, specific user IDs, or "TODOS"
-  dataPublicacao  DateTime @default(now()) @map("data_publicacao")
-  dataExpiracao   DateTime? @map("data_expiracao")
-  exigeCiencia    Boolean  @default(true) @map("exige_ciencia")
-  notificar       Boolean  @default(true)
-  status          String   @default("PUBLICADO") // PUBLICADO, CANCELADO, RASCUNHO
-  imutavel        Boolean  @default(true)
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id             String    @id @default(cuid())
+  tenantId       String    @map("tenant_id")
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  titulo         String
+  conteudo       String    @db.Text
+  conteudoHash   String    @map("conteudo_hash")
+  versao         Int       @default(1)
+  prioridade     String    @default("NORMAL") // URGENTE, IMPORTANTE, NORMAL
+  autorId        String    @map("autor_id")
+  autor          User      @relation("ComunicadosCriados", fields: [autorId], references: [id])
+  destinatarios  String[] // Array of roles, specific user IDs, or "TODOS"
+  dataPublicacao DateTime  @default(now()) @map("data_publicacao")
+  dataExpiracao  DateTime? @map("data_expiracao")
+  exigeCiencia   Boolean   @default(true) @map("exige_ciencia")
+  notificar      Boolean   @default(true)
+  status         String    @default("PUBLICADO") // PUBLICADO, CANCELADO, RASCUNHO
+  imutavel       Boolean   @default(true)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  anexos          FiorixComunicadoAnexo[]
-  ciencias        FiorixComunicadoCiencia[]
+  anexos   FiorixComunicadoAnexo[]
+  ciencias FiorixComunicadoCiencia[]
 
   @@index([tenantId])
   @@map("fiorix_comunicados")
 }
 
 model FiorixComunicadoAnexo {
-  id              String   @id @default(cuid())
-  tenantId        String   @map("tenant_id")
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  comunicadoId    String   @map("comunicado_id")
-  comunicado      FiorixComunicado @relation(fields: [comunicadoId], references: [id], onDelete: Cascade)
-  storagePath     String   @map("storage_path")
-  nomeOriginal    String   @map("nome_original")
-  mimeType        String   @map("mime_type")
-  tamanhoBytes    Int      @map("tamanho_bytes")
-  hashSha256      String   @map("hash_sha256")
-  uploadedBy      String   @map("uploaded_by")
-  uploader        User     @relation(fields: [uploadedBy], references: [id])
-  createdAt       DateTime @default(now()) @map("created_at")
+  id           String           @id @default(cuid())
+  tenantId     String           @map("tenant_id")
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  comunicadoId String           @map("comunicado_id")
+  comunicado   FiorixComunicado @relation(fields: [comunicadoId], references: [id], onDelete: Cascade)
+  storagePath  String           @map("storage_path")
+  nomeOriginal String           @map("nome_original")
+  mimeType     String           @map("mime_type")
+  tamanhoBytes Int              @map("tamanho_bytes")
+  hashSha256   String           @map("hash_sha256")
+  uploadedBy   String           @map("uploaded_by")
+  uploader     User             @relation(fields: [uploadedBy], references: [id])
+  createdAt    DateTime         @default(now()) @map("created_at")
 
   @@index([tenantId])
   @@index([comunicadoId])
@@ -595,22 +593,22 @@ model FiorixComunicadoAnexo {
 }
 
 model FiorixComunicadoCiencia {
-  id              String   @id @default(cuid())
-  tenantId        String   @map("tenant_id")
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  comunicadoId    String   @map("comunicado_id")
-  comunicado      FiorixComunicado @relation(fields: [comunicadoId], references: [id], onDelete: Cascade)
-  usuarioId       String   @map("usuario_id")
-  usuario         User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  dataVisualizacao DateTime? @map("data_visualizacao")
-  dataCiencia     DateTime? @map("data_ciencia")
-  ip              String?
-  userAgent       String?  @map("user_agent")
-  scrollPercent   Int?     @map("scroll_percent")
-  comunicadoHash  String   @map("comunicado_hash")
-  comprovanteHash String   @unique @map("comprovante_hash")
-  qrCodeUrl       String?  @map("qr_code_url")
-  createdAt       DateTime @default(now()) @map("created_at")
+  id               String           @id @default(cuid())
+  tenantId         String           @map("tenant_id")
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  comunicadoId     String           @map("comunicado_id")
+  comunicado       FiorixComunicado @relation(fields: [comunicadoId], references: [id], onDelete: Cascade)
+  usuarioId        String           @map("usuario_id")
+  usuario          User             @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  dataVisualizacao DateTime?        @map("data_visualizacao")
+  dataCiencia      DateTime?        @map("data_ciencia")
+  ip               String?
+  userAgent        String?          @map("user_agent")
+  scrollPercent    Int?             @map("scroll_percent")
+  comunicadoHash   String           @map("comunicado_hash")
+  comprovanteHash  String           @unique @map("comprovante_hash")
+  qrCodeUrl        String?          @map("qr_code_url")
+  createdAt        DateTime         @default(now()) @map("created_at")
 
   @@unique([tenantId, comunicadoId, usuarioId])
   @@index([tenantId])
@@ -646,20 +644,20 @@ model FiorixHolerite {
 }
 
 model FiorixFeriasPrevista {
-  id                String   @id @default(cuid())
-  tenantId          String   @map("tenant_id")
-  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  usuarioId         String   @map("usuario_id")
-  usuario           User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(cuid())
+  tenantId           String   @map("tenant_id")
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuarioId          String   @map("usuario_id")
+  usuario            User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   dataInicioPrevista DateTime @map("data_inicio_prevista")
-  dataFimPrevista   DateTime @map("data_fim_prevista")
-  dias              Int
-  observacao        String?  @db.Text
-  updatedBy         String   @map("updated_by")
-  updater           User     @relation("FeriasPrevistasUpdated", fields: [updatedBy], references: [id])
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  dataFimPrevista    DateTime @map("data_fim_prevista")
+  dias               Int
+  observacao         String?  @db.Text
+  updatedBy          String   @map("updated_by")
+  updater            User     @relation("FeriasPrevistasUpdated", fields: [updatedBy], references: [id])
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
-  historico         FiorixFeriasPrevistaHistorico[]
+  historico FiorixFeriasPrevistaHistorico[]
 
   @@unique([tenantId, usuarioId])
   @@index([tenantId])
@@ -668,22 +666,22 @@ model FiorixFeriasPrevista {
 }
 
 model FiorixFeriasPrevistaHistorico {
-  id                String   @id @default(cuid())
-  tenantId          String   @map("tenant_id")
-  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  feriasPrevistasId String   @map("ferias_previstas_id")
-  feriasPrevistas   FiorixFeriasPrevista @relation(fields: [feriasPrevistasId], references: [id], onDelete: Cascade)
-  usuarioId         String   @map("usuario_id")
-  usuario           User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  dataInicioAnterior DateTime? @map("data_inicio_anterior")
-  dataFimAnterior   DateTime? @map("data_fim_anterior")
-  dataInicioNova    DateTime @map("data_inicio_nova")
-  dataFimNova       DateTime @map("data_fim_nova")
-  alteradoPor       String   @map("alterado_por")
-  alterador         User     @relation("FeriasHistoricoAlterador", fields: [alteradoPor], references: [id])
-  motivo            String?  @db.Text
-  alteracaoHash     String   @map("alteracao_hash")
-  createdAt         DateTime @default(now()) @map("created_at")
+  id                 String               @id @default(cuid())
+  tenantId           String               @map("tenant_id")
+  tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  feriasPrevistasId  String               @map("ferias_previstas_id")
+  feriasPrevistas    FiorixFeriasPrevista @relation(fields: [feriasPrevistasId], references: [id], onDelete: Cascade)
+  usuarioId          String               @map("usuario_id")
+  usuario            User                 @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  dataInicioAnterior DateTime?            @map("data_inicio_anterior")
+  dataFimAnterior    DateTime?            @map("data_fim_anterior")
+  dataInicioNova     DateTime             @map("data_inicio_nova")
+  dataFimNova        DateTime             @map("data_fim_nova")
+  alteradoPor        String               @map("alterado_por")
+  alterador          User                 @relation("FeriasHistoricoAlterador", fields: [alteradoPor], references: [id])
+  motivo             String?              @db.Text
+  alteracaoHash      String               @map("alteracao_hash")
+  createdAt          DateTime             @default(now()) @map("created_at")
 
   @@index([tenantId])
   @@index([feriasPrevistasId])
@@ -691,23 +689,23 @@ model FiorixFeriasPrevistaHistorico {
 }
 
 model FiorixFeriasAviso {
-  id                String   @id @default(cuid())
-  tenantId          String   @map("tenant_id")
-  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  usuarioId         String   @map("usuario_id")
-  usuario           User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  dataInicio        DateTime @map("data_inicio")
-  dataFim           DateTime @map("data_fim")
-  dataRetorno       DateTime @map("data_retorno")
-  dias              Int
-  dataAviso         DateTime @map("data_aviso")
-  antecedenciaDias  Int      @map("antecedencia_dias")
-  storagePath       String?  @map("storage_path")
-  arquivoHash       String?  @map("arquivo_hash")
-  status            String   @default("ENTREGUE")
-  uploadedBy        String   @map("uploaded_by")
-  uploader          User     @relation("FeriasAvisoUploaded", fields: [uploadedBy], references: [id])
-  createdAt         DateTime @default(now()) @map("created_at")
+  id               String   @id @default(cuid())
+  tenantId         String   @map("tenant_id")
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuarioId        String   @map("usuario_id")
+  usuario          User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  dataInicio       DateTime @map("data_inicio")
+  dataFim          DateTime @map("data_fim")
+  dataRetorno      DateTime @map("data_retorno")
+  dias             Int
+  dataAviso        DateTime @map("data_aviso")
+  antecedenciaDias Int      @map("antecedencia_dias")
+  storagePath      String?  @map("storage_path")
+  arquivoHash      String?  @map("arquivo_hash")
+  status           String   @default("ENTREGUE")
+  uploadedBy       String   @map("uploaded_by")
+  uploader         User     @relation("FeriasAvisoUploaded", fields: [uploadedBy], references: [id])
+  createdAt        DateTime @default(now()) @map("created_at")
 
   @@index([tenantId])
   @@index([usuarioId])
@@ -715,19 +713,19 @@ model FiorixFeriasAviso {
 }
 
 model FiorixAcessoLog {
-  id              String   @id @default(cuid())
-  tenantId        String   @map("tenant_id")
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  usuarioId       String   @map("usuario_id")
-  usuario         User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  alvoUsuarioId   String?  @map("alvo_usuario_id")
-  alvoUsuario     User?    @relation("AcessoLogAlvo", fields: [alvoUsuarioId], references: [id])
-  tipo            String   // comunicado_view, holerite_view, etc.
-  recursoId       String?  @map("recurso_id")
-  ip              String?
-  userAgent       String?  @map("user_agent")
-  metadata        Json?
-  dataAcesso      DateTime @default(now()) @map("data_acesso")
+  id            String   @id @default(cuid())
+  tenantId      String   @map("tenant_id")
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuarioId     String   @map("usuario_id")
+  usuario       User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  alvoUsuarioId String?  @map("alvo_usuario_id")
+  alvoUsuario   User?    @relation("AcessoLogAlvo", fields: [alvoUsuarioId], references: [id])
+  tipo          String // comunicado_view, holerite_view, etc.
+  recursoId     String?  @map("recurso_id")
+  ip            String?
+  userAgent     String?  @map("user_agent")
+  metadata      Json?
+  dataAcesso    DateTime @default(now()) @map("data_acesso")
 
   @@index([tenantId])
   @@index([usuarioId])
@@ -748,25 +746,24 @@ enum MembroPapel {
 }
 
 model Conversa {
-  id            String         @id @default(cuid())
-  tenantId      String         @map("tenant_id")
-  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  tipo                 ConversaTipo   @default(DIRECT)
+  id                   String       @id @default(cuid())
+  tenantId             String       @map("tenant_id")
+  tenant               Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tipo                 ConversaTipo @default(DIRECT)
   titulo               String?
-  descricao            String?        @db.Text
-  avatarUrl            String?        @map("avatar_url")
-  criadoPor            String?        @map("criado_por")
-  criador              User?          @relation("ConversasCriadas", fields: [criadoPor], references: [id], onDelete: SetNull)
-  lastMessageAt        DateTime       @default(now()) @map("last_message_at")
+  descricao            String?      @db.Text
+  avatarUrl            String?      @map("avatar_url")
+  criadoPor            String?      @map("criado_por")
+  criador              User?        @relation("ConversasCriadas", fields: [criadoPor], references: [id], onDelete: SetNull)
+  lastMessageAt        DateTime     @default(now()) @map("last_message_at")
   // Permissões do grupo
-  permissaoEnvio       String         @default("ALL") @map("permissao_envio")        // ALL | ADMIN_ONLY
-  permissaoEdicaoDados String         @default("ALL") @map("permissao_edicao_dados") // ALL | ADMIN_ONLY
-  createdAt            DateTime       @default(now()) @map("created_at")
-  updatedAt            DateTime       @updatedAt @map("updated_at")
+  permissaoEnvio       String       @default("ALL") @map("permissao_envio") // ALL | ADMIN_ONLY
+  permissaoEdicaoDados String       @default("ALL") @map("permissao_edicao_dados") // ALL | ADMIN_ONLY
+  createdAt            DateTime     @default(now()) @map("created_at")
+  updatedAt            DateTime     @updatedAt @map("updated_at")
 
-  membros       ConversaMembro[]
-  mensagens     Mensagem[]
-  inviteLinks   GroupInviteLink[]
+  membros   ConversaMembro[]
+  mensagens Mensagem[]
 
   @@index([tenantId])
   @@index([tenantId, lastMessageAt])
@@ -774,22 +771,22 @@ model Conversa {
 }
 
 model ConversaMembro {
-  id             String      @id @default(cuid())
-  tenantId       String      @map("tenant_id")
-  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  conversaId     String      @map("conversa_id")
-  conversa       Conversa    @relation(fields: [conversaId], references: [id], onDelete: Cascade)
-  usuarioId      String      @map("usuario_id")
-  usuario        User        @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  papel          MembroPapel @default(MEMBER)
-  joinedAt       DateTime    @default(now()) @map("joined_at")
-  lastReadAt     DateTime    @default(now()) @map("last_read_at")
-  muted          Boolean     @default(false)
+  id         String      @id @default(cuid())
+  tenantId   String      @map("tenant_id")
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversaId String      @map("conversa_id")
+  conversa   Conversa    @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+  usuarioId  String      @map("usuario_id")
+  usuario    User        @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  papel      MembroPapel @default(MEMBER)
+  joinedAt   DateTime    @default(now()) @map("joined_at")
+  lastReadAt DateTime    @default(now()) @map("last_read_at")
+  muted      Boolean     @default(false)
   // V1 — preferências por membro
-  pinnedAt       DateTime?   @map("pinned_at")      // NULL = não fixada
-  archivedAt     DateTime?   @map("archived_at")    // NULL = não arquivada
-  draft          String?     @db.Text               // Rascunho de texto não enviado
-  mutedUntil     DateTime?   @map("muted_until")    // NULL = não silenciada; future = silenciada até
+  pinnedAt   DateTime?   @map("pinned_at") // NULL = não fixada
+  archivedAt DateTime?   @map("archived_at") // NULL = não arquivada
+  draft      String?     @db.Text // Rascunho de texto não enviado
+  mutedUntil DateTime?   @map("muted_until") // NULL = não silenciada; future = silenciada até
 
   @@unique([conversaId, usuarioId])
   @@index([tenantId])
@@ -798,34 +795,34 @@ model ConversaMembro {
 }
 
 model Mensagem {
-  id           String             @id @default(cuid())
-  tenantId     String             @map("tenant_id")
-  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  conversaId   String             @map("conversa_id")
-  conversa     Conversa           @relation(fields: [conversaId], references: [id], onDelete: Cascade)
-  remetenteId  String             @map("remetente_id")
-  remetente    User               @relation("MensagensEnviadas", fields: [remetenteId], references: [id], onDelete: Cascade)
-  conteudo           String             @db.Text
+  id               String     @id @default(cuid())
+  tenantId         String     @map("tenant_id")
+  tenant           Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversaId       String     @map("conversa_id")
+  conversa         Conversa   @relation(fields: [conversaId], references: [id], onDelete: Cascade)
+  remetenteId      String     @map("remetente_id")
+  remetente        User       @relation("MensagensEnviadas", fields: [remetenteId], references: [id], onDelete: Cascade)
+  conteudo         String     @db.Text
   // tipo: TEXT | VOICE | FIORIX_CARD
-  tipo               String             @default("TEXT")
+  tipo             String     @default("TEXT")
   // FIORIX Cards (tipo = FIORIX_CARD)
-  cardTipo           String?            @map("card_tipo")           // IT | TAREFA | COMUNICADO | etc.
-  cardReferenciaId   String?            @map("card_referencia_id") // ID do objeto de origem
-  cardMetadata       Json?              @map("card_metadata")       // titulo, versao, situacao (sem copiar dado protegido)
-  respostaAId        String?            @map("resposta_a_id")
-  respostaA          Mensagem?          @relation("MensagemRespostas", fields: [respostaAId], references: [id], onDelete: SetNull)
-  respostas          Mensagem[]         @relation("MensagemRespostas")
-  forwardedFromId    String?            @map("forwarded_from_id")
-  forwardedFrom      Mensagem?          @relation("MensagemEncaminhamentos", fields: [forwardedFromId], references: [id], onDelete: SetNull)
-  encaminhamentos    Mensagem[]         @relation("MensagemEncaminhamentos")
-  isDeleted          Boolean            @default(false) @map("is_deleted")
-  deletedAt          DateTime?          @map("deleted_at")
-  editedAt           DateTime?          @map("edited_at")
-  createdAt          DateTime           @default(now()) @map("created_at")
+  cardTipo         String?    @map("card_tipo") // IT | TAREFA | COMUNICADO | etc.
+  cardReferenciaId String?    @map("card_referencia_id") // ID do objeto de origem
+  cardMetadata     Json?      @map("card_metadata") // titulo, versao, situacao (sem copiar dado protegido)
+  respostaAId      String?    @map("resposta_a_id")
+  respostaA        Mensagem?  @relation("MensagemRespostas", fields: [respostaAId], references: [id], onDelete: SetNull)
+  respostas        Mensagem[] @relation("MensagemRespostas")
+  forwardedFromId  String?    @map("forwarded_from_id")
+  forwardedFrom    Mensagem?  @relation("MensagemEncaminhamentos", fields: [forwardedFromId], references: [id], onDelete: SetNull)
+  encaminhamentos  Mensagem[] @relation("MensagemEncaminhamentos")
+  isDeleted        Boolean    @default(false) @map("is_deleted")
+  deletedAt        DateTime?  @map("deleted_at")
+  editedAt         DateTime?  @map("edited_at")
+  createdAt        DateTime   @default(now()) @map("created_at")
 
-  anexos       MensagemAnexo[]
-  reacoes      MensagemReacao[]
-  favoritos    MensagemFavorito[]
+  anexos    MensagemAnexo[]
+  reacoes   MensagemReacao[]
+  favoritos MensagemFavorito[]
 
   @@index([tenantId])
   @@index([conversaId, createdAt])
@@ -834,16 +831,16 @@ model Mensagem {
 }
 
 model MensagemAnexo {
-  id           String    @id @default(cuid())
-  tenantId     String    @map("tenant_id")
-  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  mensagemId   String    @map("mensagem_id")
-  mensagem     Mensagem  @relation(fields: [mensagemId], references: [id], onDelete: Cascade)
-  nomeArquivo  String    @map("nome_arquivo")
-  tamanhoBytes Int       @map("tamanho_bytes")
-  mimeType     String    @map("mime_type")
-  storagePath  String    @map("storage_path")
-  createdAt    DateTime  @default(now()) @map("created_at")
+  id           String   @id @default(cuid())
+  tenantId     String   @map("tenant_id")
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mensagemId   String   @map("mensagem_id")
+  mensagem     Mensagem @relation(fields: [mensagemId], references: [id], onDelete: Cascade)
+  nomeArquivo  String   @map("nome_arquivo")
+  tamanhoBytes Int      @map("tamanho_bytes")
+  mimeType     String   @map("mime_type")
+  storagePath  String   @map("storage_path")
+  createdAt    DateTime @default(now()) @map("created_at")
 
   @@index([tenantId])
   @@index([mensagemId])
@@ -851,15 +848,15 @@ model MensagemAnexo {
 }
 
 model MensagemReacao {
-  id           String    @id @default(cuid())
-  tenantId     String    @map("tenant_id")
-  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  mensagemId   String    @map("mensagem_id")
-  mensagem     Mensagem  @relation(fields: [mensagemId], references: [id], onDelete: Cascade)
-  usuarioId    String    @map("usuario_id")
-  usuario      User      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  emoji        String
-  createdAt    DateTime  @default(now()) @map("created_at")
+  id         String   @id @default(cuid())
+  tenantId   String   @map("tenant_id")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mensagemId String   @map("mensagem_id")
+  mensagem   Mensagem @relation(fields: [mensagemId], references: [id], onDelete: Cascade)
+  usuarioId  String   @map("usuario_id")
+  usuario    User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  emoji      String
+  createdAt  DateTime @default(now()) @map("created_at")
 
   @@unique([mensagemId, usuarioId, emoji])
   @@index([tenantId])
@@ -868,14 +865,14 @@ model MensagemReacao {
 }
 
 model MensagemFavorito {
-  id           String    @id @default(cuid())
-  tenantId     String    @map("tenant_id")
-  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  mensagemId   String    @map("mensagem_id")
-  mensagem     Mensagem  @relation(fields: [mensagemId], references: [id], onDelete: Cascade)
-  usuarioId    String    @map("usuario_id")
-  usuario      User      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  createdAt    DateTime  @default(now()) @map("created_at")
+  id         String   @id @default(cuid())
+  tenantId   String   @map("tenant_id")
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mensagemId String   @map("mensagem_id")
+  mensagem   Mensagem @relation(fields: [mensagemId], references: [id], onDelete: Cascade)
+  usuarioId  String   @map("usuario_id")
+  usuario    User     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now()) @map("created_at")
 
   @@unique([mensagemId, usuarioId])
   @@index([tenantId])
@@ -883,44 +880,22 @@ model MensagemFavorito {
   @@map("fiorix_mensagem_favoritos")
 }
 
-model GroupInviteLink {
-  id           String    @id @default(cuid())
-  tenantId     String    @map("tenant_id")
-  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  conversaId   String    @map("conversa_id")
-  conversa     Conversa  @relation(fields: [conversaId], references: [id], onDelete: Cascade)
-  criadoPorId  String    @map("criado_por_id")
-  criadoPor    User      @relation(fields: [criadoPorId], references: [id], onDelete: Cascade)
-  token        String    @unique                       // Token criptograficamente seguro (UUID v4 ou crypto.randomBytes)
-  isActive     Boolean   @default(true) @map("is_active")
-  expiresAt    DateTime? @map("expires_at")            // NULL = sem expiração por data (revogável)
-  revokedAt    DateTime? @map("revoked_at")
-  usageCount   Int       @default(0) @map("usage_count")
-  maxUses      Int?      @map("max_uses")              // NULL = ilimitado
-  createdAt    DateTime  @default(now()) @map("created_at")
-
-  @@index([tenantId])
-  @@index([conversaId])
-  @@index([token])
-  @@map("fiorix_group_invite_links")
-}
-
 model PushSubscription {
-  id           String    @id @default(cuid())
-  tenantId     String    @map("tenant_id")
-  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  usuarioId    String    @map("usuario_id")
-  usuario      User      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  endpoint     String    @unique
-  p256dh       String
-  auth         String
-  deviceName   String?   @map("device_name")
-  userAgent    String?   @map("user_agent")
-  ipAddress    String?   @map("ip_address")
-  isActive     Boolean   @default(true) @map("is_active")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  lastUsedAt   DateTime  @default(now()) @map("last_used_at")
-  revokedAt    DateTime? @map("revoked_at")
+  id         String    @id @default(cuid())
+  tenantId   String    @map("tenant_id")
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  usuarioId  String    @map("usuario_id")
+  usuario    User      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  deviceName String?   @map("device_name")
+  userAgent  String?   @map("user_agent")
+  ipAddress  String?   @map("ip_address")
+  isActive   Boolean   @default(true) @map("is_active")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  lastUsedAt DateTime  @default(now()) @map("last_used_at")
+  revokedAt  DateTime? @map("revoked_at")
 
   @@index([tenantId])
   @@index([usuarioId])
@@ -945,36 +920,36 @@ model MessagingNotificationSettings {
 }
 
 model MessagingPolicy {
-  id                   String   @id @default(cuid())
-  tenantId             String   @unique @map("tenant_id")
-  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  directEnabled        Boolean  @default(true) @map("direct_enabled")
-  groupsEnabled        Boolean  @default(true) @map("groups_enabled")
-  attachmentsEnabled   Boolean  @default(true) @map("attachments_enabled")
-  maxAttachmentBytes   Int      @default(26214400) @map("max_attachment_bytes")
-  allowedMimes         String[] @default(["image/jpeg", "image/png", "image/webp", "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]) @map("allowed_mimes")
-  retentionDays        Int      @default(365) @map("retention_days")
-  allowDelete          Boolean  @default(true) @map("allow_delete")
-  allowEdit            Boolean  @default(true) @map("allow_edit")
-  editWindowMinutes    Int      @default(15) @map("edit_window_minutes")
-  updatedAt            DateTime @updatedAt @map("updated_at")
+  id                 String   @id @default(cuid())
+  tenantId           String   @unique @map("tenant_id")
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  directEnabled      Boolean  @default(true) @map("direct_enabled")
+  groupsEnabled      Boolean  @default(true) @map("groups_enabled")
+  attachmentsEnabled Boolean  @default(true) @map("attachments_enabled")
+  maxAttachmentBytes Int      @default(26214400) @map("max_attachment_bytes")
+  allowedMimes       String[] @default(["image/jpeg", "image/png", "image/webp", "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]) @map("allowed_mimes")
+  retentionDays      Int      @default(365) @map("retention_days")
+  allowDelete        Boolean  @default(true) @map("allow_delete")
+  allowEdit          Boolean  @default(true) @map("allow_edit")
+  editWindowMinutes  Int      @default(15) @map("edit_window_minutes")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
   @@map("fiorix_messaging_policies")
 }
 
 model MessagingAuditLog {
-  id           String    @id @default(cuid())
-  tenantId     String    @map("tenant_id")
-  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  actorUserId  String    @map("actor_user_id")
-  actorUser    User      @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
-  action       String
-  targetType   String?   @map("target_type")
-  targetId     String?   @map("target_id")
-  metadata     Json?
-  ipAddress    String?   @map("ip_address")
-  userAgent    String?   @map("user_agent")
-  createdAt    DateTime  @default(now()) @map("created_at")
+  id          String   @id @default(cuid())
+  tenantId    String   @map("tenant_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actorUserId String   @map("actor_user_id")
+  actorUser   User     @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+  action      String
+  targetType  String?  @map("target_type")
+  targetId    String?  @map("target_id")
+  metadata    Json?
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   @@index([tenantId])
   @@index([actorUserId])
