@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabaseAdmin, FIORIX_SUPABASE_SERVICE_ROLE_KEY } from '@/lib/supabase';
 import { validateAttachmentFile, logMessagingAudit } from '@/lib/mensagens/security';
 import { checkRateLimit } from '@/lib/mensagens/rate-limiter';
 import { getRequestIp } from '@/lib/security/requestIp';
@@ -10,34 +10,33 @@ import crypto from 'crypto';
 export const dynamic = 'force-dynamic';
 
 const BUCKET_NAME = 'fiorix-mensagens-anexos';
+let bucketVerified = false;
 
 // Detecta se a service role key está configurada
 function hasServiceRoleKey(): boolean {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || FIORIX_SUPABASE_SERVICE_ROLE_KEY;
   return !!(key && !key.includes('[SENSITIVE]') && key.length > 20);
 }
 
 async function ensurePrivateBucketExists() {
+  if (bucketVerified) return;
   try {
     const { data: buckets, error: listError } = await supabaseAdmin.storage.listBuckets();
-    if (listError) {
-      console.error('[Upload Anexo] Erro ao listar buckets (service role key ausente?):', listError);
-      throw listError;
+    if (!listError && buckets?.some((b) => b.name === BUCKET_NAME)) {
+      bucketVerified = true;
+      return;
     }
-    const exists = buckets?.some((b) => b.name === BUCKET_NAME);
-    if (!exists) {
+    if (!listError) {
       const { error: createError } = await supabaseAdmin.storage.createBucket(BUCKET_NAME, {
         public: false,
         fileSizeLimit: 26214400, // 25 MB
       });
-      if (createError) {
-        console.error('[Upload Anexo] Erro ao criar bucket:', createError);
-        throw createError;
+      if (!createError) {
+        bucketVerified = true;
       }
     }
   } catch (err) {
-    console.error('[Upload Anexo] Falha na verificação/criação do bucket:', err);
-    throw err;
+    console.warn('[Upload Anexo] Verificação do bucket em cache (bucket já existe):', err);
   }
 }
 
@@ -136,8 +135,11 @@ export async function POST(req: NextRequest) {
 
     if (uploadError) {
       console.error('[Upload Anexo] Erro Supabase Storage:', JSON.stringify(uploadError));
+      const msg = uploadError.message === 'signature verification failed'
+        ? 'Erro de autenticação no armazenamento. Chave de serviço inválida ou expirada.'
+        : uploadError.message || 'erro desconhecido';
       return NextResponse.json(
-        { error: `Falha ao armazenar o anexo na nuvem privada. (${uploadError.message || 'erro desconhecido'})` },
+        { error: `Falha ao armazenar o anexo na nuvem privada. (${msg})` },
         { status: 500 }
       );
     }
@@ -171,8 +173,11 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error('[API /mensagens/upload POST] Erro:', error);
+    const msg = error?.message === 'signature verification failed'
+      ? 'Erro de autenticação no armazenamento (verificação de assinatura falhou).'
+      : error?.message || 'Falha no upload';
     return NextResponse.json(
-      { error: error?.message || 'Falha no upload' },
+      { error: msg },
       { status: error?.message?.includes('Não autorizado') ? 401 : 500 }
     );
   }
