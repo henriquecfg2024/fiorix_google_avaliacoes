@@ -113,20 +113,23 @@ export async function GET(
       );
     }
 
-    // Detect reingressos via qtd_retrabalho ou tarefas de devolução
-    const temReingresso =
-      (metas?.qtd_retrabalho ?? 0) > 0 ||
-      tarefasRows.some(
-        t =>
-          t.tarefa === 'BALCÃO DEVOLVIDO' ||
-          (t.tarefa === 'CUSTAS/DEVOLUÇÃO' && ((t.situacao_tarefa || '').toUpperCase() === 'FINALIZADA' || Boolean(t.data_finalizacao)))
-      );
+    // Detect reingressos via qtd_retrabalho ou se houve devolução no histórico e o título já avançou
+    const houveDevolucaoPassada = tarefasRows.some(
+      t =>
+        t.tarefa === 'BALCÃO DEVOLVIDO' ||
+        Boolean(t.dt_devolucao) ||
+        (t.tarefa === 'CUSTAS/DEVOLUÇÃO' && ((t.situacao_tarefa || '').toUpperCase() === 'FINALIZADA' || Boolean(t.data_finalizacao)))
+    );
 
     const { setores, ultimoSetorNum, ultimoSetorEvidencia, desfecho } = deriveTrajetoria(
       metas,
       bi,
       tarefasRows
     );
+
+    const temReingresso =
+      (metas?.qtd_retrabalho ?? 0) > 0 ||
+      (houveDevolucaoPassada && desfecho !== 'DEVOLVIDO');
 
     const ultimoSetorDef = SETORES_DEF.find(s => s.num === ultimoSetorNum);
     const ultimoSetorLabel = ultimoSetorDef
@@ -145,7 +148,7 @@ export async function GET(
     const statusFinal =
       metas?.status ||
       bi?.SituacaoPrazo ||
-      (desfecho === 'DEVOLVIDO' ? 'DEVOLVIDO' : desfecho === 'REGISTRADO' ? 'REGISTRADO' : 'Não informado');
+      (desfecho === 'DEVOLVIDO' ? 'DEVOLVIDO' : desfecho === 'REGISTRADO' ? 'REGISTRADO' : 'EM ANDAMENTO');
 
     const dataEntradaFinal =
       toIso(metas?.data_apresentado) ||

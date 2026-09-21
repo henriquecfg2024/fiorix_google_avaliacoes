@@ -81,7 +81,8 @@ export async function unpackLiveRecords({
             COALESCE(item->>'TIPO', '') AS tipo,
             COALESCE(item->>'NATUREZA', '') AS natureza,
             CASE WHEN COALESCE(item->>'DtRetirada', item->>'DTRetirda', item->>'dt_retirada', item->>'DT_RETIRADA') IS NOT NULL AND COALESCE(item->>'DtRetirada', item->>'DTRetirda', item->>'dt_retirada', item->>'DT_RETIRADA') <> '' THEN (COALESCE(item->>'DtRetirada', item->>'DTRetirda', item->>'dt_retirada', item->>'DT_RETIRADA'))::timestamp ELSE NULL END AS dt_retirada,
-            CASE WHEN COALESCE(item->>'DtDevolucao', item->>'dt_devolucao', item->>'DT_DEVOLUCAO') IS NOT NULL AND COALESCE(item->>'DtDevolucao', item->>'dt_devolucao', item->>'DT_DEVOLUCAO') <> '' THEN (COALESCE(item->>'DtDevolucao', item->>'dt_devolucao', item->>'DT_DEVOLUCAO'))::timestamp ELSE NULL END AS dt_devolucao
+            CASE WHEN COALESCE(item->>'DtDevolucao', item->>'dt_devolucao', item->>'DT_DEVOLUCAO') IS NOT NULL AND COALESCE(item->>'DtDevolucao', item->>'dt_devolucao', item->>'DT_DEVOLUCAO') <> '' THEN (COALESCE(item->>'DtDevolucao', item->>'dt_devolucao', item->>'DT_DEVOLUCAO'))::timestamp ELSE NULL END AS dt_devolucao,
+            COALESCE(item->>'NUMERO_LIVRO', item->>'LIVRO', item->>'numero_livro', item->>'MATRICULA', item->>'matricula', NULL) AS numero_livro
           FROM jsonb_array_elements($2::jsonb) AS item
           WHERE item->>'ID_TAREFA' IS NOT NULL
         )
@@ -91,7 +92,7 @@ export async function unpackLiveRecords({
           numero_servico, item_servico, data_servico, vencimento_servico,
           id_tarefa, tarefa, data_cadastro_tarefa, status_tarefa,
           data_abertura, data_finalizacao, situacao_tarefa, id_usuario,
-          responsavel, tipo, natureza, dt_retirada, dt_devolucao
+          responsavel, tipo, natureza, dt_retirada, dt_devolucao, numero_livro
         )
         SELECT * FROM batch_records
         ON CONFLICT (tenant_id, id_tarefa) DO UPDATE SET
@@ -106,7 +107,8 @@ export async function unpackLiveRecords({
           situacao_tarefa = EXCLUDED.situacao_tarefa,
           responsavel = EXCLUDED.responsavel,
           dt_retirada = EXCLUDED.dt_retirada,
-          dt_devolucao = EXCLUDED.dt_devolucao;
+          dt_devolucao = EXCLUDED.dt_devolucao,
+          numero_livro = COALESCE(EXCLUDED.numero_livro, public.fiorix_tarefas_dados.numero_livro);
       `,
         tenantId,
         recordsJson

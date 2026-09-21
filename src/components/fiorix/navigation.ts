@@ -19,6 +19,7 @@ import {
   MapPin,
   MessageSquare,
   MessageCircle,
+  Printer,
 } from "lucide-react";
 
 export const navigationGroups = {
@@ -35,6 +36,12 @@ export const navigationGroups = {
     label: "OPERAÇÃO & BI",
     icon: Briefcase,
     items: [
+      {
+        label: "Controle de Impressões",
+        href: "/controle-impressoes",
+        icon: Printer,
+        description: "Certidões e atos nos livros",
+      },
       {
         label: "Módulo BI",
         href: "/bi",

@@ -46,6 +46,7 @@ describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
     ]);
 
     expect(navigationGroups.operacional.items.map((i) => i.href)).toEqual([
+      '/controle-impressoes',
       '/bi',
       '/bi/metas',
       '/bi/tarefas',

@@ -22,6 +22,7 @@ export const authConfig = {
         nextUrl.pathname.startsWith('/gestao') ||
         nextUrl.pathname.startsWith('/master') ||
         nextUrl.pathname.startsWith('/trajetoria-titulo') ||
+        nextUrl.pathname.startsWith('/controle-impressoes') ||
         nextUrl.pathname.startsWith('/instrucoes-trabalho');
 
       if (isOnDashboard) {
@@ -47,6 +48,7 @@ export const authConfig = {
             nextUrl.pathname === '/minha-conta' ||
             nextUrl.pathname.startsWith('/minha-it') ||
             nextUrl.pathname.startsWith('/trajetoria-titulo') ||
+            nextUrl.pathname.startsWith('/controle-impressoes') ||
             nextUrl.pathname.startsWith('/instrucoes-trabalho')
           ) {
             return true;

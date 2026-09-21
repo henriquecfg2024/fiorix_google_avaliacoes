@@ -28,20 +28,20 @@ export interface RawBi {
 }
 
 export interface RawTarefa {
-  id?: number;
-  tarefa: string | null;
-  data_finalizacao: string | Date | null;
-  data_abertura: string | Date | null;
-  data_cadastro_tarefa: string | Date | null;
-  data_servico: string | Date | null;
-  data_entrada: string | Date | null;
-  situacao_tarefa: string | null;
-  responsavel: string | null;
-  natureza: string | null;
-  tipo: string | null;
-  status_previsao: string | null;
-  dt_devolucao: string | Date | null;
-  dt_retirada: string | Date | null;
+  id?: number | string;
+  tarefa?: string | null;
+  data_finalizacao?: string | Date | null;
+  data_abertura?: string | Date | null;
+  data_cadastro_tarefa?: string | Date | null;
+  data_servico?: string | Date | null;
+  data_entrada?: string | Date | null;
+  situacao_tarefa?: string | null;
+  responsavel?: string | null;
+  natureza?: string | null;
+  tipo?: string | null;
+  status_previsao?: string | null;
+  dt_devolucao?: string | Date | null;
+  dt_retirada?: string | Date | null;
 }
 
 // ─── Public types ─────────────────────────────────────────────────────────────
@@ -112,22 +112,24 @@ export function findTarefa(
   patterns: string[],
   requireFinished = false
 ): RawTarefa | undefined {
-  return tarefas.find(t => {
-    if (!t.tarefa) return false;
+  for (let i = tarefas.length - 1; i >= 0; i--) {
+    const t = tarefas[i];
+    if (!t.tarefa) continue;
     const nameUpper = t.tarefa.toUpperCase();
     const matchesPattern = patterns.some(p => nameUpper.includes(p.toUpperCase()));
-    if (!matchesPattern) return false;
+    if (!matchesPattern) continue;
     if (requireFinished) {
       const situacaoUpper = (t.situacao_tarefa || '').toUpperCase();
-      return (
+      const isFinished =
         situacaoUpper === 'FINALIZADA' ||
         situacaoUpper === 'CONCLUÍDA' ||
         situacaoUpper === 'CONCLUIDA' ||
-        Boolean(t.data_finalizacao)
-      );
+        Boolean(t.data_finalizacao);
+      if (!isFinished) continue;
     }
-    return true;
-  });
+    return t;
+  }
+  return undefined;
 }
 
 // ─── Core derivation (read-only, pure function) ──────────────────────────────
@@ -143,9 +145,83 @@ export function deriveTrajetoria(
   desfecho: DesfechoTitulo;
 } {
   const tarefaDevolucao = findTarefa(tarefas, ['DEVOLV', 'DEVOLU']);
-  const dtDevolucaoTarefa = tarefas.find(t => t.dt_devolucao)?.dt_devolucao;
-  const dtRetiradaTarefa = tarefas.find(t => t.dt_retirada)?.dt_retirada;
+  const dtDevolucaoTarefa = [...tarefas].reverse().find(t => t.dt_devolucao)?.dt_devolucao;
+  const dtRetiradaTarefa = [...tarefas].reverse().find(t => t.dt_retirada)?.dt_retirada;
   const primeiraComData = tarefas.find(t => t.data_entrada || t.data_servico);
+
+  // Identifica a última tarefa de devolução no fluxo
+  const lastDevIdx = tarefas
+    .map((t, idx) => ({ t, idx }))
+    .filter(({ t }) => {
+      const nomeUpper = (t.tarefa || '').toUpperCase();
+      return nomeUpper.includes('DEVOLV') || nomeUpper.includes('DEVOLU');
+    })
+    .pop()?.idx ?? -1;
+
+  // Verifica se há tarefas de fluxo subsequentes na sequência de tarefas
+  const hasSubsequentTasksInArray =
+    lastDevIdx >= 0 &&
+    tarefas.slice(lastDevIdx + 1).some(t => {
+      const nomeUpper = (t.tarefa || '').toUpperCase();
+      return (
+        nomeUpper.includes('SCAN') ||
+        nomeUpper.includes('CONTRADIT') ||
+        nomeUpper.includes('EXTRATO') ||
+        nomeUpper.includes('QUALIFICA') ||
+        nomeUpper.includes('CÁLCULO') ||
+        nomeUpper.includes('CALCULO') ||
+        nomeUpper.includes('CUSTAS') ||
+        nomeUpper.includes('PAGAMENTO') ||
+        nomeUpper === 'REGISTRO'
+      );
+    });
+
+  // Timestamp da devolução mais recente identificada (se houver)
+  const dtDevolucaoIso =
+    toIso(metas?.d_balcao_devolvido) ||
+    toIso(dtDevolucaoTarefa) ||
+    toIso(tarefaDevolucao?.data_finalizacao) ||
+    toIso(tarefaDevolucao?.data_abertura) ||
+    toIso(tarefaDevolucao?.data_cadastro_tarefa);
+
+  const devDay = dtDevolucaoIso ? dtDevolucaoIso.split('T')[0] : null;
+  const hasSubsequentTasksAfterDevDay = devDay
+    ? tarefas.some(t => {
+        const nomeUpper = (t.tarefa || '').toUpperCase();
+        if (nomeUpper.includes('DEVOLV') || nomeUpper.includes('DEVOLU')) return false;
+        const ts = t.data_cadastro_tarefa || t.data_servico || t.data_abertura || t.data_finalizacao;
+        if (!ts) return false;
+        const day = toIso(ts)?.split('T')[0];
+        return day && day > devDay;
+      })
+    : false;
+
+  const hasSubsequentTasksAfterDevolucao = hasSubsequentTasksInArray || hasSubsequentTasksAfterDevDay;
+
+  // 1. Identificar se há registro formalizado
+  const hasTarefaRegistro = tarefas.some(t =>
+    t.tarefa?.toUpperCase() === 'REGISTRO' &&
+    ((t.situacao_tarefa || '').toUpperCase() === 'FINALIZADA' || Boolean(t.data_finalizacao))
+  );
+
+  const isRegistrado =
+    bi?.IsRegistrado === true ||
+    Boolean(metas?.d_balcao_registrado) ||
+    Boolean(metas?.d8_impressao) ||
+    metas?.status === 'REGISTRADO' ||
+    hasTarefaRegistro;
+
+  // 2. Identificar se está em devolução (apenas se não registrado e sem reingresso subsequente)
+  const isDevolvido =
+    !isRegistrado &&
+    !hasSubsequentTasksAfterDevolucao &&
+    (
+      bi?.IsDevolucao === true ||
+      Boolean(metas?.d_balcao_devolvido) ||
+      metas?.status === 'DEVOLVIDO' ||
+      Boolean(tarefaDevolucao) ||
+      Boolean(dtDevolucaoTarefa)
+    );
 
   // Mapeamento multi-origem das evidências dos 11 setores
   const evSetor1 =
@@ -154,56 +230,79 @@ export function deriveTrajetoria(
     toIso(primeiraComData?.data_servico) ||
     toIso(primeiraComData?.data_entrada);
 
+  const tSetor2 = findTarefa(tarefas, ['SCANNER', 'ESCANEADO', 'ESCANER']);
   const evSetor2 =
     toIso(metas?.d1_escaneamento) ||
-    toIso(findTarefa(tarefas, ['SCANNER', 'ESCANEADO', 'ESCANER'], true)?.data_finalizacao) ||
-    toIso(findTarefa(tarefas, ['SCANNER', 'ESCANEADO', 'ESCANER'])?.data_abertura);
+    toIso(tSetor2?.data_finalizacao) ||
+    toIso(tSetor2?.data_abertura) ||
+    toIso(tSetor2?.data_cadastro_tarefa);
 
+  const tSetor3 = findTarefa(tarefas, ['CONTRADIT']);
   const evSetor3 =
     toIso(metas?.d2_contraditorio) ||
-    toIso(findTarefa(tarefas, ['CONTRADIT'], true)?.data_finalizacao) ||
-    toIso(findTarefa(tarefas, ['CONTRADIT'])?.data_abertura);
+    toIso(tSetor3?.data_finalizacao) ||
+    toIso(tSetor3?.data_abertura) ||
+    toIso(tSetor3?.data_cadastro_tarefa);
 
+  const tSetor4 = findTarefa(tarefas, ['EXTRATO']);
   const evSetor4 =
     toIso(metas?.d3_extrato) ||
-    toIso(findTarefa(tarefas, ['EXTRATO'], true)?.data_finalizacao) ||
-    toIso(findTarefa(tarefas, ['EXTRATO'])?.data_abertura);
+    toIso(tSetor4?.data_finalizacao) ||
+    toIso(tSetor4?.data_abertura) ||
+    toIso(tSetor4?.data_cadastro_tarefa);
 
+  const tSetor5 = findTarefa(tarefas, ['QUALIFICA']);
   const evSetor5 =
     toIso(metas?.d4_qualificacao) ||
-    toIso(findTarefa(tarefas, ['QUALIFICA'], true)?.data_finalizacao) ||
-    toIso(findTarefa(tarefas, ['QUALIFICA'])?.data_abertura);
+    toIso(tSetor5?.data_finalizacao) ||
+    toIso(tSetor5?.data_abertura) ||
+    toIso(tSetor5?.data_cadastro_tarefa);
 
+  const tSetor6 = findTarefa(tarefas, ['CÁLCULO', 'CALCULO', 'CUSTAS', 'PAGAMENTO']);
   const evSetor6 =
     toIso(metas?.d5_calculo) ||
-    toIso(findTarefa(tarefas, ['CÁLCULO', 'CALCULO', 'CUSTAS'], true)?.data_finalizacao) ||
-    toIso(findTarefa(tarefas, ['CÁLCULO', 'CALCULO', 'CUSTAS'])?.data_abertura);
+    toIso(tSetor6?.data_finalizacao) ||
+    toIso(tSetor6?.data_abertura) ||
+    toIso(tSetor6?.data_cadastro_tarefa);
 
+  const tSetor7 = findTarefa(tarefas, ['REGISTRO']);
   const evSetor7 =
     toIso(metas?.d_balcao_registrado) ||
-    (bi?.IsRegistrado ? 'sem_ts' : null) ||
-    toIso(findTarefa(tarefas, ['REGISTRO'], true)?.data_finalizacao);
+    toIso(tSetor7?.data_finalizacao) ||
+    toIso(tSetor7?.data_abertura) ||
+    toIso(tSetor7?.data_cadastro_tarefa) ||
+    (bi?.IsRegistrado ? 'sem_ts' : null);
 
-  const evSetor8 =
-    toIso(metas?.d_balcao_devolvido) ||
-    toIso(dtDevolucaoTarefa) ||
-    toIso(tarefaDevolucao?.data_finalizacao) ||
-    toIso(tarefaDevolucao?.data_cadastro_tarefa) ||
-    (bi?.IsDevolucao ? 'sem_ts' : null);
+  // Setor 8 só tem evidência ativa se o desfecho atual do título for DEVOLVIDO
+  const evSetor8 = isDevolvido
+    ? (
+        dtDevolucaoIso ||
+        (bi?.IsDevolucao ? 'sem_ts' : null)
+      )
+    : null;
 
+  const tSetor9 = findTarefa(tarefas, ['IMPRESS']);
   const evSetor9 =
     toIso(metas?.d8_impressao) ||
-    toIso(findTarefa(tarefas, ['IMPRESS'], true)?.data_finalizacao);
+    toIso(tSetor9?.data_finalizacao) ||
+    toIso(tSetor9?.data_abertura) ||
+    toIso(tSetor9?.data_cadastro_tarefa);
 
+  const tSetor10 = findTarefa(tarefas, ['PREPAR', 'CONFER']);
   const evSetor10 =
     toIso(metas?.d9_preparacao) ||
     toIso(metas?.d9_conferencia) ||
-    toIso(findTarefa(tarefas, ['PREPAR', 'CONFER'], true)?.data_finalizacao);
+    toIso(tSetor10?.data_finalizacao) ||
+    toIso(tSetor10?.data_abertura) ||
+    toIso(tSetor10?.data_cadastro_tarefa);
 
+  const tSetor11 = findTarefa(tarefas, ['SAÍDA', 'SAIDA', 'ENTREGA']);
   const evSetor11 =
     toIso(metas?.d10_entrega) ||
-    toIso(dtRetiradaTarefa) ||
-    toIso(findTarefa(tarefas, ['SAÍDA', 'SAIDA', 'ENTREGA'], true)?.data_finalizacao);
+    (isRegistrado || isDevolvido ? toIso(dtRetiradaTarefa) : null) ||
+    toIso(tSetor11?.data_finalizacao) ||
+    toIso(tSetor11?.data_abertura) ||
+    toIso(tSetor11?.data_cadastro_tarefa);
 
   // Ordered map: setor number → { evidencia ISO | 'sem_ts' (boolean flag) | null }
   const evidencias: { num: number; val: string | 'sem_ts' | null }[] = [
@@ -220,42 +319,11 @@ export function deriveTrajetoria(
     { num: 11, val: evSetor11 },
   ];
 
-  // 1. Identificar evidência preliminar mais avançada
+  // Identificar evidência preliminar mais avançada
   let rawUltimoNum = 0;
   for (const { num, val } of evidencias) {
     if (val) rawUltimoNum = num;
   }
-
-  // 2. Determinar desfecho cartorial (REGISTRADO vs DEVOLVIDO vs EM_ANALISE)
-  const hasTarefaDevolucao = tarefas.some(t =>
-    Boolean(t.dt_devolucao) ||
-    t.tarefa?.toUpperCase().includes('DEVOLV') ||
-    t.tarefa?.toUpperCase().includes('DEVOLU')
-  );
-
-  const isDevolvido =
-    bi?.IsDevolucao === true ||
-    Boolean(metas?.d_balcao_devolvido) ||
-    metas?.status === 'DEVOLVIDO' ||
-    hasTarefaDevolucao ||
-    evSetor8 !== null;
-
-  const hasTarefaRegistro = tarefas.some(t =>
-    t.tarefa?.toUpperCase() === 'REGISTRO' &&
-    ((t.situacao_tarefa || '').toUpperCase() === 'FINALIZADA' || Boolean(t.data_finalizacao))
-  );
-
-  const isRegistrado =
-    !isDevolvido && (
-      bi?.IsRegistrado === true ||
-      Boolean(metas?.d_balcao_registrado) ||
-      Boolean(metas?.d8_impressao) ||
-      metas?.status === 'REGISTRADO' ||
-      hasTarefaRegistro ||
-      rawUltimoNum === 7 ||
-      rawUltimoNum === 9 ||
-      (rawUltimoNum >= 10 && !isDevolvido)
-    );
 
   let desfecho: DesfechoTitulo = 'EM_ANALISE';
   if (isDevolvido) {
@@ -263,7 +331,11 @@ export function deriveTrajetoria(
   } else if (isRegistrado) {
     desfecho = 'REGISTRADO';
   } else if (rawUltimoNum >= 7) {
-    desfecho = rawUltimoNum === 8 ? 'DEVOLVIDO' : 'REGISTRADO';
+    if (rawUltimoNum === 8 && !hasSubsequentTasksAfterDevolucao) {
+      desfecho = 'DEVOLVIDO';
+    } else if (rawUltimoNum !== 8) {
+      desfecho = 'REGISTRADO';
+    }
   }
 
   // 3. Sequência de setores ativos conforme o desfecho

@@ -369,7 +369,6 @@ export function FiorixHeader() {
 
           {/* Mobile Menu Trigger (<1024px) */}
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-            {/* @ts-expect-error Radix UI asChild type mismatch */}
             <SheetTrigger asChild>
               <button
                 className="lg:hidden p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors cursor-pointer"

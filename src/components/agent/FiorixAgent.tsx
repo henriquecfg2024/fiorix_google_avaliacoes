@@ -504,8 +504,8 @@ export function FiorixAgent() {
 
     const timer = setTimeout(() => {
       setIsVisible(true);
-      setShowBubble(true);
-    }, 1200);
+      setShowBubble(false);
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [pathname]);
@@ -949,7 +949,7 @@ export function FiorixAgent() {
         .fiorix-typing-dot:nth-child(3) { animation: fiorix-typing-dot 1.4s ease-in-out infinite 0.4s; }
       `}</style>
 
-      {/* ─── Avatar Flutuante (Arrastável com o mouse) ─── */}
+      {/* ─── Avatar Flutuante (Somente o Ícone, clicável para interagir) ─── */}
       {isVisible && !isChatOpen && (
         <div
           ref={agentRef}
@@ -958,107 +958,14 @@ export function FiorixAgent() {
           onPointerUp={handlePointerUp}
           onClick={(e) => {
             if (dragRef.current.hasMoved || isDraggingJustEndedRef.current) return;
-            const target = e.target as HTMLElement;
-            if (target.closest('.fiorix-no-drag')) return;
             openChat();
           }}
           style={agentContainerStyle}
-          className={`fixed z-[9998] flex flex-col gap-2 select-none touch-none ${alignClass} ${
+          className={`fixed z-[9998] select-none touch-none ${
             isDragging ? 'cursor-grabbing scale-105 transition-none' : 'cursor-grab transition-all duration-100'
           } ${!customPos ? positionClasses + ' fiorix-slide-up' : ''}`}
         >
-          {/* Bubble de mensagem proativa */}
-          {showBubble && (
-            <div className={`fiorix-bubble-in relative ${isTopSide ? 'order-last mt-1' : 'order-first mb-1'}`}>
-              <div className="bg-white border border-[#e5e7eb] rounded-2xl p-4 shadow-2xl max-w-[300px]">
-                {/* Header da Bubble */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold text-[#7c3aed] uppercase tracking-wider">FIORIX • IA</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    {complianceWarning && (
-                      <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-700 border border-amber-500/30">
-                        Compliance
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={togglePosition}
-                      className="p-1 text-[#9ca3af] hover:text-[#7c3aed] transition-colors rounded fiorix-no-drag"
-                      title={position === 'right' ? 'Mover para a esquerda' : 'Mover para a direita'}
-                      aria-label="Mover lado"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M8 3L4 7l4 4" /><path d="M4 7h16" /><path d="M16 21l4-4-4-4" /><path d="M20 17H4" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={dismissBubble}
-                      className="p-1 text-[#9ca3af] hover:text-[#111827] transition-colors rounded fiorix-no-drag"
-                      aria-label="Fechar aviso"
-                    >
-                      <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Mensagem Proativa */}
-                <p className="text-[12px] text-[#374151] leading-relaxed mb-3">
-                  {complianceWarning
-                    ? 'Esta IT está sem revisão há mais de 30 dias. Deseja que eu auxilie na reestruturação e atualização da rotina com IA?'
-                    : getContextMessage(pathname, userContext)}
-                </p>
-
-                {/* Botões de Ação */}
-                <div className="flex items-center gap-2 fiorix-no-drag">
-                  {complianceWarning ? (
-                    <button
-                      onClick={() => {
-                        setShowBubble(false);
-                        if (pathname.startsWith('/minha-it')) {
-                          if (typeof window !== 'undefined') {
-                            window.dispatchEvent(new CustomEvent('fiorix-abrir-nova-versao'));
-                          }
-                          setIsMinimized(true);
-                          stopSpeaking();
-                        } else {
-                          router.push('/minha-it?nova_versao=true');
-                          setIsMinimized(true);
-                          stopSpeaking();
-                        }
-                      }}
-                      className="bg-gradient-to-r from-amber-500 to-amber-600 text-black font-bold rounded-full px-3.5 py-1.5 text-[11.5px] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm fiorix-no-drag"
-                    >
-                      Atualizar Minha IT
-                    </button>
-                  ) : (
-                    <button
-                      onClick={openChat}
-                      className="bg-gradient-to-r from-[#facc15] to-[#f59e0b] text-[#111827] font-bold rounded-full px-4 py-1.5 text-[12px] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm fiorix-no-drag"
-                    >
-                      Tirar dúvida
-                    </button>
-                  )}
-                  <button
-                    onClick={dismissBubble}
-                    className="text-[11px] text-[#9ca3af] hover:text-[#4b5563] transition-colors px-2 py-1 fiorix-no-drag"
-                  >
-                    Depois
-                  </button>
-                </div>
-              </div>
-
-              {/* Seta da Bubble */}
-              {isTopSide ? (
-                <div className={`absolute -top-2 ${isLeftSide ? 'left-6' : 'right-6'} w-3.5 h-3.5 bg-white border-l border-t border-[#e5e7eb] transform rotate-45`} />
-              ) : (
-                <div className={`absolute -bottom-2 ${isLeftSide ? 'left-6' : 'right-6'} w-3.5 h-3.5 bg-white border-r border-b border-[#e5e7eb] transform rotate-45`} />
-              )}
-            </div>
-          )}
-
-          {/* Botão do Avatar com Aura de Voz e Ponto de Compliance */}
+          {/* Botão do Avatar (Ícone Puro) */}
           <button
             type="button"
             onClick={(e) => {
@@ -1068,8 +975,8 @@ export function FiorixAgent() {
             className={`relative group focus:outline-none fiorix-avatar-btn cursor-pointer ${
               isDragging ? '' : 'fiorix-float'
             }`}
-            aria-label="Abrir assistente FIORIX IA (arraste para mover)"
-            title="Clique para conversar ou arraste para reposicionar em qualquer lugar da tela"
+            aria-label="Abrir assistente FIORIX IA"
+            title="Clique para conversar com o assistente FIORIX IA (arraste para reposicionar)"
           >
             {/* Aura Sonora se estiver falando */}
             {isSpeaking && (
@@ -1077,17 +984,17 @@ export function FiorixAgent() {
             )}
 
             <div
-              className={`w-[62px] h-[62px] rounded-2xl border-[2.5px] bg-white overflow-hidden transition-all group-hover:scale-105 ${
+              className={`w-[60px] h-[60px] rounded-2xl border-[2.5px] bg-white overflow-hidden transition-all group-hover:scale-105 shadow-xl ${
                 isSpeaking
                   ? 'border-[#facc15] shadow-[0_0_20px_rgba(250,204,21,0.6)] ring-4 ring-[#facc15]/40'
-                  : 'border-[#facc15] shadow-lg shadow-yellow-500/20'
+                  : 'border-[#facc15] shadow-yellow-500/20'
               }`}
             >
               <Image
                 src="/fiorix-avatar.jpg"
                 alt="FIORIX IA"
-                width={62}
-                height={62}
+                width={60}
+                height={60}
                 className="w-full h-full object-cover pointer-events-none"
                 priority
               />
@@ -1103,22 +1010,6 @@ export function FiorixAgent() {
                 title="Revisão periódica de IT recomendada"
               />
             )}
-          </button>
-
-          {/* Badge */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleAvatarClick();
-            }}
-            className="bg-[#7c3aed] hover:bg-[#6d28d9] text-white rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-md flex items-center gap-1.5 transition-colors cursor-pointer"
-            title="Clique para conversar ou arraste para reposicionar em qualquer lugar"
-          >
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-75">
-              <polyline points="5 9 2 12 5 15" /><polyline points="9 5 12 2 15 5" /><polyline points="15 19 12 22 9 19" /><polyline points="19 9 22 12 19 15" /><line x1="2" y1="12" x2="22" y2="12" /><line x1="12" y1="2" x2="12" y2="22" />
-            </svg>
-            {isSpeaking ? 'FALANDO...' : 'FIORIX • IA'}
           </button>
         </div>
       )}
