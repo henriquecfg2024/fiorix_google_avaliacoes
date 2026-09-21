@@ -18,8 +18,11 @@ import {
 import { ConversasSidebar, SidebarFilter } from './ConversasSidebar';
 import { ChatArea } from './ChatArea';
 import { NovaConversaModal } from './NovaConversaModal';
-import { MessageSquare, MessagesSquare } from 'lucide-react';
+import { MessageSquare, MessagesSquare, BellRing, Volume2, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { notifyNewMessage } from '@/lib/notifications/desktop';
+import { playNotificationChime } from '@/lib/notifications/sound';
+import { subscribeToPushNotifications } from '@/lib/pwa/push-client';
 
 interface MensagensClientProps {
   initialConversations: SerializedConversation[];
@@ -43,6 +46,61 @@ export function MensagensClient({
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [sidebarFilter, setSidebarFilter] = useState<SidebarFilter>('all');
+  const [notificationPermission, setNotificationPermission] = useState<
+    'granted' | 'default' | 'denied' | 'unsupported'
+  >('default');
+  const [activatingNotifications, setActivatingNotifications] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  // Sincroniza permissão do navegador e garante registro em background se já concedido
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      const perm = Notification.permission;
+      setNotificationPermission(perm);
+      if (perm === 'granted') {
+        subscribeToPushNotifications().catch(() => {});
+      }
+    } else {
+      setNotificationPermission('unsupported');
+    }
+  }, []);
+
+  const handleEnableNotifications = async () => {
+    if (notificationPermission === 'denied') {
+      toast.info(
+        'As notificações estão bloqueadas no seu navegador. Clique no ícone de cadeado na barra de endereços (à esquerda da URL) e altere "Notificações" para "Permitir".',
+        { duration: 9000 }
+      );
+      return;
+    }
+
+    setActivatingNotifications(true);
+    try {
+      const res = await subscribeToPushNotifications();
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        setNotificationPermission(Notification.permission);
+      }
+      if (res.success || (typeof window !== 'undefined' && Notification.permission === 'granted')) {
+        playNotificationChime();
+        notifyNewMessage({
+          title: 'FIORIX • Alertas Ativados',
+          body: 'Seu computador agora emitirá som e alerta na tela quando você receber novas mensagens!',
+        });
+        toast.success('Alertas ativados com sucesso! Você será avisado de novas mensagens.');
+      } else if (res.error) {
+        toast.error(res.error);
+      }
+    } catch (err: any) {
+      toast.error('Erro ao ativar notificações no navegador.');
+    } finally {
+      setActivatingNotifications(false);
+    }
+  };
+
+  const handleTestSound = () => {
+    playNotificationChime();
+    toast.success('Som de notificação emitido com sucesso!');
+  };
 
   // Presença: usuários digitando e online
   const [typingUsers, setTypingUsers] = useState<Record<string, string>>({});
@@ -184,6 +242,40 @@ export function MensagensClient({
                 },
               },
             });
+          }
+        }
+
+        // Alertas sonoros e notificações de área de trabalho para mensagens recebidas
+        const isFromMe = data.senderId === currentUserId;
+        if (!isFromMe) {
+          const conv = conversations.find((c) => c.id === data.conversationId);
+          const isMuted = conv?.isMuted ?? false;
+
+          if (!isMuted) {
+            const isUserFocusedOnChat =
+              isCurrentActive &&
+              typeof document !== 'undefined' &&
+              !document.hidden &&
+              (typeof document.hasFocus === 'function' ? document.hasFocus() : true);
+
+            const senderTitle = data.isGroup
+              ? `${data.conversationTitle || 'Grupo'} (${data.senderName})`
+              : data.senderName;
+
+            if (!isUserFocusedOnChat) {
+              notifyNewMessage({
+                title: senderTitle,
+                body: data.conteudo || (data.hasAttachments ? '📎 Enviou um anexo' : 'Nova mensagem'),
+                conversationId: data.conversationId,
+                onClick: () => {
+                  setActiveConversationId(data.conversationId);
+                  window.history.replaceState(null, '', `/mensagens?c=${data.conversationId}`);
+                },
+              });
+            } else {
+              // Conversa aberta e com foco ativo: apenas som de mensagem recebida
+              playNotificationChime();
+            }
           }
         }
 
@@ -463,69 +555,106 @@ export function MensagensClient({
   const typingList = Object.values(typingUsers);
 
   return (
-    <div className="h-[calc(100vh-65px)] w-full flex bg-[#070A12] overflow-hidden">
-      {/* Sidebar — esconde no mobile quando há conversa ativa */}
-      <div className={`h-full md:flex ${activeConversationId ? 'hidden md:flex' : 'flex w-full'}`}>
-        <ConversasSidebar
-          conversations={conversations}
-          activeConversationId={activeConversationId}
-          onSelectConversation={handleSelectConversation}
-          onOpenNovaConversa={() => setIsModalOpen(true)}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          currentUserId={currentUserId}
-          filter={sidebarFilter}
-          onFilterChange={setSidebarFilter}
-          onPin={handlePin}
-          onArchive={handleArchive}
-          onMute={handleMute}
-          onMarkUnread={handleMarkUnread}
-        />
-      </div>
-
-      {/* Área Central do Chat */}
-      <div
-        className={`flex-1 h-full flex flex-col ${
-          !activeConversationId ? 'hidden md:flex' : 'flex w-full'
-        }`}
-      >
-        {activeConversation ? (
-          <ChatArea
-            conversation={activeConversation}
-            messages={messages}
-            loading={loadingMessages}
-            currentUserId={currentUserId}
-            currentUserName={currentUserName}
-            typingUsers={typingList}
-            onBackToConversations={() => {
-              setActiveConversationId(null);
-              window.history.replaceState(null, '', '/mensagens');
-            }}
-            onMessageSent={handleMessageSent}
-            onMessageUpdate={handleMessageUpdate}
-            onMessageDeleted={handleMessageDeleted}
-            onReactionToggled={handleReactionToggled}
-            onConversationUpdated={handleConversationUpdated}
-            onDraftSave={(text) => handleDraftSave(activeConversation.id, text)}
-          />
-        ) : (
-          <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-500">
-            <div className="w-20 h-20 rounded-3xl bg-white/[0.03] border border-white/10 flex items-center justify-center mb-6">
-              <MessagesSquare className="w-9 h-9 text-emerald-500/60" />
-            </div>
-            <h3 className="text-base font-bold text-white mb-2">FIORIX Mensagens</h3>
-            <p className="max-w-xs text-xs text-slate-500 mb-6 leading-relaxed">
-              Comunicação corporativa segura. Selecione uma conversa ou inicie um novo diálogo.
-            </p>
+    <div className="h-[calc(100vh-65px)] w-full flex flex-col bg-[#070A12] overflow-hidden">
+      {/* Banner de Ativação de Notificações no Computador */}
+      {notificationPermission === 'default' && !bannerDismissed && (
+        <div className="w-full bg-gradient-to-r from-emerald-950/80 via-slate-900/95 to-emerald-950/80 border-b border-emerald-500/30 px-4 py-2 flex items-center justify-between gap-3 text-xs text-emerald-100 shrink-0 z-20 shadow-md">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
+              <BellRing className="w-3.5 h-3.5 animate-pulse" />
+            </span>
+            <span className="truncate">
+              <strong>Ative os alertas no computador:</strong> Seja avisado com som e notificações na área de trabalho quando receber novas mensagens.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => setIsModalOpen(true)}
-              className="px-5 py-2.5 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 transition cursor-pointer"
+              onClick={handleEnableNotifications}
+              disabled={activatingNotifications}
+              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg text-xs transition shadow-sm cursor-pointer disabled:opacity-50"
             >
-              + Nova Conversa
+              {activatingNotifications ? 'Ativando...' : 'Ativar Alertas'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setBannerDismissed(true)}
+              className="text-slate-400 hover:text-white p-1 rounded transition cursor-pointer"
+              title="Ignorar"
+            >
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
-        )}
+        </div>
+      )}
+
+      <div className="flex-1 w-full flex overflow-hidden">
+        {/* Sidebar — esconde no mobile quando há conversa ativa */}
+        <div className={`h-full md:flex ${activeConversationId ? 'hidden md:flex' : 'flex w-full'}`}>
+          <ConversasSidebar
+            conversations={conversations}
+            activeConversationId={activeConversationId}
+            onSelectConversation={handleSelectConversation}
+            onOpenNovaConversa={() => setIsModalOpen(true)}
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            currentUserId={currentUserId}
+            filter={sidebarFilter}
+            onFilterChange={setSidebarFilter}
+            onPin={handlePin}
+            onArchive={handleArchive}
+            onMute={handleMute}
+            onMarkUnread={handleMarkUnread}
+            notificationPermission={notificationPermission}
+            onEnableNotifications={handleEnableNotifications}
+            onTestSound={handleTestSound}
+          />
+        </div>
+
+        {/* Área Central do Chat */}
+        <div
+          className={`flex-1 h-full flex flex-col ${
+            !activeConversationId ? 'hidden md:flex' : 'flex w-full'
+          }`}
+        >
+          {activeConversation ? (
+            <ChatArea
+              conversation={activeConversation}
+              messages={messages}
+              loading={loadingMessages}
+              currentUserId={currentUserId}
+              currentUserName={currentUserName}
+              typingUsers={typingList}
+              onBackToConversations={() => {
+                setActiveConversationId(null);
+                window.history.replaceState(null, '', '/mensagens');
+              }}
+              onMessageSent={handleMessageSent}
+              onMessageUpdate={handleMessageUpdate}
+              onMessageDeleted={handleMessageDeleted}
+              onReactionToggled={handleReactionToggled}
+              onConversationUpdated={handleConversationUpdated}
+              onDraftSave={(text) => handleDraftSave(activeConversation.id, text)}
+            />
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-500">
+              <div className="w-20 h-20 rounded-3xl bg-white/[0.03] border border-white/10 flex items-center justify-center mb-6">
+                <MessagesSquare className="w-9 h-9 text-emerald-500/60" />
+              </div>
+              <h3 className="text-base font-bold text-white mb-2">FIORIX Mensagens</h3>
+              <p className="max-w-xs text-xs text-slate-500 mb-6 leading-relaxed">
+                Comunicação corporativa segura. Selecione uma conversa ou inicie um novo diálogo.
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(true)}
+                className="px-5 py-2.5 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 transition cursor-pointer"
+              >
+                + Nova Conversa
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Modal Nova Conversa */}

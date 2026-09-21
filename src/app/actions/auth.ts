@@ -284,5 +284,6 @@ export async function getCurrentUser() {
     name: session.user.name || '',
     email: session.user.email || '',
     role: session.user.role || 'USER',
+    tenantId: (session.user as any).tenantId || '',
   };
 }

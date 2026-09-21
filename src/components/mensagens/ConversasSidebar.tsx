@@ -13,6 +13,8 @@ import {
   Archive,
   BellOff,
   Bell,
+  BellRing,
+  Volume2,
   MessageCircleDashed,
   MoreVertical,
   Filter,
@@ -36,6 +38,9 @@ interface ConversasSidebarProps {
   onArchive?: (id: string, archive: boolean) => void;
   onMute?: (id: string) => void;
   onMarkUnread?: (id: string) => void;
+  notificationPermission?: 'granted' | 'default' | 'denied' | 'unsupported';
+  onEnableNotifications?: () => void;
+  onTestSound?: () => void;
 }
 
 // Gera cor de avatar determinística com base no nome
@@ -100,6 +105,9 @@ export function ConversasSidebar({
   onArchive,
   onMute,
   onMarkUnread,
+  notificationPermission,
+  onEnableNotifications,
+  onTestSound,
 }: ConversasSidebarProps) {
   const [search, setSearch] = useState('');
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -177,6 +185,36 @@ export function ConversasSidebar({
         )}
 
         <div className={`flex items-center gap-1 ${isCollapsed ? 'mx-auto' : ''}`}>
+          {/* Status / Teste de Alertas de Desktop e Som */}
+          {notificationPermission === 'granted' ? (
+            <button
+              type="button"
+              onClick={onTestSound}
+              title="Alertas ativados. Clique para testar o som no seu computador"
+              className="p-1.5 rounded-lg text-emerald-400 hover:text-white hover:bg-emerald-500/20 transition cursor-pointer"
+            >
+              <Volume2 className="w-4 h-4" />
+            </button>
+          ) : notificationPermission === 'denied' ? (
+            <button
+              type="button"
+              onClick={onEnableNotifications}
+              title="Notificações bloqueadas no navegador. Clique para ver instruções."
+              className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/20 transition cursor-pointer"
+            >
+              <BellOff className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onEnableNotifications}
+              title="Ativar alertas de novas mensagens no computador"
+              className="p-1.5 rounded-lg text-amber-400 hover:bg-amber-500/20 transition cursor-pointer animate-pulse"
+            >
+              <BellRing className="w-4 h-4" />
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onOpenNovaConversa}

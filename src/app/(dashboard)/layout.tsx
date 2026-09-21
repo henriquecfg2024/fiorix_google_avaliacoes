@@ -8,6 +8,7 @@ import { FiorixTopbar } from '@/components/layout/FiorixTopbar';
 import { NavigationProgress } from '@/components/layout/NavigationProgress';
 
 import { FiorixAgent } from '@/components/agent/FiorixAgent';
+import { GlobalMessagingListener } from '@/components/mensagens/GlobalMessagingListener';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -31,6 +32,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </main>
       </div>
+
+      {/* Ouvinte global de mensagens em tempo real com alertas na área de trabalho e som */}
+      <GlobalMessagingListener />
 
       {/* Assistente FIORIX • IA — global em todas as páginas */}
       <FiorixAgent />

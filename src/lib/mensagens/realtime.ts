@@ -140,7 +140,7 @@ export async function dispatchRealtimeAndPush(params: DispatchMessageEventParams
         const userSubs = subsByUser.get(userId);
         if (!userSubs || userSubs.length === 0) continue;
 
-        const allowPreview = settings?.previewContent === true;
+        const allowPreview = settings ? settings.previewContent !== false : true;
         const pushTitle = isGroup ? (conversationTitle || 'Grupo') : senderName;
         let pushBody = 'Você recebeu uma nova mensagem no FIORIX.';
         if (allowPreview) {
