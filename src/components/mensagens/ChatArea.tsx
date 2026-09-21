@@ -533,14 +533,17 @@ export function ChatArea({
                                               });
                                               const data = await res.json();
                                               if (data.signedUrl) {
+                                                // Blob download para preservar o nome original (cross-origin)
+                                                const fileRes = await fetch(data.signedUrl);
+                                                const blob = await fileRes.blob();
+                                                const blobUrl = URL.createObjectURL(blob);
                                                 const link = document.createElement('a');
-                                                link.href = data.signedUrl;
+                                                link.href = blobUrl;
                                                 link.download = data.fileName || a.nomeArquivo;
-                                                link.target = '_blank';
-                                                link.rel = 'noopener noreferrer';
                                                 document.body.appendChild(link);
                                                 link.click();
                                                 document.body.removeChild(link);
+                                                URL.revokeObjectURL(blobUrl);
                                               } else {
                                                 setUploadError(data.error || 'Falha ao gerar link de download.');
                                               }
