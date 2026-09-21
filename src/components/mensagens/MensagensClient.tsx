@@ -146,7 +146,18 @@ export function MensagensClient({
         if (isCurrentActive) {
           setMessages((prev) => {
             if (prev.some((m) => m.id === data.messageId)) return prev;
-            const updated = [...prev, newMsg];
+
+            // Se for do próprio usuário com ID temporário, substitui pelo definitivo
+            const tempIdx = prev.findIndex(
+              (m) => m.id.startsWith('temp_') && m.remetenteId === data.senderId && m.conteudo === data.conteudo
+            );
+            let updated: SerializedMessage[];
+            if (tempIdx !== -1) {
+              updated = [...prev];
+              updated[tempIdx] = newMsg;
+            } else {
+              updated = [...prev, newMsg];
+            }
             messagesCacheRef.current.set(data.conversationId, updated);
             return updated;
           });
@@ -337,6 +348,35 @@ export function MensagensClient({
     });
   }, []);
 
+  const handleMessageUpdate = useCallback((tempId: string, realMsg: SerializedMessage) => {
+    setMessages((prev) => {
+      const updated = prev.map((m) => (m.id === tempId ? realMsg : m));
+      messagesCacheRef.current.set(realMsg.conversaId, updated);
+      return updated;
+    });
+    setConversations((prev) => {
+      const index = prev.findIndex((c) => c.id === realMsg.conversaId);
+      if (index === -1) return prev;
+      const target = prev[index];
+      if (target.lastMessage?.id === tempId) {
+        const updated: SerializedConversation = {
+          ...target,
+          lastMessage: {
+            id: realMsg.id,
+            conteudo: realMsg.conteudo,
+            remetenteId: realMsg.remetenteId,
+            remetenteNome: realMsg.remetenteNome,
+            createdAt: realMsg.createdAt,
+            isDeleted: realMsg.isDeleted,
+          },
+        };
+        const remaining = prev.filter((_, i) => i !== index);
+        return [updated, ...remaining];
+      }
+      return prev;
+    });
+  }, []);
+
   const handleMessageDeleted = useCallback((msgId: string) => {
     setMessages((prev) => {
       const updated = prev.map((m) => (m.id === msgId ? { ...m, isDeleted: true, conteudo: 'Mensagem removida' } : m));
@@ -462,6 +502,7 @@ export function MensagensClient({
               window.history.replaceState(null, '', '/mensagens');
             }}
             onMessageSent={handleMessageSent}
+            onMessageUpdate={handleMessageUpdate}
             onMessageDeleted={handleMessageDeleted}
             onReactionToggled={handleReactionToggled}
             onConversationUpdated={handleConversationUpdated}

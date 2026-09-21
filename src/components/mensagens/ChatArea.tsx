@@ -5,8 +5,9 @@ import {
   Send, Paperclip, Smile, X, Reply, Trash2, FileText, Download,
   Users, ArrowLeft, Loader2, Shield, Search, Plus,
   Edit3, ChevronDown, Info, Lock, AlertTriangle,
-  MoreVertical, Check, CheckCheck, ExternalLink,
+  MoreVertical, Check, CheckCheck, ExternalLink, Clock,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   SerializedConversation, SerializedMessage,
   sendMessage, deleteMessage, toggleReaction,
@@ -24,6 +25,7 @@ interface ChatAreaProps {
   typingUsers?: string[];
   onBackToConversations?: () => void;
   onMessageSent: (message: SerializedMessage) => void;
+  onMessageUpdate?: (tempId: string, message: SerializedMessage) => void;
   onMessageDeleted: (messageId: string) => void;
   onReactionToggled: (messageId: string, emoji: string) => void;
   onConversationUpdated?: () => void;
@@ -91,6 +93,7 @@ export function ChatArea({
   typingUsers = [],
   onBackToConversations,
   onMessageSent,
+  onMessageUpdate,
   onMessageDeleted,
   onReactionToggled,
   onConversationUpdated,
@@ -179,32 +182,68 @@ export function ChatArea({
     });
   }, [showAddMember, addMemberSearch, conversation.id]);
 
-  // ── Enviar mensagem de texto ─────────────────────────────────────────
+  // ── Enviar mensagem de texto (Envio Otimista / 0ms de espera) ─────────
   const handleSend = useCallback(async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const text = inputText.trim();
-    if (!text || sending) return;
+    if (!text) return;
 
+    // 1. Limpa textarea e reseta altura instantaneamente (0ms)
+    setInputText('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+
+    // 2. Limpa rascunho instantaneamente
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    onDraftSave?.('');
+
+    // 3. Monta mensagem otimista e exibe no chat instantaneamente (0ms)
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const currentReply = replyTo;
+    setReplyTo(null);
+
+    const optimisticMsg: SerializedMessage = {
+      id: tempId,
+      conversaId: conversation.id,
+      remetenteId: currentUserId,
+      remetenteNome: currentUserName || 'Você',
+      remetenteRole: 'USER',
+      conteudo: text,
+      tipo: 'TEXT',
+      isDeleted: false,
+      createdAt: new Date().toISOString(),
+      respostaA: currentReply
+        ? {
+            id: currentReply.id,
+            conteudo: currentReply.conteudo,
+            remetenteNome: currentReply.remetenteNome,
+          }
+        : null,
+      anexos: [],
+      reacoes: [],
+    };
+
+    onMessageSent(optimisticMsg);
+
+    // 4. Executa o envio ao servidor em background
     try {
-      setSending(true);
       const res = await sendMessage({
         conversationId: conversation.id,
         conteudo: text,
-        replyToId: replyTo?.id,
+        replyToId: currentReply?.id,
       });
 
       if (res.success && res.message) {
-        setInputText('');
-        setReplyTo(null);
-        onDraftSave?.('');
-        onMessageSent(res.message);
+        onMessageUpdate?.(tempId, res.message);
+      } else {
+        toast.error(res.error || 'Falha ao entregar mensagem.');
       }
     } catch (err) {
-      console.error('Erro ao enviar:', err);
-    } finally {
-      setSending(false);
+      console.error('Erro ao enviar mensagem:', err);
+      toast.error('Erro de conexão ao entregar mensagem.');
     }
-  }, [inputText, sending, conversation.id, replyTo, onMessageSent, onDraftSave]);
+  }, [inputText, conversation.id, replyTo, currentUserId, currentUserName, onMessageSent, onMessageUpdate, onDraftSave]);
 
   // ── Upload de arquivo ─────────────────────────────────────────────────
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -566,7 +605,13 @@ export function ChatArea({
                                     <span className="text-[9px] text-slate-500 italic">editado</span>
                                   )}
                                   <span className="text-[10px] text-slate-500 font-mono">{formatTime(msg.createdAt)}</span>
-                                  {isMine && <CheckCheck className="w-3 h-3 text-emerald-400" />}
+                                  {isMine && (
+                                    msg.id.startsWith('temp_') ? (
+                                      <Clock className="w-3 h-3 text-slate-400 animate-pulse" />
+                                    ) : (
+                                      <CheckCheck className="w-3 h-3 text-emerald-400" />
+                                    )
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -729,10 +774,10 @@ export function ChatArea({
               {/* Enviar */}
               <button
                 type="submit"
-                disabled={!inputText.trim() || sending || !canSend}
-                className="p-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white transition shadow"
+                disabled={!inputText.trim() || !canSend}
+                className="p-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white transition shadow cursor-pointer"
               >
-                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                <Send className="w-4 h-4" />
               </button>
             </form>
 
