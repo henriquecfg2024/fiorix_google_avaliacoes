@@ -243,7 +243,7 @@ export function ChatArea({
           nomeArquivo: file.name,
           tamanhoBytes: file.size,
           mimeType: file.type || 'application/octet-stream',
-          storagePath: data.storagePath,
+          storagePath: data.attachment.storagePath,
         },
       });
 
