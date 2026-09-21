@@ -334,6 +334,7 @@ export function FiorixAgent() {
     hasMoved: boolean;
   }>({ startX: 0, startY: 0, initialX: 0, initialY: 0, hasMoved: false });
   const isDraggingJustEndedRef = useRef(false);
+  const isPointerDownRef = useRef(false);
   const agentRef = useRef<HTMLDivElement>(null);
 
   // ─── Nível 4: Estados de Voz & IA ────────────────
@@ -618,7 +619,7 @@ export function FiorixAgent() {
     }
   }, [pathname, messages.length, isVoiceMuted]);
 
-  // Manipuladores de Arrasto (Mouse e Touch) com pointer capture
+  // Manipuladores de Arrasto (Mouse e Touch) com pointer capture sob demanda
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return; // apenas botão principal
     const target = e.target as HTMLElement;
@@ -628,6 +629,7 @@ export function FiorixAgent() {
     const el = agentRef.current;
     if (!el) return;
 
+    isPointerDownRef.current = true;
     const rect = el.getBoundingClientRect();
     dragRef.current = {
       startX: e.clientX,
@@ -636,23 +638,26 @@ export function FiorixAgent() {
       initialY: rect.top,
       hasMoved: false,
     };
-
-    try {
-      el.setPointerCapture(e.pointerId);
-    } catch {}
+    // NOTA: Não chamamos el.setPointerCapture aqui no pointerdown para não suprimir
+    // o evento nativo de 'click' caso seja apenas um clique com o mouse.
   }, []);
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isPointerDownRef.current) return;
     const el = agentRef.current;
     if (!el) return;
-    if (!el.hasPointerCapture(e.pointerId)) return;
 
     const dx = e.clientX - dragRef.current.startX;
     const dy = e.clientY - dragRef.current.startY;
+    const distance = Math.hypot(dx, dy);
 
-    if (!dragRef.current.hasMoved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+    // Só inicia arrasto e captura o ponteiro se o mouse se mover além do limite de clique (> 4px)
+    if (!dragRef.current.hasMoved && distance > 4) {
       dragRef.current.hasMoved = true;
       setIsDragging(true);
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch {}
     }
 
     if (dragRef.current.hasMoved) {
@@ -669,20 +674,24 @@ export function FiorixAgent() {
   }, []);
 
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isPointerDownRef.current) return;
+    isPointerDownRef.current = false;
+
     const el = agentRef.current;
-    if (!el) return;
-    try {
-      if (el.hasPointerCapture(e.pointerId)) {
-        el.releasePointerCapture(e.pointerId);
-      }
-    } catch {}
+    if (el) {
+      try {
+        if (el.hasPointerCapture(e.pointerId)) {
+          el.releasePointerCapture(e.pointerId);
+        }
+      } catch {}
+    }
 
     if (dragRef.current.hasMoved) {
       setIsDragging(false);
       isDraggingJustEndedRef.current = true;
       setTimeout(() => {
         isDraggingJustEndedRef.current = false;
-      }, 120);
+      }, 150);
 
       setCustomPos((current) => {
         if (current) {
@@ -695,8 +704,15 @@ export function FiorixAgent() {
         }
         return current;
       });
+    } else {
+      // O usuário realizou um clique simples sem arrastar!
+      const target = e.target as HTMLElement;
+      // Se não foi em botões internos da bubble (fechar bubble, depois, trocar lado), abre o chat
+      if (!target.closest('.fiorix-no-drag')) {
+        openChat();
+      }
     }
-  }, []);
+  }, [openChat]);
 
   const handleAvatarClick = useCallback(() => {
     if (dragRef.current.hasMoved || isDraggingJustEndedRef.current) {
@@ -940,6 +956,12 @@ export function FiorixAgent() {
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
+          onClick={(e) => {
+            if (dragRef.current.hasMoved || isDraggingJustEndedRef.current) return;
+            const target = e.target as HTMLElement;
+            if (target.closest('.fiorix-no-drag')) return;
+            openChat();
+          }}
           style={agentContainerStyle}
           className={`fixed z-[9998] flex flex-col gap-2 select-none touch-none ${alignClass} ${
             isDragging ? 'cursor-grabbing scale-105 transition-none' : 'cursor-grab transition-all duration-100'
@@ -1038,8 +1060,12 @@ export function FiorixAgent() {
 
           {/* Botão do Avatar com Aura de Voz e Ponto de Compliance */}
           <button
-            onClick={handleAvatarClick}
-            className={`relative group focus:outline-none fiorix-avatar-btn ${
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAvatarClick();
+            }}
+            className={`relative group focus:outline-none fiorix-avatar-btn cursor-pointer ${
               isDragging ? '' : 'fiorix-float'
             }`}
             aria-label="Abrir assistente FIORIX IA (arraste para mover)"
@@ -1080,15 +1106,20 @@ export function FiorixAgent() {
           </button>
 
           {/* Badge */}
-          <span
-            className="bg-[#7c3aed] hover:bg-[#6d28d9] text-white rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-md flex items-center gap-1.5 transition-colors"
-            title="Arraste com o mouse para posicionar o FIORIX em qualquer lugar"
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAvatarClick();
+            }}
+            className="bg-[#7c3aed] hover:bg-[#6d28d9] text-white rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-md flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Clique para conversar ou arraste para reposicionar em qualquer lugar"
           >
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-75">
               <polyline points="5 9 2 12 5 15" /><polyline points="9 5 12 2 15 5" /><polyline points="15 19 12 22 9 19" /><polyline points="19 9 22 12 19 15" /><line x1="2" y1="12" x2="22" y2="12" /><line x1="12" y1="2" x2="12" y2="22" />
             </svg>
             {isSpeaking ? 'FALANDO...' : 'FIORIX • IA'}
-          </span>
+          </button>
         </div>
       )}
 
