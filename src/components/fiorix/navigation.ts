@@ -75,7 +75,7 @@ export const navigationGroups = {
     ],
   },
   rhGestao: {
-    label: "PESSOAS & RH",
+    label: "GESTÃO DE PESSOAS",
     icon: UserCheck,
     items: [
       {

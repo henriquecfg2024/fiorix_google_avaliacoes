@@ -6,7 +6,7 @@ describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
   it('apresenta exatamente a nova nomenclatura padronizada em todos os grupos', () => {
     expect(navigationGroups.gestao.label).toBe('PRESENÇA NO GOOGLE');
     expect(navigationGroups.operacional.label).toBe('OPERAÇÃO & BI');
-    expect(navigationGroups.rhGestao.label).toBe('PESSOAS & RH');
+    expect(navigationGroups.rhGestao.label).toBe('GESTÃO DE PESSOAS');
     expect(navigationGroups.governancaIts.label).toBe('INSTRUÇÕES DE TRABALHO');
     expect(navigationGroups.trabalho.label).toBe('ROTINA DE TRABALHO');
     expect(navigationGroups.pessoas.label).toBe('MEU ESPAÇO');
@@ -126,7 +126,7 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
     const groupKeys = Object.keys(groups);
 
     expect(groupKeys).toEqual(['rhGestao', 'trabalho', 'pessoas']);
-    expect(groups.rhGestao.label).toBe('PESSOAS & RH');
+    expect(groups.rhGestao.label).toBe('GESTÃO DE PESSOAS');
     expect(groups.trabalho.label).toBe('ROTINA DE TRABALHO');
     expect(groups.pessoas.label).toBe('MEU ESPAÇO');
   });
