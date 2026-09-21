@@ -525,9 +525,21 @@ export function ChatArea({
                                           <p className="text-[10px] text-slate-400">{humanFileSize(a.tamanhoBytes)}</p>
                                         </div>
                                         <button
-                                          onClick={(e) => {
+                                          onClick={async (e) => {
                                             e.stopPropagation();
-                                            // Download via signed URL
+                                            try {
+                                              const res = await fetch(`/api/mensagens/anexo/${a.id}`, {
+                                                headers: { 'Accept': 'application/json' },
+                                              });
+                                              const data = await res.json();
+                                              if (data.signedUrl) {
+                                                window.open(data.signedUrl, '_blank');
+                                              } else {
+                                                setUploadError(data.error || 'Falha ao gerar link de download.');
+                                              }
+                                            } catch {
+                                              setUploadError('Erro ao baixar anexo.');
+                                            }
                                           }}
                                           className="p-1 rounded text-slate-400 hover:text-emerald-400"
                                         >
