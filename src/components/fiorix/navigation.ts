@@ -43,7 +43,7 @@ export const navigationGroups = {
         description: "Certidões e atos nos livros",
       },
       {
-        label: "Módulo BI",
+        label: "Prazos",
         href: "/bi",
         icon: BarChart3,
         description: "15.591 títulos, 30,7% atraso",
