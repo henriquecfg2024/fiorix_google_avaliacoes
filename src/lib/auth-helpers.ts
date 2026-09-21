@@ -13,6 +13,8 @@ export interface AuthenticatedUser {
 
 import { prisma } from '@/lib/prisma';
 
+const userMetaCache = new Map<string, { departamento?: string; cargo?: string; exp: number }>();
+
 export async function requireAuth(): Promise<AuthenticatedUser> {
   const session = await auth();
 
@@ -50,17 +52,28 @@ export async function requireAuth(): Promise<AuthenticatedUser> {
   let departamento: string | undefined = undefined;
   let cargo: string | undefined = undefined;
 
-  try {
-    const rawUser = await prisma.$queryRawUnsafe<any[]>(
-      `SELECT departamento, cargo FROM public."User" WHERE id = $1 LIMIT 1`,
-      session.user.id
-    );
-    if (rawUser && rawUser.length > 0) {
-      departamento = rawUser[0].departamento || undefined;
-      cargo = rawUser[0].cargo || undefined;
+  const cachedDept = userMetaCache.get(session.user.id);
+  if (cachedDept && cachedDept.exp > Date.now()) {
+    departamento = cachedDept.departamento;
+    cargo = cachedDept.cargo;
+  } else {
+    try {
+      const rawUser = await prisma.$queryRawUnsafe<any[]>(
+        `SELECT departamento, cargo FROM public."User" WHERE id = $1 LIMIT 1`,
+        session.user.id
+      );
+      if (rawUser && rawUser.length > 0) {
+        departamento = rawUser[0].departamento || undefined;
+        cargo = rawUser[0].cargo || undefined;
+        userMetaCache.set(session.user.id, {
+          departamento,
+          cargo,
+          exp: Date.now() + 120_000,
+        });
+      }
+    } catch (err) {
+      console.warn('Erro ao buscar departamento do usuário:', err);
     }
-  } catch (err) {
-    console.warn('Erro ao buscar departamento do usuário:', err);
   }
 
   return {

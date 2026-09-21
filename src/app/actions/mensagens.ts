@@ -114,20 +114,23 @@ export async function getConversations(): Promise<{ success: boolean; conversati
       },
     });
 
-    const result: SerializedConversation[] = [];
+    // Conta mensagens não lidas em paralelo para evitar N+1 sequencial
+    const unreadCounts = await Promise.all(
+      memberships.map((m) =>
+        prisma.mensagem.count({
+          where: {
+            conversaId: m.conversaId,
+            createdAt: { gt: m.lastReadAt },
+            remetenteId: { not: user.id },
+            isDeleted: false,
+          },
+        })
+      )
+    );
 
-    for (const m of memberships) {
+    const result: SerializedConversation[] = memberships.map((m, idx) => {
       const conv = m.conversa;
-
-      // Conta mensagens não lidas
-      const unreadCount = await prisma.mensagem.count({
-        where: {
-          conversaId: conv.id,
-          createdAt: { gt: m.lastReadAt },
-          remetenteId: { not: user.id },
-          isDeleted: false,
-        },
-      });
+      const unreadCount = unreadCounts[idx] || 0;
 
       // Se for DIRECT, o título e avatar são os do outro membro
       const otherMemberData = conv.membros.find((cm) => cm.usuarioId !== user.id);
@@ -137,7 +140,7 @@ export async function getConversations(): Promise<{ success: boolean; conversati
 
       const lastMsg = conv.mensagens[0];
 
-      result.push({
+      return {
         id: conv.id,
         tipo: conv.tipo as 'DIRECT' | 'GROUP',
         titulo: displayTitle,
@@ -176,8 +179,8 @@ export async function getConversations(): Promise<{ success: boolean; conversati
               isDeleted: lastMsg.isDeleted,
             }
           : null,
-      });
-    }
+      };
+    });
 
     return { success: true, conversations: result };
   } catch (error: any) {

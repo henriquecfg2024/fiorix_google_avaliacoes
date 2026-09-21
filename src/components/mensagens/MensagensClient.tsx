@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import {
   SerializedConversation,
@@ -35,7 +35,6 @@ export function MensagensClient({
   currentUserName,
 }: MensagensClientProps) {
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   const [conversations, setConversations] = useState<SerializedConversation[]>(initialConversations);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -49,28 +48,55 @@ export function MensagensClient({
   const [typingUsers, setTypingUsers] = useState<Record<string, string>>({});
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
 
+  // Cache em memória de mensagens por conversa para navegação ultra-rápida (0ms)
+  const messagesCacheRef = useRef<Map<string, SerializedMessage[]>>(new Map());
+
   // Ref para rastrear conversa ativa no closure dos listeners
   const activeIdRef = useRef<string | null>(null);
   activeIdRef.current = activeConversationId;
 
-  // Inicializa a conversa ativa via query param ou primeira conversa (desktop)
+  // Inicializa a conversa ativa via query param ou primeira conversa apenas na montagem inicial
+  const initializedRef = useRef(false);
   useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
     const cParam = searchParams.get('c');
     if (cParam) {
       setActiveConversationId(cParam);
     } else if (initialConversations.length > 0 && typeof window !== 'undefined' && window.innerWidth >= 768) {
       setActiveConversationId(initialConversations[0].id);
+      window.history.replaceState(null, '', `/mensagens?c=${initialConversations[0].id}`);
     }
-  }, [searchParams, initialConversations]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Carrega mensagens quando a conversa ativa muda
+  // Suporte a navegação por histórico do navegador (voltar/avançar)
+  useEffect(() => {
+    const onPopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const c = params.get('c');
+      if (c) setActiveConversationId(c);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  // Carrega mensagens quando a conversa ativa muda (com cache instantâneo)
   useEffect(() => {
     if (!activeConversationId) {
       setMessages([]);
       return;
     }
 
-    setLoadingMessages(true);
+    // Se já existem mensagens em cache, exibe instantaneamente sem bloquear a interface
+    const cached = messagesCacheRef.current.get(activeConversationId);
+    if (cached) {
+      setMessages(cached);
+      setLoadingMessages(false);
+    } else {
+      setLoadingMessages(true);
+    }
+
     markAsRead(activeConversationId).catch(() => {});
 
     // Zera badge localmente
@@ -80,8 +106,12 @@ export function MensagensClient({
 
     getMessages(activeConversationId)
       .then((res) => {
-        if (res.success && res.messages) setMessages(res.messages);
+        if (res.success && res.messages) {
+          messagesCacheRef.current.set(activeConversationId, res.messages);
+          setMessages(res.messages);
+        }
       })
+      .catch((err) => console.error('[getMessages] Erro:', err))
       .finally(() => setLoadingMessages(false));
   }, [activeConversationId]);
 
@@ -99,28 +129,35 @@ export function MensagensClient({
 
         const isCurrentActive = data.conversationId === activeIdRef.current;
 
+        const newMsg: SerializedMessage = {
+          id: data.messageId,
+          conversaId: data.conversationId,
+          remetenteId: data.senderId,
+          remetenteNome: data.senderName,
+          remetenteRole: 'USER',
+          conteudo: data.conteudo,
+          tipo: 'TEXT',
+          isDeleted: false,
+          createdAt: data.createdAt,
+          anexos: [],
+          reacoes: [],
+        };
+
         if (isCurrentActive) {
           setMessages((prev) => {
             if (prev.some((m) => m.id === data.messageId)) return prev;
-            return [
-              ...prev,
-              {
-                id: data.messageId,
-                conversaId: data.conversationId,
-                remetenteId: data.senderId,
-                remetenteNome: data.senderName,
-                remetenteRole: 'USER',
-                conteudo: data.conteudo,
-                tipo: 'TEXT',
-                isDeleted: false,
-                createdAt: data.createdAt,
-                anexos: [],
-                reacoes: [],
-              },
-            ];
+            const updated = [...prev, newMsg];
+            messagesCacheRef.current.set(data.conversationId, updated);
+            return updated;
           });
           markAsRead(data.conversationId).catch(() => {});
         } else {
+          // Atualiza cache da conversa caso já tenha sido aberta
+          const cached = messagesCacheRef.current.get(data.conversationId);
+          if (cached && !cached.some((m) => m.id === data.messageId)) {
+            messagesCacheRef.current.set(data.conversationId, [...cached, newMsg]);
+          }
+
           const conv = conversations.find((c) => c.id === data.conversationId);
           const isMuted = conv?.isMuted ?? false;
           if (!isMuted) {
@@ -132,7 +169,7 @@ export function MensagensClient({
                 label: 'Ver',
                 onClick: () => {
                   setActiveConversationId(data.conversationId);
-                  router.replace(`/mensagens?c=${data.conversationId}`);
+                  window.history.replaceState(null, '', `/mensagens?c=${data.conversationId}`);
                 },
               },
             });
@@ -170,26 +207,34 @@ export function MensagensClient({
       .on('broadcast', { event: 'message_deleted' }, (payload: any) => {
         const { messageId } = payload.payload || {};
         if (!messageId) return;
-        setMessages((prev) =>
-          prev.map((m) =>
+        setMessages((prev) => {
+          const updated = prev.map((m) =>
             m.id === messageId ? { ...m, isDeleted: true, conteudo: 'Mensagem removida' } : m
-          )
-        );
+          );
+          if (activeIdRef.current) {
+            messagesCacheRef.current.set(activeIdRef.current, updated);
+          }
+          return updated;
+        });
       })
       .on('broadcast', { event: 'message_edited' }, (payload: any) => {
         const { messageId, newConteudo, editedAt } = payload.payload || {};
         if (!messageId) return;
-        setMessages((prev) =>
-          prev.map((m) =>
+        setMessages((prev) => {
+          const updated = prev.map((m) =>
             m.id === messageId ? { ...m, conteudo: newConteudo, editedAt } : m
-          )
-        );
+          );
+          if (activeIdRef.current) {
+            messagesCacheRef.current.set(activeIdRef.current, updated);
+          }
+          return updated;
+        });
       })
       .on('broadcast', { event: 'reaction' }, (payload: any) => {
         const { messageId, emoji, userId, action } = payload.payload || {};
         if (!messageId) return;
-        setMessages((prev) =>
-          prev.map((m) => {
+        setMessages((prev) => {
+          const updated = prev.map((m) => {
             if (m.id !== messageId) return m;
             const exists = m.reacoes.find((r) => r.emoji === emoji);
             if (action === 'add') {
@@ -219,8 +264,12 @@ export function MensagensClient({
                   .filter((r) => r.count > 0),
               };
             }
-          })
-        );
+          });
+          if (activeIdRef.current) {
+            messagesCacheRef.current.set(activeIdRef.current, updated);
+          }
+          return updated;
+        });
       })
       .on('broadcast', { event: 'typing' }, (payload: any) => {
         const { userId, userName, conversationId } = payload.payload || {};
@@ -239,20 +288,20 @@ export function MensagensClient({
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [tenantId, currentUserId, router]);
+  }, [tenantId, currentUserId]);
 
   // ── Handlers ──────────────────────────────────────────────────────────
   const handleSelectConversation = useCallback((id: string) => {
     setActiveConversationId(id);
-    router.replace(`/mensagens?c=${id}`, { scroll: false });
-  }, [router]);
+    window.history.replaceState(null, '', `/mensagens?c=${id}`);
+  }, []);
 
   const handleConversationCreated = useCallback(async (id: string) => {
     const res = await getConversations();
     if (res.success && res.conversations) setConversations(res.conversations);
     setActiveConversationId(id);
-    router.replace(`/mensagens?c=${id}`, { scroll: false });
-  }, [router]);
+    window.history.replaceState(null, '', `/mensagens?c=${id}`);
+  }, []);
 
   const handleConversationUpdated = useCallback(() => {
     getConversations().then((res) => {
@@ -261,7 +310,11 @@ export function MensagensClient({
   }, []);
 
   const handleMessageSent = useCallback((newMsg: SerializedMessage) => {
-    setMessages((prev) => [...prev, newMsg]);
+    setMessages((prev) => {
+      const updated = [...prev, newMsg];
+      messagesCacheRef.current.set(newMsg.conversaId, updated);
+      return updated;
+    });
     setConversations((prev) => {
       const index = prev.findIndex((c) => c.id === newMsg.conversaId);
       if (index === -1) return prev;
@@ -285,14 +338,18 @@ export function MensagensClient({
   }, []);
 
   const handleMessageDeleted = useCallback((msgId: string) => {
-    setMessages((prev) =>
-      prev.map((m) => (m.id === msgId ? { ...m, isDeleted: true, conteudo: 'Mensagem removida' } : m))
-    );
+    setMessages((prev) => {
+      const updated = prev.map((m) => (m.id === msgId ? { ...m, isDeleted: true, conteudo: 'Mensagem removida' } : m));
+      if (activeIdRef.current) {
+        messagesCacheRef.current.set(activeIdRef.current, updated);
+      }
+      return updated;
+    });
   }, []);
 
   const handleReactionToggled = useCallback((msgId: string, emoji: string) => {
-    setMessages((prev) =>
-      prev.map((m) => {
+    setMessages((prev) => {
+      const updated = prev.map((m) => {
         if (m.id !== msgId) return m;
         const exists = m.reacoes.find((r) => r.emoji === emoji);
         if (exists) {
@@ -314,8 +371,12 @@ export function MensagensClient({
         } else {
           return { ...m, reacoes: [...m.reacoes, { emoji, count: 1, hasReacted: true }] };
         }
-      })
-    );
+      });
+      if (activeIdRef.current) {
+        messagesCacheRef.current.set(activeIdRef.current, updated);
+      }
+      return updated;
+    });
   }, []);
 
   // ── Ações de Sidebar ─────────────────────────────────────────────────
@@ -398,7 +459,7 @@ export function MensagensClient({
             typingUsers={typingList}
             onBackToConversations={() => {
               setActiveConversationId(null);
-              router.replace('/mensagens', { scroll: false });
+              window.history.replaceState(null, '', '/mensagens');
             }}
             onMessageSent={handleMessageSent}
             onMessageDeleted={handleMessageDeleted}
