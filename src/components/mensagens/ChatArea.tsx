@@ -596,9 +596,21 @@ export function ChatArea({
                             <div className="opacity-0 group-hover:opacity-100 transition self-center flex gap-0.5">
                               <button
                                 onClick={() => { setReplyTo(msg); textareaRef.current?.focus(); }}
-                                className="p-1 rounded text-slate-500 hover:text-white hover:bg-white/10"
+                                className="p-1 rounded text-slate-500 hover:text-white hover:bg-white/10 transition"
+                                title="Responder"
                               >
                                 <Reply className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setContextMenu({ msg, x: Math.max(10, rect.left - 100), y: rect.bottom + 4 });
+                                }}
+                                className="p-1 rounded text-slate-500 hover:text-white hover:bg-white/10 transition"
+                                title="Opções da mensagem"
+                              >
+                                <MoreVertical className="w-3 h-3" />
                               </button>
                             </div>
                           )}
@@ -606,9 +618,21 @@ export function ChatArea({
                             <div className="opacity-0 group-hover:opacity-100 transition self-center flex gap-0.5 order-first">
                               <button
                                 onClick={() => { setReplyTo(msg); textareaRef.current?.focus(); }}
-                                className="p-1 rounded text-slate-500 hover:text-white hover:bg-white/10"
+                                className="p-1 rounded text-slate-500 hover:text-white hover:bg-white/10 transition"
+                                title="Responder"
                               >
                                 <Reply className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setContextMenu({ msg, x: rect.left, y: rect.bottom + 4 });
+                                }}
+                                className="p-1 rounded text-slate-500 hover:text-white hover:bg-white/10 transition"
+                                title="Opções da mensagem"
+                              >
+                                <MoreVertical className="w-3 h-3" />
                               </button>
                             </div>
                           )}
