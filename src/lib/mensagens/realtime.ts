@@ -2,6 +2,43 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { prisma } from '@/lib/prisma';
 import { sendWebPushNotification } from '@/lib/webpush';
 
+/**
+ * Broadcast genérico para membros de uma conversa (edição, exclusão, reação, typing).
+ * Diferente do dispatchRealtimeAndPush, não dispara Web Push — apenas Realtime.
+ */
+export async function broadcastToConversation(params: {
+  tenantId: string;
+  conversationId: string;
+  senderId: string;
+  event: string;
+  payload: Record<string, any>;
+}) {
+  const { tenantId, conversationId, senderId, event, payload } = params;
+
+  try {
+    const members = await prisma.conversaMembro.findMany({
+      where: { conversaId: conversationId, tenantId },
+      select: { usuarioId: true },
+    });
+
+    const targetUserIds = members
+      .map((m) => m.usuarioId)
+      .filter((id) => id !== senderId);
+
+    for (const userId of targetUserIds) {
+      try {
+        const channelName = `user_${tenantId}_${userId}`;
+        const channel = supabaseAdmin.channel(channelName);
+        await channel.send({ type: 'broadcast', event, payload });
+      } catch (err) {
+        console.warn(`[Realtime] Falha no broadcast ${event} para ${userId}:`, err);
+      }
+    }
+  } catch (err) {
+    console.warn(`[Realtime] Erro ao buscar membros para broadcast ${event}:`, err);
+  }
+}
+
 export interface DispatchMessageEventParams {
   tenantId: string;
   conversationId: string;

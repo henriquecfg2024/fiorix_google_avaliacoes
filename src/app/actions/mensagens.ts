@@ -7,7 +7,7 @@ import {
   logMessagingAudit,
 } from '@/lib/mensagens/security';
 import { checkRateLimit } from '@/lib/mensagens/rate-limiter';
-import { dispatchRealtimeAndPush } from '@/lib/mensagens/realtime';
+import { dispatchRealtimeAndPush, broadcastToConversation } from '@/lib/mensagens/realtime';
 
 export interface SerializedConversation {
   id: string;
@@ -679,6 +679,15 @@ export async function deleteMessage(messageId: string): Promise<{ success: boole
       metadata: { conversationId: msg.conversaId },
     });
 
+    // Broadcast Realtime para outros membros
+    broadcastToConversation({
+      tenantId: user.tenantId,
+      conversationId: msg.conversaId,
+      senderId: user.id,
+      event: 'message_deleted',
+      payload: { messageId },
+    });
+
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error?.message || 'Erro ao remover mensagem' };
@@ -722,6 +731,8 @@ export async function toggleReaction(messageId: string, emoji: string): Promise<
       },
     });
 
+    const action = existing ? 'remove' : 'add';
+
     if (existing) {
       await prisma.mensagemReacao.delete({
         where: { id: existing.id },
@@ -736,6 +747,15 @@ export async function toggleReaction(messageId: string, emoji: string): Promise<
         },
       });
     }
+
+    // Broadcast Realtime para outros membros
+    broadcastToConversation({
+      tenantId: user.tenantId,
+      conversationId: msg.conversaId,
+      senderId: user.id,
+      event: 'reaction',
+      payload: { messageId, emoji, userId: user.id, action },
+    });
 
     return { success: true };
   } catch (error: any) {
@@ -1222,6 +1242,15 @@ export async function editMessage(
       targetType: 'MESSAGE',
       targetId: messageId,
       metadata: { conversaId: msg.conversaId },
+    });
+
+    // Broadcast Realtime para outros membros
+    broadcastToConversation({
+      tenantId: user.tenantId,
+      conversationId: msg.conversaId,
+      senderId: user.id,
+      event: 'message_edited',
+      payload: { messageId, newConteudo: sanitized, editedAt: new Date().toISOString() },
     });
 
     return { success: true };
