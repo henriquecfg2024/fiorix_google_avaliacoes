@@ -61,7 +61,7 @@ export const navigationGroups = {
         description: "Previsão de Carga Operacional",
       },
       {
-        label: "Produtividade - Caixa",
+        label: "Indicadores da Recepção",
         href: "/bi/produtividade",
         icon: Users,
         description: "5.192 Digital, 1.866 Presencial",
