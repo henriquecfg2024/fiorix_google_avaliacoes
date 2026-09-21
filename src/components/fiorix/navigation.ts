@@ -24,7 +24,7 @@ import {
 
 export const navigationGroups = {
   gestao: {
-    label: "GESTÃO & INDICADORES",
+    label: "PRESENÇA NO GOOGLE",
     icon: PieChart,
     items: [
       { label: "Avaliações", href: "/avaliacoes", icon: Star },
