@@ -533,7 +533,14 @@ export function ChatArea({
                                               });
                                               const data = await res.json();
                                               if (data.signedUrl) {
-                                                window.open(data.signedUrl, '_blank');
+                                                const link = document.createElement('a');
+                                                link.href = data.signedUrl;
+                                                link.download = data.fileName || a.nomeArquivo;
+                                                link.target = '_blank';
+                                                link.rel = 'noopener noreferrer';
+                                                document.body.appendChild(link);
+                                                link.click();
+                                                document.body.removeChild(link);
                                               } else {
                                                 setUploadError(data.error || 'Falha ao gerar link de download.');
                                               }
