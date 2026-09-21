@@ -247,10 +247,9 @@ export function MensagensClient({
     router.replace(`/mensagens?c=${id}`, { scroll: false });
   }, [router]);
 
-  const handleConversationCreated = useCallback((id: string) => {
-    getConversations().then((res) => {
-      if (res.success && res.conversations) setConversations(res.conversations);
-    });
+  const handleConversationCreated = useCallback(async (id: string) => {
+    const res = await getConversations();
+    if (res.success && res.conversations) setConversations(res.conversations);
     setActiveConversationId(id);
     router.replace(`/mensagens?c=${id}`, { scroll: false });
   }, [router]);
