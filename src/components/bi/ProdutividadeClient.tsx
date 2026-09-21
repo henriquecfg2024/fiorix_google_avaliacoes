@@ -150,7 +150,7 @@ export function ProdutividadeClient() {
             <ChevronRight className="h-3 w-3" />
             <span>BI</span>
             <ChevronRight className="h-3 w-3" />
-            <span className="text-cyan-300">Indicadores da Recepção</span>
+            <span className="text-cyan-300">Recepção</span>
           </div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold tracking-tight text-white">Indicadores da Recepção</h1>

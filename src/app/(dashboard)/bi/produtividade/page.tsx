@@ -240,7 +240,7 @@ export default function ProdutividadePage() {
               <ChevronRight className="h-3 w-3 text-slate-600" />
               <span>BI</span>
               <ChevronRight className="h-3 w-3 text-slate-600" />
-              <span className="text-amber-300">Indicadores da Recepção</span>
+              <span className="text-amber-300">Recepção</span>
             </div>
             <div className="mt-1">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">

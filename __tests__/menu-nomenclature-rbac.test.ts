@@ -5,7 +5,7 @@ import { filterNavigationByRole } from '@/lib/navigation/permissions';
 describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
   it('apresenta exatamente a nova nomenclatura padronizada em todos os grupos', () => {
     expect(navigationGroups.gestao.label).toBe('PRESENÇA NO GOOGLE');
-    expect(navigationGroups.operacional.label).toBe('OPERAÇÃO & BI');
+    expect(navigationGroups.operacional.label).toBe('GESTÃO DE PRAZOS');
     expect(navigationGroups.rhGestao.label).toBe('GESTÃO DE PESSOAS');
     expect(navigationGroups.governancaIts.label).toBe('INSTRUÇÕES DE TRABALHO');
     expect(navigationGroups.trabalho.label).toBe('ROTINA DE TRABALHO');
@@ -113,7 +113,7 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
 
     expect(groupKeys).toEqual(['gestao', 'operacional', 'trabalho', 'pessoas']);
     expect(groups.gestao.label).toBe('PRESENÇA NO GOOGLE');
-    expect(groups.operacional.label).toBe('OPERAÇÃO & BI');
+    expect(groups.operacional.label).toBe('GESTÃO DE PRAZOS');
     expect(groups.trabalho.label).toBe('ROTINA DE TRABALHO');
     expect(groups.pessoas.label).toBe('MEU ESPAÇO');
 

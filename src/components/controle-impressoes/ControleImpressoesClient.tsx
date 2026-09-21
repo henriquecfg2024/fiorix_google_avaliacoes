@@ -115,9 +115,9 @@ export function ControleImpressoesClient() {
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-            <span>Operacional</span>
+            <span>Gestão de Prazos</span>
             <span className="text-slate-600">&gt;</span>
-            <span className="text-white font-semibold">Controle de Impressões</span>
+            <span className="text-white font-semibold">Impressões</span>
           </div>
           <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-white mt-1">
             Controle de Impressões

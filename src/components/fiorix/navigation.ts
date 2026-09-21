@@ -33,11 +33,11 @@ export const navigationGroups = {
     ],
   },
   operacional: {
-    label: "OPERAÇÃO & BI",
+    label: "GESTÃO DE PRAZOS",
     icon: Briefcase,
     items: [
       {
-        label: "Controle de Impressões",
+        label: "Impressões",
         href: "/controle-impressoes",
         icon: Printer,
         description: "Certidões e atos nos livros",
@@ -61,7 +61,7 @@ export const navigationGroups = {
         description: "Previsão de Carga Operacional",
       },
       {
-        label: "Indicadores da Recepção",
+        label: "Recepção",
         href: "/bi/produtividade",
         icon: Users,
         description: "5.192 Digital, 1.866 Presencial",
