@@ -323,6 +323,19 @@ export function FiorixAgent() {
   const [isTyping, setIsTyping] = useState(false);
   const [userContext, setUserContext] = useState<UserContext>({ name: '', role: '' });
 
+  // ─── Posicionamento e Drag-and-Drop Livre do Agente ───
+  const [customPos, setCustomPos] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    initialX: number;
+    initialY: number;
+    hasMoved: boolean;
+  }>({ startX: 0, startY: 0, initialX: 0, initialY: 0, hasMoved: false });
+  const isDraggingJustEndedRef = useRef(false);
+  const agentRef = useRef<HTMLDivElement>(null);
+
   // ─── Nível 4: Estados de Voz & IA ────────────────
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -377,15 +390,49 @@ export function FiorixAgent() {
     }
   }, [pathname]);
 
-  // Carrega posição salva
+  // Carrega posição salva (lado ou coordenadas livres arrastadas pelo usuário)
   useEffect(() => {
-    const savedPos = localStorage.getItem('fiorix-agent-pos') as 'right' | 'left';
-    if (savedPos === 'left' || savedPos === 'right') {
-      setPosition(savedPos);
-    }
+    try {
+      const savedCoords = localStorage.getItem('fiorix-agent-custom-coords');
+      if (savedCoords) {
+        const parsed = JSON.parse(savedCoords);
+        if (typeof parsed?.x === 'number' && typeof parsed?.y === 'number') {
+          const clampedX = Math.min(Math.max(12, parsed.x), window.innerWidth - 80);
+          const clampedY = Math.min(Math.max(12, parsed.y), window.innerHeight - 90);
+          setCustomPos({ x: clampedX, y: clampedY });
+          setPosition(clampedX < window.innerWidth / 2 ? 'left' : 'right');
+          return;
+        }
+      }
+      const savedPos = localStorage.getItem('fiorix-agent-pos') as 'right' | 'left';
+      if (savedPos === 'left' || savedPos === 'right') {
+        setPosition(savedPos);
+      }
+    } catch {}
+  }, []);
+
+  // Ajusta coordenadas caso a janela mude de tamanho
+  useEffect(() => {
+    const handleResize = () => {
+      setCustomPos((prev) => {
+        if (!prev) return prev;
+        const clampedX = Math.min(Math.max(12, prev.x), window.innerWidth - 80);
+        const clampedY = Math.min(Math.max(12, prev.y), window.innerHeight - 90);
+        if (clampedX !== prev.x || clampedY !== prev.y) {
+          return { x: clampedX, y: clampedY };
+        }
+        return prev;
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const togglePosition = useCallback(() => {
+    setCustomPos(null);
+    try {
+      localStorage.removeItem('fiorix-agent-custom-coords');
+    } catch {}
     setPosition((prev) => {
       const next = prev === 'right' ? 'left' : 'right';
       localStorage.setItem('fiorix-agent-pos', next);
@@ -571,6 +618,93 @@ export function FiorixAgent() {
     }
   }, [pathname, messages.length, isVoiceMuted]);
 
+  // Manipuladores de Arrasto (Mouse e Touch) com pointer capture
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return; // apenas botão principal
+    const target = e.target as HTMLElement;
+    // Não inicia drag se clicou em botões de ação da bubble de diálogo
+    if (target.closest('.fiorix-no-drag')) return;
+
+    const el = agentRef.current;
+    if (!el) return;
+
+    const rect = el.getBoundingClientRect();
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialX: rect.left,
+      initialY: rect.top,
+      hasMoved: false,
+    };
+
+    try {
+      el.setPointerCapture(e.pointerId);
+    } catch {}
+  }, []);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const el = agentRef.current;
+    if (!el) return;
+    if (!el.hasPointerCapture(e.pointerId)) return;
+
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+
+    if (!dragRef.current.hasMoved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+      dragRef.current.hasMoved = true;
+      setIsDragging(true);
+    }
+
+    if (dragRef.current.hasMoved) {
+      const elWidth = el.offsetWidth || 80;
+      const elHeight = el.offsetHeight || 100;
+      const maxX = Math.max(12, window.innerWidth - elWidth - 12);
+      const maxY = Math.max(12, window.innerHeight - elHeight - 12);
+
+      const nextX = Math.min(Math.max(12, dragRef.current.initialX + dx), maxX);
+      const nextY = Math.min(Math.max(12, dragRef.current.initialY + dy), maxY);
+
+      setCustomPos({ x: nextX, y: nextY });
+    }
+  }, []);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const el = agentRef.current;
+    if (!el) return;
+    try {
+      if (el.hasPointerCapture(e.pointerId)) {
+        el.releasePointerCapture(e.pointerId);
+      }
+    } catch {}
+
+    if (dragRef.current.hasMoved) {
+      setIsDragging(false);
+      isDraggingJustEndedRef.current = true;
+      setTimeout(() => {
+        isDraggingJustEndedRef.current = false;
+      }, 120);
+
+      setCustomPos((current) => {
+        if (current) {
+          try {
+            localStorage.setItem('fiorix-agent-custom-coords', JSON.stringify(current));
+            const newSide = current.x < window.innerWidth / 2 ? 'left' : 'right';
+            setPosition(newSide);
+            localStorage.setItem('fiorix-agent-pos', newSide);
+          } catch {}
+        }
+        return current;
+      });
+    }
+  }, []);
+
+  const handleAvatarClick = useCallback(() => {
+    if (dragRef.current.hasMoved || isDraggingJustEndedRef.current) {
+      return;
+    }
+    openChat();
+  }, [openChat]);
+
   const handleClearChat = useCallback(() => {
     stopSpeaking();
     setIsSpeaking(false);
@@ -740,11 +874,31 @@ export function FiorixAgent() {
 
   const suggestions = getSuggestions(pathname, userContext);
 
+  const isLeftSide = customPos
+    ? customPos.x < (typeof window !== 'undefined' ? window.innerWidth / 2 : 500)
+    : position === 'left';
+  const isTopSide = customPos ? customPos.y < 260 : false;
+  const alignClass = isLeftSide ? 'items-start' : 'items-end';
+
   const positionClasses =
     position === 'left' ? 'bottom-6 left-4 lg:left-72 items-start' : 'bottom-6 right-4 lg:right-6 items-end';
 
   const chatPositionClasses =
-    position === 'left' ? 'bottom-6 left-4 lg:left-72' : 'bottom-6 right-4 lg:right-6';
+    (customPos ? isLeftSide : position === 'left') ? 'bottom-6 left-4 lg:left-72' : 'bottom-6 right-4 lg:right-6';
+
+  const agentContainerStyle: React.CSSProperties = customPos
+    ? {
+        position: 'fixed',
+        left: `${customPos.x}px`,
+        top: `${customPos.y}px`,
+        bottom: 'auto',
+        right: 'auto',
+        touchAction: 'none',
+        zIndex: 9998,
+      }
+    : {
+        touchAction: 'none',
+      };
 
   return (
     <>
@@ -779,12 +933,21 @@ export function FiorixAgent() {
         .fiorix-typing-dot:nth-child(3) { animation: fiorix-typing-dot 1.4s ease-in-out infinite 0.4s; }
       `}</style>
 
-      {/* ─── Avatar Flutuante ─── */}
+      {/* ─── Avatar Flutuante (Arrastável com o mouse) ─── */}
       {isVisible && !isChatOpen && (
-        <div className={`fixed ${positionClasses} z-[9998] flex flex-col gap-2 fiorix-slide-up select-none`}>
+        <div
+          ref={agentRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          style={agentContainerStyle}
+          className={`fixed z-[9998] flex flex-col gap-2 select-none touch-none ${alignClass} ${
+            isDragging ? 'cursor-grabbing scale-105 transition-none' : 'cursor-grab transition-all duration-100'
+          } ${!customPos ? positionClasses + ' fiorix-slide-up' : ''}`}
+        >
           {/* Bubble de mensagem proativa */}
           {showBubble && (
-            <div className="fiorix-bubble-in relative mb-1">
+            <div className={`fiorix-bubble-in relative ${isTopSide ? 'order-last mt-1' : 'order-first mb-1'}`}>
               <div className="bg-white border border-[#e5e7eb] rounded-2xl p-4 shadow-2xl max-w-[300px]">
                 {/* Header da Bubble */}
                 <div className="flex items-center justify-between mb-2">
@@ -800,7 +963,7 @@ export function FiorixAgent() {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={togglePosition}
-                      className="p-1 text-[#9ca3af] hover:text-[#7c3aed] transition-colors rounded"
+                      className="p-1 text-[#9ca3af] hover:text-[#7c3aed] transition-colors rounded fiorix-no-drag"
                       title={position === 'right' ? 'Mover para a esquerda' : 'Mover para a direita'}
                       aria-label="Mover lado"
                     >
@@ -810,7 +973,7 @@ export function FiorixAgent() {
                     </button>
                     <button
                       onClick={dismissBubble}
-                      className="p-1 text-[#9ca3af] hover:text-[#111827] transition-colors rounded"
+                      className="p-1 text-[#9ca3af] hover:text-[#111827] transition-colors rounded fiorix-no-drag"
                       aria-label="Fechar aviso"
                     >
                       <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
@@ -826,7 +989,7 @@ export function FiorixAgent() {
                 </p>
 
                 {/* Botões de Ação */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 fiorix-no-drag">
                   {complianceWarning ? (
                     <button
                       onClick={() => {
@@ -843,21 +1006,21 @@ export function FiorixAgent() {
                           stopSpeaking();
                         }
                       }}
-                      className="bg-gradient-to-r from-amber-500 to-amber-600 text-black font-bold rounded-full px-3.5 py-1.5 text-[11.5px] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm"
+                      className="bg-gradient-to-r from-amber-500 to-amber-600 text-black font-bold rounded-full px-3.5 py-1.5 text-[11.5px] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm fiorix-no-drag"
                     >
                       Atualizar Minha IT
                     </button>
                   ) : (
                     <button
                       onClick={openChat}
-                      className="bg-gradient-to-r from-[#facc15] to-[#f59e0b] text-[#111827] font-bold rounded-full px-4 py-1.5 text-[12px] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm"
+                      className="bg-gradient-to-r from-[#facc15] to-[#f59e0b] text-[#111827] font-bold rounded-full px-4 py-1.5 text-[12px] hover:scale-[1.02] active:scale-[0.98] transition-all shadow-sm fiorix-no-drag"
                     >
                       Tirar dúvida
                     </button>
                   )}
                   <button
                     onClick={dismissBubble}
-                    className="text-[11px] text-[#9ca3af] hover:text-[#4b5563] transition-colors px-2 py-1"
+                    className="text-[11px] text-[#9ca3af] hover:text-[#4b5563] transition-colors px-2 py-1 fiorix-no-drag"
                   >
                     Depois
                   </button>
@@ -865,15 +1028,22 @@ export function FiorixAgent() {
               </div>
 
               {/* Seta da Bubble */}
-              <div className={`absolute -bottom-2 ${position === 'left' ? 'left-6' : 'right-6'} w-3.5 h-3.5 bg-white border-r border-b border-[#e5e7eb] transform rotate-45`} />
+              {isTopSide ? (
+                <div className={`absolute -top-2 ${isLeftSide ? 'left-6' : 'right-6'} w-3.5 h-3.5 bg-white border-l border-t border-[#e5e7eb] transform rotate-45`} />
+              ) : (
+                <div className={`absolute -bottom-2 ${isLeftSide ? 'left-6' : 'right-6'} w-3.5 h-3.5 bg-white border-r border-b border-[#e5e7eb] transform rotate-45`} />
+              )}
             </div>
           )}
 
           {/* Botão do Avatar com Aura de Voz e Ponto de Compliance */}
           <button
-            onClick={openChat}
-            className="relative group fiorix-float focus:outline-none"
-            aria-label="Abrir assistente FIORIX IA"
+            onClick={handleAvatarClick}
+            className={`relative group focus:outline-none fiorix-avatar-btn ${
+              isDragging ? '' : 'fiorix-float'
+            }`}
+            aria-label="Abrir assistente FIORIX IA (arraste para mover)"
+            title="Clique para conversar ou arraste para reposicionar em qualquer lugar da tela"
           >
             {/* Aura Sonora se estiver falando */}
             {isSpeaking && (
@@ -892,7 +1062,7 @@ export function FiorixAgent() {
                 alt="FIORIX IA"
                 width={62}
                 height={62}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover pointer-events-none"
                 priority
               />
             </div>
@@ -910,7 +1080,13 @@ export function FiorixAgent() {
           </button>
 
           {/* Badge */}
-          <span className="bg-[#7c3aed] text-white rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-sm flex items-center gap-1">
+          <span
+            className="bg-[#7c3aed] hover:bg-[#6d28d9] text-white rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-md flex items-center gap-1.5 transition-colors"
+            title="Arraste com o mouse para posicionar o FIORIX em qualquer lugar"
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-75">
+              <polyline points="5 9 2 12 5 15" /><polyline points="9 5 12 2 15 5" /><polyline points="15 19 12 22 9 19" /><polyline points="19 9 22 12 19 15" /><line x1="2" y1="12" x2="22" y2="12" /><line x1="12" y1="2" x2="12" y2="22" />
+            </svg>
             {isSpeaking ? 'FALANDO...' : 'FIORIX • IA'}
           </span>
         </div>
