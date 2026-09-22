@@ -166,12 +166,12 @@ export function ConversasSidebar({
 
   return (
     <aside
-      className={`h-full border-r border-white/[0.08] bg-[#0d1117] flex flex-col transition-all duration-300 select-none relative shrink-0 ${
+      className={`h-full rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)] flex flex-col transition-all duration-300 select-none relative shrink-0 overflow-hidden ${
         isCollapsed ? 'w-16 min-w-16 max-w-16' : 'w-full md:w-[360px] md:min-w-[360px] md:max-w-[360px]'
       }`}
     >
       {/* ── Header ── */}
-      <div className="flex items-center justify-between px-3.5 py-3 border-b border-white/[0.08] bg-[#0d1117] shrink-0 h-14">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/[0.02] shrink-0 h-14">
         {!isCollapsed && (
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
@@ -247,7 +247,7 @@ export function ConversasSidebar({
                 placeholder="Pesquisar conversas..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-8 py-2 text-xs rounded-xl bg-slate-900/90 border border-white/[0.08] text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 transition"
+                className="w-full pl-9 pr-8 py-2 text-xs rounded-xl bg-white/[0.04] border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 transition"
               />
               {search && (
                 <button
@@ -271,7 +271,7 @@ export function ConversasSidebar({
                   className={`py-1.5 px-1 rounded-full text-[11px] font-semibold transition text-center truncate flex items-center justify-center gap-1 ${
                     isActive
                       ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/20'
-                      : 'bg-white/[0.04] text-slate-400 hover:text-white hover:bg-white/[0.08] border border-white/[0.04]'
+                      : 'bg-white/[0.04] text-slate-400 hover:text-white hover:bg-white/[0.08] border border-white/8'
                   }`}
                 >
                   <span className="truncate">{tab.label}</span>

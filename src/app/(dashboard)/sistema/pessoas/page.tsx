@@ -44,12 +44,20 @@ export default async function PainelRHPage() {
   };
 
   try {
-    const [comunicados, stats] = await Promise.all([
+    const [comunicadosRes, statsRes] = await Promise.allSettled([
       getComunicadosRH(),
       getIndicadoresRH(),
     ]);
-    initialComunicados = comunicados;
-    initialStats = stats;
+    if (comunicadosRes.status === "fulfilled") {
+      initialComunicados = comunicadosRes.value || [];
+    } else {
+      console.error("Erro ao carregar comunicados do banco:", comunicadosRes.reason);
+    }
+    if (statsRes.status === "fulfilled" && statsRes.value) {
+      initialStats = statsRes.value;
+    } else if (statsRes.status === "rejected") {
+      console.error("Erro ao carregar indicadores RH do banco:", statsRes.reason);
+    }
   } catch (err) {
     console.error("Erro ao carregar dados do banco:", err);
   }

@@ -443,16 +443,16 @@ export function ChatArea({
 
   return (
     <div
-      className="flex h-full w-full overflow-hidden relative"
+      className="flex h-full w-full rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)] overflow-hidden relative"
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       {/* ── MAIN CHAT COLUMN ──────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#070A12] relative">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#070A12]/40 relative">
         {/* Header */}
-        <div className="flex items-center gap-2.5 px-3.5 border-b border-white/[0.08] bg-[#0d1117] shrink-0 h-14">
+        <div className="flex items-center gap-2.5 px-3.5 border-b border-white/10 bg-white/[0.02] shrink-0 h-14">
           {onBackToConversations && (
             <button
               type="button"
@@ -831,7 +831,7 @@ export function ChatArea({
         </div>
 
         {/* ── Barra de Composição ─────────────────────────────────────── */}
-        <div className="shrink-0 border-t border-white/10 bg-[#111827] px-3 pb-3 pt-2">
+        <div className="shrink-0 border-t border-white/10 bg-[#0B1020]/90 backdrop-blur-md px-3.5 pb-3 pt-2.5">
           {/* Banner: sem permissão de envio */}
           {!canSend && (
             <div className="flex items-center gap-2 text-[11px] text-slate-400 mb-2 px-2 py-1.5 rounded-lg bg-white/[0.03] border border-white/10">
@@ -883,7 +883,7 @@ export function ChatArea({
                   }}
                   placeholder={canSend ? 'Mensagem…' : 'Sem permissão de envio'}
                   disabled={!canSend}
-                  className="w-full bg-slate-900/80 border border-white/10 text-white text-xs rounded-xl px-3 py-2.5 resize-none focus:outline-none focus:border-emerald-500/60 placeholder-slate-500 disabled:opacity-40 max-h-40 leading-relaxed"
+                  className="w-full bg-white/[0.04] border border-white/10 text-white text-xs rounded-xl px-3 py-2.5 resize-none focus:outline-none focus:border-emerald-500/60 placeholder-slate-500 disabled:opacity-40 max-h-40 leading-relaxed"
                 />
               </div>
 

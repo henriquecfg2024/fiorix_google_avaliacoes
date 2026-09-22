@@ -135,72 +135,21 @@ export function PainelRHClient({
   const [publicando, setPublicando] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
 
-  // Lista padrão fallback
-  const fallbackList: ComunicadoItem[] = [
-    {
-      id: "com-1",
-      titulo: "Alteração de Horário - Plantão de Fim de Ano",
-      data: "30/08/2026 09:00",
-      autor: "Nadia Najjar (RH)",
-      destinatarios: "Todos (63 colaboradores)",
-      views: 58,
-      ciencias: 49,
-      total: 63,
-      status: "PUBLICADO",
-      conteudo: "Informamos a escala especial de plantão de atendimento ao público durante o recesso de fim de ano. Todos os colaboradores devem registrar sua ciência formal com hash SHA-256.",
-      conteudoHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    },
-    {
-      id: "com-2",
-      titulo: "Diretriz Operacional Interna - Balcão e Qualificação 2026",
-      data: "28/08/2026 14:30",
-      autor: "Henrique Cesar (Admin)",
-      destinatarios: "Escreventes (28 colaboradores)",
-      views: 28,
-      ciencias: 26,
-      total: 28,
-      status: "PUBLICADO",
-      conteudo: "Diretrizes de conformidade jurídica e padrão interno de excelência para os balcões e qualificações de títulos do 7º RI SP.",
-      conteudoHash: "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
-    },
-    {
-      id: "com-3",
-      titulo: "Campanha Setembro Amarelo - Saúde Mental",
-      data: "27/08/2026 10:15",
-      autor: "Nadia Najjar (RH)",
-      destinatarios: "Todos (63 colaboradores)",
-      views: 61,
-      ciencias: 35,
-      total: 63,
-      status: "PUBLICADO",
-      conteudo: "Palestras e atendimentos com psicólogos credenciados para o bem-estar da equipe do 7º Registro de Imóveis.",
-      conteudoHash: "a1b2c3d4e5f67a89bc012d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a",
-    },
-  ];
-
-  const filterDeleted = (list: ComunicadoItem[]) => {
-    if (typeof window === "undefined") return list;
-    try {
-      const stored = localStorage.getItem("fiorix_deleted_comunicados");
-      if (stored) {
-        const deletedIds: string[] = JSON.parse(stored);
-        if (Array.isArray(deletedIds) && deletedIds.length > 0) {
-          return list.filter((c) => !deletedIds.includes(c.id));
-        }
-      }
-    } catch {}
-    return list;
-  };
-
   // Lista de Comunicados com persistência total no PostgreSQL e no cliente
-  const [comunicadosList, setComunicadosList] = useState<ComunicadoItem[]>(() => {
-    const base = initialComunicados && initialComunicados.length > 0 ? initialComunicados : fallbackList;
-    return filterDeleted(base);
-  });
+  const [comunicadosList, setComunicadosList] = useState<ComunicadoItem[]>(
+    initialComunicados || []
+  );
 
   useEffect(() => {
-    const base = initialComunicados ?? [];
-    setComunicadosList(filterDeleted(base));
+    // Limpeza de cache residual de testes locais para sincronia fiel com o PostgreSQL
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem("fiorix_deleted_comunicados");
+      } catch {}
+    }
+    if (initialComunicados) {
+      setComunicadosList(initialComunicados);
+    }
   }, [initialComunicados]);
 
   // Lista de Avisos de Férias Emitidos reais do banco de dados
@@ -331,17 +280,7 @@ export function PainelRHClient({
     setDeleteComunicadoModal(false);
     setComunicadoToDelete(null);
 
-    // 2. Registra no localStorage para garantir que NUNCA volte no F5
-    try {
-      const stored = localStorage.getItem("fiorix_deleted_comunicados") || "[]";
-      const arr = JSON.parse(stored);
-      if (!arr.includes(targetId)) {
-        arr.push(targetId);
-        localStorage.setItem("fiorix_deleted_comunicados", JSON.stringify(arr));
-      }
-    } catch {}
-
-    // 3. Persiste exclusão/soft-delete e auditoria no PostgreSQL
+    // 2. Persiste exclusão/soft-delete e auditoria no PostgreSQL
     try {
       await deleteComunicadoRH(targetId, motivo);
       toast.success(`Comunicado "${targetTitulo}" excluído e arquivado com sucesso!`);

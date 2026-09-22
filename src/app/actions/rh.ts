@@ -35,7 +35,7 @@ export interface IndicadoresRH {
  * Nunca retorna dados mockados ou fictícios.
  */
 export async function getIndicadoresRH(): Promise<IndicadoresRH> {
-  const user = await requireRole('ADMIN', 'RH', 'MASTER', 'GESTOR');
+  const user = await requireRole('ADMIN', 'RH', 'MASTER', 'GESTOR', 'SUBSTITUTO');
   const tenantId = user.tenantId;
 
   try {

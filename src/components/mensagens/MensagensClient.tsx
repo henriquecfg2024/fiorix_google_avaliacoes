@@ -570,10 +570,16 @@ export function MensagensClient({
     : [];
 
   return (
-    <div className="h-[calc(100vh-65px)] w-full flex flex-col bg-[#070A12] overflow-hidden">
+    <div className="h-[calc(100vh-65px)] w-full flex flex-col bg-[#070A12] text-white relative overflow-hidden font-sans p-3 sm:p-4">
+      {/* Ambient Glow */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 left-1/2 h-72 w-[48rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-500/10 via-indigo-500/8 to-cyan-500/8 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </div>
+
       {/* Banner de Ativação de Notificações no Computador */}
       {notificationPermission === 'default' && !bannerDismissed && (
-        <div className="w-full bg-gradient-to-r from-emerald-950/80 via-slate-900/95 to-emerald-950/80 border-b border-emerald-500/30 px-4 py-2 flex items-center justify-between gap-3 text-xs text-emerald-100 shrink-0 z-20 shadow-md">
+        <div className="w-full bg-gradient-to-r from-emerald-950/80 via-slate-900/95 to-emerald-950/80 border border-emerald-500/30 rounded-2xl px-4 py-2.5 mb-3 flex items-center justify-between gap-3 text-xs text-emerald-100 shrink-0 z-20 shadow-md">
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
               <BellRing className="w-3.5 h-3.5 animate-pulse" />
@@ -603,7 +609,7 @@ export function MensagensClient({
         </div>
       )}
 
-      <div className="flex-1 w-full flex overflow-hidden">
+      <div className="flex-1 w-full flex gap-3 sm:gap-4 overflow-hidden relative z-10 min-h-0">
         {/* Sidebar — esconde no mobile quando há conversa ativa */}
         <div className={`h-full shrink-0 md:flex ${activeConversationId ? 'hidden md:flex' : 'flex w-full'}`}>
           <ConversasSidebar
@@ -629,7 +635,7 @@ export function MensagensClient({
 
         {/* Área Central do Chat */}
         <div
-          className={`flex-1 h-full min-w-0 flex flex-col bg-[#070A12] ${
+          className={`flex-1 h-full min-w-0 flex flex-col ${
             !activeConversationId ? 'hidden md:flex' : 'flex w-full'
           }`}
         >
@@ -653,7 +659,7 @@ export function MensagensClient({
               onDraftSave={(text) => handleDraftSave(activeConversation.id, text)}
             />
           ) : (
-            <div className="h-full flex-1 flex flex-col items-center justify-center text-center p-8 select-none">
+            <div className="h-full flex-1 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)] flex flex-col items-center justify-center text-center p-8 select-none">
               <div className="w-24 h-24 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6 shadow-inner">
                 <MessagesSquare className="w-10 h-10 text-emerald-400 stroke-[1.75]" />
               </div>
