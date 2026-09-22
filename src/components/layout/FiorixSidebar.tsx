@@ -80,12 +80,9 @@ export function FiorixSidebar() {
       return false;
     }
 
-    // Se o href é /sistema/pessoas puro e a URL possui tab ativa, o link geral não deve sobressair
-    if (typeof window !== "undefined" && pathname === "/sistema/pessoas" && href === "/sistema/pessoas") {
-      const currentParams = new URLSearchParams(window.location.search);
-      if (currentParams.get("tab")) {
-        return false;
-      }
+    // Se o link é /sistema/pessoas, mantém ativo em qualquer aba interna ou rota de RH
+    if (href === "/sistema/pessoas" && (pathname?.startsWith("/sistema/pessoas") || pathname?.startsWith("/administracao/rh"))) {
+      return true;
     }
 
     if (href !== "/dashboard" && pathname?.startsWith(href)) return true;
@@ -180,11 +177,35 @@ export function FiorixSidebar() {
           {!isCollapsed && <div className="h-4" />}
 
           {/* Groups */}
-          {Object.entries(visibleGroups).map(([key, group]) => {
+          {Object.entries(visibleGroups).map(([key, group]: [string, any]) => {
             const GroupIcon = group.icon;
-            const isGroupActive = group.items.some((item: any) => isActive(item.href));
+            const isDirectLink = Boolean(group.href);
+            const isDirectActive = isDirectLink && (pathname?.startsWith(group.href) || pathname?.startsWith("/administracao/rh"));
+            const isGroupActive = isDirectLink ? isDirectActive : group.items.some((item: any) => isActive(item.href));
 
             if (isCollapsed) {
+              if (isDirectLink) {
+                return (
+                  <Tooltip key={key}>
+                    {/* @ts-expect-error Radix UI asChild type mismatch */}
+                    <TooltipTrigger asChild>
+                      <Link
+                        href={group.href}
+                        onClick={() => handleNavClick(group.href)}
+                        className={`flex items-center justify-center h-10 w-full rounded-lg transition-colors cursor-pointer ${
+                          isDirectActive
+                            ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+                            : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
+                        }`}
+                      >
+                        <GroupIcon className="w-5 h-5" />
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">{group.label}</TooltipContent>
+                  </Tooltip>
+                );
+              }
+
               return (
                 <Popover key={key}>
                   {/* @ts-expect-error Radix UI asChild type mismatch */}
@@ -254,6 +275,36 @@ export function FiorixSidebar() {
                     })}
                   </PopoverContent>
                 </Popover>
+              );
+            }
+
+            if (isDirectLink) {
+              return (
+                <Link
+                  key={key}
+                  href={group.href}
+                  onClick={() => handleNavClick(group.href)}
+                  className="block"
+                >
+                  <div
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                      navigatingTo === group.href
+                        ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 pointer-events-none"
+                        : isDirectActive
+                        ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+                        : isNavigating
+                        ? "text-white/40 pointer-events-none border border-transparent"
+                        : "text-slate-300 hover:bg-white/[0.06] hover:text-white border border-transparent"
+                    }`}
+                  >
+                    {navigatingTo === group.href ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-indigo-400 shrink-0" />
+                    ) : (
+                      <GroupIcon className="w-4 h-4 opacity-80 shrink-0" />
+                    )}
+                    <span className="truncate">{group.label}</span>
+                  </div>
+                </Link>
               );
             }
 

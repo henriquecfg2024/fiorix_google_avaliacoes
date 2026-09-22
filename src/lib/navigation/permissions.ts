@@ -67,7 +67,7 @@ export function filterNavigationByRole(role: Role = "USER") {
       return true; // ADMIN, MASTER e COLABORADOR em 'trabalho' veem tudo
     });
 
-    if (visibleItems.length > 0) {
+    if (visibleItems.length > 0 || Boolean((group as any).href)) {
       filteredGroups[key] = {
         ...group,
         items: visibleItems,

@@ -78,32 +78,8 @@ export const navigationGroups = {
   rhGestao: {
     label: "GESTÃO DE PESSOAS",
     icon: UserCheck,
-    items: [
-      {
-        label: "Férias",
-        href: "/sistema/pessoas?tab=ferias",
-        icon: Briefcase,
-        description: "Lançamentos, Escalas & CLT 135",
-      },
-      {
-        label: "Holerites",
-        href: "/sistema/pessoas?tab=holerites",
-        icon: Upload,
-        description: "Upload e distribuição em lote",
-      },
-      {
-        label: "Comunicados",
-        href: "/sistema/pessoas?tab=comunicados",
-        icon: FileText,
-        description: "Criar comunicados e gerenciar ciências",
-      },
-      {
-        label: "Painel de RH",
-        href: "/sistema/pessoas",
-        icon: Users,
-        description: "Quadro de colaboradores e governança",
-      },
-    ],
+    href: "/sistema/pessoas",
+    items: [],
   },
   governancaIts: {
     label: "INSTRUÇÕES DE TRABALHO",

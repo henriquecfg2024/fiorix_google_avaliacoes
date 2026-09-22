@@ -54,12 +54,8 @@ describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
       '/bi/auditoria',
     ]);
 
-    expect(navigationGroups.rhGestao.items.map((i) => i.href)).toEqual([
-      '/sistema/pessoas?tab=ferias',
-      '/sistema/pessoas?tab=holerites',
-      '/sistema/pessoas?tab=comunicados',
-      '/sistema/pessoas',
-    ]);
+    expect((navigationGroups.rhGestao as any).href).toBe('/sistema/pessoas');
+    expect(navigationGroups.rhGestao.items).toEqual([]);
 
     expect(navigationGroups.governancaIts.items.map((i) => i.href)).toEqual([
       '/administracao/its',
