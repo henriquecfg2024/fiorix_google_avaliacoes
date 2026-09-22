@@ -7,8 +7,6 @@ import {
   Search,
   Filter,
   Plus,
-  ShieldCheck,
-  History,
   QrCode,
   CheckCircle2,
   FileCheck2,
@@ -306,57 +304,6 @@ export function ComunicadosClient({
               )}
             </div>
           )}
-        </div>
-
-        {/* Footer de Segurança Corporativa Estrito para Comunicados */}
-        <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-2xl bg-violet-500/10 border border-violet-500/20 text-violet-400 shrink-0">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-white">Integridade SHA-256</h4>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Todos os comunicados e termos com hash criptográfico verificado
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shrink-0">
-              <History className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-white">Trilha de Auditoria Protegida</h4>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                100% das leituras e ciências registradas e auditáveis
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shrink-0">
-              <QrCode className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-white">Ciência Rastreável</h4>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Carimbo de tempo, IP e geração de comprovante com QR Code
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 shrink-0">
-              <FileCheck2 className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-white">Retenção Controlada</h4>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Conforme política institucional e normas da Corregedoria
-              </p>
-            </div>
-          </div>
         </div>
       </div>
 
