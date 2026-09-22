@@ -32,6 +32,8 @@ export function ComunicadosClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedComunicado, setSelectedComunicado] = useState<ComunicadoItem | null>(null);
 
+  const isManager = userRole === "ADMIN" || userRole === "RH" || userRole === "MASTER" || userRole === "GESTOR" || userRole === "SUBSTITUTO";
+
   // Comunicados carregados do banco — inicializado vazio para uso oficial
   const [comunicados, setComunicados] = useState<ComunicadoItem[]>([]);
 
