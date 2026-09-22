@@ -33,6 +33,13 @@ import { HoleriteUploader } from "@/components/rh/HoleriteUploader";
 import { CLT135Validator } from "@/components/rh/CLT135Validator";
 import { ComunicadoAuditModal, AuditEntry } from "@/components/rh/ComunicadoAuditModal";
 import { Planejamento2027Tab } from "@/components/rh/Planejamento2027Tab";
+import { EscalaAnualClient } from "@/components/ferias/EscalaAnualClient";
+import {
+  publicarEscalaAnualAction,
+  retirarEscalaDoArAction,
+  getPublicacaoStatusAction,
+} from "@/app/actions/ferias";
+import { PublicacaoStatus } from "@/lib/ferias/ferias-repository";
 import { DeleteConfirmModal } from "@/components/rh/DeleteConfirmModal";
 import { MOCK_COLABORADORES_45 } from "@/components/rh/mockColaboradores45";
 import {
@@ -114,6 +121,43 @@ export function PainelRHClient({
 
   // Sub-tabs da aba Férias
   const [feriasSubTab, setFeriasSubTab] = useState<"planejamento2027" | "validador" | "avisos">("planejamento2027");
+
+  // Controle de Publicação da Escala Anual (Item 2 do Prompt)
+  const [pubAno, setPubAno] = useState(2027);
+  const [pubStatus, setPubStatus] = useState<PublicacaoStatus>({ ano: 2027, status: "RASCUNHO" });
+  const [pubLoading, setPubLoading] = useState(false);
+  const [pubConfirmModalOpen, setPubConfirmModalOpen] = useState(false);
+  const [pubActionTarget, setPubActionTarget] = useState<"PUBLICAR" | "RETIRAR">("PUBLICAR");
+
+  useEffect(() => {
+    getPublicacaoStatusAction({ ano: pubAno })
+      .then((res) => setPubStatus(res))
+      .catch(() => {});
+  }, [pubAno]);
+
+  const handleConfirmPublicacao = async () => {
+    setPubLoading(true);
+    try {
+      if (pubActionTarget === "PUBLICAR") {
+        const res = await publicarEscalaAnualAction({ ano: pubAno });
+        if (res.success) {
+          setPubStatus(res.status);
+          toast.success(`Escala anual de férias ${pubAno} publicada com sucesso! Os colaboradores agora visualizam suas próprias férias.`);
+        }
+      } else {
+        const res = await retirarEscalaDoArAction({ ano: pubAno, motivo: "Retirada do ar pelo RH para ajustes" });
+        if (res.success) {
+          setPubStatus(res.status);
+          toast.info(`Escala anual de férias ${pubAno} retirada do ar. As informações deixaram de ser exibidas aos colaboradores.`);
+        }
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao alterar status de publicação");
+    } finally {
+      setPubLoading(false);
+      setPubConfirmModalOpen(false);
+    }
+  };
 
   // Estados de Busca & Filtro em Comunicados
   const [searchComunicados, setSearchComunicados] = useState("");
@@ -973,173 +1017,92 @@ export function PainelRHClient({
         {currentTab === "holerites" && <HoleriteUploader />}
 
         {/* ══════════════════════════════════════════════════════════════
-            3. FÉRIAS TAB (COM SUB-TABS: Planejamento 2027, Validador CLT, Avisos Emitidos)
+            3. FÉRIAS TAB (ESCALA ANUAL DE FÉRIAS E CONTROLE DE PUBLICAÇÃO)
         ══════════════════════════════════════════════════════════════ */}
         {currentTab === "ferias" && (
           <div className="space-y-6">
-            {/* Sub-tabs Internas de Férias */}
-            <div className="flex items-center gap-2 p-1.5 bg-[#10101a] border border-white/10 rounded-2xl w-fit">
-              <button
-                onClick={() => setFeriasSubTab("planejamento2027")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  feriasSubTab === "planejamento2027"
-                    ? "bg-indigo-600 text-white shadow-md"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                <Calendar className="w-3.5 h-3.5" />
-                <span>Planejamento 2027 (NOVO)</span>
-              </button>
+            {/* Card de Controle de Publicação no Painel de RH (Item 2 do Prompt) */}
+            <div className="rounded-[24px] border border-white/10 bg-[#10101a] p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div className="space-y-1">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-base font-bold text-white tracking-tight">
+                    Escala anual de férias
+                  </h3>
+                  <div className="flex items-center bg-[#05050a] border border-white/15 rounded-xl px-2.5 py-1">
+                    <Calendar className="w-3.5 h-3.5 text-indigo-400 mr-2" />
+                    <select
+                      value={pubAno}
+                      onChange={(e) => setPubAno(Number(e.target.value))}
+                      className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer"
+                    >
+                      <option value={2026} className="bg-[#0c101c] text-white">2026</option>
+                      <option value={2027} className="bg-[#0c101c] text-white">2027</option>
+                      <option value={2028} className="bg-[#0c101c] text-white">2028</option>
+                    </select>
+                  </div>
+                </div>
 
-              <button
-                onClick={() => setFeriasSubTab("validador")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  feriasSubTab === "validador"
-                    ? "bg-indigo-600 text-white shadow-md"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                <Shield className="w-3.5 h-3.5" />
-                <span>Validador CLT (Art. 135)</span>
-              </button>
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-xs text-slate-400">Status atual:</span>
+                  {pubStatus.status === "PUBLICADA" ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 font-semibold text-xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Publicada
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-300 font-semibold text-xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                      Rascunho — não visível aos colaboradores
+                    </span>
+                  )}
+                </div>
 
-              <button
-                onClick={() => setFeriasSubTab("avisos")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  feriasSubTab === "avisos"
-                    ? "bg-indigo-600 text-white shadow-md"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span>Avisos Emitidos</span>
-              </button>
+                <p className="text-xs text-slate-400 pt-0.5">
+                  {pubStatus.status === "PUBLICADA"
+                    ? `Escala ${pubAno} homologada. Os colaboradores visualizam apenas as próprias férias programadas.`
+                    : `Escala ${pubAno} em modo rascunho. Edição livre pelo RH sem exibição aos colaboradores.`}
+                </p>
+              </div>
+
+              {/* Botão Contextual de Ação */}
+              <div>
+                {pubStatus.status === "RASCUNHO" ? (
+                  <Button
+                    onClick={() => {
+                      setPubActionTarget("PUBLICAR");
+                      setPubConfirmModalOpen(true);
+                    }}
+                    disabled={pubLoading}
+                    className="h-10 px-5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 gap-2"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>Publicar escala</span>
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      setPubActionTarget("RETIRAR");
+                      setPubConfirmModalOpen(true);
+                    }}
+                    disabled={pubLoading}
+                    variant="outline"
+                    className="h-10 px-5 rounded-2xl border-amber-500/40 text-amber-300 hover:bg-amber-500/10 hover:border-amber-500/70 text-xs font-bold gap-2"
+                  >
+                    <AlertTriangle className="w-4 h-4 text-amber-400" />
+                    <span>Retirar do ar</span>
+                  </Button>
+                )}
+              </div>
             </div>
 
-            {/* Subtab 1: Planejamento 2027 */}
-            {feriasSubTab === "planejamento2027" && <Planejamento2027Tab />}
-
-            {/* Subtab 2: Validador CLT (Art. 135) */}
-            {feriasSubTab === "validador" && <CLT135Validator />}
-
-            {/* Subtab 3: Avisos Emitidos */}
-            {feriasSubTab === "avisos" && (
-              <div className="rounded-2xl border border-white/10 bg-[#10101a] p-6 shadow-xl space-y-5">
-                <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                  <div>
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                      Avisos Formais de Férias Emitidos
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Controle de entregas com validação de antecedência legal de 30 dias e comprovantes digitais
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() => setFeriasSubTab("validador")}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl gap-1.5"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Emitir Novo Aviso CLT</span>
-                  </Button>
-                </div>
-
-                <div className="border border-white/10 rounded-xl overflow-hidden bg-[#05050a]">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#12141F] text-slate-400 uppercase font-mono text-[10px] border-b border-white/10">
-                      <tr>
-                        <th className="px-4 py-3.5">Colaborador / Setor</th>
-                        <th className="px-4 py-3.5">Período de Gozo</th>
-                        <th className="px-4 py-3.5">Data do Aviso</th>
-                        <th className="px-4 py-3.5">Antecedência Legal (Art. 135)</th>
-                        <th className="px-4 py-3.5">Arquivo Digital</th>
-                        <th className="px-4 py-3.5">Status</th>
-                        <th className="px-4 py-3.5 text-right">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5 text-slate-200">
-                      {avisosEmitidos.length === 0 ? (
-                        <tr>
-                          <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
-                            <FileText className="w-8 h-8 mx-auto text-slate-600 mb-2" />
-                            <p className="font-semibold text-sm text-slate-300">Nenhum aviso formal de férias emitido</p>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                              Os avisos emitidos com antecedência mínima de 30 dias (CLT Art. 135) serão listados aqui.
-                            </p>
-                          </td>
-                        </tr>
-                      ) : (
-                        avisosEmitidos.map((aviso) => {
-                        const isOk = aviso.antecedenciaDias >= 30;
-                        return (
-                          <tr key={aviso.id} className="hover:bg-white/[0.03] transition-colors">
-                            <td className="px-4 py-3.5">
-                              <div className="font-bold text-white">{aviso.colaborador}</div>
-                              <div className="text-[10px] text-slate-400 font-mono">{aviso.setor}</div>
-                            </td>
-                            <td className="px-4 py-3.5 font-mono text-cyan-300 font-semibold">
-                              {aviso.periodoGozo}
-                            </td>
-                            <td className="px-4 py-3.5 font-mono text-slate-400">{aviso.dataAviso}</td>
-                            <td className="px-4 py-3.5">
-                              <span
-                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono border ${
-                                  isOk
-                                    ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-                                    : "bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse"
-                                }`}
-                              >
-                                {isOk
-                                  ? `✓ ${aviso.antecedenciaDias}d OK (Conforme)`
-                                  : `⛔ ${aviso.antecedenciaDias}d Bloqueado (<30d)`}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3.5 font-mono text-slate-300 flex items-center gap-1.5">
-                              <FileText className="w-3.5 h-3.5 text-indigo-400" />
-                              <span className="truncate max-w-[180px]">{aviso.arquivo}</span>
-                            </td>
-                            <td className="px-4 py-3.5">
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono border ${
-                                  aviso.status === "Ciente"
-                                    ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-                                    : aviso.status === "Visualizado"
-                                    ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
-                                    : "bg-slate-500/15 text-slate-300 border-slate-500/30"
-                                }`}
-                              >
-                                {aviso.status}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3.5 text-right">
-                              <div className="flex items-center justify-end gap-1">
-                                <button
-                                  onClick={() => alert(`Baixando cópia em PDF com watermark do aviso de ${aviso.colaborador}...`)}
-                                  title="Baixar PDF"
-                                  className="p-1.5 text-slate-400 hover:text-cyan-400 hover:bg-white/5 rounded-lg transition-colors"
-                                >
-                                  <Download className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setAvisoToDelete(aviso);
-                                    setDeleteAvisoModal(true);
-                                  }}
-                                  title="Excluir Aviso (Trilha WORM)"
-                                  className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-white/5 rounded-lg transition-colors"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      }))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+            {/* Tela Administrativa da Escala Anual Integrada */}
+            <EscalaAnualClient
+              key={`rh-escala-${pubAno}-${pubStatus.status}`}
+              initialAno={pubAno}
+              initialPublicacao={pubStatus}
+              isInsideRHPanel={true}
+              userRole={userRole}
+            />
           </div>
         )}
       </div>
@@ -1445,6 +1408,69 @@ export function PainelRHClient({
           itemDescription={`Aviso de férias de ${avisoToDelete.colaborador} (Período: ${avisoToDelete.periodoGozo})`}
           wormWarning="O cancelamento deste aviso formal de férias será registrado na trilha de auditoria trabalhista com custódia WORM de 5 anos."
         />
+      )}
+      {/* Modal de Confirmação de Publicação / Retirada do ar da Escala Anual */}
+      {pubConfirmModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md rounded-3xl border border-white/12 bg-[#0c101c] p-6 shadow-2xl text-white space-y-4">
+            <div className="flex items-center gap-3">
+              <div
+                className={`p-3 rounded-2xl border ${
+                  pubActionTarget === "PUBLICAR"
+                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                    : "bg-amber-500/10 border-amber-500/20 text-amber-400"
+                }`}
+              >
+                {pubActionTarget === "PUBLICAR" ? (
+                  <Send className="w-5 h-5" />
+                ) : (
+                  <AlertTriangle className="w-5 h-5" />
+                )}
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">
+                  {pubActionTarget === "PUBLICAR"
+                    ? `Publicar Escala ${pubAno}?`
+                    : `Retirar Escala ${pubAno} do Ar?`}
+                </h3>
+                <span className="text-xs text-slate-400">Confirmação de Governança RH</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              {pubActionTarget === "PUBLICAR"
+                ? `Ao publicar, os colaboradores poderão visualizar somente as próprias férias daquele ano. A homologação será registrada na trilha de auditoria WORM.`
+                : `Ao retirar do ar, as informações deixam de ser exibidas aos colaboradores imediatamente. Todos os lançamentos permanecem rigorosamente preservados para edição pelo RH.`}
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/8">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPubConfirmModalOpen(false)}
+                className="rounded-xl border-white/10 text-slate-300 hover:bg-white/10 text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                size="sm"
+                disabled={pubLoading}
+                onClick={handleConfirmPublicacao}
+                className={`rounded-xl text-white font-bold text-xs ${
+                  pubActionTarget === "PUBLICAR"
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "bg-amber-600 hover:bg-amber-700"
+                }`}
+              >
+                {pubLoading
+                  ? "Processando..."
+                  : pubActionTarget === "PUBLICAR"
+                  ? "Confirmar Publicação"
+                  : "Confirmar Retirada"}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
