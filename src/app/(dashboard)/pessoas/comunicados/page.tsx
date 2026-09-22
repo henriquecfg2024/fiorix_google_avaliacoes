@@ -20,8 +20,8 @@ export default async function ComunicadosPage() {
     if (session?.user) {
       userRole = session.user.role || "USER";
       userName = session.user.name || "Colaborador";
-      userId = session.user.id;
-      let tenantId = session.user.tenantId;
+      userId = session.user.id || "";
+      let tenantId: string | undefined = session.user.tenantId;
 
       if (!tenantId && userId) {
         const u = await prisma.user.findUnique({
