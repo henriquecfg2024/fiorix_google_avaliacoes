@@ -63,6 +63,14 @@ interface ComunicadoItem {
   conteudoHash?: string;
   ultimaAlteracaoPor?: string;
   dataUltimaAlteracao?: string;
+  anexos?: Array<{
+    id: string;
+    nomeOriginal: string;
+    mimeType?: string;
+    tamanhoBytes: number;
+    hashSha256?: string;
+    storagePath?: string;
+  }>;
 }
 
 export type AvisoEmitido = AvisoEmitidoItem;
@@ -123,7 +131,9 @@ export function PainelRHClient({
   const [novoTitulo, setNovoTitulo] = useState("");
   const [novoPrioridade, setNovoPrioridade] = useState("NORMAL");
   const [novoConteudo, setNovoConteudo] = useState("");
+  const [selectedPdf, setSelectedPdf] = useState<File | null>(null);
   const [publicando, setPublicando] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
 
   // Lista padrão fallback
   const fallbackList: ComunicadoItem[] = [
@@ -224,16 +234,43 @@ export function PainelRHClient({
   // Handlers
   const handlePublicar = async () => {
     if (!novoTitulo || !novoConteudo) {
-      alert("Por favor, preencha o título e o conteúdo.");
+      toast.error("Por favor, preencha o título e o conteúdo.");
       return;
     }
 
     setPublicando(true);
     try {
+      let pdfAnexoData: {
+        storagePath: string;
+        nomeOriginal: string;
+        mimeType: string;
+        tamanhoBytes: number;
+        hashSha256: string;
+      } | undefined = undefined;
+
+      if (selectedPdf) {
+        setUploadingPdf(true);
+        const formData = new FormData();
+        formData.append("file", selectedPdf);
+
+        const uploadRes = await fetch("/api/comunicados/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!uploadRes.ok) {
+          const errData = await uploadRes.json().catch(() => ({}));
+          throw new Error(errData.error || "Falha no upload do arquivo PDF.");
+        }
+
+        pdfAnexoData = await uploadRes.json();
+      }
+
       const res = await criarComunicadoRH({
         titulo: novoTitulo,
         conteudo: novoConteudo,
         prioridade: novoPrioridade,
+        pdfAnexo: pdfAnexoData,
       });
 
       const novoItem: ComunicadoItem = {
@@ -248,36 +285,39 @@ export function PainelRHClient({
         status: "PUBLICADO",
         conteudo: novoConteudo,
         conteudoHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        anexos: res.anexos && res.anexos.length > 0
+          ? res.anexos
+          : pdfAnexoData
+          ? [
+              {
+                id: `anx-${Date.now()}`,
+                nomeOriginal: pdfAnexoData.nomeOriginal,
+                mimeType: pdfAnexoData.mimeType,
+                tamanhoBytes: pdfAnexoData.tamanhoBytes,
+                hashSha256: pdfAnexoData.hashSha256,
+                storagePath: pdfAnexoData.storagePath,
+              },
+            ]
+          : [],
       };
 
       setComunicadosList((prev) => [novoItem, ...prev]);
-      toast.success("Comunicado publicado com integridade SHA-256 gravada no banco de dados e na trilha WORM!");
+      toast.success(
+        pdfAnexoData
+          ? "Comunicado com PDF e hash SHA-256 publicado com sucesso!"
+          : "Comunicado publicado com integridade SHA-256 gravada no banco de dados e na trilha WORM!"
+      );
       setNovoModalOpen(false);
       setNovoTitulo("");
       setNovoConteudo("");
+      setSelectedPdf(null);
       router.refresh();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro ao publicar comunicado:", err);
-      // Fallback local se rede falhar
-      const novoItem: ComunicadoItem = {
-        id: `com-${Date.now()}`,
-        titulo: novoTitulo,
-        data: new Date().toLocaleString("pt-BR"),
-        autor: userName,
-        destinatarios: "Todos (63 colaboradores)",
-        views: 0,
-        ciencias: 0,
-        total: 63,
-        status: "PUBLICADO",
-        conteudo: novoConteudo,
-      };
-      setComunicadosList((prev) => [novoItem, ...prev]);
-      setNovoModalOpen(false);
-      setNovoTitulo("");
-      setNovoConteudo("");
-      toast.success("Comunicado publicado e registrado localmente!");
+      toast.error(err.message || "Erro ao publicar comunicado.");
     } finally {
       setPublicando(false);
+      setUploadingPdf(false);
     }
   };
 
@@ -646,9 +686,6 @@ export function PainelRHClient({
                         <p className="text-xs text-slate-400/90">Mural oficial & ciências nominais</p>
                       </div>
                     </div>
-                    <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase bg-indigo-500/15 text-indigo-300 border border-indigo-500/25 shrink-0">
-                      WORM SHA-256
-                    </span>
                   </div>
 
                   <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 space-y-2.5 backdrop-blur-sm">
@@ -699,9 +736,6 @@ export function PainelRHClient({
                         <p className="text-xs text-slate-400/90">Upload em lote & recibos de pagamento</p>
                       </div>
                     </div>
-                    <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase bg-cyan-500/15 text-cyan-300 border border-cyan-500/25 shrink-0">
-                      EM LOTE
-                    </span>
                   </div>
 
                   <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 space-y-2.5 backdrop-blur-sm">
@@ -758,9 +792,6 @@ export function PainelRHClient({
                         <p className="text-xs text-slate-400/90">Planejamento 2027 & Validador CLT</p>
                       </div>
                     </div>
-                    <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase bg-amber-500/15 text-amber-300 border border-amber-500/25 shrink-0">
-                      CLT ART. 135
-                    </span>
                   </div>
 
                   <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 space-y-2.5 backdrop-blur-sm">
@@ -894,6 +925,18 @@ export function PainelRHClient({
                           <div className="flex items-center gap-2">
                             <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                             <span>{item.titulo}</span>
+                            {item.anexos && item.anexos.length > 0 && (
+                              <a
+                                href={`/api/comunicados/anexo/${item.anexos[0].id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={`Abrir PDF Oficial: ${item.anexos[0].nomeOriginal}`}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-[10px] font-mono text-rose-300 hover:bg-rose-500/25 transition-colors cursor-pointer"
+                              >
+                                <FileText className="w-3 h-3 text-rose-400" />
+                                <span>PDF Anexo</span>
+                              </a>
+                            )}
                           </div>
                           <div className="text-[10px] font-normal text-slate-400 font-mono mt-0.5 ml-5.5">
                             {item.ultimaAlteracaoPor ? (
@@ -1213,6 +1256,64 @@ export function PainelRHClient({
                   className="w-full bg-[#05050a] border border-white/15 text-white text-xs rounded-xl p-3 focus:border-indigo-500 outline-none"
                 />
               </div>
+
+              <div>
+                <label className="text-xs text-slate-300 block mb-1">
+                  Anexo em PDF (Opcional)
+                </label>
+                {!selectedPdf ? (
+                  <label className="border border-dashed border-white/20 hover:border-indigo-500/50 bg-white/[0.02] hover:bg-indigo-500/5 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-colors group">
+                    <input
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+                            toast.error("Apenas arquivos PDF são permitidos.");
+                            return;
+                          }
+                          if (file.size > 25 * 1024 * 1024) {
+                            toast.error("O arquivo excede o limite máximo de 25MB.");
+                            return;
+                          }
+                          setSelectedPdf(file);
+                        }
+                      }}
+                    />
+                    <Upload className="w-6 h-6 text-slate-400 group-hover:text-indigo-400 mb-2 transition-colors" />
+                    <span className="text-xs font-semibold text-slate-200">
+                      Clique para selecionar ou arraste o PDF oficial
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono mt-1">
+                      Limite de 25MB • Cálculo automático de hash SHA-256 e custódia segura
+                    </span>
+                  </label>
+                ) : (
+                  <div className="p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-xl flex items-center justify-between">
+                    <div className="flex items-center gap-2.5 overflow-hidden">
+                      <div className="p-2 rounded-lg bg-rose-500/20 text-rose-400 shrink-0">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <div className="truncate">
+                        <p className="text-xs font-bold text-white truncate">{selectedPdf.name}</p>
+                        <p className="text-[10px] text-indigo-300 font-mono">
+                          {(selectedPdf.size / 1024).toFixed(1)} KB • Pronto para upload e custódia
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPdf(null)}
+                      className="text-slate-400 hover:text-rose-400 p-1 rounded-lg hover:bg-white/5 transition-colors"
+                      title="Remover anexo"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 pt-2 border-t border-white/10">
@@ -1250,6 +1351,31 @@ export function PainelRHClient({
             <div className="p-4 bg-white/[0.02] border border-white/5 rounded-xl text-xs text-slate-200 leading-relaxed max-h-[260px] overflow-y-auto">
               {viewComunicadoModal.conteudo || "Sem conteúdo textual disponível."}
             </div>
+
+            {viewComunicadoModal.anexos && viewComunicadoModal.anexos.length > 0 && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/25 rounded-xl flex items-center justify-between">
+                <div className="flex items-center gap-2.5 overflow-hidden">
+                  <div className="p-2 rounded-lg bg-rose-500/20 text-rose-400 shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div className="truncate">
+                    <p className="text-xs font-bold text-white truncate">{viewComunicadoModal.anexos[0].nomeOriginal}</p>
+                    <p className="text-[10px] text-slate-400 font-mono">
+                      {(viewComunicadoModal.anexos[0].tamanhoBytes / 1024).toFixed(1)} KB • Custódia com Hash SHA-256
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href={`/api/comunicados/anexo/${viewComunicadoModal.anexos[0].id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1.5 shrink-0"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Visualizar PDF</span>
+                </a>
+              </div>
+            )}
 
             <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl space-y-1 text-xs">
               <span className="text-[10px] font-mono uppercase text-indigo-300">Hash SHA-256 da Portaria:</span>

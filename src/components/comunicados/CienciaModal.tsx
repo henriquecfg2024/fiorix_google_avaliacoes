@@ -199,15 +199,29 @@ Autenticidade garantida por integridade criptográfica SHA-256.
               {/* Anexos */}
               {comunicado.anexos && comunicado.anexos.length > 0 && (
                 <div className="pt-4 border-t border-white/10 mt-6">
-                  <h4 className="text-xs font-bold text-white/70 uppercase mb-2">Anexos Vinculados ({comunicado.anexos.length})</h4>
+                  <h4 className="text-xs font-bold text-white/70 uppercase mb-2">
+                    Documento Anexo Oficial ({comunicado.anexos.length})
+                  </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {comunicado.anexos.map((anexo) => (
-                      <div key={anexo.id} className="p-3 bg-[#12141F] rounded-lg border border-white/5 flex items-center justify-between">
+                      <div key={anexo.id} className="p-3 bg-[#12141F] rounded-xl border border-rose-500/20 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2 overflow-hidden">
-                          <FileText className="w-4 h-4 text-cyan-400 shrink-0" />
-                          <span className="text-xs font-medium text-white truncate">{anexo.nomeOriginal}</span>
+                          <FileText className="w-4 h-4 text-rose-400 shrink-0" />
+                          <div className="truncate">
+                            <span className="text-xs font-medium text-white truncate block">{anexo.nomeOriginal}</span>
+                            <span className="text-[10px] text-white/40 font-mono">{(anexo.tamanhoBytes / 1024).toFixed(0)} KB</span>
+                          </div>
                         </div>
-                        <span className="text-[10px] text-white/40">{(anexo.tamanhoBytes / 1024).toFixed(0)} KB</span>
+                        <a
+                          href={`/api/comunicados/anexo/${anexo.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 text-rose-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0"
+                          title="Visualizar documento PDF na íntegra"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>Ler PDF</span>
+                        </a>
                       </div>
                     ))}
                   </div>

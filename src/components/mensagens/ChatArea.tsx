@@ -6,6 +6,7 @@ import {
   Users, ArrowLeft, Loader2, Shield, Search, Plus,
   Edit3, ChevronDown, Info, Lock, AlertTriangle,
   MoreVertical, Check, CheckCheck, ExternalLink, Clock,
+  UploadCloud, Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -15,6 +16,7 @@ import {
   editMessage,
 } from '@/app/actions/mensagens';
 import { GroupInfoPanel } from './GroupInfoPanel';
+import { MediaPreviewModal } from './MediaPreviewModal';
 
 interface ChatAreaProps {
   conversation: SerializedConversation;
@@ -125,6 +127,19 @@ export function ChatArea({
   const [addMemberUsers, setAddMemberUsers] = useState<{ id: string; name: string; role: string }[]>([]);
   const [addingMemberId, setAddingMemberId] = useState<string | null>(null);
 
+  // Drag & Drop
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounterRef = useRef(0);
+
+  // Lightbox / Preview de Mídia e PDFs
+  const [previewAnexo, setPreviewAnexo] = useState<SerializedMessage['anexos'][number] | null>(null);
+
+  // Botão flutuante Rolar para o Fim com Contador
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [unreadBelowCount, setUnreadBelowCount] = useState(0);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
+
   // Scroll to bottom
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -141,12 +156,42 @@ export function ChatArea({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Auto-scroll
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
+    }
+    setUnreadBelowCount(0);
+    setShowScrollBottom(false);
+    isAtBottomRef.current = true;
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const atBottom = distanceFromBottom < 100;
+    isAtBottomRef.current = atBottom;
+    if (atBottom) {
+      setShowScrollBottom(false);
+      setUnreadBelowCount(0);
+    } else {
+      setShowScrollBottom(true);
+    }
+  }, []);
+
+  // Auto-scroll e monitoramento de novas mensagens abaixo
   useEffect(() => {
     if (!loading) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      if (isAtBottomRef.current) {
+        scrollToBottom(false);
+      } else {
+        const lastMsg = messages[messages.length - 1];
+        if (lastMsg && lastMsg.remetenteId !== currentUserId) {
+          setUnreadBelowCount((c) => c + 1);
+        }
+      }
     }
-  }, [messages, loading]);
+  }, [messages, loading, currentUserId, scrollToBottom]);
 
   // Inicializa draft
   useEffect(() => {
@@ -245,14 +290,11 @@ export function ChatArea({
     }
   }, [inputText, conversation.id, replyTo, currentUserId, currentUserName, onMessageSent, onMessageUpdate, onDraftSave]);
 
-  // ── Upload de arquivo ─────────────────────────────────────────────────
-  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  // ── Upload unificado de arquivo (com suporte a Drag & Drop e Input) ────
+  const uploadAndSendFile = useCallback(async (file: File) => {
     const MAX_MB = 25;
     if (file.size > MAX_MB * 1024 * 1024) {
-      setUploadError(`Arquivo muito grande. Máximo: ${MAX_MB}MB.`);
+      setUploadError(`Arquivo muito grande. Máximo permitido: ${MAX_MB}MB.`);
       return;
     }
 
@@ -271,7 +313,7 @@ export function ChatArea({
       const data = await resp.json();
 
       if (!resp.ok || !data.success) {
-        setUploadError(data.error || 'Falha no upload.');
+        setUploadError(data.error || 'Falha no upload do arquivo.');
         return;
       }
 
@@ -286,14 +328,63 @@ export function ChatArea({
         },
       });
 
-      if (res.success && res.message) onMessageSent(res.message);
+      if (res.success && res.message) {
+        onMessageSent(res.message);
+        toast.success(`Arquivo enviado: ${file.name}`);
+      }
     } catch (err) {
-      setUploadError('Erro no upload. Tente novamente.');
+      console.error('[uploadAndSendFile] Erro:', err);
+      setUploadError('Erro de conexão no upload. Tente novamente.');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }, [conversation.id, onMessageSent]);
+
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await uploadAndSendFile(file);
+    }
+  }, [uploadAndSendFile]);
+
+  // Handlers para Drag & Drop
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      await uploadAndSendFile(file);
+    }
+  }, [uploadAndSendFile]);
 
   // ── Deletar mensagem ─────────────────────────────────────────────────
   const handleDelete = useCallback(async (msgId: string) => {
@@ -351,9 +442,15 @@ export function ChatArea({
     isGroup && conversation.membros.find((m) => m.userId === currentUserId)?.papel === 'ADMIN';
 
   return (
-    <div className="flex h-full w-full overflow-hidden">
+    <div
+      className="flex h-full w-full overflow-hidden relative"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {/* ── MAIN CHAT COLUMN ──────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#070A12]">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#070A12] relative">
         {/* Header */}
         <div className="flex items-center gap-2.5 px-3.5 border-b border-white/[0.08] bg-[#0d1117] shrink-0 h-14">
           {onBackToConversations && (
@@ -444,7 +541,11 @@ export function ChatArea({
         )}
 
         {/* ── Mensagens ─────────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-0 custom-scrollbar">
+        <div
+          ref={messagesContainerRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto px-3 py-3 space-y-0 custom-scrollbar relative"
+        >
           {loading ? (
             <div className="h-full flex items-center justify-center">
               <Loader2 className="w-6 h-6 text-emerald-400 animate-spin" />
@@ -558,44 +659,57 @@ export function ChatArea({
                                     {msg.anexos.map((a) => (
                                       <div
                                         key={a.id}
-                                        className="flex items-center gap-2 bg-black/20 rounded-lg px-2.5 py-2 border border-white/10"
+                                        onClick={() => setPreviewAnexo(a)}
+                                        title="Clique para visualizar o anexo"
+                                        className="flex items-center gap-2.5 bg-black/30 hover:bg-black/45 rounded-xl px-3 py-2 border border-white/10 hover:border-emerald-500/40 cursor-pointer transition group/anexo"
                                       >
-                                        <span className="text-base">{mimeIcon(a.mimeType)}</span>
+                                        <span className="text-lg shrink-0">{mimeIcon(a.mimeType)}</span>
                                         <div className="flex-1 min-w-0">
-                                          <p className="text-[11px] font-medium text-white truncate">{a.nomeArquivo}</p>
-                                          <p className="text-[10px] text-slate-400">{humanFileSize(a.tamanhoBytes)}</p>
+                                          <p className="text-[11px] font-medium text-white truncate group-hover/anexo:text-emerald-300 transition">
+                                            {a.nomeArquivo}
+                                          </p>
+                                          <p className="text-[10px] text-slate-400 font-mono">
+                                            {humanFileSize(a.tamanhoBytes)}
+                                          </p>
                                         </div>
-                                        <button
-                                          onClick={async (e) => {
-                                            e.stopPropagation();
-                                            try {
-                                              const res = await fetch(`/api/mensagens/anexo/${a.id}`, {
-                                                headers: { 'Accept': 'application/json' },
-                                              });
-                                              const data = await res.json();
-                                              if (data.signedUrl) {
-                                                // Blob download para preservar o nome original (cross-origin)
-                                                const fileRes = await fetch(data.signedUrl);
-                                                const blob = await fileRes.blob();
-                                                const blobUrl = URL.createObjectURL(blob);
-                                                const link = document.createElement('a');
-                                                link.href = blobUrl;
-                                                link.download = data.fileName || a.nomeArquivo;
-                                                document.body.appendChild(link);
-                                                link.click();
-                                                document.body.removeChild(link);
-                                                URL.revokeObjectURL(blobUrl);
-                                              } else {
-                                                setUploadError(data.error || 'Falha ao gerar link de download.');
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-slate-400 group-hover/anexo:text-emerald-400 font-medium px-2 py-0.5 rounded-md bg-white/[0.04]">
+                                            <Eye className="w-3 h-3" />
+                                            <span>Visualizar</span>
+                                          </span>
+                                          <button
+                                            type="button"
+                                            title="Baixar anexo"
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              try {
+                                                const res = await fetch(`/api/mensagens/anexo/${a.id}`, {
+                                                  headers: { 'Accept': 'application/json' },
+                                                });
+                                                const data = await res.json();
+                                                if (data.signedUrl) {
+                                                  const fileRes = await fetch(data.signedUrl);
+                                                  const blob = await fileRes.blob();
+                                                  const blobUrl = URL.createObjectURL(blob);
+                                                  const link = document.createElement('a');
+                                                  link.href = blobUrl;
+                                                  link.download = data.fileName || a.nomeArquivo;
+                                                  document.body.appendChild(link);
+                                                  link.click();
+                                                  document.body.removeChild(link);
+                                                  URL.revokeObjectURL(blobUrl);
+                                                } else {
+                                                  setUploadError(data.error || 'Falha ao gerar link de download.');
+                                                }
+                                              } catch {
+                                                setUploadError('Erro ao baixar anexo.');
                                               }
-                                            } catch {
-                                              setUploadError('Erro ao baixar anexo.');
-                                            }
-                                          }}
-                                          className="p-1 rounded text-slate-400 hover:text-emerald-400"
-                                        >
-                                          <Download className="w-3.5 h-3.5" />
-                                        </button>
+                                            }}
+                                            className="p-1 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-white/10 transition"
+                                          >
+                                            <Download className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
                                       </div>
                                     ))}
                                   </div>
@@ -845,6 +959,46 @@ export function ChatArea({
           ))}
         </div>
       )}
+
+      {/* ── BOTÃO FLUTUANTE ROLAR PARA O FIM COM CONTADOR ──────────── */}
+      {showScrollBottom && (
+        <button
+          type="button"
+          onClick={() => scrollToBottom(true)}
+          aria-label="Rolar para o fim da conversa"
+          title="Rolar para as mensagens mais recentes"
+          className="absolute bottom-20 right-6 z-30 w-10 h-10 rounded-full bg-[#111827]/90 hover:bg-[#1f2937] text-slate-200 hover:text-white border border-white/15 shadow-2xl backdrop-blur-md flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer animate-in fade-in slide-in-from-bottom-2 duration-150"
+        >
+          <ChevronDown className="w-5 h-5 stroke-[2.5]" />
+          {unreadBelowCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-[20px] px-1 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center shadow-lg border border-[#111827] animate-pulse">
+              {unreadBelowCount > 9 ? '9+' : unreadBelowCount}
+            </span>
+          )}
+        </button>
+      )}
+
+      {/* ── OVERLAY DE DRAG & DROP ────────────────────────────────────── */}
+      {isDragging && (
+        <div className="absolute inset-0 z-40 bg-[#070A12]/85 backdrop-blur-sm border-2 border-dashed border-emerald-500/80 rounded-2xl m-3 flex flex-col items-center justify-center gap-3 animate-in fade-in duration-150 pointer-events-none shadow-2xl">
+          <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shadow-xl shadow-emerald-500/25 animate-bounce">
+            <UploadCloud className="w-8 h-8" />
+          </div>
+          <p className="text-sm font-bold text-white tracking-wide">
+            Solte o arquivo aqui para enviar
+          </p>
+          <p className="text-xs text-slate-400 font-mono">
+            PDFs, Imagens, Documentos até 25MB
+          </p>
+        </div>
+      )}
+
+      {/* ── MODAL DE PREVIEW / LIGHTBOX ─────────────────────────────── */}
+      <MediaPreviewModal
+        isOpen={!!previewAnexo}
+        onClose={() => setPreviewAnexo(null)}
+        anexo={previewAnexo}
+      />
     </div>
   );
 }

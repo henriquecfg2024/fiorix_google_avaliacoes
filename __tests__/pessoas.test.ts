@@ -45,4 +45,24 @@ describe("FIORIX PESSOAS - Segurança e Regras de Negócio", () => {
     const diffMaior = Math.ceil((dataMaior.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
     expect(diffMaior >= 30).toBe(true);
   });
+
+  describe("Anexo de Comunicados em PDF", () => {
+    it("deve validar magic bytes (%PDF-) para anexos oficiais", () => {
+      const validPdfBuffer = Buffer.from("%PDF-1.7\nExemplo de Comunicado Oficial");
+      const isValidMagicBytes = validPdfBuffer.length >= 5 && validPdfBuffer.toString("utf-8", 0, 5) === "%PDF-";
+      expect(isValidMagicBytes).toBe(true);
+    });
+
+    it("deve rejeitar arquivo disfarçado com extensão .pdf mas sem magic bytes válidos", () => {
+      const fakePdfBuffer = Buffer.from("<script>alert('xss')</script>");
+      const isValidMagicBytes = fakePdfBuffer.length >= 5 && fakePdfBuffer.toString("utf-8", 0, 5) === "%PDF-";
+      expect(isValidMagicBytes).toBe(false);
+    });
+
+    it("deve calcular hash SHA-256 de integridade criptográfica para anexos binários", () => {
+      const pdfContent = Buffer.from("%PDF-1.4\nPortaria Administrativa nº 05/2026");
+      const hash = generateHash(pdfContent.toString("binary"));
+      expect(hash).toHaveLength(64);
+    });
+  });
 });

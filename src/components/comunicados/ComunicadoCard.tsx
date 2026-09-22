@@ -289,11 +289,19 @@ export function ComunicadoCard({
           {comunicado.anexos && comunicado.anexos.length > 0 && (
             <Button
               variant="outline"
-              onClick={() => onOpenAnexos && onOpenAnexos(comunicado)}
-              className="border-white/10 bg-[#12141F] text-white/80 hover:text-white hover:bg-white/10 text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 cursor-pointer"
+              onClick={() => {
+                if (onOpenAnexos) {
+                  onOpenAnexos(comunicado);
+                } else if (comunicado.anexos?.[0]?.id) {
+                  window.open(`/api/comunicados/anexo/${comunicado.anexos[0].id}`, "_blank");
+                }
+              }}
+              className="border-rose-500/30 bg-rose-500/10 text-rose-300 hover:text-white hover:bg-rose-500/20 text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 cursor-pointer font-semibold shadow-sm"
+              title={`Visualizar documento PDF: ${comunicado.anexos[0].nomeOriginal}`}
             >
+              <FileText className="w-3.5 h-3.5 text-rose-400" />
               <span>
-                Ver Anexo{comunicado.anexos.length > 1 ? "s" : ""} ({comunicado.anexos.length})
+                Visualizar PDF {comunicado.anexos.length > 1 ? `(${comunicado.anexos.length})` : "Oficial"}
               </span>
             </Button>
           )}

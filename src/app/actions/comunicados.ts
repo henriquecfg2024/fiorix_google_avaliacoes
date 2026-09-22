@@ -20,6 +20,13 @@ export interface ComunicadoItem {
   conteudoHash?: string;
   ultimaAlteracaoPor?: string;
   dataUltimaAlteracao?: string;
+  anexos?: Array<{
+    id: string;
+    nomeOriginal: string;
+    tamanhoBytes: number;
+    hashSha256?: string;
+    storagePath?: string;
+  }>;
 }
 
 export async function getComunicadosRH(): Promise<ComunicadoItem[]> {
@@ -35,6 +42,7 @@ export async function getComunicadosRH(): Promise<ComunicadoItem[]> {
     },
     include: {
       ciencias: true,
+      anexos: true,
       autor: {
         select: {
           name: true,
@@ -90,6 +98,13 @@ export async function getComunicadosRH(): Promise<ComunicadoItem[]> {
       conteudoHash: c.conteudoHash,
       ultimaAlteracaoPor: (c as any).ultimaAlteracaoPor || undefined,
       dataUltimaAlteracao: dataAltFmt,
+      anexos: c.anexos?.map((a) => ({
+        id: a.id,
+        nomeOriginal: a.nomeOriginal,
+        tamanhoBytes: a.tamanhoBytes,
+        hashSha256: a.hashSha256,
+        storagePath: a.storagePath,
+      })) || [],
     };
   });
 }
@@ -140,6 +155,13 @@ export async function criarComunicadoRH(data: {
   conteudo: string;
   prioridade?: string;
   destinatarios?: string[];
+  pdfAnexo?: {
+    storagePath: string;
+    nomeOriginal: string;
+    mimeType: string;
+    tamanhoBytes: number;
+    hashSha256: string;
+  };
 }) {
   const user = await requireRole('ADMIN', 'RH', 'MASTER', 'GESTOR', 'SUBSTITUTO');
 
@@ -156,6 +178,22 @@ export async function criarComunicadoRH(data: {
       destinatarios: data.destinatarios || ['TODOS'],
       exigeCiencia: true,
       status: 'PUBLICADO',
+      anexos: data.pdfAnexo
+        ? {
+            create: {
+              tenantId: user.tenantId,
+              storagePath: data.pdfAnexo.storagePath,
+              nomeOriginal: data.pdfAnexo.nomeOriginal,
+              mimeType: data.pdfAnexo.mimeType || 'application/pdf',
+              tamanhoBytes: data.pdfAnexo.tamanhoBytes,
+              hashSha256: data.pdfAnexo.hashSha256,
+              uploadedBy: user.id,
+            },
+          }
+        : undefined,
+    },
+    include: {
+      anexos: true,
     },
   });
 
@@ -168,13 +206,25 @@ export async function criarComunicadoRH(data: {
       titulo: novo.titulo,
       prioridade: novo.prioridade,
       conteudoHash,
+      temAnexoPdf: !!data.pdfAnexo,
+      anexoPdfNome: data.pdfAnexo?.nomeOriginal,
     },
   });
 
   revalidatePath('/sistema/pessoas');
   revalidatePath('/pessoas/comunicados');
 
-  return { success: true, id: novo.id };
+  return {
+    success: true,
+    id: novo.id,
+    anexos: novo.anexos?.map((a) => ({
+      id: a.id,
+      nomeOriginal: a.nomeOriginal,
+      tamanhoBytes: a.tamanhoBytes,
+      hashSha256: a.hashSha256,
+      storagePath: a.storagePath,
+    })) || [],
+  };
 }
 
 export async function editarComunicadoRH(

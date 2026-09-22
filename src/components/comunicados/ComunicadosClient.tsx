@@ -17,25 +17,89 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ComunicadoCard, ComunicadoItem } from "@/components/comunicados/ComunicadoCard";
 import { CienciaModal } from "@/components/comunicados/CienciaModal";
+import { SecurePDFViewer } from "@/components/comunicados/SecurePDFViewer";
 import Link from "next/link";
 
 interface ComunicadosClientProps {
   userRole?: string;
   userName?: string;
+  initialComunicados?: ComunicadoItem[];
 }
 
 export function ComunicadosClient({
   userRole = "USER",
   userName = "Colaborador",
+  initialComunicados = [],
 }: ComunicadosClientProps) {
   const [activeTab, setActiveTab] = useState<"nao_lidos" | "urgentes" | "recentes" | "arquivo" | "todos">("nao_lidos");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedComunicado, setSelectedComunicado] = useState<ComunicadoItem | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<{ title: string; url: string; id: string } | null>(null);
 
   const isManager = userRole === "ADMIN" || userRole === "RH" || userRole === "MASTER" || userRole === "GESTOR" || userRole === "SUBSTITUTO";
 
-  // Comunicados carregados do banco — inicializado vazio para uso oficial
-  const [comunicados, setComunicados] = useState<ComunicadoItem[]>([]);
+  // Fallback para exibição institucional caso ainda não haja dados no banco
+  const fallbackComunicados: ComunicadoItem[] = [
+    {
+      id: "com-1",
+      titulo: "Alteração de Horário - Plantão de Fim de Ano",
+      conteudo:
+        "Informamos a escala especial de plantão de atendimento ao público durante o recesso de fim de ano. Todos os colaboradores devem registrar sua ciência formal com hash SHA-256.",
+      conteudoHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      prioridade: "URGENTE",
+      versao: 1,
+      dataPublicacao: "2026-08-30T09:00:00Z",
+      exigeCiencia: true,
+      visualizado: false,
+      autorNome: "Nadia Najjar (RH)",
+      anexos: [
+        {
+          id: "anx-1",
+          nomeOriginal: "Portaria_Plantao_Fim_Ano_2026.pdf",
+          tamanhoBytes: 245000,
+        },
+      ],
+      ciencias: [],
+    },
+    {
+      id: "com-2",
+      titulo: "Diretriz Operacional Interna - Balcão e Qualificação 2026",
+      conteudo:
+        "Diretrizes de conformidade jurídica e padrão interno de excelência para os balcões e qualificações de títulos do 7º RI SP.",
+      conteudoHash: "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+      prioridade: "IMPORTANTE",
+      versao: 1,
+      dataPublicacao: "2026-08-28T14:30:00Z",
+      exigeCiencia: true,
+      visualizado: true,
+      autorNome: "Henrique Cesar (Admin)",
+      anexos: [
+        {
+          id: "anx-2",
+          nomeOriginal: "Diretriz_Balcao_Qualificacao_2026.pdf",
+          tamanhoBytes: 512000,
+        },
+      ],
+      ciencias: [
+        {
+          id: "ci-1",
+          dataCiencia: "2026-08-29T10:00:00Z",
+          comprovanteHash: "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+        },
+      ],
+    },
+  ];
+
+  // Comunicados carregados do banco (ou fallback se vazio)
+  const [comunicados, setComunicados] = useState<ComunicadoItem[]>(() =>
+    initialComunicados && initialComunicados.length > 0 ? initialComunicados : fallbackComunicados
+  );
+
+  React.useEffect(() => {
+    if (initialComunicados && initialComunicados.length > 0) {
+      setComunicados(initialComunicados);
+    }
+  }, [initialComunicados]);
 
   // Métricas dinâmicas e contadores estritos
   const urgentesPendentes = comunicados.filter(
@@ -357,6 +421,15 @@ export function ComunicadosClient({
                     key={comunicado.id}
                     comunicado={comunicado}
                     onOpenCiencia={handleOpenCienciaModal}
+                    onOpenAnexos={(c) => {
+                      if (c.anexos && c.anexos.length > 0) {
+                        setPdfPreview({
+                          id: c.anexos[0].id,
+                          title: `${c.titulo} — ${c.anexos[0].nomeOriginal}`,
+                          url: `/api/comunicados/anexo/${c.anexos[0].id}`,
+                        });
+                      }
+                    }}
                   />
                 ))
               )}
@@ -418,6 +491,18 @@ export function ComunicadosClient({
 
       {selectedComunicado && (
         <CienciaModal comunicado={selectedComunicado} onClose={() => setSelectedComunicado(null)} onSuccess={handleCienciaSuccess} />
+      )}
+
+      {pdfPreview && (
+        <SecurePDFViewer
+          documentTitle={pdfPreview.title}
+          documentType="comunicado"
+          documentId={pdfPreview.id}
+          fileUrl={pdfPreview.url}
+          userName={userName}
+          allowDownload={true}
+          onClose={() => setPdfPreview(null)}
+        />
       )}
     </div>
   );

@@ -41,6 +41,7 @@ interface ConversasSidebarProps {
   notificationPermission?: 'granted' | 'default' | 'denied' | 'unsupported';
   onEnableNotifications?: () => void;
   onTestSound?: () => void;
+  typingByConversation?: Record<string, Record<string, string>>;
 }
 
 // Gera cor de avatar determinística com base no nome
@@ -108,6 +109,7 @@ export function ConversasSidebar({
   notificationPermission,
   onEnableNotifications,
   onTestSound,
+  typingByConversation,
 }: ConversasSidebarProps) {
   const [search, setSearch] = useState('');
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -306,6 +308,14 @@ export function ConversasSidebar({
               const isMuted = c.isMuted ?? false;
               const hasDraft = !!c.draft;
 
+              const typingUsersInConv = typingByConversation?.[c.id]
+                ? Object.values(typingByConversation[c.id])
+                : [];
+              const isTyping = typingUsersInConv.length > 0;
+              const typingLabel = isGroup && typingUsersInConv[0]
+                ? `${typingUsersInConv[0].split(' ')[0]} está digitando…`
+                : 'digitando…';
+
               if (isCollapsed) {
                 return (
                   <div key={c.id} className="flex justify-center py-1">
@@ -323,6 +333,9 @@ export function ConversasSidebar({
                         <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-[#0d1117]">
                           {c.unreadCount > 9 ? '9+' : c.unreadCount}
                         </span>
+                      )}
+                      {isTyping && (
+                        <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-[#0d1117] animate-pulse" />
                       )}
                     </button>
                   </div>
@@ -370,7 +383,16 @@ export function ConversasSidebar({
 
                     <div className="flex items-center justify-between gap-1">
                       <div className="flex items-center gap-1 text-[11px] text-slate-400 truncate min-w-0">
-                        {hasDraft ? (
+                        {isTyping ? (
+                          <span className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
+                            <span className="truncate">{typingLabel}</span>
+                            <span className="inline-flex gap-0.5 items-center shrink-0">
+                              <span className="w-1 h-1 rounded-full bg-emerald-400 animate-bounce [animation-delay:-0.3s]" />
+                              <span className="w-1 h-1 rounded-full bg-emerald-400 animate-bounce [animation-delay:-0.15s]" />
+                              <span className="w-1 h-1 rounded-full bg-emerald-400 animate-bounce" />
+                            </span>
+                          </span>
+                        ) : hasDraft ? (
                           <span className="text-amber-400 italic truncate">Rascunho: {c.draft}</span>
                         ) : c.lastMessage ? (
                           <>

@@ -102,8 +102,8 @@ export function MensagensClient({
     toast.success('Som de notificação emitido com sucesso!');
   };
 
-  // Presença: usuários digitando e online
-  const [typingUsers, setTypingUsers] = useState<Record<string, string>>({});
+  // Presença: usuários digitando por conversa e online
+  const [typingByConversation, setTypingByConversation] = useState<Record<string, Record<string, string>>>({});
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
 
   // Cache em memória de mensagens por conversa para navegação ultra-rápida (0ms)
@@ -376,15 +376,28 @@ export function MensagensClient({
       })
       .on('broadcast', { event: 'typing' }, (payload: any) => {
         const { userId, userName, conversationId } = payload.payload || {};
-        if (!userId || userId === currentUserId) return;
-        if (conversationId !== activeIdRef.current) return;
+        if (!userId || userId === currentUserId || !conversationId) return;
 
-        setTypingUsers((prev) => ({ ...prev, [userId]: userName }));
+        setTypingByConversation((prev) => {
+          const convMap = prev[conversationId] || {};
+          return {
+            ...prev,
+            [conversationId]: { ...convMap, [userId]: userName },
+          };
+        });
+
         setTimeout(() => {
-          setTypingUsers((prev) => {
-            const next = { ...prev };
-            delete next[userId];
-            return next;
+          setTypingByConversation((prev) => {
+            const convMap = prev[conversationId];
+            if (!convMap || !convMap[userId]) return prev;
+            const updated = { ...convMap };
+            delete updated[userId];
+            if (Object.keys(updated).length === 0) {
+              const next = { ...prev };
+              delete next[conversationId];
+              return next;
+            }
+            return { ...prev, [conversationId]: updated };
           });
         }, 3000);
       })
@@ -552,7 +565,9 @@ export function MensagensClient({
   }, []);
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId);
-  const typingList = Object.values(typingUsers);
+  const typingList = activeConversationId && typingByConversation[activeConversationId]
+    ? Object.values(typingByConversation[activeConversationId])
+    : [];
 
   return (
     <div className="h-[calc(100vh-65px)] w-full flex flex-col bg-[#070A12] overflow-hidden">
@@ -608,6 +623,7 @@ export function MensagensClient({
             notificationPermission={notificationPermission}
             onEnableNotifications={handleEnableNotifications}
             onTestSound={handleTestSound}
+            typingByConversation={typingByConversation}
           />
         </div>
 

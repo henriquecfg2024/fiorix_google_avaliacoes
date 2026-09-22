@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Shield, Eye, Printer, Download, Lock, FileText, X } from "lucide-react";
+import { Shield, Eye, Printer, Download, Lock, FileText, X, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SecurePDFViewerProps {
@@ -113,6 +113,18 @@ export function SecurePDFViewer({
                 <span>Baixar</span>
               </Button>
             )}
+            {fileUrl && (
+              <a
+                href={fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="border border-white/10 text-white/80 hover:bg-white/10 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+                title="Abrir PDF em nova aba"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Nova Aba</span>
+              </a>
+            )}
             {onClose && (
               <button
                 onClick={onClose}
@@ -144,53 +156,63 @@ export function SecurePDFViewer({
           </div>
 
           {/* PDF Frame or Simulated Document Canvas */}
-          <div className="w-full max-w-2xl min-h-[500px] bg-[#101019] border border-white/10 rounded-xl p-8 shadow-inner flex flex-col justify-between text-white/90">
-            <div className="border-b border-white/10 pb-4 flex justify-between items-start">
-              <div>
-                <h3 className="font-bold text-base text-white">7º REGISTRO DE IMÓVEIS DE SÃO PAULO</h3>
-                <p className="text-xs text-white/50">Sistema Integrado FIORIX PESSOAS</p>
-              </div>
-              <div className="text-right">
-                <span className="text-xs font-mono text-cyan-400">VIA ELETRÔNICA AUDITADA</span>
-                <p className="text-[10px] text-white/40">{timestamp}</p>
-              </div>
+          {fileUrl ? (
+            <div className="w-full h-full min-h-[500px] flex-1 flex flex-col bg-[#101019] border border-white/10 rounded-xl overflow-hidden shadow-inner relative z-0">
+              <iframe
+                src={fileUrl}
+                title={documentTitle}
+                className="w-full h-full min-h-[500px] flex-1 border-0 bg-white"
+              />
             </div>
-
-            <div className="my-8 space-y-4 text-xs text-white/70 leading-relaxed">
-              <div className="p-3 bg-white/5 rounded-lg border border-white/5 flex items-center justify-between">
+          ) : (
+            <div className="w-full max-w-2xl min-h-[500px] bg-[#101019] border border-white/10 rounded-xl p-8 shadow-inner flex flex-col justify-between text-white/90">
+              <div className="border-b border-white/10 pb-4 flex justify-between items-start">
                 <div>
-                  <span className="text-white/40 block text-[10px] uppercase">Titular</span>
-                  <span className="font-bold text-white">{userName}</span>
+                  <h3 className="font-bold text-base text-white">7º REGISTRO DE IMÓVEIS DE SÃO PAULO</h3>
+                  <p className="text-xs text-white/50">Sistema Integrado FIORIX PESSOAS</p>
                 </div>
-                <div>
-                  <span className="text-white/40 block text-[10px] uppercase">CPF Mascarado</span>
-                  <span className="font-mono text-white/80">{userCpfMasked}</span>
-                </div>
-                <div>
-                  <span className="text-white/40 block text-[10px] uppercase">Documento</span>
-                  <span className="font-semibold text-indigo-300">{documentTitle}</span>
+                <div className="text-right">
+                  <span className="text-xs font-mono text-cyan-400">VIA ELETRÔNICA AUDITADA</span>
+                  <p className="text-[10px] text-white/40">{timestamp}</p>
                 </div>
               </div>
 
-              <div className="p-4 bg-[#080A12] rounded-lg border border-white/5 space-y-2">
-                <p className="font-semibold text-white/80">Informações de Segurança e Integridade:</p>
-                <p>
-                  Este documento digital foi gerado e protegido conforme as diretrizes do Art. 464 da CLT e da LGPD (Lei 13.709/2018).
-                  A integridade do arquivo é garantida por função de hash criptográfico SHA-256 e o acesso foi registrado na trilha de auditoria corporativa.
-                </p>
-              </div>
-            </div>
+              <div className="my-8 space-y-4 text-xs text-white/70 leading-relaxed">
+                <div className="p-3 bg-white/5 rounded-lg border border-white/5 flex items-center justify-between">
+                  <div>
+                    <span className="text-white/40 block text-[10px] uppercase">Titular</span>
+                    <span className="font-bold text-white">{userName}</span>
+                  </div>
+                  <div>
+                    <span className="text-white/40 block text-[10px] uppercase">CPF Mascarado</span>
+                    <span className="font-mono text-white/80">{userCpfMasked}</span>
+                  </div>
+                  <div>
+                    <span className="text-white/40 block text-[10px] uppercase">Documento</span>
+                    <span className="font-semibold text-indigo-300">{documentTitle}</span>
+                  </div>
+                </div>
 
-            <div className="border-t border-white/10 pt-4 flex items-center justify-between text-[10px] text-white/40">
-              <div className="flex items-center gap-1.5">
-                <Shield className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Trilha de Auditoria Protegida • IP: {userIpMasked}</span>
+                <div className="p-4 bg-[#080A12] rounded-lg border border-white/5 space-y-2">
+                  <p className="font-semibold text-white/80">Informações de Segurança e Integridade:</p>
+                  <p>
+                    Este documento digital foi gerado e protegido conforme as diretrizes do Art. 464 da CLT e da LGPD (Lei 13.709/2018).
+                    A integridade do arquivo é garantida por função de hash criptográfico SHA-256 e o acesso foi registrado na trilha de auditoria corporativa.
+                  </p>
+                </div>
               </div>
-              <div className="font-mono">
-                ID: {documentId.substring(0, 12)}...
+
+              <div className="border-t border-white/10 pt-4 flex items-center justify-between text-[10px] text-white/40">
+                <div className="flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Trilha de Auditoria Protegida • IP: {userIpMasked}</span>
+                </div>
+                <div className="font-mono">
+                  ID: {documentId.substring(0, 12)}...
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Footer Security Notice */}
