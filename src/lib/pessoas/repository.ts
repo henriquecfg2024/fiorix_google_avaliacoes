@@ -49,39 +49,6 @@ export class PessoasRepository {
         },
       });
 
-      if (!com && comunicadoId.startsWith("com-")) {
-        try {
-          const user = await prisma.user.findFirst({ where: { tenantId } });
-          const creatorId = authorId || user?.id;
-          if (creatorId) {
-            com = await prisma.fiorixComunicado.upsert({
-              where: { id: comunicadoId },
-              create: {
-                id: comunicadoId,
-                tenantId,
-                autorId: creatorId,
-                titulo:
-                  comunicadoId === "com-1"
-                    ? "Alteração de Horário - Plantão de Fim de Ano"
-                    : comunicadoId === "com-2"
-                    ? "Nova Política de Atendimento - Prov. 213/2026"
-                    : "Campanha Setembro Amarelo - Saúde Mental",
-                conteudo:
-                  "Informamos que haverá alteração no horário de funcionamento durante o período de 15/12/2026 a 31/12/2026. Favor verificar os novos horários em anexo e registrar sua ciência obrigatória.",
-                conteudoHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                prioridade: comunicadoId === "com-1" ? "URGENTE" : "IMPORTANTE",
-                destinatarios: ["TODOS"],
-                exigeCiencia: true,
-              },
-              update: {},
-              include: { anexos: true },
-            });
-          }
-        } catch (seedErr) {
-          console.warn("Could not auto-seed initial comunicado:", seedErr);
-        }
-      }
-
       return com;
     } catch (error) {
       console.error("Erro ao buscar comunicado por ID:", error);

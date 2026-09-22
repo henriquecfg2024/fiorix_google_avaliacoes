@@ -57,3 +57,7 @@ src/app/(dashboard)/jornada/
 src/app/api/jornada/
 src/components/jornada/
 src/lib/jornada/
+
+# Backups e dumps locais
+backups/
+
