@@ -28,6 +28,9 @@ export default async function LocalizacaoTitulosPage({
   }
 
   const role = session.user.role ?? 'USER';
+  if (role === 'RH') {
+    redirect('/sistema/pessoas');
+  }
   const isColaborador = role === 'COLABORADOR';
 
   const initialProtocolo =

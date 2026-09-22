@@ -37,6 +37,11 @@ export function filterNavigationByRole(role: Role = "USER") {
         return isSubstituto || role === "ADMIN" || role === "MASTER" || role === "GESTOR";
       }
 
+      // Rastreio do Título oculto para RH
+      if (isRH && (item.href === "/trajetoria-titulo" || item.label === "Rastreio do Título")) {
+        return false;
+      }
+
       // COLABORADOR: 'pessoas' mostra só Férias e Holerites (Comunicados/MinhaIT estão em 'trabalho')
       if (isColaborador && key === "pessoas") {
         return (
