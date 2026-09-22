@@ -36,8 +36,6 @@ export function ComunicadosClient({
   const [selectedComunicado, setSelectedComunicado] = useState<ComunicadoItem | null>(null);
   const [pdfPreview, setPdfPreview] = useState<{ title: string; url: string; id: string } | null>(null);
 
-  const isManager = userRole === "ADMIN" || userRole === "RH" || userRole === "MASTER" || userRole === "GESTOR" || userRole === "SUBSTITUTO";
-
   // Fallback para exibição institucional caso ainda não haja dados no banco
   const fallbackComunicados: ComunicadoItem[] = [
     {
@@ -107,9 +105,6 @@ export function ComunicadosClient({
   );
 
   const naoLidosCount = comunicados.filter((c) => !c.visualizado).length;
-  const pendenciasCiencia = comunicados.filter(
-    (c) => c.exigeCiencia && (!c.ciencias || c.ciencias.length === 0)
-  ).length;
   const cienciasConcluidas = comunicados.filter(
     (c) => c.ciencias && c.ciencias.length > 0
   ).length;
@@ -146,24 +141,6 @@ export function ComunicadosClient({
     );
     setSelectedComunicado(comunicado);
   };
-
-  let statusText = "Tudo em dia";
-  let statusColor = "text-emerald-400";
-  let statusSubtext = "Nenhuma ação pendente";
-
-  if (urgentesPendentes.length > 0) {
-    statusText = "Ação necessária";
-    statusColor = "text-rose-400";
-    statusSubtext = `${urgentesPendentes.length} urgente pendente`;
-  } else if (pendenciasCiencia > 0) {
-    statusText = "Ciência pendente";
-    statusColor = "text-amber-400";
-    statusSubtext = `${pendenciasCiencia} aguardando ciência`;
-  } else if (naoLidosCount > 0) {
-    statusText = "Novos comunicados";
-    statusColor = "text-cyan-400";
-    statusSubtext = `${naoLidosCount} não lido(s)`;
-  }
 
   return (
     <div className="w-full flex-1 flex flex-col justify-start bg-[#070A12] text-white relative overflow-hidden pb-12">
@@ -205,56 +182,6 @@ export function ComunicadosClient({
             </div>
           </div>
         )}
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          <div className="p-5 rounded-[24px] border border-rose-500/30 bg-[#140a12]/80 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.25)] flex flex-col justify-between">
-            <div className="flex items-center justify-between text-xs text-slate-400">
-              <span className="font-bold text-slate-300">NÃO LIDOS</span>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-black text-white">{naoLidosCount}</span>
-            </div>
-            <span className="text-[11px] text-rose-400 font-medium mt-1">
-              {naoLidosCount > 0 ? "Expiram em breve" : "Todos lidos"}
-            </span>
-          </div>
-
-          <div className="p-5 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.25)] flex flex-col justify-between">
-            <span className="text-xs font-bold text-slate-400">{!isManager ? "MINHAS CIÊNCIAS" : "TAXA DE CIÊNCIA"}</span>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-black text-cyan-400">{!isManager ? `${cienciasConcluidas}/${comunicados.length}` : "87%"}</span>
-            </div>
-            <span className="text-[11px] text-slate-400 mt-1">
-              {!isManager ? (pendenciasCiencia > 0 ? `${pendenciasCiencia} aguardando ciência` : "Todas concluídas") : "Colaboradores cientes"}
-            </span>
-          </div>
-
-          <div className="p-5 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.25)] flex flex-col justify-between">
-            <div className="flex items-center justify-between text-xs text-slate-400">
-              <span className="font-bold text-slate-300">CIÊNCIAS PENDENTES</span>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-black text-amber-300">{pendenciasCiencia}</span>
-            </div>
-            <span className="text-[11px] text-amber-400/90 font-medium mt-1">
-              {pendenciasCiencia > 0 ? "Dentro do prazo" : "Nenhuma pendência"}
-            </span>
-          </div>
-
-          <div className="p-5 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.25)] flex flex-col justify-between">
-            <span className="text-xs font-bold text-slate-400">COMUNICADOS</span>
-            <span className="text-3xl font-black text-white mt-3">{comunicados.length}</span>
-            <span className="text-[11px] text-slate-400 mt-1">Últimos 90 dias</span>
-          </div>
-
-          <div className="p-5 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.25)] flex flex-col justify-between col-span-2 sm:col-span-1">
-            <span className="text-xs font-bold text-slate-400">MEU STATUS</span>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className={`text-2xl font-black ${statusColor}`}>{statusText}</span>
-            </div>
-            <span className="text-[11px] text-slate-400 mt-1">{statusSubtext}</span>
-          </div>
-        </div>
 
         <div className="w-full space-y-5" id="comunicados-feed">
           {/* Navigation Tabs & Search */}
