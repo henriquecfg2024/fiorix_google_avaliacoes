@@ -17,11 +17,20 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: Fe
   const [mounted, setMounted] = useState(false);
   const isManager = ["ADMIN", "RH", "MASTER", "GESTOR"].includes(userRole);
 
-  const [activeTab, setActiveTab] = useState<"minhas" | "escala">(isManager ? "escala" : "minhas");
+  const [activeTab, setActiveTab] = useState<"minhas" | "escala">("minhas");
   const [ano] = useState(2027);
   const [loading, setLoading] = useState(true);
   const [publicacao, setPublicacao] = useState<PublicacaoStatus>({ ano, status: "RASCUNHO" });
   const [minhasFerias, setMinhasFerias] = useState<EscalaItem | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("tab") === "escala") {
+        setActiveTab("escala");
+      }
+    }
+  }, []);
 
   useEffect(() => {
     setMounted(true);
