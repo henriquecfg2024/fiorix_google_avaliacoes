@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Briefcase, Calendar, Clock, AlertTriangle, ShieldCheck, FileText, CheckCircle2, Lock } from "lucide-react";
+import { Briefcase, Calendar } from "lucide-react";
 import { FeriasTimeline } from "@/components/ferias/FeriasTimeline";
 import { FeriasCalendar } from "@/components/ferias/FeriasCalendar";
 import { Button } from "@/components/ui/button";
@@ -66,9 +66,6 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: Fe
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
                 FÉRIAS
               </h1>
-              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
-                CLT ART. 135
-              </span>
             </div>
             <p className="text-xs text-slate-400 mt-1">
               Planejamento, previsão legal e histórico de alterações em conformidade com as normas da Corregedoria.
@@ -99,79 +96,46 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: Fe
         </div>
 
         {(!isManager || activeTab === "minhas") ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="w-full max-w-5xl space-y-6">
             {/* Card Principal de Férias Previstas */}
-            <div className="lg:col-span-8 space-y-6">
-              <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-6">
-                <div className="flex items-center justify-between border-b border-white/8 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
-                      <Briefcase className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Próximas Férias Previstas</span>
-                      <h3 className="text-xl font-bold text-slate-500 italic">Nenhuma previsão cadastrada</h3>
-                    </div>
+            <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-6">
+              <div className="flex items-center justify-between border-b border-white/8 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
+                    <Briefcase className="w-6 h-6" />
                   </div>
-
-                  <span className="rounded-full border border-zinc-500/25 bg-zinc-500/10 px-3 py-1 font-mono text-xs font-bold text-zinc-400">
-                    — DIAS
-                  </span>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Próximas Férias Previstas</span>
+                    <h3 className="text-xl font-bold text-slate-500 italic">Nenhuma previsão cadastrada</h3>
+                  </div>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/8 text-center">
-                  <p className="text-sm text-slate-400 italic">
-                    Seu período de férias ainda não foi cadastrado pelo RH.
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Entre em contato com o setor de Recursos Humanos para mais informações.
-                  </p>
-                </div>
+                <span className="rounded-full border border-zinc-500/25 bg-zinc-500/10 px-3 py-1 font-mono text-xs font-bold text-zinc-400">
+                  — DIAS
+                </span>
               </div>
 
-              {/* Histórico e Trilha de Alterações */}
-              <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
-                <div className="flex items-center justify-between border-b border-white/8 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-indigo-400" />
-                    <h3 className="text-sm font-bold text-white">Linha do Tempo de Previsões & Alterações</h3>
-                  </div>
-                  <span className="text-[10px] font-mono text-slate-400">HISTÓRICO IMUTÁVEL</span>
-                </div>
-
-                <FeriasTimeline eventos={feriasEventos} />
+              <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/8 text-center">
+                <p className="text-sm text-slate-400 italic">
+                  Seu período de férias ainda não foi cadastrado pelo RH.
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Entre em contato com o setor de Recursos Humanos para mais informações.
+                </p>
               </div>
             </div>
 
-            {/* Coluna Lateral: Garantias Legais */}
-            <div className="lg:col-span-4 space-y-6">
-              <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
-                <h3 className="text-xs font-black text-white uppercase tracking-wider border-b border-white/8 pb-3">
-                  GARANTIAS LEGAIS & CORREGEDORIA
-                </h3>
-
-                <div className="space-y-3 text-xs text-slate-300">
-                  <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-white/[0.02] border border-white/8">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="font-bold text-white">Art. 135 da CLT</h4>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        A concessão das férias participada por escrito ao empregado com antecedência de, no mínimo, 30 dias.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-white/[0.02] border border-white/8">
-                    <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="font-bold text-white">Continuidade do Serviço</h4>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        Escala organizada de modo a manter 100% da capacidade de atendimento e atos registrais.
-                      </p>
-                    </div>
-                  </div>
+            {/* Histórico e Trilha de Alterações */}
+            <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-white/8 pb-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-indigo-400" />
+                  <h3 className="text-sm font-bold text-white">Linha do Tempo de Previsões & Alterações</h3>
                 </div>
+                <span className="text-[10px] font-mono text-slate-400">HISTÓRICO IMUTÁVEL</span>
               </div>
+
+              <FeriasTimeline eventos={feriasEventos} />
             </div>
           </div>
         ) : (
