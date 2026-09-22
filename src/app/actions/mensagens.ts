@@ -803,7 +803,7 @@ export async function getAvailableUsers(
         role: true,
       },
       orderBy: { name: 'asc' },
-      take: 20,
+      take: 500,
     });
 
     return {
