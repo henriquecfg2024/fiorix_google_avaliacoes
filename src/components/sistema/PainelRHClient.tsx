@@ -364,7 +364,7 @@ export function PainelRHClient({
   const percentFeriasProgramadas = totalColaboradores > 0 ? Math.round((totalFeriasProgramadas / totalColaboradores) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-[#05050a] text-white relative overflow-hidden pb-24 font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden pb-24 font-sans selection:bg-indigo-500 selection:text-white">
       {/* Ambient Glow */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[48rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-purple-500/10 to-cyan-500/8 blur-3xl" />
@@ -444,7 +444,7 @@ export function PainelRHClient({
         {/* 1. CARDS: FÉRIAS */}
         {currentTab === "ferias" && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+            <div className="p-6 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Férias Programadas</span>
                 <Calendar className="w-4 h-4 text-amber-400" />
@@ -468,8 +468,8 @@ export function PainelRHClient({
               </p>
             </div>
 
-            <div className={`p-6 rounded-2xl border shadow-xl ${
-              pendentesProgramacao > 0 ? "border-rose-500/30 bg-[#140a12]" : "border-white/10 bg-[#10101a]"
+            <div className={`p-6 rounded-[24px] border backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)] ${
+              pendentesProgramacao > 0 ? "border-rose-500/35 bg-[#180a10]/80" : "border-white/12 bg-[#0B1020]/72"
             }`}>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pendentes de Programação</span>
@@ -486,7 +486,7 @@ export function PainelRHClient({
               </p>
             </div>
 
-            <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+            <div className="p-6 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Conflitos de Lotação</span>
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -505,7 +505,7 @@ export function PainelRHClient({
         {/* 2. CARDS: HOLERITES */}
         {currentTab === "holerites" && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+            <div className="p-6 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Holerites Disponibilizados</span>
                 <FileText className="w-4 h-4 text-cyan-400" />
@@ -527,7 +527,7 @@ export function PainelRHClient({
               </p>
             </div>
 
-            <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+            <div className="p-6 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Colaboradores Atendidos</span>
                 <Users className="w-4 h-4 text-emerald-400" />
@@ -552,7 +552,7 @@ export function PainelRHClient({
               </p>
             </div>
 
-            <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+            <div className="p-6 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Rastreabilidade & WORM</span>
                 <ShieldCheck className={`w-4 h-4 ${totalHolerites > 0 ? "text-indigo-400" : "text-slate-500"}`} />
@@ -579,7 +579,7 @@ export function PainelRHClient({
         {/* 3. CARDS: COMUNICADOS */}
         {currentTab === "comunicados" && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+            <div className="p-6 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Comunicados Ativos</span>
                 <FileText className="w-4 h-4 text-indigo-400" />
@@ -591,7 +591,7 @@ export function PainelRHClient({
               <p className="text-[11px] text-slate-400 mt-3.5">Assinatura digital e hash SHA-256</p>
             </div>
 
-            <div className="p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+            <div className="p-6 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Taxa Geral de Ciência</span>
                 <CheckCircle2 className="w-4 h-4 text-[#06b6d4]" />
@@ -605,7 +605,7 @@ export function PainelRHClient({
               </div>
             </div>
 
-            <div className="p-6 rounded-2xl border border-rose-500/30 bg-[#140a12] shadow-xl">
+            <div className="p-6 rounded-[24px] border border-rose-500/35 bg-[#180a10]/80 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">Ciências Pendentes</span>
                 <AlertTriangle className="w-4 h-4 text-rose-400" />
@@ -632,159 +632,173 @@ export function PainelRHClient({
           <div className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Bloco 1: Gestão de Comunicados */}
-              <div className="rounded-2xl border border-white/10 bg-[#10101a] p-6 shadow-xl flex flex-col justify-between space-y-5">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-                        <FileText className="w-4 h-4" />
+              <div className="group rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] hover:border-indigo-500/40 hover:bg-[#0B1020]/90 hover:shadow-[0_20px_60px_rgba(99,102,241,0.12)] transition-all duration-300 flex flex-col justify-between space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-500/25 bg-indigo-500/12 text-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.15)] group-hover:border-indigo-500/40 transition-colors">
+                        <FileText className="w-5 h-5" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-bold text-white">Gestão de Comunicados</h3>
-                        <p className="text-[11px] text-slate-400">Mural oficial & ciências nominais</p>
+                        <h3 className="text-base font-bold text-white tracking-tight">
+                          Gestão de Comunicados
+                        </h3>
+                        <p className="text-xs text-slate-400/90">Mural oficial & ciências nominais</p>
                       </div>
                     </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase bg-indigo-500/15 text-indigo-300 border border-indigo-500/25 shrink-0">
                       WORM SHA-256
                     </span>
                   </div>
 
-                  <div className="p-3.5 rounded-xl bg-[#05050a] border border-white/5 space-y-2">
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 space-y-2.5 backdrop-blur-sm">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Total cadastrados:</span>
+                      <span className="text-slate-400 font-medium">Total cadastrados:</span>
                       <span className="font-bold text-white font-mono">{comunicadosAtivos.length}</span>
                     </div>
+                    <div className="h-px bg-white/[0.04]" />
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Taxa de adesão:</span>
-                      <span className="font-bold text-[#06b6d4] font-mono">{taxaGeral}%</span>
+                      <span className="text-slate-400 font-medium">Taxa de adesão:</span>
+                      <span className="font-bold text-cyan-400 font-mono">{taxaGeral}%</span>
                     </div>
+                    <div className="h-px bg-white/[0.04]" />
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Ciências pendentes:</span>
-                      <span className="font-bold text-rose-400 font-mono">{pendentesCriticos}</span>
+                      <span className="text-slate-400 font-medium">Ciências pendentes:</span>
+                      <span className={`font-bold font-mono ${pendentesCriticos > 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                        {pendentesCriticos}
+                      </span>
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-400/90 leading-relaxed">
                     Garante comprovação jurídica com carimbo temporal e hash imutável conforme Provimento 213/2026.
                   </p>
                 </div>
 
                 <Button
                   onClick={() => handleTabChange("comunicados")}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs gap-2 rounded-xl h-10 shadow-lg shadow-indigo-600/20"
+                  className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-xs gap-2 rounded-xl h-11 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/35 transition-all duration-200 cursor-pointer"
                 >
                   <span>Ir para Gestão de Comunicados</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </div>
 
               {/* Bloco 2: Lançamento de Holerites */}
-              <div className="rounded-2xl border border-white/10 bg-[#10101a] p-6 shadow-xl flex flex-col justify-between space-y-5">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-                        <Upload className="w-4 h-4" />
+              <div className="group rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] hover:border-cyan-500/40 hover:bg-[#0B1020]/90 hover:shadow-[0_20px_60px_rgba(6,182,212,0.12)] transition-all duration-300 flex flex-col justify-between space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-500/25 bg-cyan-500/12 text-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.15)] group-hover:border-cyan-500/40 transition-colors">
+                        <Upload className="w-5 h-5" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-bold text-white">Lançamento de Holerites</h3>
-                        <p className="text-[11px] text-slate-400">Upload em lote & recibos de pagamento</p>
+                        <h3 className="text-base font-bold text-white tracking-tight">
+                          Lançamento de Holerites
+                        </h3>
+                        <p className="text-xs text-slate-400/90">Upload em lote & recibos de pagamento</p>
                       </div>
                     </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase bg-cyan-500/15 text-cyan-300 border border-cyan-500/25 shrink-0">
                       EM LOTE
                     </span>
                   </div>
 
-                  <div className="p-3.5 rounded-xl bg-[#05050a] border border-white/5 space-y-2">
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 space-y-2.5 backdrop-blur-sm">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Total distribuídos:</span>
+                      <span className="text-slate-400 font-medium">Total distribuídos:</span>
                       <span className="font-bold text-white font-mono">
                         {totalHolerites > 0 ? `${totalHolerites} recibos` : "0 recibos"}
                       </span>
                     </div>
+                    <div className="h-px bg-white/[0.04]" />
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Colaboradores ativos:</span>
+                      <span className="text-slate-400 font-medium">Colaboradores ativos:</span>
                       <span className="font-bold text-emerald-400 font-mono">
                         {colaboradoresAtendidosHolerite > 0
                           ? `${colaboradoresAtendidosHolerite} / ${totalColaboradores}`
                           : `0 / ${totalColaboradores} atendidos`}
                       </span>
                     </div>
+                    <div className="h-px bg-white/[0.04]" />
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Rastreabilidade WORM:</span>
+                      <span className="text-slate-400 font-medium">Rastreabilidade WORM:</span>
                       <span className="font-bold text-cyan-400 font-mono">
                         {totalHolerites > 0 ? `${percentWormHolerite}% íntegro` : "Sem documentos para validação"}
                       </span>
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-400/90 leading-relaxed">
                     Processamento automático de PDF com separação por CPF, assinatura e disponibilização individualizada.
                   </p>
                 </div>
 
                 <Button
                   onClick={() => handleTabChange("holerites")}
-                  className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs gap-2 rounded-xl h-10 shadow-lg shadow-cyan-600/20"
+                  className="w-full bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white font-bold text-xs gap-2 rounded-xl h-11 shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/35 transition-all duration-200 cursor-pointer"
                 >
                   <span>Ir para Lançamento de Holerites</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </div>
 
               {/* Bloco 3: Lançamento de Férias */}
-              <div className="rounded-2xl border border-white/10 bg-[#10101a] p-6 shadow-xl flex flex-col justify-between space-y-5">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                        <Briefcase className="w-4 h-4" />
+              <div className="group rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] hover:border-amber-500/40 hover:bg-[#0B1020]/90 hover:shadow-[0_20px_60px_rgba(245,158,11,0.12)] transition-all duration-300 flex flex-col justify-between space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-amber-500/25 bg-amber-500/12 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.15)] group-hover:border-amber-500/40 transition-colors">
+                        <Briefcase className="w-5 h-5" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-bold text-white">Lançamento de Férias</h3>
-                        <p className="text-[11px] text-slate-400">Planejamento 2027 & Validador CLT</p>
+                        <h3 className="text-base font-bold text-white tracking-tight">
+                          Lançamento de Férias
+                        </h3>
+                        <p className="text-xs text-slate-400/90">Planejamento 2027 & Validador CLT</p>
                       </div>
                     </div>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase bg-amber-500/15 text-amber-300 border border-amber-500/25 shrink-0">
                       CLT ART. 135
                     </span>
                   </div>
 
-                  <div className="p-3.5 rounded-xl bg-[#05050a] border border-white/5 space-y-2">
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 space-y-2.5 backdrop-blur-sm">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Escala 2027:</span>
+                      <span className="text-slate-400 font-medium">Escala 2027:</span>
                       <span className="font-bold text-white font-mono">
                         {totalFeriasProgramadas > 0
                           ? `${totalFeriasProgramadas} / ${totalColaboradores} programadas`
                           : "Nenhuma programação cadastrada"}
                       </span>
                     </div>
+                    <div className="h-px bg-white/[0.04]" />
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Antecedência mínima:</span>
+                      <span className="text-slate-400 font-medium">Antecedência mínima:</span>
                       <span className="font-bold text-emerald-400 font-mono">
                         {totalFeriasProgramadas > 0 ? "30 dias respeitados" : "Sem programações ativas"}
                       </span>
                     </div>
+                    <div className="h-px bg-white/[0.04]" />
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Avisos emitidos:</span>
+                      <span className="text-slate-400 font-medium">Avisos emitidos:</span>
                       <span className="font-bold text-amber-400 font-mono">
                         {totalAvisosEmitidos} {totalAvisosEmitidos === 1 ? "documento" : "documentos"}
                       </span>
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-400/90 leading-relaxed">
                     Controle de períodos aquisitivos, fracionamento em até 3 períodos e blindagem contra dobra de férias.
                   </p>
                 </div>
 
                 <Button
                   onClick={() => handleTabChange("ferias")}
-                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs gap-2 rounded-xl h-10 shadow-lg shadow-amber-600/20"
+                  className="w-full bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white font-bold text-xs gap-2 rounded-xl h-11 shadow-lg shadow-amber-500/20 hover:shadow-amber-500/35 transition-all duration-200 cursor-pointer"
                 >
                   <span>Ir para Lançamento de Férias</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </div>
             </div>
