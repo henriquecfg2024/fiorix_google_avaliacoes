@@ -292,11 +292,16 @@ export function ChatArea({
     }
   }, [inputText, conversation.id, replyTo, currentUserId, currentUserName, onMessageSent, onMessageUpdate, onDraftSave]);
 
-  // ── Upload unificado de arquivo (com suporte a Drag & Drop e Input) ────
+  // ── Upload unificado de arquivo (com suporte a Signed URL direto, Drag & Drop e Input) ────
   const uploadAndSendFile = useCallback(async (file: File) => {
     const MAX_MB = 25;
+    const fileSizeMB = file.size / (1024 * 1024);
+
+    // Validação imediata no frontend antes de iniciar qualquer transmissão
     if (file.size > MAX_MB * 1024 * 1024) {
-      setUploadError(`Arquivo muito grande. Máximo permitido: ${MAX_MB}MB.`);
+      const msg = `Arquivo muito grande (${fileSizeMB.toFixed(1)} MB). O tamanho máximo permitido para envio no FIORIX Mensagens é de ${MAX_MB} MB.`;
+      setUploadError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -304,21 +309,76 @@ export function ChatArea({
       setUploading(true);
       setUploadError(null);
 
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('conversationId', conversation.id);
+      let storagePath: string | null = null;
 
-      const resp = await fetch('/api/mensagens/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await resp.json();
+      // ── Tentativa 1: Upload direto via Signed Upload URL (bypassa limite de 4.5MB do Vercel e suporta até 25MB) ──
+      try {
+        const signResp = await fetch('/api/mensagens/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileName: file.name,
+            fileSize: file.size,
+            mimeType: file.type || 'application/octet-stream',
+            conversationId: conversation.id,
+          }),
+        });
 
-      if (!resp.ok || !data.success) {
-        setUploadError(data.error || 'Falha no upload do arquivo.');
+        if (signResp.ok) {
+          const signData = await signResp.json();
+          if (signData.success && signData.signedUrl) {
+            const uploadToSupabase = await fetch(signData.signedUrl, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': file.type || 'application/octet-stream',
+              },
+              body: file,
+            });
+
+            if (uploadToSupabase.ok) {
+              storagePath = signData.storagePath;
+            }
+          }
+        }
+      } catch (signErr) {
+        console.warn('Upload direto via Signed URL não concluído, tentando rota alternativa:', signErr);
+      }
+
+      // ── Tentativa 2: Fallback multipart via API (para arquivos menores) ──
+      if (!storagePath) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('conversationId', conversation.id);
+
+        const resp = await fetch('/api/mensagens/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!resp.ok) {
+          const errJson = await resp.json().catch(() => ({}));
+          const errMsg = errJson?.error || (resp.status === 413
+            ? `Arquivo excede o limite suportado pelo servidor (${fileSizeMB.toFixed(1)} MB). Tamanho máximo: ${MAX_MB} MB.`
+            : 'Falha no envio do arquivo.');
+          setUploadError(errMsg);
+          toast.error(errMsg);
+          return;
+        }
+
+        const data = await resp.json();
+        if (!data.success) {
+          setUploadError(data.error || 'Falha no upload do arquivo.');
+          return;
+        }
+        storagePath = data.attachment.storagePath;
+      }
+
+      if (!storagePath) {
+        setUploadError('Não foi possível concluir o upload do anexo. Tente novamente.');
         return;
       }
 
+      // ── Conclusão: Registra a mensagem na conversa com os metadados do anexo ──
       const res = await sendMessage({
         conversationId: conversation.id,
         conteudo: file.name,
@@ -326,17 +386,24 @@ export function ChatArea({
           nomeArquivo: file.name,
           tamanhoBytes: file.size,
           mimeType: file.type || 'application/octet-stream',
-          storagePath: data.attachment.storagePath,
+          storagePath,
         },
       });
 
       if (res.success && res.message) {
         onMessageSent(res.message);
-        toast.success(`Arquivo enviado: ${file.name}`);
+        toast.success(`Arquivo enviado com sucesso: ${file.name}`);
+      } else {
+        setUploadError(res.error || 'Erro ao registrar anexo na conversa.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[uploadAndSendFile] Erro:', err);
-      setUploadError('Erro de conexão no upload. Tente novamente.');
+      const isOverMax = file.size > MAX_MB * 1024 * 1024;
+      if (isOverMax) {
+        setUploadError(`Arquivo muito grande (${fileSizeMB.toFixed(1)} MB). O limite máximo permitido no FIORIX é de ${MAX_MB} MB.`);
+      } else {
+        setUploadError(`Falha no upload (${err?.message || 'verifique sua conexão'}). O tamanho máximo permitido no FIORIX é de 25 MB.`);
+      }
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -902,7 +969,8 @@ export function ChatArea({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading || !canSend}
-                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition disabled:opacity-40"
+                title="Anexar arquivo (PDF, imagens, documentos — Limite máximo: 25 MB)"
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition disabled:opacity-40 cursor-pointer"
               >
                 {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
               </button>

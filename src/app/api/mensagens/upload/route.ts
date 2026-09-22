@@ -62,6 +62,85 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const contentType = req.headers.get('content-type') || '';
+
+    // ── Fluxo 1: Solicitação de Signed Upload URL (Suporta arquivos grandes até 25MB direto para Supabase) ──
+    if (contentType.includes('application/json')) {
+      const json = await req.json().catch(() => ({}));
+      const { fileName, fileSize, mimeType, conversationId } = json;
+
+      if (!fileName || !conversationId) {
+        return NextResponse.json(
+          { error: 'Nome do arquivo e ID da conversa são obrigatórios.' },
+          { status: 400 }
+        );
+      }
+
+      // Validação de membro da conversa
+      const membership = await prisma.conversaMembro.findFirst({
+        where: {
+          conversaId: conversationId,
+          usuarioId: user.id,
+          tenantId: user.tenantId,
+        },
+      });
+
+      if (!membership) {
+        return NextResponse.json(
+          { error: 'Acesso negado: Você não é participante desta conversa.' },
+          { status: 403 }
+        );
+      }
+
+      // Política de anexos do tenant
+      const policy = await prisma.messagingPolicy.findUnique({
+        where: { tenantId: user.tenantId },
+      });
+
+      if (policy && !policy.attachmentsEnabled) {
+        return NextResponse.json(
+          { error: 'O envio de anexos está temporariamente desativado para a sua organização.' },
+          { status: 403 }
+        );
+      }
+
+      const maxBytes = policy?.maxAttachmentBytes || 26214400; // 25 MB
+      if (fileSize && fileSize > maxBytes) {
+        return NextResponse.json(
+          { error: `Arquivo muito grande (${(fileSize / 1024 / 1024).toFixed(1)}MB). O tamanho máximo permitido é ${(maxBytes / 1024 / 1024).toFixed(0)}MB.` },
+          { status: 400 }
+        );
+      }
+
+      await ensurePrivateBucketExists();
+
+      const sanitizedBaseName = fileName
+        .replace(/[^a-zA-Z0-9._-]/g, '_')
+        .substring(0, 100);
+      const fileUuid = crypto.randomUUID();
+      const storagePath = `tenants/${user.tenantId}/conversations/${conversationId}/${Date.now()}_${fileUuid}_${sanitizedBaseName}`;
+
+      const { data: signData, error: signError } = await supabaseAdmin.storage
+        .from(BUCKET_NAME)
+        .createSignedUploadUrl(storagePath, { upsert: false });
+
+      if (signError || !signData?.signedUrl) {
+        console.error('[Upload Anexo] Erro Supabase createSignedUploadUrl:', signError);
+        return NextResponse.json(
+          { error: 'Falha ao autorizar upload seguro na nuvem.' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        signedUrl: signData.signedUrl,
+        storagePath,
+        maxBytes,
+      });
+    }
+
+    // ── Fluxo 2: Upload Multipart tradicional ──
     const formData = await req.formData();
 
     const file = formData.get('file') as File | null;
