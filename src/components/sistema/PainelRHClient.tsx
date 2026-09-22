@@ -396,134 +396,60 @@ export function PainelRHClient({
 
       <div className="relative mx-auto max-w-[1600px] px-5 py-6 sm:px-8 space-y-8">
         {/* Breadcrumb + Header Dinâmico com Identidade Própria */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-white/5">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-              <span>Dashboard</span>
-              <span className="text-slate-600">/</span>
-              <span>{currentTab === "geral" ? "Gestão de Pessoas" : "Gestão de RH"}</span>
-              <span className="text-slate-600">/</span>
-              <span className="text-indigo-400">
-                {currentTab === "ferias" && "Lançamento de Férias"}
-                {currentTab === "holerites" && "Lançamento de Holerites"}
-                {currentTab === "comunicados" && "Gestão de Comunicados"}
-                {currentTab === "geral" && "Painel de RH"}
-              </span>
+        {currentTab !== "ferias" && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-white/5">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+                <span>Dashboard</span>
+                <span className="text-slate-600">/</span>
+                <span>{currentTab === "geral" ? "Gestão de Pessoas" : "Gestão de RH"}</span>
+                <span className="text-slate-600">/</span>
+                <span className="text-indigo-400">
+                  {currentTab === "holerites" && "Lançamento de Holerites"}
+                  {currentTab === "comunicados" && "Gestão de Comunicados"}
+                  {currentTab === "geral" && "Painel de RH"}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 mt-1.5">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                  {currentTab === "holerites" && "GESTÃO DE HOLERITES"}
+                  {currentTab === "comunicados" && "GESTÃO DE COMUNICADOS"}
+                  {currentTab === "geral" && "PAINEL DE RH"}
+                </h1>
+                <span
+                  className={`rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-semibold ${
+                    currentTab === "holerites"
+                      ? "border-cyan-500/30 bg-cyan-500/15 text-cyan-300"
+                      : "border-indigo-500/30 bg-indigo-500/15 text-indigo-300"
+                  }`}
+                >
+                  {currentTab === "holerites" && "DISTRIBUIÇÃO & RECIBOS • 7º RI SP"}
+                  {currentTab === "comunicados" && "CIÊNCIA OFICIAL & WORM • 7º RI SP"}
+                  {currentTab === "geral" && "ÁREA RESTRITA • 7º RI SP"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                {currentTab === "holerites" && "Disponibilização, controle de acesso e rastreabilidade dos documentos dos colaboradores."}
+                {currentTab === "comunicados" && "Publicação, acompanhamento de ciência e auditoria dos comunicados internos."}
+                {currentTab === "geral" && "Visão consolidada dos principais indicadores, pendências e controles da gestão de pessoas."}
+              </p>
             </div>
-            <div className="flex items-center gap-3 mt-1.5">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                {currentTab === "ferias" && "GESTÃO DE FÉRIAS"}
-                {currentTab === "holerites" && "GESTÃO DE HOLERITES"}
-                {currentTab === "comunicados" && "GESTÃO DE COMUNICADOS"}
-                {currentTab === "geral" && "PAINEL DE RH"}
-              </h1>
-              <span
-                className={`rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-semibold ${
-                  currentTab === "ferias"
-                    ? "border-amber-500/30 bg-amber-500/15 text-amber-300"
-                    : currentTab === "holerites"
-                    ? "border-cyan-500/30 bg-cyan-500/15 text-cyan-300"
-                    : "border-indigo-500/30 bg-indigo-500/15 text-indigo-300"
-                }`}
-              >
-                {currentTab === "ferias" && "PLANEJAMENTO & ESCALAS • 7º RI SP"}
-                {currentTab === "holerites" && "DISTRIBUIÇÃO & RECIBOS • 7º RI SP"}
-                {currentTab === "comunicados" && "CIÊNCIA OFICIAL & WORM • 7º RI SP"}
-                {currentTab === "geral" && "ÁREA RESTRITA • 7º RI SP"}
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-1">
-              {currentTab === "ferias" && "Planejamento, programação e acompanhamento das férias dos colaboradores."}
-              {currentTab === "holerites" && "Disponibilização, controle de acesso e rastreabilidade dos documentos dos colaboradores."}
-              {currentTab === "comunicados" && "Publicação, acompanhamento de ciência e auditoria dos comunicados internos."}
-              {currentTab === "geral" && "Visão consolidada dos principais indicadores, pendências e controles da gestão de pessoas."}
-            </p>
+
+            {/* Ações contextuais de topo por tela */}
+            {currentTab === "holerites" && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-cyan-300 font-mono text-xs self-start sm:self-center">
+                <Lock className="w-3.5 h-3.5" />
+                <span>Criptografia WORM SHA-256 Ativa</span>
+              </div>
+            )}
           </div>
-
-          {/* Ações contextuais de topo por tela */}
-          {currentTab === "ferias" && (
-            <Button
-              onClick={() => setFeriasSubTab("validador")}
-              className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs gap-1.5 rounded-xl shadow-lg shadow-amber-500/20 h-9 shrink-0 self-start sm:self-center"
-            >
-              <Shield className="w-4 h-4" />
-              <span>Validador CLT (Art. 135)</span>
-            </Button>
-          )}
-
-          {currentTab === "holerites" && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-cyan-300 font-mono text-xs self-start sm:self-center">
-              <Lock className="w-3.5 h-3.5" />
-              <span>Criptografia WORM SHA-256 Ativa</span>
-            </div>
-          )}
-
-        </div>
+        )}
 
         {/* ══════════════════════════════════════════════════════════════
             CARDS ESPECÍFICOS POR TELA
         ══════════════════════════════════════════════════════════════ */}
 
-        {/* 1. CARDS: FÉRIAS */}
-        {currentTab === "ferias" && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="p-6 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Férias Programadas</span>
-                <Calendar className="w-4 h-4 text-amber-400" />
-              </div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-amber-400">
-                  {totalFeriasProgramadas > 0 ? `${totalFeriasProgramadas} / ${totalColaboradores}` : "0"}
-                </span>
-                {totalFeriasProgramadas > 0 && totalColaboradores > 0 && (
-                  <span className="text-xs text-slate-400 font-semibold">({percentFeriasProgramadas}% da equipe)</span>
-                )}
-              </div>
-              <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3.5 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-amber-500 to-amber-300 h-full transition-all duration-500"
-                  style={{ width: `${percentFeriasProgramadas}%` }}
-                />
-              </div>
-              <p className="text-[11px] text-slate-400 mt-2.5">
-                {totalFeriasProgramadas > 0 ? "Planejamento 2027 estruturado" : "Nenhuma programação cadastrada"}
-              </p>
-            </div>
-
-            <div className={`p-6 rounded-[24px] border backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)] ${
-              pendentesProgramacao > 0 ? "border-rose-500/35 bg-[#180a10]/80" : "border-white/12 bg-[#0B1020]/72"
-            }`}>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pendentes de Programação</span>
-                <AlertTriangle className={`w-4 h-4 ${pendentesProgramacao > 0 ? "text-rose-400" : "text-slate-500"}`} />
-              </div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className={`text-3xl font-black ${pendentesProgramacao > 0 ? "text-rose-400" : "text-slate-300"}`}>
-                  {pendentesProgramacao}
-                </span>
-                <span className="text-xs text-slate-400 font-semibold">colaboradores</span>
-              </div>
-              <p className="text-[11px] text-slate-400 mt-3.5">
-                {pendentesProgramacao > 0 ? "Período aquisitivo pendente de agendamento" : "Nenhuma programação pendente"}
-              </p>
-            </div>
-
-            <div className="p-6 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Conflitos de Lotação</span>
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              </div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-emerald-400">{conflitosLotacao}</span>
-                <span className="text-xs text-emerald-300/80 font-semibold">identificados</span>
-              </div>
-              <p className="text-[11px] text-slate-400 mt-3.5">
-                {totalFeriasProgramadas > 0 ? "Quorum mínimo setorial de 50% respeitado" : "Nenhum conflito identificado"}
-              </p>
-            </div>
-          </div>
-        )}
+        {/* 1. CARDS: FÉRIAS — Unificados na faixa métrica de EscalaAnualClient */}
 
         {/* 2. CARDS: HOLERITES */}
         {currentTab === "holerites" && (
@@ -1017,93 +943,16 @@ export function PainelRHClient({
         {currentTab === "holerites" && <HoleriteUploader />}
 
         {/* ══════════════════════════════════════════════════════════════
-            3. FÉRIAS TAB (ESCALA ANUAL DE FÉRIAS E CONTROLE DE PUBLICAÇÃO)
+            3. FÉRIAS TAB (ESCALA ANUAL DE FÉRIAS IDÊNTICA AO PREVIEW)
         ══════════════════════════════════════════════════════════════ */}
         {currentTab === "ferias" && (
-          <div className="space-y-6">
-            {/* Card de Controle de Publicação no Painel de RH (Item 2 do Prompt) */}
-            <div className="rounded-[24px] border border-white/10 bg-[#10101a] p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-              <div className="space-y-1">
-                <div className="flex items-center gap-3">
-                  <h3 className="text-base font-bold text-white tracking-tight">
-                    Escala anual de férias
-                  </h3>
-                  <div className="flex items-center bg-[#05050a] border border-white/15 rounded-xl px-2.5 py-1">
-                    <Calendar className="w-3.5 h-3.5 text-indigo-400 mr-2" />
-                    <select
-                      value={pubAno}
-                      onChange={(e) => setPubAno(Number(e.target.value))}
-                      className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer"
-                    >
-                      <option value={2026} className="bg-[#0c101c] text-white">2026</option>
-                      <option value={2027} className="bg-[#0c101c] text-white">2027</option>
-                      <option value={2028} className="bg-[#0c101c] text-white">2028</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="text-xs text-slate-400">Status atual:</span>
-                  {pubStatus.status === "PUBLICADA" ? (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 font-semibold text-xs">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      Publicada
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-amber-500/30 bg-amber-500/10 text-amber-300 font-semibold text-xs">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                      Rascunho — não visível aos colaboradores
-                    </span>
-                  )}
-                </div>
-
-                <p className="text-xs text-slate-400 pt-0.5">
-                  {pubStatus.status === "PUBLICADA"
-                    ? `Escala ${pubAno} homologada. Os colaboradores visualizam apenas as próprias férias programadas.`
-                    : `Escala ${pubAno} em modo rascunho. Edição livre pelo RH sem exibição aos colaboradores.`}
-                </p>
-              </div>
-
-              {/* Botão Contextual de Ação */}
-              <div>
-                {pubStatus.status === "RASCUNHO" ? (
-                  <Button
-                    onClick={() => {
-                      setPubActionTarget("PUBLICAR");
-                      setPubConfirmModalOpen(true);
-                    }}
-                    disabled={pubLoading}
-                    className="h-10 px-5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 gap-2"
-                  >
-                    <Send className="w-4 h-4" />
-                    <span>Publicar escala</span>
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={() => {
-                      setPubActionTarget("RETIRAR");
-                      setPubConfirmModalOpen(true);
-                    }}
-                    disabled={pubLoading}
-                    variant="outline"
-                    className="h-10 px-5 rounded-2xl border-amber-500/40 text-amber-300 hover:bg-amber-500/10 hover:border-amber-500/70 text-xs font-bold gap-2"
-                  >
-                    <AlertTriangle className="w-4 h-4 text-amber-400" />
-                    <span>Retirar do ar</span>
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Tela Administrativa da Escala Anual Integrada */}
-            <EscalaAnualClient
-              key={`rh-escala-${pubAno}-${pubStatus.status}`}
-              initialAno={pubAno}
-              initialPublicacao={pubStatus}
-              isInsideRHPanel={true}
-              userRole={userRole}
-            />
-          </div>
+          <EscalaAnualClient
+            key={`rh-escala-${pubAno}-${pubStatus.status}`}
+            initialAno={pubAno}
+            initialPublicacao={pubStatus}
+            isInsideRHPanel={false}
+            userRole={userRole}
+          />
         )}
       </div>
 

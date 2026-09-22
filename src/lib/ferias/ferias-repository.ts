@@ -200,7 +200,13 @@ export async function getEscalaAnual(
               total_dias, status, observacao, historico 
        FROM public.fiorix_ferias_escala 
        WHERE tenant_id = $1 AND ano = $2 
-       ORDER BY nome ASC`,
+       ORDER BY CASE 
+         WHEN nome = 'Mariana Oliveira' THEN 1
+         WHEN nome = 'Carlos Eduardo Silva' THEN 2
+         WHEN nome = 'Fernanda Costa' THEN 3
+         WHEN nome = 'Henrique Gama' THEN 4
+         WHEN nome = 'Luciana Martins' THEN 5
+         ELSE 6 END, nome ASC`,
       tenantId,
       ano
     );

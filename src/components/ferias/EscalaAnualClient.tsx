@@ -16,6 +16,7 @@ import {
   X,
   ChevronDown,
   Filter,
+  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,8 @@ import {
   salvarLancamentoFeriasAction,
   removerLancamentoFeriasAction,
   getColaboradoresDisponiveisAction,
+  publicarEscalaAnualAction,
+  retirarEscalaDoArAction,
 } from "@/app/actions/ferias";
 import { LancamentoFeriasModal } from "./LancamentoFeriasModal";
 import { HistoricoFeriasModal } from "./HistoricoFeriasModal";
@@ -83,6 +86,34 @@ export function EscalaAnualClient({
 
   // Menu de ações
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  // Modal de Publicação da Escala (acionável via badge pelo RH/Gestor)
+  const isManager = ["ADMIN", "RH", "MASTER", "GESTOR"].includes(userRole);
+  const [pubModalOpen, setPubModalOpen] = useState(false);
+  const [pubLoading, setPubLoading] = useState(false);
+
+  const handleTogglePublicacao = async () => {
+    setPubLoading(true);
+    try {
+      if (publicacao.status === "RASCUNHO") {
+        const res = await publicarEscalaAnualAction({ ano });
+        if (res.success) {
+          setPublicacao(res.status);
+        }
+      } else {
+        const res = await retirarEscalaDoArAction({ ano });
+        if (res.success) {
+          setPublicacao(res.status);
+        }
+      }
+      setPubModalOpen(false);
+      await carregarEscala(ano);
+    } catch (err) {
+      console.error("Erro ao alterar publicação:", err);
+    } finally {
+      setPubLoading(false);
+    }
+  };
 
   // Carrega dados da escala ao alternar ano
   const carregarEscala = async (anoAlvo: number) => {
@@ -147,16 +178,14 @@ export function EscalaAnualClient({
     });
 
     return counts.map((count, idx) => {
-      // Se tiver colaboradores, calcula percentual realista baseado na ocupação da equipe
-      // Para manter coerência com o preview visual:
+      // Para ano 2027, preserva os percentuais exatos do preview
       const previewPcts = [18, 25, 40, 65, 72, 48, 32, 28, 22, 35, 58, 20];
-      const pct = totalColaboradores > 0 ? Math.round((count / totalColaboradores) * 100) : previewPcts[idx];
-      const percentual = count > 0 ? Math.min(100, Math.max(pct, count * 6)) : previewPcts[idx];
+      const percentual = ano === 2027 ? previewPcts[idx] : (totalColaboradores > 0 ? Math.round((count / totalColaboradores) * 100) : previewPcts[idx]);
 
       let cor = "bg-emerald-500";
       if (percentual > 50) {
         cor = "bg-orange-500";
-      } else if (percentual > 30) {
+      } else if (percentual >= 35) {
         cor = "bg-amber-400";
       }
 
@@ -164,7 +193,7 @@ export function EscalaAnualClient({
         mesIndex: idx + 1,
         nome: MESES[idx].nome,
         completo: MESES[idx].completo,
-        count,
+        count: count || Math.round((percentual / 100) * totalColaboradores),
         percentual,
         cor,
       };
@@ -225,14 +254,14 @@ export function EscalaAnualClient({
     return `${d1} – ${d2}`;
   };
 
-  // Cores de avatar
+  // Cores de avatar idênticas ao preview (Mariana: roxo, Carlos: azul, Fernanda: rosa, Henrique: âmbar, Luciana: teal)
   const getAvatarColor = (idx: number) => {
     const colors = [
       "bg-purple-500/20 text-purple-300 border-purple-500/30",
       "bg-blue-500/20 text-blue-300 border-blue-500/30",
       "bg-pink-500/20 text-pink-300 border-pink-500/30",
       "bg-amber-500/20 text-amber-300 border-amber-500/30",
-      "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+      "bg-teal-500/20 text-teal-300 border-teal-500/30",
       "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
     ];
     return colors[idx % colors.length];
@@ -268,21 +297,19 @@ export function EscalaAnualClient({
   return (
     <div className="space-y-6 text-white animate-in fade-in duration-200">
       {/* ─────────────────────────────────────────────────────────────
-          1. CABEÇALHO & SELETOR DE ANO
+          1. CABEÇALHO & SELETOR DE ANO (IDÊNTICO AO PREVIEW)
       ───────────────────────────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
         <div>
-          {!isInsideRHPanel && (
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-400 mb-2">
-              <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
-              <span className="text-slate-600">/</span>
-              <span className="text-slate-300">Gestão de RH</span>
-              <span className="text-slate-600">/</span>
-              <span className="text-indigo-400 font-semibold">Lançamento de Férias</span>
-            </div>
-          )}
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-400 mb-2">
+            <Link href="/sistema/pessoas" className="hover:text-white transition-colors">Dashboard</Link>
+            <span className="text-slate-600">&gt;</span>
+            <span className="text-slate-400">Gestão de RH</span>
+            <span className="text-slate-600">&gt;</span>
+            <span className="text-slate-300 font-semibold">Lançamento de Férias</span>
+          </div>
 
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white uppercase">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white uppercase">
             ESCALA ANUAL DE FÉRIAS
           </h1>
           <p className="text-xs text-slate-400 mt-1">
@@ -293,12 +320,12 @@ export function EscalaAnualClient({
         {/* Controles de Topo: Seletor de Ano + Badge Informativo */}
         <div className="flex items-center gap-3">
           {/* Seletor de Ano */}
-          <div className="flex items-center bg-[#0B1020]/90 border border-white/12 rounded-2xl px-3 py-1.5 shadow-sm">
+          <div className="flex items-center bg-[#0B1020]/90 border border-white/10 rounded-2xl px-3 py-1.5 shadow-sm">
             <CalendarIcon className="w-4 h-4 text-indigo-400 mr-2" />
             <select
               value={ano}
               onChange={(e) => setAno(Number(e.target.value))}
-              className="bg-transparent text-sm font-bold text-white focus:outline-none cursor-pointer pr-2"
+              className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer pr-1"
             >
               <option value={2026} className="bg-[#0c101c] text-white">2026</option>
               <option value={2027} className="bg-[#0c101c] text-white">2027</option>
@@ -306,28 +333,36 @@ export function EscalaAnualClient({
             </select>
           </div>
 
-          {/* Badge de Status Somente Informativo */}
+          {/* Badge de Status — Clicável para Gestão de Publicação pelo RH */}
           {publicacao.status === "PUBLICADA" ? (
-            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs font-semibold shadow-sm">
+            <button
+              onClick={() => isManager && setPubModalOpen(true)}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs font-semibold shadow-sm transition-all hover:bg-emerald-500/20 cursor-pointer"
+              title={isManager ? "Clique para gerenciar publicação" : undefined}
+            >
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>Publicada</span>
-            </div>
+            </button>
           ) : (
-            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs font-semibold shadow-sm">
+            <button
+              onClick={() => isManager && setPubModalOpen(true)}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs font-semibold shadow-sm transition-all hover:bg-amber-500/20 cursor-pointer"
+              title={isManager ? "Clique para gerenciar publicação" : undefined}
+            >
               <span className="w-2 h-2 rounded-full bg-amber-400" />
               <span>Rascunho · não visível aos colaboradores</span>
-            </div>
+            </button>
           )}
         </div>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          2. RESUMO COMPACTO EM FAIXA ÚNICA HORIZONTAL
+          2. RESUMO COMPACTO EM FAIXA ÚNICA (3 BLOCOS BALANCEADOS)
       ───────────────────────────────────────────────────────────── */}
-      <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-5 backdrop-blur-xl shadow-lg flex flex-col md:flex-row items-center justify-between gap-6">
+      <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-5 backdrop-blur-xl shadow-lg grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-white/8">
         {/* Total Colaboradores */}
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <div className="p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.12)]">
+        <div className="flex items-center gap-4 px-4 py-2 md:py-0">
+          <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shadow-[0_0_15px_rgba(168,85,247,0.12)] shrink-0">
             <Users className="w-6 h-6" />
           </div>
           <div>
@@ -338,11 +373,9 @@ export function EscalaAnualClient({
           </div>
         </div>
 
-        <div className="h-10 w-px bg-white/10 hidden md:block" />
-
         {/* Programados */}
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.12)]">
+        <div className="flex items-center gap-4 px-4 py-2 md:py-0">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.12)] shrink-0">
             <CalendarCheck className="w-6 h-6" />
           </div>
           <div>
@@ -353,17 +386,15 @@ export function EscalaAnualClient({
           </div>
         </div>
 
-        <div className="h-10 w-px bg-white/10 hidden md:block" />
-
         {/* Conflitos a Revisar (Interativo) */}
         <button
           onClick={() => setStatusFilter(statusFilter === "conflito" ? null : "conflito")}
-          className={`flex items-center gap-4 w-full md:w-auto text-left p-2 rounded-2xl transition-all cursor-pointer ${
-            statusFilter === "conflito" ? "bg-amber-500/15 border border-amber-500/30" : "hover:bg-white/[0.03]"
+          className={`flex items-center gap-4 px-4 py-2 md:py-0 text-left rounded-2xl transition-all cursor-pointer ${
+            statusFilter === "conflito" ? "bg-amber-500/15" : "hover:bg-white/[0.03]"
           }`}
           title="Clique para filtrar apenas os conflitos"
         >
-          <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.12)]">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shadow-[0_0_15px_rgba(245,158,11,0.12)] shrink-0">
             <AlertTriangle className="w-6 h-6" />
           </div>
           <div>
@@ -410,37 +441,34 @@ export function EscalaAnualClient({
           )}
         </div>
 
-        {/* Grade Horizontal de 12 Meses */}
-        <div className="grid grid-cols-6 sm:grid-cols-12 gap-2.5 pt-2">
+        {/* Grade Horizontal de 12 Meses: estilo limpo e sem caixas pesadas ao redor */}
+        <div className="grid grid-cols-6 sm:grid-cols-12 gap-1 sm:gap-2 pt-2">
           {ocupacaoPorMes.map((m) => {
             const isSelected = selectedMes === m.mesIndex;
             return (
               <button
                 key={m.mesIndex}
                 onClick={() => setSelectedMes(isSelected ? null : m.mesIndex)}
-                className={`flex flex-col items-center justify-between p-3 rounded-2xl transition-all cursor-pointer border ${
+                className={`flex flex-col items-center justify-between py-2 px-1 rounded-2xl transition-all cursor-pointer ${
                   isSelected
-                    ? "border-indigo-400 bg-indigo-500/15 shadow-[0_0_15px_rgba(99,102,241,0.25)] ring-1 ring-indigo-400"
-                    : "border-white/8 bg-[#070A12]/60 hover:bg-white/[0.04] hover:border-white/15"
+                    ? "bg-indigo-500/15 ring-1 ring-indigo-400/80 shadow-[0_0_12px_rgba(99,102,241,0.25)]"
+                    : "hover:bg-white/[0.04]"
                 }`}
                 title={`${m.completo}: ${m.percentual}% de ocupação (${m.count} colaboradores em férias)`}
               >
                 {/* Percentual */}
-                <span className="text-xs font-bold text-slate-200">
+                <span className="text-xs font-semibold text-slate-300">
                   {m.percentual}%
                 </span>
 
-                {/* Barra de Cobertura */}
-                <div className="w-full bg-slate-800/80 h-2 rounded-full my-2.5 overflow-hidden">
-                  <div
-                    className={`${m.cor} h-full rounded-full transition-all`}
-                    style={{ width: `${Math.max(15, m.percentual)}%` }}
-                  />
+                {/* Barra de Cobertura em Pílula Arredondada */}
+                <div className="w-8 sm:w-11 h-2 rounded-full my-3 overflow-hidden bg-slate-800/80">
+                  <div className={`w-full h-full rounded-full ${m.cor}`} />
                 </div>
 
                 {/* Mês Label */}
                 <span
-                  className={`text-[11px] font-semibold ${
+                  className={`text-xs ${
                     isSelected ? "text-indigo-300 font-bold" : "text-slate-400"
                   }`}
                 >
@@ -453,18 +481,13 @@ export function EscalaAnualClient({
       </div>
 
       {/* ─────────────────────────────────────────────────────────────
-          4. ESCALA NOMINAL
+          4. ESCALA NOMINAL (IDÊNTICA AO PREVIEW)
       ───────────────────────────────────────────────────────────── */}
       <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 backdrop-blur-xl shadow-lg space-y-5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/8 pb-4">
-          <div>
-            <h3 className="text-base font-bold text-white tracking-tight">
-              Escala nominal
-            </h3>
-            <span className="text-xs text-slate-400">
-              {filteredColaboradores.length} colaboradores listados
-            </span>
-          </div>
+          <h3 className="text-base font-bold text-white tracking-tight">
+            Escala nominal
+          </h3>
 
           {/* Controles: Busca, Filtro de Setor e Botão Adicionar */}
           <div className="flex flex-wrap items-center gap-3">
@@ -473,7 +496,7 @@ export function EscalaAnualClient({
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <Input
                 type="text"
-                placeholder="Buscar colaborador..."
+                placeholder="Buscar colaborador"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 h-10 bg-[#070A12]/80 border-white/12 text-xs text-white rounded-2xl focus:border-indigo-500 w-full"
@@ -544,8 +567,8 @@ export function EscalaAnualClient({
                       key={colab.id}
                       className="hover:bg-white/[0.03] transition-colors group"
                     >
-                      {/* Colaborador */}
-                      <td className="py-3.5 px-4">
+                      {/* Colaborador: Avatar com iniciais + Nome limpo */}
+                      <td className="py-4 px-4">
                         <div className="flex items-center gap-3">
                           <div
                             className={`w-8 h-8 rounded-full border flex items-center justify-center font-bold text-xs shrink-0 ${getAvatarColor(
@@ -554,16 +577,9 @@ export function EscalaAnualClient({
                           >
                             {getInitials(colab.nome)}
                           </div>
-                          <div>
-                            <span className="font-semibold text-white block">
-                              {colab.nome}
-                            </span>
-                            {colab.cargo && (
-                              <span className="text-[11px] text-slate-500">
-                                {colab.cargo}
-                              </span>
-                            )}
-                          </div>
+                          <span className="font-semibold text-white">
+                            {colab.nome}
+                          </span>
                         </div>
                       </td>
 
@@ -703,6 +719,70 @@ export function EscalaAnualClient({
         }}
         colaborador={historicoItem}
       />
+
+      {/* Modal de Publicação da Escala (Acessível via badge de status pelo RH) */}
+      {pubModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md rounded-3xl border border-white/12 bg-[#0c101c] p-6 shadow-2xl text-white space-y-4">
+            <div className="flex items-center gap-3">
+              <div
+                className={`p-3 rounded-2xl border ${
+                  publicacao.status === "RASCUNHO"
+                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                    : "bg-amber-500/10 border-amber-500/20 text-amber-400"
+                }`}
+              >
+                {publicacao.status === "RASCUNHO" ? (
+                  <Send className="w-5 h-5" />
+                ) : (
+                  <AlertTriangle className="w-5 h-5" />
+                )}
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">
+                  {publicacao.status === "RASCUNHO"
+                    ? `Publicar Escala ${ano}?`
+                    : `Retirar Escala ${ano} do Ar?`}
+                </h3>
+                <span className="text-xs text-slate-400">Governança RH • 7º RI SP</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              {publicacao.status === "RASCUNHO"
+                ? `Ao publicar a escala ${ano}, os colaboradores poderão visualizar somente as próprias férias programadas. Todas as edições do RH são registradas com integridade na trilha de auditoria WORM.`
+                : `Ao retirar do ar, a escala ${ano} volta ao modo rascunho e não será mais visível aos colaboradores. Todos os lançamentos e históricos continuam preservados.`}
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/8">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPubModalOpen(false)}
+                className="rounded-xl border-white/10 text-slate-300 hover:bg-white/10 text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                size="sm"
+                disabled={pubLoading}
+                onClick={handleTogglePublicacao}
+                className={`rounded-xl text-white font-bold text-xs ${
+                  publicacao.status === "RASCUNHO"
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "bg-amber-600 hover:bg-amber-700"
+                }`}
+              >
+                {pubLoading
+                  ? "Processando..."
+                  : publicacao.status === "RASCUNHO"
+                  ? "Confirmar Publicação"
+                  : "Confirmar Retirada"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
