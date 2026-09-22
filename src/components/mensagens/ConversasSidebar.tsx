@@ -164,18 +164,18 @@ export function ConversasSidebar({
 
   return (
     <aside
-      className={`h-full border-r border-white/10 bg-[#0d1117] flex flex-col transition-all duration-300 select-none relative ${
-        isCollapsed ? 'w-16' : 'w-full md:w-80 lg:w-[320px]'
+      className={`h-full border-r border-white/[0.08] bg-[#0d1117] flex flex-col transition-all duration-300 select-none relative shrink-0 ${
+        isCollapsed ? 'w-16 min-w-16 max-w-16' : 'w-full md:w-[360px] md:min-w-[360px] md:max-w-[360px]'
       }`}
     >
       {/* ── Header ── */}
-      <div className="flex items-center justify-between px-3 py-3 border-b border-white/10 bg-[#111827]">
+      <div className="flex items-center justify-between px-3.5 py-3 border-b border-white/[0.08] bg-[#0d1117] shrink-0 h-14">
         {!isCollapsed && (
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-emerald-600/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
-              <MessageSquare className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+              <MessageSquare className="w-4 h-4" />
             </div>
-            <span className="text-sm font-bold text-white tracking-tight">Mensagens</span>
+            <span className="text-base font-semibold text-white tracking-tight">Mensagens</span>
             {unreadTotal > 0 && (
               <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center">
                 {unreadTotal > 9 ? '9+' : unreadTotal}
@@ -184,7 +184,7 @@ export function ConversasSidebar({
           </div>
         )}
 
-        <div className={`flex items-center gap-1 ${isCollapsed ? 'mx-auto' : ''}`}>
+        <div className={`flex items-center gap-1.5 ${isCollapsed ? 'mx-auto' : ''}`}>
           {/* Status / Teste de Alertas de Desktop e Som */}
           {notificationPermission === 'granted' ? (
             <button
@@ -219,9 +219,9 @@ export function ConversasSidebar({
             type="button"
             onClick={onOpenNovaConversa}
             title="Nova Conversa"
-            className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition shadow cursor-pointer"
+            className="w-8 h-8 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white flex items-center justify-center transition shadow-md shadow-emerald-500/20 cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 stroke-[2.5]" />
           </button>
 
           <button
@@ -237,20 +237,20 @@ export function ConversasSidebar({
       {!isCollapsed && (
         <>
           {/* ── Busca ── */}
-          <div className="px-3 pt-3 pb-2">
+          <div className="px-3.5 pt-3 pb-2 shrink-0">
             <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-500" />
+              <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-500" />
               <input
                 type="text"
                 placeholder="Pesquisar conversas..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-8 pr-8 py-1.5 text-xs rounded-xl bg-slate-900/80 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/60 transition"
+                className="w-full pl-9 pr-8 py-2 text-xs rounded-xl bg-slate-900/90 border border-white/[0.08] text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 transition"
               />
               {search && (
                 <button
                   onClick={() => setSearch('')}
-                  className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white"
+                  className="absolute right-2.5 top-2 text-slate-400 hover:text-white text-base leading-none p-0.5"
                 >
                   ×
                 </button>
@@ -258,45 +258,41 @@ export function ConversasSidebar({
             </div>
           </div>
 
-          {/* ── Filtros ── */}
-          <div className="flex gap-1 px-3 pb-2 overflow-x-auto scrollbar-none">
-            {FILTER_TABS.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => onFilterChange(tab.key)}
-                className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-semibold transition border ${
-                  filter === tab.key
-                    ? 'bg-emerald-600 border-emerald-500 text-white'
-                    : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                {tab.label}
-                {tab.key === 'unread' && unreadTotal > 0 && (
-                  <span className="ml-1 font-mono">{unreadTotal}</span>
-                )}
-              </button>
-            ))}
+          {/* ── Filtros em linha única sem rolagem horizontal ── */}
+          <div className="grid grid-cols-4 gap-1.5 px-3.5 pb-2 shrink-0 overflow-hidden">
+            {FILTER_TABS.map((tab) => {
+              const isActive = filter === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => onFilterChange(tab.key)}
+                  className={`py-1.5 px-1 rounded-full text-[11px] font-semibold transition text-center truncate flex items-center justify-center gap-1 ${
+                    isActive
+                      ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/20'
+                      : 'bg-white/[0.04] text-slate-400 hover:text-white hover:bg-white/[0.08] border border-white/[0.04]'
+                  }`}
+                >
+                  <span className="truncate">{tab.label}</span>
+                  {tab.key === 'unread' && unreadTotal > 0 && (
+                    <span className={`text-[10px] font-mono px-1 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                      {unreadTotal}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </>
       )}
 
       {/* ── Lista de conversas ── */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar py-1">
+      <div className="flex-1 overflow-y-auto custom-scrollbar py-1 overflow-x-hidden">
         {filtered.length === 0 ? (
-          <div className="py-16 flex flex-col items-center gap-2 text-slate-600">
+          <div className="py-24 flex flex-col items-center justify-center text-center px-4">
             {!isCollapsed && (
-              <>
-                <MessageCircleDashed className="w-8 h-8 opacity-40" />
-                <p className="text-xs text-center px-4">
-                  {search
-                    ? 'Nenhuma conversa encontrada.'
-                    : filter === 'archived'
-                    ? 'Nenhuma conversa arquivada.'
-                    : filter === 'unread'
-                    ? 'Nenhuma mensagem não lida.'
-                    : 'Nenhuma conversa iniciada.'}
-                </p>
-              </>
+              <p className="text-xs text-slate-500 font-normal">
+                Nenhuma conversa encontrada
+              </p>
             )}
           </div>
         ) : (

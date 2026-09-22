@@ -51,7 +51,7 @@ function TrajetoriaMap({ data }: { data: TrajetoriaData }) {
 
   return (
     <div
-      className="relative overflow-hidden rounded-xl border border-white/[0.1] w-full shadow-2xl select-none"
+      className="relative overflow-hidden rounded-[24px] border border-white/12 w-full shadow-[0_20px_60px_rgba(0,0,0,0.3)] select-none"
       style={{
         backgroundImage: "url('/trajetoria-salas-clean.jpg')",
         backgroundSize: '100% 100%',
@@ -228,130 +228,140 @@ function ProtocoloStrip({ data }: { data: TrajetoriaData }) {
       : 'bg-blue-500/15 text-blue-400 border border-blue-500/25';
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/[0.06] rounded-xl overflow-hidden border border-white/[0.07]">
-      {/* Protocolo */}
-      <div className="bg-[#0a0d17] px-4 py-2.5 flex flex-col gap-1">
-        <div className="flex items-center gap-1.5">
-          <FileText className="w-3 h-3 text-white/35" />
-          <span className="text-[10px] text-white/40 font-semibold uppercase tracking-wider">
-            Protocolo
-          </span>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xl font-black text-white tracking-tight">
-            {data.protocolo}
-          </span>
-          {data.tipo && (
-            <span className="text-[9px] font-black uppercase tracking-wider
-              bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-1.5 py-0.5 rounded-md">
-              {data.tipo}
+    <div className="rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-5 sm:p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6 divide-y sm:divide-y-0 sm:divide-x divide-white/8">
+        {/* Protocolo */}
+        <div className="flex flex-col justify-between gap-2 sm:pr-4">
+          <div className="flex items-center gap-1.5">
+            <FileText className="w-3.5 h-3.5 text-blue-400" />
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+              Protocolo
             </span>
-          )}
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-2xl font-black text-white tracking-tight">
+              {data.protocolo}
+            </span>
+            {data.tipo && (
+              <span className="text-[9px] font-black uppercase tracking-wider
+                bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-2 py-0.5 rounded-full">
+                {data.tipo}
+              </span>
+            )}
 
-          {/* Badge de Desfecho Cartorial (Registrado / Devolvido) */}
-          {data.desfecho === 'REGISTRADO' && (
-            <span className="text-[9px] font-black uppercase tracking-wider
-              bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 px-1.5 py-0.5 rounded-md inline-flex items-center gap-1">
-              <Check className="w-2.5 h-2.5" strokeWidth={3} />
-              Registrado
-            </span>
-          )}
-          {data.desfecho === 'DEVOLVIDO' && (
-            <span className="text-[9px] font-black uppercase tracking-wider
-              bg-amber-500/20 text-amber-300 border border-amber-400/40 px-1.5 py-0.5 rounded-md inline-flex items-center gap-1">
-              <RotateCcw className="w-2.5 h-2.5" strokeWidth={3} />
-              Devolvido {data.dtDevolucao ? `(${fmtDate(data.dtDevolucao)})` : ''}
-            </span>
-          )}
-          {data.dtRetirada && (
-            <span className="text-[9px] font-black uppercase tracking-wider
-              bg-sky-500/20 text-sky-300 border border-sky-400/40 px-1.5 py-0.5 rounded-md inline-flex items-center gap-1">
-              <Check className="w-2.5 h-2.5" strokeWidth={3} />
-              Retirado ({fmtDate(data.dtRetirada)})
-            </span>
-          )}
+            {/* Badge de Desfecho Cartorial (Registrado / Devolvido) */}
+            {data.desfecho === 'REGISTRADO' && (
+              <span className="text-[9px] font-black uppercase tracking-wider
+                bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                <Check className="w-2.5 h-2.5" strokeWidth={3} />
+                Registrado
+              </span>
+            )}
+            {data.desfecho === 'DEVOLVIDO' && (
+              <span className="text-[9px] font-black uppercase tracking-wider
+                bg-amber-500/20 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                <RotateCcw className="w-2.5 h-2.5" strokeWidth={3} />
+                Devolvido {data.dtDevolucao ? `(${fmtDate(data.dtDevolucao)})` : ''}
+              </span>
+            )}
+            {data.dtRetirada && (
+              <span className="text-[9px] font-black uppercase tracking-wider
+                bg-sky-500/20 text-sky-300 border border-sky-400/40 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                <Check className="w-2.5 h-2.5" strokeWidth={3} />
+                Retirado ({fmtDate(data.dtRetirada)})
+              </span>
+            )}
 
-          <button
-            onClick={handleCopy}
-            className="text-[10px] font-semibold px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white transition-colors inline-flex items-center gap-1 cursor-pointer"
-            title="Copiar protocolo"
-          >
-            <Copy className="w-2.5 h-2.5" />
-            {copied ? 'Copiado!' : 'Copiar'}
-          </button>
-        </div>
+            <button
+              onClick={handleCopy}
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white transition-colors inline-flex items-center gap-1 cursor-pointer"
+              title="Copiar protocolo"
+            >
+              <Copy className="w-2.5 h-2.5" />
+              {copied ? 'Copiado!' : 'Copiar'}
+            </button>
+          </div>
 
-        {data.desfecho === 'DEVOLVIDO' ? (
-          data.dtRetirada ? (
-            <span className="text-[10px] font-bold text-sky-400 inline-flex items-center gap-1 mt-0.5">
-              <Check className="w-2.5 h-2.5" />
-              Título entregue e retirado no balcão
-            </span>
+          {data.desfecho === 'DEVOLVIDO' ? (
+            data.dtRetirada ? (
+              <span className="text-[10px] font-bold text-sky-400 inline-flex items-center gap-1 mt-0.5">
+                <Check className="w-2.5 h-2.5" />
+                Título entregue e retirado no balcão
+              </span>
+            ) : (
+              <span className="text-[10px] font-bold text-amber-400 inline-flex items-center gap-1 mt-0.5">
+                <Clock className="w-2.5 h-2.5" />
+                Disponível para retirada no balcão
+              </span>
+            )
           ) : (
-            <span className="text-[10px] font-bold text-amber-400 inline-flex items-center gap-1 mt-0.5">
+            <span className="text-[10px] font-bold text-emerald-400 inline-flex items-center gap-1 mt-0.5">
               <Clock className="w-2.5 h-2.5" />
-              Disponível para retirada no balcão
-            </span>
-          )
-        ) : (
-          <span className="text-[10px] font-bold text-emerald-400 inline-flex items-center gap-1 mt-0.5">
-            <Clock className="w-2.5 h-2.5" />
-            Prazo Legal: No Prazo
-          </span>
-        )}
-      </div>
-
-      {/* Último setor identificado */}
-      <div className="bg-[#0a0d17] px-4 py-2.5 flex flex-col gap-1">
-        <div className="flex items-center gap-1.5">
-          <MapPin className="w-3 h-3 text-white/35" />
-          <span className="text-[10px] text-white/40 font-semibold uppercase tracking-wider">
-            Último Setor Identificado
-          </span>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-bold text-white leading-tight">
-            {data.ultimoSetorNum > 0 ? data.ultimoSetorLabel : 'Sem evidência'}
-          </span>
-          {data.ultimoSetorNum > 0 && (
-            <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md ${statusColor}`}>
-              {data.ultimoSetorNum === 11 ? 'Concluído' : 'Em andamento'}
+              Prazo Legal: No Prazo
             </span>
           )}
         </div>
-      </div>
 
-      {/* Evidência */}
-      <div className="bg-[#0a0d17] px-4 py-2.5 flex flex-col gap-1">
-        <div className="flex items-center gap-1.5">
-          <Clock className="w-3 h-3 text-white/35" />
-          <span className="text-[10px] text-white/40 font-semibold uppercase tracking-wider">
-            Evidência
-          </span>
-        </div>
-        <p className="text-sm font-semibold text-white/80 leading-tight">
-          {data.ultimoSetorEvidencia
-            ? `Evidência em ${fmtDateTime(data.ultimoSetorEvidencia)}`
-            : 'Localização comprovada sem registro de horário'}
-        </p>
-      </div>
-
-      {/* Natureza */}
-      <div className="bg-[#0a0d17] px-4 py-2.5 flex flex-col gap-1">
-        <div className="flex items-center gap-1.5">
-          <FileText className="w-3 h-3 text-white/35" />
-          <span className="text-[10px] text-white/40 font-semibold uppercase tracking-wider">
-            Natureza
-          </span>
-        </div>
-        <p className="text-sm font-bold text-white leading-tight truncate" title={data.natureza}>
-          {data.natureza}
-        </p>
-        {data.dataEntrada && (
-          <p className="text-[10px] text-white/35 mt-0.5">
-            Entrada em {fmtDateTime(data.dataEntrada)}
+        {/* Último setor identificado */}
+        <div className="flex flex-col justify-between gap-2 pt-3 sm:pt-0 sm:px-4">
+          <div className="flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5 text-blue-400" />
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+              Último Setor Identificado
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap my-auto">
+            <span className="text-base font-black text-white leading-tight">
+              {data.ultimoSetorNum > 0 ? data.ultimoSetorLabel : 'Sem evidência'}
+            </span>
+            {data.ultimoSetorNum > 0 && (
+              <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${statusColor}`}>
+                {data.ultimoSetorNum === 11 ? 'Concluído' : 'Em andamento'}
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] text-white/40">
+            {data.ultimoSetorNum > 0 ? `Setor oficial ${data.ultimoSetorNum}` : 'Aguardando registro'}
           </p>
-        )}
+        </div>
+
+        {/* Evidência */}
+        <div className="flex flex-col justify-between gap-2 pt-3 sm:pt-0 sm:px-4">
+          <div className="flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-blue-400" />
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+              Evidência
+            </span>
+          </div>
+          <p className="text-sm font-semibold text-white/90 leading-tight my-auto">
+            {data.ultimoSetorEvidencia
+              ? `Evidência em ${fmtDateTime(data.ultimoSetorEvidencia)}`
+              : 'Localização comprovada sem registro de horário'}
+          </p>
+          <p className="text-[10px] text-white/40">
+            Rastreabilidade WORM e carimbo de data/hora
+          </p>
+        </div>
+
+        {/* Natureza */}
+        <div className="flex flex-col justify-between gap-2 pt-3 sm:pt-0 sm:pl-4">
+          <div className="flex items-center gap-1.5">
+            <FileText className="w-3.5 h-3.5 text-blue-400" />
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+              Natureza
+            </span>
+          </div>
+          <p className="text-sm font-bold text-white leading-tight truncate my-auto" title={data.natureza}>
+            {data.natureza}
+          </p>
+          {data.dataEntrada ? (
+            <p className="text-[10px] text-white/40">
+              Entrada em {fmtDateTime(data.dataEntrada)}
+            </p>
+          ) : (
+            <p className="text-[10px] text-white/40">Entrada formal no protocolo</p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -441,16 +451,16 @@ function RespostaImediataLocalizacao({ data }: { data: TrajetoriaData }) {
       <div
         role="status"
         aria-live="polite"
-        className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl
-          bg-gradient-to-r from-amber-950/40 via-[#181109] to-[#0a0d17]
-          border border-amber-500/30 shadow-lg shadow-amber-950/20"
+        className="flex flex-col md:flex-row md:items-center justify-between gap-5 p-5 sm:p-6 rounded-[24px]
+          bg-gradient-to-r from-amber-950/45 via-[#0B1020]/90 to-[#0B1020]/75
+          border border-amber-500/35 shadow-[0_20px_60px_rgba(245,158,11,0.15)] backdrop-blur-xl"
       >
-        <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-amber-600 flex items-center justify-center text-slate-950 font-black shrink-0 shadow-md shadow-amber-600/30">
-            <RotateCcw className="w-5 h-5" strokeWidth={2.5} />
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-600 flex items-center justify-center text-slate-950 font-black shrink-0 shadow-lg shadow-amber-600/30">
+            <RotateCcw className="w-6 h-6" strokeWidth={2.5} />
           </div>
           <div>
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-400/80 block">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-400/90 block">
               STATUS CARTORIAL:
             </span>
             <span className="text-2xl font-black text-amber-300 tracking-tight uppercase block leading-tight">
@@ -459,20 +469,20 @@ function RespostaImediataLocalizacao({ data }: { data: TrajetoriaData }) {
           </div>
         </div>
 
-        <div className="hidden lg:block h-9 w-px bg-white/10 mx-2" />
-        <p className="text-xs text-white/60 leading-relaxed max-w-md">
+        <div className="hidden lg:block h-10 w-px bg-white/10 mx-2" />
+        <p className="text-xs text-white/70 leading-relaxed max-w-md">
           {data.dtRetirada
             ? `Devolução formalizada em ${fmtDate(data.dtDevolucao)} e retirada no balcão em ${fmtDate(data.dtRetirada)}.`
             : `Devolução formalizada em ${fmtDate(data.dtDevolucao)}. O documento está disponível no balcão para retirada.`}
         </p>
 
-        <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-amber-950/40 border border-amber-500/20 text-white/80 shrink-0 md:ml-auto">
+        <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-amber-950/40 border border-amber-500/25 text-white/90 shrink-0 md:ml-auto shadow-sm">
           <Info className="w-4 h-4 text-amber-400 shrink-0" />
           <div className="text-left leading-tight">
             <p className="text-xs font-bold text-white">
               {data.dtRetirada ? 'Retirado na Saída (Setor 11)' : 'Aguardando no Balcão (Setor 8)'}
             </p>
-            <p className="text-[10px] text-white/40">Consulte o percurso completo abaixo.</p>
+            <p className="text-[10px] text-white/50">Consulte o percurso completo abaixo.</p>
           </div>
         </div>
       </div>
@@ -484,17 +494,17 @@ function RespostaImediataLocalizacao({ data }: { data: TrajetoriaData }) {
       <div
         role="status"
         aria-live="polite"
-        className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl
-          bg-gradient-to-r from-blue-950/40 via-[#0a0d1a] to-[#0a0d17]
-          border border-blue-500/30 shadow-lg shadow-blue-950/20"
+        className="flex flex-col md:flex-row md:items-center justify-between gap-5 p-5 sm:p-6 rounded-[24px]
+          bg-gradient-to-r from-blue-950/45 via-[#0B1020]/90 to-[#0B1020]/75
+          border border-blue-500/35 shadow-[0_20px_60px_rgba(59,130,246,0.15)] backdrop-blur-xl"
       >
         {/* Left: Ícone azul + Título + Departamento */}
-        <div className="flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-md shadow-blue-600/30">
-            <MapPin className="w-5 h-5" />
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-blue-600/30">
+            <MapPin className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue-400/80 block">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue-400/90 block">
               SEU TÍTULO ESTÁ EM:
             </span>
             <span className="text-2xl font-black text-sky-400 tracking-tight uppercase block leading-tight">
@@ -504,17 +514,17 @@ function RespostaImediataLocalizacao({ data }: { data: TrajetoriaData }) {
         </div>
 
         {/* Middle: Divisor vertical + Subtexto defensivo */}
-        <div className="hidden lg:block h-9 w-px bg-white/10 mx-2" />
-        <p className="text-xs text-white/50 leading-relaxed max-w-md">
+        <div className="hidden lg:block h-10 w-px bg-white/10 mx-2" />
+        <p className="text-xs text-white/60 leading-relaxed max-w-md">
           Última localização conhecida com base nas evidências disponíveis no sistema.
         </p>
 
         {/* Right: Info pill com convite para mapa */}
-        <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-blue-950/40 border border-blue-500/20 text-white/80 shrink-0 md:ml-auto">
+        <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-blue-950/40 border border-blue-500/25 text-white/90 shrink-0 md:ml-auto shadow-sm">
           <Info className="w-4 h-4 text-blue-400 shrink-0" />
           <div className="text-left leading-tight">
             <p className="text-xs font-bold text-white">Consulte a trajetória abaixo</p>
-            <p className="text-[10px] text-white/40">para visualizar o percurso completo.</p>
+            <p className="text-[10px] text-white/50">para visualizar o percurso completo.</p>
           </div>
         </div>
       </div>
@@ -526,28 +536,28 @@ function RespostaImediataLocalizacao({ data }: { data: TrajetoriaData }) {
     <div
       role="status"
       aria-live="polite"
-      className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl
-        bg-white/[0.02] border border-white/10"
+      className="flex flex-col md:flex-row md:items-center justify-between gap-5 p-5 sm:p-6 rounded-[24px]
+        bg-[#0B1020]/72 border border-white/12 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl"
     >
-      <div className="flex items-center gap-3.5">
-        <div className="w-10 h-10 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-white/40 shrink-0">
-          <AlertCircle className="w-5 h-5" />
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-white/40 shrink-0">
+          <AlertCircle className="w-6 h-6" />
         </div>
         <div>
           <span className="text-[11px] font-extrabold uppercase tracking-wider text-white/40 block">
             LOCALIZAÇÃO NÃO IDENTIFICADA
           </span>
-          <span className="text-lg font-bold text-white/70 tracking-tight block leading-tight">
+          <span className="text-lg font-bold text-white/80 tracking-tight block leading-tight">
             Nenhum departamento confirmado
           </span>
         </div>
       </div>
 
-      <p className="text-xs text-white/40 leading-relaxed max-w-md">
+      <p className="text-xs text-white/50 leading-relaxed max-w-md">
         Não há evidência suficiente para identificar a localização atual do título.
       </p>
 
-      <span className="text-[11px] font-medium text-white/40 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/5 shrink-0 md:ml-auto">
+      <span className="text-[11px] font-medium text-white/40 px-3.5 py-1.5 rounded-xl bg-white/[0.03] border border-white/8 shrink-0 md:ml-auto">
         Sem evidência no sistema
       </span>
     </div>
@@ -605,55 +615,60 @@ function HistoricoTarefas({ tarefas }: { tarefas?: TrajetoriaData['tarefas'] }) 
   if (!tarefasExibidas || tarefasExibidas.length === 0) return null;
 
   return (
-    <div className="mt-4 rounded-xl border border-white/[0.08] bg-[#0a0d17] overflow-hidden">
+    <div className="mt-5 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)] overflow-hidden transition-all">
       <button
         onClick={() => setExpandido(!expandido)}
-        className="w-full flex items-center justify-between p-4 text-left hover:bg-white/[0.02] transition-colors cursor-pointer"
+        className="w-full flex items-center justify-between p-5 text-left hover:bg-white/[0.02] transition-colors cursor-pointer border-b border-white/6"
       >
-        <div className="flex items-center gap-2.5">
-          <Layers className="w-4 h-4 text-sky-400" />
-          <span className="text-xs font-bold uppercase tracking-wider text-white/90">
-            Evidências & Tarefas Cartoriais ({tarefasExibidas.length})
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-sky-500/25 bg-sky-500/12 text-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.15)]">
+            <Layers className="w-4 h-4" />
+          </div>
+          <div>
+            <span className="text-xs font-bold uppercase tracking-wider text-white">
+              Evidências & Tarefas Cartoriais ({tarefasExibidas.length})
+            </span>
+            <p className="text-[11px] text-slate-400 mt-0.5">Trilha de execução e carimbos de auditoria</p>
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-white/40 text-xs">
+        <div className="flex items-center gap-2 text-white/50 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/8">
           <span>{expandido ? 'Ocultar detalhes' : 'Ver todas'}</span>
           {expandido ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </div>
       </button>
 
       {expandido && (
-        <div className="p-4 pt-0 border-t border-white/5 space-y-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-3">
+        <div className="p-5 pt-0 border-t border-white/8 space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-4">
             {tarefasExibidas.map((t, idx) => (
               <div
                 key={idx}
-                className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06] flex flex-col justify-between gap-2"
+                className="group rounded-2xl bg-white/[0.03] hover:bg-white/[0.05] border border-white/8 hover:border-white/15 p-4 flex flex-col justify-between gap-3 transition-all duration-200 shadow-sm"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="text-xs font-bold text-white leading-tight truncate" title={t.tarefa}>
+                  <span className="text-xs font-bold text-white leading-tight truncate group-hover:text-white" title={t.tarefa}>
                     {t.tarefa}
                   </span>
                   <span
-                    className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                    className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${
                       t.situacao === 'FINALIZADA'
-                        ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                        : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                        : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
                     }`}
                   >
                     {t.situacao}
                   </span>
                 </div>
 
-                <div className="space-y-1 text-[11px] text-white/50">
+                <div className="space-y-1.5 text-[11px] text-white/60">
                   {t.setorNum && (
-                    <div className="flex items-center gap-1.5 text-sky-400/90 font-medium">
+                    <div className="flex items-center gap-1.5 text-sky-400 font-medium">
                       <MapPin className="w-3 h-3 shrink-0" />
                       <span>{NOMES_SETORES_OFICIAIS[t.setorNum]} (Setor {t.setorNum})</span>
                     </div>
                   )}
                   {t.responsavel && (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 text-white/50">
                       <User className="w-3 h-3 shrink-0 text-white/30" />
                       <span className="truncate">{t.responsavel}</span>
                     </div>
@@ -772,14 +787,13 @@ export function TrajetoriaClient({ initialProtocolo }: TrajetoriaClientProps) {
     <div className="space-y-6">
       {/* ── Search bar ── */}
       <div
-        className="flex flex-col sm:flex-row gap-3 p-4 rounded-xl
-          border border-white/[0.08] bg-[#0a0d17]"
+        className="rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-4 sm:p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] flex flex-col sm:flex-row gap-3 items-center"
       >
-        <div className="relative flex-1">
+        <div className="relative flex-1 w-full">
           <label htmlFor="protocolo-input" className="sr-only">
             Número do protocolo
           </label>
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none">
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none">
             <Search className="w-4 h-4" />
           </span>
           <input
@@ -794,19 +808,19 @@ export function TrajetoriaClient({ initialProtocolo }: TrajetoriaClientProps) {
             onKeyDown={handleKeyDown}
             disabled={loading}
             autoComplete="off"
-            className="w-full h-11 pl-10 pr-10 rounded-lg bg-[#12152b] border border-white/[0.08]
-              text-white placeholder-white/25 text-sm font-semibold
-              focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30
-              disabled:opacity-50 transition-colors"
+            className="w-full h-11 pl-10 pr-10 rounded-xl bg-white/[0.04] border border-white/10
+              text-white placeholder-white/30 text-sm font-semibold
+              focus:outline-none focus:border-blue-500/60 focus:ring-1 focus:ring-blue-500/40
+              disabled:opacity-50 transition-all"
           />
           {inputValue && !loading && (
             <button
               onClick={() => setInputValue('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2
-                text-white/30 hover:text-white/60 transition-colors"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2
+                text-white/30 hover:text-white/70 transition-colors cursor-pointer"
               aria-label="Limpar campo"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -815,11 +829,11 @@ export function TrajetoriaClient({ initialProtocolo }: TrajetoriaClientProps) {
           id="btn-consultar"
           onClick={handleConsultar}
           disabled={loading || !inputValue.trim()}
-          className="flex items-center justify-center gap-2 h-11 px-6 rounded-lg
-            bg-blue-600 hover:bg-blue-500 active:bg-blue-700
+          className="w-full sm:w-auto flex items-center justify-center gap-2 h-11 px-6 rounded-xl
+            bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:brightness-95
             text-white text-sm font-bold
             disabled:opacity-40 disabled:cursor-not-allowed
-            transition-all duration-150 shadow-md shadow-blue-900/30"
+            transition-all duration-200 shadow-lg shadow-blue-600/25 hover:shadow-blue-500/35 cursor-pointer"
         >
           {loading
             ? <Loader2 className="w-4 h-4 animate-spin" />
@@ -831,9 +845,9 @@ export function TrajetoriaClient({ initialProtocolo }: TrajetoriaClientProps) {
           id="btn-limpar"
           onClick={handleLimpar}
           disabled={loading}
-          className="flex items-center justify-center gap-2 h-11 px-5 rounded-lg
-            border border-white/[0.08] text-white/60 hover:text-white hover:border-white/20
-            text-sm font-semibold disabled:opacity-40 transition-all duration-150"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 h-11 px-5 rounded-xl
+            border border-white/12 bg-white/[0.03] hover:bg-white/[0.08] text-white/70 hover:text-white
+            text-sm font-semibold disabled:opacity-40 transition-all duration-200 cursor-pointer"
         >
           <RotateCcw className="w-3.5 h-3.5" />
           Limpar
@@ -843,7 +857,7 @@ export function TrajetoriaClient({ initialProtocolo }: TrajetoriaClientProps) {
       {/* Recentes sugeridos */}
       {recentes.length > 0 && (
         <div className="flex items-center gap-2 text-xs -mt-3 px-1 overflow-x-auto">
-          <span className="text-white/35 text-[11px] font-semibold shrink-0">Recentes:</span>
+          <span className="text-white/40 text-[11px] font-semibold shrink-0">Recentes:</span>
           {recentes.map((p) => (
             <button
               key={p}
@@ -851,10 +865,10 @@ export function TrajetoriaClient({ initialProtocolo }: TrajetoriaClientProps) {
                 setInputValue(p);
                 fetchTrajetoria(p);
               }}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer shrink-0 ${
+              className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all duration-200 cursor-pointer shrink-0 ${
                 inputValue === p
-                  ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                  : 'bg-white/[0.03] hover:bg-white/[0.08] text-white/60 hover:text-white border border-white/[0.06]'
+                  ? 'bg-blue-500/20 text-blue-300 border border-blue-500/35 shadow-sm'
+                  : 'bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white border border-white/8 hover:border-white/15'
               }`}
             >
               {p}
@@ -895,9 +909,9 @@ export function TrajetoriaClient({ initialProtocolo }: TrajetoriaClientProps) {
           {data.temReingresso && (
             <div className="flex items-center gap-2">
               <span
-                className="inline-flex items-center gap-1.5 text-[11px] font-semibold
-                  text-amber-400/80 bg-amber-500/8 border border-amber-500/20
-                  rounded-md px-2 py-1 cursor-default"
+                className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider
+                  text-amber-300 bg-amber-500/15 border border-amber-500/25
+                  rounded-full px-3 py-1 cursor-default shadow-sm"
                 title="A trajetória exibida representa a última fase ativa do título. Ciclos anteriores não são exibidos nesta visão."
                 aria-label="Reingresso identificado. A trajetória representa a última fase ativa do título."
               >
@@ -913,19 +927,19 @@ export function TrajetoriaClient({ initialProtocolo }: TrajetoriaClientProps) {
           <RespostaImediataLocalizacao data={data} />
 
           {/* Trajectory section */}
-          <div className="space-y-3">
+          <div className="space-y-4 pt-1">
             {/* Section header */}
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-9 h-9 rounded-xl
-                  bg-blue-500/10 border border-blue-500/20">
-                  <MapPin className="w-4 h-4 text-blue-400" />
+                <div className="flex items-center justify-center w-10 h-10 rounded-xl
+                  bg-blue-500/12 border border-blue-500/25 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.15)]">
+                  <MapPin className="w-5 h-5" />
                 </div>
                 <div>
                   <h2 className="text-base font-black text-white tracking-wide uppercase">
                     Trajetória do Título
                   </h2>
-                  <p className="text-xs text-white/40 mt-0.5">
+                  <p className="text-xs text-slate-400 mt-0.5">
                     Acompanhe a última localização conhecida do título no Cartório.
                   </p>
                 </div>

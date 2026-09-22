@@ -590,7 +590,7 @@ export function MensagensClient({
 
       <div className="flex-1 w-full flex overflow-hidden">
         {/* Sidebar — esconde no mobile quando há conversa ativa */}
-        <div className={`h-full md:flex ${activeConversationId ? 'hidden md:flex' : 'flex w-full'}`}>
+        <div className={`h-full shrink-0 md:flex ${activeConversationId ? 'hidden md:flex' : 'flex w-full'}`}>
           <ConversasSidebar
             conversations={conversations}
             activeConversationId={activeConversationId}
@@ -613,7 +613,7 @@ export function MensagensClient({
 
         {/* Área Central do Chat */}
         <div
-          className={`flex-1 h-full flex flex-col ${
+          className={`flex-1 h-full min-w-0 flex flex-col bg-[#070A12] ${
             !activeConversationId ? 'hidden md:flex' : 'flex w-full'
           }`}
         >
@@ -637,20 +637,23 @@ export function MensagensClient({
               onDraftSave={(text) => handleDraftSave(activeConversation.id, text)}
             />
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-500">
-              <div className="w-20 h-20 rounded-3xl bg-white/[0.03] border border-white/10 flex items-center justify-center mb-6">
-                <MessagesSquare className="w-9 h-9 text-emerald-500/60" />
+            <div className="h-full flex-1 flex flex-col items-center justify-center text-center p-8 select-none">
+              <div className="w-24 h-24 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6 shadow-inner">
+                <MessagesSquare className="w-10 h-10 text-emerald-400 stroke-[1.75]" />
               </div>
-              <h3 className="text-base font-bold text-white mb-2">FIORIX Mensagens</h3>
-              <p className="max-w-xs text-xs text-slate-500 mb-6 leading-relaxed">
-                Comunicação corporativa segura. Selecione uma conversa ou inicie um novo diálogo.
+              <h3 className="text-2xl font-bold text-white tracking-tight mb-2">
+                Selecione uma conversa
+              </h3>
+              <p className="max-w-sm text-sm text-slate-400 mb-7 leading-relaxed">
+                Escolha uma conversa na lista ou inicie uma nova.
               </p>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(true)}
-                className="px-5 py-2.5 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 transition cursor-pointer"
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-medium text-sm transition shadow-lg shadow-emerald-500/25 cursor-pointer active:scale-[0.98]"
               >
-                + Nova Conversa
+                <span className="text-base leading-none font-bold">+</span>
+                <span>Nova conversa</span>
               </button>
             </div>
           )}

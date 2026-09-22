@@ -48,66 +48,74 @@ export default async function LocalizacaoTitulosPage({
     diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1);
 
   return (
-    <div className="min-h-full p-4 md:p-6 lg:p-8 space-y-6">
-      {/* ── Breadcrumb — condicional por perfil ── */}
-      <nav className="flex items-center gap-2 text-xs text-white/30 font-medium">
-        {isColaborador ? (
-          <>
-            <span>Trabalho</span>
-            <span>/</span>
-            <span className="text-white/60">Rastreio do Título</span>
-          </>
-        ) : (
-          <>
-            <span>Operacional &amp; BI</span>
-            <span>/</span>
-            <span className="text-white/60">Localização de Títulos</span>
-          </>
-        )}
-      </nav>
-
-      {/* ── Page header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div className="flex items-start gap-4">
-          {/* Icon */}
-          <div
-            className="flex items-center justify-center w-12 h-12 rounded-xl shrink-0
-              bg-gradient-to-br from-blue-600/30 to-indigo-600/20 border border-blue-500/25"
-          >
-            <MapPin className="w-5 h-5 text-blue-400" />
-          </div>
-
-          {/* Title */}
-          <div>
-            <h1 className="text-2xl font-black text-white tracking-tight">
-              Rastreio do Título
-            </h1>
-            <p className="text-sm text-white/40 mt-0.5">
-              Consulte a situação e a última localização conhecida de um
-              protocolo no Cartório.
-            </p>
-          </div>
-        </div>
-
-        {/* Date / time display */}
-        <div
-          className="flex items-center gap-2 shrink-0 px-3 py-2 rounded-lg
-            border border-white/[0.07] bg-white/[0.03]"
-        >
-          <Calendar className="w-3.5 h-3.5 text-white/30" />
-          <div className="text-right">
-            <p className="text-xs font-bold text-white/70">
-              {dataHora} &nbsp;{hora}
-            </p>
-            <p className="text-[10px] text-white/30 capitalize">
-              {diaCapitalizado}
-            </p>
-          </div>
-        </div>
+    <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden pb-16 font-sans">
+      {/* Ambient Glow */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 left-1/2 h-72 w-[48rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-blue-500/12 via-indigo-500/10 to-cyan-500/8 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       </div>
 
-      {/* ── Client component ── */}
-      <TrajetoriaClient initialProtocolo={initialProtocolo} />
+      <div className="relative mx-auto max-w-[1600px] p-4 md:p-6 lg:p-8 space-y-6">
+        {/* ── Breadcrumb — condicional por perfil ── */}
+        <nav className="flex items-center gap-2 text-xs text-white/35 font-medium">
+          {isColaborador ? (
+            <>
+              <span>Trabalho</span>
+              <span>/</span>
+              <span className="text-blue-400 font-semibold">Rastreio do Título</span>
+            </>
+          ) : (
+            <>
+              <span>Operacional &amp; BI</span>
+              <span>/</span>
+              <span className="text-blue-400 font-semibold">Localização de Títulos</span>
+            </>
+          )}
+        </nav>
+
+        {/* ── Page header ── */}
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-2 border-b border-white/6">
+          <div className="flex items-start gap-4">
+            {/* Icon */}
+            <div
+              className="flex items-center justify-center w-12 h-12 rounded-2xl shrink-0
+                bg-gradient-to-br from-blue-600/25 to-indigo-600/15 border border-blue-500/25 shadow-[0_0_20px_rgba(59,130,246,0.15)]"
+            >
+              <MapPin className="w-5 h-5 text-blue-400" />
+            </div>
+
+            {/* Title */}
+            <div>
+              <h1 className="text-2xl font-black text-white tracking-tight">
+                Rastreio do Título
+              </h1>
+              <p className="text-xs text-slate-400 mt-1">
+                Consulte a situação e a última localização conhecida de um
+                protocolo no Cartório.
+              </p>
+            </div>
+          </div>
+
+          {/* Date / time display */}
+          <div
+            className="flex items-center gap-2.5 shrink-0 px-3.5 py-2 rounded-xl
+              border border-white/10 bg-[#0B1020]/72 backdrop-blur-xl shadow-sm"
+          >
+            <Calendar className="w-3.5 h-3.5 text-blue-400" />
+            <div className="text-right">
+              <p className="text-xs font-bold text-white/80">
+                {dataHora} &nbsp;{hora}
+              </p>
+              <p className="text-[10px] text-white/40 capitalize">
+                {diaCapitalizado}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Client component ── */}
+        <TrajetoriaClient initialProtocolo={initialProtocolo} />
+      </div>
     </div>
   );
 }

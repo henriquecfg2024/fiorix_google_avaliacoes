@@ -353,13 +353,15 @@ export function ChatArea({
   return (
     <div className="flex h-full w-full overflow-hidden">
       {/* ── MAIN CHAT COLUMN ──────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#0b1120]">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#070A12]">
         {/* Header */}
-        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/10 bg-[#111827] shrink-0">
+        <div className="flex items-center gap-2.5 px-3.5 border-b border-white/[0.08] bg-[#0d1117] shrink-0 h-14">
           {onBackToConversations && (
             <button
+              type="button"
               onClick={onBackToConversations}
-              className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition"
+              aria-label="Voltar para lista de conversas"
+              className="md:hidden p-2 -ml-1 mr-1 rounded-xl text-slate-300 hover:text-white bg-white/[0.05] hover:bg-white/10 transition cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
