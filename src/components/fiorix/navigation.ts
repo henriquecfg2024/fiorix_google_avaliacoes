@@ -20,6 +20,7 @@ import {
   MessageSquare,
   MessageCircle,
   Printer,
+  FileCheck2,
 } from "lucide-react";
 
 export const navigationGroups = {
@@ -132,6 +133,12 @@ export const navigationGroups = {
         href: "/pessoas/comunicados",
         icon: FileText,
         description: "Mural interno e minhas ciências",
+      },
+      {
+        label: "Gestão de Comunicados",
+        href: "/sistema/pessoas?tab=comunicados",
+        icon: FileCheck2,
+        description: "Criar comunicados e gerenciar ciências",
       },
       {
         label: "Minha IT",

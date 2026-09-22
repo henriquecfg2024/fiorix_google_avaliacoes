@@ -73,6 +73,15 @@ export function canManagePeople(userOrRole?: UserLike | string | null): boolean 
 }
 
 /**
+ * Checks if the user can manage Communications
+ * Allowed: RH, ADMIN, MASTER, SUBSTITUTO
+ */
+export function canManageComunicados(userOrRole?: UserLike | string | null): boolean {
+  const role = typeof userOrRole === 'string' ? userOrRole : userOrRole?.role;
+  return role === 'RH' || role === 'ADMIN' || role === 'MASTER' || role === 'SUBSTITUTO';
+}
+
+/**
  * Checks if the user can manage Users in Settings
  * Allowed: ADMIN, MASTER
  */
@@ -123,6 +132,8 @@ export function canAccess(userOrRole: UserLike | string | null, resource: string
       return true;
 
     case 'people.communications.manage':
+      return role === 'RH' || role === 'ADMIN' || role === 'MASTER' || role === 'SUBSTITUTO';
+
     case 'people.payroll.manage':
     case 'people.vacations.manage':
     case 'people.audit.read':

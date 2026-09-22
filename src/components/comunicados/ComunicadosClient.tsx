@@ -32,7 +32,7 @@ export function ComunicadosClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedComunicado, setSelectedComunicado] = useState<ComunicadoItem | null>(null);
 
-  const isManager = userRole === "ADMIN" || userRole === "RH" || userRole === "MASTER" || userRole === "GESTOR";
+  const isManager = userRole === "ADMIN" || userRole === "RH" || userRole === "MASTER" || userRole === "GESTOR" || userRole === "SUBSTITUTO";
 
   // Comunicados carregados do banco — inicializado vazio para uso oficial
   const [comunicados, setComunicados] = useState<ComunicadoItem[]>([]);
@@ -125,12 +125,20 @@ export function ComunicadosClient({
             </div>
           </div>
           {isManager && (
-            <Link href="/sistema/pessoas">
-              <Button className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-90 text-white font-bold text-xs gap-1.5 rounded-xl shadow-lg shadow-indigo-500/20">
-                <Plus className="w-4 h-4" />
-                <span>+ Novo Comunicado</span>
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/sistema/pessoas?tab=comunicados">
+                <Button variant="outline" className="border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 font-bold text-xs gap-1.5 rounded-xl h-9">
+                  <FileCheck2 className="w-4 h-4" />
+                  <span>Gestão de Comunicados</span>
+                </Button>
+              </Link>
+              <Link href="/sistema/pessoas?tab=comunicados">
+                <Button className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-90 text-white font-bold text-xs gap-1.5 rounded-xl h-9 shadow-lg shadow-indigo-500/20">
+                  <Plus className="w-4 h-4" />
+                  <span>+ Novo Comunicado</span>
+                </Button>
+              </Link>
+            </div>
           )}
         </div>
 

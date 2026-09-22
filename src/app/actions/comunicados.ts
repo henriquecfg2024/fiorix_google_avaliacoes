@@ -23,7 +23,7 @@ export interface ComunicadoItem {
 }
 
 export async function getComunicadosRH(): Promise<ComunicadoItem[]> {
-  const user = await requireRole('ADMIN', 'RH', 'MASTER', 'GESTOR');
+  const user = await requireRole('ADMIN', 'RH', 'MASTER', 'GESTOR', 'SUBSTITUTO');
 
   const comunicados = await prisma.fiorixComunicado.findMany({
     where: {
@@ -78,7 +78,7 @@ export async function getComunicadosRH(): Promise<ComunicadoItem[]> {
       id: c.id,
       titulo: c.titulo,
       data: dataFmt,
-      autor: c.autor?.name ? `${c.autor.name} (${user.role === 'RH' ? 'RH' : 'Gestão'})` : 'RH / Gestão',
+      autor: c.autor?.name ? `${c.autor.name} (${user.role === 'RH' ? 'RH' : user.role === 'SUBSTITUTO' ? 'Substituto' : 'Gestão'})` : 'RH / Gestão',
       destinatarios: c.destinatarios?.includes('TODOS')
         ? `Todos (${totalColaboradores || 63} colaboradores)`
         : `${c.destinatarios?.join(', ') || 'Geral'}`,
@@ -95,7 +95,7 @@ export async function getComunicadosRH(): Promise<ComunicadoItem[]> {
 }
 
 export async function deleteComunicadoRH(id: string, motivo?: string) {
-  const user = await requireRole('ADMIN', 'RH', 'MASTER', 'GESTOR');
+  const user = await requireRole('ADMIN', 'RH', 'MASTER', 'GESTOR', 'SUBSTITUTO');
 
   const com = await prisma.fiorixComunicado.findFirst({
     where: { id, tenantId: user.tenantId },
@@ -141,7 +141,7 @@ export async function criarComunicadoRH(data: {
   prioridade?: string;
   destinatarios?: string[];
 }) {
-  const user = await requireRole('ADMIN', 'RH', 'MASTER', 'GESTOR');
+  const user = await requireRole('ADMIN', 'RH', 'MASTER', 'GESTOR', 'SUBSTITUTO');
 
   const conteudoHash = generateHash(data.conteudo);
 
@@ -185,7 +185,7 @@ export async function editarComunicadoRH(
     prioridade?: string;
   }
 ) {
-  const user = await requireRole('ADMIN', 'RH', 'MASTER', 'GESTOR');
+  const user = await requireRole('ADMIN', 'RH', 'MASTER', 'GESTOR', 'SUBSTITUTO');
 
   const conteudoHash = generateHash(data.conteudo);
 

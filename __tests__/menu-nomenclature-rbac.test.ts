@@ -68,6 +68,7 @@ describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
     expect(navigationGroups.trabalho.items.map((i) => i.href)).toEqual([
       '/mensagens',
       '/pessoas/comunicados',
+      '/sistema/pessoas?tab=comunicados',
       '/minha-it',
       '/trajetoria-titulo',
     ]);
@@ -129,6 +130,20 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
     expect(groups.rhGestao.label).toBe('GESTÃO DE PESSOAS');
     expect(groups.trabalho.label).toBe('ROTINA DE TRABALHO');
     expect(groups.pessoas.label).toBe('MEU ESPAÇO');
+  });
+
+  it('valida o menu para o perfil SUBSTITUTO com acesso à Gestão de Comunicados', () => {
+    const groups = filterNavigationByRole('SUBSTITUTO');
+    const groupKeys = Object.keys(groups);
+
+    expect(groupKeys).toEqual([
+      'gestao',
+      'operacional',
+      'governancaIts',
+      'trabalho',
+      'pessoas',
+    ]);
+    expect(groups.trabalho.items.map((i) => i.href)).toContain('/sistema/pessoas?tab=comunicados');
   });
 
   it('valida o menu para o perfil ADMIN', () => {

@@ -20,8 +20,9 @@ export default async function PainelRHPage() {
 
   const userRole = session.user.role || "USER";
 
-  // Apenas ADMIN, RH, MASTER ou GESTOR podem acessar o painel de RH e criar comunicados
-  if (userRole === "USER" || userRole === "COLABORADOR") {
+  // Permitido para ADMIN, RH, MASTER, GESTOR e SUBSTITUTO
+  const ALLOWED_ROLES = ["ADMIN", "RH", "MASTER", "GESTOR", "SUBSTITUTO"];
+  if (!ALLOWED_ROLES.includes(userRole)) {
     redirect("/pessoas");
   }
 
