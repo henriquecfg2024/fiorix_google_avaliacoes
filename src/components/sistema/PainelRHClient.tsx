@@ -418,16 +418,6 @@ export function PainelRHClient({
           </div>
 
           {/* Ações contextuais de topo por tela */}
-          {currentTab === "comunicados" && (
-            <Button
-              onClick={() => setNovoModalOpen(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs gap-1.5 rounded-xl shadow-lg shadow-indigo-500/20 h-9 shrink-0 self-start sm:self-center"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Criar Novo Comunicado</span>
-            </Button>
-          )}
-
           {currentTab === "ferias" && (
             <Button
               onClick={() => setFeriasSubTab("validador")}

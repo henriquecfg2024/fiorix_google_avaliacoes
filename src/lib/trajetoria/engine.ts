@@ -132,6 +132,68 @@ export function findTarefa(
   return undefined;
 }
 
+/**
+ * Consolidação de tarefas repetidas para a mesma etapa/nome:
+ * Quando houver tarefas com o mesmo nome para a mesma etapa (ex: uma em aberto e outra finalizada),
+ * o sistema exibe apenas a tarefa consolidada mais recente (priorizando Finalizada),
+ * evitando itens repetidos no quadro.
+ */
+export function consolidarTarefas<T extends RawTarefa>(tarefas: T[]): T[] {
+  if (!tarefas || tarefas.length === 0) return [];
+
+  const grupos = new Map<string, T[]>();
+
+  for (const t of tarefas) {
+    if (!t.tarefa) continue;
+    const key = t.tarefa.trim().toUpperCase();
+    const list = grupos.get(key) ?? [];
+    list.push(t);
+    grupos.set(key, list);
+  }
+
+  const isFinalizada = (t: T) => {
+    const sit = (t.situacao_tarefa || '').toUpperCase();
+    return (
+      sit === 'FINALIZADA' ||
+      sit === 'CONCLUÍDA' ||
+      sit === 'CONCLUIDA' ||
+      Boolean(t.data_finalizacao)
+    );
+  };
+
+  const getTimestamp = (t: T) => {
+    const raw = t.data_finalizacao || t.data_abertura || t.data_cadastro_tarefa || t.data_servico || t.data_entrada;
+    if (!raw) return 0;
+    return new Date(raw).getTime();
+  };
+
+  const resultado: T[] = [];
+
+  for (const [, grupo] of grupos.entries()) {
+    if (grupo.length === 1) {
+      resultado.push(grupo[0]);
+      continue;
+    }
+
+    const finalizadas = grupo.filter(isFinalizada);
+    const emAberto = grupo.filter(t => !isFinalizada(t));
+
+    // Se houver ao menos uma finalizada, descarta as duplicatas em aberto
+    // e mantém a finalizada mais recente.
+    if (finalizadas.length > 0) {
+      finalizadas.sort((a, b) => getTimestamp(b) - getTimestamp(a));
+      resultado.push(finalizadas[0]);
+    } else {
+      // Se todas estiverem em aberto, mantém a mais recente
+      emAberto.sort((a, b) => getTimestamp(b) - getTimestamp(a));
+      resultado.push(emAberto[0]);
+    }
+  }
+
+  // Ordena cronologicamente para exibição coerente da trajetória
+  return resultado.sort((a, b) => getTimestamp(a) - getTimestamp(b));
+}
+
 // ─── Core derivation (read-only, pure function) ──────────────────────────────
 
 export function deriveTrajetoria(

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   MapPin, Search, X, RotateCcw, Check, AlertCircle,
   FileText, Clock, Loader2, Info, AlertTriangle, Copy,
@@ -558,7 +558,51 @@ function RespostaImediataLocalizacao({ data }: { data: TrajetoriaData }) {
 
 function HistoricoTarefas({ tarefas }: { tarefas?: TrajetoriaData['tarefas'] }) {
   const [expandido, setExpandido] = useState(true);
-  if (!tarefas || tarefas.length === 0) return null;
+
+  // Consolidação de tarefas repetidas para a mesma etapa/nome:
+  // Se houver tarefas com o mesmo nome para a mesma etapa (uma em aberto e outra finalizada),
+  // exibe apenas a tarefa consolidada mais recente (Finalizada), evitando itens repetidos no quadro.
+  const tarefasExibidas = useMemo(() => {
+    if (!tarefas || tarefas.length === 0) return [];
+
+    const grupos = new Map<string, NonNullable<TrajetoriaData['tarefas']>>();
+    for (const t of tarefas) {
+      if (!t.tarefa) continue;
+      const key = t.tarefa.trim().toUpperCase();
+      const list = grupos.get(key) ?? [];
+      list.push(t);
+      grupos.set(key, list);
+    }
+
+    const isFinalizada = (sit?: string) => {
+      const s = (sit || '').toUpperCase();
+      return s === 'FINALIZADA' || s === 'CONCLUÍDA' || s === 'CONCLUIDA';
+    };
+
+    const getTimestamp = (d?: string | null) => (d ? new Date(d).getTime() : 0);
+
+    const res: NonNullable<TrajetoriaData['tarefas']> = [];
+    for (const [, grupo] of grupos.entries()) {
+      if (grupo.length === 1) {
+        res.push(grupo[0]);
+        continue;
+      }
+      const finalizadas = grupo.filter(t => isFinalizada(t.situacao));
+      const emAberto = grupo.filter(t => !isFinalizada(t.situacao));
+
+      if (finalizadas.length > 0) {
+        finalizadas.sort((a, b) => getTimestamp(b.data) - getTimestamp(a.data));
+        res.push(finalizadas[0]);
+      } else {
+        emAberto.sort((a, b) => getTimestamp(b.data) - getTimestamp(a.data));
+        res.push(emAberto[0]);
+      }
+    }
+
+    return res.sort((a, b) => getTimestamp(a.data) - getTimestamp(b.data));
+  }, [tarefas]);
+
+  if (!tarefasExibidas || tarefasExibidas.length === 0) return null;
 
   return (
     <div className="mt-4 rounded-xl border border-white/[0.08] bg-[#0a0d17] overflow-hidden">
@@ -569,7 +613,7 @@ function HistoricoTarefas({ tarefas }: { tarefas?: TrajetoriaData['tarefas'] }) 
         <div className="flex items-center gap-2.5">
           <Layers className="w-4 h-4 text-sky-400" />
           <span className="text-xs font-bold uppercase tracking-wider text-white/90">
-            Evidências & Tarefas Cartoriais ({tarefas.length})
+            Evidências & Tarefas Cartoriais ({tarefasExibidas.length})
           </span>
         </div>
         <div className="flex items-center gap-2 text-white/40 text-xs">
@@ -581,7 +625,7 @@ function HistoricoTarefas({ tarefas }: { tarefas?: TrajetoriaData['tarefas'] }) 
       {expandido && (
         <div className="p-4 pt-0 border-t border-white/5 space-y-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-3">
-            {tarefas.map((t, idx) => (
+            {tarefasExibidas.map((t, idx) => (
               <div
                 key={idx}
                 className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06] flex flex-col justify-between gap-2"

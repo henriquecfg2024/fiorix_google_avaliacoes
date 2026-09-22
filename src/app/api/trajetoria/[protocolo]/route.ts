@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import {
   deriveTrajetoria,
+  consolidarTarefas,
   toIso,
   SETORES_DEF,
   type RawMetas,
@@ -113,8 +114,13 @@ export async function GET(
       );
     }
 
+    // Consolidação de tarefas repetidas para a mesma etapa/nome:
+    // Quando houver tarefas com o mesmo nome para a mesma etapa (uma em aberto e outra finalizada),
+    // o sistema exibe apenas a tarefa consolidada mais recente (Finalizada), evitando itens repetidos no quadro.
+    const tarefasRowsConsolidadas = consolidarTarefas(tarefasRows);
+
     // Detect reingressos via qtd_retrabalho ou se houve devolução no histórico e o título já avançou
-    const houveDevolucaoPassada = tarefasRows.some(
+    const houveDevolucaoPassada = tarefasRowsConsolidadas.some(
       t =>
         t.tarefa === 'BALCÃO DEVOLVIDO' ||
         Boolean(t.dt_devolucao) ||
@@ -124,7 +130,7 @@ export async function GET(
     const { setores, ultimoSetorNum, ultimoSetorEvidencia, desfecho } = deriveTrajetoria(
       metas,
       bi,
-      tarefasRows
+      tarefasRowsConsolidadas
     );
 
     const temReingresso =
@@ -137,11 +143,11 @@ export async function GET(
       : 'Não identificado';
 
     // Metadados com fallback resiliente em tarefasRows
-    const tarefaComNatureza = tarefasRows.find(t => t.natureza && t.natureza.trim() !== '');
-    const tarefaComTipo = tarefasRows.find(t => t.tipo && t.tipo.trim() !== '');
-    const tarefaComDevolucao = tarefasRows.find(t => t.dt_devolucao);
-    const tarefaComRetirada = tarefasRows.find(t => t.dt_retirada);
-    const primeiraTarefaComData = tarefasRows.find(t => t.data_entrada || t.data_servico);
+    const tarefaComNatureza = tarefasRowsConsolidadas.find(t => t.natureza && t.natureza.trim() !== '');
+    const tarefaComTipo = tarefasRowsConsolidadas.find(t => t.tipo && t.tipo.trim() !== '');
+    const tarefaComDevolucao = tarefasRowsConsolidadas.find(t => t.dt_devolucao);
+    const tarefaComRetirada = tarefasRowsConsolidadas.find(t => t.dt_retirada);
+    const primeiraTarefaComData = tarefasRowsConsolidadas.find(t => t.data_entrada || t.data_servico);
 
     const naturezaFinal = metas?.natureza || tarefaComNatureza?.natureza || 'Não informada';
     const tipoFinal = metas?.tipo || tarefaComTipo?.tipo || '';
@@ -160,7 +166,7 @@ export async function GET(
     const dtRetiradaFinal = toIso(tarefaComRetirada?.dt_retirada) || toIso(metas?.d10_entrega);
 
     // Lista consolidada de tarefas percorridas para visualização detalhada
-    const tarefasDetalhes: TarefaDetalhe[] = tarefasRows
+    const tarefasDetalhes: TarefaDetalhe[] = tarefasRowsConsolidadas
       .filter(t => t.tarefa)
       .map(t => {
         const nome = t.tarefa || '';
