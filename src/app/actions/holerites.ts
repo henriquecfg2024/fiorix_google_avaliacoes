@@ -48,7 +48,7 @@ export async function deleteHoleritesRH(params: DeleteHoleriteParams) {
       quantidade: count,
       colaboradoresNomes,
       deleteAll,
-      motivo: motivo || 'Exclusão de holerite realizada no Painel de Governança RH',
+      motivo: motivo || 'Exclusão de holerite realizada no Painel de RH',
       operador: user.name,
       operadorEmail: user.email,
       cargo: user.role,

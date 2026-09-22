@@ -8,7 +8,7 @@ import { getIndicadoresRH, IndicadoresRH } from "@/app/actions/rh";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Painel de Governança RH | FIORIX",
+  title: "Painel de RH | FIORIX",
 };
 
 export default async function PainelRHPage() {

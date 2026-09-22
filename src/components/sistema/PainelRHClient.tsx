@@ -378,13 +378,13 @@ export function PainelRHClient({
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <span>Dashboard</span>
               <span className="text-slate-600">/</span>
-              <span>Gestão de RH</span>
+              <span>{currentTab === "geral" ? "Gestão de Pessoas" : "Gestão de RH"}</span>
               <span className="text-slate-600">/</span>
               <span className="text-indigo-400">
                 {currentTab === "ferias" && "Lançamento de Férias"}
                 {currentTab === "holerites" && "Lançamento de Holerites"}
                 {currentTab === "comunicados" && "Gestão de Comunicados"}
-                {currentTab === "geral" && "Painel Geral de RH"}
+                {currentTab === "geral" && "Painel de RH"}
               </span>
             </div>
             <div className="flex items-center gap-3 mt-1.5">
@@ -392,7 +392,7 @@ export function PainelRHClient({
                 {currentTab === "ferias" && "GESTÃO DE FÉRIAS"}
                 {currentTab === "holerites" && "GESTÃO DE HOLERITES"}
                 {currentTab === "comunicados" && "GESTÃO DE COMUNICADOS"}
-                {currentTab === "geral" && "PAINEL DE GOVERNANÇA RH"}
+                {currentTab === "geral" && "PAINEL DE RH"}
               </h1>
               <span
                 className={`rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-semibold ${
@@ -652,7 +652,7 @@ export function PainelRHClient({
           </div>
         )}
 
-        {/* 4. CARDS: PAINEL GERAL DE RH (CONSOLIDADO) */}
+        {/* 4. CARDS: PAINEL DE RH (CONSOLIDADO) */}
         {currentTab === "geral" && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {/* Card 1: Comunicados */}
