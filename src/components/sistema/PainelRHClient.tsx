@@ -435,35 +435,6 @@ export function PainelRHClient({
             </div>
           )}
 
-          {currentTab === "geral" && (
-            <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
-              <span className="text-xs text-slate-400 font-medium mr-1">Ir para:</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleTabChange("comunicados")}
-                className="border-white/10 hover:bg-white/5 text-slate-300 hover:text-white text-xs h-8 rounded-lg font-semibold"
-              >
-                Comunicados
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleTabChange("holerites")}
-                className="border-white/10 hover:bg-white/5 text-slate-300 hover:text-white text-xs h-8 rounded-lg font-semibold"
-              >
-                Holerites
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleTabChange("ferias")}
-                className="border-white/10 hover:bg-white/5 text-slate-300 hover:text-white text-xs h-8 rounded-lg font-semibold"
-              >
-                Férias
-              </Button>
-            </div>
-          )}
         </div>
 
         {/* ══════════════════════════════════════════════════════════════

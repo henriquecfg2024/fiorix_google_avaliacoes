@@ -126,6 +126,7 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
     expect(groups.rhGestao.label).toBe('GESTÃO DE PESSOAS');
     expect(groups.trabalho.label).toBe('ROTINA DE TRABALHO');
     expect(groups.pessoas.label).toBe('MEU ESPAÇO');
+    expect(groups.trabalho.items.map((i) => i.href)).not.toContain('/sistema/pessoas?tab=comunicados');
   });
 
   it('valida o menu para o perfil SUBSTITUTO com acesso à Gestão de Comunicados', () => {

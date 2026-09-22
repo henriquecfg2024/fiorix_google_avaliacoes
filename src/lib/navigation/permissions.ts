@@ -30,9 +30,11 @@ export function filterNavigationByRole(role: Role = "USER") {
     if (isUser && (key === "sistema" || key === "rhGestao" || key === "governancaIts")) continue;
 
     const visibleItems = group.items.filter((item) => {
-      // Gestão de Comunicados em 'trabalho' visível apenas para liderança e RH (SUBSTITUTO, RH, ADMIN, MASTER, GESTOR)
-      if (key === "trabalho" && item.href === "/sistema/pessoas?tab=comunicados") {
-        return isSubstituto || isRH || role === "ADMIN" || role === "MASTER" || role === "GESTOR";
+      // Gestão de Comunicados em 'trabalho' oculto para RH (acesso feito pelo Painel RH / Gestão de Pessoas);
+      // visível apenas para liderança (SUBSTITUTO, ADMIN, MASTER, GESTOR)
+      if (key === "trabalho" && (item.href === "/sistema/pessoas?tab=comunicados" || item.label === "Gestão de Comunicados")) {
+        if (isRH) return false;
+        return isSubstituto || role === "ADMIN" || role === "MASTER" || role === "GESTOR";
       }
 
       // COLABORADOR: 'pessoas' mostra só Férias e Holerites (Comunicados/MinhaIT estão em 'trabalho')
