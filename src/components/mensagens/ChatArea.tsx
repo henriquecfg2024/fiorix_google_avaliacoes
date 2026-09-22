@@ -6,7 +6,7 @@ import {
   Users, ArrowLeft, Loader2, Shield, Search, Plus,
   Edit3, ChevronDown, Info, Lock, AlertTriangle,
   MoreVertical, Check, CheckCheck, ExternalLink, Clock,
-  UploadCloud, Eye,
+  UploadCloud, Eye, Archive, ArchiveRestore,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -32,6 +32,7 @@ interface ChatAreaProps {
   onReactionToggled: (messageId: string, emoji: string) => void;
   onConversationUpdated?: () => void;
   onDraftSave?: (text: string) => void;
+  onArchive?: (id: string, archive: boolean) => void;
 }
 
 const QUICK_EMOJIS = ['👍', '❤️', '👏', '😂', '✅', '⚠️', '🔒', '🚀'];
@@ -100,6 +101,7 @@ export function ChatArea({
   onReactionToggled,
   onConversationUpdated,
   onDraftSave,
+  onArchive,
 }: ChatAreaProps) {
   const [inputText, setInputText] = useState('');
   const [replyTo, setReplyTo] = useState<SerializedMessage | null>(null);
@@ -485,7 +487,23 @@ export function ChatArea({
           </div>
 
           {/* Ações do header */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
+            {/* Botão de desarquivar se a conversa estiver arquivada */}
+            {conversation.archivedAt && (
+              <button
+                type="button"
+                onClick={() => {
+                  onArchive?.(conversation.id, false);
+                  toast.success('Conversa desarquivada.');
+                }}
+                title="Desarquivar esta conversa"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25 hover:text-emerald-200 text-xs font-semibold transition cursor-pointer"
+              >
+                <ArchiveRestore className="w-3.5 h-3.5" />
+                <span>Desarquivar</span>
+              </button>
+            )}
+
             <button
               onClick={() => setSidePanel(sidePanel === 'search' ? 'none' : 'search')}
               className={`p-1.5 rounded-lg transition ${
@@ -507,6 +525,27 @@ export function ChatArea({
             )}
           </div>
         </div>
+
+        {/* Banner de Conversa Arquivada */}
+        {conversation.archivedAt && (
+          <div className="px-4 py-2.5 bg-emerald-950/40 border-b border-emerald-500/20 flex items-center justify-between text-xs text-emerald-100 shrink-0 gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <Archive className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="truncate">Esta conversa está <strong>arquivada</strong>.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onArchive?.(conversation.id, false);
+                toast.success('Conversa desarquivada com sucesso.');
+              }}
+              className="px-3 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-300 hover:text-white font-semibold transition cursor-pointer flex items-center gap-1.5 shrink-0"
+            >
+              <ArchiveRestore className="w-3.5 h-3.5" />
+              <span>Desarquivar conversa</span>
+            </button>
+          </div>
+        )}
 
         {/* Busca inline */}
         {sidePanel === 'search' && (

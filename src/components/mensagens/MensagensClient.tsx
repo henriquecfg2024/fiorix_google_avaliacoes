@@ -657,6 +657,7 @@ export function MensagensClient({
               onReactionToggled={handleReactionToggled}
               onConversationUpdated={handleConversationUpdated}
               onDraftSave={(text) => handleDraftSave(activeConversation.id, text)}
+              onArchive={handleArchive}
             />
           ) : (
             <div className="h-full flex-1 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)] flex flex-col items-center justify-center text-center p-8 select-none">
