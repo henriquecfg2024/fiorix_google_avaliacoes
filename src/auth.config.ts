@@ -71,13 +71,16 @@ export const authConfig = {
           return Response.redirect(new URL('/sistema/pessoas', nextUrl));
         }
 
-        // Regras para perfil SUBSTITUTO: governança de ITs, operacional, BI e espaço pessoal
+        // Regras para perfil SUBSTITUTO: governança de ITs, operacional, BI, espaço pessoal e gestão de pessoas/comunicados
         if (role === 'SUBSTITUTO') {
           if (
             nextUrl.pathname.startsWith('/pessoas') ||
+            nextUrl.pathname.startsWith('/sistema/pessoas') ||
             nextUrl.pathname === '/minha-conta' ||
             nextUrl.pathname.startsWith('/minha-it') ||
             nextUrl.pathname.startsWith('/trajetoria-titulo') ||
+            nextUrl.pathname.startsWith('/mensagens') ||
+            nextUrl.pathname.startsWith('/controle-impressoes') ||
             nextUrl.pathname.startsWith('/instrucoes-trabalho') ||
             nextUrl.pathname.startsWith('/administracao') ||
             nextUrl.pathname.startsWith('/gestao') ||
