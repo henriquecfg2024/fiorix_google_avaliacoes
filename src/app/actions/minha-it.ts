@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-helpers';
 import { revalidatePath } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase';
+import crypto from 'crypto';
+import { recordAuditLog } from '@/lib/audit';
 
 export interface MinhaItCustodiaItem {
   id: string;
@@ -119,23 +121,35 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
   // ADMIN/MASTER veem todas (supervisão administrativa).
   let itsCustodiaRows: any[];
   let isSupervisao = false;
+  const tenantId = currentUser.tenantId;
 
-  if (isMaster || currentUser.role === 'ADMIN') {
-    // Apenas ADMIN/MASTER: carregar TODAS as ITs em modo supervisão
+  if (isMaster && !tenantId) {
+    // Apenas Superadmin MASTER sem tenant: carregar TODAS as ITs em modo supervisão
     itsCustodiaRows = await prisma.$queryRawUnsafe(`
       SELECT id, codigo, titulo, versao, departamento, status, responsavel_tecnico_id
       FROM public.fiorix_its
+      WHERE deleted_at IS NULL
       ORDER BY codigo ASC
     `);
-  } else {
-    // Demais: ITs onde é responsável técnico OU onde é autor (IT submetida sem resp. técnico formal)
+  } else if (isMaster || currentUser.role === 'ADMIN') {
+    // ADMIN do cartório ou MASTER no contexto do tenant: apenas ITs deste tenant
     itsCustodiaRows = await prisma.$queryRawUnsafe(`
       SELECT id, codigo, titulo, versao, departamento, status, responsavel_tecnico_id
       FROM public.fiorix_its
-      WHERE responsavel_tecnico_id = $1
-         OR (autor_id = $1 AND (responsavel_tecnico_id IS NULL OR responsavel_tecnico_id = $1))
+      WHERE tenant_id = $1 AND deleted_at IS NULL
       ORDER BY codigo ASC
-    `, userId);
+    `, tenantId);
+  } else {
+    // Demais: ITs onde é responsável técnico OU onde é autor dentro do mesmo tenant
+    itsCustodiaRows = await prisma.$queryRawUnsafe(`
+      SELECT id, codigo, titulo, versao, departamento, status, responsavel_tecnico_id
+      FROM public.fiorix_its
+      WHERE tenant_id = $1
+        AND deleted_at IS NULL
+        AND (responsavel_tecnico_id = $2
+          OR (autor_id = $2 AND (responsavel_tecnico_id IS NULL OR responsavel_tecnico_id = $2)))
+      ORDER BY codigo ASC
+    `, tenantId, userId);
   }
 
   const itsCustodia: MinhaItCustodiaItem[] = itsCustodiaRows.map((r) => ({
@@ -156,10 +170,13 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
        FROM public.fiorix_its_participants p
        JOIN public.fiorix_its i ON i.id = p.it_id
        WHERE p.usuario_id = $1
+         AND (p.tenant_id = $2 OR $2 IS NULL)
+         AND (i.tenant_id = $2 OR $2 IS NULL)
          AND p.status = 'ativo'
          AND i.deleted_at IS NULL
        ORDER BY p.papel ASC, i.codigo ASC`,
-      userId
+      userId,
+      tenantId || null
     );
     // Adicionar ao itsCustodia as de RESPONSAVEL_PRINCIPAL (que não aparecem na query acima por falta de responsavel_tecnico_id)
     // e ao itsByParticipation as de CORRESPONSAVEL/LEITOR
@@ -195,11 +212,13 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
          created_at as "dataEnvio"
        FROM public.fiorix_its
        WHERE autor_id = $1
+         AND (tenant_id = $2 OR $2 IS NULL)
          AND (responsavel_tecnico_id IS NULL OR responsavel_tecnico_id = $1)
          AND deleted_at IS NULL
        ORDER BY created_at DESC
        LIMIT 1`,
-      userId
+      userId,
+      tenantId || null
     );
     if (autorRows.length > 0) {
       const r = autorRows[0];
@@ -281,9 +300,9 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
       u.id as resp_id, u.name as resp_nome, u.email as resp_email, u.cargo as resp_cargo
     FROM public.fiorix_its f
     LEFT JOIN public."User" u ON u.id = f.responsavel_tecnico_id
-    WHERE f.id = $1::uuid
+    WHERE f.id = $1::uuid AND (f.tenant_id = $2 OR $2 IS NULL) AND f.deleted_at IS NULL
     LIMIT 1
-  `, selectedItRef.id);
+  `, selectedItRef.id, tenantId || null);
 
   const itRow = itFullRows[0];
   const itId = String(itRow.id);
@@ -314,9 +333,9 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
     const respCienciaRows: any[] = await prisma.$queryRawUnsafe(`
       SELECT ciente_em 
       FROM public.fiorix_its_ciencias 
-      WHERE it_id = $1::uuid AND usuario_id = $2 AND versao = $3
+      WHERE it_id = $1::uuid AND usuario_id = $2 AND versao = $3 AND (tenant_id = $4 OR $4 IS NULL)
       LIMIT 1
-    `, itId, userId, versao);
+    `, itId, userId, versao, tenantId || null);
 
     if (respCienciaRows[0]?.ciente_em) {
       responsavelCienteEm = new Date(respCienciaRows[0].ciente_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
@@ -335,24 +354,24 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
         SELECT DISTINCT u.id, u.name, u.cargo, u.departamento
         FROM public.fiorix_its_participants p
         JOIN public."User" u ON u.id = p.usuario_id
-        WHERE p.it_id = $1::uuid
+        WHERE p.it_id = $1::uuid AND (p.tenant_id = $3 OR $3 IS NULL)
         UNION
         SELECT u.id, u.name, u.cargo, u.departamento
         FROM public."User" u
-        WHERE u.id = $2
+        WHERE u.id = $2 AND (u."tenantId" = $3 OR $3 IS NULL)
       ) sub
       ORDER BY name ASC
-    `, itId, userId);
+    `, itId, userId, tenantId || null);
   } catch (err) {
     console.warn('Aviso ao buscar participantes da IT para ciências, usando fallback do departamento:', err);
     // Fallback: busca todos do departamento para não quebrar a tela
     colabs = await prisma.$queryRawUnsafe(`
       SELECT id, name, cargo, departamento
       FROM public."User"
-      WHERE departamento ILIKE $1
+      WHERE ("tenantId" = $1 OR $1 IS NULL) AND departamento ILIKE $2
       ORDER BY name ASC
       LIMIT 40
-    `, `%${depto}%`);
+    `, tenantId || null, `%${depto}%`);
   }
 
   // Busca quem deu ciência para esta versão
@@ -499,16 +518,16 @@ export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
     const userId = currentUser.id;
     const tenantId = currentUser.tenantId || 'global';
 
-    // 1. Busca a IT atual para verificação de permissão e histórico
+    // 1. Busca a IT atual para verificação de permissão e histórico (com isolamento multi-tenant)
     const currentRows: any[] = await prisma.$queryRawUnsafe(`
       SELECT id, codigo, titulo, versao, responsavel_tecnico_id, guardiao_id, autor_id, objetivo, quando_usar, passo_a_passo, checklist, erros_comuns, hash_versao
       FROM public.fiorix_its
-      WHERE id = $1::uuid
+      WHERE id = $1::uuid AND (tenant_id = $2 OR $2 = 'global') AND deleted_at IS NULL
       LIMIT 1
-    `, params.itId);
+    `, params.itId, tenantId);
 
     if (currentRows.length === 0) {
-      return { success: false, error: 'Instrução de trabalho não encontrada.' };
+      return { success: false, error: 'Instrução de trabalho não encontrada ou acesso não autorizado.' };
     }
 
     const current = currentRows[0];
@@ -528,10 +547,11 @@ export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
           SELECT 1 FROM public.fiorix_its_participants
           WHERE it_id = $1::uuid
             AND usuario_id = $2
+            AND (tenant_id = $3 OR $3 = 'global')
             AND papel IN ('RESPONSAVEL_PRINCIPAL', 'CORRESPONSAVEL')
             AND status = 'ativo'
           LIMIT 1
-        `, params.itId, String(userId));
+        `, params.itId, String(userId), tenantId);
         if (participRows.length > 0) autorizado = true;
       } catch (err) {
         console.warn('Aviso ao checar fiorix_its_participants:', err);
@@ -579,7 +599,7 @@ export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
       console.warn('Aviso ao registrar histórico de versão:', err);
     }
 
-    // 3. Atualiza fiorix_its com a nova versão
+    // 3. Atualiza fiorix_its com a nova versão garantindo isolamento por tenant
     let publicUrl = null;
     if (params.pdfPath) {
       try {
@@ -599,14 +619,15 @@ export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
         pdf_original_url = $4,
         titulo = $5,
         updated_at = NOW()
-      WHERE id = $6::uuid
+      WHERE id = $6::uuid AND (tenant_id = $7 OR $7 = 'global') AND deleted_at IS NULL
     `,
       params.novaVersao,
       params.hashSha256,
       params.pdfPath,
       publicUrl,
       novoTitulo,
-      params.itId
+      params.itId,
+      tenantId
     );
 
     // 4. Registra ciência automática imediata para o próprio Responsável Técnico na nova versão
@@ -623,6 +644,47 @@ export async function publicarNovaVersaoIT(params: PublicarNovaVersaoParams) {
     } catch (err) {
       console.warn('Aviso ao registrar ciência automática do responsável na nova versão:', err);
     }
+
+    // 5. Trilha de auditoria imutável (WORM)
+    const auditHash = crypto.createHash('sha256').update(
+      JSON.stringify({
+        itId: params.itId,
+        versaoAnterior: current.versao,
+        versaoNova: params.novaVersao,
+        hashSha256: params.hashSha256,
+        autor: userId,
+        timestamp: new Date().toISOString()
+      })
+    ).digest('hex');
+
+    try {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO public.fiorix_its_audit_log (
+           tenant_id, it_id, versao_anterior, versao_nova, autor_id, motivo, diff_snapshot, hash_sha256, created_at
+         ) VALUES (
+           $1, $2::uuid, $3, $4, $5, $6, $7::jsonb, $8, NOW()
+         )`,
+        tenantId,
+        params.itId,
+        current.versao || '1.0',
+        params.novaVersao,
+        userId,
+        alteracoesRegistro,
+        JSON.stringify({ resumoMudancas: params.resumoMudancas, hashVersao: params.hashSha256 }),
+        auditHash
+      );
+    } catch (auditErr) {
+      console.warn('Aviso ao registrar fiorix_its_audit_log:', auditErr);
+    }
+
+    await recordAuditLog({
+      modulo: 'ITS',
+      acao: 'REVISAO',
+      registroId: params.itId,
+      registroDescricao: `Nova versão ${params.novaVersao} da IT "${current.codigo} - ${novoTitulo}"`,
+      detalhes: { versaoAnterior: current.versao, versaoNova: params.novaVersao, motivo: alteracoesRegistro, hashSha256: params.hashSha256 },
+      userOverride: currentUser,
+    });
 
     try {
       revalidatePath('/minha-it');
@@ -673,14 +735,16 @@ export async function submeterItColaborador(params: {
       } catch { departamento = 'Geral'; }
     }
 
-    // Evitar duplicatas acidentais
+    // Evitar duplicatas acidentais (no mesmo tenant)
     const existentes: any[] = await prisma.$queryRawUnsafe(
       `SELECT id FROM public.fiorix_its
        WHERE autor_id = $1
+         AND (tenant_id = $2 OR $2 = 'global')
          AND status IN ('enviada_para_analise', 'rascunho', 'correcao_solicitada')
          AND deleted_at IS NULL
        LIMIT 1`,
-      currentUser.id
+      currentUser.id,
+      tenantId
     );
     if (existentes.length > 0) {
       return {
@@ -742,6 +806,16 @@ export async function submeterItColaborador(params: {
     } catch (e) {
       console.warn('Aviso ao registrar historico da IT do colaborador:', e);
     }
+
+    // Registra evento de auditoria
+    await recordAuditLog({
+      modulo: 'ITS',
+      acao: 'INCLUSAO',
+      registroId: itId,
+      registroDescricao: `Submissão de nova IT para análise: "${params.titulo.trim().toUpperCase()}"`,
+      detalhes: { codigoTemp, departamento, pdfPath: params.pdfPath },
+      userOverride: currentUser,
+    });
 
     revalidatePath('/minha-it');
     return { success: true, itId };

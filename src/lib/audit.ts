@@ -18,7 +18,11 @@ export type AuditAcao =
   | 'IMPORTACAO'
   | 'DESATIVACAO'
   | 'CIENCIA'
-  | 'REVISAO';
+  | 'REVISAO'
+  | 'APROVACAO'
+  | 'PUBLICACAO'
+  | 'REJEICAO'
+  | 'CORRECAO_SOLICITADA';
 
 export interface AuditLogParams {
   modulo: AuditModulo;

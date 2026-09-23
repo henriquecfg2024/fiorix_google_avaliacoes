@@ -283,7 +283,7 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
           pdfPath,
         });
 
-        toast.success(`IT "${novaItForm.codigo}" criada com sucesso!`);
+        toast.success(`IT "${novaItForm.codigo}" criada! Esta IT está pendente de APROVAÇÃO do Oficial Substituto, favor comunicá-lo.`, { duration: 8000 });
         setShowNovaItModal(false);
         setNovaItForm({ codigo: '', titulo: '', departamento: 'Atendimento', guardiaoId: '' });
         setNovaItPdfFile(null);

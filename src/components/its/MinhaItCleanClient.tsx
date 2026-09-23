@@ -57,6 +57,7 @@ import { uploadItPdfDirectly } from '@/lib/it-upload-helper';
 import { AlertaResponsavelTecnico } from './AlertaResponsavelTecnico';
 import { CienciasDrawer } from './CienciasDrawer';
 import { GerenciarResponsaveisModal } from './GerenciarResponsaveisModal';
+import { toast } from 'sonner';
 
 function formatTituloPrincipal(titulo?: string): string {
   if (!titulo) return '';
@@ -650,10 +651,13 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
       });
       if (!result.success) throw new Error(result.error || 'Erro ao submeter a IT.');
       setCadastroSuccess(true);
+      toast.warning('Esta IT está pendente de APROVAÇÃO do Oficial Substituto, favor comunicá-lo.', {
+        duration: 9000,
+      });
       setTimeout(() => {
         setIsCadastroOpen(false); setCadastroSuccess(false); setCadastroTitulo('');
         setCadastroObjetivo(''); setCadastroFile(null); router.refresh();
-      }, 2000);
+      }, 3500);
     } catch (err: any) {
       setCadastroError(err?.message || 'Erro inesperado.');
     } finally {
@@ -666,7 +670,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
   const statusLabel: Record<string, { label: string; color: string; bg: string }> = {
     rascunho: { label: 'Rascunho', color: 'text-slate-300', bg: 'bg-slate-500/20 border-slate-500/30' },
-    enviada_para_analise: { label: 'Enviada para análise', color: 'text-indigo-300', bg: 'bg-indigo-500/20 border-indigo-500/30' },
+    enviada_para_analise: { label: 'Pendente de Aprovação', color: 'text-amber-300', bg: 'bg-amber-500/20 border-amber-500/30' },
     correcao_solicitada: { label: 'Correção solicitada', color: 'text-amber-300', bg: 'bg-amber-500/20 border-amber-500/30' },
     aprovada: { label: 'Aprovada', color: 'text-emerald-300', bg: 'bg-emerald-500/20 border-emerald-500/30' },
     publicada: { label: 'Publicada', color: 'text-emerald-300', bg: 'bg-emerald-500/20 border-emerald-500/30' },
@@ -755,20 +759,28 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                   </button>
                 )}
                 {colaboradorItEnviada.status === 'enviada_para_analise' && (
-                  <>
-                    <p className="text-xs text-slate-400 italic">Aguardando análise do responsável...</p>
-                    <button
-                      onClick={async () => {
-                        if (!confirm('Cancelar o envio? A IT voltará ao estado de rascunho.')) return;
-                        const res = await cancelarEnvioIt(colaboradorItEnviada.id);
-                        if (res.success) { router.refresh(); }
-                        else { alert(res.error || 'Erro ao cancelar.'); }
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/15 bg-white/5 hover:bg-red-500/15 hover:border-red-500/30 text-slate-400 hover:text-red-300 text-xs font-semibold transition-colors"
-                    >
-                      <XCircle className="w-3.5 h-3.5" /> Cancelar envio
-                    </button>
-                  </>
+                  <div className="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2.5">
+                    <div className="flex items-center gap-2 text-amber-300">
+                      <Clock className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
+                      <span className="text-xs font-bold uppercase tracking-wider">Aguardando Avaliação</span>
+                    </div>
+                    <p className="text-sm font-medium text-amber-100/95 leading-relaxed">
+                      Esta IT está pendente de <strong>APROVAÇÃO</strong> do <strong>Oficial Substituto</strong>, favor comunicá-lo.
+                    </p>
+                    <div className="pt-1 flex items-center gap-3">
+                      <button
+                        onClick={async () => {
+                          if (!confirm('Cancelar o envio? A IT voltará ao estado de rascunho.')) return;
+                          const res = await cancelarEnvioIt(colaboradorItEnviada.id);
+                          if (res.success) { router.refresh(); }
+                          else { alert(res.error || 'Erro ao cancelar.'); }
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/15 bg-white/5 hover:bg-red-500/15 hover:border-red-500/30 text-slate-400 hover:text-red-300 text-xs font-semibold transition-colors"
+                      >
+                        <XCircle className="w-3.5 h-3.5" /> Cancelar envio
+                      </button>
+                    </div>
+                  </div>
                 )}
                 {(['rascunho', 'correcao_solicitada', 'rejeitada'] as string[]).includes(colaboradorItEnviada.status) && (
                   <button
@@ -1030,8 +1042,14 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                   </div>
                 )}
                 {cadastroSuccess && (
-                  <div className="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
-                    <CheckCircle2 className="w-4 h-4 shrink-0" />IT enviada para análise com sucesso!
+                  <div className="flex flex-col gap-1.5 text-sm text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+                    <div className="flex items-center gap-2 font-bold text-amber-200">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                      IT cadastrada com sucesso!
+                    </div>
+                    <p className="text-xs text-amber-100/90 leading-relaxed font-medium">
+                      Esta IT está pendente de <strong>APROVAÇÃO</strong> do <strong>Oficial Substituto</strong>, favor comunicá-lo.
+                    </p>
                   </div>
                 )}
               </div>
@@ -1176,9 +1194,17 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
               codigo={currentIt.codigo}
 
-              titulo="Mantenha sua Instrução de Trabalho atualizada"
+              titulo={
+                ['enviada_para_analise', 'rascunho'].includes(currentIt.status)
+                  ? 'IT pendente de APROVAÇÃO'
+                  : 'Mantenha sua Instrução de Trabalho atualizada'
+              }
 
-              descricao="Revise esta IT sempre que houver mudança nas atividades, procedimentos, sistemas ou na forma de execução do trabalho."
+              descricao={
+                ['enviada_para_analise', 'rascunho'].includes(currentIt.status)
+                  ? 'Esta IT está pendente de APROVAÇÃO do Oficial Substituto, favor comunicá-lo.'
+                  : 'Revise esta IT sempre que houver mudança nas atividades, procedimentos, sistemas ou na forma de execução do trabalho.'
+              }
 
               dataUltimaRevisao={currentIt.updatedAt}
 

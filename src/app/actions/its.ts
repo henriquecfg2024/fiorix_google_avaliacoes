@@ -1571,6 +1571,16 @@ export async function aprovarItColaborador(
     const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
     const tenantId = currentUser.tenantId;
 
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id::text, codigo, titulo, versao, status
+       FROM public.fiorix_its
+       WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+       LIMIT 1`,
+      itId, tenantId
+    );
+    if (!rows.length) return { success: false, error: 'IT não encontrada ou não autorizada.' };
+    const it = rows[0];
+
     await prisma.$executeRawUnsafe(
       `UPDATE public.fiorix_its
        SET status = 'aprovada', updated_at = NOW()
@@ -1579,20 +1589,53 @@ export async function aprovarItColaborador(
       itId, tenantId
     );
 
+    const hashSha256 = crypto.createHash('sha256').update(
+      JSON.stringify({ itId, acao: 'APROVACAO', autor: currentUser.id, versao: it.versao, timestamp: new Date().toISOString() })
+    ).digest('hex');
+
+    // 1. Trilha de auditoria imutável (WORM)
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO public.fiorix_its_audit_log (
+         tenant_id, it_id, versao_anterior, versao_nova, autor_id, motivo, diff_snapshot, hash_sha256, created_at
+       ) VALUES (
+         $1, $2::uuid, $3, $3, $4, $5, $6::jsonb, $7, NOW()
+       )`,
+      tenantId,
+      itId,
+      it.versao || '1.0',
+      currentUser.id,
+      `IT aprovada pela gestão (${currentUser.name || currentUser.email})`,
+      JSON.stringify({ acao: 'aprovacao', statusAnterior: it.status, statusNovo: 'aprovada', autor: currentUser.name }),
+      hashSha256
+    );
+
+    // 2. Histórico de versões
     try {
       await prisma.$executeRawUnsafe(
         `INSERT INTO public.fiorix_its_versoes (
            id, it_id, versao, conteudo_snapshot, alteracoes, autor_id, hash_versao, created_at, tenant_id
          ) VALUES (
-           gen_random_uuid(), $1::uuid, '1.0', '{}'::jsonb,
-           $2, $3, '', NOW(), $4
+           gen_random_uuid(), $1::uuid, $2, '{}'::jsonb,
+           $3, $4, $5, NOW(), $6
          )`,
         itId,
+        it.versao || '1.0',
         `IT aprovada por ${currentUser.name || currentUser.email}`,
         currentUser.id,
+        hashSha256,
         tenantId
       );
     } catch { /* histórico opcional */ }
+
+    // 3. Auditoria geral do sistema
+    await recordAuditLog({
+      modulo: 'ITS',
+      acao: 'APROVACAO',
+      registroId: itId,
+      registroDescricao: `Aprovação da IT "${it.codigo} - ${it.titulo}"`,
+      detalhes: { hashSha256, versao: it.versao, statusAnterior: it.status },
+      userOverride: currentUser,
+    });
 
     revalidatePath('/administracao/its');
     return { success: true };
@@ -1608,6 +1651,16 @@ export async function publicarItColaborador(
     const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
     const tenantId = currentUser.tenantId;
 
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id::text, codigo, titulo, versao, status
+       FROM public.fiorix_its
+       WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+       LIMIT 1`,
+      itId, tenantId
+    );
+    if (!rows.length) return { success: false, error: 'IT não encontrada ou não autorizada.' };
+    const it = rows[0];
+
     await prisma.$executeRawUnsafe(
       `UPDATE public.fiorix_its
        SET status = 'publicada', updated_at = NOW()
@@ -1616,20 +1669,53 @@ export async function publicarItColaborador(
       itId, tenantId
     );
 
+    const hashSha256 = crypto.createHash('sha256').update(
+      JSON.stringify({ itId, acao: 'PUBLICACAO', autor: currentUser.id, versao: it.versao, timestamp: new Date().toISOString() })
+    ).digest('hex');
+
+    // 1. Trilha de auditoria imutável (WORM)
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO public.fiorix_its_audit_log (
+         tenant_id, it_id, versao_anterior, versao_nova, autor_id, motivo, diff_snapshot, hash_sha256, created_at
+       ) VALUES (
+         $1, $2::uuid, $3, $3, $4, $5, $6::jsonb, $7, NOW()
+       )`,
+      tenantId,
+      itId,
+      it.versao || '1.0',
+      currentUser.id,
+      `IT publicada no catálogo oficial por ${currentUser.name || currentUser.email}`,
+      JSON.stringify({ acao: 'publicacao', statusAnterior: it.status, statusNovo: 'publicada', autor: currentUser.name }),
+      hashSha256
+    );
+
+    // 2. Histórico de versões
     try {
       await prisma.$executeRawUnsafe(
         `INSERT INTO public.fiorix_its_versoes (
            id, it_id, versao, conteudo_snapshot, alteracoes, autor_id, hash_versao, created_at, tenant_id
          ) VALUES (
-           gen_random_uuid(), $1::uuid, '1.0', '{}'::jsonb,
-           $2, $3, '', NOW(), $4
+           gen_random_uuid(), $1::uuid, $2, '{}'::jsonb,
+           $3, $4, $5, NOW(), $6
          )`,
         itId,
+        it.versao || '1.0',
         `IT publicada por ${currentUser.name || currentUser.email}`,
         currentUser.id,
+        hashSha256,
         tenantId
       );
     } catch { /* histórico opcional */ }
+
+    // 3. Auditoria geral do sistema
+    await recordAuditLog({
+      modulo: 'ITS',
+      acao: 'PUBLICACAO',
+      registroId: itId,
+      registroDescricao: `Publicação da IT "${it.codigo} - ${it.titulo}" no catálogo`,
+      detalhes: { hashSha256, versao: it.versao, statusAnterior: it.status },
+      userOverride: currentUser,
+    });
 
     revalidatePath('/administracao/its');
     revalidatePath('/instrucoes-trabalho');
@@ -1649,8 +1735,16 @@ export async function solicitarCorrecaoIt(
 
     if (!motivo?.trim()) return { success: false, error: 'O motivo da correção é obrigatório.' };
 
-    // Grava motivo no campo objetivo como nota de correção (armazenamento provisório)
-    // até que exista coluna dedicada no schema
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id::text, codigo, titulo, versao, status
+       FROM public.fiorix_its
+       WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+       LIMIT 1`,
+      itId, tenantId
+    );
+    if (!rows.length) return { success: false, error: 'IT não encontrada ou não autorizada.' };
+    const it = rows[0];
+
     await prisma.$executeRawUnsafe(
       `UPDATE public.fiorix_its
        SET status = 'correcao_solicitada',
@@ -1660,20 +1754,53 @@ export async function solicitarCorrecaoIt(
       itId, tenantId
     );
 
+    const hashSha256 = crypto.createHash('sha256').update(
+      JSON.stringify({ itId, acao: 'CORRECAO_SOLICITADA', motivo: motivo.trim(), autor: currentUser.id, timestamp: new Date().toISOString() })
+    ).digest('hex');
+
+    // 1. Trilha de auditoria imutável (WORM)
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO public.fiorix_its_audit_log (
+         tenant_id, it_id, versao_anterior, versao_nova, autor_id, motivo, diff_snapshot, hash_sha256, created_at
+       ) VALUES (
+         $1, $2::uuid, $3, $3, $4, $5, $6::jsonb, $7, NOW()
+       )`,
+      tenantId,
+      itId,
+      it.versao || '1.0',
+      currentUser.id,
+      `Correção solicitada: ${motivo.trim()}`,
+      JSON.stringify({ acao: 'correcao_solicitada', motivo: motivo.trim(), autor: currentUser.name }),
+      hashSha256
+    );
+
+    // 2. Histórico de versões
     try {
       await prisma.$executeRawUnsafe(
         `INSERT INTO public.fiorix_its_versoes (
            id, it_id, versao, conteudo_snapshot, alteracoes, autor_id, hash_versao, created_at, tenant_id
          ) VALUES (
-           gen_random_uuid(), $1::uuid, '1.0', '{}'::jsonb,
-           $2, $3, '', NOW(), $4
+           gen_random_uuid(), $1::uuid, $2, '{}'::jsonb,
+           $3, $4, $5, NOW(), $6
          )`,
         itId,
+        it.versao || '1.0',
         `Correção solicitada por ${currentUser.name || currentUser.email}: ${motivo.trim()}`,
         currentUser.id,
+        hashSha256,
         tenantId
       );
     } catch { /* histórico opcional */ }
+
+    // 3. Auditoria geral do sistema
+    await recordAuditLog({
+      modulo: 'ITS',
+      acao: 'CORRECAO_SOLICITADA',
+      registroId: itId,
+      registroDescricao: `Correção solicitada para IT "${it.codigo} - ${it.titulo}": ${motivo.trim()}`,
+      detalhes: { hashSha256, versao: it.versao, motivo: motivo.trim() },
+      userOverride: currentUser,
+    });
 
     revalidatePath('/administracao/its');
     revalidatePath('/minha-it');
@@ -1693,6 +1820,16 @@ export async function rejeitarItColaborador(
 
     if (!motivo?.trim()) return { success: false, error: 'O motivo da rejeição é obrigatório.' };
 
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id::text, codigo, titulo, versao, status
+       FROM public.fiorix_its
+       WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+       LIMIT 1`,
+      itId, tenantId
+    );
+    if (!rows.length) return { success: false, error: 'IT não encontrada ou não autorizada.' };
+    const it = rows[0];
+
     await prisma.$executeRawUnsafe(
       `UPDATE public.fiorix_its
        SET status = 'rejeitada', updated_at = NOW()
@@ -1701,20 +1838,53 @@ export async function rejeitarItColaborador(
       itId, tenantId
     );
 
+    const hashSha256 = crypto.createHash('sha256').update(
+      JSON.stringify({ itId, acao: 'REJEICAO', motivo: motivo.trim(), autor: currentUser.id, timestamp: new Date().toISOString() })
+    ).digest('hex');
+
+    // 1. Trilha de auditoria imutável (WORM)
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO public.fiorix_its_audit_log (
+         tenant_id, it_id, versao_anterior, versao_nova, autor_id, motivo, diff_snapshot, hash_sha256, created_at
+       ) VALUES (
+         $1, $2::uuid, $3, $3, $4, $5, $6::jsonb, $7, NOW()
+       )`,
+      tenantId,
+      itId,
+      it.versao || '1.0',
+      currentUser.id,
+      `IT rejeitada: ${motivo.trim()}`,
+      JSON.stringify({ acao: 'rejeicao', motivo: motivo.trim(), autor: currentUser.name }),
+      hashSha256
+    );
+
+    // 2. Histórico de versões
     try {
       await prisma.$executeRawUnsafe(
         `INSERT INTO public.fiorix_its_versoes (
            id, it_id, versao, conteudo_snapshot, alteracoes, autor_id, hash_versao, created_at, tenant_id
          ) VALUES (
-           gen_random_uuid(), $1::uuid, '1.0', '{}'::jsonb,
-           $2, $3, '', NOW(), $4
+           gen_random_uuid(), $1::uuid, $2, '{}'::jsonb,
+           $3, $4, $5, NOW(), $6
          )`,
         itId,
+        it.versao || '1.0',
         `IT rejeitada por ${currentUser.name || currentUser.email}: ${motivo.trim()}`,
         currentUser.id,
+        hashSha256,
         tenantId
       );
     } catch { /* histórico opcional */ }
+
+    // 3. Auditoria geral do sistema
+    await recordAuditLog({
+      modulo: 'ITS',
+      acao: 'REJEICAO',
+      registroId: itId,
+      registroDescricao: `Rejeição da IT "${it.codigo} - ${it.titulo}": ${motivo.trim()}`,
+      detalhes: { hashSha256, versao: it.versao, motivo: motivo.trim() },
+      userOverride: currentUser,
+    });
 
     revalidatePath('/administracao/its');
     revalidatePath('/minha-it');
