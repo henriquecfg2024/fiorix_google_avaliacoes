@@ -154,6 +154,115 @@ export async function getEscalaAnualAction(params: { ano: number }): Promise<{
   return getEscalaAnual(user.tenantId, params.ano, user.id, user.role);
 }
 
+export interface MinhasFeriasResponse {
+  publicacao: PublicacaoStatus;
+  ferias: EscalaItem | null;
+}
+
+/**
+ * Consulta segura e isolada das férias do colaborador autenticado (Anti-IDOR / Zero Leakage).
+ * - Identidade obtida estritamente da sessão.
+ * - Se a escala estiver em RASCUNHO e o usuário for colaborador comum, retorna ferias: null.
+ * - Sanitiza o histórico para remover dados internos de auditoria/operadores.
+ */
+export async function getMinhasFeriasAction(params: { ano: number }): Promise<MinhasFeriasResponse> {
+  const user = await requireAuth();
+  const ano = Number(params.ano);
+  if (![2026, 2027, 2028].includes(ano)) {
+    throw new Error('Ano inválido para consulta de férias');
+  }
+
+  const isManager = ['ADMIN', 'RH', 'MASTER', 'GESTOR'].includes(user.role);
+  const publicacao = await getPublicacaoStatus(user.tenantId, ano);
+
+  // Se colaborador comum e a escala ainda não foi publicada, não expõe rascunho
+  if (!isManager && publicacao.status !== 'PUBLICADA') {
+    return {
+      publicacao,
+      ferias: null,
+    };
+  }
+
+  // Busca estritamente o registro do próprio usuário autenticado
+  const rows = await prisma.$queryRawUnsafe<any[]>(
+    `SELECT id, usuario_id, ano, nome, email, setor, cargo,
+            p1_inicio, p1_fim, p1_dias,
+            p2_inicio, p2_fim, p2_dias,
+            p3_inicio, p3_fim, p3_dias,
+            total_dias, status, observacao, historico
+     FROM public.fiorix_ferias_escala
+     WHERE tenant_id = $1 AND ano = $2 AND usuario_id = $3
+     LIMIT 1`,
+    user.tenantId,
+    ano,
+    user.id
+  );
+
+  if (!rows || rows.length === 0) {
+    return { publicacao, ferias: null };
+  }
+
+  const r = rows[0];
+  let p1Inicio = r.p1_inicio;
+  let p1Fim = r.p1_fim;
+  let p1Dias = Number(r.p1_dias || 0);
+  let totalDias = Number(r.total_dias || 0);
+  let status = (r.status as 'programado' | 'conflito' | 'pendente') || 'programado';
+  let historicoRaw = typeof r.historico === 'string' ? JSON.parse(r.historico) : r.historico || [];
+
+  // Defesa em profundidade: se p1Inicio estiver vazio mas o histórico possuir agendamento cadastrado
+  if ((!p1Inicio || p1Inicio === '') && Array.isArray(historicoRaw) && historicoRaw.length > 0) {
+    const lastEv = historicoRaw[historicoRaw.length - 1];
+    const match = lastEv?.para?.match(/(\d{4}-\d{2}-\d{2})\s+a\s+(\d{4}-\d{2}-\d{2})\s*\((\d+)d\)/);
+    if (match) {
+      p1Inicio = match[1];
+      p1Fim = match[2];
+      p1Dias = parseInt(match[3], 10);
+      totalDias = p1Dias;
+      if (status === 'pendente') status = 'programado';
+    }
+  }
+
+  // Sanitização do histórico para visualização amigável do colaborador
+  const historicoSanitizado = Array.isArray(historicoRaw)
+    ? historicoRaw.map((h: any, i: number) => ({
+        id: `ev-${i}`,
+        data: h.data || '',
+        titulo: `Férias de ${ano} programadas`,
+        por: 'Atualizado por RH',
+        motivo: h.motivo || `Programação inicial para ${ano}`,
+        para: h.para || '',
+        de: h.de || '',
+      })).reverse()
+    : [];
+
+  return {
+    publicacao,
+    ferias: {
+      id: r.id,
+      usuarioId: r.usuario_id,
+      ano: r.ano,
+      nome: r.nome,
+      email: r.email,
+      setor: r.setor || 'Geral',
+      cargo: r.cargo,
+      p1Inicio,
+      p1Fim,
+      p1Dias,
+      p2Inicio: r.p2_inicio,
+      p2Fim: r.p2_fim,
+      p2Dias: Number(r.p2_dias || 0),
+      p3Inicio: r.p3_inicio,
+      p3Fim: r.p3_fim,
+      p3Dias: Number(r.p3_dias || 0),
+      totalDias,
+      status,
+      observacao: r.observacao,
+      historico: historicoSanitizado,
+    },
+  };
+}
+
 /**
  * Consulta apenas o status de publicação da escala do ano.
  */

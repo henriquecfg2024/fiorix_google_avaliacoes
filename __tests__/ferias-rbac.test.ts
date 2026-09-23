@@ -1,6 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getEscalaAnual, EscalaItem, PublicacaoStatus } from '@/lib/ferias/ferias-repository';
+import { getMinhasFeriasAction } from '@/app/actions/ferias';
+import { requireAuth } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
+
+// Mock de autenticação e cache
+vi.mock('@/lib/auth-helpers', () => ({
+  requireAuth: vi.fn(),
+  requireRole: vi.fn(),
+}));
+
+vi.mock('next/cache', () => ({
+  revalidatePath: vi.fn(),
+}));
+
+vi.mock('@/lib/audit', () => ({
+  recordAuditLog: vi.fn(),
+}));
 
 // Mock do prisma para testes unitários isolados
 vi.mock('@/lib/prisma', () => ({
@@ -184,6 +200,138 @@ describe('Controle de Acesso (RBAC) - Escala Anual de Férias', () => {
 
       const res = await getEscalaAnual(tenantId, ano, adminId, 'ADMIN');
       expect(res.colaboradores).toHaveLength(1);
+    });
+  });
+
+  describe('Server Action: getMinhasFeriasAction (Zero IDOR & Defesa em Profundidade)', () => {
+    it('deve rejeitar ano inválido fora da whitelist permitida [2026, 2027, 2028]', async () => {
+      vi.mocked(requireAuth).mockResolvedValue({
+        id: 'u-colab',
+        tenantId,
+        role: 'USER',
+        name: 'Colaborador Teste',
+      } as any);
+
+      await expect(getMinhasFeriasAction({ ano: 2024 })).rejects.toThrow('Ano inválido para consulta de férias');
+      await expect(getMinhasFeriasAction({ ano: 2030 })).rejects.toThrow('Ano inválido para consulta de férias');
+    });
+
+    it('colaborador comum deve receber ferias: null se a escala estiver em RASCUNHO', async () => {
+      vi.mocked(requireAuth).mockResolvedValue({
+        id: 'u-colab',
+        tenantId,
+        role: 'USER',
+        name: 'Colaborador Teste',
+      } as any);
+
+      vi.mocked(prisma.$queryRawUnsafe as any).mockImplementation(async (sql: string) => {
+        if (sql.includes('fiorix_ferias_publicacao')) {
+          return [{ ano, status: 'RASCUNHO' }];
+        }
+        return [];
+      });
+
+      const res = await getMinhasFeriasAction({ ano });
+
+      expect(res.publicacao.status).toBe('RASCUNHO');
+      expect(res.ferias).toBeNull();
+    });
+
+    it('colaborador comum recebe suas férias com consulta restrita a usuario_id = $3 quando PUBLICADA', async () => {
+      const userId = 'u-colab';
+      vi.mocked(requireAuth).mockResolvedValue({
+        id: userId,
+        tenantId,
+        role: 'USER',
+        name: 'Colaborador Teste',
+      } as any);
+
+      vi.mocked(prisma.$queryRawUnsafe as any).mockImplementation(async (sql: string, ...params: any[]) => {
+        if (sql.includes('fiorix_ferias_publicacao')) {
+          return [{ ano, status: 'PUBLICADA', publicado_por: 'rh', publicado_em: '2026-09-01T00:00:00Z' }];
+        }
+        if (sql.includes('fiorix_ferias_escala')) {
+          expect(sql).toContain('WHERE tenant_id = $1 AND ano = $2 AND usuario_id = $3');
+          expect(params).toContain(userId);
+
+          return [
+            {
+              id: 'esc-1',
+              usuario_id: userId,
+              ano,
+              nome: 'Colaborador Teste',
+              setor: 'Balcão',
+              cargo: 'Atendente',
+              p1_inicio: '2027-03-10',
+              p1_fim: '2027-03-24',
+              p1_dias: 15,
+              total_dias: 15,
+              status: 'programado',
+              observacao: 'Aprovado',
+              historico: JSON.stringify([
+                { data: '2026-09-10', de: 'Sem agendamento', para: '2027-03-10 a 2027-03-24 (15d)', por: 'RH Oficial', motivo: 'Escala 2027' }
+              ]),
+            },
+          ];
+        }
+        return [];
+      });
+
+      const res = await getMinhasFeriasAction({ ano });
+
+      expect(res.publicacao.status).toBe('PUBLICADA');
+      expect(res.ferias).not.toBeNull();
+      expect(res.ferias?.usuarioId).toBe(userId);
+      expect(res.ferias?.p1Inicio).toBe('2027-03-10');
+      expect(res.ferias?.p1Fim).toBe('2027-03-24');
+      expect(res.ferias?.p1Dias).toBe(15);
+      // Sanitização do histórico
+      expect(res.ferias?.historico).toHaveLength(1);
+      expect(res.ferias?.historico?.[0]?.por).toBe('Atualizado por RH');
+      expect(res.ferias?.historico?.[0]?.motivo).toBe('Escala 2027');
+    });
+
+    it('defesa em profundidade: recupera p1_inicio do historico caso p1_inicio esteja nulo no registro', async () => {
+      const userId = 'u-colab';
+      vi.mocked(requireAuth).mockResolvedValue({
+        id: userId,
+        tenantId,
+        role: 'USER',
+        name: 'Colaborador Teste',
+      } as any);
+
+      vi.mocked(prisma.$queryRawUnsafe as any).mockImplementation(async (sql: string) => {
+        if (sql.includes('fiorix_ferias_publicacao')) {
+          return [{ ano, status: 'PUBLICADA' }];
+        }
+        if (sql.includes('fiorix_ferias_escala')) {
+          return [
+            {
+              id: 'esc-1',
+              usuario_id: userId,
+              ano,
+              nome: 'Colaborador Teste',
+              p1_inicio: null,
+              p1_fim: null,
+              p1_dias: 0,
+              total_dias: 0,
+              status: 'pendente',
+              historico: JSON.stringify([
+                { data: '2026-09-10', de: 'Sem agendamento', para: '2027-03-10 a 2027-03-24 (15d)', por: 'RH Oficial', motivo: 'Recuperação' }
+              ]),
+            },
+          ];
+        }
+        return [];
+      });
+
+      const res = await getMinhasFeriasAction({ ano });
+
+      expect(res.ferias).not.toBeNull();
+      expect(res.ferias?.p1Inicio).toBe('2027-03-10');
+      expect(res.ferias?.p1Fim).toBe('2027-03-24');
+      expect(res.ferias?.p1Dias).toBe(15);
+      expect(res.ferias?.status).toBe('programado');
     });
   });
 });
