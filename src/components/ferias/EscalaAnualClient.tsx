@@ -38,6 +38,7 @@ interface EscalaAnualClientProps {
   initialColaboradores?: EscalaItem[];
   userRole?: string;
   isInsideRHPanel?: boolean;
+  readOnly?: boolean;
 }
 
 const MESES = [
@@ -61,6 +62,7 @@ export function EscalaAnualClient({
   initialColaboradores = [],
   userRole = "RH",
   isInsideRHPanel = false,
+  readOnly = false,
 }: EscalaAnualClientProps) {
   const [ano, setAno] = useState(initialAno);
   const [loading, setLoading] = useState(false);
@@ -88,7 +90,7 @@ export function EscalaAnualClient({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   // Modal de Publicação da Escala (acionável via badge pelo RH/Gestor)
-  const isManager = ["ADMIN", "RH", "MASTER", "GESTOR"].includes(userRole);
+  const isManager = !readOnly && ["ADMIN", "RH", "MASTER", "GESTOR"].includes(userRole);
   const [pubModalOpen, setPubModalOpen] = useState(false);
   const [pubLoading, setPubLoading] = useState(false);
 
@@ -133,12 +135,14 @@ export function EscalaAnualClient({
     carregarEscala(ano);
   }, [ano]);
 
-  // Carrega usuários reais para o modal
+  // Carrega usuários reais para o modal somente se for gestor/RH
   useEffect(() => {
-    getColaboradoresDisponiveisAction()
-      .then((users) => setColaboradoresDisponiveis(users))
-      .catch(() => {});
-  }, []);
+    if (!readOnly) {
+      getColaboradoresDisponiveisAction()
+        .then((users) => setColaboradoresDisponiveis(users))
+        .catch(() => {});
+    }
+  }, [readOnly]);
 
   // Fechar menu de 3 pontinhos ao clicar fora
   useEffect(() => {
@@ -319,6 +323,13 @@ export function EscalaAnualClient({
 
         {/* Controles de Topo: Seletor de Ano + Badge Informativo */}
         <div className="flex items-center gap-3">
+          {/* Badge Somente Leitura (para substitutos / modo consulta) */}
+          {readOnly && (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border border-sky-500/30 bg-sky-500/10 text-sky-300 text-xs font-semibold shadow-sm">
+              <span>🔒 Somente leitura</span>
+            </span>
+          )}
+
           {/* Seletor de Ano */}
           <div className="flex items-center bg-[#0B1020]/90 border border-white/10 rounded-2xl px-3 py-1.5 shadow-sm">
             <CalendarIcon className="w-4 h-4 text-indigo-400 mr-2" />
@@ -333,11 +344,14 @@ export function EscalaAnualClient({
             </select>
           </div>
 
-          {/* Badge de Status — Clicável para Gestão de Publicação pelo RH */}
+          {/* Badge de Status — Clicável para Gestão de Publicação apenas pelo RH/Gestor */}
           {publicacao.status === "PUBLICADA" ? (
             <button
               onClick={() => isManager && setPubModalOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs font-semibold shadow-sm transition-all hover:bg-emerald-500/20 cursor-pointer"
+              disabled={!isManager}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs font-semibold shadow-sm transition-all ${
+                isManager ? "hover:bg-emerald-500/20 cursor-pointer" : "cursor-default"
+              }`}
               title={isManager ? "Clique para gerenciar publicação" : undefined}
             >
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -346,7 +360,10 @@ export function EscalaAnualClient({
           ) : (
             <button
               onClick={() => isManager && setPubModalOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs font-semibold shadow-sm transition-all hover:bg-amber-500/20 cursor-pointer"
+              disabled={!isManager}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs font-semibold shadow-sm transition-all ${
+                isManager ? "hover:bg-amber-500/20 cursor-pointer" : "cursor-default"
+              }`}
               title={isManager ? "Clique para gerenciar publicação" : undefined}
             >
               <span className="w-2 h-2 rounded-full bg-amber-400" />
@@ -525,17 +542,19 @@ export function EscalaAnualClient({
               ))}
             </select>
 
-            {/* Botão Adicionar Colaborador */}
-            <Button
-              onClick={() => {
-                setEditingItem(null);
-                setLancamentoModalOpen(true);
-              }}
-              className="h-10 px-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-indigo-500/20 gap-1.5"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Adicionar colaborador</span>
-            </Button>
+            {/* Botão Adicionar Colaborador (Apenas Gestão/RH) */}
+            {!readOnly && (
+              <Button
+                onClick={() => {
+                  setEditingItem(null);
+                  setLancamentoModalOpen(true);
+                }}
+                className="h-10 px-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-indigo-500/20 gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Adicionar colaborador</span>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -549,13 +568,15 @@ export function EscalaAnualClient({
                 <th className="py-3.5 px-4 font-bold">PERÍODO DE FÉRIAS</th>
                 <th className="py-3.5 px-4 font-bold text-center">DIAS</th>
                 <th className="py-3.5 px-4 font-bold">STATUS</th>
-                <th className="py-3.5 px-4 font-bold text-right">AÇÕES</th>
+                {!readOnly && (
+                  <th className="py-3.5 px-4 font-bold text-right">AÇÕES</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 text-slate-200">
               {filteredColaboradores.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-10 text-center text-slate-400 italic">
+                  <td colSpan={readOnly ? 5 : 6} className="py-10 text-center text-slate-400 italic">
                     Nenhum colaborador encontrado com os filtros selecionados.
                   </td>
                 </tr>
@@ -631,62 +652,64 @@ export function EscalaAnualClient({
                         )}
                       </td>
 
-                      {/* Ações (3 pontinhos) */}
-                      <td className="py-3.5 px-4 text-right relative">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenMenuId(isMenuOpen ? null : colab.id);
-                          }}
-                          className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-                          title="Ações"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-
-                        {/* Menu Dropdown Compacto */}
-                        {isMenuOpen && (
-                          <div
-                            onClick={(e) => e.stopPropagation()}
-                            className="absolute right-4 top-11 z-30 w-44 rounded-2xl border border-white/12 bg-[#0c101c] p-1.5 shadow-2xl space-y-1 text-left"
+                      {/* Ações (3 pontinhos - apenas se não for somente leitura) */}
+                      {!readOnly && (
+                        <td className="py-3.5 px-4 text-right relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(isMenuOpen ? null : colab.id);
+                            }}
+                            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                            title="Ações"
                           >
-                            <button
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                setEditingItem(colab);
-                                setLancamentoModalOpen(true);
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
-                            >
-                              <Pencil className="w-3.5 h-3.5 text-indigo-400" />
-                              <span>Editar período</span>
-                            </button>
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
 
-                            <button
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                setHistoricoItem(colab);
-                                setHistoricoModalOpen(true);
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+                          {/* Menu Dropdown Compacto */}
+                          {isMenuOpen && (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute right-4 top-11 z-30 w-44 rounded-2xl border border-white/12 bg-[#0c101c] p-1.5 shadow-2xl space-y-1 text-left"
                             >
-                              <History className="w-3.5 h-3.5 text-cyan-400" />
-                              <span>Visualizar histórico</span>
-                            </button>
+                              <button
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setEditingItem(colab);
+                                  setLancamentoModalOpen(true);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+                              >
+                                <Pencil className="w-3.5 h-3.5 text-indigo-400" />
+                                <span>Editar período</span>
+                              </button>
 
-                            <button
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                handleDeleteLancamento(colab);
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                              <span>Remover período</span>
-                            </button>
-                          </div>
-                        )}
-                      </td>
+                              <button
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setHistoricoItem(colab);
+                                  setHistoricoModalOpen(true);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+                              >
+                                <History className="w-3.5 h-3.5 text-cyan-400" />
+                                <span>Visualizar histórico</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  handleDeleteLancamento(colab);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                                <span>Remover período</span>
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   );
                 })

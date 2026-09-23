@@ -25,12 +25,14 @@ export const metadata = {
 export default async function FeriasPage() {
   let userRole = "USER";
   let userName = "Colaborador";
+  let userId = "";
 
   try {
     const session = await auth();
     if (session?.user) {
       userRole = session.user.role || "USER";
       userName = session.user.name || "Colaborador";
+      userId = session.user.id || "";
     }
   } catch (err) {
     console.error("Auth error in FeriasPage:", err);
@@ -40,6 +42,7 @@ export default async function FeriasPage() {
     <FeriasClient
       userRole={userRole}
       userName={userName}
+      userId={userId}
     />
   );
 }

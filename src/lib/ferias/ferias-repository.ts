@@ -180,16 +180,18 @@ export async function getEscalaAnual(
   const publicacao = await getPublicacaoStatus(tenantId, ano);
 
   const isManager = ['ADMIN', 'RH', 'MASTER', 'GESTOR'].includes(userRole);
+  const isSubstituto = userRole === 'SUBSTITUTO';
+  const canViewFullScale = isManager || isSubstituto;
 
   // Se o colaborador comum consulta e a escala está em rascunho, bloqueia o retorno
-  if (!isManager && publicacao.status !== 'PUBLICADA') {
+  if (!canViewFullScale && publicacao.status !== 'PUBLICADA') {
     return {
       publicacao,
       colaboradores: [],
     };
   }
 
-  // Busca do banco
+  // Busca do banco com isolamento de dados por perfil
   let items: EscalaItem[] = [];
   try {
     const rows = await prisma.$queryRawUnsafe<any[]>(
@@ -200,6 +202,7 @@ export async function getEscalaAnual(
               total_dias, status, observacao, historico 
        FROM public.fiorix_ferias_escala 
        WHERE tenant_id = $1 AND ano = $2 
+       ${!canViewFullScale ? 'AND usuario_id = $3' : ''}
        ORDER BY CASE 
          WHEN nome = 'Mariana Oliveira' THEN 1
          WHEN nome = 'Carlos Eduardo Silva' THEN 2
@@ -207,8 +210,7 @@ export async function getEscalaAnual(
          WHEN nome = 'Henrique Gama' THEN 4
          WHEN nome = 'Luciana Martins' THEN 5
          ELSE 6 END, nome ASC`,
-      tenantId,
-      ano
+      ...(!canViewFullScale ? [tenantId, ano, userId] : [tenantId, ano])
     );
 
     if (rows && rows.length > 0) {
@@ -234,17 +236,19 @@ export async function getEscalaAnual(
         observacao: r.observacao,
         historico: typeof r.historico === 'string' ? JSON.parse(r.historico) : r.historico || [],
       }));
-    } else {
+    } else if (canViewFullScale) {
       // Se não há registros para esse ano no banco, sincroniza a partir dos colaboradores do banco
       items = await seedInitialEscalaFromUsers(tenantId, ano);
     }
   } catch (err) {
     console.warn('Erro ao carregar fiorix_ferias_escala:', err);
-    items = await seedInitialEscalaFromUsers(tenantId, ano);
+    if (canViewFullScale) {
+      items = await seedInitialEscalaFromUsers(tenantId, ano);
+    }
   }
 
-  // Se for colaborador comum, filtra apenas as próprias férias
-  if (!isManager) {
+  // Defesa em profundidade: se for colaborador comum, garante estritamente apenas as próprias férias
+  if (!canViewFullScale) {
     items = items.filter((item) => item.usuarioId === userId);
   }
 

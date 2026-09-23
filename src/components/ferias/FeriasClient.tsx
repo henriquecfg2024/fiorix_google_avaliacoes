@@ -11,11 +11,15 @@ import { EscalaItem, PublicacaoStatus } from "@/lib/ferias/ferias-repository";
 interface FeriasClientProps {
   userRole?: string;
   userName?: string;
+  userId?: string;
 }
 
-export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: FeriasClientProps) {
+export function FeriasClient({ userRole = "USER", userName = "Colaborador", userId = "" }: FeriasClientProps) {
   const [mounted, setMounted] = useState(false);
   const isManager = ["ADMIN", "RH", "MASTER", "GESTOR"].includes(userRole);
+  const isSubstituto = userRole === "SUBSTITUTO";
+  const canAccessEscala = isManager || isSubstituto;
+  const isReadOnly = isSubstituto;
 
   const [activeTab, setActiveTab] = useState<"minhas" | "escala">("minhas");
   const [ano] = useState(2027);
@@ -26,11 +30,13 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: Fe
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("tab") === "escala") {
+      if (params.get("tab") === "escala" && canAccessEscala) {
         setActiveTab("escala");
+      } else {
+        setActiveTab("minhas");
       }
     }
-  }, []);
+  }, [canAccessEscala]);
 
   useEffect(() => {
     setMounted(true);
@@ -38,12 +44,18 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: Fe
       .then((res) => {
         setPublicacao(res.publicacao);
         if (res.colaboradores && res.colaboradores.length > 0) {
-          setMinhasFerias(res.colaboradores[0]);
+          const matching =
+            (userId ? res.colaboradores.find((c) => c.usuarioId === userId) : null) ||
+            res.colaboradores.find(
+              (c) => c.nome.toLowerCase() === userName.toLowerCase()
+            ) ||
+            res.colaboradores[0];
+          setMinhasFerias(matching);
         }
       })
       .catch((err) => console.error("Erro ao carregar férias:", err))
       .finally(() => setLoading(false));
-  }, [ano]);
+  }, [ano, userId, userName]);
 
   if (!mounted) {
     return (
@@ -75,10 +87,10 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: Fe
       </div>
 
       <div className="relative mx-auto max-w-[1600px] px-5 py-6 sm:px-8 space-y-8">
-        {/* Se for gestor e estiver na aba de escala anual, exibe a tela administrativa consolidada */}
-        {isManager && activeTab === "escala" ? (
+        {/* Se tiver acesso e estiver na aba de escala anual, exibe a escala anual */}
+        {canAccessEscala && activeTab === "escala" ? (
           <div>
-            {/* Seletor de abas para gestor */}
+            {/* Seletor de abas */}
             <div className="flex justify-end mb-4">
               <div className="flex gap-1.5 p-1 bg-white/[0.04] rounded-2xl border border-white/8 text-xs font-bold">
                 <button
@@ -100,6 +112,7 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: Fe
               initialAno={ano}
               initialPublicacao={publicacao}
               userRole={userRole}
+              readOnly={isReadOnly}
             />
           </div>
         ) : (
@@ -127,7 +140,7 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: Fe
                 </p>
               </div>
 
-              {isManager && (
+              {canAccessEscala && (
                 <div className="flex gap-1.5 p-1 bg-white/[0.04] rounded-2xl border border-white/8 text-xs font-bold">
                   <button
                     onClick={() => setActiveTab("escala")}
@@ -146,7 +159,7 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador" }: Fe
             </div>
 
             {/* Quando a escala estiver em rascunho ou retirada do ar (para colaborador comum) */}
-            {!isManager && publicacao.status !== "PUBLICADA" ? (
+            {!canAccessEscala && publicacao.status !== "PUBLICADA" ? (
               <div className="w-full max-w-3xl mx-auto py-12 px-6 rounded-[28px] border border-white/10 bg-[#0B1020]/72 backdrop-blur-xl text-center space-y-4 shadow-xl">
                 <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.15)]">
                   <Calendar className="w-7 h-7" />
