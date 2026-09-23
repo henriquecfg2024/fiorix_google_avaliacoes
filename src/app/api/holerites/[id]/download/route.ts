@@ -1,10 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-helpers";
-import { generateHoleritePdfBinary } from "@/lib/pdf/generateHoleritePdf";
-import { getRequestIp, maskIp } from "@/lib/security/requestIp";
-import { logAuditEvent } from "@/lib/audit/log";
+import { prisma } from "@/lib/prisma";
+import { supabaseAdmin } from "@/lib/supabase";
+import { getRequestIp } from "@/lib/security/requestIp";
+import { checkRateLimit } from "@/lib/security/rate-limit";
+import { logAuditEventStrict } from "@/lib/audit/log";
 
 export const dynamic = "force-dynamic";
+
+const BUCKET_NAME = "fiorix-holerites";
+
+// Rate limit: 10 downloads por minuto por usuário
+const RATE_LIMIT_CONFIG = { windowMs: 60_000, max: 10 };
+
+/**
+ * Sanitiza string para uso seguro em headers HTTP (Content-Disposition).
+ * Remove caracteres que podem causar header injection.
+ */
+function sanitizeFilename(input: string): string {
+  return input.replace(/[^a-zA-Z0-9\-_.]/g, "_");
+}
+
+/**
+ * Valida o formato de competência (MM/YYYY).
+ */
+function isValidCompetencia(value: string): boolean {
+  return /^\d{2}\/\d{4}$/.test(value);
+}
 
 export async function GET(
   req: NextRequest,
@@ -12,52 +34,119 @@ export async function GET(
 ) {
   try {
     const user = await requireAuth();
-    const userName = user.name || 'Colaborador';
     const tenantId = user.tenantId;
     const usuarioId = user.id;
-    const ip = getRequestIp(req);
-    const ipMascarado = maskIp(ip);
 
+    // ── Rate Limiting ────────────────────────────────────────────────
+    const rateLimitKey = `holerite_download:${usuarioId}`;
+    const rateCheck = checkRateLimit(rateLimitKey, RATE_LIMIT_CONFIG);
+    if (!rateCheck.ok) {
+      return NextResponse.json(
+        { error: "Muitas requisições. Tente novamente em breve." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.ceil((rateCheck.retryAfterMs || 60000) / 1000)),
+          },
+        }
+      );
+    }
+
+    // ── Validação de parâmetros ──────────────────────────────────────
     const { id } = params;
-    const { searchParams } = new URL(req.url);
-    const mes = searchParams.get("mes") || "08/2026";
+    if (!id || typeof id !== "string") {
+      return NextResponse.json({ error: "Parâmetro inválido." }, { status: 400 });
+    }
 
-    // Registra log de auditoria
-    await logAuditEvent({
+    // ── Anti-IDOR: Verifica propriedade do holerite ─────────────────
+    // O holerite DEVE pertencer ao usuário autenticado E ao tenant da sessão.
+    const holerite = await prisma.fiorixHolerite.findFirst({
+      where: {
+        id,
+        tenantId,
+        usuarioId,
+      },
+      select: {
+        id: true,
+        mes: true,
+        ano: true,
+        storagePath: true,
+        arquivoNome: true,
+        arquivoHash: true,
+        tamanhoBytes: true,
+      },
+    });
+
+    if (!holerite) {
+      // Retorna 404 genérico — nunca indicar se o ID existe para outro usuário
+      return NextResponse.json(
+        { error: "Documento não encontrado." },
+        { status: 404 }
+      );
+    }
+
+    // ── Auditoria ESTRITA — bloqueia download se o log falhar ───────
+    const ip = getRequestIp(req);
+    await logAuditEventStrict({
       tenantId,
       usuarioId,
       tipo: "holerite_download_authorized",
-      recursoId: id,
+      recursoId: holerite.id,
       ip,
       userAgent: req.headers.get("user-agent") || "unknown",
-      metadata: { mes },
-    });
-
-    const pdfBuffer = generateHoleritePdfBinary({
-      competencia: mes,
-      nomeColaborador: userName,
-      cpfMascarado: "***.456.789-**",
-      cargo: "Escrevente Notarial",
-      valorBruto: "6.840,00",
-      valorLiquido: "5.420,15",
-      descontos: "1.419,85",
-      hashSha256: "f3a9c2e1d0b83e42aa881b9e2f4a1c5d7e8f0a1b2c3d4e5f6a7b8c9d0e1f2a3b",
-      ipMascarado,
-      dataEmissao: new Date().toLocaleDateString("pt-BR"),
-    });
-
-    return new Response(new Blob([pdfBuffer as any]), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="Holerite-Competencia-${mes.replace("/", "-")}.pdf"`,
-        "Content-Length": pdfBuffer.length.toString(),
-        "Cache-Control": "no-store, no-cache, must-revalidate",
+      metadata: {
+        mes: holerite.mes,
+        ano: holerite.ano,
+        arquivoHash: holerite.arquivoHash,
       },
     });
-  } catch (error) {
-    console.error("Erro ao gerar download de holerite PDF:", error);
-    return NextResponse.json({ error: "Erro interno no servidor" }, { status: 500 });
+
+    // ── Gera URL assinada temporária via Supabase Storage ───────────
+    // A URL expira em 5 minutos (300 segundos) e não expõe o caminho interno.
+    const { data: signedData, error: signError } = await supabaseAdmin.storage
+      .from(BUCKET_NAME)
+      .createSignedUrl(holerite.storagePath, 300, {
+        download: holerite.arquivoNome,
+      });
+
+    if (signError || !signedData?.signedUrl) {
+      console.error("[Holerite Download] Erro ao gerar URL assinada:", signError);
+      return NextResponse.json(
+        { error: "Não foi possível gerar o link de download seguro." },
+        { status: 500 }
+      );
+    }
+
+    // ── Resposta ────────────────────────────────────────────────────
+    const competencia = `${String(holerite.mes).padStart(2, "0")}-${holerite.ano}`;
+    const safeFilename = sanitizeFilename(`Holerite-Competencia-${competencia}.pdf`);
+
+    const accept = req.headers.get("accept") || "";
+    if (accept.includes("application/json")) {
+      return NextResponse.json({
+        signedUrl: signedData.signedUrl,
+        fileName: safeFilename,
+        mimeType: "application/pdf",
+        sizeBytes: holerite.tamanhoBytes,
+      });
+    }
+
+    // Redirect para URL assinada (o browser inicia o download)
+    return NextResponse.redirect(signedData.signedUrl);
+  } catch (error: any) {
+    // Auditoria estrita falhou — bloquear a operação
+    if (error?.message?.includes("Auditoria obrigatória falhou")) {
+      console.error("[Holerite Download] Auditoria falhou — operação bloqueada:", error);
+      return NextResponse.json(
+        { error: "Operação temporariamente indisponível. Tente novamente." },
+        { status: 503 }
+      );
+    }
+
+    console.error("[Holerite Download] Erro:", error);
+    return NextResponse.json(
+      { error: "Erro interno no servidor." },
+      { status: 500 }
+    );
   }
 }
-

@@ -1,33 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { supabaseAdmin } from "@/lib/supabase";
 import { generateHash } from "@/lib/security/hash";
 import { logAuditEvent } from "@/lib/audit/log";
 import { getRequestIp } from "@/lib/security/requestIp";
 
-// Simulação de Storage. Em um cenário real, integraria com AWS S3, Supabase Storage, etc.
-const STORAGE_PROVIDER_SAVE = async (buffer: Buffer, path: string) => {
-  // Implementação mockada
-  return `https://storage.fiorix.com/mock/${path}`;
-};
+const BUCKET_NAME = "fiorix-holerites";
+
+/**
+ * Garante que o bucket privado de holerites exista no Supabase Storage.
+ * Cria automaticamente na primeira utilização se necessário.
+ */
+async function ensureBucketExists() {
+  const { data: buckets } = await supabaseAdmin.storage.listBuckets();
+  const exists = buckets?.some((b: any) => b.name === BUCKET_NAME);
+  if (!exists) {
+    const { error } = await supabaseAdmin.storage.createBucket(BUCKET_NAME, {
+      public: false,
+      fileSizeLimit: 5 * 1024 * 1024, // 5MB
+      allowedMimeTypes: ["application/pdf"],
+    });
+    if (error) {
+      console.error("[Holerites] Erro ao criar bucket:", error);
+      throw new Error("Falha ao inicializar storage de holerites.");
+    }
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "RH")) {
+    if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "RH" && session.user.role !== "MASTER")) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
     const tenantId = session.user.tenantId;
     const uploaderId = session.user.id;
-    
-    // O Next.js Request FormData
+
     const formData = await req.formData();
     const files = formData.getAll("files") as File[];
-    
+
     if (!files || files.length === 0) {
       return NextResponse.json({ error: "Nenhum arquivo enviado" }, { status: 400 });
     }
+
+    // Garantir que o bucket existe antes de processar uploads
+    await ensureBucketExists();
 
     const resultados = [];
 
@@ -36,7 +55,7 @@ export async function POST(req: NextRequest) {
         resultados.push({ arquivo: file.name, status: "FORMATO INVÁLIDO" });
         continue;
       }
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      if (file.size > 5 * 1024 * 1024) {
         resultados.push({ arquivo: file.name, status: "TAMANHO EXCEDIDO (Máx 5MB)" });
         continue;
       }
@@ -52,22 +71,36 @@ export async function POST(req: NextRequest) {
       const mes = parseInt(mesStr, 10);
       const ano = parseInt(anoStr, 10);
 
-      // Localiza o colaborador (Aqui usaríamos um campo CPF real no banco, estamos simulando com o ID ou um Alias por enquanto.
-      // Assumindo que o tenant tenha o registro do usuário com CPF no metadata ou em um model próprio
-      // TODO: Ajustar para a busca real de CPF conforme a implementação específica de perfil
-      const usuarioAlvo = await prisma.user.findFirst({
-         where: { tenantId } // Precisa adicionar filtro por CPF
-      });
+      // Validação de competência
+      if (mes < 1 || mes > 12 || ano < 2000 || ano > 2100) {
+        resultados.push({ arquivo: file.name, status: "COMPETÊNCIA INVÁLIDA" });
+        continue;
+      }
+
+      // Localiza o colaborador pelo CPF dentro do tenant
+      let usuarioAlvo: { id: string; name: string | null } | null = null;
+      try {
+        usuarioAlvo = await prisma.user.findUnique({
+          where: { tenantId_cpf: { tenantId, cpf } },
+          select: { id: true, name: true },
+        });
+      } catch {
+        // Se a constraint ainda não existir (migração pendente), tenta busca simples
+        usuarioAlvo = await prisma.user.findFirst({
+          where: { tenantId, cpf },
+          select: { id: true, name: true },
+        });
+      }
 
       if (!usuarioAlvo) {
-        resultados.push({ arquivo: file.name, cpf, status: "NÃO ENCONTRADO" });
+        resultados.push({ arquivo: file.name, cpf, status: "COLABORADOR NÃO ENCONTRADO" });
         continue;
       }
 
       const buffer = Buffer.from(await file.arrayBuffer());
       const arquivoHash = generateHash(buffer);
 
-      // Verifica se já existe para este mês/ano e usuário
+      // Verifica duplicidade por mês/ano e usuário
       const existente = await prisma.fiorixHolerite.findUnique({
         where: { tenantId_usuarioId_mes_ano: { tenantId, usuarioId: usuarioAlvo.id, mes, ano } }
       });
@@ -77,10 +110,23 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // Salva no storage (bucket privado)
-      const storagePath = `${tenantId}/holerites/${usuarioAlvo.id}/${ano}/${mes}/${file.name}`;
-      await STORAGE_PROVIDER_SAVE(buffer, storagePath);
+      // Upload real para o Supabase Storage (bucket privado)
+      const storagePath = `${tenantId}/${usuarioAlvo.id}/${ano}/${String(mes).padStart(2, "0")}.pdf`;
 
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from(BUCKET_NAME)
+        .upload(storagePath, buffer, {
+          contentType: "application/pdf",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error(`[Holerite Upload] Erro no storage para ${file.name}:`, uploadError);
+        resultados.push({ arquivo: file.name, status: "ERRO NO STORAGE" });
+        continue;
+      }
+
+      // Persiste no banco de dados
       await prisma.fiorixHolerite.create({
         data: {
           tenantId,
@@ -102,10 +148,10 @@ export async function POST(req: NextRequest) {
     await logAuditEvent({
       tenantId,
       usuarioId: uploaderId,
-      tipo: "holerite_upload" as any,
+      tipo: "holerite_download_authorized" as any,
       ip: getRequestIp(req),
       userAgent: req.headers.get("user-agent") || "unknown",
-      metadata: { processados: files.length, resultados },
+      metadata: { acao: "upload", processados: files.length, resultados },
     });
 
     return NextResponse.json({ success: true, resultados });

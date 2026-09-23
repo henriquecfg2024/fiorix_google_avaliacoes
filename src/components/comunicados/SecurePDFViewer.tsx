@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Shield, Eye, Printer, Download, Lock, FileText, X, ExternalLink } from "lucide-react";
+import { Download, Lock, FileText, X, ExternalLink, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SecurePDFViewerProps {
@@ -10,8 +10,6 @@ interface SecurePDFViewerProps {
   documentId: string;
   fileUrl: string;
   userName: string;
-  userCpfMasked?: string;
-  userIpMasked?: string;
   allowDownload?: boolean;
   onClose?: () => void;
 }
@@ -22,8 +20,6 @@ export function SecurePDFViewer({
   documentId,
   fileUrl,
   userName,
-  userCpfMasked = "***.456.789-**",
-  userIpMasked = "189.40.***.***",
   allowDownload = false,
   onClose,
 }: SecurePDFViewerProps) {
@@ -80,14 +76,11 @@ export function SecurePDFViewer({
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <h2 className="text-sm font-bold text-white">
                 {documentTitle}
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  DOCUMENTO PROTEGIDO
-                </span>
               </h2>
               <p className="text-xs text-white/50">
-                Visualização auditada com marca d'água de segurança LGPD
+                Documento pessoal e confidencial
               </p>
             </div>
           </div>
@@ -139,17 +132,17 @@ export function SecurePDFViewer({
         {/* Content Viewer Area with Dynamic Watermark */}
         <div className="relative flex-1 bg-[#05050a] overflow-auto flex items-center justify-center p-6 select-none">
           {/* Watermark Overlay */}
-          <div className="absolute inset-0 pointer-events-none z-10 flex flex-col justify-around overflow-hidden opacity-15 rotate-[-25deg] select-none">
+          <div className="absolute inset-0 pointer-events-none z-10 flex flex-col justify-around overflow-hidden opacity-10 rotate-[-25deg] select-none">
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
                 className="whitespace-nowrap text-xs font-mono font-bold text-white/70 tracking-widest uppercase flex justify-around"
               >
                 <span>
-                  7º RI SP • {userName} • CPF {userCpfMasked} • IP {userIpMasked} • {timestamp}
+                  CONFIDENCIAL • {userName} • {timestamp}
                 </span>
                 <span>
-                  DOCUMENTO CONFIDENCIAL • FIORIX PESSOAS • LGPD AUDITADA
+                  DOCUMENTO PESSOAL • FIORIX
                 </span>
               </div>
             ))}
@@ -172,7 +165,6 @@ export function SecurePDFViewer({
                   <p className="text-xs text-white/50">Sistema Integrado FIORIX PESSOAS</p>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs font-mono text-cyan-400">VIA ELETRÔNICA AUDITADA</span>
                   <p className="text-[10px] text-white/40">{timestamp}</p>
                 </div>
               </div>
@@ -184,31 +176,16 @@ export function SecurePDFViewer({
                     <span className="font-bold text-white">{userName}</span>
                   </div>
                   <div>
-                    <span className="text-white/40 block text-[10px] uppercase">CPF Mascarado</span>
-                    <span className="font-mono text-white/80">{userCpfMasked}</span>
-                  </div>
-                  <div>
                     <span className="text-white/40 block text-[10px] uppercase">Documento</span>
                     <span className="font-semibold text-indigo-300">{documentTitle}</span>
                   </div>
-                </div>
-
-                <div className="p-4 bg-[#080A12] rounded-lg border border-white/5 space-y-2">
-                  <p className="font-semibold text-white/80">Informações de Segurança e Integridade:</p>
-                  <p>
-                    Este documento digital foi gerado e protegido conforme as diretrizes do Art. 464 da CLT e da LGPD (Lei 13.709/2018).
-                    A integridade do arquivo é garantida por função de hash criptográfico SHA-256 e o acesso foi registrado na trilha de auditoria corporativa.
-                  </p>
                 </div>
               </div>
 
               <div className="border-t border-white/10 pt-4 flex items-center justify-between text-[10px] text-white/40">
                 <div className="flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Trilha de Auditoria Protegida • IP: {userIpMasked}</span>
-                </div>
-                <div className="font-mono">
-                  ID: {documentId.substring(0, 12)}...
+                  <Lock className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Somente você pode visualizar este documento.</span>
                 </div>
               </div>
             </div>
@@ -216,12 +193,11 @@ export function SecurePDFViewer({
         </div>
 
         {/* Footer Security Notice */}
-        <div className="px-6 py-3 bg-[#080A12] border-t border-white/5 flex items-center justify-between text-xs text-white/50">
+        <div className="px-6 py-3 bg-[#080A12] border-t border-white/5 flex items-center text-xs text-white/50">
           <div className="flex items-center gap-2">
             <Lock className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Acesso registrado em log imutável. Reprodução não autorizada é passível de responsabilização.</span>
+            <span>Somente você pode visualizar seus documentos.</span>
           </div>
-          <span className="text-emerald-400 font-semibold text-[11px]">✓ Criptografia Ativa</span>
         </div>
       </div>
     </div>
