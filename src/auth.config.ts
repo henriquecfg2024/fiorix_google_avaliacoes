@@ -98,7 +98,7 @@ export const authConfig = {
         // Regras para perfil USER: acesso operacional ao dashboard, bi, avaliacoes, relatorios, pessoas
         if (role === 'USER') {
           if (nextUrl.pathname.startsWith('/sistema') || nextUrl.pathname.startsWith('/configuracoes')) {
-            return Response.redirect(new URL('/dashboard', nextUrl));
+            return Response.redirect(new URL('/minha-it', nextUrl));
           }
           if (nextUrl.pathname.startsWith('/bi/importar') || nextUrl.pathname.startsWith('/bi/importacoes')) {
             return Response.redirect(new URL('/bi', nextUrl));
@@ -110,7 +110,7 @@ export const authConfig = {
         return true;
       } else if (isLoggedIn && nextUrl.pathname === '/login') {
         const role = auth.user.role || 'USER';
-        if (role === 'COLABORADOR') {
+        if (role === 'COLABORADOR' || role === 'USER') {
           return Response.redirect(new URL('/minha-it', nextUrl));
         }
         if (role === 'RH') {
