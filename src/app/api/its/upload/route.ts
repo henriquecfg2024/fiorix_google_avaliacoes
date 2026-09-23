@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-helpers';
-import { createClient } from '@supabase/supabase-js';
-import { supabase, supabaseAdmin, FIORIX_SUPABASE_URL, FIORIX_SUPABASE_ANON_KEY } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 import { publicarNovaVersaoIT } from '@/app/actions/minha-it';
 
 export const dynamic = 'force-dynamic';
@@ -54,44 +53,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Tenta upload no bucket oficial 'it-documentos'
-    let uploadRes = await supabase.storage
+    // 1. Upload seguro via supabaseAdmin (service_role) no bucket 'it-documentos'
+    let uploadRes = await supabaseAdmin.storage
       .from('it-documentos')
       .upload(storagePath, buffer, {
         contentType: 'application/pdf',
         upsert: true,
       });
 
-    // Se falhar, tenta no fallback 'fiorix-its'
+    // Se o bucket principal falhar, tenta no fallback 'fiorix-its'
     if (uploadRes.error) {
-      console.warn('Tentativa em it-documentos falhou, tentando fiorix-its:', uploadRes.error);
-      uploadRes = await supabase.storage
+      console.warn('Tentativa em it-documentos falhou, tentando fallback fiorix-its com supabaseAdmin:', uploadRes.error);
+      uploadRes = await supabaseAdmin.storage
         .from('fiorix-its')
         .upload(storagePath, buffer, {
           contentType: 'application/pdf',
           upsert: true,
         });
-    }
-
-    // Se ainda falhar, tenta com direct client garantido com chaves oficiais
-    if (uploadRes.error) {
-      console.warn('Tentativa padrão falhou, tentando cliente com credenciais oficiais:', uploadRes.error);
-      const directClient = createClient(FIORIX_SUPABASE_URL, FIORIX_SUPABASE_ANON_KEY);
-      uploadRes = await directClient.storage
-        .from('it-documentos')
-        .upload(storagePath, buffer, {
-          contentType: 'application/pdf',
-          upsert: true,
-        });
-
-      if (uploadRes.error) {
-        uploadRes = await directClient.storage
-          .from('fiorix-its')
-          .upload(storagePath, buffer, {
-            contentType: 'application/pdf',
-            upsert: true,
-          });
-      }
     }
 
     if (uploadRes.error) {
