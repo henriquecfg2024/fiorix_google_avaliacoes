@@ -662,7 +662,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
   }
 
   const colaboradorItEnviada = initialData.colaboradorItEnviada ?? null;
-  const isColaborador = currentUser.role === 'COLABORADOR';
+  const isColaborador = currentUser.role === 'COLABORADOR' || currentUser.role === 'USER';
 
   const statusLabel: Record<string, { label: string; color: string; bg: string }> = {
     rascunho: { label: 'Rascunho', color: 'text-slate-300', bg: 'bg-slate-500/20 border-slate-500/30' },
