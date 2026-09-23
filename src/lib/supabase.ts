@@ -1,12 +1,12 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient, type RealtimeChannel } from '@supabase/supabase-js';
+
+export type { SupabaseClient, RealtimeChannel };
 
 export const FIORIX_SUPABASE_URL = 'https://uvieekfizuzujpwfbjww.supabase.co';
 export const FIORIX_SUPABASE_ANON_KEY = 'sb_publishable_gLo1mRVogCkhQEtTQXyK0A_PQ7264A0';
 
 const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseUrl = (rawUrl && rawUrl.includes('uvieekfizuzujpwfbjww'))
-  ? rawUrl.trim()
-  : FIORIX_SUPABASE_URL;
+const supabaseUrl = rawUrl?.trim() || FIORIX_SUPABASE_URL;
 
 const rawKey =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
@@ -17,13 +17,18 @@ const supabaseAnonKey = (rawKey && !rawKey.includes('[SENSITIVE]'))
   ? rawKey.replace(/^["']|["']$/g, '').trim()
   : FIORIX_SUPABASE_ANON_KEY;
 
-// Cliente público seguro para uso no navegador e realtime
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Cliente público para navegador e Realtime (sem overhead de persistência de sessão local)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  },
+});
 
 // Cliente administrativo seguro (server-only): inicializado sob demanda exclusivamente no servidor
-let _supabaseAdmin: ReturnType<typeof createClient> | null = null;
+let _supabaseAdmin: SupabaseClient | null = null;
 
-export function getSupabaseAdmin() {
+export function getSupabaseAdmin(): SupabaseClient {
   if (typeof window !== 'undefined') {
     throw new Error('supabaseAdmin não pode ser executado no navegador por razões de segurança.');
   }
@@ -50,7 +55,7 @@ export function getSupabaseAdmin() {
 }
 
 // Proxy transparente para manter compatibilidade total com os módulos de backend existentes
-export const supabaseAdmin = new Proxy({} as ReturnType<typeof createClient>, {
+export const supabaseAdmin = new Proxy({} as SupabaseClient, {
   get(_target, prop) {
     const admin = getSupabaseAdmin();
     const value = (admin as any)[prop];
