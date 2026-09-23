@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
   const [totpSecretKey, setTotpSecretKey] = useState('');
   const [totpCode, setTotpCode] = useState(['', '', '', '', '', '']);
+  const [targetRedirect, setTargetRedirect] = useState('/minha-it');
   const totpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
@@ -75,6 +76,11 @@ export default function LoginPage() {
       localStorage.removeItem('fiorix_remember_email');
     }
 
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const rawCallback = urlParams?.get('callbackUrl');
+    // Se o callbackUrl for a home/dashboard ou vazio, respeitamos o redirect por perfil (ex: /minha-it)
+    const validCallback = rawCallback && rawCallback !== '/' && rawCallback !== '/dashboard' ? rawCallback : null;
+
     try {
       if (step === 'credentials') {
         // Passo 1: Verifica credenciais e se precisa de 2FA
@@ -87,6 +93,9 @@ export default function LoginPage() {
           return;
         }
 
+        const resolvedRedirect = validCallback || result.redirectTo || '/minha-it';
+        setTargetRedirect(resolvedRedirect);
+
         if (result.requires2FA) {
           // Precisa de 2FA → mostra tela de código (ou ativação com QR code)
           setStep('totp');
@@ -98,11 +107,11 @@ export default function LoginPage() {
           return;
         }
 
-        // Não precisa de 2FA → login direto
+        // Não precisa de 2FA → login direto com redirecionamento dinâmico
         const formData = new FormData();
         formData.append('email', email);
         formData.append('password', password);
-        formData.append('redirectTo', '/dashboard');
+        formData.append('redirectTo', resolvedRedirect);
 
         const { authenticate } = await import('@/app/actions/auth');
         const errorMessage = await authenticate(undefined, formData);
@@ -122,7 +131,7 @@ export default function LoginPage() {
         formData.append('email', email);
         formData.append('password', password);
         formData.append('totpCode', code);
-        formData.append('redirectTo', '/dashboard');
+        formData.append('redirectTo', validCallback || targetRedirect || '/minha-it');
 
         const { authenticate } = await import('@/app/actions/auth');
         const errorMessage = await authenticate(undefined, formData);

@@ -86,10 +86,10 @@ export const navigationGroups = {
     icon: BookOpen,
     items: [
       {
-        label: "Instruções de Trabalho",
+        label: "Gestão de ITs",
         href: "/administracao/its",
         icon: BookOpen,
-        description: "Consulte documentos e acompanhe pendências",
+        description: "Acompanhe, revise e aprove Instruções de Trabalho",
       },
     ],
   },

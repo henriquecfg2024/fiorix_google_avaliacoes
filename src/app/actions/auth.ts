@@ -5,6 +5,7 @@ import { AuthError } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { generateTotpSecret, generateTotpUri, generateQRCodeDataUrl, verifyTotpToken, roleRequires2FA } from '@/lib/totp';
+import { getHomeRouteForRole } from '@/lib/permissions';
 
 export async function authenticate(
   prevState: string | undefined,
@@ -54,6 +55,8 @@ export async function checkCredentials(email: string, password: string): Promise
   qrCodeDataUrl?: string;
   secret?: string;
   error?: string;
+  role?: string;
+  redirectTo?: string;
 }> {
   const normalizedEmail = (email || '').trim().toLowerCase();
   if (!normalizedEmail || !password) {
@@ -92,10 +95,13 @@ export async function checkCredentials(email: string, password: string): Promise
     // Sucesso na verificação de senha -> limpa histórico de falhas
     await clearLoginAttempts(normalizedEmail);
 
+    const userRole = user.role || 'USER';
+    const redirectTo = getHomeRouteForRole(userRole);
+
     const mustUse2FA = roleRequires2FA(user.role);
     if (mustUse2FA) {
       if (user.totpEnabled && user.totpSecret) {
-        return { valid: true, requires2FA: true, isSetup2FA: false };
+        return { valid: true, requires2FA: true, isSetup2FA: false, role: userRole, redirectTo };
       }
 
       // Primeiro acesso do ADMIN ou MASTER: gera segredo e QR code para ativação imediata
@@ -114,10 +120,12 @@ export async function checkCredentials(email: string, password: string): Promise
         isSetup2FA: true,
         qrCodeDataUrl,
         secret,
+        role: userRole,
+        redirectTo,
       };
     }
 
-    return { valid: true, requires2FA: false };
+    return { valid: true, requires2FA: false, role: userRole, redirectTo };
   } catch (err) {
     console.error('Erro em checkCredentials:', err);
     return { valid: false, requires2FA: false, error: 'Erro ao verificar credenciais.' };

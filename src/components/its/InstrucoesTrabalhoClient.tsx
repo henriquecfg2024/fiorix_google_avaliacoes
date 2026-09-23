@@ -676,13 +676,13 @@ export function InstrucoesTrabalhoClient({
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
           <div>
             <p className="text-xs font-bold tracking-widest text-teal-400 uppercase mb-1">
-              Governança de ITs
+              Gestão de ITs
             </p>
             <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-              Instruções de Trabalho
+              Gestão de Instruções de Trabalho
             </h1>
             <p className="text-sm text-slate-400 mt-1">
-              Consulte documentos e acompanhe somente o que precisa de atenção.
+              Acompanhe, revise e aprove novas Instruções de Trabalho.
             </p>
           </div>
 
@@ -706,7 +706,7 @@ export function InstrucoesTrabalhoClient({
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              Fiscalização
+              Aprovações
               {pendencias.length > 0 && (
                 <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-bold ${
                   activeTab === 'fiscalizacao'
