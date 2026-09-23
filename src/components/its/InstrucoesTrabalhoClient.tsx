@@ -720,6 +720,63 @@ export function InstrucoesTrabalhoClient({
           </div>
         </div>
 
+        {/* ── Banner de alerta para SUBSTITUTOS ─────────────────── */}
+        {currentUser.role === 'SUBSTITUTO' && itsPendentesAprovacao.filter(p => p.status === 'enviada_para_analise').length > 0 && (
+          <div className="mb-6 relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-orange-500/8 to-amber-500/10 backdrop-blur-sm">
+            {/* Glow de fundo */}
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute inset-y-0 left-0 w-1 rounded-l-2xl bg-gradient-to-b from-amber-400 via-orange-400 to-amber-500" />
+              <div className="absolute -top-8 left-1/2 h-24 w-96 -translate-x-1/2 rounded-full bg-amber-500/8 blur-2xl" />
+            </div>
+
+            <div className="relative flex flex-col sm:flex-row sm:items-center gap-4 px-5 py-4">
+              {/* Ícone + texto */}
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <div className="shrink-0 mt-0.5 flex items-center justify-center w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30">
+                  <ShieldAlert className="w-5 h-5 text-amber-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-amber-300 leading-tight">
+                    {itsPendentesAprovacao.filter(p => p.status === 'enviada_para_analise').length === 1
+                      ? '1 Instrução de Trabalho aguarda sua aprovação'
+                      : `${itsPendentesAprovacao.filter(p => p.status === 'enviada_para_analise').length} Instruções de Trabalho aguardam sua aprovação`}
+                  </p>
+                  <p className="text-xs text-amber-200/60 mt-0.5 leading-snug">
+                    Como Oficial Substituto, você é responsável por revisar e aprovar as novas ITs submetidas.
+                  </p>
+                  {/* Lista das ITs pendentes */}
+                  <ul className="mt-2 space-y-0.5">
+                    {itsPendentesAprovacao
+                      .filter(p => p.status === 'enviada_para_analise')
+                      .slice(0, 3)
+                      .map((p) => (
+                        <li key={p.id} className="flex items-center gap-1.5 text-xs text-amber-100/70">
+                          <span className="w-1 h-1 rounded-full bg-amber-400 shrink-0" />
+                          <span className="font-mono text-amber-400/80 shrink-0">{p.codigo}</span>
+                          <span className="truncate">{p.titulo}</span>
+                        </li>
+                      ))}
+                    {itsPendentesAprovacao.filter(p => p.status === 'enviada_para_analise').length > 3 && (
+                      <li className="text-xs text-amber-200/40 pl-2.5">
+                        + {itsPendentesAprovacao.filter(p => p.status === 'enviada_para_analise').length - 3} mais...
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Botão de ação */}
+              <button
+                onClick={() => setActiveTab('fiscalizacao')}
+                className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-[#1a0a00] text-xs font-bold transition-all duration-150 shadow-lg shadow-amber-900/30 sm:self-auto self-start"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Revisar agora
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ════════════════════════════════════════════════
             ABA CATÁLOGO — somente ITs publicadas/vigentes
         ════════════════════════════════════════════════ */}
