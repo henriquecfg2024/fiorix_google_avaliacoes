@@ -22,7 +22,7 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador", user
   const isReadOnly = isSubstituto;
 
   const [activeTab, setActiveTab] = useState<"minhas" | "escala">("minhas");
-  const [ano] = useState(2027);
+  const [ano, setAno] = useState(2027);
   const [loading, setLoading] = useState(true);
   const [publicacao, setPublicacao] = useState<PublicacaoStatus>({ ano, status: "RASCUNHO" });
   const [minhasFerias, setMinhasFerias] = useState<EscalaItem | null>(null);
@@ -40,6 +40,7 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador", user
 
   useEffect(() => {
     setMounted(true);
+    setLoading(true);
     getEscalaAnualAction({ ano })
       .then((res) => {
         setPublicacao(res.publicacao);
@@ -50,7 +51,34 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador", user
               (c) => c.nome.toLowerCase() === userName.toLowerCase()
             ) ||
             res.colaboradores[0];
-          setMinhasFerias(matching);
+
+          let item = matching;
+          // Defesa em profundidade: se p1Inicio estiver vazio mas o histórico possuir agendamento cadastrado
+          if (
+            item &&
+            (!item.p1Inicio || item.p1Inicio === "") &&
+            item.historico &&
+            item.historico.length > 0
+          ) {
+            const lastEv = item.historico[item.historico.length - 1];
+            const match = lastEv?.para?.match(
+              /(\d{4}-\d{2}-\d{2})\s+a\s+(\d{4}-\d{2}-\d{2})\s*\((\d+)d\)/
+            );
+            if (match) {
+              item = {
+                ...item,
+                p1Inicio: match[1],
+                p1Fim: match[2],
+                p1Dias: parseInt(match[3], 10),
+                totalDias: parseInt(match[3], 10),
+                status: item.status === "pendente" ? "programado" : item.status,
+              };
+            }
+          }
+
+          setMinhasFerias(item);
+        } else {
+          setMinhasFerias(null);
         }
       })
       .catch((err) => console.error("Erro ao carregar férias:", err))
@@ -140,22 +168,38 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador", user
                 </p>
               </div>
 
-              {canAccessEscala && (
-                <div className="flex gap-1.5 p-1 bg-white/[0.04] rounded-2xl border border-white/8 text-xs font-bold">
-                  <button
-                    onClick={() => setActiveTab("escala")}
-                    className="px-4 py-2 rounded-xl transition-all cursor-pointer text-slate-400 hover:text-white"
+              <div className="flex items-center gap-3">
+                {/* Seletor de Ano */}
+                <div className="flex items-center bg-[#0B1020]/90 border border-white/10 rounded-2xl px-3 py-1.5 shadow-sm">
+                  <Calendar className="w-4 h-4 text-indigo-400 mr-2" />
+                  <select
+                    value={ano}
+                    onChange={(e) => setAno(Number(e.target.value))}
+                    className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer pr-1"
                   >
-                    Escala Anual de Férias
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("minhas")}
-                    className="px-4 py-2 rounded-xl transition-all cursor-pointer bg-indigo-600 text-white shadow-lg"
-                  >
-                    Minhas Férias
-                  </button>
+                    <option value={2026} className="bg-[#0c101c] text-white">2026</option>
+                    <option value={2027} className="bg-[#0c101c] text-white">2027</option>
+                    <option value={2028} className="bg-[#0c101c] text-white">2028</option>
+                  </select>
                 </div>
-              )}
+
+                {canAccessEscala && (
+                  <div className="flex gap-1.5 p-1 bg-white/[0.04] rounded-2xl border border-white/8 text-xs font-bold">
+                    <button
+                      onClick={() => setActiveTab("escala")}
+                      className="px-4 py-2 rounded-xl transition-all cursor-pointer text-slate-400 hover:text-white"
+                    >
+                      Escala Anual de Férias
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("minhas")}
+                      className="px-4 py-2 rounded-xl transition-all cursor-pointer bg-indigo-600 text-white shadow-lg"
+                    >
+                      Minhas Férias
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Quando a escala estiver em rascunho ou retirada do ar (para colaborador comum) */}

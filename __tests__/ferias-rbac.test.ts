@@ -27,7 +27,7 @@ describe('Controle de Acesso (RBAC) - Escala Anual de Férias', () => {
   describe('Perfil: COLABORADOR / USER (Isolamento Estrito)', () => {
     it('deve retornar lista VAZIA se a escala estiver em RASCUNHO', async () => {
       // Mock da tabela de publicação retornando RASCUNHO
-      vi.mocked(prisma.$queryRawUnsafe).mockImplementation(async (sql: string) => {
+      vi.mocked(prisma.$queryRawUnsafe as any).mockImplementation(async (sql: string) => {
         if (sql.includes('fiorix_ferias_publicacao')) {
           return [{ ano, status: 'RASCUNHO', publicado_por: null, publicado_em: null, retirado_em: null }];
         }
@@ -46,7 +46,7 @@ describe('Controle de Acesso (RBAC) - Escala Anual de Férias', () => {
     it('deve retornar APENAS o próprio registro quando a escala estiver PUBLICADA (sem vazamento de terceiros)', async () => {
       const userId = 'user-colab-1';
 
-      vi.mocked(prisma.$queryRawUnsafe).mockImplementation(async (sql: string, ...params: any[]) => {
+      vi.mocked(prisma.$queryRawUnsafe as any).mockImplementation(async (sql: string, ...params: any[]) => {
         if (sql.includes('fiorix_ferias_publicacao')) {
           return [{ ano, status: 'PUBLICADA', publicado_por: 'admin', publicado_em: '2026-09-01T00:00:00Z', retirado_em: null }];
         }
@@ -89,7 +89,7 @@ describe('Controle de Acesso (RBAC) - Escala Anual de Férias', () => {
     it('defesa em profundidade: deve descartar dados de terceiros mesmo se o SQL retornar registros extras', async () => {
       const userId = 'user-colab-1';
 
-      vi.mocked(prisma.$queryRawUnsafe).mockImplementation(async (sql: string) => {
+      vi.mocked(prisma.$queryRawUnsafe as any).mockImplementation(async (sql: string) => {
         if (sql.includes('fiorix_ferias_publicacao')) {
           return [{ ano, status: 'PUBLICADA', publicado_por: 'admin', publicado_em: '2026-09-01T00:00:00Z' }];
         }
@@ -115,7 +115,7 @@ describe('Controle de Acesso (RBAC) - Escala Anual de Férias', () => {
     it('deve ter acesso à visualização consolidada de todos os colaboradores', async () => {
       const substitutoId = 'sub-1';
 
-      vi.mocked(prisma.$queryRawUnsafe).mockImplementation(async (sql: string) => {
+      vi.mocked(prisma.$queryRawUnsafe as any).mockImplementation(async (sql: string) => {
         if (sql.includes('fiorix_ferias_publicacao')) {
           return [{ ano, status: 'PUBLICADA', publicado_por: 'rh', publicado_em: '2026-09-01T00:00:00Z' }];
         }
@@ -147,7 +147,7 @@ describe('Controle de Acesso (RBAC) - Escala Anual de Férias', () => {
     it('RH deve visualizar todos os colaboradores mesmo se a escala estiver em RASCUNHO', async () => {
       const rhUserId = 'rh-user-1';
 
-      vi.mocked(prisma.$queryRawUnsafe).mockImplementation(async (sql: string) => {
+      vi.mocked(prisma.$queryRawUnsafe as any).mockImplementation(async (sql: string) => {
         if (sql.includes('fiorix_ferias_publicacao')) {
           return [{ ano, status: 'RASCUNHO', publicado_por: null, publicado_em: null }];
         }
@@ -170,7 +170,7 @@ describe('Controle de Acesso (RBAC) - Escala Anual de Férias', () => {
     it('ADMIN deve visualizar todos os colaboradores da escala anual', async () => {
       const adminId = 'admin-user-1';
 
-      vi.mocked(prisma.$queryRawUnsafe).mockImplementation(async (sql: string) => {
+      vi.mocked(prisma.$queryRawUnsafe as any).mockImplementation(async (sql: string) => {
         if (sql.includes('fiorix_ferias_publicacao')) {
           return [{ ano, status: 'PUBLICADA', publicado_por: 'admin', publicado_em: '2026-09-01T00:00:00Z' }];
         }

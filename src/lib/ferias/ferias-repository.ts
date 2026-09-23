@@ -214,28 +214,50 @@ export async function getEscalaAnual(
     );
 
     if (rows && rows.length > 0) {
-      items = rows.map((r) => ({
-        id: r.id,
-        usuarioId: r.usuario_id,
-        ano: r.ano,
-        nome: r.nome,
-        email: r.email,
-        setor: r.setor || 'Geral',
-        cargo: r.cargo,
-        p1Inicio: r.p1_inicio,
-        p1Fim: r.p1_fim,
-        p1Dias: Number(r.p1_dias || 0),
-        p2Inicio: r.p2_inicio,
-        p2Fim: r.p2_fim,
-        p2Dias: Number(r.p2_dias || 0),
-        p3Inicio: r.p3_inicio,
-        p3Fim: r.p3_fim,
-        p3Dias: Number(r.p3_dias || 0),
-        totalDias: Number(r.total_dias || 0),
-        status: (r.status as 'programado' | 'conflito' | 'pendente') || 'programado',
-        observacao: r.observacao,
-        historico: typeof r.historico === 'string' ? JSON.parse(r.historico) : r.historico || [],
-      }));
+      items = rows.map((r) => {
+        let p1Inicio = r.p1_inicio;
+        let p1Fim = r.p1_fim;
+        let p1Dias = Number(r.p1_dias || 0);
+        let totalDias = Number(r.total_dias || 0);
+        let status = (r.status as 'programado' | 'conflito' | 'pendente') || 'programado';
+        const historico = typeof r.historico === 'string' ? JSON.parse(r.historico) : r.historico || [];
+
+        // Defesa em profundidade: se p1Inicio estiver vazio mas o histórico possuir agendamento cadastrado
+        if ((!p1Inicio || p1Inicio === '') && Array.isArray(historico) && historico.length > 0) {
+          const lastEv = historico[historico.length - 1];
+          const match = lastEv?.para?.match(/(\d{4}-\d{2}-\d{2})\s+a\s+(\d{4}-\d{2}-\d{2})\s*\((\d+)d\)/);
+          if (match) {
+            p1Inicio = match[1];
+            p1Fim = match[2];
+            p1Dias = parseInt(match[3], 10);
+            totalDias = p1Dias;
+            if (status === 'pendente') status = 'programado';
+          }
+        }
+
+        return {
+          id: r.id,
+          usuarioId: r.usuario_id,
+          ano: r.ano,
+          nome: r.nome,
+          email: r.email,
+          setor: r.setor || 'Geral',
+          cargo: r.cargo,
+          p1Inicio,
+          p1Fim,
+          p1Dias,
+          p2Inicio: r.p2_inicio,
+          p2Fim: r.p2_fim,
+          p2Dias: Number(r.p2_dias || 0),
+          p3Inicio: r.p3_inicio,
+          p3Fim: r.p3_fim,
+          p3Dias: Number(r.p3_dias || 0),
+          totalDias,
+          status,
+          observacao: r.observacao,
+          historico,
+        };
+      });
     } else if (canViewFullScale) {
       // Se não há registros para esse ano no banco, sincroniza a partir dos colaboradores do banco
       items = await seedInitialEscalaFromUsers(tenantId, ano);
