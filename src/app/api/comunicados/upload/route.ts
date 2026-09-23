@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-helpers';
-import { supabaseAdmin, FIORIX_SUPABASE_SERVICE_ROLE_KEY } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +9,7 @@ const BUCKET_NAME = 'fiorix-comunicados-anexos';
 let bucketVerified = false;
 
 function hasServiceRoleKey(): boolean {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || FIORIX_SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   return !!(key && !key.includes('[SENSITIVE]') && key.length > 20);
 }
 

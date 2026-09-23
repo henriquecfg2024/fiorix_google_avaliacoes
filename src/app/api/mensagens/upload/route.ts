@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
-import { supabaseAdmin, FIORIX_SUPABASE_SERVICE_ROLE_KEY } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 import { validateAttachmentFile, logMessagingAudit } from '@/lib/mensagens/security';
 import { checkRateLimit } from '@/lib/mensagens/rate-limiter';
 import { getRequestIp } from '@/lib/security/requestIp';
@@ -14,7 +14,7 @@ let bucketVerified = false;
 
 // Detecta se a service role key está configurada
 function hasServiceRoleKey(): boolean {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || FIORIX_SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   return !!(key && !key.includes('[SENSITIVE]') && key.length > 20);
 }
 
