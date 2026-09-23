@@ -752,7 +752,6 @@ export function InstrucoesTrabalhoClient({
                       .map((p) => (
                         <li key={p.id} className="flex items-center gap-1.5 text-xs text-amber-100/70">
                           <span className="w-1 h-1 rounded-full bg-amber-400 shrink-0" />
-                          <span className="font-mono text-amber-400/80 shrink-0">{p.codigo}</span>
                           <span className="truncate">{p.titulo}</span>
                         </li>
                       ))}
