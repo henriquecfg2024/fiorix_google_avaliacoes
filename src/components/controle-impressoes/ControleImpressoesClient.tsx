@@ -4,12 +4,24 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import {
   Printer, BookOpen, Calendar, Filter, Download, MoreVertical,
   RotateCw, Search, CheckCircle2, AlertCircle, MinusCircle,
-  SlidersHorizontal, ArrowUpDown, ChevronLeft, ChevronRight,
+  SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight,
   Info, FileSpreadsheet, User, Users, Award
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { MOCK_CONTROLE_IMPRESSOES } from '@/lib/controle-impressoes/mock-data';
 import { StatusImpressaoItem, ImpressaoItemRow, ControleImpressoesData } from '@/types/controle-impressoes';
+
+export type SortColumnKey =
+  | 'protocolo'
+  | 'numeroLivro'
+  | 'tipoNatureza'
+  | 'dataEntrada'
+  | 'etapaAtual'
+  | 'ultimoRegistro'
+  | 'certidaoStatus'
+  | 'livroStatus'
+  | 'impressoPor'
+  | 'diasPendente';
 
 export function ControleImpressoesClient() {
   const [data, setData] = useState<ControleImpressoesData>(MOCK_CONTROLE_IMPRESSOES);
@@ -22,6 +34,10 @@ export function ControleImpressoesClient() {
   const filtersRef = useRef<HTMLDivElement>(null);
   const buscaInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Sorting State
+  const [sortBy, setSortBy] = useState<SortColumnKey>('ultimoRegistro');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   // Filters State
   const [visao, setVisao] = useState<'demanda' | 'producao'>('demanda');
@@ -70,6 +86,8 @@ export function ControleImpressoesClient() {
         busca: buscaNatureza,
         tipoImpressao: tipoImpressaoFiltro,
         status: statusFiltro,
+        sortBy,
+        sortOrder,
         page: String(currentPage),
         pageSize: String(pageSize),
       });
@@ -86,7 +104,7 @@ export function ControleImpressoesClient() {
     } finally {
       setLoading(false);
     }
-  }, [dataInicio, dataFim, visao, buscaNatureza, tipoImpressaoFiltro, statusFiltro, currentPage, pageSize]);
+  }, [dataInicio, dataFim, visao, buscaNatureza, tipoImpressaoFiltro, statusFiltro, sortBy, sortOrder, currentPage, pageSize]);
 
   useEffect(() => {
     fetchDados();
@@ -123,7 +141,122 @@ export function ControleImpressoesClient() {
   };
 
   const totalPages = Math.ceil((data.totalRegistros || 1) / pageSize) || 1;
-  const paginatedRows = data.itens;
+  const parseBrDateTime = (str: string | null | undefined): number => {
+    if (!str || str === '-') return 0;
+    const parts = str.trim().split(' ');
+    const dateParts = parts[0].split('/');
+    if (dateParts.length !== 3) return 0;
+    const day = parseInt(dateParts[0], 10);
+    const month = parseInt(dateParts[1], 10) - 1;
+    const year = parseInt(dateParts[2], 10);
+    let hours = 0;
+    let minutes = 0;
+    if (parts[1]) {
+      const timeParts = parts[1].split(':');
+      hours = parseInt(timeParts[0], 10) || 0;
+      minutes = parseInt(timeParts[1], 10) || 0;
+    }
+    return new Date(year, month, day, hours, minutes).getTime();
+  };
+
+  const getColumnLabel = (col: SortColumnKey): string => {
+    switch (col) {
+      case 'protocolo': return 'Protocolo';
+      case 'numeroLivro': return 'Nº Livro';
+      case 'tipoNatureza': return 'Tipo / Natureza';
+      case 'dataEntrada': return 'Data Entrada';
+      case 'etapaAtual': return 'Etapa Atual';
+      case 'ultimoRegistro': return 'Último Registro';
+      case 'certidaoStatus': return 'Certidão Registro';
+      case 'livroStatus': return 'Impressão no Livro';
+      case 'impressoPor': return 'Impresso por';
+      case 'diasPendente': return 'Dias';
+      default: return col;
+    }
+  };
+
+  const handleSort = (column: SortColumnKey) => {
+    if (sortBy === column) {
+      const newOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+      setSortOrder(newOrder);
+      toast.info(`Ordenado por ${getColumnLabel(column)} (${newOrder === 'asc' ? 'Crescente' : 'Decrescente'})`);
+    } else {
+      setSortBy(column);
+      const defaultOrder = (column === 'protocolo' || column === 'ultimoRegistro' || column === 'dataEntrada' || column === 'diasPendente') ? 'desc' : 'asc';
+      setSortOrder(defaultOrder);
+      toast.info(`Ordenado por ${getColumnLabel(column)} (${defaultOrder === 'asc' ? 'Crescente' : 'Decrescente'})`);
+    }
+    setCurrentPage(1);
+  };
+
+  const renderSortIcon = (column: SortColumnKey) => {
+    if (sortBy === column) {
+      return sortOrder === 'asc' ? (
+        <ArrowUp className="w-3.5 h-3.5 text-purple-400 shrink-0 inline ml-1" />
+      ) : (
+        <ArrowDown className="w-3.5 h-3.5 text-purple-400 shrink-0 inline ml-1" />
+      );
+    }
+    return (
+      <ArrowUpDown className="w-3 h-3 text-slate-500/50 group-hover:text-slate-300 shrink-0 inline ml-1 opacity-0 group-hover:opacity-100 transition-all" />
+    );
+  };
+
+  const paginatedRows = useMemo(() => {
+    const rows = [...data.itens];
+    return rows.sort((a, b) => {
+      let valA: any;
+      let valB: any;
+
+      switch (sortBy) {
+        case 'protocolo':
+          valA = Number(a.protocolo) || 0;
+          valB = Number(b.protocolo) || 0;
+          break;
+        case 'numeroLivro':
+          valA = String(a.numeroLivro || '').toLowerCase();
+          valB = String(b.numeroLivro || '').toLowerCase();
+          break;
+        case 'tipoNatureza':
+          valA = String(a.tipoNatureza || '').toLowerCase();
+          valB = String(b.tipoNatureza || '').toLowerCase();
+          break;
+        case 'dataEntrada':
+          valA = parseBrDateTime(a.dataEntrada);
+          valB = parseBrDateTime(b.dataEntrada);
+          break;
+        case 'etapaAtual':
+          valA = String(a.etapaAtual || '').toLowerCase();
+          valB = String(b.etapaAtual || '').toLowerCase();
+          break;
+        case 'certidaoStatus':
+          valA = String(a.certidaoStatus || '');
+          valB = String(b.certidaoStatus || '');
+          break;
+        case 'livroStatus':
+          valA = String(a.livroStatus || '');
+          valB = String(b.livroStatus || '');
+          break;
+        case 'impressoPor':
+          valA = String(a.livroResponsavel || a.certidaoResponsavel || '').toLowerCase();
+          valB = String(b.livroResponsavel || b.certidaoResponsavel || '').toLowerCase();
+          break;
+        case 'diasPendente':
+          valA = Number(a.diasPendente) || 0;
+          valB = Number(b.diasPendente) || 0;
+          break;
+        case 'ultimoRegistro':
+        default:
+          valA = parseBrDateTime(a.ultimoRegistro);
+          valB = parseBrDateTime(b.ultimoRegistro);
+          break;
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [data.itens, sortBy, sortOrder]);
 
   const operadoresLivro = (data.operadores || [])
     .filter((op) => op.totalLivro > 0)
@@ -160,6 +293,8 @@ export function ControleImpressoesClient() {
           busca: buscaNatureza,
           tipoImpressao: tipoImpressaoFiltro,
           status: statusFiltro,
+          sortBy,
+          sortOrder,
           export: 'true',
           pageSize: '50000',
         });
@@ -1317,13 +1452,19 @@ export function ControleImpressoesClient() {
                 </button>
               </div>
             )}
-            <button
-              onClick={() => toast.info('Personalizar colunas', { description: 'Todas as colunas essenciais estão visíveis.' })}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#141B2D] hover:bg-[#1A233A] border border-white/15 text-xs font-medium text-slate-200 transition-colors shadow-sm"
+            {/* Indicador de Ordenação Ativa */}
+            <div
+              onClick={() => handleSort(sortBy)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141B2D] hover:bg-[#1A233A] border border-white/15 text-xs text-slate-300 shadow-sm cursor-pointer select-none transition-colors"
+              title="Clique para alternar a direção da ordenação"
             >
-              <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
-              <span>Personalizar colunas</span>
-            </button>
+              <ArrowUpDown className="w-3.5 h-3.5 text-purple-400" />
+              <span>Ordem:</span>
+              <strong className="text-white">{getColumnLabel(sortBy)}</strong>
+              <span className="text-[11px] text-purple-300 font-semibold">
+                ({sortOrder === 'asc' ? 'Crescente' : 'Decrescente'})
+              </span>
+            </div>
           </div>
         </div>
 
@@ -1332,22 +1473,146 @@ export function ControleImpressoesClient() {
           <table className="w-full table-fixed text-left border-collapse min-w-[960px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-xs font-semibold text-slate-300">
-                <th className="py-3 px-3.5 whitespace-nowrap w-[8%]">Protocolo</th>
-                <th className="py-3 px-3.5 whitespace-nowrap w-[9%]">Nº Livro</th>
-                <th className="py-3 px-3.5 whitespace-nowrap w-[14%]">Tipo / Natureza</th>
-                <th className="py-3 px-3.5 whitespace-nowrap w-[8%]">Data Entrada</th>
-                <th className="py-3 px-3.5 whitespace-nowrap w-[13%]">Etapa Atual</th>
-                <th className="py-3 px-3.5 whitespace-nowrap w-[11%]">Último Registro</th>
-                <th className={`py-3 px-3.5 whitespace-nowrap w-[10%] transition-colors ${tipoImpressaoFiltro === 'certidao' ? 'bg-cyan-500/15 text-cyan-200 border-b-2 border-cyan-400 font-bold' : ''}`}>
-                  Certidão Registro {tipoImpressaoFiltro === 'certidao' ? '★' : ''}
+                {/* Protocolo */}
+                <th
+                  onClick={() => handleSort('protocolo')}
+                  className={`py-3 px-3.5 whitespace-nowrap w-[8%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                    sortBy === 'protocolo' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  }`}
+                  title="Clique para ordenar por Protocolo"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Protocolo</span>
+                    {renderSortIcon('protocolo')}
+                  </div>
                 </th>
-                <th className={`py-3 px-3.5 whitespace-nowrap w-[11%] transition-colors ${tipoImpressaoFiltro === 'livro' ? 'bg-amber-500/15 text-amber-200 border-b-2 border-amber-400 font-bold' : ''}`}>
-                  Impressão no Livro {tipoImpressaoFiltro === 'livro' ? '★' : ''}
+
+                {/* Nº Livro */}
+                <th
+                  onClick={() => handleSort('numeroLivro')}
+                  className={`py-3 px-3.5 whitespace-nowrap w-[9%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                    sortBy === 'numeroLivro' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  }`}
+                  title="Clique para ordenar por Nº Livro / Matrícula"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Nº Livro</span>
+                    {renderSortIcon('numeroLivro')}
+                  </div>
                 </th>
-                <th className="py-3 px-3.5 whitespace-nowrap w-[10%]">
-                  <span className="flex items-center gap-1"><User className="w-3 h-3" /> Impresso por</span>
+
+                {/* Tipo / Natureza */}
+                <th
+                  onClick={() => handleSort('tipoNatureza')}
+                  className={`py-3 px-3.5 whitespace-nowrap w-[14%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                    sortBy === 'tipoNatureza' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  }`}
+                  title="Clique para ordenar por Natureza"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Tipo / Natureza</span>
+                    {renderSortIcon('tipoNatureza')}
+                  </div>
                 </th>
-                <th className="py-3 px-3.5 text-center whitespace-nowrap w-[6%]">Dias</th>
+
+                {/* Data Entrada */}
+                <th
+                  onClick={() => handleSort('dataEntrada')}
+                  className={`py-3 px-3.5 whitespace-nowrap w-[8%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                    sortBy === 'dataEntrada' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  }`}
+                  title="Clique para ordenar por Data de Entrada"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Data Entrada</span>
+                    {renderSortIcon('dataEntrada')}
+                  </div>
+                </th>
+
+                {/* Etapa Atual */}
+                <th
+                  onClick={() => handleSort('etapaAtual')}
+                  className={`py-3 px-3.5 whitespace-nowrap w-[13%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                    sortBy === 'etapaAtual' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  }`}
+                  title="Clique para ordenar por Etapa Atual"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Etapa Atual</span>
+                    {renderSortIcon('etapaAtual')}
+                  </div>
+                </th>
+
+                {/* Último Registro */}
+                <th
+                  onClick={() => handleSort('ultimoRegistro')}
+                  className={`py-3 px-3.5 whitespace-nowrap w-[11%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                    sortBy === 'ultimoRegistro' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  }`}
+                  title="Clique para ordenar por Data do Último Registro"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Último Registro</span>
+                    {renderSortIcon('ultimoRegistro')}
+                  </div>
+                </th>
+
+                {/* Certidão Registro */}
+                <th
+                  onClick={() => handleSort('certidaoStatus')}
+                  className={`py-3 px-3.5 whitespace-nowrap w-[10%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                    sortBy === 'certidaoStatus' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  } ${tipoImpressaoFiltro === 'certidao' ? 'border-b-2 border-cyan-400 font-bold' : ''}`}
+                  title="Clique para ordenar por Status da Certidão"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Certidão Registro {tipoImpressaoFiltro === 'certidao' ? '★' : ''}</span>
+                    {renderSortIcon('certidaoStatus')}
+                  </div>
+                </th>
+
+                {/* Impressão no Livro */}
+                <th
+                  onClick={() => handleSort('livroStatus')}
+                  className={`py-3 px-3.5 whitespace-nowrap w-[11%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                    sortBy === 'livroStatus' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  } ${tipoImpressaoFiltro === 'livro' ? 'border-b-2 border-amber-400 font-bold' : ''}`}
+                  title="Clique para ordenar por Status de Impressão do Livro"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Impressão no Livro {tipoImpressaoFiltro === 'livro' ? '★' : ''}</span>
+                    {renderSortIcon('livroStatus')}
+                  </div>
+                </th>
+
+                {/* Impresso por */}
+                <th
+                  onClick={() => handleSort('impressoPor')}
+                  className={`py-3 px-3.5 whitespace-nowrap w-[10%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                    sortBy === 'impressoPor' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  }`}
+                  title="Clique para ordenar por Operador Responsável"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <User className="w-3 h-3 text-slate-400" />
+                    <span>Impresso por</span>
+                    {renderSortIcon('impressoPor')}
+                  </div>
+                </th>
+
+                {/* Dias */}
+                <th
+                  onClick={() => handleSort('diasPendente')}
+                  className={`py-3 px-3.5 text-center whitespace-nowrap w-[6%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                    sortBy === 'diasPendente' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  }`}
+                  title="Clique para ordenar por Dias de Pendência"
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    <span>Dias</span>
+                    {renderSortIcon('diasPendente')}
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 text-xs sm:text-[13px]">

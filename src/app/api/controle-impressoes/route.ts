@@ -23,6 +23,8 @@ export async function GET(request: NextRequest) {
     const tipoImpressao = searchParams.get('tipoImpressao') || 'todos';
     const status = searchParams.get('status') || 'todos';
     const isExport = searchParams.get('export') === 'true';
+    const sortBy = searchParams.get('sortBy') || 'ultimoRegistro';
+    const sortOrder = searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc';
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const pageSize = isExport 
       ? 50000 
@@ -174,6 +176,61 @@ export async function GET(request: NextRequest) {
     });
 
     const totalRegistros = matchingRows.length;
+
+    // Ordenação dinâmica de matchingRows
+    matchingRows.sort((a, b) => {
+      let valA: any;
+      let valB: any;
+
+      switch (sortBy) {
+        case 'protocolo':
+          valA = Number(a.protocolo) || 0;
+          valB = Number(b.protocolo) || 0;
+          break;
+        case 'numeroLivro':
+          valA = String(a.numero_livro || '').toLowerCase();
+          valB = String(b.numero_livro || '').toLowerCase();
+          break;
+        case 'tipoNatureza':
+          valA = String(a.tipo_natureza || '').toLowerCase();
+          valB = String(b.tipo_natureza || '').toLowerCase();
+          break;
+        case 'dataEntrada':
+          valA = a.data_entrada ? new Date(a.data_entrada).getTime() : 0;
+          valB = b.data_entrada ? new Date(b.data_entrada).getTime() : 0;
+          break;
+        case 'etapaAtual':
+          valA = String(a.etapa_atual || '').toLowerCase();
+          valB = String(b.etapa_atual || '').toLowerCase();
+          break;
+        case 'certidaoStatus':
+          valA = String(a.certidao_status || '');
+          valB = String(b.certidao_status || '');
+          break;
+        case 'livroStatus':
+          valA = String(a.livro_status || '');
+          valB = String(b.livro_status || '');
+          break;
+        case 'impressoPor':
+          valA = String(a.responsavel_livro || a.responsavel_certidao || '').toLowerCase();
+          valB = String(b.responsavel_livro || b.responsavel_certidao || '').toLowerCase();
+          break;
+        case 'diasPendente':
+          valA = Number(a.dias_pendente) || 0;
+          valB = Number(b.dias_pendente) || 0;
+          break;
+        case 'ultimoRegistro':
+        default:
+          valA = a.ultimo_registro ? new Date(a.ultimo_registro).getTime() : 0;
+          valB = b.ultimo_registro ? new Date(b.ultimo_registro).getTime() : 0;
+          break;
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
     const startIndex = (page - 1) * pageSize;
     const paginated = isExport ? matchingRows : matchingRows.slice(startIndex, startIndex + pageSize);
 
