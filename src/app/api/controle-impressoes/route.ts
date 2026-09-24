@@ -22,8 +22,11 @@ export async function GET(request: NextRequest) {
     const busca = (searchParams.get('busca') || '').trim().toLowerCase();
     const tipoImpressao = searchParams.get('tipoImpressao') || 'todos';
     const status = searchParams.get('status') || 'todos';
+    const isExport = searchParams.get('export') === 'true';
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-    const pageSize = Math.min(100, Math.max(5, parseInt(searchParams.get('pageSize') || '10', 10)));
+    const pageSize = isExport 
+      ? 50000 
+      : Math.min(100, Math.max(5, parseInt(searchParams.get('pageSize') || '10', 10)));
 
     // Filtro de data padrão: últimos 30 dias até hoje
     const now = new Date();
@@ -172,7 +175,7 @@ export async function GET(request: NextRequest) {
 
     const totalRegistros = matchingRows.length;
     const startIndex = (page - 1) * pageSize;
-    const paginated = matchingRows.slice(startIndex, startIndex + pageSize);
+    const paginated = isExport ? matchingRows : matchingRows.slice(startIndex, startIndex + pageSize);
 
     // Formatar linhas para a tabela
     const itens: ImpressaoItemRow[] = paginated.map((r) => {

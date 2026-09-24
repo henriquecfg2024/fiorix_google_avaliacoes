@@ -14,7 +14,14 @@ import { StatusImpressaoItem, ImpressaoItemRow, ControleImpressoesData } from '@
 export function ControleImpressoesClient() {
   const [data, setData] = useState<ControleImpressoesData>(MOCK_CONTROLE_IMPRESSOES);
   const [loading, setLoading] = useState(false);
+  const [filtrosAbertos, setFiltrosAbertos] = useState(true);
+  const [menuAberto, setMenuAberto] = useState(false);
+  const [exportando, setExportando] = useState(false);
+
   const tableRef = useRef<HTMLDivElement>(null);
+  const filtersRef = useRef<HTMLDivElement>(null);
+  const buscaInputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   // Filters State
   const [visao, setVisao] = useState<'demanda' | 'producao'>('demanda');
@@ -29,6 +36,28 @@ export function ControleImpressoesClient() {
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+
+  // Fechar dropdown de opções ao clicar fora ou apertar Escape
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuAberto(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setMenuAberto(false);
+      }
+    }
+    if (menuAberto) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [menuAberto]);
 
   // Fetch from Real API
   const fetchDados = useCallback(async () => {
@@ -104,12 +133,121 @@ export function ControleImpressoesClient() {
     .filter((op) => op.totalCertidao > 0)
     .sort((a, b) => b.totalCertidao - a.totalCertidao);
 
-  const handleExport = (tipo = 'pendencias') => {
-    toast.success(`Exportação de ${tipo} iniciada`, {
-      description: `Planilha gerada com ${data.totalRegistros} registros selecionados.`,
-      icon: <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-    });
+  const totalFiltrosAtivos = useMemo(() => {
+    let count = 0;
+    if (buscaNatureza.trim() !== '') count++;
+    if (tipoImpressaoFiltro !== 'todos') count++;
+    if (statusFiltro !== 'todos') count++;
+    if (activeCardLabel !== null) count++;
+    if (dataPreset !== '7dias') count++;
+    return count;
+  }, [buscaNatureza, tipoImpressaoFiltro, statusFiltro, activeCardLabel, dataPreset]);
+
+  const exportarParaCSV = async () => {
+    try {
+      setExportando(true);
+      toast.info('Exportação iniciada', {
+        description: 'Buscando registros filtrados para a planilha...',
+        icon: <Download className="w-4 h-4 text-cyan-400" />
+      });
+
+      let linhasParaExportar = data.itens;
+      try {
+        const params = new URLSearchParams({
+          dataInicio,
+          dataFim,
+          visao,
+          busca: buscaNatureza,
+          tipoImpressao: tipoImpressaoFiltro,
+          status: statusFiltro,
+          export: 'true',
+          pageSize: '50000',
+        });
+        const res = await fetch(`/api/controle-impressoes?${params.toString()}`);
+        if (res.ok) {
+          const resData = await res.json();
+          if (resData?.itens && resData.itens.length > 0) {
+            linhasParaExportar = resData.itens;
+          }
+        }
+      } catch (err) {
+        console.warn('Fallback para dados locais ao exportar:', err);
+      }
+
+      if (!linhasParaExportar || linhasParaExportar.length === 0) {
+        toast.warning('Nenhum registro encontrado para exportar com os filtros atuais.');
+        return;
+      }
+
+      const sanitize = (val: any) => {
+        if (val === null || val === undefined) return '""';
+        const str = String(val).replace(/"/g, '""');
+        return `"${str}"`;
+      };
+
+      const headers = [
+        'PROTOCOLO',
+        'LIVRO_MATRICULA',
+        'NATUREZA',
+        'DATA_ENTRADA',
+        'ETAPA_ATUAL',
+        'DATA_ULTIMO_REGISTRO',
+        'STATUS_CERTIDAO',
+        'DATA_CERTIDAO',
+        'OPERADOR_CERTIDAO',
+        'STATUS_LIVRO',
+        'DATA_LIVRO',
+        'OPERADOR_LIVRO',
+        'DIAS_PENDENTE'
+      ];
+
+      const csvRows = [
+        headers.join(';'),
+        ...linhasParaExportar.map((row) =>
+          [
+            row.protocolo,
+            sanitize(row.numeroLivro),
+            sanitize(row.tipoNatureza),
+            sanitize(row.dataEntrada || '-'),
+            sanitize(row.etapaAtual || 'Impressão'),
+            sanitize(row.ultimoRegistro),
+            sanitize(row.certidaoStatus),
+            sanitize(row.certidaoData || '-'),
+            sanitize(row.certidaoResponsavel || '-'),
+            sanitize(row.livroStatus),
+            sanitize(row.livroData || '-'),
+            sanitize(row.livroResponsavel || '-'),
+            row.diasPendente ?? 0
+          ].join(';')
+        )
+      ];
+
+      const blob = new Blob(['\uFEFF' + csvRows.join('\r\n')], {
+        type: 'text/csv;charset=utf-8;'
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const hoje = new Date().toISOString().split('T')[0];
+      link.setAttribute('href', url);
+      link.setAttribute('download', `controle_impressoes_${visao}_${hoje}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success('Planilha gerada com sucesso!', {
+        description: `${linhasParaExportar.length} registros exportados para CSV.`,
+        icon: <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+      });
+    } catch (err) {
+      console.error('Falha ao exportar:', err);
+      toast.error('Erro ao gerar planilha CSV');
+    } finally {
+      setExportando(false);
+    }
   };
+
+  const handleExport = () => exportarParaCSV();
 
   const limparFiltros = () => {
     setBuscaNatureza('');
@@ -182,26 +320,160 @@ export function ControleImpressoesClient() {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Botão Filtros */}
           <button
-            onClick={() => toast.info('Filtros avançados', { description: 'Opções de visualização já expandidas no painel abaixo.' })}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#141B2D] hover:bg-[#1A233A] border border-white/10 text-xs font-medium text-slate-200 transition-colors shadow-sm"
+            type="button"
+            onClick={() => {
+              const novoEstado = !filtrosAbertos;
+              setFiltrosAbertos(novoEstado);
+              if (novoEstado) {
+                setTimeout(() => {
+                  filtersRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                  buscaInputRef.current?.focus();
+                }, 80);
+              }
+            }}
+            title={filtrosAbertos ? 'Recolher painel de filtros' : 'Expandir painel de filtros'}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg border text-xs font-medium transition-all shadow-sm ${
+              filtrosAbertos
+                ? 'bg-purple-600/20 hover:bg-purple-600/30 border-purple-500/40 text-purple-200 shadow-purple-900/10'
+                : 'bg-[#141B2D] hover:bg-[#1A233A] border-white/10 text-slate-200'
+            }`}
           >
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
+            <Filter className={`w-3.5 h-3.5 ${filtrosAbertos ? 'text-purple-400' : 'text-slate-400'}`} />
             <span>Filtros</span>
+            {totalFiltrosAtivos > 0 && (
+              <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] bg-purple-500 text-white rounded-full font-bold">
+                {totalFiltrosAtivos}
+              </span>
+            )}
           </button>
+
+          {/* Botão Exportar */}
           <button
-            onClick={() => handleExport('relatório completo')}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#141B2D] hover:bg-[#1A233A] border border-white/10 text-xs font-medium text-slate-200 transition-colors shadow-sm"
+            type="button"
+            onClick={exportarParaCSV}
+            disabled={exportando}
+            title="Exportar todos os registros filtrados para CSV (compatível com Excel)"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#141B2D] hover:bg-[#1A233A] border border-white/10 text-xs font-medium text-slate-200 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <Download className="w-3.5 h-3.5 text-slate-400" />
-            <span>Exportar</span>
+            {exportando ? (
+              <RotateCw className="w-3.5 h-3.5 text-purple-400 animate-spin" />
+            ) : (
+              <Download className="w-3.5 h-3.5 text-slate-400" />
+            )}
+            <span>{exportando ? 'Exportando...' : 'Exportar'}</span>
           </button>
-          <button
-            onClick={() => toast('Menu de opções', { description: 'Opções de visualização e layout.' })}
-            className="p-2 rounded-lg bg-[#141B2D] hover:bg-[#1A233A] border border-white/10 text-slate-400 hover:text-white transition-colors"
-          >
-            <MoreVertical className="w-4 h-4" />
-          </button>
+
+          {/* Botão ⋮ Menu de Opções */}
+          <div className="relative" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setMenuAberto((prev) => !prev)}
+              title="Mais opções e ações do painel"
+              className={`p-2 rounded-lg border transition-all ${
+                menuAberto
+                  ? 'bg-purple-600/30 border-purple-500/50 text-white'
+                  : 'bg-[#141B2D] hover:bg-[#1A233A] border-white/10 text-slate-400 hover:text-white'
+              }`}
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+
+            {menuAberto && (
+              <div className="absolute right-0 top-full mt-2 w-64 rounded-xl border border-white/15 bg-[#0D1424] shadow-2xl py-1.5 z-50 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-3.5 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  Ações Rápidas
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuAberto(false);
+                    fetchDados();
+                    toast.success('Dados atualizados com sucesso');
+                  }}
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  <RotateCw className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Atualizar dados agora</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuAberto(false);
+                    exportarParaCSV();
+                  }}
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Exportar planilha (CSV)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuAberto(false);
+                    window.print();
+                  }}
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  <Printer className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Imprimir / Salvar PDF</span>
+                </button>
+
+                <div className="h-px bg-white/10 my-1 mx-2" />
+
+                <div className="px-3.5 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                  Visualização
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuAberto(false);
+                    const novaVisao = visao === 'demanda' ? 'producao' : 'demanda';
+                    setVisao(novaVisao);
+                    setCurrentPage(1);
+                    toast.info(
+                      `Visão alterada para ${novaVisao === 'producao' ? 'Produção (Data Impressão)' : 'Demanda (Último Registro)'}`
+                    );
+                  }}
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Alternar p/ {visao === 'demanda' ? 'Visão Produção' : 'Visão Demanda'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuAberto(false);
+                    setFiltrosAbertos((prev) => !prev);
+                  }}
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  <Filter className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>{filtrosAbertos ? 'Ocultar barra de filtros' : 'Exibir barra de filtros'}</span>
+                </button>
+
+                <div className="h-px bg-white/10 my-1 mx-2" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuAberto(false);
+                    limparFiltros();
+                  }}
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors"
+                >
+                  <RotateCw className="w-3.5 h-3.5" />
+                  <span>Restaurar filtros padrão</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -234,7 +506,8 @@ export function ControleImpressoesClient() {
       </div>
 
       {/* ────────────────── BARRA DE FILTROS ────────────────── */}
-      <div className="p-5 rounded-2xl bg-[#0c1222]/90 border border-white/10 backdrop-blur-md space-y-4 shadow-lg">
+      {filtrosAbertos ? (
+        <div ref={filtersRef} className="p-5 rounded-2xl bg-[#0c1222]/90 border border-white/10 backdrop-blur-md space-y-4 shadow-lg transition-all animate-fadeIn">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
           {/* Período */}
           <div>
@@ -341,6 +614,7 @@ export function ControleImpressoesClient() {
             </label>
             <div className="relative">
               <input
+                ref={buscaInputRef}
                 type="text"
                 placeholder="Ex: 644377, MAT, Escritura..."
                 value={buscaNatureza}
@@ -440,6 +714,30 @@ export function ControleImpressoesClient() {
           </button>
         </div>
       </div>
+    ) : (
+        <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-[#0c1222]/70 border border-white/10 text-xs text-slate-300 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Filter className="w-3.5 h-3.5 text-purple-400" />
+            <span>Painel de filtros recolhido.</span>
+            {totalFiltrosAtivos > 0 && (
+              <span className="text-purple-300 font-semibold">({totalFiltrosAtivos} filtro(s) ativo(s))</span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setFiltrosAbertos(true);
+              setTimeout(() => {
+                filtersRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                buscaInputRef.current?.focus();
+              }, 80);
+            }}
+            className="text-purple-400 hover:text-purple-300 font-semibold underline transition-colors"
+          >
+            Expandir filtros
+          </button>
+        </div>
+      )}
 
       {/* ────────────────── BARRA DE FILTROS ATIVOS ────────────────── */}
       {(buscaNatureza || tipoImpressaoFiltro !== 'todos' || statusFiltro !== 'todos') && (
