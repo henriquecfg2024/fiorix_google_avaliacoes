@@ -229,27 +229,27 @@ export function ComunicadosClient({
             </div>
 
             {/* Card "Como funciona" */}
-            <div className="rounded-3xl border border-white/8 bg-[#0B1022]/70 p-5 space-y-4">
-              <h3 className="text-sm font-bold text-white">Como funciona</h3>
-              <div className="border-t border-white/8" />
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
-                    <FileText className="w-4 h-4 text-violet-400" strokeWidth={1.8} />
+            <div className="rounded-2xl border border-white/8 bg-[#0B1022]/70 px-4 py-3">
+              <h3 className="text-xs font-bold text-white mb-2">Como funciona</h3>
+              <div className="border-t border-white/8 mb-2" />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                    <FileText className="w-3.5 h-3.5 text-violet-400" strokeWidth={1.8} />
                   </div>
-                  <span className="text-sm text-slate-300">Novos comunicados aparecem aqui</span>
+                  <span className="text-xs text-slate-400">Novos comunicados aparecem aqui</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" strokeWidth={1.8} />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" strokeWidth={1.8} />
                   </div>
-                  <span className="text-sm text-slate-300">Leia e confirme sua ciência</span>
+                  <span className="text-xs text-slate-400">Leia e confirme sua ciência</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
-                    <BarChart3 className="w-4 h-4 text-violet-400" strokeWidth={1.8} />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                    <BarChart3 className="w-3.5 h-3.5 text-violet-400" strokeWidth={1.8} />
                   </div>
-                  <span className="text-sm text-slate-300">Acompanhe no histórico</span>
+                  <span className="text-xs text-slate-400">Acompanhe no histórico</span>
                 </div>
               </div>
             </div>
