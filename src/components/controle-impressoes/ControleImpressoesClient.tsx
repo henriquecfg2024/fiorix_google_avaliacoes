@@ -1763,20 +1763,6 @@ export function ControleImpressoesClient() {
                   </div>
                 </th>
 
-                {/* Certidão Registro */}
-                <th
-                  onClick={() => handleSort('certidaoStatus')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[10%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
-                    sortBy === 'certidaoStatus' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
-                  } ${tipoImpressaoFiltro === 'certidao' ? 'border-b-2 border-cyan-400 font-bold' : ''}`}
-                  title="Clique para ordenar por Status da Certidão"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span>Certidão Registro {tipoImpressaoFiltro === 'certidao' ? '★' : ''}</span>
-                    {renderSortIcon('certidaoStatus')}
-                  </div>
-                </th>
-
                 {/* Impressão no Livro */}
                 <th
                   onClick={() => handleSort('livroStatus')}
@@ -1788,6 +1774,20 @@ export function ControleImpressoesClient() {
                   <div className="flex items-center gap-1.5">
                     <span>Impressão no Livro {tipoImpressaoFiltro === 'livro' ? '★' : ''}</span>
                     {renderSortIcon('livroStatus')}
+                  </div>
+                </th>
+
+                {/* Certidão Registro */}
+                <th
+                  onClick={() => handleSort('certidaoStatus')}
+                  className={`py-3 px-3.5 whitespace-nowrap w-[10%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                    sortBy === 'certidaoStatus' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  } ${tipoImpressaoFiltro === 'certidao' ? 'border-b-2 border-cyan-400 font-bold' : ''}`}
+                  title="Clique para ordenar por Status da Certidão"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Certidão Registro {tipoImpressaoFiltro === 'certidao' ? '★' : ''}</span>
+                    {renderSortIcon('certidaoStatus')}
                   </div>
                 </th>
 
@@ -1866,33 +1866,6 @@ export function ControleImpressoesClient() {
                       {row.ultimoRegistro}
                     </td>
 
-                    {/* Certidão Registro Status */}
-                    <td className={`py-3.5 px-3.5 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200 ${tipoImpressaoFiltro === 'certidao' ? 'bg-cyan-500/[0.06] print:bg-transparent' : ''}`}>
-                      {row.certidaoStatus === 'REALIZADO' && (
-                        <div className="flex items-start gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0 print:hidden" />
-                          <div>
-                            <span className="font-semibold text-emerald-300 text-xs sm:text-[13px] print:text-emerald-800 print:font-bold print:text-[10.5px]">Realizado</span>
-                            {row.certidaoData && (
-                              <p className="text-[11px] text-slate-400 font-mono mt-0.5 print:text-slate-600 print:text-[9px]">{row.certidaoData}</p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                      {row.certidaoStatus === 'PENDENTE' && (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-300 font-semibold text-xs print:bg-rose-50 print:border print:border-rose-400 print:text-rose-800 print:py-0.5 print:px-1.5 print:text-[9.5px] print:font-bold">
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0 print:hidden" />
-                          <span>Pendente</span>
-                        </div>
-                      )}
-                      {row.certidaoStatus === 'NAO_APLICAVEL' && (
-                        <div className="flex items-center gap-1.5 text-slate-500 text-xs print:text-slate-400 print:text-[9.5px]">
-                          <MinusCircle className="w-3.5 h-3.5 shrink-0 print:hidden" />
-                          <span>Não aplicável</span>
-                        </div>
-                      )}
-                    </td>
-
                     {/* Impressão no Livro Status */}
                     <td className={`py-3.5 px-3.5 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200 ${tipoImpressaoFiltro === 'livro' ? 'bg-amber-500/[0.06] print:bg-transparent' : ''}`}>
                       {row.livroStatus === 'REALIZADO' && (
@@ -1913,6 +1886,33 @@ export function ControleImpressoesClient() {
                         </div>
                       )}
                       {row.livroStatus === 'NAO_APLICAVEL' && (
+                        <div className="flex items-center gap-1.5 text-slate-500 text-xs print:text-slate-400 print:text-[9.5px]">
+                          <MinusCircle className="w-3.5 h-3.5 shrink-0 print:hidden" />
+                          <span>Não aplicável</span>
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Certidão Registro Status */}
+                    <td className={`py-3.5 px-3.5 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200 ${tipoImpressaoFiltro === 'certidao' ? 'bg-cyan-500/[0.06] print:bg-transparent' : ''}`}>
+                      {row.certidaoStatus === 'REALIZADO' && (
+                        <div className="flex items-start gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0 print:hidden" />
+                          <div>
+                            <span className="font-semibold text-emerald-300 text-xs sm:text-[13px] print:text-emerald-800 print:font-bold print:text-[10.5px]">Realizado</span>
+                            {row.certidaoData && (
+                              <p className="text-[11px] text-slate-400 font-mono mt-0.5 print:text-slate-600 print:text-[9px]">{row.certidaoData}</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {row.certidaoStatus === 'PENDENTE' && (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-300 font-semibold text-xs print:bg-rose-50 print:border print:border-rose-400 print:text-rose-800 print:py-0.5 print:px-1.5 print:text-[9.5px] print:font-bold">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0 print:hidden" />
+                          <span>Pendente</span>
+                        </div>
+                      )}
+                      {row.certidaoStatus === 'NAO_APLICAVEL' && (
                         <div className="flex items-center gap-1.5 text-slate-500 text-xs print:text-slate-400 print:text-[9.5px]">
                           <MinusCircle className="w-3.5 h-3.5 shrink-0 print:hidden" />
                           <span>Não aplicável</span>
