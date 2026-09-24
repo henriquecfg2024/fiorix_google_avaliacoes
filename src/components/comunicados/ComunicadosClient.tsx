@@ -3,15 +3,14 @@
 import React, { useState } from "react";
 import {
   AlertTriangle,
-  Eye,
   Search,
-  Filter,
-  Plus,
-  QrCode,
+  SlidersHorizontal,
+  FileText,
   CheckCircle2,
-  FileCheck2,
+  BarChart3,
+  QrCode,
+  X,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ComunicadoCard, ComunicadoItem } from "@/components/comunicados/ComunicadoCard";
 import { CienciaModal } from "@/components/comunicados/CienciaModal";
@@ -29,35 +28,28 @@ export function ComunicadosClient({
   userName = "Colaborador",
   initialComunicados = [],
 }: ComunicadosClientProps) {
-  const [activeTab, setActiveTab] = useState<"nao_lidos" | "urgentes" | "recentes" | "arquivo" | "todos">("nao_lidos");
+  const [activeTab, setActiveTab] = useState<"nao_lidos" | "todos">("nao_lidos");
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [selectedComunicado, setSelectedComunicado] = useState<ComunicadoItem | null>(null);
   const [pdfPreview, setPdfPreview] = useState<{ title: string; url: string; id: string } | null>(null);
-
-  // Comunicados carregados do banco
   const [comunicados, setComunicados] = useState<ComunicadoItem[]>(() => initialComunicados ?? []);
 
   React.useEffect(() => {
     setComunicados(initialComunicados ?? []);
   }, [initialComunicados]);
 
-  // Métricas dinâmicas e contadores estritos
+  const naoLidosCount = comunicados.filter((c) => !c.visualizado).length;
   const urgentesPendentes = comunicados.filter(
     (c) => c.prioridade === "URGENTE" && (!c.ciencias || c.ciencias.length === 0)
   );
 
-  const naoLidosCount = comunicados.filter((c) => !c.visualizado).length;
-  const cienciasConcluidas = comunicados.filter(
-    (c) => c.ciencias && c.ciencias.length > 0
-  ).length;
-
   const filteredComunicados = comunicados.filter((c) => {
-    if (activeTab === "urgentes") return c.prioridade === "URGENTE" && (!c.ciencias || c.ciencias.length === 0);
-    if (activeTab === "nao_lidos") return !c.visualizado;
-    if (activeTab === "arquivo") return c.ciencias && c.ciencias.length > 0;
+    const matchTab = activeTab === "nao_lidos" ? !c.visualizado : true;
+    if (!matchTab) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      return c.titulo.toLowerCase().includes(q) || c.conteudo.toLowerCase().includes(q);
+      return c.titulo.toLowerCase().includes(q) || c.conteudo?.toLowerCase().includes(q);
     }
     return true;
   });
@@ -85,230 +77,211 @@ export function ComunicadosClient({
   };
 
   return (
-    <div className="w-full flex-1 flex flex-col justify-start bg-[#070A12] text-white relative overflow-hidden pb-12">
+    <div className="w-full flex-1 flex flex-col bg-[#070A12] text-white relative overflow-hidden pb-16">
+      {/* Ambient glow */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-rose-500/12 via-indigo-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-violet-500/8 via-indigo-500/6 to-cyan-500/4 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/8 to-transparent" />
       </div>
 
-      <div className="relative mx-auto w-full max-w-[1500px] px-5 py-6 sm:px-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-white/6">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-              <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
-              <span className="text-slate-600">/</span>
-              <Link href="/pessoas" className="hover:text-white transition-colors">Pessoas</Link>
-              <span className="text-slate-600">/</span>
-              <span className="text-rose-400 font-semibold">Comunicados</span>
-            </div>
-            <div className="flex items-center gap-3 mt-1.5">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                COMUNICADOS INTERNOS
-              </h1>
-            </div>
+      <div className="relative mx-auto w-full max-w-lg px-4 py-5 space-y-4">
+
+        {/* Breadcrumb + Título */}
+        <div className="space-y-1 pb-3 border-b border-white/8">
+          <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+            <Link href="/dashboard" className="hover:text-slate-300 transition-colors">Dashboard</Link>
+            <span>/</span>
+            <Link href="/pessoas" className="hover:text-slate-300 transition-colors">Pessoas</Link>
+            <span>/</span>
+            <span className="text-rose-400 font-semibold">Comunicados</span>
           </div>
+          <h1 className="text-xl font-extrabold tracking-tight text-white">
+            COMUNICADOS INTERNOS
+          </h1>
         </div>
 
+        {/* Alerta urgentes */}
         {urgentesPendentes.length > 0 && (
-          <div className="rounded-[22px] border border-rose-500/35 bg-[#180a10]/90 backdrop-blur-xl p-4 shadow-[0_15px_35px_rgba(244,63,94,0.18)] flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-400 shrink-0 shadow-[0_0_15px_rgba(244,63,94,0.25)]">
-                <AlertTriangle className="w-5 h-5 animate-pulse" />
-              </div>
-              <div>
-                <h2 className="text-xs sm:text-sm font-black text-rose-300 tracking-wide">
-                  {urgentesPendentes.length === 1 ? "ATENÇÃO: 1 COMUNICADO URGENTE" : `ATENÇÃO: ${urgentesPendentes.length} COMUNICADOS URGENTES`}
-                </h2>
-                <p className="text-[11px] text-rose-200/70">Sua ciência é necessária.</p>
-              </div>
+          <div className="rounded-2xl border border-rose-500/30 bg-rose-500/8 p-3.5 flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-rose-500/20 border border-rose-500/25 shrink-0">
+              <AlertTriangle className="w-4 h-4 text-rose-400 animate-pulse" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-rose-300">
+                {urgentesPendentes.length === 1
+                  ? "1 comunicado urgente pendente"
+                  : `${urgentesPendentes.length} comunicados urgentes pendentes`}
+              </p>
+              <p className="text-[11px] text-rose-200/60 mt-0.5">Sua ciência é necessária.</p>
             </div>
           </div>
         )}
 
-        <div className="w-full space-y-5" id="comunicados-feed">
-          {/* Navigation Tabs & Search */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-1.5 p-1 bg-white/[0.04] border border-white/8 rounded-2xl">
-              {urgentesPendentes.length > 0 && (
-                <button
-                  onClick={() => setActiveTab("urgentes")}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    activeTab === "urgentes"
-                      ? "bg-rose-600 text-white shadow-[0_0_15px_rgba(225,29,72,0.4)]"
-                      : "text-rose-300 hover:text-white hover:bg-rose-500/10"
-                  }`}
-                >
-                  <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
-                  <span>Urgentes ({urgentesPendentes.length})</span>
-                </button>
-              )}
-              <button
-                onClick={() => setActiveTab("nao_lidos")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === "nao_lidos"
-                    ? "bg-indigo-600 text-white shadow"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                Não Lidos ({naoLidosCount})
-              </button>
-              <button
-                onClick={() => setActiveTab("recentes")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === "recentes"
-                    ? "bg-indigo-600 text-white shadow"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                Recentes
-              </button>
-              <button
-                onClick={() => setActiveTab("arquivo")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === "arquivo"
-                    ? "bg-indigo-600 text-white shadow"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                Arquivo de Ciências ({cienciasConcluidas})
-              </button>
-              <button
-                onClick={() => setActiveTab("todos")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === "todos"
-                    ? "bg-indigo-600 text-white shadow"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                Todos ({comunicados.length})
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar comunicados..."
-                  className="pl-9 h-9 bg-white/[0.04] border-white/10 rounded-xl text-xs text-white placeholder:text-slate-500 focus:border-indigo-500"
-                />
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-white/10 text-slate-300 hover:text-white hover:bg-white/5 text-xs gap-1.5 rounded-xl cursor-pointer shrink-0"
-              >
-                <Filter className="w-3.5 h-3.5" />
-                <span>Filtrar</span>
-              </Button>
-            </div>
+        {/* Navegação: abas + ícones de busca/filtro */}
+        <div className="flex items-center gap-2">
+          {/* Controle segmentado */}
+          <div className="flex-1 flex items-center bg-white/[0.05] border border-white/10 rounded-2xl p-1 gap-1">
+            <button
+              onClick={() => setActiveTab("nao_lidos")}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                activeTab === "nao_lidos"
+                  ? "bg-violet-600 text-white shadow-[0_0_14px_rgba(139,92,246,0.45)]"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Não lidos
+              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full transition-all ${
+                activeTab === "nao_lidos"
+                  ? "bg-white/20 text-white"
+                  : "bg-white/8 text-slate-400"
+              }`}>
+                {naoLidosCount}
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveTab("todos")}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                activeTab === "todos"
+                  ? "bg-violet-600 text-white shadow-[0_0_14px_rgba(139,92,246,0.45)]"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              Todos
+            </button>
           </div>
 
-          {/* Tab Especial: Arquivo de Ciências */}
-          {activeTab === "arquivo" ? (
-            <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
-              <div className="flex items-center justify-between border-b border-white/8 pb-4">
-                <div>
-                  <h2 className="text-base font-bold text-white">Arquivo Oficial de Ciências Registradas</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Histórico com validação de hash SHA-256 e emissão de comprovantes de ciência.
-                  </p>
+          {/* Botão busca */}
+          <button
+            onClick={() => setSearchOpen((v) => !v)}
+            className={`w-10 h-10 flex items-center justify-center rounded-2xl border transition-all ${
+              searchOpen
+                ? "bg-violet-600/20 border-violet-500/40 text-violet-300"
+                : "bg-white/[0.05] border-white/10 text-slate-400 hover:text-white hover:bg-white/8"
+            }`}
+            aria-label="Buscar"
+          >
+            {searchOpen ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+          </button>
+
+          {/* Botão filtro */}
+          <button
+            className="w-10 h-10 flex items-center justify-center rounded-2xl border bg-white/[0.05] border-white/10 text-slate-400 hover:text-white hover:bg-white/8 transition-all"
+            aria-label="Filtrar"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Campo de busca expansível */}
+        {searchOpen && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+            <Input
+              autoFocus
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar comunicados..."
+              className="pl-9 h-9 bg-white/[0.04] border-white/10 rounded-xl text-xs text-white placeholder:text-slate-500 focus:border-violet-500/60 focus:ring-0"
+            />
+          </div>
+        )}
+
+        {/* Conteúdo principal */}
+        {filteredComunicados.length === 0 ? (
+          <div className="space-y-3 pt-1">
+            {/* Empty state premium */}
+            <div className="rounded-3xl border border-violet-500/20 bg-[#0B1022]/90 shadow-[inset_0_0_40px_rgba(139,92,246,0.06)] p-8 flex flex-col items-center text-center gap-4">
+              {/* Ícone documento + check */}
+              <div className="relative flex items-center justify-center w-20 h-20">
+                {/* Partículas decorativas */}
+                <span className="absolute top-1 left-2 w-1 h-1 rounded-full bg-violet-400/60" />
+                <span className="absolute top-3 right-1 w-1.5 h-1.5 rounded-full bg-violet-300/40" />
+                <span className="absolute bottom-2 left-0 w-1 h-1 rounded-full bg-violet-500/50" />
+                <span className="absolute bottom-1 right-3 w-1 h-1 rounded-full bg-violet-400/40" />
+
+                {/* Documento */}
+                <div className="relative">
+                  <FileText
+                    className="w-14 h-14 text-slate-500/80"
+                    strokeWidth={1.2}
+                  />
+                  {/* Linhas internas simuladas */}
+                  <div className="absolute top-[30%] left-[22%] w-[55%] space-y-1.5">
+                    <div className="h-[2px] bg-slate-500/60 rounded-full" />
+                    <div className="h-[2px] bg-slate-500/40 rounded-full w-3/4" />
+                  </div>
+                  {/* Badge check verde */}
+                  <div className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full bg-[#0B1022] border-2 border-emerald-500/80 flex items-center justify-center shadow-[0_0_12px_rgba(16,185,129,0.4)]">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" strokeWidth={2.5} />
+                  </div>
                 </div>
-                <span className="text-xs font-mono bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-full">
-                  {cienciasConcluidas} ciência(s) válida(s)
-                </span>
               </div>
 
-              {cienciasConcluidas === 0 ? (
-                <div className="text-center py-12 space-y-3">
-                  <div className="p-4 rounded-full bg-white/[0.03] border border-white/8 w-14 h-14 mx-auto flex items-center justify-center text-slate-400">
-                    <FileCheck2 className="w-7 h-7" />
-                  </div>
-                  <p className="text-sm font-semibold text-slate-300">Nenhum comprovante arquivado ainda</p>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                    Ao registrar ciência em comunicados obrigatórios, o protocolo criptográfico será gerado e exibido nesta área.
-                  </p>
-                </div>
-              ) : (
-                <div className="divide-y divide-white/6">
-                  {comunicados
-                    .filter((c) => c.ciencias && c.ciencias.length > 0)
-                    .map((comunicado) => (
-                      <div
-                        key={comunicado.id}
-                        className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-white">{comunicado.titulo}</span>
-                            <span className="text-[10px] font-mono bg-white/5 text-slate-400 px-2 py-0.5 rounded">
-                              v{comunicado.versao}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-400 flex items-center gap-2">
-                            <span>Autor: {comunicado.autorNome} ({comunicado.setor})</span>
-                            <span>•</span>
-                            <span className="text-emerald-400 flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3" /> Ciente em {comunicado.ciencias?.[0]?.dataCiencia ? new Date(comunicado.ciencias[0].dataCiencia).toLocaleDateString("pt-BR") : "2026"}
-                            </span>
-                          </p>
-                          <div className="text-[10px] font-mono text-cyan-300/80 truncate max-w-md">
-                            Hash: {comunicado.ciencias?.[0]?.comprovanteHash || comunicado.conteudoHash}
-                          </div>
-                        </div>
+              <div className="space-y-1.5">
+                <h2 className="text-lg font-bold text-white tracking-tight">Tudo em dia</h2>
+                <p className="text-sm font-semibold text-slate-300">
+                  Você não tem comunicados pendentes.
+                </p>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Os novos comunicados aparecerão aqui.
+                </p>
+              </div>
+            </div>
 
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSelectedComunicado(comunicado)}
-                          className="border-white/10 text-slate-200 hover:bg-white/10 text-xs gap-1.5 rounded-xl shrink-0 cursor-pointer"
-                        >
-                          <QrCode className="w-3.5 h-3.5 text-indigo-400" />
-                          <span>Ver Comprovante</span>
-                        </Button>
-                      </div>
-                    ))}
+            {/* Card "Como funciona" */}
+            <div className="rounded-3xl border border-white/8 bg-[#0B1022]/70 p-5 space-y-4">
+              <h3 className="text-sm font-bold text-white">Como funciona</h3>
+              <div className="border-t border-white/8" />
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                    <FileText className="w-4 h-4 text-violet-400" strokeWidth={1.8} />
+                  </div>
+                  <span className="text-sm text-slate-300">Novos comunicados aparecem aqui</span>
                 </div>
-              )}
-            </div>
-          ) : (
-            /* Lista Principal de Cards de Comunicados (Largura Total Expandida) */
-            <div className="space-y-4">
-              {filteredComunicados.length === 0 ? (
-                <div className="p-12 text-center rounded-[28px] border border-white/10 bg-[#0B1020]/60 backdrop-blur-xl">
-                  <p className="text-sm font-semibold text-slate-300">
-                    Nenhum comunicado encontrado nesta categoria
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Altere o filtro ou termo de busca para visualizar outros comunicados.
-                  </p>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" strokeWidth={1.8} />
+                  </div>
+                  <span className="text-sm text-slate-300">Leia e confirme sua ciência</span>
                 </div>
-              ) : (
-                filteredComunicados.map((comunicado) => (
-                  <ComunicadoCard
-                    key={comunicado.id}
-                    comunicado={comunicado}
-                    onOpenCiencia={handleOpenCienciaModal}
-                    onOpenAnexos={(c) => {
-                      if (c.anexos && c.anexos.length > 0) {
-                        setPdfPreview({
-                          id: c.anexos[0].id,
-                          title: `${c.titulo} — ${c.anexos[0].nomeOriginal}`,
-                          url: `/api/comunicados/anexo/${c.anexos[0].id}`,
-                        });
-                      }
-                    }}
-                  />
-                ))
-              )}
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                    <BarChart3 className="w-4 h-4 text-violet-400" strokeWidth={1.8} />
+                  </div>
+                  <span className="text-sm text-slate-300">Acompanhe no histórico</span>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="space-y-3 pt-1">
+            {filteredComunicados.map((comunicado) => (
+              <ComunicadoCard
+                key={comunicado.id}
+                comunicado={comunicado}
+                onOpenCiencia={handleOpenCienciaModal}
+                onOpenAnexos={(c) => {
+                  if (c.anexos && c.anexos.length > 0) {
+                    setPdfPreview({
+                      id: c.anexos[0].id,
+                      title: `${c.titulo} — ${c.anexos[0].nomeOriginal}`,
+                      url: `/api/comunicados/anexo/${c.anexos[0].id}`,
+                    });
+                  }
+                }}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {selectedComunicado && (
-        <CienciaModal comunicado={selectedComunicado} onClose={() => setSelectedComunicado(null)} onSuccess={handleCienciaSuccess} />
+        <CienciaModal
+          comunicado={selectedComunicado}
+          onClose={() => setSelectedComunicado(null)}
+          onSuccess={handleCienciaSuccess}
+        />
       )}
 
       {pdfPreview && (
