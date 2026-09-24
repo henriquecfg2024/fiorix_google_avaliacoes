@@ -881,11 +881,31 @@ input:-webkit-autofill:active {
     color: #0f172a !important;
     border-bottom: 2px solid #94a3b8 !important;
     border-right: 1px solid #cbd5e1 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    overflow: hidden !important;
   }
 
   td {
     border-bottom: 1px solid #e2e8f0 !important;
     border-right: 1px solid #f1f5f9 !important;
     color: #0f172a !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    overflow: hidden !important;
+  }
+
+  /* Forçar texto a quebrar em vez de sobrepor colunas vizinhas */
+  .whitespace-nowrap {
+    white-space: normal !important;
+  }
+
+  /* Garantir que truncate não corte texto na impressão */
+  .truncate {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
   }
 }
