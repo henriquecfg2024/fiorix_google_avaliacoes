@@ -103,6 +103,7 @@ export async function unpackLiveRecords({
           nivel_risco = EXCLUDED.nivel_risco,
           tarefa = EXCLUDED.tarefa,
           status_tarefa = EXCLUDED.status_tarefa,
+          data_abertura = COALESCE(EXCLUDED.data_abertura, public.fiorix_tarefas_dados.data_abertura),
           data_finalizacao = EXCLUDED.data_finalizacao,
           situacao_tarefa = EXCLUDED.situacao_tarefa,
           responsavel = EXCLUDED.responsavel,

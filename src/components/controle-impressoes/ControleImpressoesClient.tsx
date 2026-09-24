@@ -866,18 +866,31 @@ export function ControleImpressoesClient() {
 
                     {/* Impresso por */}
                     <td className="py-3.5 px-3.5 whitespace-nowrap">
-                      {(row.livroResponsavel || row.certidaoResponsavel) ? (
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-5 h-5 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center shrink-0">
-                            <User className="w-2.5 h-2.5 text-violet-400" />
+                      {(() => {
+                        const resp = tipoImpressaoFiltro === 'certidao'
+                          ? (row.certidaoResponsavel || row.livroResponsavel)
+                          : (row.livroResponsavel || row.certidaoResponsavel);
+
+                        if (!resp) return <span className="text-slate-600 text-xs">—</span>;
+
+                        return (
+                          <div className="flex flex-col gap-0.5" title={`Livro: ${row.livroResponsavel || '-'} | Certidão: ${row.certidaoResponsavel || '-'}`}>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-5 h-5 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center shrink-0">
+                                <User className="w-2.5 h-2.5 text-violet-400" />
+                              </div>
+                              <span className="text-xs text-slate-200 truncate max-w-[120px] font-medium">
+                                {resp}
+                              </span>
+                            </div>
+                            {row.livroResponsavel && row.certidaoResponsavel && row.livroResponsavel !== row.certidaoResponsavel && tipoImpressaoFiltro === 'todos' && (
+                              <span className="text-[10px] text-slate-400 pl-6 truncate max-w-[130px]">
+                                Cert: {row.certidaoResponsavel}
+                              </span>
+                            )}
                           </div>
-                          <span className="text-xs text-slate-200 truncate max-w-[100px]">
-                            {row.livroResponsavel || row.certidaoResponsavel}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-600 text-xs">—</span>
-                      )}
+                        );
+                      })()}
                     </td>
 
                     {/* Dias Pendente */}
