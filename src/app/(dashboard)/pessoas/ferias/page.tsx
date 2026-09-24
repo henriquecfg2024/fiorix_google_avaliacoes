@@ -1,20 +1,7 @@
 import { auth } from "@/auth";
-import nextDynamic from "next/dynamic";
-
-const FeriasClient = nextDynamic(
-  () => import("@/components/ferias/FeriasClient").then((m) => m.FeriasClient),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="min-h-screen bg-[#070A12] text-white p-8">
-        <div className="mx-auto max-w-[1600px] space-y-6">
-          <div className="h-8 w-48 bg-white/5 rounded-xl animate-pulse" />
-          <div className="h-64 bg-[#0B1020]/72 rounded-[28px] border border-white/8 animate-pulse" />
-        </div>
-      </div>
-    ),
-  }
-);
+import { FeriasClient } from "@/components/ferias/FeriasClient";
+import { getMinhasFeriasAction } from "@/app/actions/ferias";
+import { EscalaItem, PublicacaoStatus } from "@/lib/ferias/ferias-repository";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +13,8 @@ export default async function FeriasPage() {
   let userRole = "USER";
   let userName = "Colaborador";
   let userId = "";
+  let initialPublicacao: PublicacaoStatus | undefined;
+  let initialFerias: EscalaItem | null | undefined;
 
   try {
     const session = await auth();
@@ -33,9 +22,14 @@ export default async function FeriasPage() {
       userRole = session.user.role || "USER";
       userName = session.user.name || "Colaborador";
       userId = session.user.id || "";
+
+      // Pré-carrega no servidor para ano padrão 2027 (Zero Layout Shift)
+      const res = await getMinhasFeriasAction({ ano: 2027 });
+      initialPublicacao = res.publicacao;
+      initialFerias = res.ferias;
     }
   } catch (err) {
-    console.error("Auth error in FeriasPage:", err);
+    console.error("Auth / Data fetch error in FeriasPage:", err);
   }
 
   return (
@@ -43,6 +37,8 @@ export default async function FeriasPage() {
       userRole={userRole}
       userName={userName}
       userId={userId}
+      initialPublicacao={initialPublicacao}
+      initialFerias={initialFerias}
     />
   );
 }

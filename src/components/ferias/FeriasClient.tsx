@@ -11,6 +11,8 @@ interface FeriasClientProps {
   userRole?: string;
   userName?: string;
   userId?: string;
+  initialPublicacao?: PublicacaoStatus;
+  initialFerias?: EscalaItem | null;
 }
 
 interface MesOcupacao {
@@ -149,7 +151,13 @@ function VacationIllustration() {
   );
 }
 
-export function FeriasClient({ userRole = "USER", userName = "Colaborador", userId = "" }: FeriasClientProps) {
+export function FeriasClient({
+  userRole = "USER",
+  userName = "Colaborador",
+  userId = "",
+  initialPublicacao,
+  initialFerias,
+}: FeriasClientProps) {
   const [mounted, setMounted] = useState(false);
   const isManager = ["ADMIN", "RH", "MASTER", "GESTOR"].includes(userRole);
   const isSubstituto = userRole === "SUBSTITUTO";
@@ -158,9 +166,11 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador", user
 
   const [activeTab, setActiveTab] = useState<"minhas" | "escala">("minhas");
   const [ano, setAno] = useState(2027);
-  const [loading, setLoading] = useState(true);
-  const [publicacao, setPublicacao] = useState<PublicacaoStatus>({ ano, status: "RASCUNHO" });
-  const [minhasFerias, setMinhasFerias] = useState<EscalaItem | null>(null);
+  const [loading, setLoading] = useState(!initialPublicacao);
+  const [publicacao, setPublicacao] = useState<PublicacaoStatus>(
+    initialPublicacao || { ano, status: "PUBLICADA" }
+  );
+  const [minhasFerias, setMinhasFerias] = useState<EscalaItem | null>(initialFerias ?? null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -175,6 +185,12 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador", user
 
   useEffect(() => {
     setMounted(true);
+
+    // Se é a carga inicial com 2027 e já temos dados pré-carregados pelo servidor, pula refetch
+    if (ano === 2027 && initialPublicacao) {
+      return;
+    }
+
     setLoading(true);
 
     // Consulta isolada com Anti-IDOR e Zero Leakage
@@ -188,7 +204,7 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador", user
         setMinhasFerias(null);
       })
       .finally(() => setLoading(false));
-  }, [ano]);
+  }, [ano, initialPublicacao]);
 
   if (!mounted) {
     return (
@@ -303,8 +319,49 @@ export function FeriasClient({ userRole = "USER", userName = "Colaborador", user
               </div>
             </div>
 
-            {/* Aviso quando a escala estiver em rascunho ou retirada do ar (para colaborador comum) */}
-            {!canAccessEscala && publicacao.status !== "PUBLICADA" ? (
+            {/* 1. Loading State (Skeleton Shimmer) enquanto busca os dados */}
+            {loading ? (
+              <div className="space-y-6 animate-pulse">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  {/* Skeleton Card Esquerdo: Próximas Férias */}
+                  <div className="lg:col-span-7 flex flex-col justify-between rounded-[24px] border border-white/8 bg-[#0c142e]/60 p-7 min-h-[340px]">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-2xl bg-white/5" />
+                      <div className="space-y-2">
+                        <div className="h-6 w-44 bg-white/10 rounded-lg" />
+                        <div className="h-4 w-32 bg-white/5 rounded-md" />
+                      </div>
+                    </div>
+                    <div className="space-y-3 my-6">
+                      <div className="h-10 w-72 bg-white/10 rounded-xl" />
+                      <div className="h-6 w-20 bg-white/5 rounded-full" />
+                    </div>
+                    <div className="h-4 w-48 bg-white/5 rounded-md" />
+                  </div>
+
+                  {/* Skeleton Card Direito: Calendário */}
+                  <div className="lg:col-span-5 flex flex-col justify-between rounded-[24px] border border-white/8 bg-[#0B1020]/72 p-7 min-h-[340px]">
+                    <div className="flex items-center justify-between pb-4 border-b border-white/6">
+                      <div className="h-5 w-36 bg-white/10 rounded-lg" />
+                      <div className="h-4 w-28 bg-white/5 rounded-full" />
+                    </div>
+                    <div className="grid grid-cols-6 gap-2 my-4">
+                      {Array.from({ length: 12 }).map((_, i) => (
+                        <div key={i} className="h-14 bg-white/5 rounded-xl" />
+                      ))}
+                    </div>
+                    <div className="h-3 w-40 bg-white/5 rounded mx-auto" />
+                  </div>
+                </div>
+
+                {/* Skeleton Card Histórico */}
+                <div className="rounded-[24px] border border-white/8 bg-[#0B1020]/72 p-7 space-y-4">
+                  <div className="h-5 w-40 bg-white/10 rounded-lg" />
+                  <div className="h-14 bg-white/5 rounded-2xl" />
+                </div>
+              </div>
+            ) : !canAccessEscala && publicacao.status !== "PUBLICADA" ? (
+              /* 2. Aviso de escala não publicada (apenas quando a consulta retornou e realmente NÃO está publicada) */
               <div className="w-full max-w-3xl mx-auto py-12 px-6 rounded-[28px] border border-white/10 bg-[#0B1020]/72 backdrop-blur-xl text-center space-y-4 shadow-xl">
                 <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.15)]">
                   <Calendar className="w-7 h-7" />
