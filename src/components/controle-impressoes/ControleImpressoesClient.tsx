@@ -5,7 +5,7 @@ import {
   Printer, BookOpen, Calendar, Filter, Download, MoreVertical,
   RotateCw, Search, CheckCircle2, AlertCircle, MinusCircle,
   SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight,
-  Info, FileSpreadsheet, User, Users, Award
+  ChevronDown, Loader2, Info, FileSpreadsheet, User, Users, Award
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { MOCK_CONTROLE_IMPRESSOES } from '@/lib/controle-impressoes/mock-data';
@@ -53,19 +53,30 @@ export function ControleImpressoesClient() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  // Estados para Impressão da Listagem
+  const [imprimindoApenasTabela, setImprimindoApenasTabela] = useState(false);
+  const [menuImprimirTabelaAberto, setMenuImprimirTabelaAberto] = useState(false);
+  const [preparandoImpressaoTodos, setPreparandoImpressaoTodos] = useState(false);
+  const [itensCompletosImpressao, setItensCompletosImpressao] = useState<ImpressaoItemRow[] | null>(null);
+  const printTableMenuRef = useRef<HTMLDivElement>(null);
+
   // Fechar dropdown de opções ao clicar fora ou apertar Escape
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuAberto(false);
       }
+      if (printTableMenuRef.current && !printTableMenuRef.current.contains(event.target as Node)) {
+        setMenuImprimirTabelaAberto(false);
+      }
     }
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         setMenuAberto(false);
+        setMenuImprimirTabelaAberto(false);
       }
     }
-    if (menuAberto) {
+    if (menuAberto || menuImprimirTabelaAberto) {
       document.addEventListener('mousedown', handleClickOutside);
       document.addEventListener('keydown', handleKeyDown);
     }
@@ -73,7 +84,19 @@ export function ControleImpressoesClient() {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [menuAberto]);
+  }, [menuAberto, menuImprimirTabelaAberto]);
+
+  // Listener para resetar estado após conclusão ou cancelamento da impressão
+  useEffect(() => {
+    const handleAfterPrint = () => {
+      setImprimindoApenasTabela(false);
+      setItensCompletosImpressao(null);
+    };
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => {
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
+  }, []);
 
   // Fetch from Real API
   const fetchDados = useCallback(async () => {
@@ -257,6 +280,83 @@ export function ControleImpressoesClient() {
       return 0;
     });
   }, [data.itens, sortBy, sortOrder]);
+
+  // Registros que serão exibidos na tabela (suporta carga completa para impressão)
+  const rowsParaExibir = useMemo(() => {
+    if (itensCompletosImpressao && itensCompletosImpressao.length > 0) {
+      return itensCompletosImpressao;
+    }
+    return paginatedRows;
+  }, [itensCompletosImpressao, paginatedRows]);
+
+  const handleImprimirPaginaAtual = () => {
+    setMenuImprimirTabelaAberto(false);
+    setItensCompletosImpressao(null);
+    setImprimindoApenasTabela(true);
+    toast.info('Preparando impressão da listagem...', { duration: 1800 });
+    setTimeout(() => {
+      window.print();
+    }, 150);
+  };
+
+  const handleImprimirTodosRegistros = async () => {
+    setMenuImprimirTabelaAberto(false);
+    setImprimindoApenasTabela(true);
+
+    if (data.totalRegistros <= paginatedRows.length) {
+      setTimeout(() => {
+        window.print();
+      }, 150);
+      return;
+    }
+
+    try {
+      setPreparandoImpressaoTodos(true);
+      toast.info('Preparando impressão completa...', {
+        description: `Buscando ${data.totalRegistros} registros da listagem...`,
+        icon: <Printer className="w-4 h-4 text-emerald-400" />
+      });
+
+      const params = new URLSearchParams({
+        dataInicio,
+        dataFim,
+        visao,
+        busca: buscaNatureza,
+        tipoImpressao: tipoImpressaoFiltro,
+        status: statusFiltro,
+        sortBy,
+        sortOrder,
+        export: 'true',
+        pageSize: '50000',
+      });
+
+      const res = await fetch(`/api/controle-impressoes?${params.toString()}`);
+      if (res.ok) {
+        const resData = await res.json();
+        if (resData?.itens && resData.itens.length > 0) {
+          setItensCompletosImpressao(resData.itens);
+          toast.success('Listagem carregada com sucesso!', {
+            description: `Pronta para impressão (${resData.itens.length} registros).`
+          });
+          setTimeout(() => {
+            window.print();
+          }, 300);
+          return;
+        }
+      }
+      setTimeout(() => {
+        window.print();
+      }, 150);
+    } catch (err) {
+      console.error('Erro ao buscar todos os registros:', err);
+      toast.error('Erro ao buscar todos os registros. Imprimindo página atual.');
+      setTimeout(() => {
+        window.print();
+      }, 150);
+    } finally {
+      setPreparandoImpressaoTodos(false);
+    }
+  };
 
   const operadoresLivro = (data.operadores || [])
     .filter((op) => op.totalLivro > 0)
@@ -443,7 +543,9 @@ export function ControleImpressoesClient() {
         <div className="flex items-center justify-between">
           <div>
             <div className="text-xs uppercase tracking-wider font-semibold text-slate-500">7º Oficial de Registro de Imóveis de São Paulo</div>
-            <h1 className="text-xl font-bold text-slate-900 mt-0.5">Relatório de Controle de Impressões</h1>
+            <h1 className="text-xl font-bold text-slate-900 mt-0.5">
+              {imprimindoApenasTabela ? 'Listagem de Pendências e Situação das Impressões' : 'Relatório de Controle de Impressões'}
+            </h1>
           </div>
           <div className="text-right text-xs text-slate-600">
             <div><strong>Emissão:</strong> {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
@@ -452,10 +554,20 @@ export function ControleImpressoesClient() {
         </div>
         <div className="mt-2.5 pt-2 border-t border-slate-200 flex items-center justify-between text-xs text-slate-700">
           <div>
-            Período analisado: <strong>{dataInicio.split('-').reverse().join('/')}</strong> até <strong>{dataFim.split('-').reverse().join('/')}</strong>
+            Período: <strong>{dataInicio.split('-').reverse().join('/')}</strong> até <strong>{dataFim.split('-').reverse().join('/')}</strong>
+            {activeCardLabel && <span> | Filtro: <strong>{activeCardLabel}</strong></span>}
+            {tipoImpressaoFiltro !== 'todos' && <span> | Tipo: <strong>{tipoImpressaoFiltro === 'certidao' ? 'Certidão de Registro' : 'Ato no Livro'}</strong></span>}
+            {statusFiltro !== 'todos' && <span> | Status: <strong>{statusFiltro === 'realizado' ? 'Realizado' : 'Pendente'}</strong></span>}
+            <span> | Ordem: <strong>{getColumnLabel(sortBy)} ({sortOrder === 'asc' ? 'Crescente' : 'Decrescente'})</strong></span>
           </div>
           <div>
             Total de registros: <strong>{data.totalRegistros}</strong>
+            {imprimindoApenasTabela && rowsParaExibir.length !== data.totalRegistros && (
+              <span> (Exibindo <strong>{rowsParaExibir.length}</strong> nesta listagem)</span>
+            )}
+            {imprimindoApenasTabela && rowsParaExibir.length === data.totalRegistros && (
+              <span> (Listagem completa com <strong>{rowsParaExibir.length}</strong> itens)</span>
+            )}
           </div>
         </div>
       </div>
@@ -961,7 +1073,7 @@ export function ControleImpressoesClient() {
       )}
 
       {/* ────────────────── 2 COLUNAS DE FLUXO (LIVRO E CERTIDÃO) COM SEUS RESPECTIVOS OPERADORES ────────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+      <div className={`grid grid-cols-1 xl:grid-cols-2 gap-5 items-start ${imprimindoApenasTabela ? 'print:hidden' : ''}`}>
         {/* Banner informativo quando o fluxo de Livro está ocultado */}
         {tipoImpressaoFiltro === 'certidao' && (
           <div className="xl:col-span-2 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between text-xs text-amber-200 shadow-sm animate-fadeIn">
@@ -1448,8 +1560,8 @@ export function ControleImpressoesClient() {
       </div>
 
       {/* ────────────────── TABELA DE SITUAÇÃO DAS IMPRESSÕES ────────────────── */}
-      <div ref={tableRef} className="w-full rounded-2xl bg-[#0c1222]/90 border border-white/10 p-6 shadow-xl overflow-hidden">
-        <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10 flex-wrap gap-3">
+      <div ref={tableRef} className="w-full rounded-2xl bg-[#0c1222]/90 border border-white/10 p-6 shadow-xl overflow-hidden print:p-0 print:border-none print:shadow-none print:bg-white">
+        <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10 flex-wrap gap-3 print:hidden">
           <div>
             <h3 className="text-sm sm:text-base font-bold uppercase tracking-wider text-slate-100">
               Pendências e Situação das Impressões
@@ -1488,6 +1600,76 @@ export function ControleImpressoesClient() {
               <span className="text-[11px] text-purple-300 font-semibold">
                 ({sortOrder === 'asc' ? 'Crescente' : 'Decrescente'})
               </span>
+            </div>
+
+            {/* NOVO: Botão Imprimir Listagem */}
+            <div className="relative" ref={printTableMenuRef}>
+              <div className="inline-flex rounded-lg shadow-sm border border-emerald-500/40 bg-emerald-600/20 p-0.5">
+                <button
+                  type="button"
+                  onClick={handleImprimirPaginaAtual}
+                  disabled={preparandoImpressaoTodos}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                  title={`Imprimir a listagem de registros exibidos (${paginatedRows.length} itens)`}
+                >
+                  {preparandoImpressaoTodos ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-200" />
+                  ) : (
+                    <Printer className="w-3.5 h-3.5 text-emerald-200" />
+                  )}
+                  <span>{preparandoImpressaoTodos ? 'Carregando...' : 'Imprimir Listagem'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMenuImprimirTabelaAberto((prev) => !prev)}
+                  disabled={preparandoImpressaoTodos}
+                  className="px-1.5 py-1.5 rounded-md hover:bg-emerald-500/40 text-emerald-200 transition-colors disabled:opacity-50"
+                  title="Mais opções de impressão desta listagem"
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Dropdown com opções de impressão */}
+              {menuImprimirTabelaAberto && (
+                <div className="absolute right-0 mt-1.5 w-64 rounded-xl bg-[#10172A] border border-white/15 shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-white/10 mb-1">
+                    Opções de Impressão da Listagem
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleImprimirPaginaAtual}
+                    className="flex items-start gap-2.5 w-full px-3 py-2 text-left rounded-lg text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors"
+                  >
+                    <Printer className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-semibold text-white">Imprimir página atual</div>
+                      <div className="text-[11px] text-slate-400">
+                        {paginatedRows.length} {paginatedRows.length === 1 ? 'protocolo visível' : 'protocolos visíveis'} na página
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleImprimirTodosRegistros}
+                    className="flex items-start gap-2.5 w-full px-3 py-2 text-left rounded-lg text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors"
+                  >
+                    <Download className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-semibold text-white">Imprimir todos os registros</div>
+                      <div className="text-[11px] text-slate-400">
+                        Carrega todos os {data.totalRegistros} protocolos filtrados
+                      </div>
+                    </div>
+                  </button>
+
+                  <div className="mt-1 pt-1.5 border-t border-white/10 px-3 py-1 text-[10px] text-slate-400">
+                    💡 <em>Você também pode escolher ver até 100 linhas por página no rodapé da tabela.</em>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1640,14 +1822,14 @@ export function ControleImpressoesClient() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 text-xs sm:text-[13px]">
-              {paginatedRows.length === 0 ? (
+              {rowsParaExibir.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="py-12 text-center text-slate-400 text-sm font-medium">
                     Nenhum registro encontrado para os filtros selecionados.
                   </td>
                 </tr>
               ) : (
-                paginatedRows.map((row) => (
+                rowsParaExibir.map((row) => (
                   <tr key={row.id} className="hover:bg-white/[0.04] transition-colors">
                     {/* Protocolo */}
                     <td className="py-3.5 px-3.5 font-mono font-bold text-white whitespace-nowrap text-sm">
@@ -1801,6 +1983,7 @@ export function ControleImpressoesClient() {
               <option value={10}>10</option>
               <option value={20}>20</option>
               <option value={50}>50</option>
+              <option value={100}>100</option>
             </select>
           </div>
 
