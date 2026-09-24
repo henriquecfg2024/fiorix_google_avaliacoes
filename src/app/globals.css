@@ -711,3 +711,87 @@ input:-webkit-autofill:active {
   -webkit-box-shadow: 0 0 0px 1000px #0a0f1e inset !important;
   transition: background-color 5000s ease-in-out 0s;
 }
+
+/* ═══════════════════════════════════════════════════
+   ESTILOS DE IMPRESSÃO GLOBAIS (PRINT / PDF)
+═══════════════════════════════════════════════════ */
+@media print {
+  @page {
+    size: landscape;
+    margin: 8mm 6mm;
+  }
+
+  /* Ocultar elementos decorativos, chats, navegação e botões */
+  aside,
+  nav,
+  header,
+  .print\:hidden,
+  .no-print,
+  [data-no-print="true"] {
+    display: none !important;
+  }
+
+  /* Resetar o fundo e destravar rolagem vertical para permitir múltiplas folhas */
+  html,
+  body {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Destravar contêineres de altura fixa */
+  div,
+  main,
+  section {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* Evitar quebras de página no meio de linhas ou cards */
+  tr,
+  .kpi-card,
+  .break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Tabelas limpas para impressão */
+  table {
+    width: 100% !important;
+    table-layout: auto !important;
+    border-collapse: collapse !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  /* Textos de alta legibilidade em papel */
+  .text-white,
+  .text-slate-100,
+  .text-slate-200,
+  .text-slate-300 {
+    color: #0f172a !important;
+  }
+
+  .text-slate-400,
+  .text-slate-500 {
+    color: #475569 !important;
+  }
+
+  .bg-[#070A12],
+  .bg-[#0c1427],
+  .bg-[#0c1222],
+  .bg-[#141B2D],
+  .bg-[#0E1526] {
+    background-color: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: none !important;
+  }
+}

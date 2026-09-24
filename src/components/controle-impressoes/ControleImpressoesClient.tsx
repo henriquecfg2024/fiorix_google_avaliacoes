@@ -437,9 +437,31 @@ export function ControleImpressoesClient() {
   const isCertidaoDemandaActive = activeCardLabel === 'Certidão – Demanda total';
 
   return (
-    <div className="space-y-6">
-      {/* ────────────────── TOP BAR / HEADER DO RELATÓRIO ────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+    <div className="space-y-6 print:space-y-4 print:text-slate-900 print:p-2">
+      {/* ────────────────── CABEÇALHO EXCLUSIVO PARA IMPRESSÃO / PDF ────────────────── */}
+      <div className="hidden print:block mb-4 pb-3 border-b-2 border-slate-400">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs uppercase tracking-wider font-semibold text-slate-500">7º Oficial de Registro de Imóveis de São Paulo</div>
+            <h1 className="text-xl font-bold text-slate-900 mt-0.5">Relatório de Controle de Impressões</h1>
+          </div>
+          <div className="text-right text-xs text-slate-600">
+            <div><strong>Emissão:</strong> {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+            <div><strong>Base de Cálculo:</strong> {visao === 'producao' ? 'Produção (Data Impressão)' : 'Demanda (Último Registro)'}</div>
+          </div>
+        </div>
+        <div className="mt-2.5 pt-2 border-t border-slate-200 flex items-center justify-between text-xs text-slate-700">
+          <div>
+            Período analisado: <strong>{dataInicio.split('-').reverse().join('/')}</strong> até <strong>{dataFim.split('-').reverse().join('/')}</strong>
+          </div>
+          <div>
+            Total de registros: <strong>{data.totalRegistros}</strong>
+          </div>
+        </div>
+      </div>
+
+      {/* ────────────────── TOP BAR / HEADER DO RELATÓRIO NA TELA ────────────────── */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 print:hidden">
         <div>
           <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
             <span>Gestão de Prazos</span>
@@ -454,7 +476,7 @@ export function ControleImpressoesClient() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap print:hidden">
           {/* Botão Filtros */}
           <button
             type="button"
@@ -516,7 +538,7 @@ export function ControleImpressoesClient() {
             </button>
 
             {menuAberto && (
-              <div className="absolute right-0 top-full mt-2 w-64 rounded-xl border border-white/15 bg-[#0D1424] shadow-2xl py-1.5 z-50 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100">
+              <div className="absolute right-0 top-full mt-2 w-64 rounded-xl border border-white/15 bg-[#0D1424] shadow-2xl py-1.5 z-50 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100 print:hidden">
                 <div className="px-3.5 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                   Ações Rápidas
                 </div>
@@ -550,7 +572,9 @@ export function ControleImpressoesClient() {
                   type="button"
                   onClick={() => {
                     setMenuAberto(false);
-                    window.print();
+                    setTimeout(() => {
+                      window.print();
+                    }, 150);
                   }}
                   className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors"
                 >
@@ -613,7 +637,7 @@ export function ControleImpressoesClient() {
       </div>
 
       {/* Info Banner dinâmico com base na Visão */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-2.5 rounded-lg bg-[#0E1526]/80 border border-blue-500/20 text-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-2.5 rounded-lg bg-[#0E1526]/80 border border-blue-500/20 text-xs print:hidden">
         <div className="flex items-center gap-2 text-blue-300">
           <Info className="w-4 h-4 text-blue-400 shrink-0" />
           <span>
@@ -642,7 +666,7 @@ export function ControleImpressoesClient() {
 
       {/* ────────────────── BARRA DE FILTROS ────────────────── */}
       {filtrosAbertos ? (
-        <div ref={filtersRef} className="p-5 rounded-2xl bg-[#0c1222]/90 border border-white/10 backdrop-blur-md space-y-4 shadow-lg transition-all animate-fadeIn">
+        <div ref={filtersRef} className="p-5 rounded-2xl bg-[#0c1222]/90 border border-white/10 backdrop-blur-md space-y-4 shadow-lg transition-all animate-fadeIn print:hidden">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
           {/* Período */}
           <div>
@@ -850,7 +874,7 @@ export function ControleImpressoesClient() {
         </div>
       </div>
     ) : (
-        <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-[#0c1222]/70 border border-white/10 text-xs text-slate-300 shadow-sm">
+        <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-[#0c1222]/70 border border-white/10 text-xs text-slate-300 shadow-sm print:hidden">
           <div className="flex items-center gap-2">
             <Filter className="w-3.5 h-3.5 text-purple-400" />
             <span>Painel de filtros recolhido.</span>
@@ -876,7 +900,7 @@ export function ControleImpressoesClient() {
 
       {/* ────────────────── BARRA DE FILTROS ATIVOS ────────────────── */}
       {(buscaNatureza || tipoImpressaoFiltro !== 'todos' || statusFiltro !== 'todos') && (
-        <div className="flex items-center gap-2.5 p-3 rounded-xl bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900/60 border border-indigo-500/30 text-xs flex-wrap shadow-inner animate-fadeIn">
+        <div className="flex items-center gap-2.5 p-3 rounded-xl bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900/60 border border-indigo-500/30 text-xs flex-wrap shadow-inner animate-fadeIn print:hidden">
           <span className="text-indigo-300 font-bold flex items-center gap-1.5">
             <Filter className="w-3.5 h-3.5 text-indigo-400" /> Filtros Ativos:
           </span>
@@ -1762,7 +1786,7 @@ export function ControleImpressoesClient() {
         </div>
 
         {/* Paginação */}
-        <div className="flex items-center justify-between pt-4 mt-4 border-t border-white/10 text-xs sm:text-sm text-slate-300 flex-wrap gap-3">
+        <div className="flex items-center justify-between pt-4 mt-4 border-t border-white/10 text-xs sm:text-sm text-slate-300 flex-wrap gap-3 print:hidden">
           <div className="flex items-center gap-2.5">
             <span className="text-slate-400 font-medium">Linhas por página:</span>
             <select
