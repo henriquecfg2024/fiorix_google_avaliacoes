@@ -181,10 +181,18 @@ export const MOCK_CONTROLE_IMPRESSOES: ControleImpressoesData = {
       ultimoRegistro: '02/09/2026 10:45',
       certidaoStatus: 'PENDENTE',
       certidaoData: null,
+      certidaoResponsavel: null,
       livroStatus: 'PENDENTE',
       livroData: null,
+      livroResponsavel: null,
       diasPendente: 0,
       linkOnr: 'https://registradores.onr.org.br',
     },
   ],
+  operadores: [
+    { nome: 'Ana Paula', totalLivro: 45, totalCertidao: 38, total: 83 },
+    { nome: 'Marcos Vinicius', totalLivro: 32, totalCertidao: 41, total: 73 },
+    { nome: 'Juliana Ferreira', totalLivro: 28, totalCertidao: 22, total: 50 },
+  ],
 };
+

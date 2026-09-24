@@ -47,7 +47,9 @@ export async function GET(request: NextRequest) {
           MAX(m.d8_impressao) as meta_d8_impressao,
           MAX(m.d9_preparacao) as meta_d9_preparacao,
           MAX(CASE WHEN t.tarefa ILIKE '%IMPRESS%' AND (t.situacao_tarefa = 'FINALIZADA' OR t.data_finalizacao IS NOT NULL) THEN COALESCE(t.data_finalizacao, t.data_abertura) END) as tarefa_impressao_data,
+          MAX(CASE WHEN t.tarefa ILIKE '%IMPRESS%' AND (t.situacao_tarefa = 'FINALIZADA' OR t.data_finalizacao IS NOT NULL) THEN t.responsavel END) as responsavel_impressao,
           MAX(CASE WHEN t.tarefa ILIKE '%PREPAR%' AND (t.situacao_tarefa = 'FINALIZADA' OR t.data_finalizacao IS NOT NULL) THEN COALESCE(t.data_finalizacao, t.data_abertura) END) as tarefa_preparacao_data,
+          MAX(CASE WHEN t.tarefa ILIKE '%PREPAR%' AND (t.situacao_tarefa = 'FINALIZADA' OR t.data_finalizacao IS NOT NULL) THEN t.responsavel END) as responsavel_preparacao,
           MAX(t.seq_titulo) as seq_titulo,
           MAX(NULLIF(t.numero_livro, '')) as numero_livro
         FROM public.fiorix_tarefas_dados t
@@ -72,12 +74,14 @@ export async function GET(request: NextRequest) {
             ELSE 'PENDENTE'
           END as certidao_status,
           COALESCE(meta_d8_impressao, tarefa_impressao_data) as certidao_data,
+          responsavel_impressao as certidao_responsavel,
           -- Livro Status
           CASE 
             WHEN meta_d9_preparacao IS NOT NULL OR tarefa_preparacao_data IS NOT NULL THEN 'REALIZADO'
             ELSE 'PENDENTE'
           END as livro_status,
           COALESCE(meta_d9_preparacao, tarefa_preparacao_data) as livro_data,
+          responsavel_preparacao as livro_responsavel,
           -- Dias Pendente
           CASE 
             WHEN (meta_d8_impressao IS NULL AND tarefa_impressao_data IS NULL) OR (meta_d9_preparacao IS NULL AND tarefa_preparacao_data IS NULL)
@@ -172,8 +176,10 @@ export async function GET(request: NextRequest) {
         ultimoRegistro: formatDate(r.ultimo_registro) || '-',
         certidaoStatus: r.certidao_status,
         certidaoData: formatDate(r.certidao_data),
+        certidaoResponsavel: r.certidao_responsavel || null,
         livroStatus: r.livro_status,
         livroData: formatDate(r.livro_data),
+        livroResponsavel: r.livro_responsavel || null,
         diasPendente: r.dias_pendente,
         linkOnr: `https://registradores.onr.org.br`,
       };
@@ -272,6 +278,26 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // 7. Ranking de Operadores por Volume Produzido
+    const operadoresMap = new Map<string, { totalLivro: number; totalCertidao: number }>();
+    for (const r of allFilteredRows) {
+      if (r.livro_status === 'REALIZADO' && r.livro_responsavel) {
+        const nome = r.livro_responsavel.trim();
+        const curr = operadoresMap.get(nome) || { totalLivro: 0, totalCertidao: 0 };
+        curr.totalLivro++;
+        operadoresMap.set(nome, curr);
+      }
+      if (r.certidao_status === 'REALIZADO' && r.certidao_responsavel) {
+        const nome = r.certidao_responsavel.trim();
+        const curr = operadoresMap.get(nome) || { totalLivro: 0, totalCertidao: 0 };
+        curr.totalCertidao++;
+        operadoresMap.set(nome, curr);
+      }
+    }
+    const operadores = Array.from(operadoresMap.entries())
+      .map(([nome, v]) => ({ nome, totalLivro: v.totalLivro, totalCertidao: v.totalCertidao, total: v.totalLivro + v.totalCertidao }))
+      .sort((a, b) => b.total - a.total);
+
     const payload: ControleImpressoesData = {
       ultimaSincronizacao: now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       totalRegistros,
@@ -299,6 +325,7 @@ export async function GET(request: NextRequest) {
       distribuicaoNatureza,
       distribuicaoBacklog,
       itens,
+      operadores,
     };
 
     return NextResponse.json(payload);

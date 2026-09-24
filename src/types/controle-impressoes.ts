@@ -21,10 +21,19 @@ export interface ImpressaoItemRow {
   ultimoRegistro: string;
   certidaoStatus: StatusImpressaoItem;
   certidaoData: string | null;
+  certidaoResponsavel?: string | null;
   livroStatus: StatusImpressaoItem;
   livroData: string | null;
+  livroResponsavel?: string | null;
   diasPendente: number;
   linkOnr: string;
+}
+
+export interface OperadorImpressao {
+  nome: string;
+  totalLivro: number;
+  totalCertidao: number;
+  total: number;
 }
 
 export interface EvolucaoDiariaItem {
@@ -57,4 +66,5 @@ export interface ControleImpressoesData {
   itens: ImpressaoItemRow[];
   totalRegistros: number;
   ultimaSincronizacao: string;
+  operadores: OperadorImpressao[];
 }

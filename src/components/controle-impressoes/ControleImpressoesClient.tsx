@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   Printer, BookOpen, Calendar, Filter, Download, MoreVertical,
   RotateCw, Search, CheckCircle2, AlertCircle, MinusCircle,
   SlidersHorizontal, ArrowUpDown, ChevronLeft, ChevronRight,
-  Info, FileSpreadsheet
+  Info, FileSpreadsheet, User, Users, Award
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { MOCK_CONTROLE_IMPRESSOES } from '@/lib/controle-impressoes/mock-data';
@@ -14,6 +14,7 @@ import { StatusImpressaoItem, ImpressaoItemRow, ControleImpressoesData } from '@
 export function ControleImpressoesClient() {
   const [data, setData] = useState<ControleImpressoesData>(MOCK_CONTROLE_IMPRESSOES);
   const [loading, setLoading] = useState(false);
+  const tableRef = useRef<HTMLDivElement>(null);
 
   // Filters State
   const [visao, setVisao] = useState<'demanda' | 'producao'>('demanda');
@@ -23,6 +24,7 @@ export function ControleImpressoesClient() {
   const [buscaNatureza, setBuscaNatureza] = useState('');
   const [tipoImpressaoFiltro, setTipoImpressaoFiltro] = useState<'todos' | 'certidao' | 'livro'>('todos');
   const [statusFiltro, setStatusFiltro] = useState<'todos' | 'pendente' | 'realizado'>('todos');
+  const [activeCardLabel, setActiveCardLabel] = useState<string | null>(null);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -105,9 +107,32 @@ export function ControleImpressoesClient() {
     setBuscaNatureza('');
     setStatusFiltro('todos');
     setTipoImpressaoFiltro('todos');
+    setActiveCardLabel(null);
     setDataPreset('7dias');
     toast.success('Filtros restaurados para o padrão.');
   };
+
+  // Handler para clique nos cards — filtra a tabela
+  const handleCardClick = (
+    tipo: 'livro' | 'certidao' | 'todos',
+    status: 'todos' | 'pendente' | 'realizado',
+    label: string
+  ) => {
+    const isSameFilter = tipoImpressaoFiltro === tipo && statusFiltro === status;
+    if (isSameFilter) {
+      // Segundo clique desfaz o filtro
+      setTipoImpressaoFiltro('todos');
+      setStatusFiltro('todos');
+      setActiveCardLabel(null);
+    } else {
+      setTipoImpressaoFiltro(tipo === 'todos' ? 'todos' : tipo);
+      setStatusFiltro(status);
+      setActiveCardLabel(label);
+      setCurrentPage(1);
+      setTimeout(() => tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -367,31 +392,55 @@ export function ControleImpressoesClient() {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pb-4">
             {/* Demanda */}
-            <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+            <div
+              onClick={() => handleCardClick('livro', 'todos', 'Livro – Demanda total')}
+              className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
+                activeCardLabel === 'Livro – Demanda total'
+                  ? 'bg-amber-500/10 border-amber-400/60 ring-1 ring-amber-400/40'
+                  : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-amber-400/30'
+              }`}
+              title="Clique para filtrar por demanda"
+            >
               <div>
                 <span className="text-xs font-semibold text-slate-200 block">Demanda</span>
                 <span className="text-[11px] text-slate-400 block truncate leading-tight">(Último Registro)</span>
               </div>
               <div className="mt-3 flex items-baseline gap-1.5">
-                <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">{data.livroStats.demanda}</span>
+                <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight group-hover:text-amber-200 transition-colors">{data.livroStats.demanda}</span>
                 <span className="text-xs text-slate-400 font-medium">livros</span>
               </div>
             </div>
 
             {/* Produzidas */}
-            <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+            <div
+              onClick={() => handleCardClick('livro', 'realizado', 'Livro – Produzidas')}
+              className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
+                activeCardLabel === 'Livro – Produzidas'
+                  ? 'bg-emerald-500/10 border-emerald-400/60 ring-1 ring-emerald-400/40'
+                  : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-emerald-400/30'
+              }`}
+              title="Clique para filtrar por produzidas"
+            >
               <div>
                 <span className="text-xs font-semibold text-slate-200 block">Produzidas</span>
                 <span className="text-[11px] text-slate-400 block truncate leading-tight">(Data Impressão)</span>
               </div>
               <div className="mt-3 flex items-baseline gap-1.5">
-                <span className="text-2xl xl:text-3xl font-extrabold text-amber-300 tracking-tight">{data.livroStats.produzidas}</span>
+                <span className="text-2xl xl:text-3xl font-extrabold text-amber-300 tracking-tight group-hover:text-emerald-300 transition-colors">{data.livroStats.produzidas}</span>
                 <span className="text-xs text-slate-400 font-medium">livros</span>
               </div>
             </div>
 
             {/* Pendências */}
-            <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+            <div
+              onClick={() => handleCardClick('livro', 'pendente', 'Livro – Pendências')}
+              className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
+                activeCardLabel === 'Livro – Pendências'
+                  ? 'bg-rose-500/15 border-rose-400/60 ring-1 ring-rose-400/40'
+                  : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-rose-400/30'
+              }`}
+              title="Clique para filtrar por pendências"
+            >
               <div>
                 <span className="text-xs font-semibold text-slate-200 block">Pendências</span>
                 <span className="text-[11px] text-rose-400/90 block truncate leading-tight">(Saldo Atual)</span>
@@ -486,32 +535,56 @@ export function ControleImpressoesClient() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pb-4">
-            {/* Demanda */}
-            <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+            {/* Demanda Certidão */}
+            <div
+              onClick={() => handleCardClick('certidao', 'todos', 'Certidão – Demanda total')}
+              className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
+                activeCardLabel === 'Certidão – Demanda total'
+                  ? 'bg-cyan-500/10 border-cyan-400/60 ring-1 ring-cyan-400/40'
+                  : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-cyan-400/30'
+              }`}
+              title="Clique para filtrar por demanda"
+            >
               <div>
                 <span className="text-xs font-semibold text-slate-200 block">Demanda</span>
                 <span className="text-[11px] text-slate-400 block truncate leading-tight">(Último Registro)</span>
               </div>
               <div className="mt-3 flex items-baseline gap-1.5">
-                <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">{data.certidaoStats.demanda}</span>
+                <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight group-hover:text-cyan-200 transition-colors">{data.certidaoStats.demanda}</span>
                 <span className="text-xs text-slate-400 font-medium">livros</span>
               </div>
             </div>
 
-            {/* Produzidas */}
-            <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+            {/* Produzidas Certidão */}
+            <div
+              onClick={() => handleCardClick('certidao', 'realizado', 'Certidão – Produzidas')}
+              className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
+                activeCardLabel === 'Certidão – Produzidas'
+                  ? 'bg-emerald-500/10 border-emerald-400/60 ring-1 ring-emerald-400/40'
+                  : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-emerald-400/30'
+              }`}
+              title="Clique para filtrar por produzidas"
+            >
               <div>
                 <span className="text-xs font-semibold text-slate-200 block">Produzidas</span>
                 <span className="text-[11px] text-slate-400 block truncate leading-tight">(Data Impressão)</span>
               </div>
               <div className="mt-3 flex items-baseline gap-1.5">
-                <span className="text-2xl xl:text-3xl font-extrabold text-cyan-300 tracking-tight">{data.certidaoStats.produzidas}</span>
+                <span className="text-2xl xl:text-3xl font-extrabold text-cyan-300 tracking-tight group-hover:text-emerald-300 transition-colors">{data.certidaoStats.produzidas}</span>
                 <span className="text-xs text-slate-400 font-medium">livros</span>
               </div>
             </div>
 
-            {/* Pendências */}
-            <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+            {/* Pendências Certidão */}
+            <div
+              onClick={() => handleCardClick('certidao', 'pendente', 'Certidão – Pendências')}
+              className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
+                activeCardLabel === 'Certidão – Pendências'
+                  ? 'bg-rose-500/15 border-rose-400/60 ring-1 ring-rose-400/40'
+                  : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-rose-400/30'
+              }`}
+              title="Clique para filtrar por pendências"
+            >
               <div>
                 <span className="text-xs font-semibold text-slate-200 block">Pendências</span>
                 <span className="text-[11px] text-rose-400/90 block truncate leading-tight">(Saldo Atual)</span>
@@ -585,8 +658,59 @@ export function ControleImpressoesClient() {
         </div>
       </div>
 
+      {/* ────────────────── PAINEL: PRODUÇÃO POR OPERADOR ────────────────── */}
+      {data.operadores && data.operadores.length > 0 && (
+        <div className="w-full rounded-2xl bg-[#0c1222]/90 border border-white/10 p-5 shadow-xl">
+          <div className="flex items-center gap-2.5 mb-4">
+            <div className="w-8 h-8 rounded-lg bg-violet-500/15 border border-violet-500/30 flex items-center justify-center">
+              <Users className="w-4 h-4 text-violet-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-100">Produção por Operador</h3>
+              <p className="text-[11px] text-slate-400">Total impresso por colaborador no período</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {data.operadores.map((op, idx) => {
+              const maxTotal = data.operadores[0]?.total || 1;
+              const pct = Math.round((op.total / maxTotal) * 100);
+              const colors = [
+                { bar: 'from-amber-500 to-yellow-400', badge: 'text-amber-300', icon: 'text-amber-400', rank: 'text-amber-400' },
+                { bar: 'from-cyan-500 to-teal-400', badge: 'text-cyan-300', icon: 'text-cyan-400', rank: 'text-cyan-400' },
+                { bar: 'from-violet-500 to-purple-400', badge: 'text-violet-300', icon: 'text-violet-400', rank: 'text-violet-400' },
+              ];
+              const c = colors[idx % colors.length];
+              return (
+                <div key={op.nome} className="rounded-xl bg-white/[0.03] border border-white/8 p-4 flex flex-col gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0`}>
+                      <User className={`w-4 h-4 ${c.icon}`} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-white truncate">{op.nome}</p>
+                      <p className="text-[10px] text-slate-400">
+                        <span className="text-amber-300 font-semibold">{op.totalLivro}</span> livros
+                        {' · '}
+                        <span className="text-cyan-300 font-semibold">{op.totalCertidao}</span> certidões
+                      </p>
+                    </div>
+                    <span className={`ml-auto text-xl font-black font-mono ${c.rank}`}>{op.total}</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full bg-gradient-to-r ${c.bar} rounded-full transition-all duration-500`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ────────────────── TABELA DE SITUAÇÃO DAS IMPRESSÕES ────────────────── */}
-      <div className="w-full rounded-2xl bg-[#0c1222]/90 border border-white/10 p-6 shadow-xl overflow-hidden">
+      <div ref={tableRef} className="w-full rounded-2xl bg-[#0c1222]/90 border border-white/10 p-6 shadow-xl overflow-hidden">
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10 flex-wrap gap-3">
           <div>
             <h3 className="text-sm sm:text-base font-bold uppercase tracking-wider text-slate-100">
@@ -595,10 +719,23 @@ export function ControleImpressoesClient() {
             <p className="text-xs text-slate-400 mt-0.5">(base: Data do Último Registro)</p>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <span className="px-3 py-1 rounded-lg bg-slate-800/90 border border-white/15 text-xs text-slate-200 font-mono font-semibold">
               {data.totalRegistros} {data.totalRegistros === 1 ? 'registro' : 'registros'}
             </span>
+            {activeCardLabel && (
+              <div className="flex items-center gap-1.5">
+                <span className="px-2.5 py-0.5 rounded-full bg-violet-500/20 border border-violet-500/40 text-violet-300 text-xs font-semibold">
+                  Filtro: {activeCardLabel}
+                </span>
+                <button
+                  onClick={() => { setTipoImpressaoFiltro('todos'); setStatusFiltro('todos'); setActiveCardLabel(null); }}
+                  className="text-xs text-slate-400 hover:text-white px-2 py-0.5 rounded border border-white/10 hover:bg-white/5 transition-colors"
+                >
+                  × Limpar
+                </button>
+              </div>
+            )}
             <button
               onClick={() => toast.info('Personalizar colunas', { description: 'Todas as colunas essenciais estão visíveis.' })}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#141B2D] hover:bg-[#1A233A] border border-white/15 text-xs font-medium text-slate-200 transition-colors shadow-sm"
@@ -614,25 +751,18 @@ export function ControleImpressoesClient() {
           <table className="w-full table-fixed text-left border-collapse min-w-[960px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-xs font-semibold text-slate-300">
-                <th className="py-3 px-3.5 whitespace-nowrap w-[9%]">
-                  <span className="flex items-center gap-1.5">Protocolo <ArrowUpDown className="w-3 h-3 text-slate-500" /></span>
-                </th>
-                <th className="py-3 px-3.5 whitespace-nowrap w-[12%]">
-                  <span className="flex items-center gap-1.5">Nº Livro <ArrowUpDown className="w-3 h-3 text-slate-500" /></span>
-                </th>
-                <th className="py-3 px-3.5 whitespace-nowrap w-[18%]">
-                  <span className="flex items-center gap-1.5">Tipo / Natureza <ArrowUpDown className="w-3 h-3 text-slate-500" /></span>
-                </th>
+                <th className="py-3 px-3.5 whitespace-nowrap w-[8%]">Protocolo</th>
+                <th className="py-3 px-3.5 whitespace-nowrap w-[9%]">Nº Livro</th>
+                <th className="py-3 px-3.5 whitespace-nowrap w-[14%]">Tipo / Natureza</th>
+                <th className="py-3 px-3.5 whitespace-nowrap w-[8%]">Data Entrada</th>
+                <th className="py-3 px-3.5 whitespace-nowrap w-[13%]">Etapa Atual</th>
+                <th className="py-3 px-3.5 whitespace-nowrap w-[11%]">Último Registro</th>
+                <th className="py-3 px-3.5 whitespace-nowrap w-[10%]">Certidão Registro</th>
+                <th className="py-3 px-3.5 whitespace-nowrap w-[11%]">Impressão no Livro</th>
                 <th className="py-3 px-3.5 whitespace-nowrap w-[10%]">
-                  <span className="flex items-center gap-1.5">Data Entrada <ArrowUpDown className="w-3 h-3 text-slate-500" /></span>
+                  <span className="flex items-center gap-1"><User className="w-3 h-3" /> Impresso por</span>
                 </th>
-                <th className="py-3 px-3.5 whitespace-nowrap w-[16%]">
-                  <span className="flex items-center gap-1.5">Etapa Atual <ArrowUpDown className="w-3 h-3 text-slate-500" /></span>
-                </th>
-                <th className="py-3 px-3.5 whitespace-nowrap w-[13%]">Último Registro</th>
-                <th className="py-3 px-3.5 whitespace-nowrap w-[11%]">Certidão Registro</th>
-                <th className="py-3 px-3.5 whitespace-nowrap w-[13%]">Impressão no Livro</th>
-                <th className="py-3 px-3.5 text-center whitespace-nowrap w-[8%]">Dias Pendente</th>
+                <th className="py-3 px-3.5 text-center whitespace-nowrap w-[6%]">Dias</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 text-xs sm:text-[13px]">
@@ -734,6 +864,22 @@ export function ControleImpressoesClient() {
                       )}
                     </td>
 
+                    {/* Impresso por */}
+                    <td className="py-3.5 px-3.5 whitespace-nowrap">
+                      {(row.livroResponsavel || row.certidaoResponsavel) ? (
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-5 h-5 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center shrink-0">
+                            <User className="w-2.5 h-2.5 text-violet-400" />
+                          </div>
+                          <span className="text-xs text-slate-200 truncate max-w-[100px]">
+                            {row.livroResponsavel || row.certidaoResponsavel}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-600 text-xs">—</span>
+                      )}
+                    </td>
+
                     {/* Dias Pendente */}
                     <td className="py-3.5 px-3.5 text-center font-mono whitespace-nowrap">
                       {row.diasPendente > 0 ? (
@@ -745,6 +891,7 @@ export function ControleImpressoesClient() {
                       )}
                     </td>
                   </tr>
+
                 ))
               )}
             </tbody>
