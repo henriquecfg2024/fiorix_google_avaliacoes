@@ -1136,7 +1136,7 @@ export function ControleImpressoesClient() {
                       <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold uppercase">Ativo</span>
                     )}
                   </div>
-                  <div className="mt-3 flex items-baseline gap-1.5">
+                  <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
                     <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight group-hover:text-amber-200 transition-colors">{data.livroStats.demanda}</span>
                     <span className="text-xs text-slate-400 font-medium">livros</span>
                   </div>
@@ -1163,7 +1163,7 @@ export function ControleImpressoesClient() {
                       <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold uppercase">Ativo</span>
                     )}
                   </div>
-                  <div className="mt-3 flex items-baseline gap-1.5">
+                  <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
                     <span className="text-2xl xl:text-3xl font-extrabold text-amber-300 tracking-tight group-hover:text-emerald-300 transition-colors">{data.livroStats.produzidas}</span>
                     <span className="text-xs text-slate-400 font-medium">livros</span>
                   </div>
@@ -1190,7 +1190,7 @@ export function ControleImpressoesClient() {
                       <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold uppercase">Ativo</span>
                     )}
                   </div>
-                  <div className="mt-3 flex items-baseline gap-1.5">
+                  <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
                     <span className="text-2xl xl:text-3xl font-extrabold text-rose-400 tracking-tight">{data.livroStats.pendencias}</span>
                     <span className="text-xs text-slate-400 font-medium">livros</span>
                   </div>
@@ -1202,7 +1202,7 @@ export function ControleImpressoesClient() {
                     <span className="text-xs font-semibold text-slate-200 block">Saldo Operac.</span>
                     <span className="text-[11px] text-slate-400 block truncate leading-tight">(Prod. - Dem.)</span>
                   </div>
-                  <div className="mt-3 flex items-baseline gap-1.5">
+                  <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
                     <span className={`text-2xl xl:text-3xl font-extrabold tracking-tight ${data.livroStats.saldoOperacional >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                       {data.livroStats.saldoOperacional}
                     </span>
@@ -1235,7 +1235,7 @@ export function ControleImpressoesClient() {
                     <span className="text-xs font-semibold text-slate-200 block">Tempo Médio</span>
                     <span className="text-[11px] text-slate-400 block truncate leading-tight">para Impressão</span>
                   </div>
-                  <div className="mt-3 flex items-baseline gap-1.5">
+                  <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
                     <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">0,8</span>
                     <span className="text-xs text-slate-400 font-medium">dia</span>
                   </div>
@@ -1378,7 +1378,7 @@ export function ControleImpressoesClient() {
                       <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold uppercase">Ativo</span>
                     )}
                   </div>
-                  <div className="mt-3 flex items-baseline gap-1.5">
+                  <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
                     <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight group-hover:text-cyan-200 transition-colors">{data.certidaoStats.demanda}</span>
                     <span className="text-xs text-slate-400 font-medium">livros</span>
                   </div>
@@ -1405,7 +1405,7 @@ export function ControleImpressoesClient() {
                       <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold uppercase">Ativo</span>
                     )}
                   </div>
-                  <div className="mt-3 flex items-baseline gap-1.5">
+                  <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
                     <span className="text-2xl xl:text-3xl font-extrabold text-cyan-300 tracking-tight group-hover:text-emerald-300 transition-colors">{data.certidaoStats.produzidas}</span>
                     <span className="text-xs text-slate-400 font-medium">livros</span>
                   </div>
@@ -1432,7 +1432,7 @@ export function ControleImpressoesClient() {
                       <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold uppercase">Ativo</span>
                     )}
                   </div>
-                  <div className="mt-3 flex items-baseline gap-1.5">
+                  <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
                     <span className="text-2xl xl:text-3xl font-extrabold text-rose-400 tracking-tight">{data.certidaoStats.pendencias}</span>
                     <span className="text-xs text-slate-400 font-medium">livros</span>
                   </div>
@@ -1444,7 +1444,7 @@ export function ControleImpressoesClient() {
                     <span className="text-xs font-semibold text-slate-200 block">Saldo Operac.</span>
                     <span className="text-[11px] text-slate-400 block truncate leading-tight">(Prod. - Dem.)</span>
                   </div>
-                  <div className="mt-3 flex items-baseline gap-1.5">
+                  <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
                     <span className={`text-2xl xl:text-3xl font-extrabold tracking-tight ${data.certidaoStats.saldoOperacional >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                       {data.certidaoStats.saldoOperacional}
                     </span>
@@ -1477,7 +1477,7 @@ export function ControleImpressoesClient() {
                     <span className="text-xs font-semibold text-slate-200 block">Tempo Médio</span>
                     <span className="text-[11px] text-slate-400 block truncate leading-tight">para Impressão</span>
                   </div>
-                  <div className="mt-3 flex items-baseline gap-1.5">
+                  <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
                     <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">1,3</span>
                     <span className="text-xs text-slate-400 font-medium">dias</span>
                   </div>
