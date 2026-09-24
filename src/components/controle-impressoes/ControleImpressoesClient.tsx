@@ -406,14 +406,13 @@ export function ControleImpressoesClient() {
         {/* Quick Date Presets */}
         <div className="flex items-center justify-between pt-3 border-t border-white/8 flex-wrap gap-2 text-xs">
           <div className="flex items-center gap-2 flex-wrap">
-            {(['hoje', 'ontem', '7dias', 'mesAtual', 'mesAnterior', 'personalizado'] as const).map((preset) => {
+            {(['hoje', 'ontem', '7dias', 'mesAtual', 'mesAnterior'] as const).map((preset) => {
               const labels = {
                 hoje: 'Hoje',
                 ontem: 'Ontem',
                 '7dias': 'Últimos 7 dias',
                 mesAtual: 'Mês atual',
                 mesAnterior: 'Mês anterior',
-                personalizado: 'Personalizado'
               };
               const active = dataPreset === preset;
               return (
