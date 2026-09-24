@@ -7,8 +7,6 @@ import {
   SlidersHorizontal,
   FileText,
   CheckCircle2,
-  BarChart3,
-  QrCode,
   X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -188,29 +186,21 @@ export function ComunicadosClient({
 
         {/* Conteúdo principal */}
         {filteredComunicados.length === 0 ? (
-          <div className="space-y-3 pt-1">
+          <div className="pt-1">
             {/* Empty state premium */}
             <div className="rounded-3xl border border-violet-500/20 bg-[#0B1022]/90 shadow-[inset_0_0_40px_rgba(139,92,246,0.06)] p-8 flex flex-col items-center text-center gap-4">
               {/* Ícone documento + check */}
               <div className="relative flex items-center justify-center w-20 h-20">
-                {/* Partículas decorativas */}
                 <span className="absolute top-1 left-2 w-1 h-1 rounded-full bg-violet-400/60" />
                 <span className="absolute top-3 right-1 w-1.5 h-1.5 rounded-full bg-violet-300/40" />
                 <span className="absolute bottom-2 left-0 w-1 h-1 rounded-full bg-violet-500/50" />
                 <span className="absolute bottom-1 right-3 w-1 h-1 rounded-full bg-violet-400/40" />
-
-                {/* Documento */}
                 <div className="relative">
-                  <FileText
-                    className="w-14 h-14 text-slate-500/80"
-                    strokeWidth={1.2}
-                  />
-                  {/* Linhas internas simuladas */}
+                  <FileText className="w-14 h-14 text-slate-500/80" strokeWidth={1.2} />
                   <div className="absolute top-[30%] left-[22%] w-[55%] space-y-1.5">
                     <div className="h-[2px] bg-slate-500/60 rounded-full" />
                     <div className="h-[2px] bg-slate-500/40 rounded-full w-3/4" />
                   </div>
-                  {/* Badge check verde */}
                   <div className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full bg-[#0B1022] border-2 border-emerald-500/80 flex items-center justify-center shadow-[0_0_12px_rgba(16,185,129,0.4)]">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" strokeWidth={2.5} />
                   </div>
@@ -225,32 +215,6 @@ export function ComunicadosClient({
                 <p className="text-xs text-slate-500 leading-relaxed">
                   Os novos comunicados aparecerão aqui.
                 </p>
-              </div>
-            </div>
-
-            {/* Card "Como funciona" */}
-            <div className="rounded-2xl border border-white/8 bg-[#0B1022]/70 px-4 py-3">
-              <h3 className="text-xs font-bold text-white mb-2">Como funciona</h3>
-              <div className="border-t border-white/8 mb-2" />
-              <div className="space-y-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
-                    <FileText className="w-3.5 h-3.5 text-violet-400" strokeWidth={1.8} />
-                  </div>
-                  <span className="text-xs text-slate-400">Novos comunicados aparecem aqui</span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" strokeWidth={1.8} />
-                  </div>
-                  <span className="text-xs text-slate-400">Leia e confirme sua ciência</span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
-                    <BarChart3 className="w-3.5 h-3.5 text-violet-400" strokeWidth={1.8} />
-                  </div>
-                  <span className="text-xs text-slate-400">Acompanhe no histórico</span>
-                </div>
               </div>
             </div>
           </div>
