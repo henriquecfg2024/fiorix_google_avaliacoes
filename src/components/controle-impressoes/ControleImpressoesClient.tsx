@@ -269,36 +269,68 @@ export function ControleImpressoesClient() {
 
           {/* Visão */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              Visão
-            </label>
-            <div className="flex p-1 rounded-lg bg-[#141B2D] border border-white/10 text-xs shadow-inner">
-              <button
-                onClick={() => {
-                  setVisao('demanda');
-                  setCurrentPage(1);
-                }}
-                className={`flex-1 py-1.5 px-2.5 rounded-md font-semibold transition-all ${
-                  visao === 'demanda'
-                    ? 'bg-[#5b21b6] text-white shadow-md'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Demanda (Último Reg.)
-              </button>
-              <button
-                onClick={() => {
-                  setVisao('producao');
-                  setCurrentPage(1);
-                }}
-                className={`flex-1 py-1.5 px-2.5 rounded-md font-semibold transition-all ${
-                  visao === 'producao'
-                    ? 'bg-[#5b21b6] text-white shadow-md'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Produção (Data Impr.)
-              </button>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-slate-300">
+                Visão
+              </label>
+              <span className="text-[10px] text-slate-400 font-medium">Passe o mouse p/ detalhes</span>
+            </div>
+            <div className="flex p-1 rounded-lg bg-[#141B2D] border border-white/10 text-xs shadow-inner gap-1">
+              {/* Botão Demanda */}
+              <div className="relative flex-1 group">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVisao('demanda');
+                    setCurrentPage(1);
+                  }}
+                  title="Demanda (Último Registro): Filtra protocolos pela data em que o registro foi concluído. Mostra o volume registrado e o andamento das impressões dessa data."
+                  className={`w-full py-1.5 px-2 rounded-md font-semibold transition-all text-center ${
+                    visao === 'demanda'
+                      ? 'bg-[#5b21b6] text-white shadow-md'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                  }`}
+                >
+                  Demanda (Último Reg.)
+                </button>
+                {/* Tooltip moderno flutuante */}
+                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 rounded-xl bg-[#090d19] border border-purple-500/40 text-slate-200 text-[11px] leading-relaxed shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-200 z-50 transform group-hover:-translate-y-1">
+                  <div className="font-bold text-purple-300 text-xs mb-1 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-purple-400 shadow-sm shadow-purple-400/50"></span>
+                    Visão Demanda (Último Registro)
+                  </div>
+                  Filtra os protocolos pela <strong>data em que foram registrados</strong> no cartório. Permite avaliar a taxa de entrega e quantas pendências de impressão ainda restam dessa data específica.
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#090d19]" />
+                </div>
+              </div>
+
+              {/* Botão Produção */}
+              <div className="relative flex-1 group">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVisao('producao');
+                    setCurrentPage(1);
+                  }}
+                  title="Produção (Data Impressão): Filtra pela data em que a impressão física ou certidão foi efetivamente realizada. Mede a produtividade real dos operadores."
+                  className={`w-full py-1.5 px-2 rounded-md font-semibold transition-all text-center ${
+                    visao === 'producao'
+                      ? 'bg-[#5b21b6] text-white shadow-md'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                  }`}
+                >
+                  Produção (Data Impr.)
+                </button>
+                {/* Tooltip moderno flutuante */}
+                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 rounded-xl bg-[#090d19] border border-cyan-500/40 text-slate-200 text-[11px] leading-relaxed shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-200 z-50 transform group-hover:-translate-y-1">
+                  <div className="font-bold text-cyan-300 text-xs mb-1 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/50"></span>
+                    Visão Produção (Data Impressão)
+                  </div>
+                  Filtra os protocolos pela <strong>data em que a impressão ou preparação foi concluída</strong>. Ideal para auditar o volume e a produtividade real entregue por cada operador (Antonio e David) no dia.
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#090d19]" />
+                </div>
+              </div>
             </div>
           </div>
 
