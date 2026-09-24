@@ -107,12 +107,31 @@ export async function GET(request: NextRequest) {
             OR LOWER(COALESCE(etapa_atual, '')) LIKE '%' || $4 || '%'
           ))
           OR
-          ($4 = '' AND ultimo_registro >= $2::date AND ultimo_registro <= ($3::date + INTERVAL '1 day'))
+          ($4 = '' AND ${
+            visao === 'producao'
+              ? tipoImpressao === 'certidao'
+                ? `(certidao_data >= $2::date AND certidao_data <= ($3::date + INTERVAL '1 day'))`
+                : tipoImpressao === 'livro'
+                  ? `(livro_data >= $2::date AND livro_data <= ($3::date + INTERVAL '1 day'))`
+                  : `(
+                      (livro_data >= $2::date AND livro_data <= ($3::date + INTERVAL '1 day'))
+                      OR
+                      (certidao_data >= $2::date AND certidao_data <= ($3::date + INTERVAL '1 day'))
+                    )`
+              : `(ultimo_registro >= $2::date AND ultimo_registro <= ($3::date + INTERVAL '1 day'))`
+          })
         )
-      ORDER BY ultimo_registro DESC;
+      ${
+        visao === 'producao'
+          ? `ORDER BY COALESCE(certidao_data, livro_data, ultimo_registro) DESC`
+          : `ORDER BY ultimo_registro DESC`
+      };
     `;
 
     const allFilteredRows = await prisma.$queryRawUnsafe<any[]>(baseQuery, tenantId, dataInicioStr, dataFimStr, busca);
+
+    const dtIni = new Date(dataInicioStr + 'T00:00:00');
+    const dtFim = new Date(dataFimStr + 'T23:59:59');
 
     // 2. Filtragem em memória para busca e seletores específicos
     const matchingRows = allFilteredRows.filter((r) => {
@@ -127,16 +146,24 @@ export async function GET(request: NextRequest) {
       if (tipoImpressao === 'certidao') {
         if (status === 'pendente' && r.certidao_status !== 'PENDENTE') return false;
         if (status === 'realizado' && r.certidao_status !== 'REALIZADO') return false;
+        if (visao === 'producao' && status === 'todos') {
+          const certValida = r.certidao_status === 'REALIZADO' && r.certidao_data && new Date(r.certidao_data) >= dtIni && new Date(r.certidao_data) <= dtFim;
+          if (!certValida) return false;
+        }
       } else if (tipoImpressao === 'livro') {
         if (status === 'pendente' && r.livro_status !== 'PENDENTE') return false;
         if (status === 'realizado' && r.livro_status !== 'REALIZADO') return false;
+        if (visao === 'producao' && status === 'todos') {
+          const livroValido = r.livro_status === 'REALIZADO' && r.livro_data && new Date(r.livro_data) >= dtIni && new Date(r.livro_data) <= dtFim;
+          if (!livroValido) return false;
+        }
       } else {
         if (status === 'pendente') {
           const hasPendente = r.certidao_status === 'PENDENTE' || r.livro_status === 'PENDENTE';
           if (!hasPendente) return false;
         } else if (status === 'realizado') {
-          const allRealizado = r.certidao_status === 'REALIZADO' && r.livro_status === 'REALIZADO';
-          if (!allRealizado) return false;
+          const hasRealizado = r.certidao_status === 'REALIZADO' || r.livro_status === 'REALIZADO';
+          if (!hasRealizado) return false;
         }
       }
 
@@ -191,12 +218,30 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // 3. Totais dos 2 Hero Cards (Calculados da base do período)
-    const totalDemanda = allFilteredRows.length;
-    const certidaoProduzidas = allFilteredRows.filter((r) => r.certidao_status === 'REALIZADO').length;
-    const certidaoPendencias = allFilteredRows.filter((r) => r.certidao_status === 'PENDENTE').length;
-    const livroProduzidas = allFilteredRows.filter((r) => r.livro_status === 'REALIZADO').length;
-    const livroPendencias = allFilteredRows.filter((r) => r.livro_status === 'PENDENTE').length;
+    // 3. Totais dos 2 Hero Cards (Calculados de acordo com a visão selecionada)
+    let totalDemanda = allFilteredRows.length;
+    let certidaoProduzidas = 0;
+    let certidaoPendencias = 0;
+    let livroProduzidas = 0;
+    let livroPendencias = 0;
+
+    if (visao === 'producao') {
+      // Na visão produção, conta as impressões realizadas fisicamente no período selecionado
+      livroProduzidas = allFilteredRows.filter(
+        (r) => r.livro_status === 'REALIZADO' && r.livro_data && new Date(r.livro_data) >= dtIni && new Date(r.livro_data) <= dtFim
+      ).length;
+      certidaoProduzidas = allFilteredRows.filter(
+        (r) => r.certidao_status === 'REALIZADO' && r.certidao_data && new Date(r.certidao_data) >= dtIni && new Date(r.certidao_data) <= dtFim
+      ).length;
+      livroPendencias = allFilteredRows.filter((r) => r.livro_status === 'PENDENTE').length;
+      certidaoPendencias = allFilteredRows.filter((r) => r.certidao_status === 'PENDENTE').length;
+    } else {
+      // Na visão demanda, conta com base na data do último registro do período
+      livroProduzidas = allFilteredRows.filter((r) => r.livro_status === 'REALIZADO').length;
+      certidaoProduzidas = allFilteredRows.filter((r) => r.certidao_status === 'REALIZADO').length;
+      livroPendencias = allFilteredRows.filter((r) => r.livro_status === 'PENDENTE').length;
+      certidaoPendencias = allFilteredRows.filter((r) => r.certidao_status === 'PENDENTE').length;
+    }
 
     const certidaoTaxa = totalDemanda > 0 ? Math.round((certidaoProduzidas / totalDemanda) * 100) : 100;
     const livroTaxa = totalDemanda > 0 ? Math.round((livroProduzidas / totalDemanda) * 100) : 100;
@@ -215,8 +260,9 @@ export async function GET(request: NextRequest) {
     }
 
     for (const r of allFilteredRows) {
-      if (r.ultimo_registro) {
-        const d = new Date(r.ultimo_registro);
+      const dataRef = visao === 'producao' ? (r.livro_data || r.certidao_data || r.ultimo_registro) : r.ultimo_registro;
+      if (dataRef) {
+        const d = new Date(dataRef);
         const key = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
         if (diasMap.has(key)) {
           const curr = diasMap.get(key)!;
@@ -288,16 +334,28 @@ export async function GET(request: NextRequest) {
     const operadoresMap = new Map<string, { totalLivro: number; totalCertidao: number }>();
     for (const r of allFilteredRows) {
       if (r.livro_status === 'REALIZADO' && r.livro_responsavel) {
-        const nome = r.livro_responsavel.trim();
-        const curr = operadoresMap.get(nome) || { totalLivro: 0, totalCertidao: 0 };
-        curr.totalLivro++;
-        operadoresMap.set(nome, curr);
+        const livroValido = visao === 'producao'
+          ? (r.livro_data && new Date(r.livro_data) >= dtIni && new Date(r.livro_data) <= dtFim)
+          : true;
+
+        if (livroValido) {
+          const nome = r.livro_responsavel.trim();
+          const curr = operadoresMap.get(nome) || { totalLivro: 0, totalCertidao: 0 };
+          curr.totalLivro++;
+          operadoresMap.set(nome, curr);
+        }
       }
       if (r.certidao_status === 'REALIZADO' && r.certidao_responsavel) {
-        const nome = r.certidao_responsavel.trim();
-        const curr = operadoresMap.get(nome) || { totalLivro: 0, totalCertidao: 0 };
-        curr.totalCertidao++;
-        operadoresMap.set(nome, curr);
+        const certidaoValida = visao === 'producao'
+          ? (r.certidao_data && new Date(r.certidao_data) >= dtIni && new Date(r.certidao_data) <= dtFim)
+          : true;
+
+        if (certidaoValida) {
+          const nome = r.certidao_responsavel.trim();
+          const curr = operadoresMap.get(nome) || { totalLivro: 0, totalCertidao: 0 };
+          curr.totalCertidao++;
+          operadoresMap.set(nome, curr);
+        }
       }
     }
     const operadores = Array.from(operadoresMap.entries())

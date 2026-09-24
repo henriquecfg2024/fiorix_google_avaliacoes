@@ -117,7 +117,21 @@ export function ControleImpressoesClient() {
     setTipoImpressaoFiltro('todos');
     setActiveCardLabel(null);
     setDataPreset('7dias');
+    setCurrentPage(1);
     toast.success('Filtros restaurados para o padrão.');
+  };
+
+  const handleFiltrarClick = () => {
+    setCurrentPage(1);
+    fetchDados();
+    let msg = 'Filtros aplicados';
+    if (tipoImpressaoFiltro === 'certidao') msg = 'Filtrando Certidões de Registro';
+    else if (tipoImpressaoFiltro === 'livro') msg = 'Filtrando Atos no Livro';
+    if (statusFiltro !== 'todos') msg += ` (${statusFiltro === 'realizado' ? 'Realizados' : 'Pendentes'})`;
+    toast.success(msg);
+    setTimeout(() => {
+      tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
   };
 
   // Handler para clique nos cards — filtra a tabela
@@ -141,6 +155,13 @@ export function ControleImpressoesClient() {
     }
   };
 
+  const isLivroProduzidasActive = activeCardLabel === 'Livro – Produzidas' || (tipoImpressaoFiltro !== 'certidao' && statusFiltro === 'realizado');
+  const isLivroPendenciasActive = activeCardLabel === 'Livro – Pendências' || (tipoImpressaoFiltro !== 'certidao' && statusFiltro === 'pendente');
+  const isLivroDemandaActive = activeCardLabel === 'Livro – Demanda total';
+
+  const isCertidaoProduzidasActive = activeCardLabel === 'Certidão – Produzidas' || (tipoImpressaoFiltro !== 'livro' && statusFiltro === 'realizado');
+  const isCertidaoPendenciasActive = activeCardLabel === 'Certidão – Pendências' || (tipoImpressaoFiltro !== 'livro' && statusFiltro === 'pendente');
+  const isCertidaoDemandaActive = activeCardLabel === 'Certidão – Demanda total';
 
   return (
     <div className="space-y-6">
@@ -184,12 +205,17 @@ export function ControleImpressoesClient() {
         </div>
       </div>
 
-      {/* Info Banner discreto */}
+      {/* Info Banner dinâmico com base na Visão */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-2.5 rounded-lg bg-[#0E1526]/80 border border-blue-500/20 text-xs">
         <div className="flex items-center gap-2 text-blue-300">
           <Info className="w-4 h-4 text-blue-400 shrink-0" />
           <span>
-            Base principal do relatório: <strong className="font-semibold text-white">Data do Último Registro</strong>
+            Base principal do relatório:{' '}
+            <strong className="font-semibold text-white">
+              {visao === 'producao'
+                ? 'Data das Impressões Realizadas (Visão Produção)'
+                : 'Data do Último Registro (Visão Demanda)'}
+            </strong>
           </span>
         </div>
         <div className="flex items-center gap-2 text-slate-400 font-mono text-[11px]">
@@ -213,7 +239,7 @@ export function ControleImpressoesClient() {
           {/* Período */}
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              Período do Último Registro
+              {visao === 'producao' ? 'Período da Data de Impressão' : 'Período do Último Registro'}
             </label>
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#141B2D] border border-white/10 text-xs text-white shadow-inner">
               <input
@@ -248,7 +274,10 @@ export function ControleImpressoesClient() {
             </label>
             <div className="flex p-1 rounded-lg bg-[#141B2D] border border-white/10 text-xs shadow-inner">
               <button
-                onClick={() => setVisao('demanda')}
+                onClick={() => {
+                  setVisao('demanda');
+                  setCurrentPage(1);
+                }}
                 className={`flex-1 py-1.5 px-2.5 rounded-md font-semibold transition-all ${
                   visao === 'demanda'
                     ? 'bg-[#5b21b6] text-white shadow-md'
@@ -258,7 +287,10 @@ export function ControleImpressoesClient() {
                 Demanda (Último Reg.)
               </button>
               <button
-                onClick={() => setVisao('producao')}
+                onClick={() => {
+                  setVisao('producao');
+                  setCurrentPage(1);
+                }}
                 className={`flex-1 py-1.5 px-2.5 rounded-md font-semibold transition-all ${
                   visao === 'producao'
                     ? 'bg-[#5b21b6] text-white shadow-md'
@@ -283,7 +315,7 @@ export function ControleImpressoesClient() {
                 onChange={(e) => setBuscaNatureza(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    fetchDados();
+                    handleFiltrarClick();
                   }
                 }}
                 className="w-full px-3.5 py-2 pl-9 rounded-lg bg-[#141B2D] border border-white/10 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors shadow-inner"
@@ -299,7 +331,10 @@ export function ControleImpressoesClient() {
             </label>
             <select
               value={tipoImpressaoFiltro}
-              onChange={(e) => setTipoImpressaoFiltro(e.target.value as any)}
+              onChange={(e) => {
+                setTipoImpressaoFiltro(e.target.value as any);
+                setCurrentPage(1);
+              }}
               className="w-full px-3 py-2 rounded-lg bg-[#141B2D] border border-white/10 text-xs sm:text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer shadow-inner"
             >
               <option value="todos">Todos os tipos</option>
@@ -316,7 +351,10 @@ export function ControleImpressoesClient() {
             <div className="flex gap-2">
               <select
                 value={statusFiltro}
-                onChange={(e) => setStatusFiltro(e.target.value as any)}
+                onChange={(e) => {
+                  setStatusFiltro(e.target.value as any);
+                  setCurrentPage(1);
+                }}
                 className="w-full px-3 py-2 rounded-lg bg-[#141B2D] border border-white/10 text-xs sm:text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer shadow-inner"
               >
                 <option value="todos">Todos</option>
@@ -324,10 +362,7 @@ export function ControleImpressoesClient() {
                 <option value="realizado">Realizado</option>
               </select>
               <button
-                onClick={() => {
-                  fetchDados();
-                  toast.success('Filtros aplicados com sucesso.');
-                }}
+                onClick={handleFiltrarClick}
                 className="px-4 py-2 rounded-lg bg-[#6366f1] hover:bg-[#4f46e5] text-xs font-bold text-white whitespace-nowrap transition-all shadow-md shadow-indigo-500/25 active:scale-95"
               >
                 Filtrar
@@ -375,413 +410,553 @@ export function ControleImpressoesClient() {
         </div>
       </div>
 
+      {/* ────────────────── BARRA DE FILTROS ATIVOS ────────────────── */}
+      {(buscaNatureza || tipoImpressaoFiltro !== 'todos' || statusFiltro !== 'todos') && (
+        <div className="flex items-center gap-2.5 p-3 rounded-xl bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900/60 border border-indigo-500/30 text-xs flex-wrap shadow-inner animate-fadeIn">
+          <span className="text-indigo-300 font-bold flex items-center gap-1.5">
+            <Filter className="w-3.5 h-3.5 text-indigo-400" /> Filtros Ativos:
+          </span>
+          {buscaNatureza && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-200 text-xs font-medium">
+              Termo: <strong className="text-white">"{buscaNatureza}"</strong>
+              <button
+                onClick={() => { setBuscaNatureza(''); setCurrentPage(1); }}
+                className="hover:text-red-300 font-bold ml-1 text-sm leading-none"
+                title="Remover filtro de busca"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {tipoImpressaoFiltro !== 'todos' && (
+            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-medium ${
+              tipoImpressaoFiltro === 'certidao'
+                ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-200'
+                : 'bg-amber-500/20 border-amber-500/40 text-amber-200'
+            }`}>
+              Tipo: <strong className="text-white">{tipoImpressaoFiltro === 'certidao' ? 'Certidão de Registro' : 'Ato no Livro'}</strong>
+              <button
+                onClick={() => { setTipoImpressaoFiltro('todos'); setCurrentPage(1); }}
+                className="hover:text-red-300 font-bold ml-1 text-sm leading-none"
+                title="Remover filtro de tipo"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {statusFiltro !== 'todos' && (
+            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-medium ${
+              statusFiltro === 'realizado'
+                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-200'
+                : 'bg-rose-500/20 border-rose-500/40 text-rose-200'
+            }`}>
+              Status: <strong className="text-white">{statusFiltro === 'realizado' ? 'Realizado' : 'Pendente'}</strong>
+              <button
+                onClick={() => { setStatusFiltro('todos'); setCurrentPage(1); }}
+                className="hover:text-red-300 font-bold ml-1 text-sm leading-none"
+                title="Remover filtro de status"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          <span className="text-slate-400 ml-auto font-mono text-[11px] pr-2">
+            {data.totalRegistros} {data.totalRegistros === 1 ? 'protocolo listado' : 'protocolos listados'}
+          </span>
+          <button
+            onClick={limparFiltros}
+            className="text-[11px] text-indigo-300 hover:text-white font-semibold underline transition-colors"
+          >
+            Limpar todos
+          </button>
+        </div>
+      )}
+
       {/* ────────────────── 2 COLUNAS DE FLUXO (LIVRO E CERTIDÃO) COM SEUS RESPECTIVOS OPERADORES ────────────────── */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+        {/* Banner informativo quando o fluxo de Livro está ocultado */}
+        {tipoImpressaoFiltro === 'certidao' && (
+          <div className="xl:col-span-2 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between text-xs text-amber-200 shadow-sm animate-fadeIn">
+            <div className="flex items-center gap-2.5">
+              <BookOpen className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Fluxo <strong>Impressão Definitiva do Ato no Livro</strong> oculto pelo filtro Tipo de Impressão.</span>
+            </div>
+            <button
+              onClick={() => { setTipoImpressaoFiltro('todos'); setCurrentPage(1); }}
+              className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold transition-all text-xs"
+            >
+              Exibir Ambos os Fluxos
+            </button>
+          </div>
+        )}
+
         {/* COLUNA 1: FLUXO DO LIVRO (ÂMBAR) */}
-        <div className="flex flex-col gap-4">
-          {/* CARD 1: IMPRESSÃO DEFINITIVA DO ATO NO LIVRO (ÂMBAR) */}
-          <div className="rounded-2xl bg-[#171208]/90 border border-amber-500/35 p-6 shadow-xl shadow-amber-950/20 relative overflow-hidden flex flex-col justify-between">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600" />
+        {tipoImpressaoFiltro !== 'certidao' && (
+          <div className={`flex flex-col gap-4 ${tipoImpressaoFiltro === 'livro' ? 'xl:col-span-2' : ''}`}>
+            {/* CARD 1: IMPRESSÃO DEFINITIVA DO ATO NO LIVRO (ÂMBAR) */}
+            <div className="rounded-2xl bg-[#171208]/90 border border-amber-500/35 p-6 shadow-xl shadow-amber-950/20 relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600" />
 
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-300 shadow-inner">
-                  <BookOpen className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-sm sm:text-base font-bold uppercase tracking-wider text-amber-400">
-                    Impressão Definitiva do Ato no Livro
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">Fluxo de impressão física dos atos no livro</p>
-                </div>
-              </div>
-              <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-300 uppercase tracking-wider">
-                Livro
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pb-4">
-              {/* Demanda */}
-              <div
-                onClick={() => handleCardClick('livro', 'todos', 'Livro – Demanda total')}
-                className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
-                  activeCardLabel === 'Livro – Demanda total'
-                    ? 'bg-amber-500/10 border-amber-400/60 ring-1 ring-amber-400/40'
-                    : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-amber-400/30'
-                }`}
-                title="Clique para filtrar por demanda"
-              >
-                <div>
-                  <span className="text-xs font-semibold text-slate-200 block">Demanda</span>
-                  <span className="text-[11px] text-slate-400 block truncate leading-tight">(Último Registro)</span>
-                </div>
-                <div className="mt-3 flex items-baseline gap-1.5">
-                  <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight group-hover:text-amber-200 transition-colors">{data.livroStats.demanda}</span>
-                  <span className="text-xs text-slate-400 font-medium">livros</span>
-                </div>
-              </div>
-
-              {/* Produzidas */}
-              <div
-                onClick={() => handleCardClick('livro', 'realizado', 'Livro – Produzidas')}
-                className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
-                  activeCardLabel === 'Livro – Produzidas'
-                    ? 'bg-emerald-500/10 border-emerald-400/60 ring-1 ring-emerald-400/40'
-                    : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-emerald-400/30'
-                }`}
-                title="Clique para filtrar por produzidas"
-              >
-                <div>
-                  <span className="text-xs font-semibold text-slate-200 block">Produzidas</span>
-                  <span className="text-[11px] text-slate-400 block truncate leading-tight">(Data Impressão)</span>
-                </div>
-                <div className="mt-3 flex items-baseline gap-1.5">
-                  <span className="text-2xl xl:text-3xl font-extrabold text-amber-300 tracking-tight group-hover:text-emerald-300 transition-colors">{data.livroStats.produzidas}</span>
-                  <span className="text-xs text-slate-400 font-medium">livros</span>
-                </div>
-              </div>
-
-              {/* Pendências */}
-              <div
-                onClick={() => handleCardClick('livro', 'pendente', 'Livro – Pendências')}
-                className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
-                  activeCardLabel === 'Livro – Pendências'
-                    ? 'bg-rose-500/15 border-rose-400/60 ring-1 ring-rose-400/40'
-                    : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-rose-400/30'
-                }`}
-                title="Clique para filtrar por pendências"
-              >
-                <div>
-                  <span className="text-xs font-semibold text-slate-200 block">Pendências</span>
-                  <span className="text-[11px] text-rose-400/90 block truncate leading-tight">(Saldo Atual)</span>
-                </div>
-                <div className="mt-3 flex items-baseline gap-1.5">
-                  <span className="text-2xl xl:text-3xl font-extrabold text-rose-400 tracking-tight">{data.livroStats.pendencias}</span>
-                  <span className="text-xs text-slate-400 font-medium">livros</span>
-                </div>
-              </div>
-
-              {/* Saldo Operacional */}
-              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
-                <div>
-                  <span className="text-xs font-semibold text-slate-200 block">Saldo Operac.</span>
-                  <span className="text-[11px] text-slate-400 block truncate leading-tight">(Prod. - Dem.)</span>
-                </div>
-                <div className="mt-3 flex items-baseline gap-1.5">
-                  <span className={`text-2xl xl:text-3xl font-extrabold tracking-tight ${data.livroStats.saldoOperacional >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {data.livroStats.saldoOperacional}
-                  </span>
-                  <span className="text-xs text-slate-400 font-medium">livros</span>
-                </div>
-              </div>
-
-              {/* Taxa de Atendimento */}
-              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
-                <div>
-                  <span className="text-xs font-semibold text-slate-200 block">Taxa Atend.</span>
-                  <span className="text-[11px] text-slate-400 block truncate leading-tight">Eficiência</span>
-                </div>
-                <div className="mt-3">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">{data.livroStats.taxaAtendimento}%</span>
+              <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-300 shadow-inner">
+                    <BookOpen className="w-5 h-5" />
                   </div>
-                  <div className="w-full h-1.5 bg-amber-950/80 rounded-full mt-2 overflow-hidden border border-amber-500/20">
-                    <div
-                      className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, data.livroStats.taxaAtendimento)}%` }}
-                    />
+                  <div>
+                    <h2 className="text-sm sm:text-base font-bold uppercase tracking-wider text-amber-400">
+                      Impressão Definitiva do Ato no Livro
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-0.5">Fluxo de impressão física dos atos no livro</p>
                   </div>
                 </div>
-              </div>
-
-              {/* Tempo Médio */}
-              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
-                <div>
-                  <span className="text-xs font-semibold text-slate-200 block">Tempo Médio</span>
-                  <span className="text-[11px] text-slate-400 block truncate leading-tight">para Impressão</span>
-                </div>
-                <div className="mt-3 flex items-baseline gap-1.5">
-                  <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">0,8</span>
-                  <span className="text-xs text-slate-400 font-medium">dia</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-3.5 border-t border-white/10 text-xs text-slate-300 flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400">Backlog início do período:</span>
-                <span className="px-2.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-300 font-bold font-mono text-xs">
-                  {data.livroStats.backlogInicio} livros
+                <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-300 uppercase tracking-wider">
+                  Livro
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400">Backlog final do período:</span>
-                <span className="px-2.5 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-300 font-bold font-mono text-xs">
-                  {data.livroStats.backlogFinal} livros
-                </span>
-              </div>
-            </div>
-          </div>
 
-          {/* CARD DE PRODUÇÃO DO OPERADOR DO LIVRO (ANTONIO) */}
-          <div className="rounded-2xl bg-[#171208]/90 border border-amber-500/30 p-5 shadow-lg relative overflow-hidden">
-            <div className="flex items-center justify-between mb-3.5">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
-                  <User className="w-4 h-4 text-amber-400" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-amber-300">Produção por Operador · Livro</h3>
-                  <p className="text-[11px] text-slate-400">Atos impressos fisicamente no Livro no período</p>
-                </div>
-              </div>
-              <span className="text-[11px] font-semibold text-amber-400/90 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/25">
-                {operadoresLivro.length} {operadoresLivro.length === 1 ? 'operador' : 'operadores'}
-              </span>
-            </div>
-
-            {operadoresLivro.length > 0 ? (
-              <div className="space-y-2.5">
-                {operadoresLivro.map((op) => {
-                  const maxLivro = operadoresLivro[0]?.totalLivro || 1;
-                  const pct = Math.round((op.totalLivro / maxLivro) * 100);
-                  return (
-                    <div key={op.nome} className="rounded-xl bg-white/[0.03] border border-amber-500/15 p-3.5 flex flex-col gap-2.5 hover:bg-white/[0.05] transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-7 h-7 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
-                            <User className="w-3.5 h-3.5 text-amber-300" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold text-white truncate">{op.nome}</p>
-                            <p className="text-[10px] text-slate-400">Operador de Impressão</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-xl font-black font-mono text-amber-300">{op.totalLivro}</span>
-                          <span className="text-[10px] text-slate-400 block -mt-1 font-medium">atos impressos</span>
-                        </div>
-                      </div>
-                      <div className="w-full h-1.5 bg-amber-950/60 rounded-full overflow-hidden border border-amber-500/20">
-                        <div
-                          className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 rounded-full transition-all duration-500"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pb-4">
+                {/* Demanda */}
+                <div
+                  onClick={() => handleCardClick('livro', 'todos', 'Livro – Demanda total')}
+                  className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
+                    isLivroDemandaActive
+                      ? 'bg-amber-500/15 border-amber-400/80 ring-2 ring-amber-400/50 shadow-md shadow-amber-500/20'
+                      : statusFiltro !== 'todos'
+                        ? 'bg-white/[0.02] border-white/5 opacity-60 hover:opacity-100'
+                        : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-amber-400/30'
+                  }`}
+                  title="Clique para filtrar por demanda"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-semibold text-slate-200 block">Demanda</span>
+                      <span className="text-[11px] text-slate-400 block truncate leading-tight">(Último Registro)</span>
                     </div>
-                  );
-                })}
+                    {isLivroDemandaActive && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold uppercase">Ativo</span>
+                    )}
+                  </div>
+                  <div className="mt-3 flex items-baseline gap-1.5">
+                    <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight group-hover:text-amber-200 transition-colors">{data.livroStats.demanda}</span>
+                    <span className="text-xs text-slate-400 font-medium">livros</span>
+                  </div>
+                </div>
+
+                {/* Produzidas */}
+                <div
+                  onClick={() => handleCardClick('livro', 'realizado', 'Livro – Produzidas')}
+                  className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
+                    isLivroProduzidasActive
+                      ? 'bg-emerald-500/15 border-emerald-400/80 ring-2 ring-emerald-400/50 shadow-md shadow-emerald-500/20'
+                      : statusFiltro === 'pendente'
+                        ? 'bg-white/[0.02] border-white/5 opacity-60 hover:opacity-100'
+                        : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-emerald-400/30'
+                  }`}
+                  title="Clique para filtrar por produzidas"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-semibold text-slate-200 block">Produzidas</span>
+                      <span className="text-[11px] text-slate-400 block truncate leading-tight">(Data Impressão)</span>
+                    </div>
+                    {isLivroProduzidasActive && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold uppercase">Ativo</span>
+                    )}
+                  </div>
+                  <div className="mt-3 flex items-baseline gap-1.5">
+                    <span className="text-2xl xl:text-3xl font-extrabold text-amber-300 tracking-tight group-hover:text-emerald-300 transition-colors">{data.livroStats.produzidas}</span>
+                    <span className="text-xs text-slate-400 font-medium">livros</span>
+                  </div>
+                </div>
+
+                {/* Pendências */}
+                <div
+                  onClick={() => handleCardClick('livro', 'pendente', 'Livro – Pendências')}
+                  className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
+                    isLivroPendenciasActive
+                      ? 'bg-rose-500/20 border-rose-400/80 ring-2 ring-rose-400/50 shadow-md shadow-rose-500/20'
+                      : statusFiltro === 'realizado'
+                        ? 'bg-white/[0.02] border-white/5 opacity-60 hover:opacity-100'
+                        : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-rose-400/30'
+                  }`}
+                  title="Clique para filtrar por pendências"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-semibold text-slate-200 block">Pendências</span>
+                      <span className="text-[11px] text-rose-400/90 block truncate leading-tight">(Saldo Atual)</span>
+                    </div>
+                    {isLivroPendenciasActive && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold uppercase">Ativo</span>
+                    )}
+                  </div>
+                  <div className="mt-3 flex items-baseline gap-1.5">
+                    <span className="text-2xl xl:text-3xl font-extrabold text-rose-400 tracking-tight">{data.livroStats.pendencias}</span>
+                    <span className="text-xs text-slate-400 font-medium">livros</span>
+                  </div>
+                </div>
+
+                {/* Saldo Operacional */}
+                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+                  <div>
+                    <span className="text-xs font-semibold text-slate-200 block">Saldo Operac.</span>
+                    <span className="text-[11px] text-slate-400 block truncate leading-tight">(Prod. - Dem.)</span>
+                  </div>
+                  <div className="mt-3 flex items-baseline gap-1.5">
+                    <span className={`text-2xl xl:text-3xl font-extrabold tracking-tight ${data.livroStats.saldoOperacional >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {data.livroStats.saldoOperacional}
+                    </span>
+                    <span className="text-xs text-slate-400 font-medium">livros</span>
+                  </div>
+                </div>
+
+                {/* Taxa de Atendimento */}
+                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+                  <div>
+                    <span className="text-xs font-semibold text-slate-200 block">Taxa Atend.</span>
+                    <span className="text-[11px] text-slate-400 block truncate leading-tight">Eficiência</span>
+                  </div>
+                  <div className="mt-3">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">{data.livroStats.taxaAtendimento}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-amber-950/80 rounded-full mt-2 overflow-hidden border border-amber-500/20">
+                      <div
+                        className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, data.livroStats.taxaAtendimento)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tempo Médio */}
+                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+                  <div>
+                    <span className="text-xs font-semibold text-slate-200 block">Tempo Médio</span>
+                    <span className="text-[11px] text-slate-400 block truncate leading-tight">para Impressão</span>
+                  </div>
+                  <div className="mt-3 flex items-baseline gap-1.5">
+                    <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">0,8</span>
+                    <span className="text-xs text-slate-400 font-medium">dia</span>
+                  </div>
+                </div>
               </div>
-            ) : (
-              <div className="text-center py-4 text-xs text-slate-400">
-                Nenhum ato impresso no livro no período selecionado.
+
+              <div className="pt-3.5 border-t border-white/10 text-xs text-slate-300 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400">Backlog início do período:</span>
+                  <span className="px-2.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-300 font-bold font-mono text-xs">
+                    {data.livroStats.backlogInicio} livros
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400">Backlog final do período:</span>
+                  <span className="px-2.5 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-300 font-bold font-mono text-xs">
+                    {data.livroStats.backlogFinal} livros
+                  </span>
+                </div>
               </div>
-            )}
+            </div>
+
+            {/* CARD DE PRODUÇÃO DO OPERADOR DO LIVRO (ANTONIO) */}
+            <div className="rounded-2xl bg-[#140e06]/90 border border-amber-500/30 p-5 shadow-lg relative overflow-hidden">
+              <div className="flex items-center justify-between mb-3.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+                    <User className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-amber-300">Produção por Operador · Livro</h3>
+                    <p className="text-[11px] text-slate-400">Atos impressos fisicamente no Livro no período</p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-semibold text-amber-400/90 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/25">
+                  {operadoresLivro.length} {operadoresLivro.length === 1 ? 'operador' : 'operadores'}
+                </span>
+              </div>
+
+              {operadoresLivro.length > 0 ? (
+                <div className="space-y-2.5">
+                  {operadoresLivro.map((op) => {
+                    const maxLivro = operadoresLivro[0]?.totalLivro || 1;
+                    const pct = Math.round((op.totalLivro / maxLivro) * 100);
+                    return (
+                      <div key={op.nome} className="rounded-xl bg-white/[0.03] border border-amber-500/15 p-3.5 flex flex-col gap-2.5 hover:bg-white/[0.05] transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-7 h-7 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
+                              <User className="w-3.5 h-3.5 text-amber-300" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-white truncate">{op.nome}</p>
+                              <p className="text-[10px] text-slate-400">Operador de Impressão</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xl font-black font-mono text-amber-300">{op.totalLivro}</span>
+                            <span className="text-[10px] text-slate-400 block -mt-1 font-medium">atos impressos</span>
+                          </div>
+                        </div>
+                        <div className="w-full h-1.5 bg-amber-950/60 rounded-full overflow-hidden border border-amber-500/20">
+                          <div
+                            className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-xs text-slate-400">
+                  Nenhum ato impresso no livro no período selecionado.
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Banner informativo quando o fluxo de Certidão está ocultado */}
+        {tipoImpressaoFiltro === 'livro' && (
+          <div className="xl:col-span-2 p-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-between text-xs text-cyan-200 shadow-sm animate-fadeIn">
+            <div className="flex items-center gap-2.5">
+              <Printer className="w-4 h-4 text-cyan-400 shrink-0" />
+              <span>Fluxo <strong>Impressão de Certidão de Registro</strong> oculto pelo filtro Tipo de Impressão.</span>
+            </div>
+            <button
+              onClick={() => { setTipoImpressaoFiltro('todos'); setCurrentPage(1); }}
+              className="px-3 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 font-bold transition-all text-xs"
+            >
+              Exibir Ambos os Fluxos
+            </button>
+          </div>
+        )}
 
         {/* COLUNA 2: FLUXO DA CERTIDÃO (CIANO) */}
-        <div className="flex flex-col gap-4">
-          {/* CARD 2: IMPRESSÃO DE CERTIDÃO DE REGISTRO (CIANO) */}
-          <div className="rounded-2xl bg-[#0c1427]/90 border border-cyan-500/35 p-6 shadow-xl shadow-cyan-950/20 relative overflow-hidden flex flex-col justify-between">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 via-teal-400 to-cyan-600" />
-            
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-300 shadow-inner">
-                  <Printer className="w-5 h-5" />
-                </div>
-                <div>
-                  <h2 className="text-sm sm:text-base font-bold uppercase tracking-wider text-cyan-400">
-                    Impressão de Certidão de Registro
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">Fluxo de emissão e controle das certidões</p>
-                </div>
-              </div>
-              <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 uppercase tracking-wider">
-                Certidão
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pb-4">
-              {/* Demanda Certidão */}
-              <div
-                onClick={() => handleCardClick('certidao', 'todos', 'Certidão – Demanda total')}
-                className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
-                  activeCardLabel === 'Certidão – Demanda total'
-                    ? 'bg-cyan-500/10 border-cyan-400/60 ring-1 ring-cyan-400/40'
-                    : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-cyan-400/30'
-                }`}
-                title="Clique para filtrar por demanda"
-              >
-                <div>
-                  <span className="text-xs font-semibold text-slate-200 block">Demanda</span>
-                  <span className="text-[11px] text-slate-400 block truncate leading-tight">(Último Registro)</span>
-                </div>
-                <div className="mt-3 flex items-baseline gap-1.5">
-                  <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight group-hover:text-cyan-200 transition-colors">{data.certidaoStats.demanda}</span>
-                  <span className="text-xs text-slate-400 font-medium">livros</span>
-                </div>
-              </div>
-
-              {/* Produzidas Certidão */}
-              <div
-                onClick={() => handleCardClick('certidao', 'realizado', 'Certidão – Produzidas')}
-                className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
-                  activeCardLabel === 'Certidão – Produzidas'
-                    ? 'bg-emerald-500/10 border-emerald-400/60 ring-1 ring-emerald-400/40'
-                    : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-emerald-400/30'
-                }`}
-                title="Clique para filtrar por produzidas"
-              >
-                <div>
-                  <span className="text-xs font-semibold text-slate-200 block">Produzidas</span>
-                  <span className="text-[11px] text-slate-400 block truncate leading-tight">(Data Impressão)</span>
-                </div>
-                <div className="mt-3 flex items-baseline gap-1.5">
-                  <span className="text-2xl xl:text-3xl font-extrabold text-cyan-300 tracking-tight group-hover:text-emerald-300 transition-colors">{data.certidaoStats.produzidas}</span>
-                  <span className="text-xs text-slate-400 font-medium">livros</span>
-                </div>
-              </div>
-
-              {/* Pendências Certidão */}
-              <div
-                onClick={() => handleCardClick('certidao', 'pendente', 'Certidão – Pendências')}
-                className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
-                  activeCardLabel === 'Certidão – Pendências'
-                    ? 'bg-rose-500/15 border-rose-400/60 ring-1 ring-rose-400/40'
-                    : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-rose-400/30'
-                }`}
-                title="Clique para filtrar por pendências"
-              >
-                <div>
-                  <span className="text-xs font-semibold text-slate-200 block">Pendências</span>
-                  <span className="text-[11px] text-rose-400/90 block truncate leading-tight">(Saldo Atual)</span>
-                </div>
-                <div className="mt-3 flex items-baseline gap-1.5">
-                  <span className="text-2xl xl:text-3xl font-extrabold text-rose-400 tracking-tight">{data.certidaoStats.pendencias}</span>
-                  <span className="text-xs text-slate-400 font-medium">livros</span>
-                </div>
-              </div>
-
-              {/* Saldo Operacional */}
-              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
-                <div>
-                  <span className="text-xs font-semibold text-slate-200 block">Saldo Operac.</span>
-                  <span className="text-[11px] text-slate-400 block truncate leading-tight">(Prod. - Dem.)</span>
-                </div>
-                <div className="mt-3 flex items-baseline gap-1.5">
-                  <span className={`text-2xl xl:text-3xl font-extrabold tracking-tight ${data.certidaoStats.saldoOperacional >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {data.certidaoStats.saldoOperacional}
-                  </span>
-                  <span className="text-xs text-slate-400 font-medium">livros</span>
-                </div>
-              </div>
-
-              {/* Taxa de Atendimento */}
-              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
-                <div>
-                  <span className="text-xs font-semibold text-slate-200 block">Taxa Atend.</span>
-                  <span className="text-[11px] text-slate-400 block truncate leading-tight">Eficiência</span>
-                </div>
-                <div className="mt-3">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">{data.certidaoStats.taxaAtendimento}%</span>
+        {tipoImpressaoFiltro !== 'livro' && (
+          <div className={`flex flex-col gap-4 ${tipoImpressaoFiltro === 'certidao' ? 'xl:col-span-2' : ''}`}>
+            {/* CARD 2: IMPRESSÃO DE CERTIDÃO DE REGISTRO (CIANO) */}
+            <div className="rounded-2xl bg-[#0c1427]/90 border border-cyan-500/35 p-6 shadow-xl shadow-cyan-950/20 relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 via-teal-400 to-cyan-600" />
+              
+              <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-300 shadow-inner">
+                    <Printer className="w-5 h-5" />
                   </div>
-                  <div className="w-full h-1.5 bg-cyan-950/80 rounded-full mt-2 overflow-hidden border border-cyan-500/20">
-                    <div
-                      className="h-full bg-gradient-to-r from-cyan-500 to-teal-400 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, data.certidaoStats.taxaAtendimento)}%` }}
-                    />
+                  <div>
+                    <h2 className="text-sm sm:text-base font-bold uppercase tracking-wider text-cyan-400">
+                      Impressão de Certidão de Registro
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-0.5">Fluxo de emissão e controle das certidões</p>
                   </div>
                 </div>
-              </div>
-
-              {/* Tempo Médio */}
-              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
-                <div>
-                  <span className="text-xs font-semibold text-slate-200 block">Tempo Médio</span>
-                  <span className="text-[11px] text-slate-400 block truncate leading-tight">para Impressão</span>
-                </div>
-                <div className="mt-3 flex items-baseline gap-1.5">
-                  <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">1,3</span>
-                  <span className="text-xs text-slate-400 font-medium">dias</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-3.5 border-t border-white/10 text-xs text-slate-300 flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400">Backlog início do período:</span>
-                <span className="px-2.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-300 font-bold font-mono text-xs">
-                  {data.certidaoStats.backlogInicio} livros
+                <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 uppercase tracking-wider">
+                  Certidão
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400">Backlog final do período:</span>
-                <span className="px-2.5 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-300 font-bold font-mono text-xs">
-                  {data.certidaoStats.backlogFinal} livros
-                </span>
-              </div>
-            </div>
-          </div>
 
-          {/* CARD DE PRODUÇÃO DO OPERADOR DA CERTIDÃO (DAVID) */}
-          <div className="rounded-2xl bg-[#0c1427]/90 border border-cyan-500/30 p-5 shadow-lg relative overflow-hidden">
-            <div className="flex items-center justify-between mb-3.5">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center">
-                  <User className="w-4 h-4 text-cyan-400" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-300">Produção por Operador · Certidão</h3>
-                  <p className="text-[11px] text-slate-400">Certidões de Registro emitidas/preparadas no período</p>
-                </div>
-              </div>
-              <span className="text-[11px] font-semibold text-cyan-400/90 bg-cyan-500/10 px-2.5 py-0.5 rounded-full border border-cyan-500/25">
-                {operadoresCertidao.length} {operadoresCertidao.length === 1 ? 'operador' : 'operadores'}
-              </span>
-            </div>
-
-            {operadoresCertidao.length > 0 ? (
-              <div className="space-y-2.5">
-                {operadoresCertidao.map((op) => {
-                  const maxCertidao = operadoresCertidao[0]?.totalCertidao || 1;
-                  const pct = Math.round((op.totalCertidao / maxCertidao) * 100);
-                  return (
-                    <div key={op.nome} className="rounded-xl bg-white/[0.03] border border-cyan-500/15 p-3.5 flex flex-col gap-2.5 hover:bg-white/[0.05] transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-7 h-7 rounded-full bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center shrink-0">
-                            <User className="w-3.5 h-3.5 text-cyan-300" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold text-white truncate">{op.nome}</p>
-                            <p className="text-[10px] text-slate-400">Operador de Certidões</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-xl font-black font-mono text-cyan-300">{op.totalCertidao}</span>
-                          <span className="text-[10px] text-slate-400 block -mt-1 font-medium">certidões emitidas</span>
-                        </div>
-                      </div>
-                      <div className="w-full h-1.5 bg-cyan-950/60 rounded-full overflow-hidden border border-cyan-500/20">
-                        <div
-                          className="h-full bg-gradient-to-r from-cyan-500 via-teal-400 to-cyan-600 rounded-full transition-all duration-500"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pb-4">
+                {/* Demanda Certidão */}
+                <div
+                  onClick={() => handleCardClick('certidao', 'todos', 'Certidão – Demanda total')}
+                  className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
+                    isCertidaoDemandaActive
+                      ? 'bg-cyan-500/15 border-cyan-400/80 ring-2 ring-cyan-400/50 shadow-md shadow-cyan-500/20'
+                      : statusFiltro !== 'todos'
+                        ? 'bg-white/[0.02] border-white/5 opacity-60 hover:opacity-100'
+                        : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-cyan-400/30'
+                  }`}
+                  title="Clique para filtrar por demanda"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-semibold text-slate-200 block">Demanda</span>
+                      <span className="text-[11px] text-slate-400 block truncate leading-tight">(Último Registro)</span>
                     </div>
-                  );
-                })}
+                    {isCertidaoDemandaActive && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold uppercase">Ativo</span>
+                    )}
+                  </div>
+                  <div className="mt-3 flex items-baseline gap-1.5">
+                    <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight group-hover:text-cyan-200 transition-colors">{data.certidaoStats.demanda}</span>
+                    <span className="text-xs text-slate-400 font-medium">livros</span>
+                  </div>
+                </div>
+
+                {/* Produzidas Certidão */}
+                <div
+                  onClick={() => handleCardClick('certidao', 'realizado', 'Certidão – Produzidas')}
+                  className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
+                    isCertidaoProduzidasActive
+                      ? 'bg-emerald-500/15 border-emerald-400/80 ring-2 ring-emerald-400/50 shadow-md shadow-emerald-500/20'
+                      : statusFiltro === 'pendente'
+                        ? 'bg-white/[0.02] border-white/5 opacity-60 hover:opacity-100'
+                        : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-emerald-400/30'
+                  }`}
+                  title="Clique para filtrar por produzidas"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-semibold text-slate-200 block">Produzidas</span>
+                      <span className="text-[11px] text-slate-400 block truncate leading-tight">(Data Impressão)</span>
+                    </div>
+                    {isCertidaoProduzidasActive && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold uppercase">Ativo</span>
+                    )}
+                  </div>
+                  <div className="mt-3 flex items-baseline gap-1.5">
+                    <span className="text-2xl xl:text-3xl font-extrabold text-cyan-300 tracking-tight group-hover:text-emerald-300 transition-colors">{data.certidaoStats.produzidas}</span>
+                    <span className="text-xs text-slate-400 font-medium">livros</span>
+                  </div>
+                </div>
+
+                {/* Pendências Certidão */}
+                <div
+                  onClick={() => handleCardClick('certidao', 'pendente', 'Certidão – Pendências')}
+                  className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
+                    isCertidaoPendenciasActive
+                      ? 'bg-rose-500/20 border-rose-400/80 ring-2 ring-rose-400/50 shadow-md shadow-rose-500/20'
+                      : statusFiltro === 'realizado'
+                        ? 'bg-white/[0.02] border-white/5 opacity-60 hover:opacity-100'
+                        : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-rose-400/30'
+                  }`}
+                  title="Clique para filtrar por pendências"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-semibold text-slate-200 block">Pendências</span>
+                      <span className="text-[11px] text-rose-400/90 block truncate leading-tight">(Saldo Atual)</span>
+                    </div>
+                    {isCertidaoPendenciasActive && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold uppercase">Ativo</span>
+                    )}
+                  </div>
+                  <div className="mt-3 flex items-baseline gap-1.5">
+                    <span className="text-2xl xl:text-3xl font-extrabold text-rose-400 tracking-tight">{data.certidaoStats.pendencias}</span>
+                    <span className="text-xs text-slate-400 font-medium">livros</span>
+                  </div>
+                </div>
+
+                {/* Saldo Operacional */}
+                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+                  <div>
+                    <span className="text-xs font-semibold text-slate-200 block">Saldo Operac.</span>
+                    <span className="text-[11px] text-slate-400 block truncate leading-tight">(Prod. - Dem.)</span>
+                  </div>
+                  <div className="mt-3 flex items-baseline gap-1.5">
+                    <span className={`text-2xl xl:text-3xl font-extrabold tracking-tight ${data.certidaoStats.saldoOperacional >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {data.certidaoStats.saldoOperacional}
+                    </span>
+                    <span className="text-xs text-slate-400 font-medium">livros</span>
+                  </div>
+                </div>
+
+                {/* Taxa de Atendimento */}
+                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+                  <div>
+                    <span className="text-xs font-semibold text-slate-200 block">Taxa Atend.</span>
+                    <span className="text-[11px] text-slate-400 block truncate leading-tight">Eficiência</span>
+                  </div>
+                  <div className="mt-3">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">{data.certidaoStats.taxaAtendimento}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-cyan-950/80 rounded-full mt-2 overflow-hidden border border-cyan-500/20">
+                      <div
+                        className="h-full bg-gradient-to-r from-cyan-500 to-teal-400 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, data.certidaoStats.taxaAtendimento)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tempo Médio */}
+                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+                  <div>
+                    <span className="text-xs font-semibold text-slate-200 block">Tempo Médio</span>
+                    <span className="text-[11px] text-slate-400 block truncate leading-tight">para Impressão</span>
+                  </div>
+                  <div className="mt-3 flex items-baseline gap-1.5">
+                    <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">1,3</span>
+                    <span className="text-xs text-slate-400 font-medium">dias</span>
+                  </div>
+                </div>
               </div>
-            ) : (
-              <div className="text-center py-4 text-xs text-slate-400">
-                Nenhuma certidão emitida no período selecionado.
+
+              <div className="pt-3.5 border-t border-white/10 text-xs text-slate-300 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400">Backlog início do período:</span>
+                  <span className="px-2.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-300 font-bold font-mono text-xs">
+                    {data.certidaoStats.backlogInicio} livros
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400">Backlog final do período:</span>
+                  <span className="px-2.5 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-300 font-bold font-mono text-xs">
+                    {data.certidaoStats.backlogFinal} livros
+                  </span>
+                </div>
               </div>
-            )}
+            </div>
+
+            {/* CARD DE PRODUÇÃO DO OPERADOR DA CERTIDÃO (DAVID) */}
+            <div className="rounded-2xl bg-[#0c1427]/90 border border-cyan-500/30 p-5 shadow-lg relative overflow-hidden">
+              <div className="flex items-center justify-between mb-3.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center">
+                    <User className="w-4 h-4 text-cyan-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-300">Produção por Operador · Certidão</h3>
+                    <p className="text-[11px] text-slate-400">Certidões de Registro emitidas/preparadas no período</p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-semibold text-cyan-400/90 bg-cyan-500/10 px-2.5 py-0.5 rounded-full border border-cyan-500/25">
+                  {operadoresCertidao.length} {operadoresCertidao.length === 1 ? 'operador' : 'operadores'}
+                </span>
+              </div>
+
+              {operadoresCertidao.length > 0 ? (
+                <div className="space-y-2.5">
+                  {operadoresCertidao.map((op) => {
+                    const maxCertidao = operadoresCertidao[0]?.totalCertidao || 1;
+                    const pct = Math.round((op.totalCertidao / maxCertidao) * 100);
+                    return (
+                      <div key={op.nome} className="rounded-xl bg-white/[0.03] border border-cyan-500/15 p-3.5 flex flex-col gap-2.5 hover:bg-white/[0.05] transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-7 h-7 rounded-full bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center shrink-0">
+                              <User className="w-3.5 h-3.5 text-cyan-300" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-white truncate">{op.nome}</p>
+                              <p className="text-[10px] text-slate-400">Operador de Certidões</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xl font-black font-mono text-cyan-300">{op.totalCertidao}</span>
+                            <span className="text-[10px] text-slate-400 block -mt-1 font-medium">certidões emitidas</span>
+                          </div>
+                        </div>
+                        <div className="w-full h-1.5 bg-cyan-950/60 rounded-full overflow-hidden border border-cyan-500/20">
+                          <div
+                            className="h-full bg-gradient-to-r from-cyan-500 via-teal-400 to-cyan-600 rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-xs text-slate-400">
+                  Nenhuma certidão emitida no período selecionado.
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* ────────────────── TABELA DE SITUAÇÃO DAS IMPRESSÕES ────────────────── */}
@@ -791,7 +966,9 @@ export function ControleImpressoesClient() {
             <h3 className="text-sm sm:text-base font-bold uppercase tracking-wider text-slate-100">
               Pendências e Situação das Impressões
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">(base: Data do Último Registro)</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              (base: {visao === 'producao' ? 'Data das Impressões Realizadas' : 'Data do Último Registro'})
+            </p>
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
@@ -832,8 +1009,12 @@ export function ControleImpressoesClient() {
                 <th className="py-3 px-3.5 whitespace-nowrap w-[8%]">Data Entrada</th>
                 <th className="py-3 px-3.5 whitespace-nowrap w-[13%]">Etapa Atual</th>
                 <th className="py-3 px-3.5 whitespace-nowrap w-[11%]">Último Registro</th>
-                <th className="py-3 px-3.5 whitespace-nowrap w-[10%]">Certidão Registro</th>
-                <th className="py-3 px-3.5 whitespace-nowrap w-[11%]">Impressão no Livro</th>
+                <th className={`py-3 px-3.5 whitespace-nowrap w-[10%] transition-colors ${tipoImpressaoFiltro === 'certidao' ? 'bg-cyan-500/15 text-cyan-200 border-b-2 border-cyan-400 font-bold' : ''}`}>
+                  Certidão Registro {tipoImpressaoFiltro === 'certidao' ? '★' : ''}
+                </th>
+                <th className={`py-3 px-3.5 whitespace-nowrap w-[11%] transition-colors ${tipoImpressaoFiltro === 'livro' ? 'bg-amber-500/15 text-amber-200 border-b-2 border-amber-400 font-bold' : ''}`}>
+                  Impressão no Livro {tipoImpressaoFiltro === 'livro' ? '★' : ''}
+                </th>
                 <th className="py-3 px-3.5 whitespace-nowrap w-[10%]">
                   <span className="flex items-center gap-1"><User className="w-3 h-3" /> Impresso por</span>
                 </th>
@@ -843,7 +1024,7 @@ export function ControleImpressoesClient() {
             <tbody className="divide-y divide-white/5 text-xs sm:text-[13px]">
               {paginatedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400 text-sm font-medium">
+                  <td colSpan={10} className="py-12 text-center text-slate-400 text-sm font-medium">
                     Nenhum registro encontrado para os filtros selecionados.
                   </td>
                 </tr>
@@ -886,7 +1067,7 @@ export function ControleImpressoesClient() {
                     </td>
 
                     {/* Certidão Registro Status */}
-                    <td className="py-3.5 px-3.5 whitespace-nowrap">
+                    <td className={`py-3.5 px-3.5 whitespace-nowrap ${tipoImpressaoFiltro === 'certidao' ? 'bg-cyan-500/[0.06]' : ''}`}>
                       {row.certidaoStatus === 'REALIZADO' && (
                         <div className="flex items-start gap-2">
                           <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
@@ -913,7 +1094,7 @@ export function ControleImpressoesClient() {
                     </td>
 
                     {/* Impressão no Livro Status */}
-                    <td className="py-3.5 px-3.5 whitespace-nowrap">
+                    <td className={`py-3.5 px-3.5 whitespace-nowrap ${tipoImpressaoFiltro === 'livro' ? 'bg-amber-500/[0.06]' : ''}`}>
                       {row.livroStatus === 'REALIZADO' && (
                         <div className="flex items-start gap-2">
                           <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
