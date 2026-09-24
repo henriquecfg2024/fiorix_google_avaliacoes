@@ -24,15 +24,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Valida se o comunicado existe e o usuário tem acesso
-    let comunicado = await PessoasRepository.getComunicadoById(tenantId, comunicadoId, usuarioId);
+    // Valida se o comunicado existe e o usuário tem acesso (sem fallback — previne forja de comprovantes)
+    const comunicado = await PessoasRepository.getComunicadoById(tenantId, comunicadoId, usuarioId);
     if (!comunicado) {
-      // Fallback para garantir emissão da ciência com integridade
-      comunicado = {
-        id: comunicadoId,
-        titulo: "Comunicado Institucional",
-        conteudoHash: comunicadoHash,
-      } as any;
+      return NextResponse.json(
+        { error: "Comunicado não encontrado ou sem permissão de acesso." },
+        { status: 404 }
+      );
     }
 
     // Gera o comprovante hash server-side

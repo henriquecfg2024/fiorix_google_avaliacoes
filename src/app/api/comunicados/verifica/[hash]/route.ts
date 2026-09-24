@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
@@ -16,8 +17,8 @@ export async function GET(
     const ciencia = await prisma.fiorixComunicadoCiencia.findUnique({
       where: { comprovanteHash: hash },
       include: {
-        usuario: { select: { name: true, email: true } },
-        comunicado: { select: { titulo: true, versao: true } },
+        usuario: { select: { name: true, email: true, tenantId: true } },
+        comunicado: { select: { titulo: true, versao: true, tenantId: true } },
       },
     });
 
@@ -28,6 +29,19 @@ export async function GET(
       );
     }
 
+    // Sem sessão: confirma apenas validade — sem expor dados pessoais (LGPD)
+    const session = await auth();
+    const isAuthenticated = !!session?.user?.tenantId;
+    const isSameTenant = isAuthenticated && session!.user!.tenantId === ciencia.comunicado.tenantId;
+
+    if (!isSameTenant) {
+      return NextResponse.json({
+        valido: true,
+        message: "Comprovante de ciência válido e registrado.",
+      });
+    }
+
+    // Sessão autenticada + mesmo tenant: retorna dados completos
     return NextResponse.json({
       valido: true,
       dados: {
