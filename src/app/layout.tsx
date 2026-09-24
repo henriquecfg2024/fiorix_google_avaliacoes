@@ -38,7 +38,9 @@ export default function RootLayout({
         >
           <TooltipProvider>
             {children}
-            <Toaster position="bottom-right" richColors />
+            <div className="print:hidden">
+              <Toaster position="bottom-right" richColors />
+            </div>
           </TooltipProvider>
         </ThemeProvider>
       </body>

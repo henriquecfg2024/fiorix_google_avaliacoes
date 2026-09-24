@@ -215,13 +215,13 @@ export function ControleImpressoesClient() {
   const renderSortIcon = (column: SortColumnKey) => {
     if (sortBy === column) {
       return sortOrder === 'asc' ? (
-        <ArrowUp className="w-3.5 h-3.5 text-purple-400 shrink-0 inline ml-1" />
+        <ArrowUp className="w-3.5 h-3.5 text-purple-400 shrink-0 inline ml-1 print:hidden" />
       ) : (
-        <ArrowDown className="w-3.5 h-3.5 text-purple-400 shrink-0 inline ml-1" />
+        <ArrowDown className="w-3.5 h-3.5 text-purple-400 shrink-0 inline ml-1 print:hidden" />
       );
     }
     return (
-      <ArrowUpDown className="w-3 h-3 text-slate-500/50 group-hover:text-slate-300 shrink-0 inline ml-1 opacity-0 group-hover:opacity-100 transition-all" />
+      <ArrowUpDown className="w-3 h-3 text-slate-500/50 group-hover:text-slate-300 shrink-0 inline ml-1 opacity-0 group-hover:opacity-100 transition-all print:hidden" />
     );
   };
 
@@ -537,22 +537,22 @@ export function ControleImpressoesClient() {
   const isCertidaoDemandaActive = activeCardLabel === 'Certidão – Demanda total';
 
   return (
-    <div className="space-y-6 print:space-y-4 print:text-slate-900 print:p-2">
+    <div className="space-y-6 print:space-y-2 print:text-slate-900 print:p-0 print:bg-white">
       {/* ────────────────── CABEÇALHO EXCLUSIVO PARA IMPRESSÃO / PDF ────────────────── */}
-      <div className="hidden print:block mb-4 pb-3 border-b-2 border-slate-400">
+      <div className="hidden print:block mb-3 pb-2.5 border-b-2 border-slate-700 bg-white text-slate-900">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-xs uppercase tracking-wider font-semibold text-slate-500">7º Oficial de Registro de Imóveis de São Paulo</div>
-            <h1 className="text-xl font-bold text-slate-900 mt-0.5">
+            <div className="text-[11px] uppercase tracking-wider font-bold text-slate-600">7º Oficial de Registro de Imóveis de São Paulo</div>
+            <h1 className="text-lg font-extrabold text-slate-950 mt-0.5">
               {imprimindoApenasTabela ? 'Listagem de Pendências e Situação das Impressões' : 'Relatório de Controle de Impressões'}
             </h1>
           </div>
-          <div className="text-right text-xs text-slate-600">
+          <div className="text-right text-[11px] text-slate-700">
             <div><strong>Emissão:</strong> {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
             <div><strong>Base de Cálculo:</strong> {visao === 'producao' ? 'Produção (Data Impressão)' : 'Demanda (Último Registro)'}</div>
           </div>
         </div>
-        <div className="mt-2.5 pt-2 border-t border-slate-200 flex items-center justify-between text-xs text-slate-700">
+        <div className="mt-2 pt-1.5 border-t border-slate-300 flex items-center justify-between text-[11px] text-slate-800">
           <div>
             Período: <strong>{dataInicio.split('-').reverse().join('/')}</strong> até <strong>{dataFim.split('-').reverse().join('/')}</strong>
             {activeCardLabel && <span> | Filtro: <strong>{activeCardLabel}</strong></span>}
@@ -1675,14 +1675,14 @@ export function ControleImpressoesClient() {
         </div>
 
         {/* Tabela Responsiva com Distribuição Equilibrada */}
-        <div className="overflow-x-auto rounded-xl border border-white/8">
-          <table className="w-full table-fixed text-left border-collapse min-w-[960px]">
+        <div className="overflow-x-auto rounded-xl border border-white/8 print:overflow-visible print:border print:border-slate-300 print:rounded-none">
+          <table className="w-full table-fixed text-left border-collapse min-w-[960px] print:min-w-0 print:w-full print:border-collapse">
             <thead>
-              <tr className="border-b border-white/10 bg-white/[0.02] text-xs font-semibold text-slate-300">
+              <tr className="border-b border-white/10 bg-white/[0.02] text-xs font-semibold text-slate-300 print:bg-slate-100 print:border-b-2 print:border-slate-400">
                 {/* Protocolo */}
                 <th
                   onClick={() => handleSort('protocolo')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[8%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                  className={`py-3 px-3.5 whitespace-nowrap w-[8%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
                     sortBy === 'protocolo' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
                   }`}
                   title="Clique para ordenar por Protocolo"
@@ -1696,7 +1696,7 @@ export function ControleImpressoesClient() {
                 {/* Nº Livro */}
                 <th
                   onClick={() => handleSort('numeroLivro')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[9%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                  className={`py-3 px-3.5 whitespace-nowrap w-[9%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
                     sortBy === 'numeroLivro' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
                   }`}
                   title="Clique para ordenar por Nº Livro / Matrícula"
@@ -1710,7 +1710,7 @@ export function ControleImpressoesClient() {
                 {/* Tipo / Natureza */}
                 <th
                   onClick={() => handleSort('tipoNatureza')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[14%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                  className={`py-3 px-3.5 whitespace-nowrap w-[14%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
                     sortBy === 'tipoNatureza' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
                   }`}
                   title="Clique para ordenar por Natureza"
@@ -1724,7 +1724,7 @@ export function ControleImpressoesClient() {
                 {/* Data Entrada */}
                 <th
                   onClick={() => handleSort('dataEntrada')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[8%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                  className={`py-3 px-3.5 whitespace-nowrap w-[8%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
                     sortBy === 'dataEntrada' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
                   }`}
                   title="Clique para ordenar por Data de Entrada"
@@ -1738,7 +1738,7 @@ export function ControleImpressoesClient() {
                 {/* Etapa Atual */}
                 <th
                   onClick={() => handleSort('etapaAtual')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[13%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                  className={`py-3 px-3.5 whitespace-nowrap w-[13%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
                     sortBy === 'etapaAtual' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
                   }`}
                   title="Clique para ordenar por Etapa Atual"
@@ -1752,7 +1752,7 @@ export function ControleImpressoesClient() {
                 {/* Último Registro */}
                 <th
                   onClick={() => handleSort('ultimoRegistro')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[11%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                  className={`py-3 px-3.5 whitespace-nowrap w-[11%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
                     sortBy === 'ultimoRegistro' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
                   }`}
                   title="Clique para ordenar por Data do Último Registro"
@@ -1766,7 +1766,7 @@ export function ControleImpressoesClient() {
                 {/* Certidão Registro */}
                 <th
                   onClick={() => handleSort('certidaoStatus')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[10%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                  className={`py-3 px-3.5 whitespace-nowrap w-[10%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
                     sortBy === 'certidaoStatus' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
                   } ${tipoImpressaoFiltro === 'certidao' ? 'border-b-2 border-cyan-400 font-bold' : ''}`}
                   title="Clique para ordenar por Status da Certidão"
@@ -1780,7 +1780,7 @@ export function ControleImpressoesClient() {
                 {/* Impressão no Livro */}
                 <th
                   onClick={() => handleSort('livroStatus')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[11%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                  className={`py-3 px-3.5 whitespace-nowrap w-[11%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
                     sortBy === 'livroStatus' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
                   } ${tipoImpressaoFiltro === 'livro' ? 'border-b-2 border-amber-400 font-bold' : ''}`}
                   title="Clique para ordenar por Status de Impressão do Livro"
@@ -1794,13 +1794,13 @@ export function ControleImpressoesClient() {
                 {/* Impresso por */}
                 <th
                   onClick={() => handleSort('impressoPor')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[10%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                  className={`py-3 px-3.5 whitespace-nowrap w-[10%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
                     sortBy === 'impressoPor' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
                   }`}
                   title="Clique para ordenar por Operador Responsável"
                 >
                   <div className="flex items-center gap-1.5">
-                    <User className="w-3 h-3 text-slate-400" />
+                    <User className="w-3 h-3 text-slate-400 print:hidden" />
                     <span>Impresso por</span>
                     {renderSortIcon('impressoPor')}
                   </div>
@@ -1809,7 +1809,7 @@ export function ControleImpressoesClient() {
                 {/* Dias */}
                 <th
                   onClick={() => handleSort('diasPendente')}
-                  className={`py-3 px-3.5 text-center whitespace-nowrap w-[6%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] ${
+                  className={`py-3 px-3.5 text-center whitespace-nowrap w-[6%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold ${
                     sortBy === 'diasPendente' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
                   }`}
                   title="Clique para ordenar por Dias de Pendência"
@@ -1821,126 +1821,126 @@ export function ControleImpressoesClient() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5 text-xs sm:text-[13px]">
+            <tbody className="divide-y divide-white/5 text-xs sm:text-[13px] print:divide-slate-200">
               {rowsParaExibir.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-400 text-sm font-medium">
+                  <td colSpan={10} className="py-12 text-center text-slate-400 text-sm font-medium print:text-slate-600 print:py-6">
                     Nenhum registro encontrado para os filtros selecionados.
                   </td>
                 </tr>
               ) : (
                 rowsParaExibir.map((row) => (
-                  <tr key={row.id} className="hover:bg-white/[0.04] transition-colors">
+                  <tr key={row.id} className="hover:bg-white/[0.04] transition-colors print:even:bg-slate-50">
                     {/* Protocolo */}
-                    <td className="py-3.5 px-3.5 font-mono font-bold text-white whitespace-nowrap text-sm">
+                    <td className="py-3.5 px-3.5 font-mono font-bold text-white whitespace-nowrap text-sm print:text-slate-950 print:py-1.5 print:px-2 print:text-[11px] print:border-b print:border-slate-200">
                       {row.protocolo}
                     </td>
 
                     {/* Nº Livro */}
-                    <td className="py-3.5 px-3.5 font-mono font-semibold text-slate-200 whitespace-nowrap text-xs sm:text-sm">
+                    <td className="py-3.5 px-3.5 font-mono font-semibold text-slate-200 whitespace-nowrap text-xs sm:text-sm print:text-slate-850 print:py-1.5 print:px-2 print:text-[10px] print:border-b print:border-slate-200">
                       {row.numeroLivro}
                     </td>
 
                     {/* Tipo / Natureza Badge */}
-                    <td className="py-3.5 px-3.5">
-                      <span className="inline-block px-2.5 py-1 rounded-md bg-[#221544] border border-purple-500/35 text-xs font-semibold text-purple-200 shadow-sm whitespace-nowrap">
+                    <td className="py-3.5 px-3.5 print:py-1.5 print:px-2 print:border-b print:border-slate-200">
+                      <span className="inline-block px-2.5 py-1 rounded-md bg-[#221544] border border-purple-500/35 text-xs font-semibold text-purple-200 shadow-sm whitespace-nowrap print:bg-slate-100 print:border print:border-slate-300 print:text-slate-900 print:shadow-none print:py-0.5 print:px-1.5 print:text-[9.5px]">
                         {row.tipoNatureza}
                       </span>
                     </td>
 
                     {/* Data Entrada */}
-                    <td className="py-3.5 px-3.5 font-mono text-xs text-slate-300 whitespace-nowrap">
+                    <td className="py-3.5 px-3.5 font-mono text-xs text-slate-300 whitespace-nowrap print:text-slate-700 print:py-1.5 print:px-2 print:text-[10px] print:border-b print:border-slate-200">
                       {row.dataEntrada || '-'}
                     </td>
 
                     {/* Etapa Atual Badge */}
-                    <td className="py-3.5 px-3.5">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-cyan-950/40 border border-cyan-500/25 text-cyan-200 shadow-sm whitespace-nowrap">
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 animate-pulse" />
+                    <td className="py-3.5 px-3.5 print:py-1.5 print:px-2 print:border-b print:border-slate-200">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-cyan-950/40 border border-cyan-500/25 text-cyan-200 shadow-sm whitespace-nowrap print:bg-transparent print:border-none print:text-slate-800 print:shadow-none print:p-0 print:text-[9.5px] print:font-semibold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 animate-pulse print:hidden" />
                         {row.etapaAtual || 'Impressão'}
                       </span>
                     </td>
 
                     {/* Último Registro */}
-                    <td className="py-3.5 px-3.5 font-mono text-xs text-slate-300 whitespace-nowrap">
+                    <td className="py-3.5 px-3.5 font-mono text-xs text-slate-300 whitespace-nowrap print:text-slate-700 print:py-1.5 print:px-2 print:text-[10px] print:border-b print:border-slate-200">
                       {row.ultimoRegistro}
                     </td>
 
                     {/* Certidão Registro Status */}
-                    <td className={`py-3.5 px-3.5 whitespace-nowrap ${tipoImpressaoFiltro === 'certidao' ? 'bg-cyan-500/[0.06]' : ''}`}>
+                    <td className={`py-3.5 px-3.5 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200 ${tipoImpressaoFiltro === 'certidao' ? 'bg-cyan-500/[0.06] print:bg-transparent' : ''}`}>
                       {row.certidaoStatus === 'REALIZADO' && (
                         <div className="flex items-start gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0 print:hidden" />
                           <div>
-                            <span className="font-semibold text-emerald-300 text-xs sm:text-[13px]">Realizado</span>
+                            <span className="font-semibold text-emerald-300 text-xs sm:text-[13px] print:text-emerald-800 print:font-bold print:text-[10.5px]">Realizado</span>
                             {row.certidaoData && (
-                              <p className="text-[11px] text-slate-400 font-mono mt-0.5">{row.certidaoData}</p>
+                              <p className="text-[11px] text-slate-400 font-mono mt-0.5 print:text-slate-600 print:text-[9px]">{row.certidaoData}</p>
                             )}
                           </div>
                         </div>
                       )}
                       {row.certidaoStatus === 'PENDENTE' && (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-300 font-semibold text-xs">
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-300 font-semibold text-xs print:bg-rose-50 print:border print:border-rose-400 print:text-rose-800 print:py-0.5 print:px-1.5 print:text-[9.5px] print:font-bold">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0 print:hidden" />
                           <span>Pendente</span>
                         </div>
                       )}
                       {row.certidaoStatus === 'NAO_APLICAVEL' && (
-                        <div className="flex items-center gap-1.5 text-slate-500 text-xs">
-                          <MinusCircle className="w-3.5 h-3.5 shrink-0" />
+                        <div className="flex items-center gap-1.5 text-slate-500 text-xs print:text-slate-400 print:text-[9.5px]">
+                          <MinusCircle className="w-3.5 h-3.5 shrink-0 print:hidden" />
                           <span>Não aplicável</span>
                         </div>
                       )}
                     </td>
 
                     {/* Impressão no Livro Status */}
-                    <td className={`py-3.5 px-3.5 whitespace-nowrap ${tipoImpressaoFiltro === 'livro' ? 'bg-amber-500/[0.06]' : ''}`}>
+                    <td className={`py-3.5 px-3.5 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200 ${tipoImpressaoFiltro === 'livro' ? 'bg-amber-500/[0.06] print:bg-transparent' : ''}`}>
                       {row.livroStatus === 'REALIZADO' && (
                         <div className="flex items-start gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0 print:hidden" />
                           <div>
-                            <span className="font-semibold text-emerald-300 text-xs sm:text-[13px]">Realizado</span>
+                            <span className="font-semibold text-emerald-300 text-xs sm:text-[13px] print:text-emerald-800 print:font-bold print:text-[10.5px]">Realizado</span>
                             {row.livroData && (
-                              <p className="text-[11px] text-slate-400 font-mono mt-0.5">{row.livroData}</p>
+                              <p className="text-[11px] text-slate-400 font-mono mt-0.5 print:text-slate-600 print:text-[9px]">{row.livroData}</p>
                             )}
                           </div>
                         </div>
                       )}
                       {row.livroStatus === 'PENDENTE' && (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-300 font-semibold text-xs">
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-300 font-semibold text-xs print:bg-rose-50 print:border print:border-rose-400 print:text-rose-800 print:py-0.5 print:px-1.5 print:text-[9.5px] print:font-bold">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0 print:hidden" />
                           <span>Pendente</span>
                         </div>
                       )}
                       {row.livroStatus === 'NAO_APLICAVEL' && (
-                        <div className="flex items-center gap-1.5 text-slate-500 text-xs">
-                          <MinusCircle className="w-3.5 h-3.5 shrink-0" />
+                        <div className="flex items-center gap-1.5 text-slate-500 text-xs print:text-slate-400 print:text-[9.5px]">
+                          <MinusCircle className="w-3.5 h-3.5 shrink-0 print:hidden" />
                           <span>Não aplicável</span>
                         </div>
                       )}
                     </td>
 
                     {/* Impresso por */}
-                    <td className="py-3.5 px-3.5 whitespace-nowrap">
+                    <td className="py-3.5 px-3.5 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200">
                       {(() => {
                         const resp = tipoImpressaoFiltro === 'certidao'
                           ? (row.certidaoResponsavel || row.livroResponsavel)
                           : (row.livroResponsavel || row.certidaoResponsavel);
 
-                        if (!resp) return <span className="text-slate-600 text-xs">—</span>;
+                        if (!resp) return <span className="text-slate-600 text-xs print:text-slate-400">—</span>;
 
                         return (
                           <div className="flex flex-col gap-0.5" title={`Livro: ${row.livroResponsavel || '-'} | Certidão: ${row.certidaoResponsavel || '-'}`}>
                             <div className="flex items-center gap-1.5">
-                              <div className="w-5 h-5 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center shrink-0">
+                              <div className="w-5 h-5 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center shrink-0 print:hidden">
                                 <User className="w-2.5 h-2.5 text-violet-400" />
                               </div>
-                              <span className="text-xs text-slate-200 truncate max-w-[120px] font-medium">
+                              <span className="text-xs text-slate-200 truncate max-w-[120px] font-medium print:text-slate-900 print:max-w-none print:text-[10px]">
                                 {resp}
                               </span>
                             </div>
                             {row.livroResponsavel && row.certidaoResponsavel && row.livroResponsavel !== row.certidaoResponsavel && tipoImpressaoFiltro === 'todos' && (
-                              <span className="text-[10px] text-slate-400 pl-6 truncate max-w-[130px]">
+                              <span className="text-[10px] text-slate-400 pl-6 truncate max-w-[130px] print:text-slate-600 print:pl-0 print:text-[9px]">
                                 Cert: {row.certidaoResponsavel}
                               </span>
                             )}
@@ -1950,13 +1950,13 @@ export function ControleImpressoesClient() {
                     </td>
 
                     {/* Dias Pendente */}
-                    <td className="py-3.5 px-3.5 text-center font-mono whitespace-nowrap">
+                    <td className="py-3.5 px-3.5 text-center font-mono whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200">
                       {row.diasPendente > 0 ? (
-                        <span className="inline-block px-2.5 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-300 font-bold text-xs sm:text-[13px]">
+                        <span className="inline-block px-2.5 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-300 font-bold text-xs sm:text-[13px] print:bg-transparent print:border-none print:text-rose-700 print:font-extrabold print:text-[11px]">
                           {row.diasPendente}
                         </span>
                       ) : (
-                        <span className="text-slate-500 text-xs sm:text-[13px]">0</span>
+                        <span className="text-slate-500 text-xs sm:text-[13px] print:text-slate-400 print:text-[11px]">0</span>
                       )}
                     </td>
                   </tr>

@@ -721,27 +721,42 @@ input:-webkit-autofill:active {
     margin: 8mm 6mm;
   }
 
-  /* Ocultar elementos decorativos, chats, navegação e botões */
+  /* Ocultar elementos decorativos, chats, navegação, botões flutuantes e toasts */
   aside,
   nav,
   header,
+  [data-sonner-toaster],
+  [data-sonner-toast],
+  .toaster,
+  .sonner-toast,
+  .fiorix-chat-in,
+  div[class*="z-[9999]"],
+  .pointer-events-none.absolute.inset-0,
   .print\:hidden,
   .no-print,
   [data-no-print="true"] {
     display: none !important;
+    visibility: hidden !important;
   }
 
   /* Resetar o fundo e destravar rolagem vertical para permitir múltiplas folhas */
   html,
-  body {
+  body,
+  main,
+  div,
+  section {
     background: #ffffff !important;
     background-color: #ffffff !important;
     color: #0f172a !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html,
+  body {
     height: auto !important;
     min-height: 100% !important;
     overflow: visible !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
   }
 
   /* Destravar contêineres de altura fixa */
@@ -761,10 +776,17 @@ input:-webkit-autofill:active {
     page-break-inside: avoid !important;
   }
 
-  /* Tabelas limpas para impressão */
+  /* Tabelas limpas, 100% ajustadas à largura da folha sem cortes */
+  .overflow-x-auto {
+    overflow: visible !important;
+    width: 100% !important;
+  }
+
   table {
     width: 100% !important;
-    table-layout: auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
     border-collapse: collapse !important;
   }
 
@@ -786,12 +808,13 @@ input:-webkit-autofill:active {
   }
 
   .bg-[#070A12],
+  .bg-[#080A12],
   .bg-[#0c1427],
   .bg-[#0c1222],
   .bg-[#141B2D],
   .bg-[#0E1526] {
     background-color: #ffffff !important;
-    border-color: #e2e8f0 !important;
+    border-color: #cbd5e1 !important;
     box-shadow: none !important;
   }
 
@@ -800,26 +823,49 @@ input:-webkit-autofill:active {
   .text-emerald-300,
   .text-emerald-400 {
     color: #15803d !important;
+    font-weight: 700 !important;
   }
   .text-rose-200,
   .text-rose-300,
   .text-rose-400 {
     color: #b91c1c !important;
+    font-weight: 700 !important;
   }
   .text-purple-200,
   .text-purple-300,
   .text-purple-400 {
-    color: #6b21a8 !important;
+    color: #475569 !important;
   }
   .text-cyan-200,
   .text-cyan-300,
   .text-cyan-400 {
-    color: #0e7490 !important;
+    color: #0f172a !important;
   }
   .text-amber-200,
   .text-amber-300,
   .text-amber-400 {
-    color: #b45309 !important;
+    color: #92400e !important;
+    font-weight: 700 !important;
+  }
+
+  /* Reset de badges escuras para papel */
+  span[class*="bg-[#221544]"] {
+    background-color: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+  }
+
+  span[class*="bg-cyan-950"] {
+    background-color: transparent !important;
+    border: none !important;
+    color: #1e293b !important;
+    font-weight: 600 !important;
+  }
+
+  div[class*="bg-rose-500"] {
+    background-color: #fee2e2 !important;
+    border: 1px solid #fca5a5 !important;
+    color: #991b1b !important;
   }
 
   /* Bordas e linhas nítidas para tabela impressa */
@@ -831,12 +877,15 @@ input:-webkit-autofill:active {
   }
 
   th {
-    background-color: #f8fafc !important;
+    background-color: #f1f5f9 !important;
     color: #0f172a !important;
-    border-bottom: 2px solid #cbd5e1 !important;
+    border-bottom: 2px solid #94a3b8 !important;
+    border-right: 1px solid #cbd5e1 !important;
   }
 
   td {
-    border-bottom: 1px solid #f1f5f9 !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    border-right: 1px solid #f1f5f9 !important;
+    color: #0f172a !important;
   }
 }
