@@ -46,11 +46,11 @@ export async function GET(request: NextRequest) {
           COALESCE(MAX(m.d_balcao_registrado), MIN(t.data_cadastro_tarefa), MIN(t.data_servico)) as ultimo_registro,
           MAX(m.d8_impressao) as meta_d8_impressao,
           MAX(m.d9_preparacao) as meta_d9_preparacao,
-          -- LIVRO: Impressão Definitiva do Ato no Livro (Tarefa: IMPRESSÃO FICHA MATRÍCULA)
-          MAX(CASE WHEN (t.tarefa ILIKE '%IMPRESS%' OR t.tarefa ILIKE '%ATO%' OR t.tarefa ILIKE '%LIVRO%') AND (t.situacao_tarefa = 'FINALIZADA' OR t.data_finalizacao IS NOT NULL) THEN COALESCE(t.data_finalizacao, t.data_abertura) END) as tarefa_livro_data,
-          MAX(CASE WHEN (t.tarefa ILIKE '%IMPRESS%' OR t.tarefa ILIKE '%ATO%' OR t.tarefa ILIKE '%LIVRO%') AND (t.situacao_tarefa = 'FINALIZADA' OR t.data_finalizacao IS NOT NULL OR t.data_abertura IS NOT NULL) THEN NULLIF(t.responsavel, '') END) as responsavel_livro,
-          MAX(CASE WHEN (t.tarefa ILIKE '%IMPRESS%' OR t.tarefa ILIKE '%ATO%' OR t.tarefa ILIKE '%LIVRO%') THEN NULLIF(t.responsavel, '') END) as responsavel_livro_fallback,
-          -- CERTIDÃO: Emissão de Certidão de Registro (Tarefa: PREPARAÇÃO)
+          -- LIVRO: Impressão Definitiva do Ato no Livro (Tarefa estrita: IMPRESSÃO FICHA MATRÍCULA)
+          MAX(CASE WHEN t.tarefa ILIKE '%IMPRESS%' AND (t.situacao_tarefa = 'FINALIZADA' OR t.data_finalizacao IS NOT NULL) THEN COALESCE(t.data_finalizacao, t.data_abertura) END) as tarefa_livro_data,
+          MAX(CASE WHEN t.tarefa ILIKE '%IMPRESS%' AND (t.situacao_tarefa = 'FINALIZADA' OR t.data_finalizacao IS NOT NULL OR t.data_abertura IS NOT NULL) THEN NULLIF(t.responsavel, '') END) as responsavel_livro,
+          MAX(CASE WHEN t.tarefa ILIKE '%IMPRESS%' THEN NULLIF(t.responsavel, '') END) as responsavel_livro_fallback,
+          -- CERTIDÃO: Emissão de Certidão de Registro (Tarefa estrita: PREPARAÇÃO)
           MAX(CASE WHEN t.tarefa ILIKE '%PREPAR%' AND (t.situacao_tarefa = 'FINALIZADA' OR t.data_finalizacao IS NOT NULL) THEN COALESCE(t.data_finalizacao, t.data_abertura) END) as tarefa_certidao_data,
           MAX(CASE WHEN t.tarefa ILIKE '%PREPAR%' AND (t.situacao_tarefa = 'FINALIZADA' OR t.data_finalizacao IS NOT NULL) THEN NULLIF(t.responsavel, '') END) as responsavel_certidao,
           MAX(CASE WHEN t.tarefa ILIKE '%PREPAR%' THEN NULLIF(t.responsavel, '') END) as responsavel_certidao_fallback,
@@ -80,14 +80,14 @@ export async function GET(request: NextRequest) {
             ELSE 'PENDENTE'
           END as livro_status,
           COALESCE(tarefa_livro_data, meta_d9_preparacao, tarefa_certidao_data) as livro_data,
-          COALESCE(responsavel_livro, responsavel_livro_fallback) as livro_responsavel,
+          COALESCE(responsavel_livro, responsavel_livro_fallback, 'Antonio') as livro_responsavel,
           -- Certidão Status (Impressão de Certidão de Registro / Preparação)
           CASE 
             WHEN tarefa_certidao_data IS NOT NULL OR meta_d8_impressao IS NOT NULL THEN 'REALIZADO'
             ELSE 'PENDENTE'
           END as certidao_status,
           COALESCE(tarefa_certidao_data, meta_d8_impressao) as certidao_data,
-          COALESCE(responsavel_certidao, responsavel_certidao_fallback) as certidao_responsavel,
+          COALESCE(responsavel_certidao, responsavel_certidao_fallback, 'David') as certidao_responsavel,
           -- Dias Pendente
           CASE 
             WHEN NOT (tarefa_livro_data IS NOT NULL OR meta_d9_preparacao IS NOT NULL OR tem_preparacao)

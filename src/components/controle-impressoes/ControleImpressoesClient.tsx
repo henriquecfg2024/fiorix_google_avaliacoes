@@ -96,6 +96,14 @@ export function ControleImpressoesClient() {
   const totalPages = Math.ceil((data.totalRegistros || 1) / pageSize) || 1;
   const paginatedRows = data.itens;
 
+  const operadoresLivro = (data.operadores || [])
+    .filter((op) => op.totalLivro > 0)
+    .sort((a, b) => b.totalLivro - a.totalLivro);
+
+  const operadoresCertidao = (data.operadores || [])
+    .filter((op) => op.totalCertidao > 0)
+    .sort((a, b) => b.totalCertidao - a.totalCertidao);
+
   const handleExport = (tipo = 'pendencias') => {
     toast.success(`Exportação de ${tipo} iniciada`, {
       description: `Planilha gerada com ${data.totalRegistros} registros selecionados.`,
@@ -367,347 +375,414 @@ export function ControleImpressoesClient() {
         </div>
       </div>
 
-      {/* ────────────────── 2 HERO CARDS (CERTIDÃO E LIVRO) ────────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-        {/* CARD 1: IMPRESSÃO DEFINITIVA DO ATO NO LIVRO (ÂMBAR) */}
-        <div className="rounded-2xl bg-[#171208]/90 border border-amber-500/35 p-6 shadow-xl shadow-amber-950/20 relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600" />
+      {/* ────────────────── 2 COLUNAS DE FLUXO (LIVRO E CERTIDÃO) COM SEUS RESPECTIVOS OPERADORES ────────────────── */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+        {/* COLUNA 1: FLUXO DO LIVRO (ÂMBAR) */}
+        <div className="flex flex-col gap-4">
+          {/* CARD 1: IMPRESSÃO DEFINITIVA DO ATO NO LIVRO (ÂMBAR) */}
+          <div className="rounded-2xl bg-[#171208]/90 border border-amber-500/35 p-6 shadow-xl shadow-amber-950/20 relative overflow-hidden flex flex-col justify-between">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600" />
 
-          <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-300 shadow-inner">
-                <BookOpen className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-sm sm:text-base font-bold uppercase tracking-wider text-amber-400">
-                  Impressão Definitiva do Ato no Livro
-                </h2>
-                <p className="text-xs text-slate-400 mt-0.5">Fluxo de impressão física dos atos no livro</p>
-              </div>
-            </div>
-            <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-300 uppercase tracking-wider">
-              Livro
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pb-4">
-            {/* Demanda */}
-            <div
-              onClick={() => handleCardClick('livro', 'todos', 'Livro – Demanda total')}
-              className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
-                activeCardLabel === 'Livro – Demanda total'
-                  ? 'bg-amber-500/10 border-amber-400/60 ring-1 ring-amber-400/40'
-                  : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-amber-400/30'
-              }`}
-              title="Clique para filtrar por demanda"
-            >
-              <div>
-                <span className="text-xs font-semibold text-slate-200 block">Demanda</span>
-                <span className="text-[11px] text-slate-400 block truncate leading-tight">(Último Registro)</span>
-              </div>
-              <div className="mt-3 flex items-baseline gap-1.5">
-                <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight group-hover:text-amber-200 transition-colors">{data.livroStats.demanda}</span>
-                <span className="text-xs text-slate-400 font-medium">livros</span>
-              </div>
-            </div>
-
-            {/* Produzidas */}
-            <div
-              onClick={() => handleCardClick('livro', 'realizado', 'Livro – Produzidas')}
-              className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
-                activeCardLabel === 'Livro – Produzidas'
-                  ? 'bg-emerald-500/10 border-emerald-400/60 ring-1 ring-emerald-400/40'
-                  : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-emerald-400/30'
-              }`}
-              title="Clique para filtrar por produzidas"
-            >
-              <div>
-                <span className="text-xs font-semibold text-slate-200 block">Produzidas</span>
-                <span className="text-[11px] text-slate-400 block truncate leading-tight">(Data Impressão)</span>
-              </div>
-              <div className="mt-3 flex items-baseline gap-1.5">
-                <span className="text-2xl xl:text-3xl font-extrabold text-amber-300 tracking-tight group-hover:text-emerald-300 transition-colors">{data.livroStats.produzidas}</span>
-                <span className="text-xs text-slate-400 font-medium">livros</span>
-              </div>
-            </div>
-
-            {/* Pendências */}
-            <div
-              onClick={() => handleCardClick('livro', 'pendente', 'Livro – Pendências')}
-              className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
-                activeCardLabel === 'Livro – Pendências'
-                  ? 'bg-rose-500/15 border-rose-400/60 ring-1 ring-rose-400/40'
-                  : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-rose-400/30'
-              }`}
-              title="Clique para filtrar por pendências"
-            >
-              <div>
-                <span className="text-xs font-semibold text-slate-200 block">Pendências</span>
-                <span className="text-[11px] text-rose-400/90 block truncate leading-tight">(Saldo Atual)</span>
-              </div>
-              <div className="mt-3 flex items-baseline gap-1.5">
-                <span className="text-2xl xl:text-3xl font-extrabold text-rose-400 tracking-tight">{data.livroStats.pendencias}</span>
-                <span className="text-xs text-slate-400 font-medium">livros</span>
-              </div>
-            </div>
-
-            {/* Saldo Operacional */}
-            <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
-              <div>
-                <span className="text-xs font-semibold text-slate-200 block">Saldo Operac.</span>
-                <span className="text-[11px] text-slate-400 block truncate leading-tight">(Prod. - Dem.)</span>
-              </div>
-              <div className="mt-3 flex items-baseline gap-1.5">
-                <span className={`text-2xl xl:text-3xl font-extrabold tracking-tight ${data.livroStats.saldoOperacional >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {data.livroStats.saldoOperacional}
-                </span>
-                <span className="text-xs text-slate-400 font-medium">livros</span>
-              </div>
-            </div>
-
-            {/* Taxa de Atendimento */}
-            <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
-              <div>
-                <span className="text-xs font-semibold text-slate-200 block">Taxa Atend.</span>
-                <span className="text-[11px] text-slate-400 block truncate leading-tight">Eficiência</span>
-              </div>
-              <div className="mt-3">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">{data.livroStats.taxaAtendimento}%</span>
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-300 shadow-inner">
+                  <BookOpen className="w-5 h-5" />
                 </div>
-                <div className="w-full h-1.5 bg-amber-950/80 rounded-full mt-2 overflow-hidden border border-amber-500/20">
-                  <div
-                    className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, data.livroStats.taxaAtendimento)}%` }}
-                  />
+                <div>
+                  <h2 className="text-sm sm:text-base font-bold uppercase tracking-wider text-amber-400">
+                    Impressão Definitiva do Ato no Livro
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">Fluxo de impressão física dos atos no livro</p>
                 </div>
               </div>
-            </div>
-
-            {/* Tempo Médio */}
-            <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
-              <div>
-                <span className="text-xs font-semibold text-slate-200 block">Tempo Médio</span>
-                <span className="text-[11px] text-slate-400 block truncate leading-tight">para Impressão</span>
-              </div>
-              <div className="mt-3 flex items-baseline gap-1.5">
-                <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">0,8</span>
-                <span className="text-xs text-slate-400 font-medium">dia</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-3.5 border-t border-white/10 text-xs text-slate-300 flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400">Backlog início do período:</span>
-              <span className="px-2.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-300 font-bold font-mono text-xs">
-                {data.livroStats.backlogInicio} livros
+              <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-300 uppercase tracking-wider">
+                Livro
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400">Backlog final do período:</span>
-              <span className="px-2.5 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-300 font-bold font-mono text-xs">
-                {data.livroStats.backlogFinal} livros
-              </span>
-            </div>
-          </div>
-        </div>
 
-        {/* CARD 2: IMPRESSÃO DE CERTIDÃO DE REGISTRO (CIANO) */}
-        <div className="rounded-2xl bg-[#0c1427]/90 border border-cyan-500/35 p-6 shadow-xl shadow-cyan-950/20 relative overflow-hidden flex flex-col justify-between">
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 via-teal-400 to-cyan-600" />
-          
-          <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-300 shadow-inner">
-                <Printer className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-sm sm:text-base font-bold uppercase tracking-wider text-cyan-400">
-                  Impressão de Certidão de Registro
-                </h2>
-                <p className="text-xs text-slate-400 mt-0.5">Fluxo de emissão e controle das certidões</p>
-              </div>
-            </div>
-            <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 uppercase tracking-wider">
-              Certidão
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pb-4">
-            {/* Demanda Certidão */}
-            <div
-              onClick={() => handleCardClick('certidao', 'todos', 'Certidão – Demanda total')}
-              className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
-                activeCardLabel === 'Certidão – Demanda total'
-                  ? 'bg-cyan-500/10 border-cyan-400/60 ring-1 ring-cyan-400/40'
-                  : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-cyan-400/30'
-              }`}
-              title="Clique para filtrar por demanda"
-            >
-              <div>
-                <span className="text-xs font-semibold text-slate-200 block">Demanda</span>
-                <span className="text-[11px] text-slate-400 block truncate leading-tight">(Último Registro)</span>
-              </div>
-              <div className="mt-3 flex items-baseline gap-1.5">
-                <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight group-hover:text-cyan-200 transition-colors">{data.certidaoStats.demanda}</span>
-                <span className="text-xs text-slate-400 font-medium">livros</span>
-              </div>
-            </div>
-
-            {/* Produzidas Certidão */}
-            <div
-              onClick={() => handleCardClick('certidao', 'realizado', 'Certidão – Produzidas')}
-              className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
-                activeCardLabel === 'Certidão – Produzidas'
-                  ? 'bg-emerald-500/10 border-emerald-400/60 ring-1 ring-emerald-400/40'
-                  : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-emerald-400/30'
-              }`}
-              title="Clique para filtrar por produzidas"
-            >
-              <div>
-                <span className="text-xs font-semibold text-slate-200 block">Produzidas</span>
-                <span className="text-[11px] text-slate-400 block truncate leading-tight">(Data Impressão)</span>
-              </div>
-              <div className="mt-3 flex items-baseline gap-1.5">
-                <span className="text-2xl xl:text-3xl font-extrabold text-cyan-300 tracking-tight group-hover:text-emerald-300 transition-colors">{data.certidaoStats.produzidas}</span>
-                <span className="text-xs text-slate-400 font-medium">livros</span>
-              </div>
-            </div>
-
-            {/* Pendências Certidão */}
-            <div
-              onClick={() => handleCardClick('certidao', 'pendente', 'Certidão – Pendências')}
-              className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
-                activeCardLabel === 'Certidão – Pendências'
-                  ? 'bg-rose-500/15 border-rose-400/60 ring-1 ring-rose-400/40'
-                  : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-rose-400/30'
-              }`}
-              title="Clique para filtrar por pendências"
-            >
-              <div>
-                <span className="text-xs font-semibold text-slate-200 block">Pendências</span>
-                <span className="text-[11px] text-rose-400/90 block truncate leading-tight">(Saldo Atual)</span>
-              </div>
-              <div className="mt-3 flex items-baseline gap-1.5">
-                <span className="text-2xl xl:text-3xl font-extrabold text-rose-400 tracking-tight">{data.certidaoStats.pendencias}</span>
-                <span className="text-xs text-slate-400 font-medium">livros</span>
-              </div>
-            </div>
-
-            {/* Saldo Operacional */}
-            <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
-              <div>
-                <span className="text-xs font-semibold text-slate-200 block">Saldo Operac.</span>
-                <span className="text-[11px] text-slate-400 block truncate leading-tight">(Prod. - Dem.)</span>
-              </div>
-              <div className="mt-3 flex items-baseline gap-1.5">
-                <span className={`text-2xl xl:text-3xl font-extrabold tracking-tight ${data.certidaoStats.saldoOperacional >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {data.certidaoStats.saldoOperacional}
-                </span>
-                <span className="text-xs text-slate-400 font-medium">livros</span>
-              </div>
-            </div>
-
-            {/* Taxa de Atendimento */}
-            <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
-              <div>
-                <span className="text-xs font-semibold text-slate-200 block">Taxa Atend.</span>
-                <span className="text-[11px] text-slate-400 block truncate leading-tight">Eficiência</span>
-              </div>
-              <div className="mt-3">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">{data.certidaoStats.taxaAtendimento}%</span>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pb-4">
+              {/* Demanda */}
+              <div
+                onClick={() => handleCardClick('livro', 'todos', 'Livro – Demanda total')}
+                className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
+                  activeCardLabel === 'Livro – Demanda total'
+                    ? 'bg-amber-500/10 border-amber-400/60 ring-1 ring-amber-400/40'
+                    : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-amber-400/30'
+                }`}
+                title="Clique para filtrar por demanda"
+              >
+                <div>
+                  <span className="text-xs font-semibold text-slate-200 block">Demanda</span>
+                  <span className="text-[11px] text-slate-400 block truncate leading-tight">(Último Registro)</span>
                 </div>
-                <div className="w-full h-1.5 bg-cyan-950/80 rounded-full mt-2 overflow-hidden border border-cyan-500/20">
-                  <div
-                    className="h-full bg-gradient-to-r from-cyan-500 to-teal-400 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, data.certidaoStats.taxaAtendimento)}%` }}
-                  />
+                <div className="mt-3 flex items-baseline gap-1.5">
+                  <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight group-hover:text-amber-200 transition-colors">{data.livroStats.demanda}</span>
+                  <span className="text-xs text-slate-400 font-medium">livros</span>
                 </div>
               </div>
-            </div>
 
-            {/* Tempo Médio */}
-            <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
-              <div>
-                <span className="text-xs font-semibold text-slate-200 block">Tempo Médio</span>
-                <span className="text-[11px] text-slate-400 block truncate leading-tight">para Impressão</span>
+              {/* Produzidas */}
+              <div
+                onClick={() => handleCardClick('livro', 'realizado', 'Livro – Produzidas')}
+                className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
+                  activeCardLabel === 'Livro – Produzidas'
+                    ? 'bg-emerald-500/10 border-emerald-400/60 ring-1 ring-emerald-400/40'
+                    : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-emerald-400/30'
+                }`}
+                title="Clique para filtrar por produzidas"
+              >
+                <div>
+                  <span className="text-xs font-semibold text-slate-200 block">Produzidas</span>
+                  <span className="text-[11px] text-slate-400 block truncate leading-tight">(Data Impressão)</span>
+                </div>
+                <div className="mt-3 flex items-baseline gap-1.5">
+                  <span className="text-2xl xl:text-3xl font-extrabold text-amber-300 tracking-tight group-hover:text-emerald-300 transition-colors">{data.livroStats.produzidas}</span>
+                  <span className="text-xs text-slate-400 font-medium">livros</span>
+                </div>
               </div>
-              <div className="mt-3 flex items-baseline gap-1.5">
-                <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">1,3</span>
-                <span className="text-xs text-slate-400 font-medium">dias</span>
+
+              {/* Pendências */}
+              <div
+                onClick={() => handleCardClick('livro', 'pendente', 'Livro – Pendências')}
+                className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
+                  activeCardLabel === 'Livro – Pendências'
+                    ? 'bg-rose-500/15 border-rose-400/60 ring-1 ring-rose-400/40'
+                    : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-rose-400/30'
+                }`}
+                title="Clique para filtrar por pendências"
+              >
+                <div>
+                  <span className="text-xs font-semibold text-slate-200 block">Pendências</span>
+                  <span className="text-[11px] text-rose-400/90 block truncate leading-tight">(Saldo Atual)</span>
+                </div>
+                <div className="mt-3 flex items-baseline gap-1.5">
+                  <span className="text-2xl xl:text-3xl font-extrabold text-rose-400 tracking-tight">{data.livroStats.pendencias}</span>
+                  <span className="text-xs text-slate-400 font-medium">livros</span>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div className="pt-3.5 border-t border-white/10 text-xs text-slate-300 flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400">Backlog início do período:</span>
-              <span className="px-2.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-300 font-bold font-mono text-xs">
-                {data.certidaoStats.backlogInicio} livros
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-slate-400">Backlog final do período:</span>
-              <span className="px-2.5 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-300 font-bold font-mono text-xs">
-                {data.certidaoStats.backlogFinal} livros
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
+              {/* Saldo Operacional */}
+              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+                <div>
+                  <span className="text-xs font-semibold text-slate-200 block">Saldo Operac.</span>
+                  <span className="text-[11px] text-slate-400 block truncate leading-tight">(Prod. - Dem.)</span>
+                </div>
+                <div className="mt-3 flex items-baseline gap-1.5">
+                  <span className={`text-2xl xl:text-3xl font-extrabold tracking-tight ${data.livroStats.saldoOperacional >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {data.livroStats.saldoOperacional}
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium">livros</span>
+                </div>
+              </div>
 
-      {/* ────────────────── PAINEL: PRODUÇÃO POR OPERADOR ────────────────── */}
-      {data.operadores && data.operadores.length > 0 && (
-        <div className="w-full rounded-2xl bg-[#0c1222]/90 border border-white/10 p-5 shadow-xl">
-          <div className="flex items-center gap-2.5 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-violet-500/15 border border-violet-500/30 flex items-center justify-center">
-              <Users className="w-4 h-4 text-violet-400" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-100">Produção por Operador</h3>
-              <p className="text-[11px] text-slate-400">Total impresso por colaborador no período</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-            {data.operadores.map((op, idx) => {
-              const maxTotal = data.operadores[0]?.total || 1;
-              const pct = Math.round((op.total / maxTotal) * 100);
-              const colors = [
-                { bar: 'from-amber-500 to-yellow-400', badge: 'text-amber-300', icon: 'text-amber-400', rank: 'text-amber-400' },
-                { bar: 'from-cyan-500 to-teal-400', badge: 'text-cyan-300', icon: 'text-cyan-400', rank: 'text-cyan-400' },
-                { bar: 'from-violet-500 to-purple-400', badge: 'text-violet-300', icon: 'text-violet-400', rank: 'text-violet-400' },
-              ];
-              const c = colors[idx % colors.length];
-              return (
-                <div key={op.nome} className="rounded-xl bg-white/[0.03] border border-white/8 p-4 flex flex-col gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className={`w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0`}>
-                      <User className={`w-4 h-4 ${c.icon}`} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-white truncate">{op.nome}</p>
-                      <p className="text-[10px] text-slate-400">
-                        <span className="text-amber-300 font-semibold">{op.totalLivro}</span> livros
-                        {' · '}
-                        <span className="text-cyan-300 font-semibold">{op.totalCertidao}</span> certidões
-                      </p>
-                    </div>
-                    <span className={`ml-auto text-xl font-black font-mono ${c.rank}`}>{op.total}</span>
+              {/* Taxa de Atendimento */}
+              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+                <div>
+                  <span className="text-xs font-semibold text-slate-200 block">Taxa Atend.</span>
+                  <span className="text-[11px] text-slate-400 block truncate leading-tight">Eficiência</span>
+                </div>
+                <div className="mt-3">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">{data.livroStats.taxaAtendimento}%</span>
                   </div>
-                  <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                  <div className="w-full h-1.5 bg-amber-950/80 rounded-full mt-2 overflow-hidden border border-amber-500/20">
                     <div
-                      className={`h-full bg-gradient-to-r ${c.bar} rounded-full transition-all duration-500`}
-                      style={{ width: `${pct}%` }}
+                      className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, data.livroStats.taxaAtendimento)}%` }}
                     />
                   </div>
                 </div>
-              );
-            })}
+              </div>
+
+              {/* Tempo Médio */}
+              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+                <div>
+                  <span className="text-xs font-semibold text-slate-200 block">Tempo Médio</span>
+                  <span className="text-[11px] text-slate-400 block truncate leading-tight">para Impressão</span>
+                </div>
+                <div className="mt-3 flex items-baseline gap-1.5">
+                  <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">0,8</span>
+                  <span className="text-xs text-slate-400 font-medium">dia</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3.5 border-t border-white/10 text-xs text-slate-300 flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">Backlog início do período:</span>
+                <span className="px-2.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-300 font-bold font-mono text-xs">
+                  {data.livroStats.backlogInicio} livros
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">Backlog final do período:</span>
+                <span className="px-2.5 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-300 font-bold font-mono text-xs">
+                  {data.livroStats.backlogFinal} livros
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* CARD DE PRODUÇÃO DO OPERADOR DO LIVRO (ANTONIO) */}
+          <div className="rounded-2xl bg-[#171208]/90 border border-amber-500/30 p-5 shadow-lg relative overflow-hidden">
+            <div className="flex items-center justify-between mb-3.5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+                  <User className="w-4 h-4 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-amber-300">Produção por Operador · Livro</h3>
+                  <p className="text-[11px] text-slate-400">Atos impressos fisicamente no Livro no período</p>
+                </div>
+              </div>
+              <span className="text-[11px] font-semibold text-amber-400/90 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/25">
+                {operadoresLivro.length} {operadoresLivro.length === 1 ? 'operador' : 'operadores'}
+              </span>
+            </div>
+
+            {operadoresLivro.length > 0 ? (
+              <div className="space-y-2.5">
+                {operadoresLivro.map((op) => {
+                  const maxLivro = operadoresLivro[0]?.totalLivro || 1;
+                  const pct = Math.round((op.totalLivro / maxLivro) * 100);
+                  return (
+                    <div key={op.nome} className="rounded-xl bg-white/[0.03] border border-amber-500/15 p-3.5 flex flex-col gap-2.5 hover:bg-white/[0.05] transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-7 h-7 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
+                            <User className="w-3.5 h-3.5 text-amber-300" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-white truncate">{op.nome}</p>
+                            <p className="text-[10px] text-slate-400">Operador de Impressão</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xl font-black font-mono text-amber-300">{op.totalLivro}</span>
+                          <span className="text-[10px] text-slate-400 block -mt-1 font-medium">atos impressos</span>
+                        </div>
+                      </div>
+                      <div className="w-full h-1.5 bg-amber-950/60 rounded-full overflow-hidden border border-amber-500/20">
+                        <div
+                          className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-4 text-xs text-slate-400">
+                Nenhum ato impresso no livro no período selecionado.
+              </div>
+            )}
           </div>
         </div>
-      )}
+
+        {/* COLUNA 2: FLUXO DA CERTIDÃO (CIANO) */}
+        <div className="flex flex-col gap-4">
+          {/* CARD 2: IMPRESSÃO DE CERTIDÃO DE REGISTRO (CIANO) */}
+          <div className="rounded-2xl bg-[#0c1427]/90 border border-cyan-500/35 p-6 shadow-xl shadow-cyan-950/20 relative overflow-hidden flex flex-col justify-between">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 via-teal-400 to-cyan-600" />
+            
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-300 shadow-inner">
+                  <Printer className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-sm sm:text-base font-bold uppercase tracking-wider text-cyan-400">
+                    Impressão de Certidão de Registro
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">Fluxo de emissão e controle das certidões</p>
+                </div>
+              </div>
+              <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 uppercase tracking-wider">
+                Certidão
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pb-4">
+              {/* Demanda Certidão */}
+              <div
+                onClick={() => handleCardClick('certidao', 'todos', 'Certidão – Demanda total')}
+                className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
+                  activeCardLabel === 'Certidão – Demanda total'
+                    ? 'bg-cyan-500/10 border-cyan-400/60 ring-1 ring-cyan-400/40'
+                    : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-cyan-400/30'
+                }`}
+                title="Clique para filtrar por demanda"
+              >
+                <div>
+                  <span className="text-xs font-semibold text-slate-200 block">Demanda</span>
+                  <span className="text-[11px] text-slate-400 block truncate leading-tight">(Último Registro)</span>
+                </div>
+                <div className="mt-3 flex items-baseline gap-1.5">
+                  <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight group-hover:text-cyan-200 transition-colors">{data.certidaoStats.demanda}</span>
+                  <span className="text-xs text-slate-400 font-medium">livros</span>
+                </div>
+              </div>
+
+              {/* Produzidas Certidão */}
+              <div
+                onClick={() => handleCardClick('certidao', 'realizado', 'Certidão – Produzidas')}
+                className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
+                  activeCardLabel === 'Certidão – Produzidas'
+                    ? 'bg-emerald-500/10 border-emerald-400/60 ring-1 ring-emerald-400/40'
+                    : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-emerald-400/30'
+                }`}
+                title="Clique para filtrar por produzidas"
+              >
+                <div>
+                  <span className="text-xs font-semibold text-slate-200 block">Produzidas</span>
+                  <span className="text-[11px] text-slate-400 block truncate leading-tight">(Data Impressão)</span>
+                </div>
+                <div className="mt-3 flex items-baseline gap-1.5">
+                  <span className="text-2xl xl:text-3xl font-extrabold text-cyan-300 tracking-tight group-hover:text-emerald-300 transition-colors">{data.certidaoStats.produzidas}</span>
+                  <span className="text-xs text-slate-400 font-medium">livros</span>
+                </div>
+              </div>
+
+              {/* Pendências Certidão */}
+              <div
+                onClick={() => handleCardClick('certidao', 'pendente', 'Certidão – Pendências')}
+                className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
+                  activeCardLabel === 'Certidão – Pendências'
+                    ? 'bg-rose-500/15 border-rose-400/60 ring-1 ring-rose-400/40'
+                    : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-rose-400/30'
+                }`}
+                title="Clique para filtrar por pendências"
+              >
+                <div>
+                  <span className="text-xs font-semibold text-slate-200 block">Pendências</span>
+                  <span className="text-[11px] text-rose-400/90 block truncate leading-tight">(Saldo Atual)</span>
+                </div>
+                <div className="mt-3 flex items-baseline gap-1.5">
+                  <span className="text-2xl xl:text-3xl font-extrabold text-rose-400 tracking-tight">{data.certidaoStats.pendencias}</span>
+                  <span className="text-xs text-slate-400 font-medium">livros</span>
+                </div>
+              </div>
+
+              {/* Saldo Operacional */}
+              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+                <div>
+                  <span className="text-xs font-semibold text-slate-200 block">Saldo Operac.</span>
+                  <span className="text-[11px] text-slate-400 block truncate leading-tight">(Prod. - Dem.)</span>
+                </div>
+                <div className="mt-3 flex items-baseline gap-1.5">
+                  <span className={`text-2xl xl:text-3xl font-extrabold tracking-tight ${data.certidaoStats.saldoOperacional >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {data.certidaoStats.saldoOperacional}
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium">livros</span>
+                </div>
+              </div>
+
+              {/* Taxa de Atendimento */}
+              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+                <div>
+                  <span className="text-xs font-semibold text-slate-200 block">Taxa Atend.</span>
+                  <span className="text-[11px] text-slate-400 block truncate leading-tight">Eficiência</span>
+                </div>
+                <div className="mt-3">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">{data.certidaoStats.taxaAtendimento}%</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-cyan-950/80 rounded-full mt-2 overflow-hidden border border-cyan-500/20">
+                    <div
+                      className="h-full bg-gradient-to-r from-cyan-500 to-teal-400 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, data.certidaoStats.taxaAtendimento)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Tempo Médio */}
+              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+                <div>
+                  <span className="text-xs font-semibold text-slate-200 block">Tempo Médio</span>
+                  <span className="text-[11px] text-slate-400 block truncate leading-tight">para Impressão</span>
+                </div>
+                <div className="mt-3 flex items-baseline gap-1.5">
+                  <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">1,3</span>
+                  <span className="text-xs text-slate-400 font-medium">dias</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3.5 border-t border-white/10 text-xs text-slate-300 flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">Backlog início do período:</span>
+                <span className="px-2.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-300 font-bold font-mono text-xs">
+                  {data.certidaoStats.backlogInicio} livros
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400">Backlog final do período:</span>
+                <span className="px-2.5 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-300 font-bold font-mono text-xs">
+                  {data.certidaoStats.backlogFinal} livros
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* CARD DE PRODUÇÃO DO OPERADOR DA CERTIDÃO (DAVID) */}
+          <div className="rounded-2xl bg-[#0c1427]/90 border border-cyan-500/30 p-5 shadow-lg relative overflow-hidden">
+            <div className="flex items-center justify-between mb-3.5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center">
+                  <User className="w-4 h-4 text-cyan-400" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-300">Produção por Operador · Certidão</h3>
+                  <p className="text-[11px] text-slate-400">Certidões de Registro emitidas/preparadas no período</p>
+                </div>
+              </div>
+              <span className="text-[11px] font-semibold text-cyan-400/90 bg-cyan-500/10 px-2.5 py-0.5 rounded-full border border-cyan-500/25">
+                {operadoresCertidao.length} {operadoresCertidao.length === 1 ? 'operador' : 'operadores'}
+              </span>
+            </div>
+
+            {operadoresCertidao.length > 0 ? (
+              <div className="space-y-2.5">
+                {operadoresCertidao.map((op) => {
+                  const maxCertidao = operadoresCertidao[0]?.totalCertidao || 1;
+                  const pct = Math.round((op.totalCertidao / maxCertidao) * 100);
+                  return (
+                    <div key={op.nome} className="rounded-xl bg-white/[0.03] border border-cyan-500/15 p-3.5 flex flex-col gap-2.5 hover:bg-white/[0.05] transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-7 h-7 rounded-full bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center shrink-0">
+                            <User className="w-3.5 h-3.5 text-cyan-300" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-white truncate">{op.nome}</p>
+                            <p className="text-[10px] text-slate-400">Operador de Certidões</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xl font-black font-mono text-cyan-300">{op.totalCertidao}</span>
+                          <span className="text-[10px] text-slate-400 block -mt-1 font-medium">certidões emitidas</span>
+                        </div>
+                      </div>
+                      <div className="w-full h-1.5 bg-cyan-950/60 rounded-full overflow-hidden border border-cyan-500/20">
+                        <div
+                          className="h-full bg-gradient-to-r from-cyan-500 via-teal-400 to-cyan-600 rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-4 text-xs text-slate-400">
+                Nenhuma certidão emitida no período selecionado.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* ────────────────── TABELA DE SITUAÇÃO DAS IMPRESSÕES ────────────────── */}
       <div ref={tableRef} className="w-full rounded-2xl bg-[#0c1222]/90 border border-white/10 p-6 shadow-xl overflow-hidden">
