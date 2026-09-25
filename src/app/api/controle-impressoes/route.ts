@@ -39,26 +39,56 @@ export async function GET(request: NextRequest) {
     // 1. Query Principal de Itens
     // 1. Query Principal de Itens apurada pelos andamentos reais (fiorix_impressoes_dados)
     const baseQuery = `
-      WITH base_impressoes AS (
+      WITH base_impressoes_raw AS (
         SELECT 
           i.numero_prenotacao AS protocolo,
-          MAX(i.natureza) AS natureza,
-          MAX(i.tipo_prenotacao) AS tipo,
-          MIN(i.data_entrada) AS data_entrada,
-          MAX(NULLIF(i.numero_livro, '')) AS numero_livro,
-          -- LIVRO: Impressão Definitiva do Ato no Livro (Tipo 63 no WebRI)
-          MAX(CASE WHEN i.tipo_impressao = 'LIVRO' THEN i.data_impressao END) AS livro_data,
-          MAX(CASE WHEN i.tipo_impressao = 'LIVRO' THEN NULLIF(i.operador, '') END) AS livro_responsavel,
-          -- CERTIDÃO: Impressão de Certidão de Registro (Tipo 103 no WebRI)
-          MAX(CASE WHEN i.tipo_impressao = 'CERTIDAO' THEN i.data_impressao END) AS certidao_data,
-          MAX(CASE WHEN i.tipo_impressao = 'CERTIDAO' THEN NULLIF(i.operador, '') END) AS certidao_responsavel,
-          MAX(CASE WHEN i.tipo_impressao = 'CERTIDAO' AND i.observacao ILIKE '%http%' THEN 
+          i.natureza,
+          i.tipo_prenotacao AS tipo,
+          i.data_entrada,
+          i.numero_livro,
+          i.tipo_impressao,
+          i.data_impressao,
+          NULLIF(i.operador, '') AS operador,
+          CASE WHEN i.tipo_impressao = 'CERTIDAO' AND i.observacao ILIKE '%http%' THEN 
             SUBSTRING(i.observacao FROM 'https?://[^ ]+') 
-          END) AS link_onr_especifico,
-          MAX(i.seq_titulo) AS seq_titulo
+          END AS link_onr_especifico,
+          i.seq_titulo
         FROM public.fiorix_impressoes_dados i
         WHERE i.tenant_id = $1
-        GROUP BY i.numero_prenotacao
+      ),
+      base_impressoes AS (
+        SELECT 
+          protocolo,
+          MAX(natureza) AS natureza,
+          MAX(tipo) AS tipo,
+          MIN(data_entrada) AS data_entrada,
+          MAX(NULLIF(numero_livro, '')) AS numero_livro,
+          
+          -- LIVRO: Impressão Definitiva no Livro / Matrícula (data e operador do evento mais recente)
+          MAX(CASE WHEN tipo_impressao = 'LIVRO' THEN data_impressao END) AS livro_data,
+          (ARRAY_AGG(operador ORDER BY data_impressao DESC) FILTER (WHERE tipo_impressao = 'LIVRO' AND operador IS NOT NULL))[1] AS livro_responsavel,
+
+          -- CERTIDÃO: Impressão de Certidão de Registro (data e operador do evento mais recente)
+          MAX(CASE WHEN tipo_impressao = 'CERTIDAO' THEN data_impressao END) AS certidao_data,
+          (ARRAY_AGG(operador ORDER BY data_impressao DESC) FILTER (WHERE tipo_impressao = 'CERTIDAO' AND operador IS NOT NULL))[1] AS certidao_responsavel,
+
+          (ARRAY_AGG(link_onr_especifico ORDER BY data_impressao DESC) FILTER (WHERE tipo_impressao = 'CERTIDAO' AND link_onr_especifico IS NOT NULL))[1] AS link_onr_especifico,
+          MAX(seq_titulo) AS seq_titulo
+        FROM base_impressoes_raw
+        GROUP BY protocolo
+      ),
+      tarefas_livro AS (
+        -- Reconhecimento de impressão de livro/matrícula finalizada via tarefas (IMPRESSÃO FICHA MATRÍCULA)
+        SELECT 
+          t.protocolo,
+          MAX(COALESCE(t.data_finalizacao, t.data_abertura, t.data_cadastro_tarefa)) AS livro_tarefa_data,
+          (ARRAY_AGG(NULLIF(t.responsavel, '') ORDER BY COALESCE(t.data_finalizacao, t.data_abertura, t.data_cadastro_tarefa) DESC) 
+           FILTER (WHERE NULLIF(t.responsavel, '') IS NOT NULL))[1] AS livro_tarefa_responsavel
+        FROM public.fiorix_tarefas_dados t
+        WHERE t.tenant_id = $1
+          AND t.tarefa ILIKE '%IMPRESS%'
+          AND t.situacao_tarefa = 'FINALIZADA'
+        GROUP BY t.protocolo
       ),
       status_protocolos AS (
         -- Identificação precisa de títulos devolvidos (não aptos para registro) vs registrados
@@ -108,17 +138,17 @@ export async function GET(request: NextRequest) {
           COALESCE(i.numero_livro, d.numero_livro) AS numero_livro,
           COALESCE(NULLIF(i.natureza, ''), NULLIF(d.natureza, ''), NULLIF(i.tipo, ''), NULLIF(d.tipo, ''), 'Escritura') AS tipo_natureza,
           COALESCE(i.data_entrada, d.data_entrada) AS data_entrada,
-          COALESCE(d.ultimo_registro, i.data_entrada, i.livro_data, i.certidao_data) AS ultimo_registro,
+          COALESCE(d.ultimo_registro, i.data_entrada, i.livro_data, tl.livro_tarefa_data, i.certidao_data) AS ultimo_registro,
           COALESCE(i.seq_titulo, d.seq_titulo, 1) AS seq_titulo,
           
-          -- LIVRO: apurado estritamente por andamento real de tipo 63. Devolvidos sem registro não têm ato no livro.
+          -- LIVRO: apurado por andamento real de impressão (63 ou 264) com fallback de tarefa finalizada
+          COALESCE(i.livro_data, tl.livro_tarefa_data) AS livro_data,
+          COALESCE(i.livro_responsavel, tl.livro_tarefa_responsavel) AS livro_responsavel,
           CASE 
-            WHEN i.livro_data IS NOT NULL THEN 'REALIZADO'
+            WHEN COALESCE(i.livro_data, tl.livro_tarefa_data) IS NOT NULL THEN 'REALIZADO'
             WHEN COALESCE(s.is_devolvido, false) AND NOT COALESCE(s.is_registrado, false) THEN 'NAO_APLICAVEL'
             ELSE 'PENDENTE'
           END AS livro_status,
-          i.livro_data,
-          i.livro_responsavel,
 
           -- CERTIDÃO: apurado estritamente por andamento real de tipo 103
           CASE 
@@ -139,8 +169,8 @@ export async function GET(request: NextRequest) {
                 WHEN i.certidao_data IS NOT NULL THEN 'Devolvido (Certidão Emitida)'
                 ELSE 'Devolvido'
               END
-            WHEN i.livro_data IS NOT NULL AND i.certidao_data IS NOT NULL THEN 'Concluído'
-            WHEN i.livro_data IS NOT NULL THEN 'Certidão Pendente'
+            WHEN COALESCE(i.livro_data, tl.livro_tarefa_data) IS NOT NULL AND i.certidao_data IS NOT NULL THEN 'Concluído'
+            WHEN COALESCE(i.livro_data, tl.livro_tarefa_data) IS NOT NULL THEN 'Certidão Pendente'
             WHEN i.certidao_data IS NOT NULL THEN 'Livro Pendente'
             ELSE 'Aguardando Impressão'
           END AS etapa_atual,
@@ -148,7 +178,7 @@ export async function GET(request: NextRequest) {
           -- Dias Pendente (apenas se alguma das impressões aplicáveis estiver de fato pendente)
           CASE 
             WHEN (
-              (i.livro_data IS NULL AND NOT (COALESCE(s.is_devolvido, false) AND NOT COALESCE(s.is_registrado, false)))
+              (COALESCE(i.livro_data, tl.livro_tarefa_data) IS NULL AND NOT (COALESCE(s.is_devolvido, false) AND NOT COALESCE(s.is_registrado, false)))
               OR 
               (i.certidao_data IS NULL AND NOT (COALESCE(s.is_devolvido, false) AND NOT COALESCE(s.is_registrado, false)))
             ) AND COALESCE(d.ultimo_registro, i.data_entrada) IS NOT NULL
@@ -158,6 +188,7 @@ export async function GET(request: NextRequest) {
         FROM base_impressoes i
         FULL OUTER JOIN protocolos_demanda d ON d.protocolo = i.protocolo
         LEFT JOIN status_protocolos s ON s.protocolo = COALESCE(i.protocolo, d.protocolo)
+        LEFT JOIN tarefas_livro tl ON tl.protocolo = COALESCE(i.protocolo, d.protocolo)
         WHERE COALESCE(i.protocolo, d.protocolo) IS NOT NULL
       )
       SELECT * FROM unificado
