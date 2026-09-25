@@ -96,16 +96,16 @@ export async function GET(request: NextRequest) {
           COALESCE(t.protocolo, m.protocolo) AS protocolo,
           BOOL_OR(
             t.dt_devolucao IS NOT NULL 
-            OR t.tarefa ILIKE '%DEVOLV%' 
+            OR t.tarefa ILIKE '%DEVOL%' 
             OR m.d_balcao_devolvido IS NOT NULL
           ) AS is_devolvido,
           BOOL_OR(
             m.d_balcao_registrado IS NOT NULL 
             OR m.d8_impressao IS NOT NULL
             OR m.d9_preparacao IS NOT NULL
-            OR t.tarefa ILIKE '%REGISTR%' 
-            OR t.tarefa ILIKE '%IMPRESS%' 
-            OR t.tarefa ILIKE '%PREPAR%'
+            OR (t.tarefa ILIKE '%REGISTR%' AND t.situacao_tarefa = 'FINALIZADA')
+            OR (t.tarefa ILIKE '%PREPAR%' AND t.situacao_tarefa = 'FINALIZADA')
+            OR (t.tarefa ILIKE '%IMPRESS%' AND t.situacao_tarefa = 'FINALIZADA')
           ) AS is_registrado
         FROM public.fiorix_tarefas_dados t
         FULL OUTER JOIN public.fiorix_metas_dados m 
@@ -127,7 +127,12 @@ export async function GET(request: NextRequest) {
         LEFT JOIN public.fiorix_metas_dados m 
           ON m.protocolo = t.protocolo AND m.tenant_id = t.tenant_id
         WHERE t.tenant_id = $1
-          AND (m.d_balcao_registrado IS NOT NULL OR t.tarefa ILIKE '%IMPRESS%' OR t.tarefa ILIKE '%PREPAR%' OR t.tarefa ILIKE '%REGISTR%')
+          AND (
+            m.d_balcao_registrado IS NOT NULL 
+            OR (t.tarefa ILIKE '%IMPRESS%' AND t.situacao_tarefa = 'FINALIZADA')
+            OR (t.tarefa ILIKE '%PREPAR%' AND t.situacao_tarefa = 'FINALIZADA')
+            OR (t.tarefa ILIKE '%REGISTR%' AND t.situacao_tarefa = 'FINALIZADA')
+          )
           AND NOT (
             COALESCE(t.dt_devolucao, m.d_balcao_devolvido) IS NOT NULL 
             AND m.d_balcao_registrado IS NULL
