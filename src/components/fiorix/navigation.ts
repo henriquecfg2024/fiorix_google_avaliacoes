@@ -69,7 +69,7 @@ export const navigationGroups = {
         description: "5.192 Digital, 1.866 Presencial",
       },
       {
-        label: "RETORNOS",
+        label: "Retornos",
         href: "/bi/retornos",
         icon: RotateCcw,
         description: "Consulte os retornos, responsáveis e observações de cada título.",

@@ -333,6 +333,178 @@ export function RetornosDashboardClient() {
     window.print();
   };
 
+  // IMPRESSÃO DE FICHA DE PROTOCOLO INDIVIDUAL
+  const printSingleProtocol = (item: RetornoItem) => {
+    const printWindow = window.open("", "_blank", "width=850,height=700");
+    if (!printWindow) {
+      toast.error("Permita pop-ups no navegador para imprimir a ficha do protocolo.");
+      return;
+    }
+    const dt = formatDateTime(item.dataRetorno);
+    const safeObs = item.observacao
+      ? item.observacao.replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      : "Sem observação informada.";
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="utf-8">
+        <title>Ficha do Protocolo ${item.numeroPrenotacao} - Retorno</title>
+        <style>
+          * { box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 28px;
+            color: #0f172a;
+            background: #ffffff;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 14px;
+            margin-bottom: 20px;
+          }
+          .title { font-size: 20px; font-weight: 800; text-transform: uppercase; color: #0f172a; margin: 0; }
+          .subtitle { font-size: 12px; color: #475569; margin-top: 4px; }
+          .badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 700;
+            border: 1px solid #cbd5e1;
+            background: ${item.classificacao === "Corrigido" ? "#ecfdf5; color: #065f46; border-color: #a7f3d0;" : "#f1f5f9; color: #334155;"}
+          }
+          .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 18px;
+          }
+          .card {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 10px 14px;
+            background: #f8fafc;
+          }
+          .label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
+            font-weight: 600;
+            margin-bottom: 3px;
+          }
+          .value {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+          }
+          .obs-box {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 16px;
+            background: #f8fafc;
+            margin-top: 14px;
+          }
+          .obs-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #334155;
+            margin-bottom: 8px;
+          }
+          .obs-content {
+            font-size: 12px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            color: #0f172a;
+          }
+          .footer {
+            margin-top: 36px;
+            padding-top: 12px;
+            border-top: 1px dashed #cbd5e1;
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #64748b;
+          }
+          @media print {
+            body { padding: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <h1 class="title">7º Registro de Imóveis • FIORIX</h1>
+            <div class="subtitle">Comprovante do Evento de Retorno • Prenotação ${item.numeroPrenotacao}</div>
+          </div>
+          <div class="badge">${item.classificacao}</div>
+        </div>
+
+        <div class="grid">
+          <div class="card">
+            <div class="label">Prenotação / Protocolo</div>
+            <div class="value">${item.numeroPrenotacao}</div>
+          </div>
+          <div class="card">
+            <div class="label">Tipo de Recepção</div>
+            <div class="value">${item.tipoRecepcao} (${item.formaTitulo || "Instrumento Geral"})</div>
+          </div>
+          <div class="card">
+            <div class="label">Tipo de Retorno</div>
+            <div class="value">${item.tipoRetorno} [${item.siglaRetorno}]</div>
+          </div>
+          <div class="card">
+            <div class="label">Família do Retorno</div>
+            <div class="value">${item.familiaRetorno}</div>
+          </div>
+          <div class="card">
+            <div class="label">Data do Retorno</div>
+            <div class="value">${dt.full}</div>
+          </div>
+          <div class="card">
+            <div class="label">Título Sequencial</div>
+            <div class="value">Título ${item.seqTitulo || 1}</div>
+          </div>
+          <div class="card">
+            <div class="label">Destinatário Responsável</div>
+            <div class="value">${item.usuarioDestinoRetorno}</div>
+          </div>
+          <div class="card">
+            <div class="label">Usuário de Origem</div>
+            <div class="value">${item.usuarioOrigem || "Não informado"}</div>
+          </div>
+        </div>
+
+        <div class="obs-box">
+          <div class="obs-title">Observação do Andamento</div>
+          <div class="obs-content">${safeObs}</div>
+        </div>
+
+        <div class="footer">
+          <span>FIORIX Gestão de Prazos • Emitido em ${new Date().toLocaleString("pt-BR")}</span>
+          <span>ID Andamento: ${item.idAndamento}</span>
+        </div>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+            }, 300);
+          };
+        </script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   return (
     <div className="space-y-6">
       {/* 1. CABEÇALHO */}
@@ -341,7 +513,7 @@ export function RetornosDashboardClient() {
           <div className="flex items-center gap-2 text-xs font-medium text-[#A4B1C4]">
             <span>GESTÃO DE PRAZOS</span>
             <span className="text-slate-600">/</span>
-            <span className="text-[#93B3FF] font-semibold">RETORNOS</span>
+            <span className="text-[#93B3FF] font-semibold">Retornos</span>
           </div>
           <div className="flex items-center gap-3 mt-1.5">
             <h1 className="text-2xl font-bold tracking-tight text-[#E6EDF7] uppercase">
@@ -583,13 +755,33 @@ export function RetornosDashboardClient() {
 
       {/* 5. TABELA DE EVENTOS DE RETORNO */}
       <div className="rounded-xl border border-[#2C3748] bg-[#19212D]/90 shadow-lg overflow-hidden space-y-0">
-        <div className="p-4 flex items-center justify-between border-b border-[#2C3748]/60">
-          <h2 className="text-sm font-semibold text-[#E6EDF7]">Eventos de retorno</h2>
-          <span className="text-xs text-[#A4B1C4]">
-            {selectedResponsavelId
-              ? `Filtrado por responsável`
-              : `Todos os responsáveis`}
-          </span>
+        <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#2C3748]/60">
+          <div>
+            <h2 className="text-sm font-semibold text-[#E6EDF7]">Eventos de retorno</h2>
+            <span className="text-xs text-[#A4B1C4]">
+              {selectedResponsavelId
+                ? `Filtrado por responsável`
+                : `Todos os responsáveis`}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2C3748] bg-[#10151E] text-xs font-medium text-[#E6EDF7] hover:bg-[#1E293B] hover:text-white transition-all shadow-sm focus:outline-none"
+              title="Imprimir lista completa de protocolos"
+            >
+              <Printer className="w-3.5 h-3.5 text-[#93B3FF]" />
+              <span>Imprimir Lista</span>
+            </button>
+            <button
+              onClick={() => setIsPdfModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 text-xs font-medium text-purple-300 hover:bg-purple-500/20 transition-all shadow-sm focus:outline-none"
+              title="Gerar relatório PDF dos protocolos"
+            >
+              <FileDown className="w-3.5 h-3.5" />
+              <span>Gerar PDF</span>
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -661,12 +853,15 @@ export function RetornosDashboardClient() {
                     )}
                   </div>
                 </th>
+                <th className="px-4 py-3 text-right">
+                  <span>Ações</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#2C3748]/50">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-xs text-[#A4B1C4]">
+                  <td colSpan={6} className="py-12 text-center text-xs text-[#A4B1C4]">
                     <div className="flex items-center justify-center gap-2">
                       <RefreshCw className="w-4 h-4 animate-spin text-purple-400" />
                       <span>Carregando eventos de retorno...</span>
@@ -675,7 +870,7 @@ export function RetornosDashboardClient() {
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-xs text-[#A4B1C4]">
+                  <td colSpan={6} className="py-12 text-center text-xs text-[#A4B1C4]">
                     Nenhum evento encontrado com os filtros selecionados.
                   </td>
                 </tr>
@@ -734,6 +929,21 @@ export function RetornosDashboardClient() {
                             Sem marcador
                           </span>
                         )}
+                      </td>
+
+                      {/* Ações de Impressão do Protocolo */}
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            printSingleProtocol(item);
+                          }}
+                          title={`Imprimir ficha da prenotação ${item.numeroPrenotacao}`}
+                          className="px-2.5 py-1 rounded-lg border border-[#2C3748] bg-[#10151E] hover:bg-[#233658] text-[#A4B1C4] hover:text-[#93B3FF] transition-all inline-flex items-center gap-1.5 text-[11px] font-medium"
+                        >
+                          <Printer className="w-3.5 h-3.5 text-[#93B3FF]" />
+                          <span>Imprimir</span>
+                        </button>
                       </td>
                     </tr>
                   );
@@ -868,7 +1078,14 @@ export function RetornosDashboardClient() {
               </div>
             </div>
 
-            <div className="flex justify-end pt-2">
+            <div className="flex items-center justify-between pt-2">
+              <button
+                onClick={() => printSingleProtocol(selectedEvento)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#2C3748] bg-[#10151E] hover:bg-[#1E293B] text-xs font-semibold text-[#E6EDF7] hover:text-white transition-all shadow-sm"
+              >
+                <Printer className="w-3.5 h-3.5 text-[#93B3FF]" />
+                <span>Imprimir Ficha</span>
+              </button>
               <button
                 onClick={() => setSelectedEvento(null)}
                 className="px-4 py-2 rounded-lg bg-[#242C3D] hover:bg-[#2C3748] text-xs font-medium text-white transition-colors"
