@@ -60,6 +60,27 @@ export async function GET(request: NextRequest) {
         WHERE i.tenant_id = $1
         GROUP BY i.numero_prenotacao
       ),
+      status_protocolos AS (
+        -- Identificação precisa de títulos devolvidos (não aptos para registro) vs registrados
+        SELECT 
+          COALESCE(t.protocolo, m.protocolo) AS protocolo,
+          BOOL_OR(
+            t.dt_devolucao IS NOT NULL 
+            OR t.tarefa ILIKE '%DEVOLV%' 
+            OR m.d_balcao_devolvido IS NOT NULL
+          ) AS is_devolvido,
+          BOOL_OR(
+            m.d_balcao_registrado IS NOT NULL 
+            OR t.tarefa ILIKE '%REGISTR%' 
+            OR t.tarefa ILIKE '%IMPRESS%' 
+            OR t.tarefa ILIKE '%PREPAR%'
+          ) AS is_registrado
+        FROM public.fiorix_tarefas_dados t
+        FULL OUTER JOIN public.fiorix_metas_dados m 
+          ON m.protocolo = t.protocolo AND m.tenant_id = t.tenant_id
+        WHERE COALESCE(t.tenant_id, m.tenant_id) = $1
+        GROUP BY COALESCE(t.protocolo, m.protocolo)
+      ),
       protocolos_demanda AS (
         -- Protocolos registrados ou com movimentação para compor a demanda e backlog
         SELECT 
@@ -75,6 +96,10 @@ export async function GET(request: NextRequest) {
           ON m.protocolo = t.protocolo AND m.tenant_id = t.tenant_id
         WHERE t.tenant_id = $1
           AND (m.d_balcao_registrado IS NOT NULL OR t.tarefa ILIKE '%IMPRESS%' OR t.tarefa ILIKE '%PREPAR%')
+          AND NOT (
+            COALESCE(t.dt_devolucao, m.d_balcao_devolvido) IS NOT NULL 
+            AND m.d_balcao_registrado IS NULL
+          )
         GROUP BY t.protocolo
       ),
       unificado AS (
@@ -86,9 +111,10 @@ export async function GET(request: NextRequest) {
           COALESCE(d.ultimo_registro, i.data_entrada, i.livro_data, i.certidao_data) AS ultimo_registro,
           COALESCE(i.seq_titulo, d.seq_titulo, 1) AS seq_titulo,
           
-          -- LIVRO: apurado estritamente por andamento real de tipo 63
+          -- LIVRO: apurado estritamente por andamento real de tipo 63. Devolvidos sem registro não têm ato no livro.
           CASE 
             WHEN i.livro_data IS NOT NULL THEN 'REALIZADO'
+            WHEN COALESCE(s.is_devolvido, false) AND NOT COALESCE(s.is_registrado, false) THEN 'NAO_APLICAVEL'
             ELSE 'PENDENTE'
           END AS livro_status,
           i.livro_data,
@@ -97,6 +123,7 @@ export async function GET(request: NextRequest) {
           -- CERTIDÃO: apurado estritamente por andamento real de tipo 103
           CASE 
             WHEN i.certidao_data IS NOT NULL THEN 'REALIZADO'
+            WHEN COALESCE(s.is_devolvido, false) AND NOT COALESCE(s.is_registrado, false) THEN 'NAO_APLICAVEL'
             ELSE 'PENDENTE'
           END AS certidao_status,
           i.certidao_data,
@@ -107,20 +134,30 @@ export async function GET(request: NextRequest) {
 
           -- Etapa Atual descritiva
           CASE 
+            WHEN COALESCE(s.is_devolvido, false) AND NOT COALESCE(s.is_registrado, false) THEN
+              CASE 
+                WHEN i.certidao_data IS NOT NULL THEN 'Devolvido (Certidão Emitida)'
+                ELSE 'Devolvido'
+              END
             WHEN i.livro_data IS NOT NULL AND i.certidao_data IS NOT NULL THEN 'Concluído'
             WHEN i.livro_data IS NOT NULL THEN 'Certidão Pendente'
             WHEN i.certidao_data IS NOT NULL THEN 'Livro Pendente'
             ELSE 'Aguardando Impressão'
           END AS etapa_atual,
 
-          -- Dias Pendente (se qualquer uma das impressões estiver pendente)
+          -- Dias Pendente (apenas se alguma das impressões aplicáveis estiver de fato pendente)
           CASE 
-            WHEN (i.livro_data IS NULL OR i.certidao_data IS NULL) AND COALESCE(d.ultimo_registro, i.data_entrada) IS NOT NULL
+            WHEN (
+              (i.livro_data IS NULL AND NOT (COALESCE(s.is_devolvido, false) AND NOT COALESCE(s.is_registrado, false)))
+              OR 
+              (i.certidao_data IS NULL AND NOT (COALESCE(s.is_devolvido, false) AND NOT COALESCE(s.is_registrado, false)))
+            ) AND COALESCE(d.ultimo_registro, i.data_entrada) IS NOT NULL
             THEN GREATEST(0, EXTRACT(DAY FROM (NOW() - COALESCE(d.ultimo_registro, i.data_entrada)))::int)
             ELSE 0
           END AS dias_pendente
         FROM base_impressoes i
         FULL OUTER JOIN protocolos_demanda d ON d.protocolo = i.protocolo
+        LEFT JOIN status_protocolos s ON s.protocolo = COALESCE(i.protocolo, d.protocolo)
         WHERE COALESCE(i.protocolo, d.protocolo) IS NOT NULL
       )
       SELECT * FROM unificado
@@ -324,11 +361,14 @@ export async function GET(request: NextRequest) {
       certidaoPendencias = allFilteredRows.filter((r) => r.certidao_status === 'PENDENTE').length;
     }
 
-    const certidaoTaxa = totalDemanda > 0 ? Math.round((certidaoProduzidas / totalDemanda) * 100) : 100;
-    const livroTaxa = totalDemanda > 0 ? Math.round((livroProduzidas / totalDemanda) * 100) : 100;
+    const demandaLivro = allFilteredRows.filter((r) => r.livro_status !== 'NAO_APLICAVEL').length;
+    const demandaCertidao = allFilteredRows.filter((r) => r.certidao_status !== 'NAO_APLICAVEL').length;
 
-    const certidaoSaldo = certidaoProduzidas - totalDemanda;
-    const livroSaldo = livroProduzidas - totalDemanda;
+    const certidaoTaxa = demandaCertidao > 0 ? Math.round((certidaoProduzidas / demandaCertidao) * 100) : 100;
+    const livroTaxa = demandaLivro > 0 ? Math.round((livroProduzidas / demandaLivro) * 100) : 100;
+
+    const certidaoSaldo = certidaoProduzidas - demandaCertidao;
+    const livroSaldo = livroProduzidas - demandaLivro;
 
     // 4. Evolução Diária (últimos 14 dias dentro do período)
     const diasMap = new Map<string, { demanda: number; produzidasCertidao: number; produzidasLivro: number }>();
@@ -447,7 +487,7 @@ export async function GET(request: NextRequest) {
       ultimaSincronizacao: now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       totalRegistros,
       certidaoStats: {
-        demanda: totalDemanda,
+        demanda: demandaCertidao,
         produzidas: certidaoProduzidas,
         pendencias: certidaoPendencias,
         saldoOperacional: certidaoSaldo,
@@ -457,7 +497,7 @@ export async function GET(request: NextRequest) {
         backlogFinal: certidaoPendencias,
       },
       livroStats: {
-        demanda: totalDemanda,
+        demanda: demandaLivro,
         produzidas: livroProduzidas,
         pendencias: livroPendencias,
         saldoOperacional: livroSaldo,

@@ -1858,10 +1858,17 @@ export function ControleImpressoesClient() {
 
                     {/* Etapa Atual Badge */}
                     <td className="py-3.5 px-3.5 print:py-1.5 print:px-2 print:border-b print:border-slate-200">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-cyan-950/40 border border-cyan-500/25 text-cyan-200 shadow-sm whitespace-nowrap print:bg-transparent print:border-none print:text-slate-800 print:shadow-none print:p-0 print:text-[9.5px] print:font-semibold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 animate-pulse print:hidden" />
-                        {row.etapaAtual || 'Impressão'}
-                      </span>
+                      {row.etapaAtual?.toLowerCase().includes('devolvido') ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-950/40 border border-amber-500/30 text-amber-300 shadow-sm whitespace-nowrap print:bg-transparent print:border-none print:text-amber-800 print:shadow-none print:p-0 print:text-[9.5px] print:font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 print:hidden" />
+                          {row.etapaAtual}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-cyan-950/40 border border-cyan-500/25 text-cyan-200 shadow-sm whitespace-nowrap print:bg-transparent print:border-none print:text-slate-800 print:shadow-none print:p-0 print:text-[9.5px] print:font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 animate-pulse print:hidden" />
+                          {row.etapaAtual || 'Impressão'}
+                        </span>
+                      )}
                     </td>
 
                     {/* Último Registro */}
