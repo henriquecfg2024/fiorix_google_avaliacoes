@@ -13,6 +13,9 @@ import {
   ArrowDown,
   Check,
   RefreshCw,
+  RotateCcw,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import { RetornoItem, ResponsavelContagem, RetornosResponse } from "@/lib/retornos/types";
 import { toast } from "sonner";
@@ -542,22 +545,22 @@ export function RetornosDashboardClient() {
   return (
     <div className="space-y-6">
       {/* 1. CABEÇALHO */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-[#2C3748]/60 print:hidden">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-white/8 print:hidden">
         <div>
-          <div className="flex items-center gap-2 text-xs font-medium text-[#A4B1C4]">
+          <div className="flex items-center gap-2 text-xs font-medium text-white/50">
             <span>GESTÃO DE PRAZOS</span>
-            <span className="text-slate-600">/</span>
-            <span className="text-[#93B3FF] font-semibold">Retornos</span>
+            <span className="text-white/30">/</span>
+            <span className="text-purple-300 font-semibold">Retornos</span>
           </div>
           <div className="flex items-center gap-3 mt-1.5">
-            <h1 className="text-2xl font-bold tracking-tight text-[#E6EDF7] uppercase">
+            <h1 className="text-2xl font-bold tracking-tight text-white uppercase">
               RETORNOS
             </h1>
             <span className="rounded-full border border-purple-500/30 bg-purple-500/15 px-2.5 py-0.5 text-xs font-medium text-purple-300">
               Controle de Devoluções
             </span>
           </div>
-          <p className="text-sm text-[#A4B1C4] mt-1">
+          <p className="text-sm text-white/50 mt-1">
             Retornos, responsáveis e observações dos títulos.
           </p>
         </div>
@@ -566,14 +569,14 @@ export function RetornosDashboardClient() {
         <div className="flex items-center gap-2.5">
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-[#2C3748] bg-[#19212D] text-xs font-medium text-[#E6EDF7] hover:bg-[#233658] transition-colors focus:outline-none focus:ring-2 focus:ring-[#93B3FF]/40"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-medium text-white hover:bg-white/[0.08] transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400/40"
           >
-            <Printer className="w-4 h-4 text-[#A4B1C4]" />
+            <Printer className="w-4 h-4 text-purple-300" />
             <span>Imprimir</span>
           </button>
           <button
             onClick={() => setIsPdfModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-xs font-semibold text-white shadow-lg hover:from-purple-500 hover:to-indigo-500 transition-all focus:outline-none focus:ring-2 focus:ring-purple-400"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-xs font-semibold text-white shadow-lg hover:from-purple-500 hover:to-indigo-500 transition-all focus:outline-none focus:ring-2 focus:ring-purple-400"
           >
             <FileDown className="w-4 h-4" />
             <span>Gerar PDF</span>
@@ -581,40 +584,73 @@ export function RetornosDashboardClient() {
         </div>
       </div>
 
-      {/* 2. CARDS DE INDICADORES (KPIS) */}
+      {/* 2. CARDS DE INDICADORES (KPIS) — PADRÃO FIORIX */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 print:hidden">
         {/* KPI 1: Eventos de retorno */}
-        <div className="rounded-xl border border-[#2C3748] bg-[#19212D]/85 p-5 shadow-lg backdrop-blur-md">
-          <div className="text-xs font-medium text-[#A4B1C4]">Eventos de retorno</div>
-          <div className="mt-2 text-3xl font-extrabold text-[#E6EDF7]">
-            {isLoading ? "..." : kpis.total.toLocaleString("pt-BR")}
+        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-cyan-500/25 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-cyan-400/50">
+          <div className="flex justify-between items-start w-full">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">
+              Eventos de retorno
+            </span>
+            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-2 transition-all group-hover:brightness-110">
+              <RotateCcw className="w-4 h-4 text-cyan-300" />
+            </div>
           </div>
-          <div className="mt-1 text-xs text-[#A4B1C4]/80">Resultados filtrados</div>
+          <div className="mt-auto space-y-1">
+            <div className="text-3xl font-extrabold tracking-tight text-white">
+              {isLoading ? "..." : kpis.total.toLocaleString("pt-BR")}
+            </div>
+            <div className="text-[11px] text-white/45">
+              Resultados filtrados no período
+            </div>
+          </div>
         </div>
 
         {/* KPI 2: Marcados como corrigidos */}
-        <div className="rounded-xl border border-[#2C3748] bg-[#19212D]/85 p-5 shadow-lg backdrop-blur-md">
-          <div className="text-xs font-medium text-[#A4B1C4]">Marcados como corrigidos</div>
-          <div className="mt-2 text-3xl font-extrabold text-[#94DCB7]">
-            {isLoading ? "..." : kpis.corrigidos.toLocaleString("pt-BR")}
+        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-emerald-500/25 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-emerald-400/50">
+          <div className="flex justify-between items-start w-full">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">
+              Marcados como corrigidos
+            </span>
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-2 transition-all group-hover:brightness-110">
+              <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+            </div>
           </div>
-          <div className="mt-1 text-xs text-[#A4B1C4]/80">RTC · RPC · RRC</div>
+          <div className="mt-auto space-y-1">
+            <div className="text-3xl font-extrabold tracking-tight text-emerald-400">
+              {isLoading ? "..." : kpis.corrigidos.toLocaleString("pt-BR")}
+            </div>
+            <div className="text-[11px] text-white/45">
+              RTC · RPC · RRC {kpis.total > 0 ? `(${((kpis.corrigidos / kpis.total) * 100).toFixed(1)}%)` : ""}
+            </div>
+          </div>
         </div>
 
         {/* KPI 3: Sem marcador de correção */}
-        <div className="rounded-xl border border-[#2C3748] bg-[#19212D]/85 p-5 shadow-lg backdrop-blur-md">
-          <div className="text-xs font-medium text-[#A4B1C4]">Sem marcador de correção</div>
-          <div className="mt-2 text-3xl font-extrabold text-[#E6EDF7]">
-            {isLoading ? "..." : kpis.semMarcador.toLocaleString("pt-BR")}
+        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-amber-500/25 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-amber-400/50">
+          <div className="flex justify-between items-start w-full">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">
+              Sem marcador de correção
+            </span>
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-2 transition-all group-hover:brightness-110">
+              <AlertTriangle className="w-4 h-4 text-amber-300" />
+            </div>
           </div>
-          <div className="mt-1 text-xs text-[#A4B1C4]/80">RTR · RPE · RRE</div>
+          <div className="mt-auto space-y-1">
+            <div className="text-3xl font-extrabold tracking-tight text-amber-400">
+              {isLoading ? "..." : kpis.semMarcador.toLocaleString("pt-BR")}
+            </div>
+            <div className="text-[11px] text-white/45">
+              RTR · RPE · RRE {kpis.total > 0 ? `(${((kpis.semMarcador / kpis.total) * 100).toFixed(1)}%)` : ""}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* 3. ABAS E BARRA DE FILTROS */}
       <div className="space-y-4 print:hidden">
         {/* Abas */}
-        <div className="flex border-b border-[#2C3748]">
+        <div className="flex border-b border-white/8 bg-[#0B1020]/40 rounded-t-xl px-2">
           {[
             { id: "ALL", label: "Todos" },
             { id: "PESSOAL", label: "Pessoal" },
@@ -629,8 +665,8 @@ export function RetornosDashboardClient() {
               }}
               className={`px-4 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px ${
                 selectedAba === tab.id
-                  ? "border-purple-400 text-white font-semibold"
-                  : "border-transparent text-[#A4B1C4] hover:text-[#E6EDF7]"
+                  ? "border-purple-400 text-purple-300 font-bold bg-white/[0.03]"
+                  : "border-transparent text-white/50 hover:text-white/80"
               }`}
             >
               {tab.label}
@@ -642,20 +678,20 @@ export function RetornosDashboardClient() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
           {/* Campo Buscar */}
           <div className="md:col-span-6 space-y-1.5">
-            <label className="text-xs text-[#A4B1C4]">Buscar</label>
+            <label className="text-xs text-white/50 font-medium">Buscar</label>
             <div className="relative">
-              <Search className="w-4 h-4 text-[#A4B1C4] absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-4 h-4 text-white/40 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Prenotação, pessoa ou observação"
-                className="w-full bg-[#10151E] border border-[#2C3748] rounded-lg pl-9 pr-3 py-2 text-xs text-[#E6EDF7] placeholder-[#A4B1C4]/60 focus:outline-none focus:ring-1 focus:ring-[#93B3FF] focus:border-[#93B3FF]"
+                placeholder="Prenotação, pessoa ou observação..."
+                className="w-full bg-[#0C1323] border border-white/8 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder:text-white/35 shadow-sm focus:outline-none focus:ring-1 focus:ring-purple-400 focus:border-purple-400"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A4B1C4] hover:text-white"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -665,14 +701,14 @@ export function RetornosDashboardClient() {
 
           {/* Seletor Classificação */}
           <div className="md:col-span-4 space-y-1.5">
-            <label className="text-xs text-[#A4B1C4]">Classificação</label>
+            <label className="text-xs text-white/50 font-medium">Classificação</label>
             <select
               value={selectedClassificacao}
               onChange={(e) => {
                 setSelectedClassificacao(e.target.value as "ALL" | "CORRIGIDO" | "SEM_MARCADOR");
                 setCurrentPage(1);
               }}
-              className="w-full bg-[#10151E] border border-[#2C3748] rounded-lg px-3 py-2 text-xs text-[#E6EDF7] focus:outline-none focus:ring-1 focus:ring-[#93B3FF]"
+              className="w-full bg-[#0C1323] border border-white/8 rounded-xl px-3 py-2 text-xs text-white shadow-sm focus:outline-none focus:ring-1 focus:ring-purple-400 focus:border-purple-400"
             >
               <option value="ALL">Todas</option>
               <option value="CORRIGIDO">Corrigido</option>
@@ -684,7 +720,7 @@ export function RetornosDashboardClient() {
           <div className="md:col-span-2">
             <button
               onClick={handleLimparFiltros}
-              className="w-full py-2 px-3 rounded-lg border border-[#2C3748] bg-[#19212D] text-xs font-medium text-[#A4B1C4] hover:text-white hover:bg-[#233658] transition-colors"
+              className="w-full py-2 px-3 rounded-xl border border-white/8 bg-white/[0.04] text-xs font-medium text-white/70 hover:text-white hover:bg-white/[0.08] transition-colors"
             >
               Limpar
             </button>
@@ -692,12 +728,12 @@ export function RetornosDashboardClient() {
         </div>
       </div>
 
-      {/* 4. CARD ERROS POR RESPONSÁVEL */}
-      <div className="rounded-xl border border-[#2C3748] bg-[#19212D]/90 p-5 shadow-lg space-y-4 print:hidden">
+      {/* 4. CARD ERROS POR RESPONSÁVEL — PADRÃO FIORIX */}
+      <div className="rounded-[24px] border border-white/8 bg-[#0B1020]/72 p-5 sm:p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4 print:hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
-            <h2 className="text-sm font-semibold text-[#E6EDF7]">Erros por responsável</h2>
-            <p className="text-xs text-[#A4B1C4]">Eventos sem marcador de correção por destinatário</p>
+            <h2 className="text-sm sm:text-base font-semibold text-white">Erros por responsável</h2>
+            <p className="text-xs text-white/50">Eventos sem marcador de correção por destinatário</p>
           </div>
 
           {/* Dropdown de ordenação do card */}
@@ -705,7 +741,7 @@ export function RetornosDashboardClient() {
             <select
               value={sortResponsaveisBy}
               onChange={(e) => setSortResponsaveisBy(e.target.value as "maior" | "menor" | "nome")}
-              className="bg-[#10151E] border border-[#2C3748] rounded-lg px-2.5 py-1 text-xs text-[#E6EDF7] focus:outline-none"
+              className="bg-[#0C1323] border border-white/8 rounded-xl px-3 py-1.5 text-xs text-white shadow-sm focus:outline-none focus:border-purple-400"
             >
               <option value="maior">Maior quantidade</option>
               <option value="menor">Menor quantidade</option>
@@ -716,7 +752,7 @@ export function RetornosDashboardClient() {
 
         {/* Lista de Responsáveis */}
         {visibleResponsaveis.length === 0 ? (
-          <div className="py-4 text-center text-xs text-[#A4B1C4] italic">
+          <div className="py-6 text-center text-xs text-white/40 italic">
             Não há eventos sem marcador de correção nos filtros selecionados.
           </div>
         ) : (
@@ -737,21 +773,21 @@ export function RetornosDashboardClient() {
                     setSelectedResponsavelId(isSelected ? null : resp.id);
                     setCurrentPage(1);
                   }}
-                  className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
+                  className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${
                     isSelected
-                      ? "bg-[#233658] border-[#93B3FF] shadow-md ring-1 ring-[#93B3FF]"
-                      : "bg-[#10151E] border-[#2C3748] hover:border-[#93B3FF]/40 hover:bg-[#161F2E]"
+                      ? "bg-purple-500/15 border-purple-500/40 ring-1 ring-purple-500/50 shadow-md"
+                      : "bg-white/[0.03] border-white/8 hover:border-white/20 hover:bg-white/[0.06]"
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-[#242C3D] flex items-center justify-center text-[11px] font-bold text-[#93B3FF] shrink-0">
+                    <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-[11px] font-bold text-purple-300 shrink-0">
                       {initials || "U"}
                     </div>
-                    <span className="text-xs text-[#E6EDF7] font-medium truncate" title={resp.nome}>
+                    <span className="text-xs text-white/90 font-medium truncate" title={resp.nome}>
                       {resp.nome}
                     </span>
                   </div>
-                  <span className="text-sm font-extrabold text-[#E6EDF7] ml-2 shrink-0">
+                  <span className="text-sm font-extrabold text-white ml-2 shrink-0 px-2 py-0.5 rounded-lg bg-white/[0.06] border border-white/10 font-mono">
                     {resp.quantidade}
                   </span>
                 </div>
@@ -773,7 +809,7 @@ export function RetornosDashboardClient() {
             {selectedResponsavelId && (
               <button
                 onClick={() => setSelectedResponsavelId(null)}
-                className="text-xs text-[#93B3FF] hover:underline"
+                className="text-xs text-purple-300 hover:underline"
               >
                 Limpar seleção do responsável
               </button>
@@ -782,18 +818,18 @@ export function RetornosDashboardClient() {
         )}
 
         {/* Nota explicativa de compliance */}
-        <p className="text-[11px] text-[#A4B1C4]/80 italic pt-1">
+        <p className="text-[11px] text-white/40 italic pt-1">
           Contagem de eventos por destinatário: não indica autoria do erro nem quantidade de pendências.
         </p>
       </div>
 
-      {/* 5. TABELA DE EVENTOS DE RETORNO */}
-      <div className="rounded-xl border border-[#2C3748] bg-[#19212D]/90 shadow-lg overflow-hidden space-y-0 print:border-0 print:shadow-none print:bg-white print:rounded-none">
+      {/* 5. TABELA DE EVENTOS DE RETORNO — PADRÃO FIORIX */}
+      <div className="rounded-[24px] border border-white/8 bg-[#0B1020]/72 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl overflow-hidden space-y-0 print:border-0 print:shadow-none print:bg-white print:rounded-none">
         {/* Cabeçalho na tela */}
-        <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#2C3748]/60 print:hidden">
+        <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/8 print:hidden">
           <div>
-            <h2 className="text-sm font-semibold text-[#E6EDF7]">Eventos de retorno</h2>
-            <span className="text-xs text-[#A4B1C4]">
+            <h2 className="text-sm sm:text-base font-semibold text-white">Eventos de retorno</h2>
+            <span className="text-xs text-white/50">
               {selectedResponsavelId
                 ? `Filtrado por responsável`
                 : `Todos os responsáveis`}
@@ -803,15 +839,15 @@ export function RetornosDashboardClient() {
             <button
               onClick={handlePrint}
               disabled={isLoadingPrintAll}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2C3748] bg-[#10151E] text-xs font-medium text-[#E6EDF7] hover:bg-[#1E293B] hover:text-white transition-all shadow-sm focus:outline-none disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-white/10 bg-white/[0.04] text-xs font-medium text-white hover:bg-white/[0.08] transition-all shadow-sm focus:outline-none disabled:opacity-50"
               title="Imprimir lista completa de protocolos"
             >
-              <Printer className="w-3.5 h-3.5 text-[#93B3FF]" />
+              <Printer className="w-3.5 h-3.5 text-purple-300" />
               <span>{isLoadingPrintAll ? "Preparando..." : "Imprimir Lista"}</span>
             </button>
             <button
               onClick={() => setIsPdfModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 text-xs font-medium text-purple-300 hover:bg-purple-500/20 transition-all shadow-sm focus:outline-none"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-purple-500/30 bg-purple-500/15 text-xs font-semibold text-purple-200 hover:bg-purple-500/25 transition-all shadow-sm focus:outline-none"
               title="Gerar relatório PDF dos protocolos"
             >
               <FileDown className="w-3.5 h-3.5" />
@@ -865,8 +901,8 @@ export function RetornosDashboardClient() {
         </div>
 
         <div className="overflow-x-auto print:overflow-visible">
-          <table className="w-full text-left text-xs text-[#E6EDF7] print:text-slate-900 print:text-[10px]">
-            <thead className="bg-[#10151E] text-[#A4B1C4] uppercase text-[10px] tracking-wider border-b border-[#2C3748] print:bg-slate-100 print:text-slate-900 print:border-slate-400">
+          <table className="w-full text-left text-xs text-white print:text-slate-900 print:text-[10px]">
+            <thead className="bg-[#0B1020]/95 text-white/60 uppercase text-[10px] tracking-wider border-b border-white/8 print:bg-slate-100 print:text-slate-900 print:border-slate-400">
               <tr>
                 <th
                   onClick={() => handleHeaderSort("numeroPrenotacao")}
@@ -875,7 +911,7 @@ export function RetornosDashboardClient() {
                   <div className="flex items-center gap-1.5">
                     <span>Prenotação</span>
                     {sortBy === "numeroPrenotacao" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-[#93B3FF]" /> : <ArrowDown className="w-3 h-3 text-[#93B3FF]" />
+                      sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-purple-400" /> : <ArrowDown className="w-3 h-3 text-purple-400" />
                     ) : (
                       <ArrowUpDown className="w-3 h-3 opacity-40" />
                     )}
@@ -888,7 +924,7 @@ export function RetornosDashboardClient() {
                   <div className="flex items-center gap-1.5">
                     <span>Tipo de retorno</span>
                     {sortBy === "tipoRetorno" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-[#93B3FF]" /> : <ArrowDown className="w-3 h-3 text-[#93B3FF]" />
+                      sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-purple-400" /> : <ArrowDown className="w-3 h-3 text-purple-400" />
                     ) : (
                       <ArrowUpDown className="w-3 h-3 opacity-40" />
                     )}
@@ -901,7 +937,7 @@ export function RetornosDashboardClient() {
                   <div className="flex items-center gap-1.5">
                     <span>Data do retorno</span>
                     {sortBy === "dataRetorno" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-[#93B3FF]" /> : <ArrowDown className="w-3 h-3 text-[#93B3FF]" />
+                      sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-purple-400" /> : <ArrowDown className="w-3 h-3 text-purple-400" />
                     ) : (
                       <ArrowUpDown className="w-3 h-3 opacity-40" />
                     )}
@@ -914,7 +950,7 @@ export function RetornosDashboardClient() {
                   <div className="flex items-center gap-1.5">
                     <span>Destinatário</span>
                     {sortBy === "usuarioDestino" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-[#93B3FF]" /> : <ArrowDown className="w-3 h-3 text-[#93B3FF]" />
+                      sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-purple-400" /> : <ArrowDown className="w-3 h-3 text-purple-400" />
                     ) : (
                       <ArrowUpDown className="w-3 h-3 opacity-40" />
                     )}
@@ -927,7 +963,7 @@ export function RetornosDashboardClient() {
                   <div className="flex items-center justify-end gap-1.5">
                     <span>Classificação</span>
                     {sortBy === "classificacao" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-[#93B3FF]" /> : <ArrowDown className="w-3 h-3 text-[#93B3FF]" />
+                      sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-purple-400" /> : <ArrowDown className="w-3 h-3 text-purple-400" />
                     ) : (
                       <ArrowUpDown className="w-3 h-3 opacity-40" />
                     )}
@@ -938,10 +974,10 @@ export function RetornosDashboardClient() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#2C3748]/50 print:divide-slate-200">
+            <tbody className="divide-y divide-white/6 print:divide-slate-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-xs text-[#A4B1C4]">
+                  <td colSpan={6} className="py-12 text-center text-xs text-white/50">
                     <div className="flex items-center justify-center gap-2">
                       <RefreshCw className="w-4 h-4 animate-spin text-purple-400" />
                       <span>Carregando eventos de retorno...</span>
@@ -950,7 +986,7 @@ export function RetornosDashboardClient() {
                 </tr>
               ) : (allFilteredItemsForPrint || items).length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-xs text-[#A4B1C4]">
+                  <td colSpan={6} className="py-12 text-center text-xs text-white/40">
                     Nenhum evento encontrado com os filtros selecionados.
                   </td>
                 </tr>
@@ -962,7 +998,7 @@ export function RetornosDashboardClient() {
                   return (
                     <tr
                       key={item.idAndamento}
-                      className="hover:bg-[#1C2636] transition-colors group print:border-b print:border-slate-300"
+                      className="hover:bg-white/[0.03] transition-colors group print:border-b print:border-slate-300"
                     >
                       {/* Prenotação / Título */}
                       <td className="px-4 py-3">
@@ -972,40 +1008,40 @@ export function RetornosDashboardClient() {
                         >
                           {item.numeroPrenotacao}
                         </button>
-                        <span className="text-[11px] text-[#A4B1C4] print:text-slate-600 block truncate max-w-[200px]" title={item.formaTitulo}>
+                        <span className="text-[11px] text-white/45 print:text-slate-600 block truncate max-w-[200px]" title={item.formaTitulo}>
                           {item.formaTitulo || "Instrumento Geral"}
                         </span>
                       </td>
 
                       {/* Tipo de retorno */}
                       <td className="px-4 py-3">
-                        <div className="text-xs text-[#E6EDF7] font-medium print:text-slate-900">{item.familiaRetorno}</div>
-                        <div className="text-[11px] text-[#A4B1C4] print:text-slate-600">
+                        <div className="text-xs text-white font-medium print:text-slate-900">{item.familiaRetorno}</div>
+                        <div className="text-[11px] text-white/45 print:text-slate-600">
                           {item.siglaRetorno} • Título {item.seqTitulo || 1}
                         </div>
                       </td>
 
                       {/* Data do retorno */}
                       <td className="px-4 py-3">
-                        <div className="text-xs text-[#E6EDF7] print:text-slate-900">{dt.datePart}</div>
-                        <div className="text-[11px] text-[#A4B1C4] print:text-slate-600">{dt.timePart}</div>
+                        <div className="text-xs text-white print:text-slate-900">{dt.datePart}</div>
+                        <div className="text-[11px] text-white/45 print:text-slate-600">{dt.timePart}</div>
                       </td>
 
                       {/* Destinatário */}
                       <td className="px-4 py-3">
-                        <div className="text-xs text-[#E6EDF7] font-medium print:text-slate-900">{item.usuarioDestinoRetorno}</div>
-                        <div className="text-[11px] text-[#A4B1C4] print:text-slate-600">De: {item.usuarioOrigem}</div>
+                        <div className="text-xs text-white font-medium print:text-slate-900">{item.usuarioDestinoRetorno}</div>
+                        <div className="text-[11px] text-white/45 print:text-slate-600">De: {item.usuarioOrigem}</div>
                       </td>
 
                       {/* Classificação */}
                       <td className="px-4 py-3 text-right">
                         {isCorrigido ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#173E31] text-[#94DCB7] border border-[#1E5241] print:bg-emerald-50 print:text-emerald-800 print:border-emerald-300">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 print:bg-emerald-50 print:text-emerald-800 print:border-emerald-300">
                             <Check className="w-3 h-3" />
                             Corrigido
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-medium bg-[#242C3D] text-[#C5D1E0] border border-[#2C3748] print:bg-slate-100 print:text-slate-700 print:border-slate-300">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-medium bg-white/[0.05] text-white/70 border border-white/10 print:bg-slate-100 print:text-slate-700 print:border-slate-300">
                             Sem marcador
                           </span>
                         )}
@@ -1019,9 +1055,9 @@ export function RetornosDashboardClient() {
                             printSingleProtocol(item);
                           }}
                           title={`Imprimir ficha da prenotação ${item.numeroPrenotacao}`}
-                          className="px-2.5 py-1 rounded-lg border border-[#2C3748] bg-[#10151E] hover:bg-[#233658] text-[#A4B1C4] hover:text-[#93B3FF] transition-all inline-flex items-center gap-1.5 text-[11px] font-medium"
+                          className="px-2.5 py-1 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white transition-all inline-flex items-center gap-1.5 text-[11px] font-medium"
                         >
-                          <Printer className="w-3.5 h-3.5 text-[#93B3FF]" />
+                          <Printer className="w-3.5 h-3.5 text-purple-300" />
                           <span>Imprimir</span>
                         </button>
                       </td>
@@ -1034,7 +1070,7 @@ export function RetornosDashboardClient() {
         </div>
 
         {/* Paginação */}
-        <div className="p-4 border-t border-[#2C3748]/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-[#A4B1C4] print:hidden">
+        <div className="p-4 border-t border-white/8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-white/50 print:hidden">
           <div>
             Exibindo {items.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}–
             {Math.min(currentPage * pageSize, kpis.total)} de {kpis.total} eventos
@@ -1042,14 +1078,14 @@ export function RetornosDashboardClient() {
 
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
-              <span className="text-[#A4B1C4] text-[11px]">Exibir:</span>
+              <span className="text-white/40 text-[11px]">Exibir:</span>
               <select
                 value={pageSize}
                 onChange={(e) => {
                   setPageSize(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="bg-[#10151E] border border-[#2C3748] rounded px-2 py-1 text-xs text-[#E6EDF7] focus:outline-none"
+                className="bg-[#0C1323] border border-white/8 rounded-xl px-2 py-1 text-xs text-white focus:outline-none"
               >
                 <option value={10}>10 / pág</option>
                 <option value={20}>20 / pág</option>
@@ -1061,17 +1097,17 @@ export function RetornosDashboardClient() {
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage <= 1 || isLoading}
-                className="px-2.5 py-1.5 rounded border border-[#2C3748] bg-[#10151E] disabled:opacity-40 hover:bg-[#233658] text-white"
+                className="px-2.5 py-1.5 rounded-xl border border-white/8 bg-white/[0.04] disabled:opacity-40 hover:bg-white/[0.08] text-white transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="px-2 font-mono">
+              <span className="px-2 font-mono text-white/80">
                 {currentPage} / {Math.ceil(kpis.total / pageSize) || 1}
               </span>
               <button
                 onClick={() => setCurrentPage((p) => p + 1)}
                 disabled={currentPage >= Math.ceil(kpis.total / pageSize) || isLoading}
-                className="px-2.5 py-1.5 rounded border border-[#2C3748] bg-[#10151E] disabled:opacity-40 hover:bg-[#233658] text-white"
+                className="px-2.5 py-1.5 rounded-xl border border-white/8 bg-white/[0.04] disabled:opacity-40 hover:bg-white/[0.08] text-white transition-colors"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -1080,80 +1116,80 @@ export function RetornosDashboardClient() {
         </div>
       </div>
 
-      {/* 6. MODAL DE DETALHES DO EVENTO */}
+      {/* 6. MODAL DE DETALHES DO EVENTO — PADRÃO FIORIX */}
       {selectedEvento && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in print:hidden">
-          <div className="w-full max-w-2xl rounded-2xl border border-[#2C3748] bg-[#19212D] text-[#E6EDF7] shadow-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-[#2C3748]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in print:hidden">
+          <div className="w-full max-w-2xl rounded-[24px] border border-white/12 bg-[#0B1020]/95 text-white shadow-2xl backdrop-blur-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-white/8">
               <div>
                 <h3 className="text-lg font-bold text-white">
                   Detalhes do Retorno — Prenotação {selectedEvento.numeroPrenotacao}
                 </h3>
-                <p className="text-xs text-[#A4B1C4]">Id do Andamento: {selectedEvento.idAndamento}</p>
+                <p className="text-xs text-white/45">Id do Andamento: {selectedEvento.idAndamento}</p>
               </div>
               <button
                 onClick={() => setSelectedEvento(null)}
-                className="p-1 rounded-lg text-[#A4B1C4] hover:text-white hover:bg-[#2C3748]"
+                className="p-1.5 rounded-xl text-white/50 hover:text-white hover:bg-white/10 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-              <div className="bg-[#10151E] p-2.5 rounded-lg border border-[#2C3748]">
-                <span className="text-[#A4B1C4] block text-[10px]">Id Recepção</span>
+              <div className="bg-[#0C1323] p-3 rounded-xl border border-white/8">
+                <span className="text-white/45 block text-[10px] uppercase font-semibold tracking-wider">Id Recepção</span>
                 <span className="font-semibold text-white">{selectedEvento.idRecepcao || "-"}</span>
               </div>
-              <div className="bg-[#10151E] p-2.5 rounded-lg border border-[#2C3748]">
-                <span className="text-[#A4B1C4] block text-[10px]">Data Recepção</span>
+              <div className="bg-[#0C1323] p-3 rounded-xl border border-white/8">
+                <span className="text-white/45 block text-[10px] uppercase font-semibold tracking-wider">Data Recepção</span>
                 <span className="font-semibold text-white">
                   {formatDateTime(selectedEvento.dataRecepcao).full || "-"}
                 </span>
               </div>
-              <div className="bg-[#10151E] p-2.5 rounded-lg border border-[#2C3748]">
-                <span className="text-[#A4B1C4] block text-[10px]">Tipo Recepção</span>
+              <div className="bg-[#0C1323] p-3 rounded-xl border border-white/8">
+                <span className="text-white/45 block text-[10px] uppercase font-semibold tracking-wider">Tipo Recepção</span>
                 <span className="font-semibold text-white">{selectedEvento.tipoRecepcao}</span>
               </div>
-              <div className="bg-[#10151E] p-2.5 rounded-lg border border-[#2C3748]">
-                <span className="text-[#A4B1C4] block text-[10px]">Forma do Título</span>
+              <div className="bg-[#0C1323] p-3 rounded-xl border border-white/8">
+                <span className="text-white/45 block text-[10px] uppercase font-semibold tracking-wider">Forma do Título</span>
                 <span className="font-semibold text-white">{selectedEvento.formaTitulo || "Não informada"}</span>
               </div>
-              <div className="bg-[#10151E] p-2.5 rounded-lg border border-[#2C3748]">
-                <span className="text-[#A4B1C4] block text-[10px]">Tipo de Retorno</span>
+              <div className="bg-[#0C1323] p-3 rounded-xl border border-white/8">
+                <span className="text-white/45 block text-[10px] uppercase font-semibold tracking-wider">Tipo de Retorno</span>
                 <span className="font-semibold text-white">
                   {selectedEvento.tipoRetorno} ({selectedEvento.siglaRetorno})
                 </span>
               </div>
-              <div className="bg-[#10151E] p-2.5 rounded-lg border border-[#2C3748]">
-                <span className="text-[#A4B1C4] block text-[10px]">Classificação</span>
+              <div className="bg-[#0C1323] p-3 rounded-xl border border-white/8">
+                <span className="text-white/45 block text-[10px] uppercase font-semibold tracking-wider">Classificação</span>
                 <span
                   className={`font-semibold ${
-                    selectedEvento.classificacao === "Corrigido" ? "text-[#94DCB7]" : "text-[#C5D1E0]"
+                    selectedEvento.classificacao === "Corrigido" ? "text-emerald-400" : "text-white/70"
                   }`}
                 >
                   {selectedEvento.classificacao}
                 </span>
               </div>
-              <div className="bg-[#10151E] p-2.5 rounded-lg border border-[#2C3748]">
-                <span className="text-[#A4B1C4] block text-[10px]">Data do Retorno</span>
+              <div className="bg-[#0C1323] p-3 rounded-xl border border-white/8">
+                <span className="text-white/45 block text-[10px] uppercase font-semibold tracking-wider">Data do Retorno</span>
                 <span className="font-semibold text-white">
                   {formatDateTime(selectedEvento.dataRetorno).full}
                 </span>
               </div>
-              <div className="bg-[#10151E] p-2.5 rounded-lg border border-[#2C3748]">
-                <span className="text-[#A4B1C4] block text-[10px]">Usuário Origem</span>
+              <div className="bg-[#0C1323] p-3 rounded-xl border border-white/8">
+                <span className="text-white/45 block text-[10px] uppercase font-semibold tracking-wider">Usuário Origem</span>
                 <span className="font-semibold text-white">{selectedEvento.usuarioOrigem}</span>
               </div>
-              <div className="bg-[#10151E] p-2.5 rounded-lg border border-[#2C3748]">
-                <span className="text-[#A4B1C4] block text-[10px]">Destinatário do Retorno</span>
+              <div className="bg-[#0C1323] p-3 rounded-xl border border-white/8">
+                <span className="text-white/45 block text-[10px] uppercase font-semibold tracking-wider">Destinatário do Retorno</span>
                 <span className="font-semibold text-white">{selectedEvento.usuarioDestinoRetorno}</span>
               </div>
             </div>
 
             {/* Observação Completa */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#A4B1C4]">Observação do Andamento:</label>
-              <div className="bg-[#10151E] border border-[#2C3748] rounded-xl p-4 text-xs text-[#E6EDF7] whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
+              <label className="text-xs font-semibold text-white/50">Observação do Andamento:</label>
+              <div className="bg-[#0C1323] border border-white/8 rounded-xl p-4 text-xs text-white/90 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
                 {selectedEvento.observacao || "Sem observação informada."}
               </div>
             </div>
@@ -1161,14 +1197,14 @@ export function RetornosDashboardClient() {
             <div className="flex items-center justify-between pt-2">
               <button
                 onClick={() => printSingleProtocol(selectedEvento)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#2C3748] bg-[#10151E] hover:bg-[#1E293B] text-xs font-semibold text-[#E6EDF7] hover:text-white transition-all shadow-sm"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-xs font-semibold text-white transition-all shadow-sm"
               >
-                <Printer className="w-3.5 h-3.5 text-[#93B3FF]" />
+                <Printer className="w-3.5 h-3.5 text-purple-300" />
                 <span>Imprimir Ficha</span>
               </button>
               <button
                 onClick={() => setSelectedEvento(null)}
-                className="px-4 py-2 rounded-lg bg-[#242C3D] hover:bg-[#2C3748] text-xs font-medium text-white transition-colors"
+                className="px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.10] text-xs font-medium text-white transition-colors border border-white/10"
               >
                 Fechar
               </button>
@@ -1177,15 +1213,15 @@ export function RetornosDashboardClient() {
         </div>
       )}
 
-      {/* 7. MODAL DE CONFIGURAÇÃO DE PDF */}
+      {/* 7. MODAL DE CONFIGURAÇÃO DE PDF — PADRÃO FIORIX */}
       {isPdfModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in print:hidden">
-          <div className="w-full max-w-lg rounded-2xl border border-[#2C3748] bg-[#19212D] text-[#E6EDF7] shadow-2xl p-6 space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-[#2C3748]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in print:hidden">
+          <div className="w-full max-w-lg rounded-[24px] border border-white/12 bg-[#0B1020]/95 text-white shadow-2xl backdrop-blur-2xl p-6 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-white/8">
               <h3 className="text-base font-bold text-white">Configurar e Gerar PDF</h3>
               <button
                 onClick={() => setIsPdfModalOpen(false)}
-                className="p-1 rounded-lg text-[#A4B1C4] hover:text-white hover:bg-[#2C3748]"
+                className="p-1.5 rounded-xl text-white/50 hover:text-white hover:bg-white/10 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1194,11 +1230,11 @@ export function RetornosDashboardClient() {
             <div className="space-y-4 text-xs">
               {/* Abrangência */}
               <div className="space-y-1.5">
-                <label className="text-[#A4B1C4] font-medium">Abrangência</label>
+                <label className="text-white/50 font-medium">Abrangência</label>
                 <select
                   value={pdfScope}
                   onChange={(e) => setPdfScope(e.target.value as "filtered" | "current")}
-                  className="w-full bg-[#10151E] border border-[#2C3748] rounded-lg px-3 py-2 text-xs text-[#E6EDF7]"
+                  className="w-full bg-[#0C1323] border border-white/8 rounded-xl px-3 py-2 text-xs text-white shadow-sm focus:outline-none focus:border-purple-400"
                 >
                   <option value="filtered">Todos os resultados filtrados ({kpis.total} eventos)</option>
                   <option value="current">Somente a página atual ({items.length} eventos)</option>
@@ -1207,11 +1243,11 @@ export function RetornosDashboardClient() {
 
               {/* Tipo de Conteúdo */}
               <div className="space-y-1.5">
-                <label className="text-[#A4B1C4] font-medium">Conteúdo do Relatório</label>
+                <label className="text-white/50 font-medium">Conteúdo do Relatório</label>
                 <select
                   value={pdfContentType}
                   onChange={(e) => setPdfContentType(e.target.value as "resumido" | "detalhado")}
-                  className="w-full bg-[#10151E] border border-[#2C3748] rounded-lg px-3 py-2 text-xs text-[#E6EDF7]"
+                  className="w-full bg-[#0C1323] border border-white/8 rounded-xl px-3 py-2 text-xs text-white shadow-sm focus:outline-none focus:border-purple-400"
                 >
                   <option value="resumido">Listagem resumida (A4 Paisagem)</option>
                   <option value="detalhado">Relatório detalhado com observações completas (A4 Retrato)</option>
@@ -1225,29 +1261,29 @@ export function RetornosDashboardClient() {
                   id="chkResumo"
                   checked={includeResumoResponsavel}
                   onChange={(e) => setIncludeResumoResponsavel(e.target.checked)}
-                  className="w-4 h-4 rounded border-[#2C3748] bg-[#10151E] text-purple-600 focus:ring-purple-500"
+                  className="w-4 h-4 rounded border-white/20 bg-[#0C1323] text-purple-600 focus:ring-purple-500"
                 />
-                <label htmlFor="chkResumo" className="text-xs text-[#E6EDF7] cursor-pointer">
+                <label htmlFor="chkResumo" className="text-xs text-white/80 cursor-pointer">
                   Incluir resumo de erros por responsável no relatório
                 </label>
               </div>
 
-              <div className="p-3 bg-[#10151E] rounded-lg border border-[#2C3748] text-[#A4B1C4] text-[11px]">
+              <div className="p-3 bg-[#0C1323] rounded-xl border border-white/8 text-white/50 text-[11px]">
                 {pdfScope === "filtered" ? kpis.total : items.length} eventos serão incluídos no arquivo PDF para download direto.
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#2C3748]">
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/8">
               <button
                 onClick={() => setIsPdfModalOpen(false)}
-                className="px-4 py-2 rounded-lg bg-[#242C3D] hover:bg-[#2C3748] text-xs font-medium text-white transition-colors"
+                className="px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.10] text-xs font-medium text-white transition-colors border border-white/10"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleGeneratePdf}
                 disabled={isGeneratingPdf}
-                className="flex items-center gap-2 px-5 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-xs font-semibold text-white shadow-lg disabled:opacity-50 transition-all"
+                className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-xs font-semibold text-white shadow-lg disabled:opacity-50 transition-all"
               >
                 {isGeneratingPdf ? (
                   <>
@@ -1267,7 +1303,7 @@ export function RetornosDashboardClient() {
       )}
 
       {/* 8. RODAPÉ DE CONFORMIDADE E SINCRONIZAÇÃO */}
-      <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-[#A4B1C4]/80 border-t border-[#2C3748]/30 print:hidden">
+      <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-white/40 border-t border-white/8 print:hidden">
         <div>
           {lastSyncAt ? (
             <span>Última sincronização bem-sucedida: {new Date(lastSyncAt).toLocaleString("pt-BR")}</span>
