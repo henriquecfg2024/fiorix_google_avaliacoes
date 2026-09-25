@@ -32,7 +32,7 @@ const syncPayloadSchema = z.object({
   // Legacy clients may send this field, but it never selects the tenant.
   tenant_id: z.string().optional(),
   connector_id: z.string(),
-  source: z.enum(['bi', 'produtividade', 'metas', 'tarefas']),
+  source: z.enum(['bi', 'produtividade', 'metas', 'tarefas', 'retornos']),
   batch_id: z.string(),
   generated_at: z.string().datetime(),
   records: z.array(z.object({}).passthrough()).max(10000, 'Máximo de 10.000 registros por chunk'),

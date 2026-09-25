@@ -74,6 +74,7 @@ model Tenant {
   biData            FiorixBiData[]
   metasImports      FiorixMetasImport[]
   metasDados        FiorixMetasDados[]
+  retornosDados     FiorixRetornosDados[]
   intervencoes      FiorixIntervencao[]
   relatorios        FiorixRelatorio[]
 
@@ -401,6 +402,38 @@ model FiorixMetasDados {
   @@index([tenantId], name: "idx_fiorix_metas_dados_tenant_id")
   @@index([importId], name: "idx_fiorix_metas_dados_import_id")
   @@map("fiorix_metas_dados")
+}
+
+model FiorixRetornosDados {
+  tenantId               String    @map("tenant_id")
+  tenant                 Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  idAndamento            BigInt    @map("id_andamento")
+  idRecepcao             Int?      @map("id_recepcao")
+  numeroPrenotacao       Int       @map("numero_prenotacao")
+  dataRecepcao           DateTime? @map("data_recepcao")
+  tipoRecepcao           String?   @map("tipo_recepcao") @db.VarChar(50)
+  formaTitulo            String?   @map("forma_titulo") @db.VarChar(255)
+  idTipoRetorno          Int       @map("id_tipo_retorno")
+  siglaRetorno           String?   @map("sigla_retorno") @db.VarChar(20)
+  tipoRetorno            String?   @map("tipo_retorno") @db.VarChar(100)
+  familiaRetorno         String?   @map("familia_retorno") @db.VarChar(50)
+  classificacao          String?   @map("classificacao") @db.VarChar(50)
+  dataRetorno            DateTime  @map("data_retorno")
+  idUsuarioOrigem        String?   @map("id_usuario_origem") @db.VarChar(50)
+  usuarioOrigem          String?   @map("usuario_origem") @db.VarChar(255)
+  idUsuarioDestino       String?   @map("id_usuario_destino") @db.VarChar(50)
+  usuarioDestinoRetorno  String?   @map("usuario_destino_retorno") @db.VarChar(255)
+  observacao             String?   @map("observacao") @db.Text
+  seqTitulo              Int?      @map("seq_titulo")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  @@id([tenantId, idAndamento])
+  @@index([tenantId, dataRetorno(sort: Desc)], name: "idx_fiorix_retornos_tenant_data")
+  @@index([tenantId, idUsuarioDestino], name: "idx_fiorix_retornos_tenant_usuario_destino")
+  @@index([tenantId, idTipoRetorno], name: "idx_fiorix_retornos_tenant_tipo")
+  @@index([tenantId, numeroPrenotacao], name: "idx_fiorix_retornos_tenant_prenotacao")
+  @@map("fiorix_retornos_dados")
 }
 
 model RateLimit {

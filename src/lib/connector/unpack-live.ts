@@ -7,7 +7,7 @@ export async function unpackLiveRecords({
   records,
 }: {
   tenantId: string;
-  source: 'bi' | 'produtividade' | 'metas' | 'tarefas';
+  source: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos';
   records: any[];
 }): Promise<void> {
   if (!records || records.length === 0) return;
@@ -233,6 +233,78 @@ export async function unpackLiveRecords({
       } catch (aggErr) {
         console.warn('BI_AGG_REFRESH_WARNING:', aggErr);
       }
+    } else if (source === 'retornos') {
+      await prisma.$executeRawUnsafe(
+        `
+        WITH batch_records AS (
+          SELECT DISTINCT ON ((item->>'IdAndamento')::bigint)
+            $1::text AS tenant_id,
+            (item->>'IdAndamento')::bigint AS id_andamento,
+            COALESCE((item->>'IdRecepcao')::int, (item->>'id_recepcao')::int, NULL) AS id_recepcao,
+            COALESCE((item->>'NumeroPrenotacao')::int, (item->>'numero_prenotacao')::int, 0) AS numero_prenotacao,
+            CASE WHEN item->>'DataRecepcao' IS NOT NULL AND item->>'DataRecepcao' <> '' THEN (item->>'DataRecepcao')::timestamptz ELSE NULL END AS data_recepcao,
+            COALESCE(item->>'TipoRecepcao', item->>'tipo_recepcao', 'ENTRADA') AS tipo_recepcao,
+            COALESCE(item->>'FormaTitulo', item->>'forma_titulo', '') AS forma_titulo,
+            COALESCE((item->>'IdTipoRetorno')::int, (item->>'id_tipo_retorno')::int, 0) AS id_tipo_retorno,
+            COALESCE(item->>'SiglaRetorno', item->>'sigla_retorno', '') AS sigla_retorno,
+            COALESCE(item->>'TipoRetorno', item->>'tipo_retorno', '') AS tipo_retorno,
+            CASE 
+              WHEN (item->>'IdTipoRetorno')::int IN (292, 295) THEN 'Tela de recepção'
+              WHEN (item->>'IdTipoRetorno')::int IN (293, 297) THEN 'Real'
+              WHEN (item->>'IdTipoRetorno')::int IN (294, 296) THEN 'Pessoal'
+              ELSE COALESCE(item->>'familia_retorno', 'Geral')
+            END AS familia_retorno,
+            CASE 
+              WHEN (item->>'IdTipoRetorno')::int IN (295, 296, 297) THEN 'Corrigido'
+              ELSE 'Sem marcador'
+            END AS classificacao,
+            CASE WHEN item->>'DataRetorno' IS NOT NULL AND item->>'DataRetorno' <> '' THEN (item->>'DataRetorno')::timestamptz ELSE NOW() END AS data_retorno,
+            COALESCE(item->>'IdUsuarioOrigem', item->>'id_usuario_origem', NULL) AS id_usuario_origem,
+            COALESCE(item->>'UsuarioOrigem', item->>'usuario_origem', '') AS usuario_origem,
+            COALESCE(item->>'IdUsuarioDestino', item->>'id_usuario_destino', NULL) AS id_usuario_destino,
+            COALESCE(item->>'UsuarioDestinoRetorno', item->>'usuario_destino_retorno', 'Não informado') AS usuario_destino_retorno,
+            COALESCE(item->>'Observacao', item->>'observacao', '') AS observacao,
+            COALESCE((item->>'SeqTitulo')::int, (item->>'seq_titulo')::int, 1) AS seq_titulo
+          FROM jsonb_array_elements($2::jsonb) AS item
+          WHERE item->>'IdAndamento' IS NOT NULL
+        )
+        INSERT INTO public.fiorix_retornos_dados (
+          tenant_id, id_andamento, id_recepcao, numero_prenotacao, data_recepcao,
+          tipo_recepcao, forma_titulo, id_tipo_retorno, sigla_retorno, tipo_retorno,
+          familia_retorno, classificacao, data_retorno, id_usuario_origem, usuario_origem,
+          id_usuario_destino, usuario_destino_retorno, observacao, seq_titulo,
+          created_at, updated_at
+        )
+        SELECT 
+          tenant_id, id_andamento, id_recepcao, numero_prenotacao, data_recepcao,
+          tipo_recepcao, forma_titulo, id_tipo_retorno, sigla_retorno, tipo_retorno,
+          familia_retorno, classificacao, data_retorno, id_usuario_origem, usuario_origem,
+          id_usuario_destino, usuario_destino_retorno, observacao, seq_titulo,
+          NOW(), NOW()
+        FROM batch_records
+        ON CONFLICT (tenant_id, id_andamento) DO UPDATE SET
+          id_recepcao = EXCLUDED.id_recepcao,
+          numero_prenotacao = EXCLUDED.numero_prenotacao,
+          data_recepcao = EXCLUDED.data_recepcao,
+          tipo_recepcao = EXCLUDED.tipo_recepcao,
+          forma_titulo = EXCLUDED.forma_titulo,
+          id_tipo_retorno = EXCLUDED.id_tipo_retorno,
+          sigla_retorno = EXCLUDED.sigla_retorno,
+          tipo_retorno = EXCLUDED.tipo_retorno,
+          familia_retorno = EXCLUDED.familia_retorno,
+          classificacao = EXCLUDED.classificacao,
+          data_retorno = EXCLUDED.data_retorno,
+          id_usuario_origem = EXCLUDED.id_usuario_origem,
+          usuario_origem = EXCLUDED.usuario_origem,
+          id_usuario_destino = EXCLUDED.id_usuario_destino,
+          usuario_destino_retorno = EXCLUDED.usuario_destino_retorno,
+          observacao = EXCLUDED.observacao,
+          seq_titulo = EXCLUDED.seq_titulo,
+          updated_at = NOW();
+      `,
+        tenantId,
+        recordsJson
+      );
     }
   } catch (err) {
     console.error(`UNPACK_LIVE_RECORDS_ERROR [${source}]:`, err);

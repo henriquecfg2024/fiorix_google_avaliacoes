@@ -21,6 +21,7 @@ import {
   MessageCircle,
   Printer,
   FileCheck2,
+  RotateCcw,
 } from "lucide-react";
 
 export const navigationGroups = {
@@ -66,6 +67,12 @@ export const navigationGroups = {
         href: "/bi/produtividade",
         icon: Users,
         description: "5.192 Digital, 1.866 Presencial",
+      },
+      {
+        label: "RETORNOS",
+        href: "/bi/retornos",
+        icon: RotateCcw,
+        description: "Consulte os retornos, responsáveis e observações de cada título.",
       },
       {
         label: "Auditoria",
