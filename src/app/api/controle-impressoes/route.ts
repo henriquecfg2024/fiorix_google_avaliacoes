@@ -101,6 +101,8 @@ export async function GET(request: NextRequest) {
           ) AS is_devolvido,
           BOOL_OR(
             m.d_balcao_registrado IS NOT NULL 
+            OR m.d8_impressao IS NOT NULL
+            OR m.d9_preparacao IS NOT NULL
             OR t.tarefa ILIKE '%REGISTR%' 
             OR t.tarefa ILIKE '%IMPRESS%' 
             OR t.tarefa ILIKE '%PREPAR%'
@@ -125,7 +127,7 @@ export async function GET(request: NextRequest) {
         LEFT JOIN public.fiorix_metas_dados m 
           ON m.protocolo = t.protocolo AND m.tenant_id = t.tenant_id
         WHERE t.tenant_id = $1
-          AND (m.d_balcao_registrado IS NOT NULL OR t.tarefa ILIKE '%IMPRESS%' OR t.tarefa ILIKE '%PREPAR%')
+          AND (m.d_balcao_registrado IS NOT NULL OR t.tarefa ILIKE '%IMPRESS%' OR t.tarefa ILIKE '%PREPAR%' OR t.tarefa ILIKE '%REGISTR%')
           AND NOT (
             COALESCE(t.dt_devolucao, m.d_balcao_devolvido) IS NOT NULL 
             AND m.d_balcao_registrado IS NULL
@@ -141,20 +143,20 @@ export async function GET(request: NextRequest) {
           COALESCE(d.ultimo_registro, i.data_entrada, i.livro_data, tl.livro_tarefa_data, i.certidao_data) AS ultimo_registro,
           COALESCE(i.seq_titulo, d.seq_titulo, 1) AS seq_titulo,
           
-          -- LIVRO: apurado por andamento real de impressão (63 ou 264) com fallback de tarefa finalizada
+          -- LIVRO: Realizado se impresso no livro; Pendente SE E SOMENTE SE registrado e não devolvido; Senão Não Aplicável
           COALESCE(i.livro_data, tl.livro_tarefa_data) AS livro_data,
           COALESCE(i.livro_responsavel, tl.livro_tarefa_responsavel) AS livro_responsavel,
           CASE 
             WHEN COALESCE(i.livro_data, tl.livro_tarefa_data) IS NOT NULL THEN 'REALIZADO'
-            WHEN COALESCE(s.is_devolvido, false) AND NOT COALESCE(s.is_registrado, false) THEN 'NAO_APLICAVEL'
-            ELSE 'PENDENTE'
+            WHEN COALESCE(s.is_registrado, false) AND NOT COALESCE(s.is_devolvido, false) THEN 'PENDENTE'
+            ELSE 'NAO_APLICAVEL'
           END AS livro_status,
 
-          -- CERTIDÃO: apurado estritamente por andamento real de tipo 103
+          -- CERTIDÃO: Realizado se tem certidão emitida; Pendente SE E SOMENTE SE registrado e não devolvido; Senão Não Aplicável
           CASE 
             WHEN i.certidao_data IS NOT NULL THEN 'REALIZADO'
-            WHEN COALESCE(s.is_devolvido, false) AND NOT COALESCE(s.is_registrado, false) THEN 'NAO_APLICAVEL'
-            ELSE 'PENDENTE'
+            WHEN COALESCE(s.is_registrado, false) AND NOT COALESCE(s.is_devolvido, false) THEN 'PENDENTE'
+            ELSE 'NAO_APLICAVEL'
           END AS certidao_status,
           i.certidao_data,
           i.certidao_responsavel,
@@ -164,13 +166,18 @@ export async function GET(request: NextRequest) {
 
           -- Etapa Atual descritiva
           CASE 
-            WHEN COALESCE(s.is_devolvido, false) AND NOT COALESCE(s.is_registrado, false) THEN
+            WHEN COALESCE(i.livro_data, tl.livro_tarefa_data) IS NOT NULL AND i.certidao_data IS NOT NULL THEN 'Concluído'
+            WHEN COALESCE(i.livro_data, tl.livro_tarefa_data) IS NOT NULL THEN 'Certidão Pendente'
+            WHEN COALESCE(s.is_devolvido, false) THEN
               CASE 
                 WHEN i.certidao_data IS NOT NULL THEN 'Devolvido (Certidão Emitida)'
                 ELSE 'Devolvido'
               END
-            WHEN COALESCE(i.livro_data, tl.livro_tarefa_data) IS NOT NULL AND i.certidao_data IS NOT NULL THEN 'Concluído'
-            WHEN COALESCE(i.livro_data, tl.livro_tarefa_data) IS NOT NULL THEN 'Certidão Pendente'
+            WHEN NOT COALESCE(s.is_registrado, false) THEN
+              CASE 
+                WHEN i.certidao_data IS NOT NULL THEN 'Em Qualificação (Certidão Emitida)'
+                ELSE 'Em Qualificação'
+              END
             WHEN i.certidao_data IS NOT NULL THEN 'Livro Pendente'
             ELSE 'Aguardando Impressão'
           END AS etapa_atual,
@@ -178,9 +185,9 @@ export async function GET(request: NextRequest) {
           -- Dias Pendente (apenas se alguma das impressões aplicáveis estiver de fato pendente)
           CASE 
             WHEN (
-              (COALESCE(i.livro_data, tl.livro_tarefa_data) IS NULL AND NOT (COALESCE(s.is_devolvido, false) AND NOT COALESCE(s.is_registrado, false)))
+              (COALESCE(i.livro_data, tl.livro_tarefa_data) IS NULL AND COALESCE(s.is_registrado, false) AND NOT COALESCE(s.is_devolvido, false))
               OR 
-              (i.certidao_data IS NULL AND NOT (COALESCE(s.is_devolvido, false) AND NOT COALESCE(s.is_registrado, false)))
+              (i.certidao_data IS NULL AND COALESCE(s.is_registrado, false) AND NOT COALESCE(s.is_devolvido, false))
             ) AND COALESCE(d.ultimo_registro, i.data_entrada) IS NOT NULL
             THEN GREATEST(0, EXTRACT(DAY FROM (NOW() - COALESCE(d.ultimo_registro, i.data_entrada)))::int)
             ELSE 0
