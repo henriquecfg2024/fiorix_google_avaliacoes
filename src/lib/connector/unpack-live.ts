@@ -7,7 +7,7 @@ export async function unpackLiveRecords({
   records,
 }: {
   tenantId: string;
-  source: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos';
+  source: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes';
   records: any[];
 }): Promise<void> {
   if (!records || records.length === 0) return;
@@ -300,6 +300,70 @@ export async function unpackLiveRecords({
           usuario_destino_retorno = EXCLUDED.usuario_destino_retorno,
           observacao = EXCLUDED.observacao,
           seq_titulo = EXCLUDED.seq_titulo,
+          updated_at = NOW();
+      `,
+        tenantId,
+        recordsJson
+      );
+    } else if (source === 'impressoes') {
+      await prisma.$executeRawUnsafe(
+        `
+        WITH batch_records AS (
+          SELECT DISTINCT ON ((item->>'IdAndamento')::bigint)
+            $1::text AS tenant_id,
+            (item->>'IdAndamento')::bigint AS id_andamento,
+            COALESCE((item->>'IdRecepcao')::int, (item->>'id_recepcao')::int, NULL) AS id_recepcao,
+            COALESCE((item->>'NumeroPrenotacao')::int, (item->>'numero_prenotacao')::int, 0) AS numero_prenotacao,
+            COALESCE((item->>'SeqTitulo')::int, (item->>'seq_titulo')::int, 1) AS seq_titulo,
+            CASE WHEN item->>'DataEntrada' IS NOT NULL AND item->>'DataEntrada' <> '' THEN (item->>'DataEntrada')::timestamptz ELSE NULL END AS data_entrada,
+            COALESCE(item->>'TipoPrenotacao', item->>'tipo_prenotacao', '') AS tipo_prenotacao,
+            COALESCE(item->>'Natureza', item->>'natureza', '') AS natureza,
+            COALESCE(item->>'NumeroLivro', item->>'numero_livro', NULL) AS numero_livro,
+            COALESCE((item->>'IdTipoAndamento')::int, (item->>'id_tipo_andamento')::int, 0) AS id_tipo_andamento,
+            COALESCE(item->>'SiglaAndamento', item->>'sigla_andamento', '') AS sigla_andamento,
+            COALESCE(item->>'TipoAndamento', item->>'tipo_andamento', '') AS tipo_andamento,
+            COALESCE(item->>'TipoImpressao', item->>'tipo_impressao', 'LIVRO') AS tipo_impressao,
+            CASE WHEN item->>'DataImpressao' IS NOT NULL AND item->>'DataImpressao' <> '' THEN (item->>'DataImpressao')::timestamptz ELSE NOW() END AS data_impressao,
+            COALESCE(item->>'IdOperador', item->>'id_operador', NULL) AS id_operador,
+            COALESCE(item->>'Operador', item->>'operador', '') AS operador,
+            COALESCE(item->>'IdUsuarioDestino', item->>'id_usuario_destino', NULL) AS id_usuario_destino,
+            COALESCE(item->>'UsuarioDestino', item->>'usuario_destino', '') AS usuario_destino,
+            COALESCE(item->>'Observacao', item->>'observacao', '') AS observacao
+          FROM jsonb_array_elements($2::jsonb) AS item
+          WHERE item->>'IdAndamento' IS NOT NULL
+        )
+        INSERT INTO public.fiorix_impressoes_dados (
+          tenant_id, id_andamento, id_recepcao, numero_prenotacao, seq_titulo,
+          data_entrada, tipo_prenotacao, natureza, numero_livro, id_tipo_andamento,
+          sigla_andamento, tipo_andamento, tipo_impressao, data_impressao,
+          id_operador, operador, id_usuario_destino, usuario_destino, observacao,
+          created_at, updated_at
+        )
+        SELECT 
+          tenant_id, id_andamento, id_recepcao, numero_prenotacao, seq_titulo,
+          data_entrada, tipo_prenotacao, natureza, numero_livro, id_tipo_andamento,
+          sigla_andamento, tipo_andamento, tipo_impressao, data_impressao,
+          id_operador, operador, id_usuario_destino, usuario_destino, observacao,
+          NOW(), NOW()
+        FROM batch_records
+        ON CONFLICT (tenant_id, id_andamento) DO UPDATE SET
+          id_recepcao = EXCLUDED.id_recepcao,
+          numero_prenotacao = EXCLUDED.numero_prenotacao,
+          seq_titulo = EXCLUDED.seq_titulo,
+          data_entrada = EXCLUDED.data_entrada,
+          tipo_prenotacao = EXCLUDED.tipo_prenotacao,
+          natureza = EXCLUDED.natureza,
+          numero_livro = EXCLUDED.numero_livro,
+          id_tipo_andamento = EXCLUDED.id_tipo_andamento,
+          sigla_andamento = EXCLUDED.sigla_andamento,
+          tipo_andamento = EXCLUDED.tipo_andamento,
+          tipo_impressao = EXCLUDED.tipo_impressao,
+          data_impressao = EXCLUDED.data_impressao,
+          id_operador = EXCLUDED.id_operador,
+          operador = EXCLUDED.operador,
+          id_usuario_destino = EXCLUDED.id_usuario_destino,
+          usuario_destino = EXCLUDED.usuario_destino,
+          observacao = EXCLUDED.observacao,
           updated_at = NOW();
       `,
         tenantId,

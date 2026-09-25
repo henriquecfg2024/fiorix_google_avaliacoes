@@ -37,72 +37,93 @@ export async function GET(request: NextRequest) {
     const dataInicioStr = dataInicioParam || defaultDataInicio;
 
     // 1. Query Principal de Itens
+    // 1. Query Principal de Itens apurada pelos andamentos reais (fiorix_impressoes_dados)
     const baseQuery = `
-      WITH base_protocolos AS (
+      WITH base_impressoes AS (
+        SELECT 
+          i.numero_prenotacao AS protocolo,
+          MAX(i.natureza) AS natureza,
+          MAX(i.tipo_prenotacao) AS tipo,
+          MIN(i.data_entrada) AS data_entrada,
+          MAX(NULLIF(i.numero_livro, '')) AS numero_livro,
+          -- LIVRO: Impressão Definitiva do Ato no Livro (Tipo 63 no WebRI)
+          MAX(CASE WHEN i.tipo_impressao = 'LIVRO' THEN i.data_impressao END) AS livro_data,
+          MAX(CASE WHEN i.tipo_impressao = 'LIVRO' THEN NULLIF(i.operador, '') END) AS livro_responsavel,
+          -- CERTIDÃO: Impressão de Certidão de Registro (Tipo 103 no WebRI)
+          MAX(CASE WHEN i.tipo_impressao = 'CERTIDAO' THEN i.data_impressao END) AS certidao_data,
+          MAX(CASE WHEN i.tipo_impressao = 'CERTIDAO' THEN NULLIF(i.operador, '') END) AS certidao_responsavel,
+          MAX(CASE WHEN i.tipo_impressao = 'CERTIDAO' AND i.observacao ILIKE '%http%' THEN 
+            SUBSTRING(i.observacao FROM 'https?://[^ ]+') 
+          END) AS link_onr_especifico,
+          MAX(i.seq_titulo) AS seq_titulo
+        FROM public.fiorix_impressoes_dados i
+        WHERE i.tenant_id = $1
+        GROUP BY i.numero_prenotacao
+      ),
+      protocolos_demanda AS (
+        -- Protocolos registrados ou com movimentação para compor a demanda e backlog
         SELECT 
           t.protocolo,
-          MAX(t.natureza) as natureza,
-          MAX(t.tipo) as tipo,
-          COALESCE(MIN(t.data_entrada), MIN(m.data_apresentado)) as data_entrada,
-          COALESCE(
-            MAX(CASE WHEN t.situacao_tarefa IN ('AGUARDANDO', 'EM ANDAMENTO') THEN t.tarefa END),
-            MAX(t.tarefa)
-          ) as etapa_atual,
-          COALESCE(MAX(m.d_balcao_registrado), MIN(t.data_cadastro_tarefa), MIN(t.data_servico)) as ultimo_registro,
-          MAX(m.d8_impressao) as meta_d8_impressao,
-          MAX(m.d9_preparacao) as meta_d9_preparacao,
-          -- LIVRO: Impressão Definitiva do Ato no Livro (Tarefa estrita: IMPRESSÃO FICHA MATRÍCULA)
-          MAX(CASE WHEN t.tarefa ILIKE '%IMPRESS%' AND (t.situacao_tarefa = 'FINALIZADA' OR t.data_finalizacao IS NOT NULL) THEN COALESCE(t.data_finalizacao, t.data_abertura) END) as tarefa_livro_data,
-          MAX(CASE WHEN t.tarefa ILIKE '%IMPRESS%' AND (t.situacao_tarefa = 'FINALIZADA' OR t.data_finalizacao IS NOT NULL OR t.data_abertura IS NOT NULL) THEN NULLIF(t.responsavel, '') END) as responsavel_livro,
-          MAX(CASE WHEN t.tarefa ILIKE '%IMPRESS%' THEN NULLIF(t.responsavel, '') END) as responsavel_livro_fallback,
-          -- CERTIDÃO: Emissão de Certidão de Registro (Tarefa estrita: PREPARAÇÃO)
-          MAX(CASE WHEN t.tarefa ILIKE '%PREPAR%' AND (t.situacao_tarefa = 'FINALIZADA' OR t.data_finalizacao IS NOT NULL) THEN COALESCE(t.data_finalizacao, t.data_abertura) END) as tarefa_certidao_data,
-          MAX(CASE WHEN t.tarefa ILIKE '%PREPAR%' AND (t.situacao_tarefa = 'FINALIZADA' OR t.data_finalizacao IS NOT NULL) THEN NULLIF(t.responsavel, '') END) as responsavel_certidao,
-          MAX(CASE WHEN t.tarefa ILIKE '%PREPAR%' THEN NULLIF(t.responsavel, '') END) as responsavel_certidao_fallback,
-          -- Se já existe tarefa PREPARAÇÃO para o protocolo, o ato do livro já foi impresso!
-          BOOL_OR(t.tarefa ILIKE '%PREPAR%') as tem_preparacao,
-          MAX(t.seq_titulo) as seq_titulo,
-          MAX(NULLIF(t.numero_livro, '')) as numero_livro
+          MAX(t.natureza) AS natureza,
+          MAX(t.tipo) AS tipo,
+          COALESCE(MIN(t.data_entrada), MIN(m.data_apresentado)) AS data_entrada,
+          MAX(NULLIF(t.numero_livro, '')) AS numero_livro,
+          COALESCE(MAX(m.d_balcao_registrado), MIN(t.data_cadastro_tarefa), MIN(t.data_servico)) AS ultimo_registro,
+          MAX(t.seq_titulo) AS seq_titulo
         FROM public.fiorix_tarefas_dados t
         LEFT JOIN public.fiorix_metas_dados m 
           ON m.protocolo = t.protocolo AND m.tenant_id = t.tenant_id
         WHERE t.tenant_id = $1
-          AND (t.tarefa ILIKE '%IMPRESS%' OR t.tarefa ILIKE '%PREPAR%' OR m.d8_impressao IS NOT NULL OR m.d9_preparacao IS NOT NULL)
+          AND (m.d_balcao_registrado IS NOT NULL OR t.tarefa ILIKE '%IMPRESS%' OR t.tarefa ILIKE '%PREPAR%')
         GROUP BY t.protocolo
       ),
-      tratados AS (
+      unificado AS (
         SELECT 
-          protocolo,
-          numero_livro,
-          COALESCE(NULLIF(natureza, ''), NULLIF(tipo, ''), 'Escritura') as tipo_natureza,
-          data_entrada,
-          COALESCE(NULLIF(etapa_atual, ''), 'Impressão') as etapa_atual,
-          ultimo_registro,
-          COALESCE(seq_titulo, 1) as seq_titulo,
-          -- Livro Status (Impressão Definitiva do Ato no Livro)
+          COALESCE(i.protocolo, d.protocolo) AS protocolo,
+          COALESCE(i.numero_livro, d.numero_livro) AS numero_livro,
+          COALESCE(NULLIF(i.natureza, ''), NULLIF(d.natureza, ''), NULLIF(i.tipo, ''), NULLIF(d.tipo, ''), 'Escritura') AS tipo_natureza,
+          COALESCE(i.data_entrada, d.data_entrada) AS data_entrada,
+          COALESCE(d.ultimo_registro, i.data_entrada, i.livro_data, i.certidao_data) AS ultimo_registro,
+          COALESCE(i.seq_titulo, d.seq_titulo, 1) AS seq_titulo,
+          
+          -- LIVRO: apurado estritamente por andamento real de tipo 63
           CASE 
-            WHEN tarefa_livro_data IS NOT NULL OR meta_d9_preparacao IS NOT NULL OR tem_preparacao THEN 'REALIZADO'
+            WHEN i.livro_data IS NOT NULL THEN 'REALIZADO'
             ELSE 'PENDENTE'
-          END as livro_status,
-          COALESCE(tarefa_livro_data, meta_d9_preparacao, tarefa_certidao_data) as livro_data,
-          COALESCE(responsavel_livro, responsavel_livro_fallback, 'Antonio') as livro_responsavel,
-          -- Certidão Status (Impressão de Certidão de Registro / Preparação)
+          END AS livro_status,
+          i.livro_data,
+          i.livro_responsavel,
+
+          -- CERTIDÃO: apurado estritamente por andamento real de tipo 103
           CASE 
-            WHEN tarefa_certidao_data IS NOT NULL OR meta_d8_impressao IS NOT NULL THEN 'REALIZADO'
+            WHEN i.certidao_data IS NOT NULL THEN 'REALIZADO'
             ELSE 'PENDENTE'
-          END as certidao_status,
-          COALESCE(tarefa_certidao_data, meta_d8_impressao) as certidao_data,
-          COALESCE(responsavel_certidao, responsavel_certidao_fallback, 'David') as certidao_responsavel,
-          -- Dias Pendente
+          END AS certidao_status,
+          i.certidao_data,
+          i.certidao_responsavel,
+
+          -- Link ONR extraído da certidão ou portal oficial
+          COALESCE(i.link_onr_especifico, 'https://registradores.onr.org.br') AS link_onr,
+
+          -- Etapa Atual descritiva
           CASE 
-            WHEN NOT (tarefa_livro_data IS NOT NULL OR meta_d9_preparacao IS NOT NULL OR tem_preparacao)
-            THEN GREATEST(0, EXTRACT(DAY FROM (NOW() - ultimo_registro))::int)
+            WHEN i.livro_data IS NOT NULL AND i.certidao_data IS NOT NULL THEN 'Concluído'
+            WHEN i.livro_data IS NOT NULL THEN 'Certidão Pendente'
+            WHEN i.certidao_data IS NOT NULL THEN 'Livro Pendente'
+            ELSE 'Aguardando Impressão'
+          END AS etapa_atual,
+
+          -- Dias Pendente (se qualquer uma das impressões estiver pendente)
+          CASE 
+            WHEN (i.livro_data IS NULL OR i.certidao_data IS NULL) AND COALESCE(d.ultimo_registro, i.data_entrada) IS NOT NULL
+            THEN GREATEST(0, EXTRACT(DAY FROM (NOW() - COALESCE(d.ultimo_registro, i.data_entrada)))::int)
             ELSE 0
-          END as dias_pendente
-        FROM base_protocolos
-        WHERE ultimo_registro IS NOT NULL
+          END AS dias_pendente
+        FROM base_impressoes i
+        FULL OUTER JOIN protocolos_demanda d ON d.protocolo = i.protocolo
+        WHERE COALESCE(i.protocolo, d.protocolo) IS NOT NULL
       )
-      SELECT * FROM tratados
+      SELECT * FROM unificado
       WHERE 1=1
         AND (
           ($4 != '' AND (
@@ -274,7 +295,7 @@ export async function GET(request: NextRequest) {
         livroData: formatDate(r.livro_data),
         livroResponsavel: r.livro_responsavel || null,
         diasPendente: r.dias_pendente,
-        linkOnr: `https://registradores.onr.org.br`,
+        linkOnr: r.link_onr || `https://registradores.onr.org.br`,
       };
     });
 

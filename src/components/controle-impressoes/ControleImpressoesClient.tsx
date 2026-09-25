@@ -41,9 +41,12 @@ export function ControleImpressoesClient() {
 
   // Filters State
   const [visao, setVisao] = useState<'demanda' | 'producao'>('demanda');
-  const [dataPreset, setDataPreset] = useState<'hoje' | 'ontem' | '7dias' | 'mesAtual' | 'mesAnterior' | 'personalizado'>('7dias');
-  const [dataInicio, setDataInicio] = useState('2026-08-01');
-  const [dataFim, setDataFim] = useState('2026-09-21');
+  const [dataPreset, setDataPreset] = useState<'hoje' | 'ontem' | '7dias' | 'mesAtual' | 'mesAnterior' | 'personalizado'>('mesAtual');
+  const [dataInicio, setDataInicio] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  });
+  const [dataFim, setDataFim] = useState(() => new Date().toISOString().split('T')[0]);
   const [buscaNatureza, setBuscaNatureza] = useState('');
   const [tipoImpressaoFiltro, setTipoImpressaoFiltro] = useState<'todos' | 'certidao' | 'livro'>('todos');
   const [statusFiltro, setStatusFiltro] = useState<'todos' | 'pendente' | 'realizado'>('todos');

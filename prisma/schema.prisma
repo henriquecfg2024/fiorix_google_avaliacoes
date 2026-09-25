@@ -75,6 +75,7 @@ model Tenant {
   metasImports      FiorixMetasImport[]
   metasDados        FiorixMetasDados[]
   retornosDados     FiorixRetornosDados[]
+  impressoesDados   FiorixImpressoesDados[]
   intervencoes      FiorixIntervencao[]
   relatorios        FiorixRelatorio[]
 
@@ -434,6 +435,38 @@ model FiorixRetornosDados {
   @@index([tenantId, idTipoRetorno], name: "idx_fiorix_retornos_tenant_tipo")
   @@index([tenantId, numeroPrenotacao], name: "idx_fiorix_retornos_tenant_prenotacao")
   @@map("fiorix_retornos_dados")
+}
+
+model FiorixImpressoesDados {
+  tenantId               String    @map("tenant_id")
+  tenant                 Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  idAndamento            BigInt    @map("id_andamento")
+  idRecepcao             Int?      @map("id_recepcao")
+  numeroPrenotacao       Int       @map("numero_prenotacao")
+  seqTitulo              Int?      @default(1) @map("seq_titulo")
+  dataEntrada            DateTime? @map("data_entrada")
+  tipoPrenotacao         String?   @map("tipo_prenotacao") @db.VarChar(50)
+  natureza               String?   @map("natureza") @db.VarChar(255)
+  numeroLivro            String?   @map("numero_livro") @db.VarChar(100)
+  idTipoAndamento        Int       @map("id_tipo_andamento")
+  siglaAndamento         String?   @map("sigla_andamento") @db.VarChar(20)
+  tipoAndamento          String?   @map("tipo_andamento") @db.VarChar(100)
+  tipoImpressao          String    @map("tipo_impressao") @db.VarChar(50) // 'LIVRO' | 'CERTIDAO'
+  dataImpressao          DateTime  @map("data_impressao")
+  idOperador             String?   @map("id_operador") @db.VarChar(50)
+  operador               String?   @map("operador") @db.VarChar(255)
+  idUsuarioDestino       String?   @map("id_usuario_destino") @db.VarChar(50)
+  usuarioDestino         String?   @map("usuario_destino") @db.VarChar(255)
+  observacao             String?   @map("observacao") @db.Text
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  @@id([tenantId, idAndamento])
+  @@index([tenantId, dataImpressao(sort: Desc)], name: "idx_fiorix_impressoes_tenant_data")
+  @@index([tenantId, tipoImpressao], name: "idx_fiorix_impressoes_tenant_tipo")
+  @@index([tenantId, numeroPrenotacao], name: "idx_fiorix_impressoes_tenant_prenotacao")
+  @@index([tenantId, operador], name: "idx_fiorix_impressoes_tenant_operador")
+  @@map("fiorix_impressoes_dados")
 }
 
 model RateLimit {
