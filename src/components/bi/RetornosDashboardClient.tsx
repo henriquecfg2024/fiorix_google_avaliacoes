@@ -49,6 +49,8 @@ export function RetornosDashboardClient() {
   const [pdfContentType, setPdfContentType] = useState<"resumido" | "detalhado">("resumido");
   const [includeResumoResponsavel, setIncludeResumoResponsavel] = useState(true);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [allFilteredItemsForPrint, setAllFilteredItemsForPrint] = useState<RetornoItem[] | null>(null);
+  const [isLoadingPrintAll, setIsLoadingPrintAll] = useState(false);
 
   // Debounce da busca
   useEffect(() => {
@@ -328,8 +330,40 @@ export function RetornosDashboardClient() {
     }
   };
 
-  // IMPRESSÃO NATIVA
-  const handlePrint = () => {
+  // IMPRESSÃO NATIVA — Garante a impressão SOMENTE da lista filtrada completa
+  const handlePrint = async () => {
+    if (kpis.total > items.length) {
+      try {
+        setIsLoadingPrintAll(true);
+        toast.loading("Carregando lista completa de eventos filtrados para impressão...", { id: "loading-print" });
+        const params = new URLSearchParams({
+          aba: selectedAba,
+          classificacao: selectedClassificacao,
+          page: "1",
+          pageSize: "2500",
+          sortBy,
+          sortOrder,
+        });
+        if (debouncedSearch) params.set("search", debouncedSearch);
+        if (selectedResponsavelId) params.set("idResponsavel", selectedResponsavelId);
+
+        const res = await fetch(`/api/bi/retornos/data?${params.toString()}`);
+        const data: RetornosResponse = await res.json();
+        setAllFilteredItemsForPrint(data.items || []);
+        toast.dismiss("loading-print");
+        setTimeout(() => {
+          window.print();
+          setTimeout(() => {
+            setAllFilteredItemsForPrint(null);
+            setIsLoadingPrintAll(false);
+          }, 1500);
+        }, 350);
+        return;
+      } catch {
+        toast.dismiss("loading-print");
+        setIsLoadingPrintAll(false);
+      }
+    }
     window.print();
   };
 
@@ -508,7 +542,7 @@ export function RetornosDashboardClient() {
   return (
     <div className="space-y-6">
       {/* 1. CABEÇALHO */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-[#2C3748]/60">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-[#2C3748]/60 print:hidden">
         <div>
           <div className="flex items-center gap-2 text-xs font-medium text-[#A4B1C4]">
             <span>GESTÃO DE PRAZOS</span>
@@ -548,7 +582,7 @@ export function RetornosDashboardClient() {
       </div>
 
       {/* 2. CARDS DE INDICADORES (KPIS) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 print:hidden">
         {/* KPI 1: Eventos de retorno */}
         <div className="rounded-xl border border-[#2C3748] bg-[#19212D]/85 p-5 shadow-lg backdrop-blur-md">
           <div className="text-xs font-medium text-[#A4B1C4]">Eventos de retorno</div>
@@ -578,7 +612,7 @@ export function RetornosDashboardClient() {
       </div>
 
       {/* 3. ABAS E BARRA DE FILTROS */}
-      <div className="space-y-4">
+      <div className="space-y-4 print:hidden">
         {/* Abas */}
         <div className="flex border-b border-[#2C3748]">
           {[
@@ -659,7 +693,7 @@ export function RetornosDashboardClient() {
       </div>
 
       {/* 4. CARD ERROS POR RESPONSÁVEL */}
-      <div className="rounded-xl border border-[#2C3748] bg-[#19212D]/90 p-5 shadow-lg space-y-4">
+      <div className="rounded-xl border border-[#2C3748] bg-[#19212D]/90 p-5 shadow-lg space-y-4 print:hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
             <h2 className="text-sm font-semibold text-[#E6EDF7]">Erros por responsável</h2>
@@ -754,8 +788,9 @@ export function RetornosDashboardClient() {
       </div>
 
       {/* 5. TABELA DE EVENTOS DE RETORNO */}
-      <div className="rounded-xl border border-[#2C3748] bg-[#19212D]/90 shadow-lg overflow-hidden space-y-0">
-        <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#2C3748]/60">
+      <div className="rounded-xl border border-[#2C3748] bg-[#19212D]/90 shadow-lg overflow-hidden space-y-0 print:border-0 print:shadow-none print:bg-white print:rounded-none">
+        {/* Cabeçalho na tela */}
+        <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#2C3748]/60 print:hidden">
           <div>
             <h2 className="text-sm font-semibold text-[#E6EDF7]">Eventos de retorno</h2>
             <span className="text-xs text-[#A4B1C4]">
@@ -767,11 +802,12 @@ export function RetornosDashboardClient() {
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2C3748] bg-[#10151E] text-xs font-medium text-[#E6EDF7] hover:bg-[#1E293B] hover:text-white transition-all shadow-sm focus:outline-none"
+              disabled={isLoadingPrintAll}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#2C3748] bg-[#10151E] text-xs font-medium text-[#E6EDF7] hover:bg-[#1E293B] hover:text-white transition-all shadow-sm focus:outline-none disabled:opacity-50"
               title="Imprimir lista completa de protocolos"
             >
               <Printer className="w-3.5 h-3.5 text-[#93B3FF]" />
-              <span>Imprimir Lista</span>
+              <span>{isLoadingPrintAll ? "Preparando..." : "Imprimir Lista"}</span>
             </button>
             <button
               onClick={() => setIsPdfModalOpen(true)}
@@ -784,9 +820,53 @@ export function RetornosDashboardClient() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-[#E6EDF7]">
-            <thead className="bg-[#10151E] text-[#A4B1C4] uppercase text-[10px] tracking-wider border-b border-[#2C3748]">
+        {/* CABEÇALHO EXCLUSIVO PARA IMPRESSÃO (visível apenas na folha impressa ou PDF nativo) */}
+        <div className="hidden print:block p-2 pb-3 mb-2 border-b-2 border-slate-900 bg-white text-slate-900">
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-xl font-bold uppercase tracking-tight text-slate-900 m-0">
+                7º Registro de Imóveis • FIORIX
+              </h1>
+              <div className="text-xs text-slate-600 font-semibold mt-1">
+                Relatório de Eventos de Retorno — Gestão de Prazos
+              </div>
+            </div>
+            <div className="text-right text-[11px] text-slate-600">
+              <div>Emissão: {new Date().toLocaleDateString("pt-BR")} às {new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</div>
+              <div className="font-bold text-slate-900 mt-0.5">
+                Total de Eventos: {kpis.total}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-2.5 pt-2 border-t border-slate-300 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-slate-700">
+            <div>
+              <span className="font-semibold text-slate-900">Família:</span>{" "}
+              {selectedAba === "ALL" ? "Todas" : selectedAba === "RECEPCAO" ? "Tela de recepção" : selectedAba === "REAL" ? "Real" : "Pessoal"}
+            </div>
+            {selectedResponsavelId && (
+              <div>
+                <span className="font-semibold text-slate-900">Destinatário:</span>{" "}
+                {responsaveis.find((r) => r.id === selectedResponsavelId)?.nome || selectedResponsavelId}
+              </div>
+            )}
+            {selectedClassificacao !== "ALL" && (
+              <div>
+                <span className="font-semibold text-slate-900">Classificação:</span>{" "}
+                {selectedClassificacao === "CORRIGIDO" ? "Corrigido" : "Sem marcador de correção"}
+              </div>
+            )}
+            {searchQuery && (
+              <div>
+                <span className="font-semibold text-slate-900">Busca:</span> &ldquo;{searchQuery}&rdquo;
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto print:overflow-visible">
+          <table className="w-full text-left text-xs text-[#E6EDF7] print:text-slate-900 print:text-[10px]">
+            <thead className="bg-[#10151E] text-[#A4B1C4] uppercase text-[10px] tracking-wider border-b border-[#2C3748] print:bg-slate-100 print:text-slate-900 print:border-slate-400">
               <tr>
                 <th
                   onClick={() => handleHeaderSort("numeroPrenotacao")}
@@ -853,12 +933,12 @@ export function RetornosDashboardClient() {
                     )}
                   </div>
                 </th>
-                <th className="px-4 py-3 text-right">
+                <th className="px-4 py-3 text-right print:hidden">
                   <span>Ações</span>
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#2C3748]/50">
+            <tbody className="divide-y divide-[#2C3748]/50 print:divide-slate-200">
               {isLoading ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-xs text-[#A4B1C4]">
@@ -868,71 +948,71 @@ export function RetornosDashboardClient() {
                     </div>
                   </td>
                 </tr>
-              ) : items.length === 0 ? (
+              ) : (allFilteredItemsForPrint || items).length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-xs text-[#A4B1C4]">
                     Nenhum evento encontrado com os filtros selecionados.
                   </td>
                 </tr>
               ) : (
-                items.map((item) => {
+                (allFilteredItemsForPrint || items).map((item) => {
                   const dt = formatDateTime(item.dataRetorno);
                   const isCorrigido = item.classificacao === "Corrigido";
 
                   return (
                     <tr
                       key={item.idAndamento}
-                      className="hover:bg-[#1C2636] transition-colors group"
+                      className="hover:bg-[#1C2636] transition-colors group print:border-b print:border-slate-300"
                     >
                       {/* Prenotação / Título */}
                       <td className="px-4 py-3">
                         <button
                           onClick={() => setSelectedEvento(item)}
-                          className="font-semibold text-purple-300 hover:text-purple-200 underline decoration-purple-400/50 hover:decoration-purple-300 text-left block"
+                          className="font-semibold text-purple-300 hover:text-purple-200 underline decoration-purple-400/50 hover:decoration-purple-300 text-left block print:text-slate-900 print:no-underline"
                         >
                           {item.numeroPrenotacao}
                         </button>
-                        <span className="text-[11px] text-[#A4B1C4] block truncate max-w-[200px]" title={item.formaTitulo}>
+                        <span className="text-[11px] text-[#A4B1C4] print:text-slate-600 block truncate max-w-[200px]" title={item.formaTitulo}>
                           {item.formaTitulo || "Instrumento Geral"}
                         </span>
                       </td>
 
                       {/* Tipo de retorno */}
                       <td className="px-4 py-3">
-                        <div className="text-xs text-[#E6EDF7] font-medium">{item.familiaRetorno}</div>
-                        <div className="text-[11px] text-[#A4B1C4]">
+                        <div className="text-xs text-[#E6EDF7] font-medium print:text-slate-900">{item.familiaRetorno}</div>
+                        <div className="text-[11px] text-[#A4B1C4] print:text-slate-600">
                           {item.siglaRetorno} • Título {item.seqTitulo || 1}
                         </div>
                       </td>
 
                       {/* Data do retorno */}
                       <td className="px-4 py-3">
-                        <div className="text-xs text-[#E6EDF7]">{dt.datePart}</div>
-                        <div className="text-[11px] text-[#A4B1C4]">{dt.timePart}</div>
+                        <div className="text-xs text-[#E6EDF7] print:text-slate-900">{dt.datePart}</div>
+                        <div className="text-[11px] text-[#A4B1C4] print:text-slate-600">{dt.timePart}</div>
                       </td>
 
                       {/* Destinatário */}
                       <td className="px-4 py-3">
-                        <div className="text-xs text-[#E6EDF7] font-medium">{item.usuarioDestinoRetorno}</div>
-                        <div className="text-[11px] text-[#A4B1C4]">De: {item.usuarioOrigem}</div>
+                        <div className="text-xs text-[#E6EDF7] font-medium print:text-slate-900">{item.usuarioDestinoRetorno}</div>
+                        <div className="text-[11px] text-[#A4B1C4] print:text-slate-600">De: {item.usuarioOrigem}</div>
                       </td>
 
                       {/* Classificação */}
                       <td className="px-4 py-3 text-right">
                         {isCorrigido ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#173E31] text-[#94DCB7] border border-[#1E5241]">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-[#173E31] text-[#94DCB7] border border-[#1E5241] print:bg-emerald-50 print:text-emerald-800 print:border-emerald-300">
                             <Check className="w-3 h-3" />
                             Corrigido
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-medium bg-[#242C3D] text-[#C5D1E0] border border-[#2C3748]">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-medium bg-[#242C3D] text-[#C5D1E0] border border-[#2C3748] print:bg-slate-100 print:text-slate-700 print:border-slate-300">
                             Sem marcador
                           </span>
                         )}
                       </td>
 
                       {/* Ações de Impressão do Protocolo */}
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right print:hidden">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -954,7 +1034,7 @@ export function RetornosDashboardClient() {
         </div>
 
         {/* Paginação */}
-        <div className="p-4 border-t border-[#2C3748]/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-[#A4B1C4]">
+        <div className="p-4 border-t border-[#2C3748]/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-[#A4B1C4] print:hidden">
           <div>
             Exibindo {items.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}–
             {Math.min(currentPage * pageSize, kpis.total)} de {kpis.total} eventos
@@ -1002,7 +1082,7 @@ export function RetornosDashboardClient() {
 
       {/* 6. MODAL DE DETALHES DO EVENTO */}
       {selectedEvento && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in print:hidden">
           <div className="w-full max-w-2xl rounded-2xl border border-[#2C3748] bg-[#19212D] text-[#E6EDF7] shadow-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-[#2C3748]">
               <div>
@@ -1099,7 +1179,7 @@ export function RetornosDashboardClient() {
 
       {/* 7. MODAL DE CONFIGURAÇÃO DE PDF */}
       {isPdfModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in print:hidden">
           <div className="w-full max-w-lg rounded-2xl border border-[#2C3748] bg-[#19212D] text-[#E6EDF7] shadow-2xl p-6 space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-[#2C3748]">
               <h3 className="text-base font-bold text-white">Configurar e Gerar PDF</h3>
@@ -1187,7 +1267,7 @@ export function RetornosDashboardClient() {
       )}
 
       {/* 8. RODAPÉ DE CONFORMIDADE E SINCRONIZAÇÃO */}
-      <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-[#A4B1C4]/80 border-t border-[#2C3748]/30">
+      <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-[#A4B1C4]/80 border-t border-[#2C3748]/30 print:hidden">
         <div>
           {lastSyncAt ? (
             <span>Última sincronização bem-sucedida: {new Date(lastSyncAt).toLocaleString("pt-BR")}</span>
