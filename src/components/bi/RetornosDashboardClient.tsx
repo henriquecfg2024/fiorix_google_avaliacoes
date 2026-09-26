@@ -11,7 +11,6 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Check,
   RefreshCw,
   RotateCcw,
   CheckCircle2,
@@ -987,19 +986,6 @@ export function RetornosDashboardClient() {
                     )}
                   </div>
                 </th>
-                <th
-                  onClick={() => handleHeaderSort("classificacao")}
-                  className="px-4 py-3 cursor-pointer hover:text-white transition-colors text-right"
-                >
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>Classificação</span>
-                    {sortBy === "classificacao" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-purple-400" /> : <ArrowDown className="w-3 h-3 text-purple-400" />
-                    ) : (
-                      <ArrowUpDown className="w-3 h-3 opacity-40" />
-                    )}
-                  </div>
-                </th>
                 <th className="px-4 py-3 text-right print:hidden">
                   <span>Ações</span>
                 </th>
@@ -1008,7 +994,7 @@ export function RetornosDashboardClient() {
             <tbody className="divide-y divide-white/6 print:divide-slate-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-xs text-white/50">
+                  <td colSpan={6} className="py-12 text-center text-xs text-white/50">
                     <div className="flex items-center justify-center gap-2">
                       <RefreshCw className="w-4 h-4 animate-spin text-purple-400" />
                       <span>Carregando eventos de retorno...</span>
@@ -1017,14 +1003,13 @@ export function RetornosDashboardClient() {
                 </tr>
               ) : (allFilteredItemsForPrint || items).length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-xs text-white/40">
+                  <td colSpan={6} className="py-12 text-center text-xs text-white/40">
                     Nenhum evento encontrado com os filtros selecionados.
                   </td>
                 </tr>
               ) : (
                 (allFilteredItemsForPrint || items).map((item) => {
                   const dt = formatDateTime(item.dataRetorno);
-                  const isCorrigido = item.classificacao === "Corrigido";
 
                   return (
                     <tr
@@ -1118,20 +1103,6 @@ export function RetornosDashboardClient() {
                         ) : (
                           <span className="text-[11px] text-white/30 italic print:text-slate-400">
                             Sem observação
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Classificação */}
-                      <td className="px-4 py-3 text-right">
-                        {isCorrigido ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 print:bg-emerald-50 print:text-emerald-800 print:border-emerald-300">
-                            <Check className="w-3 h-3" />
-                            Corrigido
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-medium bg-white/[0.05] text-white/70 border border-white/10 print:bg-slate-100 print:text-slate-700 print:border-slate-300">
-                            Sem marcador
                           </span>
                         )}
                       </td>
