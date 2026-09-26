@@ -16,6 +16,11 @@ import {
   RotateCcw,
   CheckCircle2,
   AlertTriangle,
+  MessageSquareText,
+  Maximize2,
+  Copy,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { RetornoItem, ResponsavelContagem, RetornosResponse } from "@/lib/retornos/types";
 import { toast } from "sonner";
@@ -47,6 +52,18 @@ export function RetornosDashboardClient() {
 
   // Modais
   const [selectedEvento, setSelectedEvento] = useState<RetornoItem | null>(null);
+  const [selectedObsModal, setSelectedObsModal] = useState<RetornoItem | null>(null);
+  const [expandedObsIds, setExpandedObsIds] = useState<Set<string>>(new Set());
+
+  const toggleExpandObs = (id: string) => {
+    setExpandedObsIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [pdfScope, setPdfScope] = useState<"filtered" | "current">("filtered");
   const [pdfContentType, setPdfContentType] = useState<"resumido" | "detalhado">("resumido");
@@ -243,13 +260,14 @@ export function RetornosDashboardClient() {
             dt.full,
             item.usuarioDestinoRetorno || "Não informado",
             item.usuarioOrigem || "-",
+            item.observacao ? (item.observacao.length > 50 ? item.observacao.slice(0, 48) + "..." : item.observacao) : "-",
             item.classificacao,
           ];
         });
 
         autoTable(doc, {
           startY: startY,
-          head: [["Prenotação", "Forma do Título", "Tipo / Sigla", "Data Retorno", "Destinatário", "Origem", "Classificação"]],
+          head: [["Prenotação", "Forma do Título", "Tipo / Sigla", "Data Retorno", "Destinatário", "Origem", "Observação", "Classificação"]],
           body: tableData,
           theme: "grid",
           headStyles: { fillColor: [25, 33, 45], textColor: [255, 255, 255], fontSize: 8 },
@@ -957,6 +975,19 @@ export function RetornosDashboardClient() {
                   </div>
                 </th>
                 <th
+                  onClick={() => handleHeaderSort("observacao")}
+                  className="px-4 py-3 cursor-pointer hover:text-white transition-colors min-w-[220px] max-w-[340px] xl:max-w-[420px]"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Observação</span>
+                    {sortBy === "observacao" ? (
+                      sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-purple-400" /> : <ArrowDown className="w-3 h-3 text-purple-400" />
+                    ) : (
+                      <ArrowUpDown className="w-3 h-3 opacity-40" />
+                    )}
+                  </div>
+                </th>
+                <th
                   onClick={() => handleHeaderSort("classificacao")}
                   className="px-4 py-3 cursor-pointer hover:text-white transition-colors text-right"
                 >
@@ -977,7 +1008,7 @@ export function RetornosDashboardClient() {
             <tbody className="divide-y divide-white/6 print:divide-slate-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-xs text-white/50">
+                  <td colSpan={7} className="py-12 text-center text-xs text-white/50">
                     <div className="flex items-center justify-center gap-2">
                       <RefreshCw className="w-4 h-4 animate-spin text-purple-400" />
                       <span>Carregando eventos de retorno...</span>
@@ -986,7 +1017,7 @@ export function RetornosDashboardClient() {
                 </tr>
               ) : (allFilteredItemsForPrint || items).length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-xs text-white/40">
+                  <td colSpan={7} className="py-12 text-center text-xs text-white/40">
                     Nenhum evento encontrado com os filtros selecionados.
                   </td>
                 </tr>
@@ -1031,6 +1062,64 @@ export function RetornosDashboardClient() {
                       <td className="px-4 py-3">
                         <div className="text-xs text-white font-medium print:text-slate-900">{item.usuarioDestinoRetorno}</div>
                         <div className="text-[11px] text-white/45 print:text-slate-600">De: {item.usuarioOrigem}</div>
+                      </td>
+
+                      {/* Observação com Prévia (2 linhas) + Expansão inline e Pop-up */}
+                      <td className="px-4 py-3 min-w-[220px] max-w-[340px] xl:max-w-[420px]">
+                        {item.observacao ? (
+                          <div className="space-y-1">
+                            <p
+                              className={`text-xs text-white/80 leading-relaxed print:text-slate-800 ${
+                                expandedObsIds.has(item.idAndamento)
+                                  ? "whitespace-pre-wrap break-words"
+                                  : "line-clamp-2"
+                              }`}
+                              title={!expandedObsIds.has(item.idAndamento) ? item.observacao : undefined}
+                            >
+                              {item.observacao}
+                            </p>
+                            {item.observacao.length > 65 && (
+                              <div className="flex items-center gap-2 print:hidden pt-0.5">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleExpandObs(item.idAndamento);
+                                  }}
+                                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-purple-400 hover:text-purple-300 transition-colors"
+                                >
+                                  {expandedObsIds.has(item.idAndamento) ? (
+                                    <>
+                                      <ChevronUp className="w-3 h-3" />
+                                      <span>Recolher</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ChevronDown className="w-3 h-3" />
+                                      <span>Ver mais</span>
+                                    </>
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedObsModal(item);
+                                  }}
+                                  title="Abrir observação completa em pop-up"
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-white/45 hover:text-purple-300 hover:bg-white/5 transition-all text-[10.5px]"
+                                >
+                                  <Maximize2 className="w-3 h-3" />
+                                  <span>Pop-up</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-white/30 italic print:text-slate-400">
+                            Sem observação
+                          </span>
+                        )}
                       </td>
 
                       {/* Classificação */}
@@ -1116,7 +1205,85 @@ export function RetornosDashboardClient() {
         </div>
       </div>
 
-      {/* 6. MODAL DE DETALHES DO EVENTO — PADRÃO FIORIX */}
+      {/* 6. MODAL EXCLUSIVO DE OBSERVAÇÃO DO PROTOCOLO */}
+      {selectedObsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in print:hidden">
+          <div className="w-full max-w-xl rounded-[24px] border border-white/12 bg-[#0B1020]/95 text-white shadow-2xl backdrop-blur-2xl p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-start justify-between pb-3 border-b border-white/8">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-300">
+                    Protocolo {selectedObsModal.numeroPrenotacao}
+                  </span>
+                  <span className="text-xs text-white/50">
+                    {selectedObsModal.tipoRetorno} [{selectedObsModal.siglaRetorno}]
+                  </span>
+                </div>
+                <h3 className="text-base font-bold text-white mt-1.5 flex items-center gap-2">
+                  <MessageSquareText className="w-4 h-4 text-purple-400" />
+                  <span>Observação do Retorno</span>
+                </h3>
+                <p className="text-xs text-white/45 mt-0.5">
+                  Destinatário: <strong className="text-white/80">{selectedObsModal.usuarioDestinoRetorno}</strong> • De: {selectedObsModal.usuarioOrigem}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedObsModal(null)}
+                className="p-1.5 rounded-xl text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-white/45">
+                Conteúdo da Observação
+              </span>
+              <div className="bg-[#0C1323] border border-white/8 rounded-xl p-4 text-xs text-white/95 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto font-sans selection:bg-purple-500/30">
+                {selectedObsModal.observacao || "Sem observação informada."}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedObsModal.observacao) {
+                      navigator.clipboard.writeText(selectedObsModal.observacao);
+                      toast.success("Observação copiada para a área de transferência!");
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-xs font-medium text-white transition-all shadow-sm"
+                >
+                  <Copy className="w-3.5 h-3.5 text-purple-300" />
+                  <span>Copiar texto</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const item = selectedObsModal;
+                    setSelectedObsModal(null);
+                    setSelectedEvento(item);
+                  }}
+                  className="text-xs text-purple-400 hover:text-purple-300 hover:underline px-2 py-1"
+                >
+                  Ver ficha completa
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedObsModal(null)}
+                className="px-4 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.10] text-xs font-medium text-white transition-colors border border-white/10"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. MODAL DE DETALHES DO EVENTO — PADRÃO FIORIX */}
       {selectedEvento && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in print:hidden">
           <div className="w-full max-w-2xl rounded-[24px] border border-white/12 bg-[#0B1020]/95 text-white shadow-2xl backdrop-blur-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">

@@ -17,6 +17,7 @@ const ALLOWED_SORT_COLUMNS: Record<string, string> = {
   usuarioDestino: "usuario_destino_retorno",
   usuarioOrigem: "usuario_origem",
   classificacao: "classificacao",
+  observacao: "observacao",
 };
 
 interface KpiRawResult {
@@ -251,6 +252,7 @@ export async function GET(request: Request) {
         if (sortByParam === "usuarioDestino") return item.usuarioDestinoRetorno || "";
         if (sortByParam === "usuarioOrigem") return item.usuarioOrigem || "";
         if (sortByParam === "classificacao") return item.classificacao || "";
+        if (sortByParam === "observacao") return item.observacao || "";
         return item.numeroPrenotacao;
       };
 
