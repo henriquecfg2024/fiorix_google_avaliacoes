@@ -58,20 +58,20 @@ export function HealthCard({ score, saudaveis, atencao, criticos }: HealthCardPr
   const strokeDashoffset = circumference - (saudeReputacao / 100) * circumference;
 
   return (
-    <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
-      <div className="mb-5 flex items-center justify-between border-b border-slate-200 dark:border-white/8 pb-4">
+    <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
+      <div className="mb-5 flex items-center justify-between border-b border-white/8 pb-4">
         <div className="flex items-center gap-2.5">
           <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-cyan-400" />
-          <h2 className="text-card-title font-bold text-slate-900 dark:text-white">Saúde da Reputação</h2>
+          <h2 className="text-base font-bold text-white">Saúde da Reputação</h2>
         </div>
-        <span className="rounded-full border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] px-3 py-1 text-badge font-semibold text-slate-600 dark:text-slate-300">
+        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-slate-300">
           {totalIndicators} Indicadores
         </span>
       </div>
 
       <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-12">
         {/* LEFT COLUMN: GAUGE */}
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-5 text-center lg:col-span-4">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-[#080D1A]/90 p-5 text-center lg:col-span-4">
           <div className="relative flex h-36 w-36 items-center justify-center">
             <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 140 140">
               <circle cx="70" cy="70" r={radius} className="text-slate-200 dark:text-slate-800" strokeWidth="12" stroke="currentColor" fill="transparent" />
@@ -89,13 +89,13 @@ export function HealthCard({ score, saudaveis, atencao, criticos }: HealthCardPr
               />
             </svg>
             <div className="absolute flex flex-col items-center justify-center">
-              <span className="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">{saudeReputacao}</span>
-              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">de 100</span>
+              <span className="text-4xl font-extrabold tracking-tight text-white">{saudeReputacao}</span>
+              <span className="text-[11px] font-semibold text-slate-400">de 100</span>
             </div>
           </div>
 
           <div className="mt-3 text-center">
-            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+            <p className="text-sm font-bold text-slate-200">
               {saudeReputacao} pontos de 100 — <span className={labelColor}>{label}</span>
             </p>
             <Link
@@ -118,17 +118,17 @@ export function HealthCard({ score, saudaveis, atencao, criticos }: HealthCardPr
               </div>
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {saudaveisList.map((ind, idx) => (
-                  <div key={idx} className="space-y-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.03] p-3 transition-colors hover:border-slate-300 dark:hover:border-white/16">
+                  <div key={idx} className="space-y-2 rounded-xl border border-white/8 bg-[#080D1A]/80 p-3 transition-colors hover:border-white/16">
                     <div className="flex items-center justify-between min-w-0">
                       <span className="flex items-center gap-2 truncate min-w-0">
                         <span className="shrink-0">{ind.icon}</span>
-                        <span className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">{ind.nome}</span>
+                        <span className="truncate text-sm font-medium text-slate-200">{ind.nome}</span>
                       </span>
                       <span className="rounded-md border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-xs font-bold text-emerald-300 shrink-0">
                         {ind.pct}%
                       </span>
                     </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800/80">
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800/80">
                       <div className="h-full rounded-full bg-emerald-500 transition-all duration-500" style={{ width: `${ind.pct}%` }} />
                     </div>
                   </div>
@@ -145,17 +145,17 @@ export function HealthCard({ score, saudaveis, atencao, criticos }: HealthCardPr
               </div>
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {atencaoList.map((ind, idx) => (
-                  <div key={idx} className="space-y-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.03] p-3 transition-colors hover:border-slate-300 dark:hover:border-white/16">
+                  <div key={idx} className="space-y-2 rounded-xl border border-white/8 bg-[#080D1A]/80 p-3 transition-colors hover:border-white/16">
                     <div className="flex items-center justify-between min-w-0">
                       <span className="flex items-center gap-2 truncate min-w-0">
                         <span className="shrink-0">{ind.icon}</span>
-                        <span className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">{ind.nome}</span>
+                        <span className="truncate text-sm font-medium text-slate-200">{ind.nome}</span>
                       </span>
                       <span className="rounded-md border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-xs font-bold text-amber-300 shrink-0">
                         {ind.pct}%
                       </span>
                     </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800/80">
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800/80">
                       <div className="h-full rounded-full bg-amber-400 transition-all duration-500" style={{ width: `${ind.pct}%` }} />
                     </div>
                   </div>
@@ -172,11 +172,11 @@ export function HealthCard({ score, saudaveis, atencao, criticos }: HealthCardPr
               </div>
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {criticosList.map((ind, idx) => (
-                  <div key={idx} className="space-y-2 rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/[0.04] p-3 transition-colors hover:border-rose-300 dark:hover:border-rose-500/30">
+                  <div key={idx} className="space-y-2 rounded-xl border border-rose-500/20 bg-rose-500/[0.04] p-3 transition-colors hover:border-rose-500/30">
                     <div className="flex items-center justify-between min-w-0">
                       <span className="flex items-center gap-2 truncate min-w-0">
                         <span className="shrink-0">{ind.icon}</span>
-                        <span className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">{ind.nome}</span>
+                        <span className="truncate text-sm font-medium text-slate-200">{ind.nome}</span>
                         {ind.isBi && (
                           <Link
                             href={ind.biPath || '/bi'}
@@ -190,7 +190,7 @@ export function HealthCard({ score, saudaveis, atencao, criticos }: HealthCardPr
                         {ind.pct}%
                       </span>
                     </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-rose-100 dark:bg-rose-950/50">
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-rose-950/50">
                       <div className="h-full rounded-full bg-rose-500 transition-all duration-500" style={{ width: `${ind.pct}%` }} />
                     </div>
                   </div>
