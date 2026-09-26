@@ -228,7 +228,7 @@ function ProtocoloStrip({ data }: { data: TrajetoriaData }) {
       : 'bg-blue-500/15 text-blue-400 border border-blue-500/25';
 
   return (
-    <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 backdrop-blur-xl p-5 sm:p-6 shadow-sm shadow-sm">
+    <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl p-5 sm:p-6 shadow-sm shadow-sm">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-white/8">
         {/* Protocolo */}
         <div className="flex flex-col justify-between gap-2 sm:pr-4">
@@ -613,7 +613,7 @@ function HistoricoTarefas({ tarefas }: { tarefas?: TrajetoriaData['tarefas'] }) 
   if (!tarefasExibidas || tarefasExibidas.length === 0) return null;
 
   return (
-    <div className="mt-5 rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm shadow-sm overflow-hidden transition-all">
+    <div className="mt-5 rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm shadow-sm overflow-hidden transition-all">
       <button
         onClick={() => setExpandido(!expandido)}
         className="w-full flex items-center justify-between p-5 text-left hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors cursor-pointer border-b border-slate-100 dark:border-white/6"
@@ -785,7 +785,7 @@ export function TrajetoriaClient({ initialProtocolo }: TrajetoriaClientProps) {
     <div className="space-y-6">
       {/* ── Search bar ── */}
       <div
-        className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 backdrop-blur-xl p-4 sm:p-5 shadow-sm shadow-sm flex flex-col sm:flex-row gap-3 items-center"
+        className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl p-4 sm:p-5 shadow-sm shadow-sm flex flex-col sm:flex-row gap-3 items-center"
       >
         <div className="relative flex-1 w-full">
           <label htmlFor="protocolo-input" className="sr-only">

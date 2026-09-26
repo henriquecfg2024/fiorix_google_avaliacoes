@@ -50,7 +50,7 @@ export function ReputationHealth({ variant = 'executive', data }: ReputationHeal
   // ─────────────────────────────────────────────────────────────
   if (variant === 'executive') {
     return (
-      <div className="space-y-6 rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 lg:p-7 shadow-sm backdrop-blur-xl transition-all">
+      <div className="space-y-6 rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 lg:p-7 shadow-sm backdrop-blur-xl transition-all">
         {/* Header do Card */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/8 pb-5">
           <div className="space-y-1">
@@ -267,7 +267,7 @@ export function ReputationHealth({ variant = 'executive', data }: ReputationHeal
   // 2. VARIANTE ANALÍTICA DETALHADA (ESTATÍSTICAS)
   // ─────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6 rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 lg:p-7 shadow-sm backdrop-blur-xl transition-all">
+    <div className="space-y-6 rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 lg:p-7 shadow-sm backdrop-blur-xl transition-all">
       {/* Header do Card */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/8 pb-5">
         <div className="space-y-1">

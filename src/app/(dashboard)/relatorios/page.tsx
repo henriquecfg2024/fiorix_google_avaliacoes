@@ -113,7 +113,7 @@ export default async function RelatoriosPage() {
   const top3 = colaboradoresList[2];
   const totalElogiosSum = colaboradoresList.reduce((acc, c) => acc + c.elogios, 0);
 
-  const surfaceCard = 'rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 shadow-sm shadow-sm backdrop-blur-xl';
+  const surfaceCard = 'rounded-[28px] border border-white/20 bg-[#0B1020]/90 shadow-sm shadow-sm backdrop-blur-xl';
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-800 dark:text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
@@ -252,7 +252,7 @@ export default async function RelatoriosPage() {
             </div>
           </div>
 
-          <div className="relative space-y-2 overflow-hidden rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-xs shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
+          <div className="relative space-y-2 overflow-hidden rounded-2xl border border-white/20 bg-[#0B1020]/90 p-5 shadow-xs shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
             <div className="flex items-center justify-between">
               <span className="text-2xl">🥈</span>
               <span className="rounded-full border border-slate-300 dark:border-slate-400/20 bg-slate-100 dark:bg-slate-400/12 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-slate-700 dark:text-slate-200">2º Lugar • Prata</span>

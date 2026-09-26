@@ -678,7 +678,7 @@ export function RetornosDashboardClient() {
       {/* 2. CARDS DE INDICADORES (KPIS) — PADRÃO FIORIX */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 print:hidden">
         {/* KPI 1: Eventos de retorno */}
-        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-cyan-400/50">
+        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-cyan-400/50">
           <div className="flex justify-between items-start w-full">
             <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/55">
               Eventos de retorno
@@ -698,7 +698,7 @@ export function RetornosDashboardClient() {
         </div>
 
         {/* KPI 2: Marcados como corrigidos */}
-        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-emerald-400/50">
+        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-emerald-400/50">
           <div className="flex justify-between items-start w-full">
             <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/55">
               Corrigidos
@@ -718,7 +718,7 @@ export function RetornosDashboardClient() {
         </div>
 
         {/* KPI 3: Sem marcador de correção */}
-        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-amber-400/50">
+        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-amber-400/50">
           <div className="flex justify-between items-start w-full">
             <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/55">
               Sem marcador
@@ -738,7 +738,7 @@ export function RetornosDashboardClient() {
         </div>
 
         {/* KPI 4: Taxa de Retrabalho (Reingressos) */}
-        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-purple-400/50">
+        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-purple-400/50">
           <div className="flex justify-between items-start w-full">
             <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/55">
               Taxa retrabalho
@@ -758,7 +758,7 @@ export function RetornosDashboardClient() {
         </div>
 
         {/* KPI 5: Tempo Médio de Retorno */}
-        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-blue-400/50">
+        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-blue-400/50">
           <div className="flex justify-between items-start w-full">
             <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/55">
               Tempo médio
@@ -929,7 +929,7 @@ export function RetornosDashboardClient() {
       </div>
 
       {/* 4A. CARD — ERROS MÊS A MÊS */}
-      <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-5 print:hidden">
+      <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-5 print:hidden">
         {/* Cabeçalho do Card */}
         <div className="flex items-start justify-between">
           <div>
@@ -1041,7 +1041,7 @@ export function RetornosDashboardClient() {
       </div>
 
       {/* 4B. CARD — TOP CAUSAS DE EXIGÊNCIA & RETORNO — PADRÃO FIORIX */}
-      <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-5 print:hidden">
+      <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-5 print:hidden">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
             <div className="flex items-center gap-2.5">
@@ -1155,7 +1155,7 @@ export function RetornosDashboardClient() {
       </div>
 
       {/* 4C. CARD ERROS POR RESPONSÁVEL — PADRÃO FIORIX */}
-      <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-4 print:hidden">
+      <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-4 print:hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
             <h2 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">Erros por responsável</h2>
@@ -1250,7 +1250,7 @@ export function RetornosDashboardClient() {
       </div>
 
       {/* 5. TABELA DE EVENTOS DE RETORNO — PADRÃO FIORIX */}
-      <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 shadow-sm backdrop-blur-xl overflow-hidden space-y-0 print:border-0 print:shadow-none print:bg-white print:rounded-none">
+      <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 shadow-sm backdrop-blur-xl overflow-hidden space-y-0 print:border-0 print:shadow-none print:bg-white print:rounded-none">
         {/* Cabeçalho na tela */}
         <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/8 print:hidden">
           <div>
@@ -1570,7 +1570,7 @@ export function RetornosDashboardClient() {
       {/* 6. MODAL EXCLUSIVO DE OBSERVAÇÃO DO PROTOCOLO */}
       {selectedObsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in print:hidden">
-          <div className="w-full max-w-xl rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 text-slate-900 dark:text-white shadow-2xl backdrop-blur-2xl p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+          <div className="w-full max-w-xl rounded-[24px] border border-white/20 bg-[#0B1020]/90 text-slate-900 dark:text-white shadow-2xl backdrop-blur-2xl p-6 space-y-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-start justify-between pb-3 border-b border-white/8">
               <div>
                 <div className="flex items-center gap-2">
@@ -1648,7 +1648,7 @@ export function RetornosDashboardClient() {
       {/* 7. MODAL DE DETALHES DO EVENTO — PADRÃO FIORIX */}
       {selectedEvento && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in print:hidden">
-          <div className="w-full max-w-2xl rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 text-slate-900 dark:text-white shadow-2xl backdrop-blur-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-[24px] border border-white/20 bg-[#0B1020]/90 text-slate-900 dark:text-white shadow-2xl backdrop-blur-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-white/8">
               <div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">
@@ -1745,7 +1745,7 @@ export function RetornosDashboardClient() {
       {/* 7. MODAL DE CONFIGURAÇÃO DE PDF — PADRÃO FIORIX */}
       {isPdfModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in print:hidden">
-          <div className="w-full max-w-lg rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 text-slate-900 dark:text-white shadow-2xl backdrop-blur-2xl p-6 space-y-5">
+          <div className="w-full max-w-lg rounded-[24px] border border-white/20 bg-[#0B1020]/90 text-slate-900 dark:text-white shadow-2xl backdrop-blur-2xl p-6 space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-white/8">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Configurar e Gerar PDF</h3>
               <button

@@ -147,7 +147,7 @@ function matchesKpiFilter(
 }
 
 const taskPanelClass =
-  "rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm shadow-sm backdrop-blur-xl";
+  "rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm shadow-sm backdrop-blur-xl";
 const chartVisibilityStorageKey = "fiorix:tarefas:chart-visibility";
 
 function escapePrintValue(value: unknown) {
@@ -824,7 +824,7 @@ export function TarefasDashboardClient() {
   return (
     <div className="space-y-6">
       {/* Barra de Escopo de Visualização / Filtro de Cohort (Ano e Tipo de Ato) */}
-      <div className="flex flex-col gap-4 rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-purple-500/30 bg-purple-500/15 text-purple-600 dark:text-purple-400">
             <Filter className="h-5 w-5" />
@@ -1131,7 +1131,7 @@ export function TarefasDashboardClient() {
           )}
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-slate-800/80 bg-[#0B1020]/90">
+        <div className="overflow-x-auto rounded-xl border border-white/20 bg-[#0B1020]/90">
           <table className="w-full text-left text-xs">
             <thead className="select-none border-b border-white/8 bg-slate-50 dark:bg-[#0B1020] text-[11px] uppercase tracking-wider text-slate-500 dark:text-white/58">
               <tr>
@@ -1187,7 +1187,7 @@ export function TarefasDashboardClient() {
       {/* Tabela Detalhada com Filtros */}
       <section
         id="tarefas-detalhamento"
-        className="scroll-mt-24 overflow-hidden rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 shadow-sm shadow-sm"
+        className="scroll-mt-24 overflow-hidden rounded-2xl border border-white/20 bg-[#0B1020]/90 shadow-sm shadow-sm"
       >
         <div className="flex flex-col gap-4 border-b border-white/8 px-6 py-5 md:flex-row md:items-center md:justify-between">
           <div>

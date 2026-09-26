@@ -32,7 +32,7 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
 
   if (!reviews || reviews.length === 0) {
     return (
-      <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl">
+      <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl">
         <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-4">
           <h3 className="text-base font-bold text-white">Últimas Avaliações</h3>
         </div>
@@ -48,7 +48,7 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
   };
 
   return (
-    <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl transition-all">
+    <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl transition-all">
       <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-4">
         <h3 className="text-base font-bold text-white">Últimas Avaliações</h3>
         <Link href="/avaliacoes" className="text-xs font-semibold text-amber-300 transition-colors hover:text-amber-200 hover:underline">

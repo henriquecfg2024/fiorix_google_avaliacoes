@@ -1046,7 +1046,7 @@ export function MetasDashboardClient() {
       
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
           <div>
             <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-white/60">
               <Target className="w-4 h-4 text-cyan-600 dark:text-cyan-300" /> TOTAL
@@ -1058,7 +1058,7 @@ export function MetasDashboardClient() {
           <p className="text-xs text-slate-500 dark:text-white/40 mt-2">Protocolos em esteira</p>
         </div>
 
-        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
           <div>
             <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-rose-600 dark:text-rose-300">
               <AlertCircle className="w-4 h-4" /> ATRASADOS
@@ -1070,7 +1070,7 @@ export function MetasDashboardClient() {
           <p className="text-xs text-rose-600/80 dark:text-rose-300/70 mt-2">Prazo legal excedido</p>
         </div>
 
-        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
           <div>
             <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-300">
               <Clock className="w-4 h-4" /> ENTREGUE COM ATRASO
@@ -1082,7 +1082,7 @@ export function MetasDashboardClient() {
           <p className="text-xs text-emerald-600/80 dark:text-emerald-300/70 mt-2">Concluídos fora do prazo</p>
         </div>
 
-        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
           <div>
             <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-amber-600 dark:text-amber-300" title="Fase com maior volume de protocolos retidos">
               <TrendingUp className="w-4 h-4" /> GARGALO MAIS FREQUENTE
@@ -1106,7 +1106,7 @@ export function MetasDashboardClient() {
           className={`min-h-[104px] w-full rounded-[28px] border p-4 text-left transition-all shadow-sm backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${
             balcaoFilter === "SEM_REG"
               ? "border-amber-400/60 bg-amber-500/10 dark:bg-[#0B1020]/80"
-              : "border-slate-800/80 bg-[#0B1020]/90 hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-50 dark:hover:bg-[#0B1020]/80"
+              : "border-white/20 bg-[#0B1020]/90 hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-50 dark:hover:bg-[#0B1020]/80"
           }`}
         >
           <div className="flex items-center justify-between gap-4">
@@ -1136,7 +1136,7 @@ export function MetasDashboardClient() {
           className={`min-h-[104px] w-full rounded-[28px] border p-4 text-left transition-all shadow-sm backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 ${
             balcaoFilter === "SEM_DEV"
               ? "border-rose-400/60 bg-rose-500/10 dark:bg-[#0B1020]/80"
-              : "border-slate-800/80 bg-[#0B1020]/90 hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-50 dark:hover:bg-[#0B1020]/80"
+              : "border-white/20 bg-[#0B1020]/90 hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-50 dark:hover:bg-[#0B1020]/80"
           }`}
         >
           <div className="flex items-center justify-between gap-4">
@@ -1161,7 +1161,7 @@ export function MetasDashboardClient() {
       </div>
 
       <motion.section
-        className="overflow-hidden rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl sm:p-6"
+        className="overflow-hidden rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl sm:p-6"
         initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: prefersReducedMotion ? 0 : 0.35 }}
@@ -1280,7 +1280,7 @@ export function MetasDashboardClient() {
       </motion.section>
 
       {/* Tabela Container */}
-      <div ref={tableRef} className="flex flex-col overflow-hidden rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 text-slate-900 dark:text-white shadow-sm backdrop-blur-xl scroll-mt-24">
+      <div ref={tableRef} className="flex flex-col overflow-hidden rounded-2xl border border-white/20 bg-[#0B1020]/90 text-slate-900 dark:text-white shadow-sm backdrop-blur-xl scroll-mt-24">
 
         {/* Toolbar de Busca, Filtros e Exportação CSV */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/8 bg-slate-50/50 dark:bg-white/[0.01] p-4">
@@ -1707,7 +1707,7 @@ export function MetasDashboardClient() {
             />
 
             {/* Painel Lateral */}
-            <div className="relative z-10 flex h-full w-full max-w-lg flex-col overflow-hidden border-l border-slate-800/80 bg-[#0B1020]/90 text-slate-900 dark:text-white shadow-2xl shadow-black/20 dark:shadow-black/30 animate-in slide-in-from-right duration-300">
+            <div className="relative z-10 flex h-full w-full max-w-lg flex-col overflow-hidden border-l border-white/20 bg-[#0B1020]/90 text-slate-900 dark:text-white shadow-2xl shadow-black/20 dark:shadow-black/30 animate-in slide-in-from-right duration-300">
               
               {/* Header do Drawer */}
               <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.025] p-6">

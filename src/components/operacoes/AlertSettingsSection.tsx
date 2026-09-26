@@ -172,7 +172,7 @@ export function AlertSettingsSection() {
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Card Principal */}
-      <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 sm:p-8 backdrop-blur-md shadow-xl relative overflow-hidden">
+      <div className="bg-slate-900/60 border border-white/20 rounded-2xl p-6 sm:p-8 backdrop-blur-md shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
 
         {/* Cabeçalho */}
@@ -239,7 +239,7 @@ export function AlertSettingsSection() {
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
               Escolha o Canal de Notificação para Configurar:
             </label>
-            <div className="flex flex-wrap gap-2 p-1.5 bg-slate-950/60 border border-slate-800 rounded-xl">
+            <div className="flex flex-wrap gap-2 p-1.5 bg-slate-950/60 border border-white/20 rounded-xl">
               <button
                 type="button"
                 onClick={() => setActiveSubTab('whatsapp')}
@@ -292,7 +292,7 @@ export function AlertSettingsSection() {
 
           {/* PAINEL 1: WHATSAPP */}
           {activeSubTab === 'whatsapp' && (
-            <div className="p-6 rounded-2xl bg-slate-950/40 border border-slate-800/80 space-y-6 animate-in fade-in duration-200">
+            <div className="p-6 rounded-2xl bg-slate-950/40 border border-white/20 space-y-6 animate-in fade-in duration-200">
               <div className="flex items-center justify-between pb-4 border-b border-slate-800">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
@@ -478,7 +478,7 @@ export function AlertSettingsSection() {
 
           {/* PAINEL 2: E-MAIL */}
           {activeSubTab === 'email' && (
-            <div className="p-6 rounded-2xl bg-slate-950/40 border border-slate-800/80 space-y-6 animate-in fade-in duration-200">
+            <div className="p-6 rounded-2xl bg-slate-950/40 border border-white/20 space-y-6 animate-in fade-in duration-200">
               <div className="flex items-center justify-between pb-4 border-b border-slate-800">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
@@ -653,7 +653,7 @@ export function AlertSettingsSection() {
 
           {/* PAINEL 3: WEBHOOKS */}
           {activeSubTab === 'webhook' && (
-            <div className="p-6 rounded-2xl bg-slate-950/40 border border-slate-800/80 space-y-6 animate-in fade-in duration-200">
+            <div className="p-6 rounded-2xl bg-slate-950/40 border border-white/20 space-y-6 animate-in fade-in duration-200">
               <div className="flex items-center justify-between pb-4 border-b border-slate-800">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400">
@@ -747,7 +747,7 @@ export function AlertSettingsSection() {
           )}
 
           {/* GATILHOS DE NOTIFICAÇÃO E REGRAS */}
-          <div className="pt-4 border-t border-slate-800/80 space-y-6">
+          <div className="pt-4 border-t border-white/20 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
@@ -864,7 +864,7 @@ export function AlertSettingsSection() {
       </div>
 
       {/* Histórico de Alertas Recentes */}
-      <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 backdrop-blur-md shadow-xl space-y-4">
+      <div className="bg-slate-900/60 border border-white/20 rounded-2xl p-6 backdrop-blur-md shadow-xl space-y-4">
         <div className="flex items-center justify-between pb-4 border-b border-slate-800">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-indigo-400" />

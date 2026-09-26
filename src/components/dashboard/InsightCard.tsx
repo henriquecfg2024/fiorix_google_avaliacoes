@@ -18,7 +18,7 @@ export function InsightCard({ insights }: InsightCardProps) {
   // Demo fallback
   if (!insights) {
     return (
-      <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl transition-all">
+      <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl transition-all">
         <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-4">
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-cyan-400" />
@@ -39,7 +39,7 @@ export function InsightCard({ insights }: InsightCardProps) {
   const hasInsights = insights.topComplaint || insights.topColab || insights.worstDay || insights.taxaResposta > 0;
 
   return (
-    <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl transition-all">
+    <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl transition-all">
       <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-4">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-cyan-400" />

@@ -106,7 +106,7 @@ function HeatmapChartInner({ data }: HeatmapChartProps) {
   };
 
   return (
-    <div className="space-y-6 rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl">
+    <div className="space-y-6 rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="flex items-center gap-2 text-base font-bold tracking-tight text-slate-900 dark:text-white">
@@ -157,7 +157,7 @@ function HeatmapChartInner({ data }: HeatmapChartProps) {
                     >
                       {isPeak && <span className="absolute h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]" />}
 
-                      <div className="pointer-events-none absolute bottom-full left-1/2 z-[25] hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-slate-800/80 bg-[#0B1020]/90 px-3 py-1.5 text-center text-[11px] shadow-xl group-hover:block">
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-[25] hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-white/20 bg-[#0B1020]/90 px-3 py-1.5 text-center text-[11px] shadow-xl group-hover:block">
                         <p className="font-semibold text-slate-900 dark:text-white">
                           {DAYS_OF_WEEK_PT[dIdx]}, {hour}h
                         </p>

@@ -138,7 +138,7 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
   };
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 text-white shadow-sm backdrop-blur-xl">
+    <div className="flex flex-col overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 text-white shadow-sm backdrop-blur-xl">
       {/* Controls Header Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/8 bg-slate-50/50 dark:bg-white/[0.01] p-4">
         <div className="relative w-full sm:w-80">

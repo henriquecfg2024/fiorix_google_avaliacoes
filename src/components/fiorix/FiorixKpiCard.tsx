@@ -126,7 +126,7 @@ export function FiorixKpiCard({
               <Info className="w-4 h-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent className="max-w-[200px] border-slate-800/80 bg-[#0B1020]/90 text-center text-xs leading-relaxed text-slate-800 dark:text-white shadow-md">
+          <TooltipContent className="max-w-[200px] border-white/20 bg-[#0B1020]/90 text-center text-xs leading-relaxed text-slate-800 dark:text-white shadow-md">
             {subtitle}
           </TooltipContent>
         </Tooltip>

@@ -357,7 +357,7 @@ export default function ProdutividadePage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 backdrop-blur-xl p-5 shadow-sm space-y-4">
+          <div className="rounded-[28px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl p-5 shadow-sm space-y-4">
             <div className="flex items-center gap-2 text-slate-800 dark:text-white/80 font-bold text-sm">
               <LayoutGrid className="h-4 w-4 text-[#00C950]" />
               <span>Filtros do Painel de Produtividade</span>

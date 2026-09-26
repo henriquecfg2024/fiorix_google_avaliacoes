@@ -202,7 +202,7 @@ export function ReviewItemCard({ review, staffNames }: ReviewItemProps) {
             ? 'border-red-500/35 border-l-4 border-l-red-500 bg-white dark:bg-[#0B1020]/72'
             : isMidRating
               ? 'border-amber-500/30 border-l-4 border-l-amber-500 bg-white dark:bg-[#0B1020]/72'
-              : 'border-slate-800/80 bg-[#0B1020]/90 hover:border-slate-300 dark:hover:border-white/18'
+              : 'border-white/20 bg-[#0B1020]/90 hover:border-slate-300 dark:hover:border-white/18'
         }`}
       >
         <div className="flex flex-wrap items-start justify-between gap-3">

@@ -284,7 +284,7 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
   const endItem = Math.min(pagination.page * pagination.pageSize, pagination.totalItems);
 
   return (
-    <Card className="mt-4 overflow-hidden rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 text-slate-800 dark:text-white shadow-sm shadow-sm backdrop-blur-xl">
+    <Card className="mt-4 overflow-hidden rounded-2xl border border-white/20 bg-[#0B1020]/90 text-slate-800 dark:text-white shadow-sm shadow-sm backdrop-blur-xl">
       {/* Abas Superiores */}
       <div className="flex border-b border-white/8 bg-slate-50 dark:bg-[#0B1020]/92">
         <button
@@ -427,7 +427,7 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
       <div className="relative max-h-[600px] overflow-x-auto overflow-y-auto">
         {isLoading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-[#0B1020]/55 backdrop-blur-[1px]">
-            <div className="flex items-center gap-2 rounded-xl border border-slate-800/80 bg-[#0B1020]/90 px-4 py-2 text-xs text-slate-700 dark:text-white/60 shadow-md">
+            <div className="flex items-center gap-2 rounded-xl border border-white/20 bg-[#0B1020]/90 px-4 py-2 text-xs text-slate-700 dark:text-white/60 shadow-md">
               <Loader2 className="h-4 w-4 animate-spin text-emerald-300" />
               <span>Carregando dados...</span>
             </div>
