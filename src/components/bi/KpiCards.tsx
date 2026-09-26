@@ -177,11 +177,11 @@ export function KpiCards({
       secondaryValue: null,
       subText: "Volume total processado no período",
       icon: Award,
-      iconBox: "border-cyan-500/20 bg-cyan-500/10",
-      iconColor: "text-cyan-600 dark:text-cyan-300",
-      valueColor: "text-cyan-700 dark:text-cyan-300",
-      border: "border-slate-200 dark:border-cyan-500/25",
-      hoverBorder: "hover:border-cyan-400/50",
+      iconBox: "border-white/20 bg-cyan-500/10",
+      iconColor: "text-cyan-300",
+      valueColor: "text-white",
+      border: "border-white/20",
+      hoverBorder: "hover:border-white/40",
     },
     {
       title: "Digital ONR",
@@ -189,11 +189,11 @@ export function KpiCards({
       secondaryValue: `(${kpis.digitalPct}%)`,
       subText: "RIDigital / Gestão de escala do ONR",
       icon: Laptop,
-      iconBox: "border-emerald-500/20 bg-emerald-500/10",
-      iconColor: "text-emerald-600 dark:text-emerald-300",
-      valueColor: "text-emerald-700 dark:text-emerald-300",
-      border: "border-slate-200 dark:border-emerald-500/25",
-      hoverBorder: "hover:border-emerald-400/50",
+      iconBox: "border-white/20 bg-emerald-500/10",
+      iconColor: "text-emerald-300",
+      valueColor: "text-emerald-300",
+      border: "border-white/20",
+      hoverBorder: "hover:border-white/40",
     },
     {
       title: "Presencial",
@@ -201,11 +201,11 @@ export function KpiCards({
       secondaryValue: `(${kpis.presencialPct}%)`,
       subText: "Recepção / Balanço operacional presencial",
       icon: Users,
-      iconBox: "border-sky-500/20 bg-sky-500/10",
-      iconColor: "text-sky-600 dark:text-sky-300",
-      valueColor: "text-sky-700 dark:text-sky-300",
-      border: "border-slate-200 dark:border-sky-500/25",
-      hoverBorder: "hover:border-sky-400/50",
+      iconBox: "border-white/20 bg-sky-500/10",
+      iconColor: "text-sky-300",
+      valueColor: "text-sky-300",
+      border: "border-white/20",
+      hoverBorder: "hover:border-white/40",
     },
     {
       title: "Pico de Fila",
@@ -214,11 +214,11 @@ export function KpiCards({
       subText: "Momento com maior acúmulo de requisições",
       icon: ShieldAlert,
       badge: kpis.picoFila.isCritico ? "CRÍTICO" : null,
-      iconBox: "border-rose-500/20 bg-rose-500/10",
-      iconColor: "text-rose-600 dark:text-rose-300",
-      valueColor: "text-slate-900 dark:text-white",
-      border: "border-slate-200 dark:border-rose-500/25",
-      hoverBorder: "hover:border-rose-400/50",
+      iconBox: "border-white/20 bg-rose-500/10",
+      iconColor: "text-rose-300",
+      valueColor: "text-white",
+      border: "border-white/20",
+      hoverBorder: "hover:border-white/40",
     },
     {
       title: "Usuário Top",
@@ -226,11 +226,11 @@ export function KpiCards({
       secondaryValue: kpis.usuarioTop.detail ? `• ${kpis.usuarioTop.detail}` : null,
       subText: "Colaborador com maior produtividade",
       icon: UserCheck,
-      iconBox: "border-purple-500/20 bg-purple-500/10",
-      iconColor: "text-purple-600 dark:text-purple-300",
-      valueColor: "text-purple-700 dark:text-purple-300",
-      border: "border-slate-200 dark:border-purple-500/25",
-      hoverBorder: "hover:border-purple-400/50",
+      iconBox: "border-white/20 bg-purple-500/10",
+      iconColor: "text-purple-300",
+      valueColor: "text-purple-300",
+      border: "border-white/20",
+      hoverBorder: "hover:border-white/40",
     },
     {
       title: "Tipo Dominante",
@@ -238,11 +238,11 @@ export function KpiCards({
       secondaryValue: kpis.tipoDominante.detail ? `• ${kpis.tipoDominante.detail}` : null,
       subText: "Serviço mais demandado na operação",
       icon: Zap,
-      iconBox: "border-amber-500/20 bg-amber-500/10",
-      iconColor: "text-amber-600 dark:text-amber-300",
-      valueColor: "text-amber-700 dark:text-amber-300",
-      border: "border-slate-200 dark:border-amber-500/25",
-      hoverBorder: "hover:border-amber-400/50",
+      iconBox: "border-white/20 bg-amber-500/10",
+      iconColor: "text-amber-300",
+      valueColor: "text-amber-300",
+      border: "border-white/20",
+      hoverBorder: "hover:border-white/40",
     },
   ];
 
@@ -254,18 +254,18 @@ export function KpiCards({
           <div
             key={idx}
             className={cn(
-              "group relative flex min-h-[125px] flex-col justify-between overflow-hidden rounded-[24px] border bg-white dark:bg-[#0B1020]/72 p-4 sm:p-5 shadow-sm backdrop-blur-xl transition-all",
+              "group relative flex min-h-[125px] flex-col justify-between overflow-hidden rounded-[20px] border bg-[#0B1020]/90 p-4 sm:p-5 shadow-sm backdrop-blur-xl transition-all",
               card.border,
               card.hoverBorder
             )}
           >
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/55">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">
                   {card.title}
                 </span>
                 {card.badge && (
-                  <span className="rounded-md border border-rose-500/30 bg-rose-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-300">
+                  <span className="rounded-md border border-rose-500/30 bg-rose-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-rose-300">
                     {card.badge}
                   </span>
                 )}
@@ -281,12 +281,12 @@ export function KpiCards({
                   {card.primaryValue}
                 </span>
                 {card.secondaryValue && (
-                  <span className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-white/60">
+                  <span className="text-xs sm:text-sm font-semibold text-white/60">
                     {card.secondaryValue}
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-white/45">{card.subText}</p>
+              <p className="text-[11px] text-white/45">{card.subText}</p>
             </div>
           </div>
         );
