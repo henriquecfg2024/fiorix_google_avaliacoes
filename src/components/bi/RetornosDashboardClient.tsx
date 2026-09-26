@@ -1002,8 +1002,8 @@ export function RetornosDashboardClient() {
                     <div className="w-8 h-8 rounded-xl bg-[#22D3EE]/15 border border-[#22D3EE]/30 flex items-center justify-center text-[11px] font-bold text-[#22D3EE] shrink-0">
                       {initials || "U"}
                     </div>
-                    <span className="text-xs text-white/90 font-medium truncate" title={resp.nome}>
-                      {resp.nome}
+                    <span className="text-xs text-white/90 font-medium truncate uppercase" title={resp.nome.toUpperCase()}>
+                      {resp.nome.toUpperCase()}
                     </span>
                   </div>
                   <span className="text-sm font-extrabold text-white ml-2 shrink-0 px-2 py-0.5 rounded-lg bg-white/[0.06] border border-white/10 font-mono">
