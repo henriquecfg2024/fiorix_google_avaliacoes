@@ -29,6 +29,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" suppressHydrationWarning className={cn("font-sans dark", inter.variable)} style={{ colorScheme: 'dark' }}>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                localStorage.setItem('theme', 'dark');
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
+              } catch (e) {}
+            `,
+          }}
+        />
+      </head>
       <body className={`${inter.variable} bg-[#050B14] text-[#f8fafc]`}>
         <ThemeProvider
           attribute="class"

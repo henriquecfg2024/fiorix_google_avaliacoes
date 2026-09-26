@@ -38,8 +38,8 @@ export function TrendChart({ data }: TrendChartProps) {
   const CustomTooltip = ({ active, payload, label }: TrendTooltipProps) => {
     if (active && payload && payload.length) {
       return (
-        <div className="space-y-1 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/95 p-3 text-xs text-slate-900 dark:text-white shadow-lg dark:shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-          <p className="border-b border-slate-200 dark:border-white/10 pb-1 font-bold text-slate-700 dark:text-slate-200">{label}</p>
+        <div className="space-y-1 rounded-xl border border-white/10 bg-[#0B1020]/95 p-3 text-xs text-white shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+          <p className="border-b border-white/10 pb-1 font-bold text-slate-200">{label}</p>
           <div className="flex items-center justify-between gap-4 font-semibold text-cyan-300">
             <span>⭐ Nota Média:</span>
             <span>{payload[0]?.value}</span>
@@ -55,14 +55,14 @@ export function TrendChart({ data }: TrendChartProps) {
   };
 
   return (
-    <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
-      <div className="mb-5 flex flex-col justify-between gap-3 border-b border-slate-200 dark:border-white/8 pb-4 sm:flex-row sm:items-center">
+    <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
+      <div className="mb-5 flex flex-col justify-between gap-3 border-b border-white/8 pb-4 sm:flex-row sm:items-center">
         <div>
-          <h3 className="text-card-title font-bold text-slate-900 dark:text-white">Tendência de Avaliações</h3>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Evolução da nota média e volume acumulado</p>
+          <h3 className="text-base font-bold text-white">Tendência de Avaliações</h3>
+          <p className="mt-0.5 text-xs text-slate-400">Evolução da nota média e volume acumulado</p>
         </div>
 
-        <div className="inline-flex self-start gap-1 rounded-full border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] px-3 py-1 text-xs font-semibold text-cyan-700 dark:text-cyan-200 sm:self-auto">
+        <div className="inline-flex self-start gap-1 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-300 sm:self-auto">
           Últimos 6 meses
         </div>
       </div>

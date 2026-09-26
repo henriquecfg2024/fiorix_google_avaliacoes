@@ -79,8 +79,8 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
     if (active && payload && payload.length) {
       const data = payload[0]?.payload;
       return (
-        <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/95 p-2.5 text-xs text-slate-900 dark:text-white shadow-lg dark:shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-          <p className="font-bold text-slate-700 dark:text-slate-200">{data?.nome}</p>
+        <div className="rounded-xl border border-white/10 bg-[#0B1020]/95 p-2.5 text-xs text-white shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+          <p className="font-bold text-slate-200">{data?.nome}</p>
           <p className="mt-0.5 font-semibold text-emerald-300">👏 {data?.elogios} elogios registrados</p>
         </div>
       );
@@ -89,11 +89,11 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
   };
 
   return (
-    <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
-      <div className="mb-5 flex flex-col justify-between gap-3 border-b border-slate-200 dark:border-white/8 pb-4 sm:flex-row sm:items-center">
+    <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
+      <div className="mb-5 flex flex-col justify-between gap-3 border-b border-white/8 pb-4 sm:flex-row sm:items-center">
         <div>
-          <h3 className="text-card-title font-bold text-slate-900 dark:text-white">Ranking dos Colaboradores</h3>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+          <h3 className="text-base font-bold text-white">Ranking dos Colaboradores</h3>
+          <p className="mt-0.5 text-xs text-slate-400">
             {period === 'month'
               ? 'Menções positivas no mês atual'
               : period === 'quarter'
@@ -102,11 +102,11 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
           </p>
         </div>
 
-        <div className="inline-flex self-start gap-1 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] p-1 text-xs font-semibold sm:self-auto">
+        <div className="inline-flex self-start gap-1 rounded-xl border border-white/10 bg-white/[0.04] p-1 text-xs font-semibold sm:self-auto">
           <button
             onClick={() => setPeriod('month')}
             className={`rounded-lg px-3 py-1.5 transition-all ${
-              period === 'month' ? 'bg-cyan-500/15 font-bold text-cyan-700 dark:text-cyan-200 shadow-sm' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/[0.06] hover:text-slate-900 dark:hover:text-white'
+              period === 'month' ? 'bg-cyan-500/15 font-bold text-cyan-200 shadow-sm' : 'text-slate-400 hover:bg-white/[0.06] hover:text-white'
             }`}
           >
             Este mês
@@ -114,7 +114,7 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
           <button
             onClick={() => setPeriod('quarter')}
             className={`rounded-lg px-3 py-1.5 transition-all ${
-              period === 'quarter' ? 'bg-cyan-500/15 font-bold text-cyan-700 dark:text-cyan-200 shadow-sm' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/[0.06] hover:text-slate-900 dark:hover:text-white'
+              period === 'quarter' ? 'bg-cyan-500/15 font-bold text-cyan-200 shadow-sm' : 'text-slate-400 hover:bg-white/[0.06] hover:text-white'
             }`}
           >
             Trimestre
@@ -122,7 +122,7 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
           <button
             onClick={() => setPeriod('total')}
             className={`rounded-lg px-3 py-1.5 transition-all ${
-              period === 'total' ? 'bg-cyan-500/15 font-bold text-cyan-700 dark:text-cyan-200 shadow-sm' : 'text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/[0.06] hover:text-slate-900 dark:hover:text-white'
+              period === 'total' ? 'bg-cyan-500/15 font-bold text-cyan-200 shadow-sm' : 'text-slate-400 hover:bg-white/[0.06] hover:text-white'
             }`}
           >
             Geral
@@ -139,11 +139,11 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
             <div
               key={idx}
               className={`flex flex-col items-center justify-center rounded-xl border p-2.5 text-center transition-all ${
-                isTop ? 'border-cyan-200 dark:border-cyan-500/25 bg-cyan-50 dark:bg-cyan-500/[0.08] shadow-xs' : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.03] hover:border-slate-300 dark:hover:border-white/16'
+                isTop ? 'border-cyan-500/25 bg-cyan-500/[0.08] shadow-xs' : 'border border-white/8 bg-[#080D1A]/80 hover:border-white/16'
               }`}
             >
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{medal} Rank</span>
-              <span className="mt-0.5 max-w-full truncate text-xs font-bold text-slate-900 dark:text-white">{col.nome}</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{medal} Rank</span>
+              <span className="mt-0.5 max-w-full truncate text-xs font-bold text-white">{col.nome}</span>
               <span className="mt-1 text-xs font-extrabold text-emerald-400">{col.elogios} 👏</span>
             </div>
           );

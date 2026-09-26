@@ -50,17 +50,17 @@ export function ReputationHealth({ variant = 'executive', data }: ReputationHeal
   // ─────────────────────────────────────────────────────────────
   if (variant === 'executive') {
     return (
-      <div className="space-y-6 rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 lg:p-7 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
+      <div className="space-y-6 rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 lg:p-7 shadow-[0_20px_60px_rgba(0,0,0,0.25)] backdrop-blur-xl transition-all">
         {/* Header do Card */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-white/8 pb-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/8 pb-5">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
               <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_12px_#22d3ee] shrink-0" />
-              <h2 className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">
+              <h2 className="text-lg font-extrabold tracking-tight text-white">
                 Saúde da Reputação
               </h2>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-400">
               Como está a reputação do seu cartório no Google.
             </p>
           </div>
@@ -75,14 +75,14 @@ export function ReputationHealth({ variant = 'executive', data }: ReputationHeal
         {/* Grid Principal: Coluna Esquerda (Gauge) & Coluna Direita (Resumo Executivo) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
           {/* Coluna Esquerda: Gauge Circular Ciano */}
-          <div className="lg:col-span-4 flex flex-col justify-center items-center rounded-2xl border border-slate-200/80 dark:border-white/12 bg-slate-50 dark:bg-[#080D1A]/80 p-6 text-center shadow-inner">
+          <div className="lg:col-span-4 flex flex-col justify-center items-center rounded-2xl border border-white/10 bg-[#080D1A]/90 p-6 text-center shadow-inner">
             <div className="relative flex h-44 w-44 items-center justify-center">
               <svg className="h-full w-full -rotate-90 transform" viewBox="0 0 160 160">
                 <circle
                   cx="80"
                   cy="80"
                   r={gaugeRadius}
-                  className="text-slate-200 dark:text-slate-800/80"
+                  className="text-slate-800/80"
                   strokeWidth="12"
                   stroke="currentColor"
                   fill="transparent"
@@ -101,15 +101,15 @@ export function ReputationHealth({ variant = 'executive', data }: ReputationHeal
                 />
               </svg>
               <div className="absolute flex flex-col items-center justify-center text-center">
-                <span className="text-5xl font-black tracking-tight text-slate-900 dark:text-white">{data.scoreGeral}</span>
-                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5">de 100</span>
+                <span className="text-5xl font-black tracking-tight text-white">{data.scoreGeral}</span>
+                <span className="text-xs font-semibold text-slate-400 mt-0.5">de 100</span>
               </div>
             </div>
 
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-4">
+            <h3 className="text-lg font-bold text-white mt-4">
               Reputação <span className={`${data.reputacaoLabelColor} font-black`}>{data.reputacaoLabel}</span>
             </h3>
-            <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400 mt-2 max-w-xs">
+            <p className="text-xs leading-relaxed text-slate-400 mt-2 max-w-xs">
               {data.reputacaoMsg}
             </p>
           </div>
@@ -267,7 +267,7 @@ export function ReputationHealth({ variant = 'executive', data }: ReputationHeal
   // 2. VARIANTE ANALÍTICA DETALHADA (ESTATÍSTICAS)
   // ─────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 lg:p-7 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
+    <div className="space-y-6 rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 lg:p-7 shadow-[0_20px_60px_rgba(0,0,0,0.25)] backdrop-blur-xl transition-all">
       {/* Header do Card */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/8 pb-5">
         <div className="space-y-1">
