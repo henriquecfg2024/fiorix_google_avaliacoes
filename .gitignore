@@ -61,3 +61,6 @@ src/lib/jornada/
 # Backups e dumps locais
 backups/
 
+# Scripts temporários de automação local
+scratch/
+
