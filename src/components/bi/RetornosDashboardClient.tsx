@@ -22,7 +22,6 @@ import {
   ChevronUp,
   Calendar,
   BarChart3,
-  Users,
 } from "lucide-react";
 import { RetornoItem, ResponsavelContagem, ResponsavelContagemCompleta, ErroMensal, RetornosResponse } from "@/lib/retornos/types";
 import { toast } from "sonner";
@@ -51,7 +50,6 @@ export function RetornosDashboardClient() {
   // Filtro de período
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [showColabCompleto, setShowColabCompleto] = useState(false);
 
   // Paginação e Ordenação da Tabela
   const [currentPage, setCurrentPage] = useState(1);
@@ -817,7 +815,94 @@ export function RetornosDashboardClient() {
         </div>
       </div>
 
-      {/* 4. CARD ERROS POR RESPONSÁVEL — PADRÃO FIORIX */}
+      {/* 4A. CARD — ERROS MÊS A MÊS */}
+      <div className="rounded-[24px] border border-white/8 bg-[#0B1020]/72 p-5 sm:p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4 print:hidden">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm sm:text-base font-semibold text-white flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-cyan-400" />
+              Erros mês a mês
+            </h2>
+            <p className="text-xs text-white/50">
+              Todos os eventos de retorno (292-297) agrupados por mês
+            </p>
+          </div>
+          {errosMensais.length > 0 && (
+            <div className="text-right">
+              <div className="text-xs text-white/50 font-medium">Total no período</div>
+              <div className="text-lg font-bold text-cyan-400">
+                {errosMensais.reduce((s, m) => s + m.total, 0).toLocaleString("pt-BR")}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {errosMensais.length === 0 ? (
+          <div className="py-10 text-center text-xs text-white/40 italic">
+            Nenhum dado mensal disponível para o período selecionado.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {/* Legenda */}
+            <div className="flex items-center gap-4 text-[11px] text-white/60 pb-1">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-sm bg-gradient-to-r from-cyan-500 to-blue-500" />
+                <span>Total</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
+                <span>Corrigidos</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-sm bg-amber-500" />
+                <span>Sem marcador</span>
+              </div>
+            </div>
+
+            {/* Barras */}
+            <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1">
+              {(() => {
+                const maxTotal = Math.max(...errosMensais.map((m) => m.total), 1);
+                return errosMensais.map((m) => (
+                  <div key={m.mes} className="group">
+                    <div className="flex items-center gap-3">
+                      <span className="text-[11px] font-semibold text-white/70 w-[52px] shrink-0 text-right font-mono">
+                        {m.mesLabel}
+                      </span>
+                      <div className="flex-1 relative">
+                        {/* Barra de fundo (total) */}
+                        <div
+                          className="h-6 rounded-lg bg-gradient-to-r from-cyan-500/25 to-blue-500/15 border border-cyan-500/15 transition-all duration-500 relative overflow-hidden"
+                          style={{ width: `${Math.max((m.total / maxTotal) * 100, 4)}%` }}
+                        >
+                          {/* Barra corrigidos */}
+                          {m.corrigidos > 0 && (
+                            <div
+                              className="absolute left-0 top-0 h-full bg-emerald-500/40 border-r border-emerald-400/30 rounded-l-lg transition-all duration-500"
+                              style={{ width: `${(m.corrigidos / m.total) * 100}%` }}
+                            />
+                          )}
+                          {/* Valor no interior */}
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-white/90">
+                            {m.total}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Tooltip expandido no hover */}
+                    <div className="hidden group-hover:flex items-center gap-3 ml-[64px] mt-0.5 text-[10px] text-white/50">
+                      <span className="text-emerald-400">{m.corrigidos} corrigidos</span>
+                      <span className="text-amber-400">{m.semMarcador} sem marcador</span>
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 4B. CARD ERROS POR RESPONSÁVEL — PADRÃO FIORIX */}
       <div className="rounded-[24px] border border-white/8 bg-[#0B1020]/72 p-5 sm:p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4 print:hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
@@ -910,209 +995,6 @@ export function RetornosDashboardClient() {
         <p className="text-[11px] text-white/40 italic pt-1">
           Contagem de eventos por destinatário: não indica autoria do erro nem quantidade de pendências.
         </p>
-      </div>
-
-      {/* 4B. CARD — ERROS MÊS A MÊS */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 print:hidden">
-        {/* Gráfico Mensal */}
-        <div className="rounded-[24px] border border-white/8 bg-[#0B1020]/72 p-5 sm:p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm sm:text-base font-semibold text-white flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-cyan-400" />
-                Erros mês a mês
-              </h2>
-              <p className="text-xs text-white/50">
-                Todos os eventos de retorno (292-297) agrupados por mês
-              </p>
-            </div>
-            {errosMensais.length > 0 && (
-              <div className="text-right">
-                <div className="text-xs text-white/50 font-medium">Total no período</div>
-                <div className="text-lg font-bold text-cyan-400">
-                  {errosMensais.reduce((s, m) => s + m.total, 0).toLocaleString("pt-BR")}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {errosMensais.length === 0 ? (
-            <div className="py-10 text-center text-xs text-white/40 italic">
-              Nenhum dado mensal disponível para o período selecionado.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {/* Legenda */}
-              <div className="flex items-center gap-4 text-[11px] text-white/60 pb-1">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-sm bg-gradient-to-r from-cyan-500 to-blue-500" />
-                  <span>Total</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
-                  <span>Corrigidos</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-sm bg-amber-500" />
-                  <span>Sem marcador</span>
-                </div>
-              </div>
-
-              {/* Barras */}
-              <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1">
-                {(() => {
-                  const maxTotal = Math.max(...errosMensais.map((m) => m.total), 1);
-                  return errosMensais.map((m) => (
-                    <div key={m.mes} className="group">
-                      <div className="flex items-center gap-3">
-                        <span className="text-[11px] font-semibold text-white/70 w-[52px] shrink-0 text-right font-mono">
-                          {m.mesLabel}
-                        </span>
-                        <div className="flex-1 relative">
-                          {/* Barra de fundo (total) */}
-                          <div
-                            className="h-6 rounded-lg bg-gradient-to-r from-cyan-500/25 to-blue-500/15 border border-cyan-500/15 transition-all duration-500 relative overflow-hidden"
-                            style={{ width: `${Math.max((m.total / maxTotal) * 100, 4)}%` }}
-                          >
-                            {/* Barra corrigidos */}
-                            {m.corrigidos > 0 && (
-                              <div
-                                className="absolute left-0 top-0 h-full bg-emerald-500/40 border-r border-emerald-400/30 rounded-l-lg transition-all duration-500"
-                                style={{ width: `${(m.corrigidos / m.total) * 100}%` }}
-                              />
-                            )}
-                            {/* Valor no interior */}
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-white/90">
-                              {m.total}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      {/* Tooltip expandido no hover */}
-                      <div className="hidden group-hover:flex items-center gap-3 ml-[64px] mt-0.5 text-[10px] text-white/50">
-                        <span className="text-emerald-400">{m.corrigidos} corrigidos</span>
-                        <span className="text-amber-400">{m.semMarcador} sem marcador</span>
-                      </div>
-                    </div>
-                  ));
-                })()}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Card — Erros por Colaborador (COMPLETO — todos os 6 tipos) */}
-        <div className="rounded-[24px] border border-white/8 bg-[#0B1020]/72 p-5 sm:p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div>
-              <h2 className="text-sm sm:text-base font-semibold text-white flex items-center gap-2">
-                <Users className="w-4 h-4 text-violet-400" />
-                Erros por colaborador
-              </h2>
-              <p className="text-xs text-white/50">
-                Todos os eventos de retorno (292-297) por destinatário
-              </p>
-            </div>
-          </div>
-
-          {responsaveisCompleto.length === 0 ? (
-            <div className="py-10 text-center text-xs text-white/40 italic">
-              Nenhum dado de colaborador disponível para o período selecionado.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {/* Legenda */}
-              <div className="flex items-center gap-4 text-[11px] text-white/60 pb-1">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
-                  <span>Corrigidos</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-sm bg-amber-500" />
-                  <span>Sem marcador</span>
-                </div>
-              </div>
-
-              {/* Lista de colaboradores */}
-              <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1">
-                {(() => {
-                  const maxTotal = Math.max(...responsaveisCompleto.map((r) => r.total), 1);
-                  const visible = showColabCompleto ? responsaveisCompleto : responsaveisCompleto.slice(0, 8);
-                  return visible.map((resp) => {
-                    const initials = resp.nome
-                      .split(" ")
-                      .filter(Boolean)
-                      .slice(0, 2)
-                      .map((n) => n[0].toUpperCase())
-                      .join("");
-
-                    return (
-                      <div key={resp.id} className="group">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-[10px] font-bold text-violet-300 shrink-0">
-                            {initials || "U"}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-xs text-white/80 font-medium truncate" title={resp.nome}>
-                                {resp.nome}
-                              </span>
-                              <span className="text-xs font-bold text-white ml-2 shrink-0 font-mono">
-                                {resp.total}
-                              </span>
-                            </div>
-                            {/* Barra empilhada */}
-                            <div
-                              className="h-3 rounded-md overflow-hidden flex transition-all duration-500 border border-white/5"
-                              style={{ width: `${Math.max((resp.total / maxTotal) * 100, 6)}%` }}
-                            >
-                              {resp.corrigidos > 0 && (
-                                <div
-                                  className="h-full bg-emerald-500/60"
-                                  style={{ width: `${(resp.corrigidos / resp.total) * 100}%` }}
-                                  title={`${resp.corrigidos} corrigidos`}
-                                />
-                              )}
-                              {resp.semMarcador > 0 && (
-                                <div
-                                  className="h-full bg-amber-500/60"
-                                  style={{ width: `${(resp.semMarcador / resp.total) * 100}%` }}
-                                  title={`${resp.semMarcador} sem marcador`}
-                                />
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        {/* Breakdown no hover */}
-                        <div className="hidden group-hover:flex items-center gap-3 ml-[38px] mt-0.5 text-[10px] text-white/50">
-                          <span className="text-emerald-400">{resp.corrigidos} corrigidos</span>
-                          <span className="text-amber-400">{resp.semMarcador} sem marcador</span>
-                        </div>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-
-              {/* Expandir / Recolher */}
-              {responsaveisCompleto.length > 8 && (
-                <button
-                  onClick={() => setShowColabCompleto(!showColabCompleto)}
-                  className="text-xs font-semibold text-violet-400 hover:text-violet-300 transition-colors pt-1"
-                >
-                  {showColabCompleto
-                    ? "Recolher lista"
-                    : `Ver todos os ${responsaveisCompleto.length} colaboradores`}
-                </button>
-              )}
-
-              {/* Nota explicativa */}
-              <p className="text-[11px] text-white/40 italic pt-1">
-                Contagem de eventos por destinatário: não indica autoria do erro nem quantidade de pendências.
-              </p>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* 5. TABELA DE EVENTOS DE RETORNO — PADRÃO FIORIX */}
@@ -1250,7 +1132,7 @@ export function RetornosDashboardClient() {
                 </th>
                 <th
                   onClick={() => handleHeaderSort("observacao")}
-                  className="px-4 py-3 cursor-pointer hover:text-white transition-colors min-w-[220px] max-w-[340px] xl:max-w-[420px]"
+                  className="px-4 py-3 cursor-pointer hover:text-white transition-colors min-w-[260px]"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>Observação</span>
@@ -1261,15 +1143,12 @@ export function RetornosDashboardClient() {
                     )}
                   </div>
                 </th>
-                <th className="px-4 py-3 text-right print:hidden">
-                  <span>Ações</span>
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/6 print:divide-slate-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-xs text-white/50">
+                  <td colSpan={5} className="py-12 text-center text-xs text-white/50">
                     <div className="flex items-center justify-center gap-2">
                       <RefreshCw className="w-4 h-4 animate-spin text-purple-400" />
                       <span>Carregando eventos de retorno...</span>
@@ -1278,7 +1157,7 @@ export function RetornosDashboardClient() {
                 </tr>
               ) : (allFilteredItemsForPrint || items).length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-xs text-white/40">
+                  <td colSpan={5} className="py-12 text-center text-xs text-white/40">
                     Nenhum evento encontrado com os filtros selecionados.
                   </td>
                 </tr>
@@ -1325,7 +1204,7 @@ export function RetornosDashboardClient() {
                       </td>
 
                       {/* Observação com Prévia (2 linhas) + Expansão inline e Pop-up */}
-                      <td className="px-4 py-3 min-w-[220px] max-w-[340px] xl:max-w-[420px]">
+                      <td className="px-4 py-3 min-w-[260px]">
                         {item.observacao ? (
                           <div className="space-y-1">
                             <p
@@ -1380,21 +1259,6 @@ export function RetornosDashboardClient() {
                             Sem observação
                           </span>
                         )}
-                      </td>
-
-                      {/* Ações de Impressão do Protocolo */}
-                      <td className="px-4 py-3 text-right print:hidden">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            printSingleProtocol(item);
-                          }}
-                          title={`Imprimir ficha da prenotação ${item.numeroPrenotacao}`}
-                          className="px-2.5 py-1 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white transition-all inline-flex items-center gap-1.5 text-[11px] font-medium"
-                        >
-                          <Printer className="w-3.5 h-3.5 text-purple-300" />
-                          <span>Imprimir</span>
-                        </button>
                       </td>
                     </tr>
                   );
