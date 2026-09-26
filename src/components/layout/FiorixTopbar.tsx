@@ -14,7 +14,7 @@ import {
   loadNavigationStatsOnce,
   type NavigationStats,
 } from "@/lib/navigation/client-data";
-import { ThemeToggle } from "@/components/layout/ThemeToggle";
+
 
 export function FiorixTopbar() {
   const router = useRouter();
@@ -280,8 +280,7 @@ export function FiorixTopbar() {
             </Link>
           )}
 
-          {/* Theme Toggle (Claro / Escuro) */}
-          <ThemeToggle />
+
 
           {/* User Profile Dropdown */}
           <div className="relative">
@@ -324,13 +323,7 @@ export function FiorixTopbar() {
                     👤 Minha Conta
                   </button>
 
-                  {/* Seletor de Tema no Menu */}
-                  <div className="px-2 py-2 my-1 border-t border-b border-slate-100 dark:border-white/5 flex flex-col gap-1.5">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-white/40 tracking-wider px-1">
-                      Aparência
-                    </span>
-                    <ThemeToggle variant="pills" className="w-full justify-between" />
-                  </div>
+
 
                   <form action={handleSignOut} className="mt-1">
                     <button

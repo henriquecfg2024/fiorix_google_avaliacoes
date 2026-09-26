@@ -8,14 +8,8 @@ import { useEffect, useState } from 'react';
  * Reage à mudança de tema (light/dark) automaticamente.
  */
 export function useChartTheme() {
-  const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const isDark = mounted ? resolvedTheme === 'dark' : true; // fallback to dark (original)
+  const isDark = true;
+  const mounted = true;
 
   return {
     isDark,

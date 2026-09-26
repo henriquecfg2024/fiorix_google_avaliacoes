@@ -10,7 +10,7 @@ import { Toaster } from "sonner";
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
 export const viewport = {
-  themeColor: "#002B49",
+  themeColor: "#050B14",
 };
 
 export const metadata: Metadata = {
@@ -28,12 +28,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={cn("font-sans", inter.variable)}>
-      <body className={`${inter.variable}`}>
+    <html lang="pt-BR" suppressHydrationWarning className={cn("font-sans dark", inter.variable)} style={{ colorScheme: 'dark' }}>
+      <body className={`${inter.variable} bg-[#050B14] text-[#f8fafc]`}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
-          enableSystem
+          defaultTheme="dark"
+          forcedTheme="dark"
+          enableSystem={false}
         >
           <TooltipProvider>
             {children}

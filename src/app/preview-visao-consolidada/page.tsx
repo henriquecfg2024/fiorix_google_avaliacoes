@@ -19,10 +19,8 @@ import {
 } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { useTheme } from "next-themes";
-
 export default function PreviewVisaoConsolidadaPage() {
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
+  const isDark = true;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white transition-colors duration-300 font-sans">
@@ -42,10 +40,9 @@ export default function PreviewVisaoConsolidadaPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-xs text-slate-300 hidden md:inline">
-              Alterne o tema no seletor ou no botão do cabeçalho:
+            <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 font-semibold">
+              Modo Dark Premium Ativo
             </span>
-            <ThemeToggle variant="pills" />
           </div>
         </div>
       </div>
@@ -76,10 +73,7 @@ export default function PreviewVisaoConsolidadaPage() {
               <span>✓ Todas respondidas</span>
             </div>
 
-            {/* BOTÃO EM DESTAQUE NO CABEÇALHO */}
-            <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200 dark:border-white/10">
-              <ThemeToggle />
-            </div>
+
 
             {/* Avatar do Usuário */}
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-[#6366f1] to-[#a855f7] text-white font-bold text-xs shadow-md cursor-pointer hover:scale-105 transition-transform" title="Jonatan Lima">
