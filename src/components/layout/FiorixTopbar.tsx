@@ -84,7 +84,7 @@ export function FiorixTopbar() {
   const canViewReviews = ["MASTER", "ADMIN", "SUBSTITUTO"].includes(role.toUpperCase());
 
   return (
-    <header className="sticky top-0 z-50 h-14 w-full border-b border-slate-200 dark:border-white/[0.06] bg-white/90 dark:bg-[#080A12]/90 backdrop-blur-md transition-colors duration-300">
+    <header className="sticky top-0 z-50 h-14 w-full border-b border-white/8 bg-[#080A12]/90 backdrop-blur-md transition-colors duration-300">
       <div className="flex h-full items-center justify-between px-4 lg:px-8">
         
         {/* Esquerda: Contexto, Hamburguer (Mobile) */}
@@ -298,12 +298,12 @@ export function FiorixTopbar() {
                   className="fixed inset-0 z-40"
                   onClick={() => setUserMenuOpen(false)}
                 />
-                <div className="absolute right-0 top-10 z-50 w-52 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#12141F] p-2 shadow-2xl backdrop-blur-xl text-slate-900 dark:text-white">
-                  <div className="px-3 py-2 border-b border-slate-100 dark:border-white/5 mb-1.5">
-                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                <div className="absolute right-0 top-10 z-50 w-52 rounded-xl border border-white/15 bg-[#0B1020] p-2 shadow-2xl backdrop-blur-xl text-white">
+                  <div className="px-3 py-2 border-b border-white/8 mb-1.5">
+                    <p className="text-xs font-bold text-white truncate">
                       {currentUser?.name || "Usuário"}
                     </p>
-                    <p className="text-[10px] text-slate-500 dark:text-white/50 truncate mt-0.5">
+                    <p className="text-[10px] text-white/50 truncate mt-0.5">
                       {currentUser?.email}
                     </p>
                     <div className="mt-1.5">

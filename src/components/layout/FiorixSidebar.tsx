@@ -104,12 +104,12 @@ export function FiorixSidebar() {
   return (
     <TooltipProvider delay={0}>
       <aside
-        className={`hidden lg:flex flex-col h-full bg-white dark:bg-[#080A12] border-r border-slate-200 dark:border-white/5 transition-all duration-300 ease-in-out relative z-40 ${
+        className={`hidden lg:flex flex-col h-full bg-[#080A12] border-r border-white/8 transition-all duration-300 ease-in-out relative z-40 ${
           isCollapsed ? "w-20" : "w-64"
         }`}
       >
         {/* Logo & Toggle Section */}
-        <div className="flex items-center justify-between h-14 px-3.5 border-b border-slate-200 dark:border-white/5 shrink-0 overflow-hidden">
+        <div className="flex items-center justify-between h-14 px-3.5 border-b border-white/8 shrink-0 overflow-hidden">
           <div className="flex items-center gap-2.5 overflow-hidden">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#6366f1] to-[#a855f7] text-white font-extrabold shadow-md shrink-0">
               F
