@@ -117,6 +117,14 @@ export async function unpackLiveRecords({
     } else if (source === 'metas') {
       await prisma.$executeRawUnsafe(
         `
+        DELETE FROM public.fiorix_metas_dados
+        WHERE tenant_id = $1
+          AND protocolo IN (
+            SELECT DISTINCT (item->>'PROTOCOLO')::int
+            FROM jsonb_array_elements($2::jsonb) AS item
+            WHERE item->>'PROTOCOLO' IS NOT NULL AND item->>'PROTOCOLO' <> ''
+          );
+
         WITH batch_records AS (
           SELECT DISTINCT ON ((item->>'PROTOCOLO')::int)
             $1::text AS tenant_id,
@@ -145,7 +153,7 @@ export async function unpackLiveRecords({
             CASE WHEN item->>'D10_ENTREGA' IS NOT NULL AND item->>'D10_ENTREGA' <> '' THEN (item->>'D10_ENTREGA')::timestamp ELSE NULL END AS d10_entrega,
             COALESCE((item->>'QTD_RETRABALHO')::int, 0) AS qtd_retrabalho
           FROM jsonb_array_elements($2::jsonb) AS item
-          WHERE item->>'PROTOCOLO' IS NOT NULL
+          WHERE item->>'PROTOCOLO' IS NOT NULL AND item->>'PROTOCOLO' <> ''
         )
         INSERT INTO public.fiorix_metas_dados (
           tenant_id, protocolo, data_apresentado, dt_previsao, dt_entrega_real,
@@ -155,31 +163,7 @@ export async function unpackLiveRecords({
           d4_qualificacao, d5_calculo, d8_impressao, d9_preparacao,
           d9_conferencia, d10_entrega, qtd_retrabalho
         )
-        SELECT * FROM batch_records
-        ON CONFLICT (tenant_id, protocolo) DO UPDATE SET
-          data_apresentado = EXCLUDED.data_apresentado,
-          dt_previsao = EXCLUDED.dt_previsao,
-          dt_entrega_real = EXCLUDED.dt_entrega_real,
-          status = EXCLUDED.status,
-          status_meta = EXCLUDED.status_meta,
-          natureza = EXCLUDED.natureza,
-          tipo = EXCLUDED.tipo,
-          id_natureza = EXCLUDED.id_natureza,
-          magnetico = EXCLUDED.magnetico,
-          atraso_dias = EXCLUDED.atraso_dias,
-          dias_atraso = EXCLUDED.dias_atraso,
-          dias_corridos = EXCLUDED.dias_corridos,
-          d1_protocolo = EXCLUDED.d1_protocolo,
-          d1_escaneamento = EXCLUDED.d1_escaneamento,
-          d2_contraditorio = EXCLUDED.d2_contraditorio,
-          d3_extrato = EXCLUDED.d3_extrato,
-          d4_qualificacao = EXCLUDED.d4_qualificacao,
-          d5_calculo = EXCLUDED.d5_calculo,
-          d8_impressao = EXCLUDED.d8_impressao,
-          d9_preparacao = EXCLUDED.d9_preparacao,
-          d9_conferencia = EXCLUDED.d9_conferencia,
-          d10_entrega = EXCLUDED.d10_entrega,
-          qtd_retrabalho = EXCLUDED.qtd_retrabalho;
+        SELECT * FROM batch_records;
       `,
         tenantId,
         recordsJson

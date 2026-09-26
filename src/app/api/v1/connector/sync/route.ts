@@ -162,20 +162,42 @@ export async function POST(req: Request) {
     // transaction. A retry can safely execute it again without holding a pool
     // connection while the remaining bookkeeping is performed.
     if (sync_mode !== 'full' && records.length > 0) {
-      const recordsJson = JSON.stringify(records);
-      await prisma.$executeRaw(Prisma.sql`
-        INSERT INTO "ConnectorSyncRecord" (
-          "tenantId", "connectorId", "source", "recordKey", "record", "syncMode", "createdAt", "updatedAt"
-        )
-        SELECT
-          ${tenantId}, ${connector_id}, ${source}, item->>'record_key', item, ${sync_mode}, NOW(), NOW()
-        FROM jsonb_array_elements(${recordsJson}::jsonb) AS item
-        ON CONFLICT ("tenantId", "connectorId", "source", "recordKey")
-        DO UPDATE SET
-          "record" = EXCLUDED."record",
-          "syncMode" = EXCLUDED."syncMode",
-          "updatedAt" = NOW()
-      `);
+      try {
+        const recordsJson = JSON.stringify(records);
+        await prisma.$executeRaw(Prisma.sql`
+          WITH batch_items AS (
+            SELECT
+              ${tenantId}::text AS "tenantId",
+              ${connector_id}::text AS "connectorId",
+              ${source}::text AS "source",
+              (item->>'record_key')::text AS "recordKey",
+              item AS "record",
+              ${sync_mode}::text AS "syncMode",
+              ord
+            FROM jsonb_array_elements(${recordsJson}::jsonb) WITH ORDINALITY AS t(item, ord)
+            WHERE item->>'record_key' IS NOT NULL AND item->>'record_key' <> ''
+          ),
+          deduped AS (
+            SELECT DISTINCT ON ("recordKey")
+              "tenantId", "connectorId", "source", "recordKey", "record", "syncMode"
+            FROM batch_items
+            ORDER BY "recordKey", ord DESC
+          )
+          INSERT INTO "ConnectorSyncRecord" (
+            "tenantId", "connectorId", "source", "recordKey", "record", "syncMode", "createdAt", "updatedAt"
+          )
+          SELECT
+            "tenantId", "connectorId", "source", "recordKey", "record", "syncMode", NOW(), NOW()
+          FROM deduped
+          ON CONFLICT ("tenantId", "connectorId", "source", "recordKey")
+          DO UPDATE SET
+            "record" = EXCLUDED."record",
+            "syncMode" = EXCLUDED."syncMode",
+            "updatedAt" = NOW()
+        `);
+      } catch (recErr) {
+        console.warn('CONNECTOR_SYNC_RECORD_UPSERT_WARN:', recErr);
+      }
     }
 
     // Only the idempotency marker and counters need atomicity. Keeping this
