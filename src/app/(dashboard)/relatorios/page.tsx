@@ -113,278 +113,282 @@ export default async function RelatoriosPage() {
   const top3 = colaboradoresList[2];
   const totalElogiosSum = colaboradoresList.reduce((acc, c) => acc + c.elogios, 0);
 
-  const surfaceCard = 'rounded-[28px] border border-white/20 bg-[#0B1020]/90 shadow-sm shadow-sm backdrop-blur-xl';
+  const surfaceCard = 'rounded-[24px] border border-white/20 bg-[#0B1020]/90 shadow-sm backdrop-blur-xl';
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-800 dark:text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
+    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/5 via-amber-500/5 to-cyan-500/5 dark:from-indigo-500/12 dark:via-amber-500/10 dark:to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-white/10 to-transparent" />
+        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/8">
           <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <span>Dashboard</span>
-              <span className="text-slate-400 dark:text-slate-600">/</span>
+              <span className="text-slate-600">/</span>
               <span>Gestão</span>
-              <span className="text-slate-400 dark:text-slate-600">/</span>
-              <span className="text-amber-600 dark:text-amber-300 font-semibold">Relatórios</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-amber-300 font-semibold">Relatórios</span>
             </div>
             <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
                 Relatórios & Exportação
               </h1>
-              <span className="rounded-full border border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
                 CONSOLIDADOS & EXPORTAÇÕES
               </span>
             </div>
           </div>
         </div>
 
+        {/* 1. RELATÓRIOS AVANÇADOS & EXPORTAÇÃO DE DADOS */}
         <div className={`${surfaceCard} space-y-5 p-6`}>
           <div>
-            <h2 className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">Relatórios Avançados & Exportação de Dados</h2>
-            <p className="mt-1 text-xs text-slate-500 dark:text-white/45">
+            <h2 className="text-lg font-extrabold tracking-tight text-white">Relatórios Avançados & Exportação de Dados</h2>
+            <p className="mt-1 text-xs text-white/50">
               Gere relatórios impressos consolidados ou exporte a base bruta de avaliações em CSV e JSON.
             </p>
           </div>
 
-        <div className="grid grid-cols-1 gap-4 pt-1 md:grid-cols-2">
-          <div className="flex flex-col justify-between space-y-4 rounded-2xl border border-slate-200 dark:border-white/12 bg-slate-50 dark:bg-[#0B1020]/80 p-5 transition-all hover:border-slate-300 dark:hover:border-white/20">
-            <div className="space-y-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-50 dark:bg-cyan-500/12 text-cyan-600 dark:text-cyan-300">
-                <BarChart3 className="h-5 w-5" />
+          <div className="grid grid-cols-1 gap-4 pt-1 md:grid-cols-2">
+            <div className="flex flex-col justify-between space-y-4 rounded-2xl border border-white/20 bg-[#080D1A] p-5 transition-all hover:border-white/30 hover:bg-[#0c1428]">
+              <div className="space-y-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/12 text-cyan-300">
+                  <BarChart3 className="h-5 w-5" />
+                </div>
+                <h4 className="text-sm font-bold text-white">Relatório Mensal de Reputação</h4>
+                <p className="text-xs leading-relaxed text-white/60">
+                  Resumo consolidado do volume de notas, nota média e evolução mensal do cartório em folha A4.
+                </p>
               </div>
-              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Relatório Mensal de Reputação</h4>
-              <p className="text-xs leading-relaxed text-slate-600 dark:text-white/60">
-                Resumo consolidado do volume de notas, nota média e evolução mensal do cartório em folha A4.
+              <a
+                href="/relatorios/imprimir-mensal"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 self-start rounded-xl bg-gradient-to-r from-indigo-500 to-amber-500 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-colors hover:brightness-105"
+              >
+                <Printer className="h-4 w-4" />
+                <span>Gerar PDF Mensal</span>
+              </a>
+            </div>
+
+            <div className="flex flex-col justify-between space-y-4 rounded-2xl border border-white/20 bg-[#080D1A] p-5 transition-all hover:border-white/30 hover:bg-[#0c1428]">
+              <div className="space-y-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-indigo-500/20 bg-violet-500/12 text-violet-300">
+                  <Download className="h-5 w-5" />
+                </div>
+                <h4 className="text-sm font-bold text-white">Exportação de Dados Brutos</h4>
+                <p className="text-xs leading-relaxed text-white/60">
+                  Exporte todas as {totalReviews} avaliações para planilha Excel (CSV) ou estrutura de dados JSON.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href="/api/export?format=csv"
+                  download
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-[#0B1020] px-3.5 py-2.5 text-xs font-bold text-white transition-colors hover:border-white/40 hover:bg-white/[0.06]"
+                >
+                  <span>📄 Exportar CSV</span>
+                </a>
+                <a
+                  href="/api/export?format=json"
+                  download
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3.5 py-2.5 text-xs font-bold text-cyan-300 transition-colors hover:bg-cyan-500/20"
+                >
+                  <span>{'{ }'} Exportar JSON</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. KPIS RESUMO */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-[20px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl flex items-center gap-3.5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/12 text-cyan-300 shrink-0">
+              <Users className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-white/50">Colaboradores</span>
+              <div className="text-lg font-black text-white">{colaboradoresList.length} escreventes</div>
+            </div>
+          </div>
+
+          <div className="rounded-[20px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl flex items-center gap-3.5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/12 text-emerald-300 shrink-0">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-white/50">Total de Elogios</span>
+              <div className="text-lg font-black text-emerald-400">{totalElogiosSum} elogios</div>
+            </div>
+          </div>
+
+          <div className="rounded-[20px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl flex items-center gap-3.5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/12 text-amber-300 shrink-0">
+              <Award className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-white/50">Top Destaque</span>
+              <div className="truncate text-sm font-black text-white">{top1 ? `${top1.nome} (🥇 1º)` : 'N/A'}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. PÓDIO DE DESTAQUES */}
+        {colaboradoresList.length >= 3 && (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="relative space-y-2 overflow-hidden rounded-2xl border border-amber-500/30 bg-[#080D1A] p-5 shadow-sm backdrop-blur-xl transition-all hover:border-amber-500/50">
+              <div className="flex items-center justify-between">
+                <span className="text-2xl">🥇</span>
+                <span className="rounded-full border border-amber-500/20 bg-amber-500/12 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-amber-300">1º Lugar • Ouro</span>
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-white">{top1.nome}</h3>
+                <p className="text-xs font-semibold text-amber-300">{top1.elogios} Elogios Diretos ({top1.notaMedia} ★)</p>
+              </div>
+              <div className="text-[11px] font-medium text-white/70">
+                Taxa de Aprovação: <strong className="text-amber-300">100% Positivo</strong>
+              </div>
+            </div>
+
+            <div className="relative space-y-2 overflow-hidden rounded-2xl border border-white/20 bg-[#080D1A] p-5 shadow-sm backdrop-blur-xl transition-all hover:border-white/40">
+              <div className="flex items-center justify-between">
+                <span className="text-2xl">🥈</span>
+                <span className="rounded-full border border-slate-400/20 bg-slate-400/12 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-slate-200">2º Lugar • Prata</span>
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-white">{top2.nome}</h3>
+                <p className="text-xs font-semibold text-slate-300">{top2.elogios} Elogios Diretos ({top2.notaMedia} ★)</p>
+              </div>
+              <div className="text-[11px] font-medium text-white/70">
+                Taxa de Aprovação: <strong className="text-slate-100">{((top2.elogios / top2.mencoes) * 100).toFixed(1)}% Positivo</strong>
+              </div>
+            </div>
+
+            <div className="relative space-y-2 overflow-hidden rounded-2xl border border-orange-500/30 bg-[#080D1A] p-5 shadow-sm backdrop-blur-xl transition-all hover:border-orange-500/50">
+              <div className="flex items-center justify-between">
+                <span className="text-2xl">🥉</span>
+                <span className="rounded-full border border-orange-500/20 bg-orange-500/12 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-orange-300">3º Lugar • Bronze</span>
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-white">{top3.nome}</h3>
+                <p className="text-xs font-semibold text-orange-300">{top3.elogios} Elogios Diretos ({top3.notaMedia} ★)</p>
+              </div>
+              <div className="text-[11px] font-medium text-white/70">
+                Taxa de Aprovação: <strong className="text-orange-300">100% Positivo</strong>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 4. TABELA DE DESEMPENHO */}
+        <div className={`${surfaceCard} space-y-4 overflow-hidden p-6`}>
+          <div className="flex flex-col justify-between gap-4 border-b border-white/8 pb-5 md:flex-row md:items-center">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">👥</span>
+                <h3 className="text-base font-extrabold tracking-tight text-white">Desempenho & Elogios por Colaborador</h3>
+              </div>
+              <p className="mt-0.5 text-xs text-white/50">
+                Clique nas ações para filtrar as avaliações nominais correspondentes de cada escrevente.
               </p>
             </div>
+
             <a
-              href="/relatorios/imprimir-mensal"
+              href="/relatorios/imprimir-colaboradores"
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 self-start rounded-xl bg-gradient-to-r from-indigo-500 to-amber-500 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-colors hover:brightness-105"
+              className="inline-flex items-center gap-1.5 self-start rounded-xl border border-cyan-500/30 bg-cyan-500/15 px-4 py-2 text-xs font-bold text-cyan-300 transition-colors hover:bg-cyan-500/25 md:self-auto"
             >
               <Printer className="h-4 w-4" />
-              <span>Gerar PDF Mensal</span>
+              <span>Imprimir / Versão PDF</span>
             </a>
           </div>
 
-          <div className="flex flex-col justify-between space-y-4 rounded-2xl border border-slate-200 dark:border-white/12 bg-slate-50 dark:bg-[#0B1020]/80 p-5 transition-all hover:border-slate-300 dark:hover:border-white/20">
-            <div className="space-y-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-50 dark:bg-violet-500/12 text-indigo-600 dark:text-violet-300">
-                <Download className="h-5 w-5" />
-              </div>
-              <h4 className="text-sm font-bold text-slate-900 dark:text-white">Exportação de Dados Brutos</h4>
-              <p className="text-xs leading-relaxed text-slate-600 dark:text-white/60">
-                Exporte todas as {totalReviews} avaliações para planilha Excel (CSV) ou estrutura de dados JSON.
-              </p>
-            </div>
+          <div className="overflow-x-auto rounded-xl border border-white/10 bg-[#080D1A]/50">
+            <table className="min-w-[640px] w-full border-collapse text-left text-xs">
+              <thead>
+                <tr className="border-b border-white/10 bg-[#0B1020] text-[11px] font-bold uppercase tracking-[0.16em] text-white/60">
+                  <th className="w-12 p-3 pl-5 sm:w-16 sm:p-4">Rank</th>
+                  <th className="p-3 sm:p-4">Colaborador</th>
+                  <th className="p-3 text-center sm:p-4">Elogios Diretos</th>
+                  <th className="p-3 text-center sm:p-4">Total Menções</th>
+                  <th className="p-3 text-center sm:p-4">Taxa Positiva (%)</th>
+                  <th className="p-3 text-center sm:p-4">Nota Média</th>
+                  <th className="whitespace-nowrap p-3 pr-5 text-right sm:p-4">Ação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/8 font-medium text-white/80">
+                {colaboradoresList.map((col, idx) => {
+                  const rankMedal = idx === 0 ? '🥇 #1' : idx === 1 ? '🥈 #2' : idx === 2 ? '🥉 #3' : `#${idx + 1}`;
+                  const rowBg =
+                    idx === 0
+                      ? 'bg-amber-500/[0.08] hover:bg-amber-500/[0.12]'
+                      : idx === 1
+                        ? 'bg-white/[0.04] hover:bg-white/[0.07]'
+                        : idx === 2
+                          ? 'bg-orange-500/[0.06] hover:bg-orange-500/[0.10]'
+                          : 'hover:bg-white/[0.03]';
 
-            <div className="flex flex-wrap items-center gap-2">
-              <a
-                href="/api/export?format=csv"
-                download
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-white/12 bg-white dark:bg-white/[0.04] px-3.5 py-2.5 text-xs font-bold text-slate-700 dark:text-white transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.08]"
-              >
-                <span>📄 Exportar CSV</span>
-              </a>
-              <a
-                href="/api/export?format=json"
-                download
-                className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/20 bg-cyan-50 dark:bg-cyan-500/10 px-3.5 py-2.5 text-xs font-bold text-cyan-700 dark:text-cyan-300 transition-colors hover:bg-cyan-100 dark:hover:bg-cyan-500/16"
-              >
-                <span>{'{ }'} Exportar JSON</span>
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
+                  const searchUrl = `/avaliacoes?search=${encodeURIComponent(col.nome)}`;
+                  const pctPositiva = col.mencoes > 0 ? ((col.elogios / col.mencoes) * 100).toFixed(0) : '100';
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className={`${surfaceCard} flex items-center gap-3 p-4`}>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-50 dark:bg-cyan-500/12 text-cyan-600 dark:text-cyan-300">
-            <Users className="h-5 w-5" />
-          </div>
-          <div>
-            <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-white/45">Colaboradores</span>
-            <div className="text-lg font-black text-slate-900 dark:text-white">{colaboradoresList.length} escreventes</div>
-          </div>
-        </div>
+                  return (
+                    <tr key={col.id || idx} className={`${rowBg} transition-colors`}>
+                      <td className="p-3 pl-5 text-sm font-bold text-white sm:p-4">{rankMedal}</td>
 
-        <div className={`${surfaceCard} flex items-center gap-3 p-4`}>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/12 text-emerald-600 dark:text-emerald-300">
-            <Sparkles className="h-5 w-5" />
-          </div>
-          <div>
-            <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-white/45">Total de Elogios</span>
-            <div className="text-lg font-black text-emerald-600 dark:text-emerald-300">{totalElogiosSum} elogios</div>
-          </div>
-        </div>
-
-        <div className={`${surfaceCard} flex items-center gap-3 p-4`}>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-50 dark:bg-amber-500/12 text-amber-600 dark:text-amber-300">
-            <Award className="h-5 w-5" />
-          </div>
-          <div>
-            <span className="block text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500 dark:text-white/45">Top Destaque</span>
-            <div className="truncate text-sm font-black text-slate-900 dark:text-white">{top1 ? `${top1.nome} (🥇 1º)` : 'N/A'}</div>
-          </div>
-        </div>
-      </div>
-
-      {colaboradoresList.length >= 3 && (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="relative space-y-2 overflow-hidden rounded-2xl border border-amber-200 dark:border-white/12 bg-amber-50/50 dark:bg-[#0B1020]/72 p-5 shadow-xs shadow-sm backdrop-blur-xl transition-all hover:border-amber-300 dark:hover:border-white/20">
-            <div className="flex items-center justify-between">
-              <span className="text-2xl">🥇</span>
-              <span className="rounded-full border border-amber-500/20 bg-amber-500/12 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-amber-700 dark:text-amber-300">1º Lugar • Ouro</span>
-            </div>
-            <div>
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">{top1.nome}</h3>
-              <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">{top1.elogios} Elogios Diretos ({top1.notaMedia} ★)</p>
-            </div>
-            <div className="text-[11px] font-medium text-slate-600 dark:text-white/70">
-              Taxa de Aprovação: <strong className="text-amber-700 dark:text-amber-200">100% Positivo</strong>
-            </div>
-          </div>
-
-          <div className="relative space-y-2 overflow-hidden rounded-2xl border border-white/20 bg-[#0B1020]/90 p-5 shadow-xs shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
-            <div className="flex items-center justify-between">
-              <span className="text-2xl">🥈</span>
-              <span className="rounded-full border border-slate-300 dark:border-slate-400/20 bg-slate-100 dark:bg-slate-400/12 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-slate-700 dark:text-slate-200">2º Lugar • Prata</span>
-            </div>
-            <div>
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">{top2.nome}</h3>
-              <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">{top2.elogios} Elogios Diretos ({top2.notaMedia} ★)</p>
-            </div>
-            <div className="text-[11px] font-medium text-slate-600 dark:text-white/70">
-              Taxa de Aprovação: <strong className="text-slate-800 dark:text-slate-100">{((top2.elogios / top2.mencoes) * 100).toFixed(1)}% Positivo</strong>
-            </div>
-          </div>
-
-          <div className="relative space-y-2 overflow-hidden rounded-2xl border border-orange-200 dark:border-white/12 bg-orange-50/50 dark:bg-[#0B1020]/72 p-5 shadow-xs shadow-sm backdrop-blur-xl transition-all hover:border-orange-300 dark:hover:border-white/20">
-            <div className="flex items-center justify-between">
-              <span className="text-2xl">🥉</span>
-              <span className="rounded-full border border-orange-500/20 bg-orange-500/12 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-orange-700 dark:text-orange-300">3º Lugar • Bronze</span>
-            </div>
-            <div>
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">{top3.nome}</h3>
-              <p className="text-xs font-semibold text-orange-700 dark:text-orange-300">{top3.elogios} Elogios Diretos ({top3.notaMedia} ★)</p>
-            </div>
-            <div className="text-[11px] font-medium text-slate-600 dark:text-white/70">
-              Taxa de Aprovação: <strong className="text-orange-700 dark:text-orange-200">100% Positivo</strong>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className={`${surfaceCard} space-y-4 overflow-hidden p-6`}>
-        <div className="flex flex-col justify-between gap-4 border-b border-white/8 pb-5 md:flex-row md:items-center">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-lg">👥</span>
-              <h3 className="text-base font-extrabold tracking-tight text-slate-900 dark:text-white">Desempenho & Elogios por Colaborador</h3>
-            </div>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-white/45">
-              Clique nas ações para filtrar as avaliações nominais correspondentes de cada escrevente.
-            </p>
-          </div>
-
-          <a
-            href="/relatorios/imprimir-colaboradores"
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 self-start rounded-xl border border-cyan-500/20 bg-cyan-50 dark:bg-cyan-500/10 px-4 py-2 text-xs font-bold text-cyan-700 dark:text-cyan-300 transition-colors hover:bg-cyan-100 dark:hover:bg-cyan-500/16 md:self-auto"
-          >
-            <Printer className="h-4 w-4" />
-            <span>Imprimir / Versão PDF</span>
-          </a>
-        </div>
-
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-white/12">
-          <table className="min-w-[640px] w-full border-collapse text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-white/12 bg-slate-50 dark:bg-[#0B1020] text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:text-white/58">
-                <th className="w-12 p-3 pl-5 sm:w-16 sm:p-4">Rank</th>
-                <th className="p-3 sm:p-4">Colaborador</th>
-                <th className="p-3 text-center sm:p-4">Elogios Diretos</th>
-                <th className="p-3 text-center sm:p-4">Total Menções</th>
-                <th className="p-3 text-center sm:p-4">Taxa Positiva (%)</th>
-                <th className="p-3 text-center sm:p-4">Nota Média</th>
-                <th className="whitespace-nowrap p-3 pr-5 text-right sm:p-4">Ação</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-white/8 font-medium text-slate-700 dark:text-white/80">
-              {colaboradoresList.map((col, idx) => {
-                const rankMedal = idx === 0 ? '🥇 #1' : idx === 1 ? '🥈 #2' : idx === 2 ? '🥉 #3' : `#${idx + 1}`;
-                const rowBg =
-                  idx === 0
-                    ? 'bg-amber-50/70 hover:bg-amber-100/70 dark:bg-amber-500/[0.06] dark:hover:bg-amber-500/[0.10]'
-                    : idx === 1
-                      ? 'bg-slate-50 hover:bg-slate-100/70 dark:bg-slate-400/[0.05] dark:hover:bg-slate-400/[0.08]'
-                      : idx === 2
-                        ? 'bg-orange-50/70 hover:bg-orange-100/70 dark:bg-orange-500/[0.05] dark:hover:bg-orange-500/[0.09]'
-                        : 'hover:bg-slate-50 dark:hover:bg-white/[0.03]';
-
-                const searchUrl = `/avaliacoes?search=${encodeURIComponent(col.nome)}`;
-                const pctPositiva = col.mencoes > 0 ? ((col.elogios / col.mencoes) * 100).toFixed(0) : '100';
-
-                return (
-                  <tr key={col.id || idx} className={`${rowBg} transition-colors`}>
-                    <td className="p-3 pl-5 text-sm font-bold text-slate-900 dark:text-white sm:p-4">{rankMedal}</td>
-
-                    <td className="p-3 sm:p-4">
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-amber-500 text-xs font-bold text-white">
-                          {col.nome[0].toUpperCase()}
+                      <td className="p-3 sm:p-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-amber-500 text-xs font-bold text-white shadow-xs">
+                            {col.nome[0].toUpperCase()}
+                          </div>
+                          <Link href={searchUrl} className="text-xs font-bold text-white transition-colors hover:text-amber-300">
+                            {col.nome}
+                          </Link>
                         </div>
-                        <Link href={searchUrl} className="text-xs font-bold text-slate-900 dark:text-white transition-colors hover:text-amber-600 dark:hover:text-amber-300">
-                          {col.nome}
+                      </td>
+
+                      <td className="p-3 text-center sm:p-4">
+                        <Link
+                          href={searchUrl}
+                          className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-emerald-500/25 bg-emerald-500/12 px-2 py-1 text-[10px] font-extrabold text-emerald-300 transition-colors hover:bg-emerald-500/20 sm:px-3 sm:text-xs"
+                        >
+                          <CheckCircle2 className="h-3 w-3 text-emerald-400 sm:h-3.5 sm:w-3.5" />
+                          <span>{col.elogios} elogios</span>
                         </Link>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="p-3 text-center sm:p-4">
-                      <Link
-                        href={searchUrl}
-                        className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/12 px-2 py-1 text-[10px] font-extrabold text-emerald-700 dark:text-emerald-300 transition-colors hover:bg-emerald-100 dark:hover:bg-emerald-500/18 sm:px-3 sm:text-xs"
-                      >
-                        <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-300 sm:h-3.5 sm:w-3.5" />
-                        <span>{col.elogios} elogios</span>
-                      </Link>
-                    </td>
+                      <td className="p-3 text-center font-bold text-white/80 sm:p-4">{col.mencoes}</td>
 
-                    <td className="p-3 text-center font-bold text-slate-700 dark:text-white/80 sm:p-4">{col.mencoes}</td>
+                      <td className="p-3 text-center font-bold text-white/80 sm:p-4">{pctPositiva}%</td>
 
-                    <td className="p-3 text-center font-bold text-slate-700 dark:text-white/80 sm:p-4">{pctPositiva}%</td>
+                      <td className="p-3 text-center sm:p-4">
+                        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-amber-500/25 bg-amber-500/12 px-2 py-1 text-[10px] font-extrabold text-amber-300 sm:px-2.5 sm:text-xs">
+                          <Star className="h-3 w-3 fill-amber-400 text-amber-400 sm:h-3.5 sm:w-3.5" />
+                          {col.notaMedia}
+                        </span>
+                      </td>
 
-                    <td className="p-3 text-center sm:p-4">
-                      <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-amber-500/20 bg-amber-50 dark:bg-amber-500/12 px-2 py-1 text-[10px] font-extrabold text-amber-700 dark:text-amber-300 sm:px-2.5 sm:text-xs">
-                        <Star className="h-3 w-3 fill-amber-400 text-amber-400 sm:h-3.5 sm:w-3.5" />
-                        {col.notaMedia}
-                      </span>
-                    </td>
-
-                    <td className="p-3 text-right sm:p-4">
-                      <Link
-                        href={searchUrl}
-                        className="inline-flex items-center gap-1 whitespace-nowrap rounded-xl border border-slate-200 dark:border-white/12 bg-white dark:bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-bold text-slate-700 dark:text-white transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.08] sm:px-3 sm:text-xs"
-                      >
-                        <span className="hidden sm:inline">Ver avaliações</span>
-                        <span className="sm:hidden">Ver</span>
-                        <ExternalLink className="h-3 w-3 text-slate-500 dark:text-white/80 sm:h-3.5 sm:w-3.5" />
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      <td className="p-3 text-right sm:p-4">
+                        <Link
+                          href={searchUrl}
+                          className="inline-flex items-center gap-1 whitespace-nowrap rounded-xl border border-white/15 bg-[#080D1A] px-2.5 py-1.5 text-[10px] font-bold text-white transition-colors hover:border-white/30 hover:bg-[#0c1428] sm:px-3 sm:text-xs"
+                        >
+                          <span className="hidden sm:inline">Ver avaliações</span>
+                          <span className="sm:hidden">Ver</span>
+                          <ExternalLink className="h-3 w-3 text-white/80 sm:h-3.5 sm:w-3.5" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </main>
     </div>
