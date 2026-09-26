@@ -51,9 +51,9 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
 
   if (activeCount === 0) {
     return (
-      <Card className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-8 text-center text-slate-800 dark:text-white shadow-sm shadow-sm">
-        <p className="text-sm text-slate-600 dark:text-white/62">Nenhum gráfico selecionado para exibição.</p>
-        <p className="text-xs text-slate-400 dark:text-white/40 mt-1">Utilize o painel acima ou clique em "Restaurar padrão" para reexibir os gráficos.</p>
+      <Card className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-8 text-center text-white shadow-sm backdrop-blur-xl">
+        <p className="text-sm text-white/70">Nenhum gráfico selecionado para exibição.</p>
+        <p className="text-xs text-white/40 mt-1">Utilize o painel acima ou clique em "Restaurar padrão" para reexibir os gráficos.</p>
       </Card>
     );
   }
@@ -62,10 +62,10 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
     <div className="space-y-4">
       {/* Top Row: Main Trend / Evolution Chart (if active) */}
       {visibleCharts.chart1 && (
-        <Card className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm shadow-sm">
+        <Card className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl">
           <CardHeader className="p-0 pb-4">
-            <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Gráfico 1: Evolução Diária do Prazo de Entrega</CardTitle>
-            <CardDescription className="text-xs text-slate-500 dark:text-white/50">Comparativo contínuo entre títulos entregues no prazo e em atraso</CardDescription>
+            <CardTitle className="text-base font-bold text-white tracking-tight">Gráfico 1: Evolução Diária do Prazo de Entrega</CardTitle>
+            <CardDescription className="text-xs text-white/60">Comparativo contínuo entre títulos entregues no prazo e em atraso</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {formattedEvolucao.length > 0 ? (
@@ -99,7 +99,7 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
                 </AreaChart>
               </ChartContainer>
             ) : (
-              <div className="h-[250px] w-full flex items-center justify-center text-slate-400 dark:text-white/40">
+              <div className="h-[250px] w-full flex items-center justify-center text-white/40">
                 Sem dados suficientes no período.
               </div>
             )}
@@ -112,10 +112,10 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
         <div className={`grid grid-cols-1 ${visibleCharts.chart2 && visibleCharts.chart3 ? "lg:grid-cols-2" : "grid-cols-1"} gap-4`}>
           {/* Chart 2: Delay Severity */}
           {visibleCharts.chart2 && (
-            <Card className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm shadow-sm">
+            <Card className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl">
               <CardHeader className="p-0 pb-4">
-                <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Gráfico 2: Severidade do Atraso</CardTitle>
-                <CardDescription className="text-xs text-slate-500 dark:text-white/50">Distribuição dos títulos fora do prazo por faixas de dias de atraso</CardDescription>
+                <CardTitle className="text-base font-bold text-white tracking-tight">Gráfico 2: Severidade do Atraso</CardTitle>
+                <CardDescription className="text-xs text-white/60">Distribuição dos títulos fora do prazo por faixas de dias de atraso</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 {delaySeverity.length > 0 ? (
@@ -140,7 +140,7 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
                     </BarChart>
                   </ChartContainer>
                 ) : (
-                  <div className="h-[250px] w-full flex items-center justify-center text-slate-400 dark:text-white/40">
+                  <div className="h-[250px] w-full flex items-center justify-center text-white/40">
                     Sem dados de severidade de atraso.
                   </div>
                 )}
@@ -150,10 +150,10 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
 
           {/* Chart 3: Pie / Donut Chart */}
           {visibleCharts.chart3 && (
-            <Card className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm shadow-sm">
+            <Card className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl">
               <CardHeader className="p-0 pb-4">
-                <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Gráfico 3: Distribuição Geral</CardTitle>
-                <CardDescription className="text-xs text-slate-500 dark:text-white/50">Visão macro da proporção de títulos no prazo, atrasos e exigências</CardDescription>
+                <CardTitle className="text-base font-bold text-white tracking-tight">Gráfico 3: Distribuição Geral</CardTitle>
+                <CardDescription className="text-xs text-white/60">Visão macro da proporção de títulos no prazo, atrasos e exigências</CardDescription>
               </CardHeader>
               <CardContent className="flex justify-center pb-0 p-0 relative">
                 {pieChartData.length > 0 ? (
@@ -186,12 +186,12 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="absolute flex flex-col items-center justify-center text-center pointer-events-none">
-                      <span className="text-2xl font-black text-slate-900 dark:text-white">{atrasadoPct}</span>
-                      <span className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-white/50 font-semibold">em atraso</span>
+                      <span className="text-2xl font-black text-white">{atrasadoPct}</span>
+                      <span className="text-[10px] uppercase tracking-widest text-white/60 font-semibold">em atraso</span>
                     </div>
                   </div>
                 ) : (
-                  <div className="h-[250px] w-full flex items-center justify-center text-slate-400 dark:text-white/40">
+                  <div className="h-[250px] w-full flex items-center justify-center text-white/40">
                     Nenhum dado para o período.
                   </div>
                 )}
