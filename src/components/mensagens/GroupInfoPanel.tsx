@@ -112,17 +112,17 @@ export function GroupInfoPanel({
   ];
 
   return (
-    <div className="w-72 border-l border-white/10 bg-[#0d1117] flex flex-col shrink-0 h-full overflow-hidden">
+    <div className="w-72 border-l border-slate-200 bg-white dark:border-white/10 dark:bg-[#0d1117] flex flex-col shrink-0 h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-        <h3 className="text-sm font-semibold text-white">Info do Grupo</h3>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Info do Grupo</h3>
         <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition">
           <X className="w-4 h-4" />
         </button>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-white/10">
+      <div className="flex border-b border-slate-200 dark:border-white/10">
         {TABS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -130,7 +130,7 @@ export function GroupInfoPanel({
             className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold transition border-b-2 ${
               tab === key
                 ? 'border-emerald-500 text-emerald-400'
-                : 'border-transparent text-slate-400 hover:text-white'
+                : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
             <Icon className="w-3.5 h-3.5" />
@@ -163,7 +163,7 @@ export function GroupInfoPanel({
                   value={addSearch}
                   onChange={(e) => setAddSearch(e.target.value)}
                   placeholder="Pesquisar usuário…"
-                  className="w-full px-3 py-1.5 text-xs bg-slate-900 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/60"
+                  className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 dark:bg-slate-900 dark:border-white/10 dark:text-white dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500/60"
                 />
                 {availableUsers.length > 0 && (
                   <div className="mt-1 space-y-0.5">
@@ -193,7 +193,7 @@ export function GroupInfoPanel({
                   {m.name.substring(0, 2).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-slate-200 truncate">{m.name}</p>
+                  <p className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">{m.name}</p>
                   <p className="text-[10px] text-slate-500">{m.role}</p>
                 </div>
                 {m.papel === 'ADMIN' && (

@@ -60,8 +60,8 @@ export function CLT135Validator({ onValidated }: CLT135ValidatorProps) {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-white/10 bg-[#10101a] p-6 shadow-xl space-y-6">
-        <div className="flex items-center justify-between border-b border-white/5 pb-4">
+      <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a] p-6 shadow-xl space-y-6">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/5 pb-4">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
               <ShieldAlert className="w-5 h-5" />
@@ -137,7 +137,7 @@ export function CLT135Validator({ onValidated }: CLT135ValidatorProps) {
                 <span className="font-bold text-xs uppercase tracking-wide">
                   {isConforme ? "✓ Conformidade CLT Aprovada" : "⛔ BLOQUEIO LEGAL CLT Art. 135"}
                 </span>
-                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-black/40 border border-white/10">
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-black/40 border border-slate-200 dark:border-white/10">
                   {antecedenciaDias > 0 ? `${antecedenciaDias} dias de antecedência` : `${Math.abs(antecedenciaDias)} dias em atraso`}
                 </span>
               </div>

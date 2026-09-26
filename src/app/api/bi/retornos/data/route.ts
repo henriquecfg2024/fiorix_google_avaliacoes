@@ -4,7 +4,7 @@ import { requireTenant } from "@/lib/auth-helpers";
 import { Prisma } from "@prisma/client";
 import { getFullMockRetornos } from "@/lib/retornos/mock-data";
 import { checkRateLimit } from "@/lib/security/rate-limit";
-import { RetornoItem, ResponsavelContagem, ResponsavelContagemCompleta, ErroMensal, RetornosResponse } from "@/lib/retornos/types";
+import { RetornoItem, ResponsavelContagem, ResponsavelContagemCompleta, ErroMensal, RetornosResponse, TopCausa } from "@/lib/retornos/types";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +27,8 @@ interface KpiRawResult {
   total: number;
   corrigidos: number;
   sem_marcador: number;
+  reingressos: number;
+  tempo_medio_dias: number;
 }
 
 interface RespRawResult {
@@ -56,6 +58,114 @@ const MONTH_LABELS: Record<string, string> = {
   "05": "Mai", "06": "Jun", "07": "Jul", "08": "Ago",
   "09": "Set", "10": "Out", "11": "Nov", "12": "Dez",
 };
+
+/** Categorias para classificação inteligente de exigências e notas devolutivas */
+const CAUSAS_CONFIG = [
+  {
+    id: "firma",
+    nome: "Firma & Representação",
+    descricao: "Falta de reconhecimento de firma, procuração ou poderes",
+    keywords: ["firma", "reconhecimento", "assinatura", "procuraç", "procuracao", "poderes", "mandato", "representa", "semelhança", "semelhanca"],
+    cor: "#EC4899",
+  },
+  {
+    id: "tributos",
+    nome: "Tributos & ITBI",
+    descricao: "Guia de ITBI, certidão negativa ou recolhimento divergente",
+    keywords: ["itbi", "tribut", "guia", "imposto", "recolhimento", "cnd", "certidão fiscal", "certidao fiscal", "valor venal", "darf"],
+    cor: "#F59E0B",
+  },
+  {
+    id: "certidoes",
+    nome: "Certidões & Documentação",
+    descricao: "Certidões de casamento/óbito, anexos ou documentos faltantes",
+    keywords: ["certidão", "certidao", "casamento", "óbito", "obito", "ausência", "ausencia", "falta", "comprovação", "comprovacao", "anexo", "apresentar", "complementar", "documento", "cópia", "copia"],
+    cor: "#3B82F6",
+  },
+  {
+    id: "divergencia",
+    nome: "Divergência Registral",
+    descricao: "Divergência de confrontações, matrícula, medidas ou planta",
+    keywords: ["divergência", "divergencia", "matrícula", "matricula", "confrontaç", "confrontac", "planta", "lote", "memorial", "área", "area", "perimétrica", "perimetrica", "quadra", "descrição", "descricao"],
+    cor: "#8B5CF6",
+  },
+  {
+    id: "qualificacao",
+    nome: "Qualificação das Partes",
+    descricao: "Divergência em CPF, RG, regime de bens ou qualificação pessoal",
+    keywords: ["qualificação", "qualificacao", "cpf", "rg", "estado civil", "regime de bens", "nacionalidade", "profissão", "profissao", "filiação", "filiacao", "nome", "solteiro", "casado"],
+    cor: "#10B981",
+  },
+];
+
+function classificarCausa(obs: string): string {
+  const lower = (obs || "").toLowerCase();
+  for (const c of CAUSAS_CONFIG) {
+    if (c.keywords.some((kw) => lower.includes(kw))) {
+      return c.id;
+    }
+  }
+  return "outros";
+}
+
+function calcularTopCausas(items: Array<{ observacao: string }>): TopCausa[] {
+  const counts: Record<string, number> = {
+    firma: 0,
+    tributos: 0,
+    certidoes: 0,
+    divergencia: 0,
+    qualificacao: 0,
+    outros: 0,
+  };
+
+  items.forEach((item) => {
+    const causaId = classificarCausa(item.observacao);
+    counts[causaId] = (counts[causaId] || 0) + 1;
+  });
+
+  const total = items.length || 1;
+  const lista: TopCausa[] = CAUSAS_CONFIG.map((c) => ({
+    id: c.id,
+    nome: c.nome,
+    descricao: c.descricao,
+    quantidade: counts[c.id] || 0,
+    percentual: Number((((counts[c.id] || 0) / total) * 100).toFixed(1)),
+    cor: c.cor,
+  }));
+
+  if (counts.outros > 0) {
+    lista.push({
+      id: "outros",
+      nome: "Outras Exigências",
+      descricao: "Demais exigências administrativas e registrais",
+      quantidade: counts.outros,
+      percentual: Number(((counts.outros / total) * 100).toFixed(1)),
+      cor: "#64748B",
+    });
+  }
+
+  return lista.sort((a, b) => b.quantidade - a.quantidade);
+}
+
+function calcularTempoMedioDias(items: Array<{ dataRecepcao?: string | null; dataRetorno: string }>): number {
+  let somaDias = 0;
+  let qtdValidos = 0;
+
+  for (const item of items) {
+    if (item.dataRecepcao && item.dataRetorno) {
+      const tRec = new Date(item.dataRecepcao).getTime();
+      const tRet = new Date(item.dataRetorno).getTime();
+      if (!isNaN(tRec) && !isNaN(tRet) && tRet >= tRec) {
+        const diffDias = (tRet - tRec) / (1000 * 60 * 60 * 24);
+        somaDias += diffDias;
+        qtdValidos++;
+      }
+    }
+  }
+
+  if (qtdValidos === 0) return 0;
+  return Number((somaDias / qtdValidos).toFixed(1));
+}
 
 export async function GET(request: Request) {
   try {
@@ -179,13 +289,15 @@ export async function GET(request: Request) {
 
       const combinedWhere = Prisma.join(whereConditions, " AND ");
 
-      const [kpiRows, respRows, respCompletoRows, errosMensaisRows, itemRows] = await Promise.all([
+      const [kpiRows, respRows, respCompletoRows, errosMensaisRows, obsRows, itemRows] = await Promise.all([
         // KPIs globais
         prisma.$queryRaw<KpiRawResult[]>(Prisma.sql`
           SELECT
             COUNT(*)::int AS total,
             COUNT(*) FILTER (WHERE id_tipo_retorno IN (295, 296, 297))::int AS corrigidos,
-            COUNT(*) FILTER (WHERE id_tipo_retorno IN (292, 293, 294))::int AS sem_marcador
+            COUNT(*) FILTER (WHERE id_tipo_retorno IN (292, 293, 294))::int AS sem_marcador,
+            COUNT(*) FILTER (WHERE tipo_recepcao ILIKE '%REINGRESSO%')::int AS reingressos,
+            COALESCE(AVG(NULLIF(EXTRACT(EPOCH FROM (data_retorno - data_recepcao)) / 86400, 0)) FILTER (WHERE data_recepcao IS NOT NULL AND data_retorno >= data_recepcao), 0)::float AS tempo_medio_dias
           FROM public.fiorix_retornos_dados
           WHERE ${combinedWhere}
         `),
@@ -224,6 +336,13 @@ export async function GET(request: Request) {
           WHERE ${combinedWhere}
           GROUP BY TO_CHAR(data_retorno, 'YYYY-MM')
           ORDER BY mes ASC
+        `),
+        // Amostra de observações para cálculo de causas raiz
+        prisma.$queryRaw<Array<{ observacao: string }>>(Prisma.sql`
+          SELECT observacao
+          FROM public.fiorix_retornos_dados
+          WHERE ${combinedWhere} AND observacao IS NOT NULL AND observacao != ''
+          LIMIT 1000
         `),
         // Itens paginados
         prisma.$queryRaw<RetornoItem[]>(Prisma.sql`
@@ -268,12 +387,25 @@ export async function GET(request: Request) {
         };
       });
 
+      const kpiRow = kpiRows[0];
+      const reingressos = Number(kpiRow?.reingressos) || 0;
+      const taxaRetrabalho = total > 0 ? Number(((reingressos / total) * 100).toFixed(1)) : 0;
+      const tempoMedioDias = Number((Number(kpiRow?.tempo_medio_dias) || 0).toFixed(1));
+      const corrigidos = Number(kpiRow?.corrigidos) || 0;
+      const taxaResolucao = total > 0 ? Number(((corrigidos / total) * 100).toFixed(1)) : 0;
+      const topCausas = calcularTopCausas(obsRows || []);
+
       const response: RetornosResponse = {
         success: true,
         kpis: {
           total,
-          corrigidos: kpiRows[0]?.corrigidos || 0,
-          semMarcador: kpiRows[0]?.sem_marcador || 0,
+          corrigidos,
+          semMarcador: Number(kpiRow?.sem_marcador) || 0,
+          reingressos,
+          taxaRetrabalho,
+          tempoMedioDias,
+          taxaResolucao,
+          topCausas,
         },
         responsaveis: respRows.map((r) => ({
           id: r.id,
@@ -288,6 +420,7 @@ export async function GET(request: Request) {
           semMarcador: r.sem_marcador,
         })),
         errosMensais,
+        topCausas,
         items: itemRows,
         total,
         page,
@@ -432,17 +565,30 @@ export async function GET(request: Request) {
 
     const total = filtered.length;
     const paginatedItems = filtered.slice((page - 1) * pageSize, page * pageSize);
+    const corrigidos = filtered.filter((i) => [295, 296, 297].includes(i.idTipoRetorno)).length;
+    const semMarcador = filtered.filter((i) => [292, 293, 294].includes(i.idTipoRetorno)).length;
+    const reingressos = filtered.filter((i) => (i.tipoRecepcao || "").toUpperCase().includes("REINGRESSO")).length;
+    const taxaRetrabalho = total > 0 ? Number(((reingressos / total) * 100).toFixed(1)) : 0;
+    const tempoMedioDias = calcularTempoMedioDias(filtered);
+    const taxaResolucao = total > 0 ? Number(((corrigidos / total) * 100).toFixed(1)) : 0;
+    const topCausas = calcularTopCausas(filtered);
 
     const response: RetornosResponse = {
       success: true,
       kpis: {
         total,
-        corrigidos: filtered.filter((i) => [295, 296, 297].includes(i.idTipoRetorno)).length,
-        semMarcador: filtered.filter((i) => [292, 293, 294].includes(i.idTipoRetorno)).length,
+        corrigidos,
+        semMarcador,
+        reingressos,
+        taxaRetrabalho,
+        tempoMedioDias,
+        taxaResolucao,
+        topCausas,
       },
       responsaveis,
       responsaveisCompleto,
       errosMensais,
+      topCausas,
       items: paginatedItems,
       total,
       page,

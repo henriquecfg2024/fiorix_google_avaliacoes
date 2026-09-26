@@ -427,7 +427,7 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
       {/* 4 CARDS DE KPIS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI 1: Taxa de Conformidade */}
-        <div className="bg-[#121212] border border-zinc-800/80 rounded-2xl p-5 shadow-lg relative overflow-hidden">
+        <div className="bg-white dark:bg-[#121212] border border-slate-200 dark:border-zinc-800/80 rounded-2xl p-5 shadow-lg relative overflow-hidden">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
               Conformidade Geral
@@ -447,7 +447,7 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
         </div>
 
         {/* KPI 2: ITs Atualizadas Recentes */}
-        <div className="bg-[#121212] border border-zinc-800/80 rounded-2xl p-5 shadow-lg">
+        <div className="bg-white dark:bg-[#121212] border border-slate-200 dark:border-zinc-800/80 rounded-2xl p-5 shadow-lg">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
               Revisões Recentes
@@ -463,7 +463,7 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
         </div>
 
         {/* KPI 3: Leituras Pendentes */}
-        <div className="bg-[#121212] border border-zinc-800/80 rounded-2xl p-5 shadow-lg">
+        <div className="bg-white dark:bg-[#121212] border border-slate-200 dark:border-zinc-800/80 rounded-2xl p-5 shadow-lg">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
               Ciências Pendentes
@@ -477,7 +477,7 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
         </div>
 
         {/* KPI 4: ITs Vencidas */}
-        <div className="bg-[#121212] border border-zinc-800/80 rounded-2xl p-5 shadow-lg">
+        <div className="bg-white dark:bg-[#121212] border border-slate-200 dark:border-zinc-800/80 rounded-2xl p-5 shadow-lg">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
               Revisão Vencida
@@ -492,7 +492,7 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
       </div>
 
       {/* SEÇÃO 1: TABELA DE CONFORMIDADE OPERACIONAL POR IT */}
-      <div className="bg-[#121212] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-4">
+      <div className="bg-white dark:bg-[#121212] border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-xl space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -666,7 +666,7 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
       </div>
 
       {/* SEÇÃO 2: TIMELINE DE AUDITORIA IMUTÁVEL (WORM) */}
-      <div className="bg-[#121212] border border-zinc-800 rounded-2xl p-6 shadow-xl space-y-4">
+      <div className="bg-white dark:bg-[#121212] border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-xl space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -754,7 +754,7 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
       {/* ══════════════════════════════════════════════════ */}
       {pendentesModalIt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-[#121212] border border-zinc-800 rounded-2xl p-6 text-white shadow-2xl">
+          <div className="w-full max-w-md bg-white dark:bg-[#121212] border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 text-slate-900 dark:text-white shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="font-bold text-base">Colaboradores Pendentes de Leitura</h3>
@@ -803,7 +803,7 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
       {/* ══════════════════════════════════════════════════ */}
       {showNovaItModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-[#121212] border border-zinc-800 rounded-2xl p-6 text-white shadow-2xl">
+          <div className="w-full max-w-lg bg-white dark:bg-[#121212] border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 text-slate-900 dark:text-white shadow-2xl">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h3 className="font-bold text-lg flex items-center gap-2">
@@ -963,7 +963,7 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
       {/* ══════════════════════════════════════════════════ */}
       {showExcluirModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-[#121212] border border-rose-800/30 rounded-2xl p-6 text-white shadow-2xl">
+          <div className="w-full max-w-md bg-white dark:bg-[#121212] border border-rose-200 dark:border-rose-800/30 rounded-2xl p-6 text-slate-900 dark:text-white shadow-2xl">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
                 <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center">
@@ -1038,7 +1038,7 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
       {/* ══════════════════════════════════════════════════ */}
       {showCienciaModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-2xl bg-[#121212] border border-zinc-800 rounded-2xl p-6 text-white shadow-2xl max-h-[85vh] flex flex-col">
+          <div className="w-full max-w-2xl bg-white dark:bg-[#121212] border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 text-slate-900 dark:text-white shadow-2xl max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h3 className="font-bold text-lg flex items-center gap-2">
@@ -1194,7 +1194,7 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
       {/* ══════════════════════════════════════════════════ */}
       {diffModalLog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-3xl bg-[#0F172A] border border-slate-700 rounded-2xl p-6 text-white shadow-2xl max-h-[85vh] overflow-y-auto">
+          <div className="w-full max-w-3xl bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 rounded-2xl p-6 text-slate-900 dark:text-white shadow-2xl max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
               <div>
                 <span className="text-xs font-mono font-bold text-emerald-400">{diffModalLog.itCodigo}</span>
@@ -1212,14 +1212,14 @@ export function GovernancaRhClient({ initialData, currentUserRole = 'ADMIN' }: G
             </div>
 
             <div className="space-y-4 text-xs">
-              <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-800">
+              <div className="bg-slate-50 dark:bg-slate-900/80 p-3 rounded-lg border border-slate-200 dark:border-slate-800">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                   Motivo da Alteração:
                 </span>
                 <p className="text-slate-200">{diffModalLog.motivo}</p>
               </div>
 
-              <div className="bg-slate-900/80 p-3 rounded-lg border border-slate-800 font-mono text-[11px]">
+              <div className="bg-slate-50 dark:bg-slate-900/80 p-3 rounded-lg border border-slate-200 dark:border-slate-800 font-mono text-[11px]">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                   Hash SHA-256 Imutável:
                 </span>

@@ -339,7 +339,7 @@ export function Planejamento2027Tab() {
   return (
     <div className="space-y-6">
       {/* Header com Seletor e Ações */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-xl">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a] shadow-xl">
         <div>
           <div className="flex items-center gap-3">
             <h2 className="text-base font-bold text-white tracking-tight">
@@ -448,7 +448,7 @@ export function Planejamento2027Tab() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl border border-white/10 bg-[#10101a]">
+        <div className="p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a]">
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Colaboradores</span>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-black text-white">{total}</span>
@@ -457,7 +457,7 @@ export function Planejamento2027Tab() {
           <p className="text-[11px] text-slate-500 mt-1">100% quadro cadastrado</p>
         </div>
 
-        <div className="p-4 rounded-2xl border border-white/10 bg-[#10101a]">
+        <div className="p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a]">
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Planejados ({ano})</span>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-black text-cyan-400">{planejados}/{total}</span>
@@ -488,13 +488,13 @@ export function Planejamento2027Tab() {
       </div>
 
       {/* Calendário Grid de 12 Meses */}
-      <div className="rounded-2xl border border-white/10 bg-[#10101a] p-6 shadow-xl">
+      <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a] p-6 shadow-xl">
         <Planejamento2027Calendar ano={ano} colaboradores={colaboradores} />
       </div>
 
       {/* Tabela de Planejamento Detalhada com Edição Inline */}
-      <div className="rounded-2xl border border-white/10 bg-[#10101a] p-6 shadow-xl space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+      <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a] p-6 shadow-xl space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/5 pb-4">
           <div>
             <h3 className="text-sm font-bold text-white uppercase tracking-wider">
               Escala Nominal & Fracionamento (CLT Art. 134 §1)
@@ -572,9 +572,9 @@ export function Planejamento2027Tab() {
         )}
 
         {/* Tabela */}
-        <div className="border border-white/10 rounded-xl overflow-x-auto bg-[#05050a]">
+        <div className="border border-slate-200 dark:border-white/10 rounded-xl overflow-x-auto bg-[#05050a]">
           <table className="w-full text-left text-xs min-w-[950px]">
-            <thead className="bg-[#12141F] text-slate-400 uppercase font-mono text-[10px] border-b border-white/10">
+            <thead className="bg-[#12141F] text-slate-400 uppercase font-mono text-[10px] border-b border-slate-200 dark:border-white/10">
               <tr>
                 <th className="px-4 py-3.5 w-10 text-center">
                   <button onClick={toggleSelectAll} className="text-slate-400 hover:text-white">
@@ -626,7 +626,7 @@ export function Planejamento2027Tab() {
                     </td>
 
                     <td className="px-4 py-3.5">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-white/5 border border-white/10 text-slate-300">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-white/5 border border-slate-200 dark:border-white/10 text-slate-300">
                         {item.setor}
                       </span>
                     </td>
@@ -785,7 +785,7 @@ export function Planejamento2027Tab() {
                         size="sm"
                         variant="outline"
                         onClick={handleResetEscala}
-                        className="text-xs border-white/10 hover:bg-white/5 text-slate-300 gap-1.5 mt-2"
+                        className="text-xs border-slate-200 dark:border-white/10 hover:bg-white/5 text-slate-300 gap-1.5 mt-2"
                       >
                         <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
                         <span>Restaurar Escala Padrão {ano}</span>
@@ -805,8 +805,8 @@ export function Planejamento2027Tab() {
       {/* Modal Histórico Vertical */}
       {historyModalOpen && selectedHistoryColab && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-          <div className="relative w-full max-w-lg bg-[#0d0d18] border border-white/10 rounded-2xl flex flex-col shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#12141F]">
+          <div className="relative w-full max-w-lg bg-[#0d0d18] border border-slate-200 dark:border-white/10 rounded-2xl flex flex-col shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-[#12141F]">
               <div className="flex items-center gap-2">
                 <ScrollText className="w-5 h-5 text-indigo-400" />
                 <div>
@@ -826,7 +826,7 @@ export function Planejamento2027Tab() {
                     <div className="absolute -left-1.5 top-0.5 w-3 h-3 rounded-full bg-indigo-500 shadow-md shadow-indigo-500/50" />
                     <div className="text-[11px] font-mono text-slate-400">{h.data}</div>
                     <div className="text-xs font-semibold text-white mt-0.5">Alteração por: {h.por}</div>
-                    <div className="text-xs text-slate-300 mt-1 bg-white/[0.03] p-2.5 rounded-xl border border-white/5 space-y-1">
+                    <div className="text-xs text-slate-300 mt-1 bg-white/[0.03] p-2.5 rounded-xl border border-slate-200 dark:border-white/5 space-y-1">
                       <p><strong>De:</strong> <span className="font-mono text-rose-300">{h.de}</span></p>
                       <p><strong>Para:</strong> <span className="font-mono text-emerald-300">{h.para}</span></p>
                       <p><strong>Motivo:</strong> {h.motivo}</p>
@@ -850,7 +850,7 @@ export function Planejamento2027Tab() {
       {/* Modal Adicionar Colaborador ao Planejamento */}
       {addModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-          <div className="relative w-full max-w-lg bg-[#0d0d18] border border-white/10 rounded-2xl flex flex-col shadow-2xl p-6 space-y-4">
+          <div className="relative w-full max-w-lg bg-[#0d0d18] border border-slate-200 dark:border-white/10 rounded-2xl flex flex-col shadow-2xl p-6 space-y-4">
             <h3 className="text-sm font-bold text-white">Adicionar Colaborador ao Planejamento {ano}</h3>
             <div className="space-y-3">
               <div>
@@ -901,7 +901,7 @@ export function Planejamento2027Tab() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-white/10">
               <Button variant="ghost" onClick={() => setAddModalOpen(false)} className="text-xs text-slate-400">
                 Cancelar
               </Button>

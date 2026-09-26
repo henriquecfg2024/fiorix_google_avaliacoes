@@ -86,7 +86,7 @@ export function GestaoMensagensClient({
         </div>
         <div className="text-xs text-slate-300 space-y-1">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-white uppercase tracking-wider text-[11px]">
+            <span className="font-bold text-slate-900 dark:text-white uppercase tracking-wider text-[11px]">
               Governança de Privacidade (LGPD & Seção 22)
             </span>
             <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono text-[10px]">
@@ -107,7 +107,7 @@ export function GestaoMensagensClient({
           className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-xl transition shrink-0 ${
             tab === 'overview'
               ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-white hover:bg-white/5'
+              : 'text-slate-400 hover:text-slate-900 dark:text-white hover:bg-white/5'
           }`}
         >
           <Activity className="w-4 h-4" />
@@ -119,7 +119,7 @@ export function GestaoMensagensClient({
           className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-xl transition shrink-0 ${
             tab === 'policies'
               ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-white hover:bg-white/5'
+              : 'text-slate-400 hover:text-slate-900 dark:text-white hover:bg-white/5'
           }`}
         >
           <Settings2 className="w-4 h-4" />
@@ -131,7 +131,7 @@ export function GestaoMensagensClient({
           className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-xl transition shrink-0 ${
             tab === 'push'
               ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-white hover:bg-white/5'
+              : 'text-slate-400 hover:text-slate-900 dark:text-white hover:bg-white/5'
           }`}
         >
           <Smartphone className="w-4 h-4" />
@@ -143,7 +143,7 @@ export function GestaoMensagensClient({
           className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-xl transition shrink-0 ${
             tab === 'audit'
               ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-white hover:bg-white/5'
+              : 'text-slate-400 hover:text-slate-900 dark:text-white hover:bg-white/5'
           }`}
         >
           <Shield className="w-4 h-4" />
@@ -159,7 +159,7 @@ export function GestaoMensagensClient({
             <div className="p-5 rounded-2xl bg-[#111827] border border-white/10 flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase font-mono tracking-wider text-slate-400">Conversas 1-para-1</p>
-                <h3 className="text-2xl font-bold text-white mt-1">{metrics.totalConversations}</h3>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{metrics.totalConversations}</h3>
                 <span className="text-[11px] text-indigo-400 mt-1 inline-block">Canais diretos ativos</span>
               </div>
               <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20">
@@ -170,7 +170,7 @@ export function GestaoMensagensClient({
             <div className="p-5 rounded-2xl bg-[#111827] border border-white/10 flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase font-mono tracking-wider text-slate-400">Grupos Internos</p>
-                <h3 className="text-2xl font-bold text-white mt-1">{metrics.totalGroups}</h3>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{metrics.totalGroups}</h3>
                 <span className="text-[11px] text-amber-400 mt-1 inline-block">Salas coletivas</span>
               </div>
               <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
@@ -181,7 +181,7 @@ export function GestaoMensagensClient({
             <div className="p-5 rounded-2xl bg-[#111827] border border-white/10 flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase font-mono tracking-wider text-slate-400">Mensagens Trocadas</p>
-                <h3 className="text-2xl font-bold text-white mt-1">{metrics.totalMessages}</h3>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{metrics.totalMessages}</h3>
                 <span className="text-[11px] text-emerald-400 mt-1 inline-block">Histórico ativo</span>
               </div>
               <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
@@ -192,7 +192,7 @@ export function GestaoMensagensClient({
             <div className="p-5 rounded-2xl bg-[#111827] border border-white/10 flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase font-mono tracking-wider text-slate-400">Anexos Seguros</p>
-                <h3 className="text-2xl font-bold text-white mt-1">{metrics.totalAttachments}</h3>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{metrics.totalAttachments}</h3>
                 <span className="text-[11px] text-cyan-400 mt-1 inline-block">Armazenamento privado</span>
               </div>
               <div className="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center border border-cyan-500/20">
@@ -203,7 +203,7 @@ export function GestaoMensagensClient({
             <div className="p-5 rounded-2xl bg-[#111827] border border-white/10 flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase font-mono tracking-wider text-slate-400">Dispositivos Web Push</p>
-                <h3 className="text-2xl font-bold text-white mt-1">{metrics.activeSubscriptions}</h3>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{metrics.activeSubscriptions}</h3>
                 <span className="text-[11px] text-purple-400 mt-1 inline-block">Inscrições ativas</span>
               </div>
               <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/20">
@@ -231,7 +231,7 @@ export function GestaoMensagensClient({
       {tab === 'policies' && (
         <form onSubmit={handleSavePolicy} className="p-6 rounded-3xl bg-[#111827] border border-white/10 space-y-6">
           <div className="border-b border-white/10 pb-3">
-            <h3 className="text-base font-bold text-white">Parâmetros e Políticas de Mensageria</h3>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">Parâmetros e Políticas de Mensageria</h3>
             <p className="text-xs text-slate-400 mt-0.5">
               Defina as regras de comunicação interna que se aplicam a todos os membros da sua organização.
             </p>
@@ -241,7 +241,7 @@ export function GestaoMensagensClient({
             {/* Direct Enabled */}
             <div className="p-4 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-white">Mensagens Diretas Habilitadas</p>
+                <p className="text-xs font-semibold text-slate-900 dark:text-white">Mensagens Diretas Habilitadas</p>
                 <p className="text-[11px] text-slate-400">Permitir conversas 1-para-1 entre colaboradores</p>
               </div>
               <input
@@ -255,7 +255,7 @@ export function GestaoMensagensClient({
             {/* Groups Enabled */}
             <div className="p-4 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-white">Criação de Grupos Habilitada</p>
+                <p className="text-xs font-semibold text-slate-900 dark:text-white">Criação de Grupos Habilitada</p>
                 <p className="text-[11px] text-slate-400">Permitir criação de grupos internos de trabalho</p>
               </div>
               <input
@@ -269,7 +269,7 @@ export function GestaoMensagensClient({
             {/* Attachments Enabled */}
             <div className="p-4 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-white">Envio de Anexos Habilitado</p>
+                <p className="text-xs font-semibold text-slate-900 dark:text-white">Envio de Anexos Habilitado</p>
                 <p className="text-[11px] text-slate-400">Documentos PDF, imagens e planilhas</p>
               </div>
               <input
@@ -283,7 +283,7 @@ export function GestaoMensagensClient({
             {/* Allow Delete */}
             <div className="p-4 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-white">Permitir Exclusão Lógica</p>
+                <p className="text-xs font-semibold text-slate-900 dark:text-white">Permitir Exclusão Lógica</p>
                 <p className="text-[11px] text-slate-400">Permite ao autor remover mensagem (mantém auditoria)</p>
               </div>
               <input
@@ -311,7 +311,7 @@ export function GestaoMensagensClient({
                     maxAttachmentBytes: parseInt(e.target.value || '25', 10) * 1024 * 1024,
                   })
                 }
-                className="w-full px-3 py-2 text-xs rounded-xl bg-slate-900 border border-white/10 text-white focus:outline-none focus:border-indigo-500"
+                className="w-full px-3 py-2 text-xs rounded-xl bg-slate-900 border border-white/10 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
               />
             </div>
 
@@ -330,7 +330,7 @@ export function GestaoMensagensClient({
                     retentionDays: parseInt(e.target.value || '365', 10),
                   })
                 }
-                className="w-full px-3 py-2 text-xs rounded-xl bg-slate-900 border border-white/10 text-white focus:outline-none focus:border-indigo-500"
+                className="w-full px-3 py-2 text-xs rounded-xl bg-slate-900 border border-white/10 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
               />
             </div>
           </div>
@@ -339,7 +339,7 @@ export function GestaoMensagensClient({
             <button
               type="submit"
               disabled={savingPolicy}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg transition disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-slate-900 dark:text-white shadow-lg transition disabled:opacity-50"
             >
               {savingPolicy ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -356,7 +356,7 @@ export function GestaoMensagensClient({
       {tab === 'push' && (
         <div className="p-6 rounded-3xl bg-[#111827] border border-white/10 space-y-5">
           <div>
-            <h3 className="text-base font-bold text-white">Status da Infraestrutura Web Push / PWA</h3>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">Status da Infraestrutura Web Push / PWA</h3>
             <p className="text-xs text-slate-400 mt-0.5">
               Diagnóstico do serviço de notificações em segundo plano e chaves criptográficas VAPID.
             </p>
@@ -365,25 +365,25 @@ export function GestaoMensagensClient({
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="p-4 rounded-xl bg-slate-900 border border-white/5 space-y-1">
               <p className="text-[11px] font-mono uppercase text-slate-400">Padrão Criptográfico</p>
-              <p className="text-sm font-semibold text-white">RFC 8291 (VAPID / ECDSA P-256)</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">RFC 8291 (VAPID / ECDSA P-256)</p>
               <p className="text-[11px] text-emerald-400">Chave privada isolada no servidor</p>
             </div>
 
             <div className="p-4 rounded-xl bg-slate-900 border border-white/5 space-y-1">
               <p className="text-[11px] font-mono uppercase text-slate-400">Service Worker</p>
-              <p className="text-sm font-semibold text-white">/sw.js (Ativo no escopo raiz /)</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">/sw.js (Ativo no escopo raiz /)</p>
               <p className="text-[11px] text-emerald-400">Interceptadores push e notificationclick ativos</p>
             </div>
 
             <div className="p-4 rounded-xl bg-slate-900 border border-white/5 space-y-1">
               <p className="text-[11px] font-mono uppercase text-slate-400">Tratamento de Expiradas</p>
-              <p className="text-sm font-semibold text-white">Auto-revogação ativa (410 Gone / 404)</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">Auto-revogação ativa (410 Gone / 404)</p>
               <p className="text-[11px] text-slate-400">Subscriptions inválidas são desativadas no ato</p>
             </div>
 
             <div className="p-4 rounded-xl bg-slate-900 border border-white/5 space-y-1">
               <p className="text-[11px] font-mono uppercase text-slate-400">Inscrições Ativas no Cartório</p>
-              <p className="text-sm font-semibold text-white">{metrics.activeSubscriptions} aparelhos registrados</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">{metrics.activeSubscriptions} aparelhos registrados</p>
               <p className="text-[11px] text-purple-400">Limite de cota: 10 dispositivos por usuário</p>
             </div>
           </div>
@@ -395,7 +395,7 @@ export function GestaoMensagensClient({
         <div className="p-6 rounded-3xl bg-[#111827] border border-white/10 space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-white/5">
             <div>
-              <h3 className="text-base font-bold text-white">Trilha de Auditoria Forense de Mensagens</h3>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Trilha de Auditoria Forense de Mensagens</h3>
               <p className="text-xs text-slate-400 mt-0.5">
                 Registros imutáveis de ações relevantes (criação de grupos, uploads, exclusões, revogações de aparelhos).
               </p>
@@ -435,7 +435,7 @@ export function GestaoMensagensClient({
                         </span>
                       </td>
                       <td className="py-2.5 px-3">
-                        <span className="font-medium text-white">{log.actorName}</span>
+                        <span className="font-medium text-slate-900 dark:text-white">{log.actorName}</span>
                         <span className="text-[10px] text-slate-400 block font-mono">{log.actorRole}</span>
                       </td>
                       <td className="py-2.5 px-3 font-mono text-slate-400">{log.ipAddress || '—'}</td>

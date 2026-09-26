@@ -173,7 +173,7 @@ export function LancamentoFeriasModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/12 bg-[#0c101c] p-6 shadow-2xl text-white space-y-5">
+      <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border border-white/12 bg-white dark:bg-[#0c101c] p-6 shadow-2xl text-white space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/8 pb-4">
           <div className="flex items-center gap-3">
@@ -206,7 +206,7 @@ export function LancamentoFeriasModal({
               <Input
                 disabled
                 value={nome}
-                className="bg-white/[0.04] border-white/10 text-white text-xs h-10 rounded-xl"
+                className="bg-white/[0.04] border-slate-200 dark:border-white/10 text-white text-xs h-10 rounded-xl"
               />
             ) : (
               <select
@@ -404,7 +404,7 @@ export function LancamentoFeriasModal({
                 type="button"
                 variant="outline"
                 onClick={onClose}
-                className="h-9 px-4 rounded-xl border-white/10 text-slate-300 hover:bg-white/10 text-xs"
+                className="h-9 px-4 rounded-xl border-slate-200 dark:border-white/10 text-slate-300 hover:bg-white/10 text-xs"
               >
                 Cancelar
               </Button>

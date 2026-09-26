@@ -570,18 +570,18 @@ export function MensagensClient({
     : [];
 
   return (
-    <div className="h-[calc(100vh-65px)] w-full flex flex-col bg-[#070A12] text-white relative overflow-hidden font-sans p-3 sm:p-4">
+    <div className="h-[calc(100vh-65px)] w-full flex flex-col bg-slate-50 text-slate-900 dark:bg-[#070A12] dark:text-white relative overflow-hidden font-sans p-3 sm:p-4 transition-colors">
       {/* Ambient Glow */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 left-1/2 h-72 w-[48rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-500/10 via-indigo-500/8 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="absolute -top-32 left-1/2 h-72 w-[48rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-500/10 via-indigo-500/8 to-cyan-500/8 blur-3xl opacity-30 dark:opacity-100" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-white/10" />
       </div>
 
       {/* Banner de Ativação de Notificações no Computador */}
       {notificationPermission === 'default' && !bannerDismissed && (
-        <div className="w-full bg-gradient-to-r from-emerald-950/80 via-slate-900/95 to-emerald-950/80 border border-emerald-500/30 rounded-2xl px-4 py-2.5 mb-3 flex items-center justify-between gap-3 text-xs text-emerald-100 shrink-0 z-20 shadow-md">
+        <div className="w-full bg-emerald-50 border border-emerald-200 text-emerald-950 dark:bg-gradient-to-r dark:from-emerald-950/80 dark:via-slate-900/95 dark:to-emerald-950/80 dark:border-emerald-500/30 dark:text-emerald-100 rounded-2xl px-4 py-2.5 mb-3 flex items-center justify-between gap-3 text-xs shrink-0 z-20 shadow-xs">
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400">
               <BellRing className="w-3.5 h-3.5 animate-pulse" />
             </span>
             <span className="truncate">
@@ -600,7 +600,7 @@ export function MensagensClient({
             <button
               type="button"
               onClick={() => setBannerDismissed(true)}
-              className="text-slate-400 hover:text-white p-1 rounded transition cursor-pointer"
+              className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1 rounded transition cursor-pointer"
               title="Ignorar"
             >
               <X className="w-3.5 h-3.5" />
@@ -660,14 +660,14 @@ export function MensagensClient({
               onArchive={handleArchive}
             />
           ) : (
-            <div className="h-full flex-1 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)] flex flex-col items-center justify-center text-center p-8 select-none">
-              <div className="w-24 h-24 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6 shadow-inner">
+            <div className="h-full flex-1 rounded-[24px] border border-slate-200 bg-white/90 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] flex flex-col items-center justify-center text-center p-8 select-none">
+              <div className="w-24 h-24 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400 flex items-center justify-center mb-6 shadow-inner">
                 <MessagesSquare className="w-10 h-10 text-emerald-400 stroke-[1.75]" />
               </div>
-              <h3 className="text-2xl font-bold text-white tracking-tight mb-2">
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight mb-2">
                 Selecione uma conversa
               </h3>
-              <p className="max-w-sm text-sm text-slate-400 mb-7 leading-relaxed">
+              <p className="max-w-sm text-sm text-slate-500 dark:text-slate-400 mb-7 leading-relaxed">
                 Escolha uma conversa na lista ou inicie uma nova.
               </p>
               <button

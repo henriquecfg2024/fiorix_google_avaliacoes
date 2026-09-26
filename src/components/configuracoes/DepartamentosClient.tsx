@@ -151,12 +151,12 @@ export function DepartamentosClient({ initialData }: DepartamentosClientProps) {
     <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-white/10" />
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <Link href="/configuracoes" className="hover:text-amber-300 transition-colors">
@@ -166,7 +166,7 @@ export function DepartamentosClient({ initialData }: DepartamentosClientProps) {
               <span className="text-amber-300">Departamentos</span>
             </div>
             <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                 Gestão de Departamentos
               </h1>
               <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-amber-300">
@@ -209,40 +209,40 @@ export function DepartamentosClient({ initialData }: DepartamentosClientProps) {
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4 flex items-center gap-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/8 dark:bg-white/[0.02] flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
               <Building2 className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-white">{totalAtivos}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{totalAtivos}</p>
               <p className="text-[11px] text-slate-400">Departamentos Ativos</p>
             </div>
           </div>
-          <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4 flex items-center gap-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/8 dark:bg-white/[0.02] flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
               <Users className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-white">{totalColabs}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{totalColabs}</p>
               <p className="text-[11px] text-slate-400">Colaboradores Distribuídos</p>
             </div>
           </div>
-          <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4 flex items-center gap-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/8 dark:bg-white/[0.02] flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
               <FileText className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-white">{deptos.reduce((s, d) => s + d.totalIts, 0)}</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{deptos.reduce((s, d) => s + d.totalIts, 0)}</p>
               <p className="text-[11px] text-slate-400">ITs Vinculadas</p>
             </div>
           </div>
         </div>
 
         {/* Tabela */}
-        <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
+        <div className="rounded-[28px] border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl space-y-4">
           <div className="flex items-center gap-2">
             <Building2 className="h-5 w-5 text-indigo-300" />
-            <h2 className="text-lg font-extrabold text-white">
+            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">
               Departamentos Cadastrados ({deptos.length})
             </h2>
             {totalInativos > 0 && (
@@ -260,7 +260,7 @@ export function DepartamentosClient({ initialData }: DepartamentosClientProps) {
             <div className="overflow-x-auto rounded-2xl border border-white/12">
               <table className="w-full min-w-[700px] border-collapse text-left text-xs">
                 <thead>
-                  <tr className="border-b border-white/12 bg-[#080811] text-[11px] font-mono uppercase tracking-[0.16em] text-slate-400">
+                  <tr className="border-b border-slate-200 bg-slate-100 text-[11px] font-mono uppercase tracking-[0.16em] text-slate-600 dark:border-white/12 dark:bg-[#080811] dark:text-slate-400">
                     <th className="p-3 pl-5 w-10">#</th>
                     <th className="p-3">Cor</th>
                     <th className="p-3">Departamento</th>
@@ -271,9 +271,9 @@ export function DepartamentosClient({ initialData }: DepartamentosClientProps) {
                     <th className="p-3 pr-5 text-right">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/8 font-medium text-white/80">
+                <tbody className="divide-y divide-slate-200 font-medium text-slate-800 dark:divide-white/8 dark:text-white/80">
                   {deptos.map((d, i) => (
-                    <tr key={d.id} className={`hover:bg-white/[0.03] transition-colors ${!d.ativo ? 'opacity-50' : ''}`}>
+                    <tr key={d.id} className={`hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors ${!d.ativo ? 'opacity-50' : ''}`}>
                       <td className="p-3 pl-5 text-slate-500 font-mono text-[10px]">
                         {i + 1}
                       </td>

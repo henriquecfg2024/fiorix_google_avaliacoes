@@ -365,10 +365,10 @@ export function CienciasDrawer({
 
       {/* Drawer Panel */}
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10">
-        <aside className="w-screen max-w-md sm:max-w-lg bg-[#0B1020] border-l border-white/10 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+        <aside className="w-screen max-w-md sm:max-w-lg bg-white dark:bg-[#0B1020] border-l border-slate-200 dark:border-white/10 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
           
           {/* Header Superior */}
-          <div className="p-5 sm:p-6 border-b border-white/8 bg-[#0E1626]/80 flex items-center gap-3 shrink-0">
+          <div className="p-5 sm:p-6 border-b border-slate-200 dark:border-white/8 bg-[#0E1626]/80 flex items-center gap-3 shrink-0">
             {subModoEquipe !== 'lista' ? (
               <button
                 type="button"
@@ -413,7 +413,7 @@ export function CienciasDrawer({
 
           {/* Abas de Navegação (quando não estiver em subfluxos como adicionar/transferir) */}
           {subModoEquipe === 'lista' && (
-            <div className="flex border-b border-white/10 px-5 sm:px-6 bg-[#0E1626]/40 shrink-0">
+            <div className="flex border-b border-slate-200 dark:border-white/10 px-5 sm:px-6 bg-[#0E1626]/40 shrink-0">
               <button
                 type="button"
                 onClick={() => {
@@ -482,7 +482,7 @@ export function CienciasDrawer({
               </div>
 
               {/* Adesão Total e Estatísticas */}
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+              <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/[0.03] p-4 space-y-3">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-400 font-medium">Adesão Total da Equipe</span>
                   <span className="font-mono font-bold text-white text-sm">{adesaoPercentual}%</span>
@@ -517,7 +517,7 @@ export function CienciasDrawer({
                     placeholder="Buscar colaborador ou cargo..."
                     value={buscaCiencias}
                     onChange={(e) => setBuscaCiencias(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30 transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/30 transition-all"
                   />
                 </div>
 
@@ -529,7 +529,7 @@ export function CienciasDrawer({
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                       filtroStatus === 'todos'
                         ? 'bg-white/15 text-white border-white/25'
-                        : 'bg-white/5 text-slate-400 border-white/10 hover:text-white'
+                        : 'bg-white/5 text-slate-400 border-slate-200 dark:border-white/10 hover:text-white'
                     }`}
                   >
                     Todos ({totalColaboradores})
@@ -540,7 +540,7 @@ export function CienciasDrawer({
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                       filtroStatus === 'cientes'
                         ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                        : 'bg-white/5 text-slate-400 border-white/10 hover:text-emerald-300'
+                        : 'bg-white/5 text-slate-400 border-slate-200 dark:border-white/10 hover:text-emerald-300'
                     }`}
                   >
                     Cientes ({totalCientes})
@@ -551,7 +551,7 @@ export function CienciasDrawer({
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                       filtroStatus === 'pendentes'
                         ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                        : 'bg-white/5 text-slate-400 border-white/10 hover:text-amber-300'
+                        : 'bg-white/5 text-slate-400 border-slate-200 dark:border-white/10 hover:text-amber-300'
                     }`}
                   >
                     Pendentes ({pendentesCount})
@@ -653,7 +653,7 @@ export function CienciasDrawer({
                   placeholder="Buscar na equipe por nome ou cargo..."
                   value={buscaEquipe}
                   onChange={(e) => setBuscaEquipe(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-all"
                 />
               </div>
 
@@ -678,7 +678,7 @@ export function CienciasDrawer({
                     value={motivoDesvinc}
                     onChange={(e) => setMotivoDesvinc(e.target.value)}
                     rows={2}
-                    className="w-full px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 resize-none transition-all"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 resize-none transition-all"
                   />
                   {erroDesvinc && <p className="text-[11px] text-red-300">{erroDesvinc}</p>}
                   <div className="flex gap-2">
@@ -690,7 +690,7 @@ export function CienciasDrawer({
                         setErroDesvinc('');
                       }}
                       disabled={Boolean(desvinculando)}
-                      className="flex-1 px-3 py-2 rounded-xl border border-white/10 text-slate-300 hover:text-white hover:bg-white/8 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 text-slate-300 hover:text-white hover:bg-white/8 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
                     >
                       Cancelar
                     </button>
@@ -718,7 +718,7 @@ export function CienciasDrawer({
                   Carregando participantes...
                 </div>
               ) : membrosFiltrados.length === 0 ? (
-                <div className="p-8 text-center rounded-2xl border border-white/8 bg-white/[0.02]">
+                <div className="p-8 text-center rounded-2xl border border-slate-200 dark:border-white/8 bg-white/[0.02]">
                   <Users className="w-8 h-8 text-slate-500 mx-auto mb-2 opacity-50" />
                   <p className="text-xs text-slate-400">
                     {membros.length === 0 ? 'Nenhum colaborador vinculado.' : 'Nenhum resultado para a busca.'}
@@ -797,7 +797,7 @@ export function CienciasDrawer({
                         setFiltroSetor(e.target.value);
                         carregarColaboradoresParaAdicionar(termoBuscaAdd, e.target.value);
                       }}
-                      className="w-full bg-[#0E1626] border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
+                      className="w-full bg-[#0E1626] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                     >
                       <option value="TODOS">Todos os setores</option>
                       {setoresDisponiveis.map((s) => (
@@ -825,14 +825,14 @@ export function CienciasDrawer({
                         }
                       }}
                       onKeyDown={(e) => e.key === 'Enter' && carregarColaboradoresParaAdicionar(termoBuscaAdd, filtroSetor)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/60 transition-all"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/60 transition-all"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={() => carregarColaboradoresParaAdicionar(termoBuscaAdd, filtroSetor)}
                     disabled={buscandoAdd}
-                    className="px-4 py-2 rounded-xl bg-white/8 hover:bg-white/12 border border-white/10 text-white text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                    className="px-4 py-2 rounded-xl bg-white/8 hover:bg-white/12 border border-slate-200 dark:border-white/10 text-white text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                   >
                     {buscandoAdd ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Buscar'}
                   </button>
@@ -848,7 +848,7 @@ export function CienciasDrawer({
                       className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                         papelAdicionar === 'LEITOR'
                           ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
-                          : 'bg-white/5 text-slate-400 border-white/10'
+                          : 'bg-white/5 text-slate-400 border-slate-200 dark:border-white/10'
                       }`}
                     >
                       Leitor
@@ -859,7 +859,7 @@ export function CienciasDrawer({
                       className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                         papelAdicionar === 'CORRESPONSAVEL'
                           ? 'bg-violet-500/20 text-violet-300 border-violet-500/40'
-                          : 'bg-white/5 text-slate-400 border-white/10'
+                          : 'bg-white/5 text-slate-400 border-slate-200 dark:border-white/10'
                       }`}
                     >
                       Corresponsável
@@ -926,7 +926,7 @@ export function CienciasDrawer({
                             Mesmo setor
                           </span>
                         ) : (
-                          <span className="text-[10px] text-slate-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded-md shrink-0 whitespace-nowrap">
+                          <span className="text-[10px] text-slate-400 bg-white/5 border border-slate-200 dark:border-white/10 px-2 py-0.5 rounded-md shrink-0 whitespace-nowrap">
                             Outro setor
                           </span>
                         )}
@@ -935,7 +935,7 @@ export function CienciasDrawer({
                   })}
                 </div>
               ) : !buscandoAdd ? (
-                <div className="p-8 text-center rounded-2xl border border-white/8 bg-white/[0.02]">
+                <div className="p-8 text-center rounded-2xl border border-slate-200 dark:border-white/8 bg-white/[0.02]">
                   <Users className="w-8 h-8 text-slate-500 mx-auto mb-2 opacity-50" />
                   <p className="text-xs text-slate-400">
                     {termoBuscaAdd
@@ -1004,7 +1004,7 @@ export function CienciasDrawer({
                   <select
                     value={transferirParaId}
                     onChange={(e) => setTransferirParaId(e.target.value)}
-                    className="w-full bg-[#0E1626] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    className="w-full bg-[#0E1626] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
                   >
                     <option value="">Selecione um integrante da equipe...</option>
                     {membros
@@ -1026,7 +1026,7 @@ export function CienciasDrawer({
                     placeholder="Ex: Mudança de atribuição de setor, licença ou promoção..."
                     value={transferirMotivo}
                     onChange={(e) => setTransferirMotivo(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 resize-none transition-all"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 resize-none transition-all"
                   />
                 </div>
 
@@ -1060,12 +1060,12 @@ export function CienciasDrawer({
           )}
 
           {/* Rodapé */}
-          <div className="p-4 border-t border-white/8 bg-[#0E1626]/80 flex items-center gap-3 shrink-0">
+          <div className="p-4 border-t border-slate-200 dark:border-white/8 bg-[#0E1626]/80 flex items-center gap-3 shrink-0">
             {subModoEquipe !== 'lista' && (
               <button
                 type="button"
                 onClick={() => setSubModoEquipe('lista')}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-white/10 text-slate-300 hover:text-white hover:bg-white/8 text-xs font-semibold transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 text-slate-300 hover:text-white hover:bg-white/8 text-xs font-semibold transition-colors cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Voltar</span>
@@ -1074,7 +1074,7 @@ export function CienciasDrawer({
             <button
               type="button"
               onClick={onClose}
-              className="ml-auto px-5 py-2 rounded-xl border border-white/10 hover:bg-white/8 text-white text-xs font-semibold transition-colors cursor-pointer"
+              className="ml-auto px-5 py-2 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-white/8 text-white text-xs font-semibold transition-colors cursor-pointer"
             >
               Fechar
             </button>

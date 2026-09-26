@@ -226,24 +226,24 @@ export default function ProdutividadePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-white/10 to-transparent" />
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
           <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
               <span>Dashboard</span>
-              <ChevronRight className="h-3 w-3 text-slate-600" />
+              <ChevronRight className="h-3 w-3 text-slate-400 dark:text-slate-600" />
               <span>BI</span>
-              <ChevronRight className="h-3 w-3 text-slate-600" />
-              <span className="text-amber-300">Recepção</span>
+              <ChevronRight className="h-3 w-3 text-slate-400 dark:text-slate-600" />
+              <span className="text-amber-600 dark:text-amber-300">Recepção</span>
             </div>
             <div className="mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                 Indicadores da Recepção
               </h1>
             </div>
@@ -255,15 +255,15 @@ export default function ProdutividadePage() {
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
-                  className="bg-white/5 border-white/10 text-white hover:bg-white/10 font-semibold gap-2 text-xs"
+                  className="bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-white hover:bg-slate-200 dark:hover:bg-white/10 font-semibold gap-2 text-xs"
                 >
                   <Eye className="h-3.5 w-3.5" />
                   Gerenciar Gráficos
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-80 bg-[#0F172A] border-white/10 text-white p-4" align="end">
+              <PopoverContent className="w-80 bg-white dark:bg-[#0F172A] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white p-4 shadow-xl" align="end">
                 <div className="space-y-4">
-                  <h4 className="font-medium text-sm border-b border-white/10 pb-2">
+                  <h4 className="font-medium text-sm border-b border-slate-200 dark:border-white/10 pb-2">
                     Exibição de Componentes
                   </h4>
                   <div className="space-y-3">
@@ -280,11 +280,11 @@ export default function ProdutividadePage() {
                           id={key}
                           checked={chartsVisible[key as keyof typeof chartsVisible]}
                           onCheckedChange={() => toggleChart(key as keyof typeof chartsVisible)}
-                          className="border-white/20 data-[state=checked]:bg-[#00C950] data-[state=checked]:text-white"
+                          className="border-slate-300 dark:border-white/20 data-[state=checked]:bg-[#00C950] data-[state=checked]:text-white"
                         />
                         <label
                           htmlFor={key}
-                          className="text-sm font-medium leading-none text-white/80 cursor-pointer select-none"
+                          className="text-sm font-medium leading-none text-slate-700 dark:text-white/80 cursor-pointer select-none"
                         >
                           {label}
                         </label>
@@ -298,7 +298,7 @@ export default function ProdutividadePage() {
         </div>
 
         <div className="space-y-1.5">
-          <span className="px-1 text-[10px] font-bold uppercase tracking-[0.24em] text-white/35">
+          <span className="px-1 text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400 dark:text-white/35">
             Segmentação de Caixa
           </span>
 
@@ -315,27 +315,27 @@ export default function ProdutividadePage() {
                   className={[
                     "group relative flex min-h-[120px] flex-col justify-between overflow-hidden rounded-[24px] border p-5 text-left transition-all backdrop-blur-xl",
                     active
-                      ? "border-cyan-500/50 bg-[#0B1020]/95 text-white shadow-[0_20px_60px_rgba(0,0,0,0.28)] ring-1 ring-cyan-500/30"
-                      : "border-white/12 bg-[#0B1020]/72 text-white/70 hover:border-white/20 hover:bg-[#0B1020]/85 hover:text-white",
+                      ? "border-cyan-500/50 bg-white dark:bg-[#0B1020]/95 text-slate-900 dark:text-white shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.28)] ring-1 ring-cyan-500/30"
+                      : "border-slate-200 dark:border-white/12 bg-white/70 dark:bg-[#0B1020]/72 text-slate-600 dark:text-white/70 hover:border-slate-300 dark:hover:border-white/20 hover:bg-white dark:hover:bg-[#0B1020]/85 hover:text-slate-900 dark:hover:text-white",
                   ].join(" ")}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2.5">
                       <span className={`h-3 w-3 rounded-full ${item.dotClass} shadow-[0_0_8px_currentColor]`} />
-                      <span className="text-sm font-bold tracking-tight text-white">{item.label}</span>
+                      <span className="text-sm font-bold tracking-tight text-slate-900 dark:text-white">{item.label}</span>
                     </div>
-                    <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-0.5 text-xs font-semibold text-white/80">
+                    <span className="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] px-2.5 py-0.5 text-xs font-semibold text-slate-700 dark:text-white/80">
                       {item.pct}
                     </span>
                   </div>
 
-                  <div className="text-xs text-white/45 mb-2">{item.helper}</div>
+                  <div className="text-xs text-slate-500 dark:text-white/45 mb-2">{item.helper}</div>
 
-                  <div className="mt-auto flex items-baseline justify-between border-t border-white/5 pt-2.5">
-                    <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+                  <div className="mt-auto flex items-baseline justify-between border-t border-slate-100 dark:border-white/5 pt-2.5">
+                    <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
                       {item.count}
                     </span>
-                    <span className="text-xs font-medium text-white/45">autenticações</span>
+                    <span className="text-xs font-medium text-slate-500 dark:text-white/45">autenticações</span>
                   </div>
                 </button>
               );
@@ -346,57 +346,57 @@ export default function ProdutividadePage() {
       {loading ? (
         <FiorixSkeleton />
       ) : data.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-white/20 bg-white/[0.02] p-12 text-center flex flex-col items-center justify-center space-y-4">
+        <div className="rounded-xl border border-dashed border-slate-300 dark:border-white/20 bg-white/50 dark:bg-white/[0.02] p-12 text-center flex flex-col items-center justify-center space-y-4">
           <AlertTriangle className="h-10 w-10 text-[#00C950] animate-pulse" />
           <div>
-            <h3 className="text-lg font-bold">Nenhum dado cadastrado</h3>
-            <p className="text-sm text-white/50 mt-1">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Nenhum dado cadastrado</h3>
+            <p className="text-sm text-slate-500 dark:text-white/50 mt-1">
               Assim que o administrador concluir a carga em Importações, os indicadores aparecerão aqui.
             </p>
           </div>
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] space-y-4">
-            <div className="flex items-center gap-2 text-white/80 font-bold text-sm">
+          <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] space-y-4">
+            <div className="flex items-center gap-2 text-slate-800 dark:text-white/80 font-bold text-sm">
               <LayoutGrid className="h-4 w-4 text-[#00C950]" />
               <span>Filtros do Painel de Produtividade</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 items-end">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] uppercase tracking-wider text-white/50 font-bold">
+                <label className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white/50 font-bold">
                   Data Inicial
                 </label>
                 <Input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="bg-white/5 border-white/10 text-white focus:border-[#00C950]/50"
+                  className="bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white focus:border-[#00C950]/50"
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] uppercase tracking-wider text-white/50 font-bold">
+                <label className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white/50 font-bold">
                   Data Final
                 </label>
                 <Input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="bg-white/5 border-white/10 text-white focus:border-[#00C950]/50"
+                  className="bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white focus:border-[#00C950]/50"
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] uppercase tracking-wider text-white/50 font-bold">
+                <label className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white/50 font-bold">
                   Tipo
                 </label>
                 <Select value={tipo} onValueChange={(val) => setTipo(val || "ALL")}>
-                  <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-[#00C950]/50">
+                  <SelectTrigger className="bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white focus:border-[#00C950]/50">
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#0A0F1E] border-white/10 text-white">
+                  <SelectContent className="bg-white dark:bg-[#0A0F1E] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
                     <SelectItem value="ALL">Todos</SelectItem>
                     <SelectItem value="TÍTULO">TÍTULO</SelectItem>
                     <SelectItem value="CERTIDÃO">CERTIDÃO</SelectItem>
@@ -405,14 +405,14 @@ export default function ProdutividadePage() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] uppercase tracking-wider text-white/50 font-bold">
+                <label className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white/50 font-bold">
                   Tipo Pedido
                 </label>
                 <Select value={tipoPedido} onValueChange={(val) => setTipoPedido(val || "ALL")}>
-                  <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-[#00C950]/50">
+                  <SelectTrigger className="bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white focus:border-[#00C950]/50">
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#0A0F1E] border-white/10 text-white">
+                  <SelectContent className="bg-white dark:bg-[#0A0F1E] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
                     <SelectItem value="ALL">Todos</SelectItem>
                     {selectOptions.tiposPedidos.map((tp) => (
                       <SelectItem key={tp} value={tp}>
@@ -424,14 +424,14 @@ export default function ProdutividadePage() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] uppercase tracking-wider text-white/50 font-bold">
+                <label className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white/50 font-bold">
                   Tipo Detalhado
                 </label>
                 <Select value={tipoDetalhado} onValueChange={(val) => setTipoDetalhado(val || "ALL")}>
-                  <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-[#00C950]/50 truncate">
+                  <SelectTrigger className="bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white focus:border-[#00C950]/50 truncate">
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#0A0F1E] border-white/10 text-white max-w-[320px]">
+                  <SelectContent className="bg-white dark:bg-[#0A0F1E] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white max-w-[320px]">
                     <SelectItem value="ALL">Todos</SelectItem>
                     {selectOptions.tiposDetalhados.map((td) => (
                       <SelectItem key={td} value={td} className="text-xs">
@@ -443,14 +443,14 @@ export default function ProdutividadePage() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] uppercase tracking-wider text-white/50 font-bold">
+                <label className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white/50 font-bold">
                   Nome Colaborador
                 </label>
                 <Select value={nome} onValueChange={(val) => setNome(val || "ALL")}>
-                  <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-[#00C950]/50">
+                  <SelectTrigger className="bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white focus:border-[#00C950]/50">
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#0A0F1E] border-white/10 text-white">
+                  <SelectContent className="bg-white dark:bg-[#0A0F1E] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
                     <SelectItem value="ALL">Todos</SelectItem>
                     {selectOptions.nomes.map((n) => (
                       <SelectItem key={n} value={n}>
@@ -466,7 +466,7 @@ export default function ProdutividadePage() {
               <Button
                 variant="ghost"
                 onClick={clearFilters}
-                className="text-white/60 hover:text-white gap-2 text-xs"
+                className="text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white gap-2 text-xs"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 Limpar Filtros

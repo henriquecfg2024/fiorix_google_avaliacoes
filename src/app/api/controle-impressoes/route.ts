@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
     const busca = (searchParams.get('busca') || '').trim().toLowerCase();
     const tipoImpressao = searchParams.get('tipoImpressao') || 'todos';
     const status = searchParams.get('status') || 'todos';
+    const operador = (searchParams.get('operador') || '').trim();
     const isExport = searchParams.get('export') === 'true';
     const sortBy = searchParams.get('sortBy') || 'ultimoRegistro';
     const sortOrder = searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc';
@@ -270,6 +271,19 @@ export async function GET(request: NextRequest) {
         } else if (status === 'realizado') {
           const hasRealizado = r.certidao_status === 'REALIZADO' || r.livro_status === 'REALIZADO';
           if (!hasRealizado) return false;
+        }
+      }
+
+      if (operador) {
+        const opLower = operador.toLowerCase();
+        if (tipoImpressao === 'livro') {
+          if ((r.livro_responsavel || '').toLowerCase() !== opLower) return false;
+        } else if (tipoImpressao === 'certidao') {
+          if ((r.certidao_responsavel || '').toLowerCase() !== opLower) return false;
+        } else {
+          const matchLivro = (r.livro_responsavel || '').toLowerCase() === opLower;
+          const matchCertidao = (r.certidao_responsavel || '').toLowerCase() === opLower;
+          if (!matchLivro && !matchCertidao) return false;
         }
       }
 

@@ -259,14 +259,14 @@ export default function MasterTenantsPage() {
 
       {/* KPI Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-[#12141f] border border-zinc-800/80 relative overflow-hidden shadow-xl">
+        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm dark:bg-[#12141f] dark:border-zinc-800/80 relative overflow-hidden shadow-xl">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-indigo-500" />
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Cartórios Cadastrados</span>
             <Building2 className="w-4 h-4 text-purple-400" />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-white">{metrics?.totalCartorios || 0}</span>
+            <span className="text-3xl font-bold text-slate-900 dark:text-white">{metrics?.totalCartorios || 0}</span>
             <span className="text-xs text-zinc-500">serventias</span>
           </div>
           <div className="mt-2 text-xs text-emerald-400 flex items-center gap-1 font-medium">
@@ -275,14 +275,14 @@ export default function MasterTenantsPage() {
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-[#12141f] border border-zinc-800/80 relative overflow-hidden shadow-xl">
+        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm dark:bg-[#12141f] dark:border-zinc-800/80 relative overflow-hidden shadow-xl">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500" />
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Usuários Totais</span>
             <Users className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-white">{metrics?.totalUsuarios || 0}</span>
+            <span className="text-3xl font-bold text-slate-900 dark:text-white">{metrics?.totalUsuarios || 0}</span>
             <span className="text-xs text-zinc-500">contas ativas</span>
           </div>
           <div className="mt-2 text-xs text-zinc-400">
@@ -290,14 +290,14 @@ export default function MasterTenantsPage() {
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-[#12141f] border border-zinc-800/80 relative overflow-hidden shadow-xl">
+        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm dark:bg-[#12141f] dark:border-zinc-800/80 relative overflow-hidden shadow-xl">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Em Período Trial</span>
             <Clock className="w-4 h-4 text-amber-400" />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-white">{metrics?.cartoriosTrial || 0}</span>
+            <span className="text-3xl font-bold text-slate-900 dark:text-white">{metrics?.cartoriosTrial || 0}</span>
             <span className="text-xs text-zinc-500">em avaliação</span>
           </div>
           <div className="mt-2 text-xs text-amber-400/90 font-medium">
@@ -305,7 +305,7 @@ export default function MasterTenantsPage() {
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-[#12141f] border border-zinc-800/80 relative overflow-hidden shadow-xl">
+        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm dark:bg-[#12141f] dark:border-zinc-800/80 relative overflow-hidden shadow-xl">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-purple-500 to-indigo-500" />
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Distribuição de Planos</span>
@@ -343,7 +343,7 @@ export default function MasterTenantsPage() {
       </div>
 
       {/* Barra de Filtros e Busca */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#12141f] border border-zinc-800/80 p-3 rounded-2xl">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white border border-slate-200 shadow-sm dark:bg-[#12141f] dark:border-zinc-800/80 p-3 rounded-2xl">
         <div className="relative w-full sm:w-96">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
           <input
@@ -351,7 +351,7 @@ export default function MasterTenantsPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Buscar por nome, slug, CNPJ ou cidade..."
-            className="w-full bg-[#1a1d2d] border border-zinc-700/60 rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500 transition-colors"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-purple-500 transition-colors dark:bg-[#1a1d2d] dark:border-zinc-700/60 dark:text-white dark:placeholder-zinc-500"
           />
         </div>
 
@@ -381,7 +381,7 @@ export default function MasterTenantsPage() {
       </div>
 
       {/* Tabela de Cartórios */}
-      <div className="bg-[#12141f] border border-zinc-800/80 rounded-2xl overflow-hidden shadow-2xl">
+      <div className="bg-white border border-slate-200 shadow-sm dark:bg-[#12141f] dark:border-zinc-800/80 rounded-2xl overflow-hidden shadow-2xl">
         {isLoading ? (
           <div className="py-20 flex flex-col items-center justify-center gap-3 text-zinc-400">
             <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
@@ -499,7 +499,7 @@ export default function MasterTenantsPage() {
                   <Building2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                     {isEditing ? 'Editar Dados do Cartório' : 'Provisionar Novo Cartório'}
                   </h3>
                   <p className="text-xs text-zinc-400">

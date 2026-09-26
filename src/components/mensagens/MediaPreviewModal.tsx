@@ -123,7 +123,7 @@ export function MediaPreviewModal({ isOpen, onClose, anexo }: MediaPreviewModalP
     >
       {/* ── Barra Superior de Ferramentas ── */}
       <header
-        className="w-full h-16 px-4 md:px-6 bg-[#0B1020]/90 border-b border-white/10 flex items-center justify-between shrink-0 shadow-lg z-10"
+        className="w-full h-16 px-4 md:px-6 bg-[#0B1020]/90 border-b border-slate-200 dark:border-white/10 flex items-center justify-between shrink-0 shadow-lg z-10"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 min-w-0 pr-4">
@@ -143,7 +143,7 @@ export function MediaPreviewModal({ isOpen, onClose, anexo }: MediaPreviewModalP
         <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
           {/* Controles de Zoom para Imagens */}
           {isImage && (
-            <div className="hidden sm:flex items-center gap-1 bg-white/[0.06] border border-white/10 rounded-xl p-1 mr-2">
+            <div className="hidden sm:flex items-center gap-1 bg-white/[0.06] border border-slate-200 dark:border-white/10 rounded-xl p-1 mr-2">
               <button
                 type="button"
                 onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
@@ -256,7 +256,7 @@ export function MediaPreviewModal({ isOpen, onClose, anexo }: MediaPreviewModalP
           </div>
         ) : isPdf && signedUrl ? (
           <div
-            className="w-full h-full max-w-5xl rounded-2xl overflow-hidden shadow-2xl border border-white/10 bg-[#0B1020]"
+            className="w-full h-full max-w-5xl rounded-2xl overflow-hidden shadow-2xl border border-slate-200 dark:border-white/10 bg-[#0B1020]"
             onClick={(e) => e.stopPropagation()}
           >
             <iframe
@@ -266,7 +266,7 @@ export function MediaPreviewModal({ isOpen, onClose, anexo }: MediaPreviewModalP
             />
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-4 text-center max-w-sm p-8 rounded-2xl bg-[#0B1020] border border-white/10">
+          <div className="flex flex-col items-center gap-4 text-center max-w-sm p-8 rounded-2xl bg-[#0B1020] border border-slate-200 dark:border-white/10">
             <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
               <FileText className="w-8 h-8" />
             </div>

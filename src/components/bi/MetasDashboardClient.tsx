@@ -163,7 +163,7 @@ function ChartValueLabel(props: {
     <text
       x={x + width / 2}
       y={y - 8}
-      fill="rgba(255, 255, 255, 0.9)"
+      className="fill-slate-700 dark:fill-white/90"
       textAnchor="middle"
       fontSize={10}
       fontWeight={700}
@@ -190,17 +190,17 @@ function PremiumChartTooltip({
   const isSelected = selectedPhase === dataPoint.phaseName;
 
   return (
-    <div className="rounded-xl border border-white/12 bg-[#0C1324]/95 p-3 text-xs text-white shadow-2xl backdrop-blur-xl">
-      <div className="flex items-center gap-2 font-bold text-amber-300">
+    <div className="rounded-xl border border-slate-200 bg-white/95 p-3 text-xs text-slate-800 shadow-2xl dark:border-white/12 dark:bg-[#0C1324]/95 dark:text-white backdrop-blur-xl">
+      <div className="flex items-center gap-2 font-bold text-amber-600 dark:text-amber-300">
         <span>{dataPoint.label}</span>
       </div>
-      <p className="mt-1 text-sm font-extrabold text-white">
+      <p className="mt-1 text-sm font-extrabold text-slate-900 dark:text-white">
         Média: {formatDays(dataPoint.dias)}
       </p>
-      <p className="mt-1 text-white/65">
+      <p className="mt-1 text-slate-500 dark:text-white/65">
         {dataPoint.count.toLocaleString("pt-BR")} protocolos • Afeta {percentage.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% da base
       </p>
-      <p className="mt-2 border-t border-white/10 pt-2 text-[10px] text-white/45">
+      <p className="mt-2 border-t border-slate-200 dark:border-white/10 pt-2 text-[10px] text-slate-400 dark:text-white/45">
         {isSelected ? "Clique para remover o filtro" : "Clique para filtrar os protocolos desta fase"}
       </p>
     </div>
@@ -1046,52 +1046,52 @@ export function MetasDashboardClient() {
       
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-white/20">
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
           <div>
-            <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-white/60">
-              <Target className="w-4 h-4 text-cyan-300" /> TOTAL
+            <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-white/60">
+              <Target className="w-4 h-4 text-cyan-600 dark:text-cyan-300" /> TOTAL
             </p>
-            <h3 className="text-3xl font-bold text-white">
+            <h3 className="text-3xl font-bold text-slate-900 dark:text-white">
               {kpis?.total ? kpis.total.toLocaleString("pt-BR") : 0}
             </h3>
           </div>
-          <p className="text-xs text-white/40 mt-2">Protocolos em esteira</p>
+          <p className="text-xs text-slate-500 dark:text-white/40 mt-2">Protocolos em esteira</p>
         </div>
 
-        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-white/20">
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
           <div>
-            <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-rose-300">
+            <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-rose-600 dark:text-rose-300">
               <AlertCircle className="w-4 h-4" /> ATRASADOS
             </p>
-            <h3 className="text-3xl font-bold text-white">
+            <h3 className="text-3xl font-bold text-slate-900 dark:text-white">
               {kpis?.atrasados ? kpis.atrasados.toLocaleString("pt-BR") : 0}
             </h3>
           </div>
-          <p className="text-xs text-rose-300/70 mt-2">Prazo legal excedido</p>
+          <p className="text-xs text-rose-600/80 dark:text-rose-300/70 mt-2">Prazo legal excedido</p>
         </div>
 
-        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-white/20">
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
           <div>
-            <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-emerald-300">
+            <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-300">
               <Clock className="w-4 h-4" /> ENTREGUE COM ATRASO
             </p>
-            <h3 className="text-3xl font-bold text-white">
+            <h3 className="text-3xl font-bold text-slate-900 dark:text-white">
               {kpis?.entregueComAtraso ? kpis.entregueComAtraso.toLocaleString("pt-BR") : 0}
             </h3>
           </div>
-          <p className="text-xs text-emerald-300/70 mt-2">Concluídos fora do prazo</p>
+          <p className="text-xs text-emerald-600/80 dark:text-emerald-300/70 mt-2">Concluídos fora do prazo</p>
         </div>
 
-        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-white/20">
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
           <div>
-            <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-amber-300" title="Fase com maior volume de protocolos retidos">
+            <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-amber-600 dark:text-amber-300" title="Fase com maior volume de protocolos retidos">
               <TrendingUp className="w-4 h-4" /> GARGALO MAIS FREQUENTE
             </p>
-            <h3 className="text-sm sm:text-base font-bold text-white mt-2 leading-snug line-clamp-2" title={kpis?.topGargalo?.name}>
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white mt-2 leading-snug line-clamp-2" title={kpis?.topGargalo?.name}>
               {kpis?.topGargalo?.name ? kpis.topGargalo.name.replace(" -> ", " → ") : "-"}
             </h3>
           </div>
-          <p className="text-xs text-amber-300/80 mt-2">
+          <p className="text-xs text-amber-700/80 dark:text-amber-300/80 mt-2">
             Afeta <strong>{kpis?.topGargalo?.count?.toLocaleString("pt-BR") || 0} protocolos</strong> (volume)
           </p>
         </div>
@@ -1103,28 +1103,28 @@ export function MetasDashboardClient() {
           type="button"
           onClick={() => handleBalcaoFilter("SEM_REG")}
           aria-pressed={balcaoFilter === "SEM_REG"}
-          className={`min-h-[104px] w-full rounded-[28px] border p-4 text-left transition-all shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 ${
+          className={`min-h-[104px] w-full rounded-[28px] border p-4 text-left transition-all shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${
             balcaoFilter === "SEM_REG"
-              ? "border-amber-400/40 bg-[#0B1020]/80"
-              : "border-white/12 bg-[#0B1020]/72 hover:border-white/20 hover:bg-[#0B1020]/80"
+              ? "border-amber-400/60 bg-amber-500/10 dark:bg-[#0B1020]/80"
+              : "border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-50 dark:hover:bg-[#0B1020]/80"
           }`}
         >
           <div className="flex items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-4">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-amber-400/20 bg-amber-400/10 text-amber-300">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-amber-400/30 bg-amber-400/10 text-amber-600 dark:text-amber-300">
                 <AlertTriangle className="h-5 w-5" aria-hidden="true" />
               </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-xs font-bold uppercase tracking-wider text-amber-300">Sem Balcão Registrado</p>
-                  <span className="rounded border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-200">ID 76</span>
+                  <p className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-300">Sem Balcão Registrado</p>
+                  <span className="rounded border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:text-amber-200">ID 76</span>
                 </div>
-                <p className="mt-1 text-xs text-white/50">Protocolos atrasados e impressos sem baixa</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-white/50">Protocolos atrasados e impressos sem baixa</p>
               </div>
             </div>
             <div className="shrink-0 text-right">
-              <p className="text-3xl font-bold text-amber-100">{balcaoAudit.semRegistro.toLocaleString("pt-BR")}</p>
-              <p className="mt-1 text-[10px] text-amber-300/70">protocolos</p>
+              <p className="text-3xl font-bold text-slate-900 dark:text-amber-100">{balcaoAudit.semRegistro.toLocaleString("pt-BR")}</p>
+              <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-300/70">protocolos</p>
             </div>
           </div>
         </button>
@@ -1133,35 +1133,35 @@ export function MetasDashboardClient() {
           type="button"
           onClick={() => handleBalcaoFilter("SEM_DEV")}
           aria-pressed={balcaoFilter === "SEM_DEV"}
-          className={`min-h-[104px] w-full rounded-[28px] border p-4 text-left transition-all shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 ${
+          className={`min-h-[104px] w-full rounded-[28px] border p-4 text-left transition-all shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 ${
             balcaoFilter === "SEM_DEV"
-              ? "border-rose-400/40 bg-[#0B1020]/80"
-              : "border-white/12 bg-[#0B1020]/72 hover:border-white/20 hover:bg-[#0B1020]/80"
+              ? "border-rose-400/60 bg-rose-500/10 dark:bg-[#0B1020]/80"
+              : "border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-50 dark:hover:bg-[#0B1020]/80"
           }`}
         >
           <div className="flex items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-4">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-rose-400/20 bg-rose-400/10 text-rose-300">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-rose-400/30 bg-rose-400/10 text-rose-600 dark:text-rose-300">
                 <ShieldAlert className="h-5 w-5" aria-hidden="true" />
               </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-xs font-bold uppercase tracking-wider text-rose-300">Sem Balcão Devolvido</p>
-                  <span className="rounded border border-rose-400/20 bg-rose-400/10 px-1.5 py-0.5 text-[9px] font-bold text-rose-200">ID 75</span>
+                  <p className="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-300">Sem Balcão Devolvido</p>
+                  <span className="rounded border border-rose-400/30 bg-rose-400/10 px-1.5 py-0.5 text-[9px] font-bold text-rose-700 dark:text-rose-200">ID 75</span>
                 </div>
-                <p className="mt-1 text-xs text-white/50">Registrados e atrasados sem baixa de retirada</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-white/50">Registrados e atrasados sem baixa de retirada</p>
               </div>
             </div>
             <div className="shrink-0 text-right">
-              <p className="text-3xl font-bold text-rose-100">{balcaoAudit.semDevolucao.toLocaleString("pt-BR")}</p>
-              <p className="mt-1 text-[10px] text-rose-300/70">protocolos</p>
+              <p className="text-3xl font-bold text-slate-900 dark:text-rose-100">{balcaoAudit.semDevolucao.toLocaleString("pt-BR")}</p>
+              <p className="mt-1 text-[10px] text-rose-600 dark:text-rose-300/70">protocolos</p>
             </div>
           </div>
         </button>
       </div>
 
       <motion.section
-        className="overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl sm:p-6"
+        className="overflow-hidden rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl sm:p-6"
         initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: prefersReducedMotion ? 0 : 0.35 }}
@@ -1169,35 +1169,35 @@ export function MetasDashboardClient() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex flex-wrap items-center gap-2.5">
-              <h3 className="text-sm font-semibold text-white sm:text-base">Média de Dias por Fase</h3>
-              <span className="rounded-md border border-white/8 bg-white/[0.05] px-2 py-1 text-[10px] font-semibold uppercase text-white/55">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white sm:text-base">Média de Dias por Fase</h3>
+              <span className="rounded-md border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.05] px-2 py-1 text-[10px] font-semibold uppercase text-slate-600 dark:text-white/55">
                 9 Transições de Esteira
               </span>
             </div>
-            <p className="mt-2 text-xs text-white/40">
+            <p className="mt-2 text-xs text-slate-500 dark:text-white/40">
               Clique em qualquer barra do gráfico para filtrar a lista de protocolos na tabela abaixo.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
             {chartBottleneck && (
-              <div className="inline-flex items-center gap-2 rounded-lg border border-amber-400/20 bg-amber-400/[0.08] px-3 py-2 text-[10px] font-semibold uppercase text-amber-200 shadow-[0_10px_30px_rgba(0,0,0,0.16)]">
+              <div className="inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-[10px] font-semibold uppercase text-amber-700 dark:text-amber-200 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
                 <span className={`h-1.5 w-1.5 rounded-full bg-amber-400 ${prefersReducedMotion ? "" : "animate-pulse"}`} />
                 <span>Maior tempo médio: <strong>{chartBottleneck.label} ({chartBottleneck.dias}d)</strong></span>
-                <span className="text-white/35">•</span>
-                <span className="normal-case text-white/70">
+                <span className="text-slate-400 dark:text-white/35">•</span>
+                <span className="normal-case text-slate-600 dark:text-white/70">
                   {chartBottleneck.count.toLocaleString("pt-BR")} protocolos
                 </span>
               </div>
             )}
 
             {gargaloFilter !== "ALL" && (
-            <div className="flex items-center gap-2 rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-[10px] text-cyan-200">
+            <div className="flex items-center gap-2 rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 text-[10px] text-cyan-700 dark:text-cyan-200 font-semibold">
                 <span>Filtrado por: <strong>{gargaloFilter}</strong></span>
                 <button
                   type="button"
                   onClick={() => setGargaloFilter("ALL")}
-                  className="rounded p-0.5 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+                  className="rounded p-0.5 transition-colors hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
                   title="Remover filtro do gráfico"
                   aria-label="Remover filtro do gráfico"
                 >
@@ -1226,10 +1226,10 @@ export function MetasDashboardClient() {
                     <feDropShadow dx="0" dy="0" stdDeviation="5" floodColor="#F59E0B" floodOpacity="0.45" />
                   </filter>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.10)" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.18)" vertical={false} />
                 <XAxis
                   dataKey="fullName"
-                  stroke="rgba(255,255,255,0.45)"
+                  stroke="rgba(148,163,184,0.8)"
                   fontSize={10}
                   fontWeight={500}
                   interval={0}
@@ -1238,14 +1238,14 @@ export function MetasDashboardClient() {
                   tickMargin={10}
                 />
                 <YAxis
-                  stroke="rgba(255,255,255,0.38)"
+                  stroke="rgba(148,163,184,0.8)"
                   fontSize={10}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(value) => `${Math.round(Number(value))}d`}
                 />
                 <Tooltip
-                  cursor={{ fill: "rgba(255,255,255,0.025)", radius: 8 }}
+                  cursor={{ fill: "rgba(148,163,184,0.06)", radius: 8 }}
                   content={(
                     <PremiumChartTooltip
                       totalProtocols={kpis?.total || 0}
@@ -1280,18 +1280,18 @@ export function MetasDashboardClient() {
       </motion.section>
 
       {/* Tabela Container */}
-      <div ref={tableRef} className="flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-[#0B1020]/72 text-white shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl scroll-mt-24">
+      <div ref={tableRef} className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 text-slate-900 dark:text-white shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl scroll-mt-24">
 
         {/* Toolbar de Busca, Filtros e Exportação CSV */}
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/8 bg-white/[0.01] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-white/8 bg-slate-50/50 dark:bg-white/[0.01] p-4">
           <div className="relative max-w-xs w-full">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-white/40" />
+              <Search className="h-4 w-4 text-slate-400 dark:text-white/40" />
             </div>
             <input
               type="text"
               placeholder="Buscar por Protocolo..."
-              className="w-full rounded-lg border border-white/10 bg-[#0C1323] pl-10 pr-4 py-2 text-sm text-white transition-all placeholder:text-white/30 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
+              className="w-full rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0C1323] pl-10 pr-4 py-2 text-sm text-slate-900 dark:text-white transition-all placeholder:text-slate-400 dark:placeholder:text-white/30 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -1302,7 +1302,7 @@ export function MetasDashboardClient() {
               <button
                 type="button"
                 onClick={() => setBalcaoFilter("TODOS")}
-                className="flex items-center gap-1.5 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-1.5 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-400/15"
+                className="flex items-center gap-1.5 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-200 transition-colors hover:bg-amber-400/20"
               >
                 {balcaoFilter === "SEM_REG" ? "Sem registro ID 76" : "Sem devolução ID 75"}
                 <X className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1310,10 +1310,10 @@ export function MetasDashboardClient() {
             )}
 
             {/* Filtro Status */}
-            <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#0C1323] px-3 py-1.5">
-              <Filter className="h-3.5 w-3.5 text-white/40" />
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0C1323] px-3 py-1.5">
+              <Filter className="h-3.5 w-3.5 text-slate-400 dark:text-white/40" />
               <select 
-                className="bg-transparent text-sm text-white focus:outline-none appearance-none pr-4"
+                className="bg-transparent text-sm text-slate-800 dark:text-white focus:outline-none appearance-none pr-4"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
@@ -1323,10 +1323,10 @@ export function MetasDashboardClient() {
             </div>
 
             {/* Filtro Meta (STATUS_META) */}
-            <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#0C1323] px-3 py-1.5">
-              <Target className="h-3.5 w-3.5 text-cyan-300" />
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0C1323] px-3 py-1.5">
+              <Target className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-300" />
               <select 
-                className="bg-transparent text-sm text-white focus:outline-none appearance-none pr-4 max-w-[170px] truncate"
+                className="bg-transparent text-sm text-slate-800 dark:text-white focus:outline-none appearance-none pr-4 max-w-[170px] truncate"
                 value={metaFilter}
                 onChange={(e) => setMetaFilter(e.target.value)}
               >
@@ -1339,10 +1339,10 @@ export function MetasDashboardClient() {
             </div>
 
             {/* Filtro Gargalo */}
-            <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#0C1323] px-3 py-1.5">
-              <Filter className="h-3.5 w-3.5 text-white/40" />
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0C1323] px-3 py-1.5">
+              <Filter className="h-3.5 w-3.5 text-slate-400 dark:text-white/40" />
               <select 
-                className="bg-transparent text-sm text-white focus:outline-none appearance-none pr-4 max-w-[150px] truncate"
+                className="bg-transparent text-sm text-slate-800 dark:text-white focus:outline-none appearance-none pr-4 max-w-[150px] truncate"
                 value={gargaloFilter}
                 onChange={(e) => setGargaloFilter(e.target.value)}
               >
@@ -1352,10 +1352,10 @@ export function MetasDashboardClient() {
             </div>
 
             {/* Ordenação */}
-            <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#0C1323] px-3 py-1.5">
-              <ArrowUpDown className="h-3.5 w-3.5 text-amber-300" />
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0C1323] px-3 py-1.5">
+              <ArrowUpDown className="h-3.5 w-3.5 text-amber-600 dark:text-amber-300" />
               <select 
-                className="bg-transparent text-sm text-white focus:outline-none appearance-none pr-4 max-w-[170px] truncate"
+                className="bg-transparent text-sm text-slate-800 dark:text-white focus:outline-none appearance-none pr-4 max-w-[170px] truncate"
                 value={`${sortField}-${sortOrder}`}
                 onChange={(e) => {
                   const [field, order] = e.target.value.split("-") as [SortField, SortOrder];
@@ -1381,17 +1381,17 @@ export function MetasDashboardClient() {
             <button
               onClick={() => handleExportCSV(paginatedData, `metas_pagina_${currentPage}`)}
               title="Exportar registros visíveis na página atual para CSV"
-              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/8 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white/90 transition-all hover:bg-white/[0.08]"
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-white/90 transition-all hover:bg-slate-200 dark:hover:bg-white/[0.08]"
             >
-              <Download className="w-3.5 h-3.5 text-cyan-300" /> Exportar Página (CSV)
+              <Download className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-300" /> Exportar Página (CSV)
             </button>
 
             <button
               onClick={() => handleExportCSV(filteredData, "metas_filtradas")}
               title="Exportar todos os registros filtrados para CSV"
-              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-200 transition-all hover:bg-cyan-500/16"
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-700 dark:text-cyan-200 transition-all hover:bg-cyan-500/20"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-amber-300" /> Exportar Filtrados (CSV)
+              <FileSpreadsheet className="w-3.5 h-3.5 text-amber-600 dark:text-amber-300" /> Exportar Filtrados (CSV)
             </button>
           </div>
         </div>
@@ -1399,11 +1399,11 @@ export function MetasDashboardClient() {
         {/* Tabela de Dados */}
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="select-none bg-white/[0.03] text-xs uppercase text-white/60">
+            <thead className="select-none bg-slate-50 dark:bg-white/[0.03] text-xs uppercase text-slate-600 dark:text-white/60 border-b border-slate-200 dark:border-white/8">
               <tr>
                 <th 
                   onClick={() => handleSort("protocolo")}
-                  className="group cursor-pointer px-4 py-3 font-semibold transition-colors hover:bg-white/[0.05] hover:text-white"
+                  className="group cursor-pointer px-4 py-3 font-semibold transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
                 >
                   <div className="flex items-center gap-1">
                     Protocolo {renderSortIcon("protocolo")}
@@ -1519,12 +1519,12 @@ export function MetasDashboardClient() {
                     key={prot} 
                     onClick={() => setSelectedProtocol(row)}
                     title="Clique para ver o detalhamento completo do protocolo"
-                    className={`cursor-pointer border-b border-white/5 transition-colors ${
-                      hasAuditPending ? "bg-amber-500/[0.045] hover:bg-amber-500/[0.08]" : "hover:bg-white/[0.045]"
+                    className={`cursor-pointer border-b border-slate-100 dark:border-white/5 transition-colors ${
+                      hasAuditPending ? "bg-amber-500/[0.08] dark:bg-amber-500/[0.045] hover:bg-amber-500/[0.12] dark:hover:bg-amber-500/[0.08]" : "hover:bg-slate-50/80 dark:hover:bg-white/[0.045]"
                     }`}
                   >
-                    <td className="px-4 py-3 font-medium text-amber-300 underline decoration-amber-300/30 underline-offset-4">{prot}</td>
-                    <td className="px-4 py-3 text-xs text-white/80 max-w-[160px] truncate" title={natVal || "-"}>
+                    <td className="px-4 py-3 font-medium text-amber-700 dark:text-amber-300 underline decoration-amber-500/30 underline-offset-4">{prot}</td>
+                    <td className="px-4 py-3 text-xs text-slate-700 dark:text-white/80 max-w-[160px] truncate" title={natVal || "-"}>
                       {natVal || "-"}
                     </td>
                     <td className="px-4 py-3">
@@ -1535,42 +1535,42 @@ export function MetasDashboardClient() {
                         {badge.text}
                       </span>
                     </td>
-                    <td className={`px-4 py-3 font-medium ${atrasoDias > 0 ? 'text-red-400 font-bold' : 'text-emerald-400 font-medium'}`}>
+                    <td className={`px-4 py-3 font-medium ${atrasoDias > 0 ? 'text-red-500 dark:text-red-400 font-bold' : 'text-emerald-600 dark:text-emerald-400 font-medium'}`}>
                       {atrasoDias > 0 ? `${atrasoDias}d` : '0d'}
                     </td>
-                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]" title={d1Val ? formatDateFull(d1Val) : "-"}>{formatDate(d1Val)}</td>
-                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]" title={d3Val ? formatDateFull(d3Val) : "-"}>{formatDate(d3Val)}</td>
-                    <td className={`px-4 py-3 text-[11px] text-center bg-white/[0.01] ${gargalo.name.includes("EXTRATO -> QUALIFICACAO") ? "text-orange-400 font-bold" : "text-white/70"}`} title={d4Val ? formatDateFull(d4Val) : "-"}>
+                    <td className="px-4 py-3 text-[11px] text-slate-600 dark:text-white/70 text-center bg-slate-50/40 dark:bg-white/[0.01]" title={d1Val ? formatDateFull(d1Val) : "-"}>{formatDate(d1Val)}</td>
+                    <td className="px-4 py-3 text-[11px] text-slate-600 dark:text-white/70 text-center bg-slate-50/40 dark:bg-white/[0.01]" title={d3Val ? formatDateFull(d3Val) : "-"}>{formatDate(d3Val)}</td>
+                    <td className={`px-4 py-3 text-[11px] text-center bg-slate-50/40 dark:bg-white/[0.01] ${gargalo.name.includes("EXTRATO -> QUALIFICACAO") ? "text-orange-600 dark:text-orange-400 font-bold" : "text-slate-600 dark:text-white/70"}`} title={d4Val ? formatDateFull(d4Val) : "-"}>
                       {formatDate(d4Val)}
                     </td>
-                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]" title={d5Val ? formatDateFull(d5Val) : "-"}>{formatDate(d5Val)}</td>
-                    <td className="px-4 py-3 text-[11px] text-white/70 text-center bg-white/[0.01]" title={d8Val ? formatDateFull(d8Val) : "-"}>{formatDate(d8Val)}</td>
-                    <td className={`px-4 py-3 text-[11px] text-center bg-white/[0.01] ${d10Val ? "text-white/90 font-medium" : "text-white/30"}`} title={d10Val ? formatDateFull(d10Val) : "-"}>
+                    <td className="px-4 py-3 text-[11px] text-slate-600 dark:text-white/70 text-center bg-slate-50/40 dark:bg-white/[0.01]" title={d5Val ? formatDateFull(d5Val) : "-"}>{formatDate(d5Val)}</td>
+                    <td className="px-4 py-3 text-[11px] text-slate-600 dark:text-white/70 text-center bg-slate-50/40 dark:bg-white/[0.01]" title={d8Val ? formatDateFull(d8Val) : "-"}>{formatDate(d8Val)}</td>
+                    <td className={`px-4 py-3 text-[11px] text-center bg-slate-50/40 dark:bg-white/[0.01] ${d10Val ? "text-slate-900 dark:text-white/90 font-medium" : "text-slate-400 dark:text-white/30"}`} title={d10Val ? formatDateFull(d10Val) : "-"}>
                       {d10Val ? formatDate(d10Val) : "-"}
                     </td>
-                    <td className="px-4 py-3 text-[11px] text-center bg-white/[0.01]">
+                    <td className="px-4 py-3 text-[11px] text-center bg-slate-50/40 dark:bg-white/[0.01]">
                       {balcao.dBalcaoRegistrado ? (
-                        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-emerald-300">
+                        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-emerald-600 dark:text-emerald-300">
                           <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> {formatDate(balcao.dBalcaoRegistrado)}
                         </span>
                       ) : (
-                        <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${balcao.semRegistro ? "font-semibold text-amber-300" : "text-white/35"}`}>
+                        <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${balcao.semRegistro ? "font-semibold text-amber-600 dark:text-amber-300" : "text-slate-400 dark:text-white/35"}`}>
                           <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> Pendente
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-[11px] text-center bg-white/[0.01]">
+                    <td className="px-4 py-3 text-[11px] text-center bg-slate-50/40 dark:bg-white/[0.01]">
                       {balcao.dBalcaoDevolvido ? (
-                        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-emerald-300">
+                        <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-emerald-600 dark:text-emerald-300">
                           <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> {formatDate(balcao.dBalcaoDevolvido)}
                         </span>
                       ) : (
-                        <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${balcao.semDevolucao ? "font-semibold text-rose-300" : "text-white/35"}`}>
+                        <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${balcao.semDevolucao ? "font-semibold text-rose-600 dark:text-rose-300" : "text-slate-400 dark:text-white/35"}`}>
                           <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> Pendente
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-[11px] font-medium text-amber-200">
+                    <td className="px-4 py-3 text-[11px] font-medium text-amber-700 dark:text-amber-200">
                       {gargalo.name} ({gargalo.dias !== null ? `${gargalo.dias}d` : '0d'})
                     </td>
                   </tr>
@@ -1580,27 +1580,27 @@ export function MetasDashboardClient() {
           </table>
 
           {filteredData.length === 0 && (
-            <div className="p-8 text-center text-white/50">
+            <div className="p-8 text-center text-slate-500 dark:text-white/50">
               Nenhum protocolo encontrado com os filtros atuais.
             </div>
           )}
         </div>
 
         {/* Rodapé com Barra de Paginação Completa */}
-        <div className="flex flex-col items-center justify-between gap-4 border-t border-white/8 bg-white/[0.03] px-6 py-3.5 sm:flex-row">
+        <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.03] px-6 py-3.5 sm:flex-row">
           {/* Informação de intervalo */}
-          <div className="text-xs text-white/60 text-center sm:text-left">
-            Exibindo <strong className="text-white">{totalFiltered > 0 ? (startIndex + 1).toLocaleString("pt-BR") : "0"}</strong> a{" "}
-            <strong className="text-white">{endIndex.toLocaleString("pt-BR")}</strong> de{" "}
-            <strong className="text-white">{totalFiltered.toLocaleString("pt-BR")}</strong> registros
+          <div className="text-xs text-slate-500 dark:text-white/60 text-center sm:text-left">
+            Exibindo <strong className="text-slate-900 dark:text-white">{totalFiltered > 0 ? (startIndex + 1).toLocaleString("pt-BR") : "0"}</strong> a{" "}
+            <strong className="text-slate-900 dark:text-white">{endIndex.toLocaleString("pt-BR")}</strong> de{" "}
+            <strong className="text-slate-900 dark:text-white">{totalFiltered.toLocaleString("pt-BR")}</strong> registros
           </div>
 
           {/* Controles de Paginação & Itens Por Página */}
           <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
             {/* Seletor de Tamanho de Página */}
-            <div className="flex items-center gap-1.5 text-xs text-white/60">
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-white/60">
               <span>Exibir:</span>
-              <div className="flex items-center gap-1 rounded-lg border border-white/8 bg-white/[0.04] p-0.5">
+              <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] p-0.5">
                 {[10, 20, 50, 100].map((size) => (
                   <button
                     key={size}
@@ -1608,7 +1608,7 @@ export function MetasDashboardClient() {
                     className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
                       itemsPerPage === size
                         ? "bg-gradient-to-r from-indigo-500 to-amber-400 font-semibold text-white shadow-xs"
-                        : "text-white/60 hover:text-white"
+                        : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
                     }`}
                   >
                     {size}
@@ -1624,7 +1624,7 @@ export function MetasDashboardClient() {
                 onClick={() => handlePageChange(1)}
                 disabled={currentPage <= 1}
                 title="Primeira Página"
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white transition-all hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <ChevronsLeft size={15} />
               </button>
@@ -1634,12 +1634,12 @@ export function MetasDashboardClient() {
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage <= 1}
                 title="Página Anterior"
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white transition-all hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <ChevronLeft size={15} />
               </button>
 
-              <span className="text-xs px-2 font-medium text-white min-w-[90px] text-center">
+              <span className="text-xs px-2 font-medium text-slate-700 dark:text-white min-w-[90px] text-center">
                 Página {currentPage.toLocaleString("pt-BR")} de {totalPages.toLocaleString("pt-BR")}
               </span>
 
@@ -1648,7 +1648,7 @@ export function MetasDashboardClient() {
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage >= totalPages}
                 title="Próxima Página"
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white transition-all hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <ChevronRight size={15} />
               </button>
@@ -1658,7 +1658,7 @@ export function MetasDashboardClient() {
                 onClick={() => handlePageChange(totalPages)}
                 disabled={currentPage >= totalPages}
                 title="Última Página"
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white transition-all hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <ChevronsRight size={15} />
               </button>
@@ -1702,45 +1702,45 @@ export function MetasDashboardClient() {
           <div className="fixed inset-0 z-50 flex justify-end">
             {/* Backdrop */}
             <div 
-              className="fixed inset-0 bg-[#05070D]/75 backdrop-blur-sm transition-opacity animate-in fade-in"
+              className="fixed inset-0 bg-slate-900/60 dark:bg-[#05070D]/75 backdrop-blur-sm transition-opacity animate-in fade-in"
               onClick={() => setSelectedProtocol(null)}
             />
 
             {/* Painel Lateral */}
-            <div className="relative z-10 flex h-full w-full max-w-lg flex-col overflow-hidden border-l border-white/8 bg-[#0B1020]/96 shadow-2xl shadow-black/30 animate-in slide-in-from-right duration-300">
+            <div className="relative z-10 flex h-full w-full max-w-lg flex-col overflow-hidden border-l border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/96 text-slate-900 dark:text-white shadow-2xl shadow-black/20 dark:shadow-black/30 animate-in slide-in-from-right duration-300">
               
               {/* Header do Drawer */}
-              <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.025] p-6">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.025] p-6">
                 <div>
-                  <h2 className="flex items-center gap-2 text-xl font-bold text-white">
-                    Protocolo <span className="text-amber-300">{protNum}</span>
+                  <h2 className="flex items-center gap-2 text-xl font-bold text-slate-900 dark:text-white">
+                    Protocolo <span className="text-amber-600 dark:text-amber-300 font-bold">{protNum}</span>
                   </h2>
-                  <p className="mt-0.5 text-xs text-white/50">Linha do Tempo e Detalhamento por Fase</p>
+                  <p className="mt-0.5 text-xs text-slate-500 dark:text-white/50">Linha do Tempo e Detalhamento por Fase</p>
                 </div>
 
                 <button
                   onClick={() => setSelectedProtocol(null)}
-                  className="cursor-pointer rounded-xl bg-white/[0.05] p-2 text-white/70 transition-colors hover:bg-white/[0.1] hover:text-white"
+                  className="cursor-pointer rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.05] dark:hover:bg-white/[0.1] p-2 text-slate-500 hover:text-slate-900 dark:text-white/70 dark:hover:text-white transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Conteúdo com Scroll */}
-                <div className="flex-1 space-y-6 overflow-y-auto p-6">
+              <div className="flex-1 space-y-6 overflow-y-auto p-6">
                 
                 {/* Badges de Status & Atraso Sem Duplicidade */}
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.04] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.04] p-4">
                   <div>
-                    <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1">Status do Pedido</p>
+                    <p className="text-[10px] font-semibold text-slate-500 dark:text-white/40 uppercase tracking-wider mb-1">Status do Pedido</p>
                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${badge.bgClass}`}>
                       {badge.text}
                     </span>
                   </div>
 
                   <div className="text-right">
-                    <p className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1">Dias de Atraso</p>
-                    <span className={`text-sm font-bold ${atrasoDias > 0 ? 'text-rose-300' : 'text-emerald-400'}`}>
+                    <p className="text-[10px] font-semibold text-slate-500 dark:text-white/40 uppercase tracking-wider mb-1">Dias de Atraso</p>
+                    <span className={`text-sm font-bold ${atrasoDias > 0 ? 'text-rose-600 dark:text-rose-300' : 'text-emerald-600 dark:text-emerald-400'}`}>
                       {atrasoDias > 0 ? `${atrasoDias}d` : '0d'}
                     </span>
                   </div>
@@ -1748,11 +1748,11 @@ export function MetasDashboardClient() {
 
                 {/* Alerta de Retrabalho */}
                 {retrabalho > 0 && (
-                  <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-center gap-3 text-yellow-300 text-xs font-medium">
-                    <AlertTriangle className="w-5 h-5 shrink-0 text-yellow-400" />
+                  <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-center gap-3 text-yellow-800 dark:text-yellow-300 text-xs font-medium">
+                    <AlertTriangle className="w-5 h-5 shrink-0 text-yellow-600 dark:text-yellow-400" />
                     <div>
                       <p className="font-bold">Atenção: Retrabalho Registrado ({retrabalho})</p>
-                      <p className="text-yellow-300/80 text-[11px] mt-0.5">
+                      <p className="text-yellow-700/80 dark:text-yellow-300/80 text-[11px] mt-0.5">
                         Este protocolo passou por {retrabalho} reanálise(s) de retrabalho.
                       </p>
                     </div>
@@ -1761,28 +1761,28 @@ export function MetasDashboardClient() {
 
                 {/* Seção 1 - Datas das Fases (10 Fases) */}
                 <div className="space-y-3">
-                  <h3 className="text-xs font-bold text-white/70 uppercase tracking-wider flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-blue-400" /> Seção 1 - Datas das Fases
+                  <h3 className="text-xs font-bold text-slate-700 dark:text-white/70 uppercase tracking-wider flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-blue-500 dark:text-blue-400" /> Seção 1 - Datas das Fases
                   </h3>
                   
-                  <div className="bg-white/5 border border-white/10 rounded-xl divide-y divide-white/5 text-xs">
+                  <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl divide-y divide-slate-200 dark:divide-white/5 text-xs">
                     {datesMap.map((d, idx) => {
                       const stepStatus = getStepStatusInfo(selectedProtocol, idx);
                       const isUnregistered = stepStatus === "NAO REGISTRADA";
 
                       return (
                         <div key={idx} className="p-3 flex justify-between items-center">
-                          <span className="text-white/60 font-mono">{d.label}:</span>
+                          <span className="text-slate-500 dark:text-white/60 font-mono">{d.label}:</span>
                           {d.val ? (
-                            <span className="font-medium text-white">
+                            <span className="font-medium text-slate-900 dark:text-white">
                               {formatDate(d.val)}
                             </span>
                           ) : isUnregistered ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white/10 text-white/50 border border-white/10">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-200/60 dark:bg-white/10 text-slate-600 dark:text-white/50 border border-slate-300/60 dark:border-white/10">
                               Não registrada
                             </span>
                           ) : (
-                            <span className="font-medium text-white/30">
+                            <span className="font-medium text-slate-400 dark:text-white/30">
                               -
                             </span>
                           )}
@@ -1794,36 +1794,36 @@ export function MetasDashboardClient() {
 
                 {/* Seção 2 - Quadro de Dias por Fase (9 Transições) */}
                 <div className="space-y-3">
-                  <h3 className="text-xs font-bold text-white/70 uppercase tracking-wider flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-purple-400" /> Seção 2 - Quadro de Dias por Fase
+                  <h3 className="text-xs font-bold text-slate-700 dark:text-white/70 uppercase tracking-wider flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-purple-600 dark:text-purple-400" /> Seção 2 - Quadro de Dias por Fase
                   </h3>
 
-                  <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 text-xs">
+                  <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 space-y-3 text-xs">
                     {phases.map((phase, idx) => {
                       const hasDays = phase.dias !== null && phase.dias !== undefined;
                       const isGargalo = phase.official && hasDays && (phase.dias ?? 0) > 3;
                       const isUnregistered = phase.status === "NAO REGISTRADA";
 
                       return (
-                        <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02]">
+                        <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-white/[0.02] border border-slate-200/60 dark:border-transparent">
                           <div className="flex items-center gap-2">
-                            <span className="text-white/70 font-medium">{phase.label}</span>
+                            <span className="text-slate-700 dark:text-white/70 font-medium">{phase.label}</span>
                             {!phase.official && (
-                              <span className="text-[9px] text-white/40 border border-white/10 px-1.5 py-0.2 rounded">Demonstrativo</span>
+                              <span className="text-[9px] text-slate-500 dark:text-white/40 border border-slate-300 dark:border-white/10 px-1.5 py-0.2 rounded">Demonstrativo</span>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
                             {isUnregistered ? (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-white/10 text-white/50 border border-white/10">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-200/60 dark:bg-white/10 text-slate-600 dark:text-white/50 border border-slate-300/60 dark:border-white/10">
                                 Não registrada
                               </span>
                             ) : (
-                              <span className={`font-bold ${isGargalo ? "text-rose-300" : hasDays ? "text-white" : "text-white/30"}`}>
+                              <span className={`font-bold ${isGargalo ? "text-rose-600 dark:text-rose-300" : hasDays ? "text-slate-900 dark:text-white" : "text-slate-400 dark:text-white/30"}`}>
                                 {hasDays ? `${phase.dias}d` : "-"}
                               </span>
                             )}
                             {isGargalo && (
-                              <span className="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold">
+                              <span className="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-600 dark:text-rose-300 border border-rose-500/30 text-[10px] font-bold">
                                 Gargalo
                               </span>
                             )}
@@ -1833,9 +1833,9 @@ export function MetasDashboardClient() {
                     })}
 
                     {/* TOTAL */}
-                    <div className="pt-3 border-t border-white/10 flex items-center justify-between font-bold text-sm text-white">
-                      <span className="text-purple-300">TOTAL DE DIAS NA ESTEIRA (OFICIAL):</span>
-                      <span className="text-purple-400 bg-purple-500/10 border border-purple-500/30 px-3 py-1 rounded-lg">
+                    <div className="pt-3 border-t border-slate-200 dark:border-white/10 flex items-center justify-between font-bold text-sm text-slate-900 dark:text-white">
+                      <span className="text-purple-700 dark:text-purple-300">TOTAL DE DIAS NA ESTEIRA (OFICIAL):</span>
+                      <span className="text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/30 px-3 py-1 rounded-lg">
                         {temAlgumDia ? `${totalDiasSoma} dias` : '-'}
                       </span>
                     </div>
@@ -1845,10 +1845,10 @@ export function MetasDashboardClient() {
               </div>
 
               {/* Footer do Drawer */}
-              <div className="p-4 border-t border-white/10 bg-white/[0.02] flex justify-end">
+              <div className="p-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] flex justify-end">
                 <button
                   onClick={() => setSelectedProtocol(null)}
-                  className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-white/10 dark:hover:bg-white/20 text-slate-800 dark:text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
                 >
                   Fechar
                 </button>
@@ -1860,3 +1860,4 @@ export function MetasDashboardClient() {
     </div>
   );
 }
+

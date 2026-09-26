@@ -30,14 +30,14 @@ export default async function MinhaContaPage() {
       : 'border-blue-400/30 bg-blue-400/10 text-blue-200';
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-amber-500/30 dark:bg-[#070A12] dark:text-white transition-colors duration-300 relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-white/10" />
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <span>Dashboard</span>
@@ -45,7 +45,7 @@ export default async function MinhaContaPage() {
               <span className="text-amber-300">Minha Conta</span>
             </div>
             <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                 Minha Conta & Perfil
               </h1>
               <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-amber-300">
@@ -55,14 +55,14 @@ export default async function MinhaContaPage() {
           </div>
         </div>
 
-        <section className="rounded-3xl border border-white/10 bg-[#111827] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.25)] md:p-6">
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#111827] md:p-6">
           <div className="grid gap-4 md:grid-cols-[1.2fr_1fr]">
-            <div className="rounded-2xl border border-white/10 bg-[#151C2F] p-5">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 dark:border-white/10 dark:bg-[#151C2F] p-5">
               <div className="mb-4 flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs uppercase tracking-[0.22em] text-white/35">Perfil do usuário</p>
-                  <h2 className="mt-2 text-xl font-semibold text-white">{user.name}</h2>
-                  <p className="mt-1 text-sm text-white/55">{user.email}</p>
+                  <h2 className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">{user.name}</h2>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-white/55">{user.email}</p>
                 </div>
 
                 <span className={`rounded-lg border px-3 py-1 text-xs font-bold ${roleBadgeClass}`}>
@@ -71,14 +71,14 @@ export default async function MinhaContaPage() {
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
                   <p className="text-xs uppercase tracking-[0.16em] text-white/35">Acesso</p>
-                  <p className="mt-2 text-sm font-medium text-white">Login por e-mail e senha</p>
+                  <p className="mt-2 text-sm font-medium text-slate-800 dark:text-white">Login por e-mail e senha</p>
                 </div>
 
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.03]">
                   <p className="text-xs uppercase tracking-[0.16em] text-white/35">Segurança</p>
-                  <p className="mt-2 text-sm font-medium text-white">Atualização manual da senha</p>
+                  <p className="mt-2 text-sm font-medium text-slate-800 dark:text-white">Atualização manual da senha</p>
                 </div>
               </div>
 
@@ -106,10 +106,10 @@ export default async function MinhaContaPage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-white/10 bg-[#111827] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.25)] md:p-6">
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#111827] md:p-6">
           <div className="mb-5 space-y-1">
-            <h2 className="text-lg font-semibold text-white">Alterar senha</h2>
-            <p className="text-sm text-white/55">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Alterar senha</h2>
+            <p className="text-sm text-slate-500 dark:text-white/55">
               Informe sua senha atual e defina uma nova senha para acessar o FIORIX.
             </p>
           </div>
@@ -118,10 +118,10 @@ export default async function MinhaContaPage() {
         </section>
 
         {/* MÓDULO MENSAGENS — NOTIFICAÇÕES & PRIVACIDADE */}
-        <section className="rounded-3xl border border-white/10 bg-[#111827] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.25)] md:p-6">
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#111827] md:p-6">
           <div className="mb-5 space-y-1">
-            <h2 className="text-lg font-semibold text-white">Notificações & Privacidade</h2>
-            <p className="text-sm text-white/55">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Notificações & Privacidade</h2>
+            <p className="text-sm text-slate-500 dark:text-white/55">
               Personalize alertas de mensagens diretas, grupos, sons e prévias na tela de bloqueio.
             </p>
           </div>
@@ -130,10 +130,10 @@ export default async function MinhaContaPage() {
         </section>
 
         {/* MÓDULO MENSAGENS — DISPOSITIVOS CONECTADOS */}
-        <section className="rounded-3xl border border-white/10 bg-[#111827] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.25)] md:p-6">
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#111827] md:p-6">
           <div className="mb-5 space-y-1">
-            <h2 className="text-lg font-semibold text-white">Segurança & Dispositivos Conectados</h2>
-            <p className="text-sm text-white/55">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Segurança & Dispositivos Conectados</h2>
+            <p className="text-sm text-slate-500 dark:text-white/55">
               Gerencie aparelhos autorizados a receber notificações Web Push e revogue acessos instantaneamente.
             </p>
           </div>

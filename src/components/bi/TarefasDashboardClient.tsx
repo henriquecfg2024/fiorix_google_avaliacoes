@@ -147,7 +147,7 @@ function matchesKpiFilter(
 }
 
 const taskPanelClass =
-  "rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl";
+  "rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl";
 const chartVisibilityStorageKey = "fiorix:tarefas:chart-visibility";
 
 function escapePrintValue(value: unknown) {
@@ -824,21 +824,21 @@ export function TarefasDashboardClient() {
   return (
     <div className="space-y-6">
       {/* Barra de Escopo de Visualização / Filtro de Cohort (Ano e Tipo de Ato) */}
-      <div className="flex flex-col gap-4 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-5 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-purple-500/30 bg-purple-500/15 text-purple-400">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-purple-500/30 bg-purple-500/15 text-purple-600 dark:text-purple-400">
             <Filter className="h-5 w-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-white">Escopo do Estoque</h3>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Escopo do Estoque</h3>
               {(selectedAno !== "ALL" || selectedTipoAto !== "ALL") && (
-                <Badge className="border-purple-500/30 bg-purple-500/20 text-[10px] text-purple-200">
+                <Badge className="border-purple-500/30 bg-purple-500/20 text-[10px] text-purple-700 dark:text-purple-200">
                   Filtro Ativo ({tarefasEscopadas.length} tarefas)
                 </Badge>
               )}
             </div>
-            <p className="text-xs text-white/50">
+            <p className="text-xs text-slate-500 dark:text-white/50">
               {selectedAno === "2026" && selectedTipoAto === "PRENOTACAO"
                 ? "🎯 Amostragem alinhada com o universo do BI METAS (2026 • Prenotações)"
                 : "Alinhe a amostragem com o METAS ou visualize todo o estoque ativo do cartório."}
@@ -849,11 +849,11 @@ export function TarefasDashboardClient() {
         <div className="flex flex-wrap items-center gap-3">
           {/* Seletor Ano de Entrada */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-white/60">Ano:</span>
+            <span className="text-xs font-medium text-slate-600 dark:text-white/60">Ano:</span>
             <select
               value={selectedAno}
               onChange={(e) => setSelectedAno(e.target.value)}
-              className="h-9 rounded-xl border border-white/10 bg-[#0C1323] px-3 text-xs font-medium text-white shadow-sm transition-colors hover:border-white/20 focus:border-purple-400 focus:outline-none"
+              className="h-9 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0C1323] px-3 text-xs font-medium text-slate-900 dark:text-white shadow-sm transition-colors hover:border-slate-300 dark:hover:border-white/20 focus:border-purple-500 focus:outline-none"
             >
               <option value="ALL">Todos os Anos (Estoque Total)</option>
               <option value="2026">2026 (Ano Atual • Padrão Metas)</option>
@@ -865,11 +865,11 @@ export function TarefasDashboardClient() {
 
           {/* Seletor Tipo de Ato */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-white/60">Tipo de Ato:</span>
+            <span className="text-xs font-medium text-slate-600 dark:text-white/60">Tipo de Ato:</span>
             <select
               value={selectedTipoAto}
               onChange={(e) => setSelectedTipoAto(e.target.value)}
-              className="h-9 rounded-xl border border-white/10 bg-[#0C1323] px-3 text-xs font-medium text-white shadow-sm transition-colors hover:border-white/20 focus:border-purple-400 focus:outline-none"
+              className="h-9 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0C1323] px-3 text-xs font-medium text-slate-900 dark:text-white shadow-sm transition-colors hover:border-slate-300 dark:hover:border-white/20 focus:border-purple-500 focus:outline-none"
             >
               <option value="ALL">Todos os Tipos de Atos</option>
               <option value="PRENOTACAO">Apenas Prenotações (Padrão Metas)</option>
@@ -890,7 +890,7 @@ export function TarefasDashboardClient() {
               }}
               variant="ghost"
               size="sm"
-              className="h-9 gap-1 text-xs text-white/60 hover:bg-white/10 hover:text-white"
+              className="h-9 gap-1 text-xs text-slate-500 hover:text-slate-900 dark:text-white/60 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10"
             >
               <X className="h-3.5 w-3.5" />
               Limpar
@@ -901,7 +901,7 @@ export function TarefasDashboardClient() {
             onClick={fetchData}
             disabled={isLoading}
             variant="outline"
-            className="h-9 gap-2 rounded-xl border-white/8 bg-white/[0.04] text-xs font-medium text-white shadow-sm hover:bg-white/[0.08]"
+            className="h-9 gap-2 rounded-xl border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] text-xs font-medium text-slate-700 dark:text-white shadow-sm hover:bg-slate-200 dark:hover:bg-white/[0.08]"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
             Atualizar Previsões
@@ -968,10 +968,10 @@ export function TarefasDashboardClient() {
       </div>
 
       {/* Controles de Visibilidade dos Gráficos */}
-      <div className="flex flex-col gap-3 rounded-xl border border-white/8 bg-white/[0.025] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.025] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-semibold text-white">Exibição dos gráficos</p>
-          <p className="text-[11px] text-white/45">Habilite ou desabilite cada gráfico conforme necessário.</p>
+          <p className="text-xs font-semibold text-slate-900 dark:text-white">Exibição dos gráficos</p>
+          <p className="text-[11px] text-slate-500 dark:text-white/45">Habilite ou desabilite cada gráfico conforme necessário.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -980,8 +980,8 @@ export function TarefasDashboardClient() {
             aria-pressed={visibleCharts.previsao}
             className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-medium transition-colors ${
               visibleCharts.previsao
-                ? "border-purple-400/30 bg-purple-500/15 text-purple-100 hover:bg-purple-500/20"
-                : "border-white/10 bg-white/[0.03] text-white/50 hover:bg-white/[0.07] hover:text-white/75"
+                ? "border-purple-400/30 bg-purple-500/15 text-purple-700 dark:text-purple-100 hover:bg-purple-500/20"
+                : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.03] text-slate-600 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/[0.07] hover:text-slate-900 dark:hover:text-white/75"
             }`}
           >
             {visibleCharts.previsao ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
@@ -993,8 +993,8 @@ export function TarefasDashboardClient() {
             aria-pressed={visibleCharts.cargaTarefa}
             className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-medium transition-colors ${
               visibleCharts.cargaTarefa
-                ? "border-cyan-400/30 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/20"
-                : "border-white/10 bg-white/[0.03] text-white/50 hover:bg-white/[0.07] hover:text-white/75"
+                ? "border-cyan-400/30 bg-cyan-500/15 text-cyan-800 dark:text-cyan-100 hover:bg-cyan-500/20"
+                : "border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.03] text-slate-600 dark:text-white/50 hover:bg-slate-100 dark:hover:bg-white/[0.07] hover:text-slate-900 dark:hover:text-white/75"
             }`}
           >
             {visibleCharts.cargaTarefa ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
@@ -1015,22 +1015,22 @@ export function TarefasDashboardClient() {
         <section className={`${taskPanelClass} space-y-4`}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="flex items-center gap-2 text-base font-semibold text-white">
-                <Calendar className="h-4 w-4 text-purple-400" />
+              <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-white">
+                <Calendar className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                 Previsão de Protocolos por Dia
               </h2>
-              <p className="text-xs text-white/50">Volume previsto de entregas de recepção</p>
+              <p className="text-xs text-slate-500 dark:text-white/50">Volume previsto de entregas de recepção</p>
             </div>
 
-            <div className="flex items-center gap-1 rounded-xl border border-white/8 bg-white/[0.04] p-1">
+            <div className="flex items-center gap-1 rounded-xl border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] p-1">
               {[7, 15, 30].map((days) => (
                 <button
                   key={days}
                   onClick={() => setFilterRangeDays(days)}
                   className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
                     filterRangeDays === days
-                      ? "bg-purple-500/25 text-purple-100 shadow-sm"
-                      : "text-white/60 hover:bg-white/[0.06] hover:text-white"
+                      ? "bg-purple-500/25 text-purple-800 dark:text-purple-100 shadow-sm"
+                      : "text-slate-600 dark:text-white/60 hover:bg-slate-200 dark:hover:bg-white/[0.06] hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
                   {days}d
@@ -1079,11 +1079,11 @@ export function TarefasDashboardClient() {
         {visibleCharts.cargaTarefa && (
         <section className={`${taskPanelClass} space-y-4`}>
           <div>
-            <h2 className="flex items-center gap-2 text-base font-semibold text-white">
-              <Layers className="h-4 w-4 text-cyan-400" />
+            <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-white">
+              <Layers className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
               Carga Atual por Tarefa
             </h2>
-            <p className="text-xs text-white/50">Distribuição de tarefas abertas por fase</p>
+            <p className="text-xs text-slate-500 dark:text-white/50">Distribuição de tarefas abertas por fase</p>
           </div>
 
           <div className="h-64 w-full min-w-0 pt-4">
@@ -1114,26 +1114,26 @@ export function TarefasDashboardClient() {
       <section className={`${taskPanelClass} space-y-4`}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-2">
-            <Users className="mt-0.5 h-4 w-4 text-amber-300" />
+            <Users className="mt-0.5 h-4 w-4 text-amber-500 dark:text-amber-300" />
             <div>
-              <h2 className="text-base font-semibold text-white">Carga por Responsável</h2>
+              <h2 className="text-base font-semibold text-slate-900 dark:text-white">Carga por Responsável</h2>
               {activeKpiFilter && (
-                <p className="mt-0.5 text-xs text-white/50">
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-white/50">
                   {cargaPorResponsavel.length.toLocaleString("pt-BR")} responsáveis afetados pelo filtro selecionado
                 </p>
               )}
             </div>
           </div>
           {activeKpiFilter && (
-            <span className="self-start rounded-full border border-amber-400/20 bg-amber-400/10 px-2.5 py-1 text-[10px] font-semibold text-amber-200 sm:self-auto">
+            <span className="self-start rounded-full border border-amber-400/20 bg-amber-400/10 px-2.5 py-1 text-[10px] font-semibold text-amber-700 dark:text-amber-200 sm:self-auto">
               {kpiFilterLabels[activeKpiFilter]}
             </span>
           )}
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-white/8 bg-[#0B1020]/72">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72">
           <table className="w-full text-left text-xs">
-            <thead className="select-none border-b border-white/8 bg-[#0B1020] text-[11px] uppercase tracking-wider text-white/58">
+            <thead className="select-none border-b border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-[#0B1020] text-[11px] uppercase tracking-wider text-slate-500 dark:text-white/58">
               <tr>
                 <th className="px-4 py-3.5 font-semibold">Responsável</th>
                 <th className="px-4 py-3.5 text-center font-semibold">Tarefas Abertas</th>
@@ -1143,29 +1143,29 @@ export function TarefasDashboardClient() {
                 <th className="px-4 py-3.5 text-center font-semibold">Risco Crítico</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5 text-slate-200">
+            <tbody className="divide-y divide-slate-200 dark:divide-white/5 text-slate-700 dark:text-slate-200">
               {responsaveisExibidos.map((row, idx) => (
-                <tr key={idx} className="transition-colors hover:bg-white/[0.035]">
-                  <td className="py-3 px-4 font-semibold text-white">{row.responsavel}</td>
-                  <td className="py-3 px-4 text-center font-bold text-cyan-300">{row.tarefasCount}</td>
-                  <td className="py-3 px-4 text-center text-purple-300">{row.protocolos}</td>
+                <tr key={idx} className="transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.035]">
+                  <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white">{row.responsavel}</td>
+                  <td className="py-3 px-4 text-center font-bold text-cyan-700 dark:text-cyan-300">{row.tarefasCount}</td>
+                  <td className="py-3 px-4 text-center text-purple-700 dark:text-purple-300">{row.protocolos}</td>
                   <td className="py-3 px-4 text-center">
                     {row.vencemHoje > 0 ? (
-                      <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30">{row.vencemHoje}</Badge>
+                      <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30">{row.vencemHoje}</Badge>
                     ) : (
                       "-"
                     )}
                   </td>
                   <td className="py-3 px-4 text-center">
                     {row.vencemAmanha > 0 ? (
-                      <Badge className="bg-cyan-500/20 text-cyan-300 border-cyan-500/30">{row.vencemAmanha}</Badge>
+                      <Badge className="bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border-cyan-500/30">{row.vencemAmanha}</Badge>
                     ) : (
                       "-"
                     )}
                   </td>
                   <td className="py-3 px-4 text-center">
                     {row.riscoCritico > 0 ? (
-                      <Badge className="bg-red-600/30 text-red-200 border-red-500">{row.riscoCritico}</Badge>
+                      <Badge className="bg-red-600/30 text-red-700 dark:text-red-200 border-red-500">{row.riscoCritico}</Badge>
                     ) : (
                       "-"
                     )}
@@ -1174,7 +1174,7 @@ export function TarefasDashboardClient() {
               ))}
               {responsaveisExibidos.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-xs text-white/40">
+                  <td colSpan={6} className="px-4 py-10 text-center text-xs text-slate-400 dark:text-white/40">
                     Nenhum responsável afetado pelo filtro selecionado.
                   </td>
                 </tr>
@@ -1187,23 +1187,23 @@ export function TarefasDashboardClient() {
       {/* Tabela Detalhada com Filtros */}
       <section
         id="tarefas-detalhamento"
-        className="scroll-mt-24 overflow-hidden rounded-2xl border border-white/12 bg-[#0B1020]/72 shadow-[0_18px_50px_rgba(0,0,0,0.16)]"
+        className="scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)]"
       >
-        <div className="flex flex-col gap-4 border-b border-white/8 px-6 py-5 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-4 border-b border-slate-200 dark:border-white/8 px-6 py-5 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="flex items-center gap-2 text-base font-semibold text-white">
-              <Filter className="h-4 w-4 text-purple-400" />
+            <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-white">
+              <Filter className="h-4 w-4 text-purple-600 dark:text-purple-400" />
               Detalhamento de Tarefas e Previsões
             </h2>
             <div className="mt-0.5 flex flex-wrap items-center gap-2">
-              <p className="text-xs text-white/50">
+              <p className="text-xs text-slate-500 dark:text-white/50">
                 Exibindo {tarefasFiltradas.length.toLocaleString("pt-BR")} de {tarefas.length.toLocaleString("pt-BR")} tarefas encontradas
               </p>
               {activeKpiFilter && (
                 <button
                   type="button"
                   onClick={() => setActiveKpiFilter(null)}
-                  className="inline-flex items-center gap-1 rounded-full border border-purple-400/20 bg-purple-400/10 px-2 py-0.5 text-[10px] font-semibold text-purple-200 transition-colors hover:bg-purple-400/15"
+                  className="inline-flex items-center gap-1 rounded-full border border-purple-400/20 bg-purple-400/10 px-2 py-0.5 text-[10px] font-semibold text-purple-700 dark:text-purple-200 transition-colors hover:bg-purple-400/15"
                   title="Remover filtro rápido"
                 >
                   Filtro: {kpiFilterLabels[activeKpiFilter]}
@@ -1217,7 +1217,7 @@ export function TarefasDashboardClient() {
             <Button
               onClick={handleOpenPrintPreview}
               variant="outline"
-              className="h-9 gap-2 rounded-xl border-white/8 bg-white/[0.04] text-xs font-medium text-white shadow-sm hover:bg-white/[0.08]"
+              className="h-9 gap-2 rounded-xl border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] text-xs font-medium text-slate-700 dark:text-white shadow-sm hover:bg-slate-200 dark:hover:bg-white/[0.08]"
             >
               <Eye className="h-3.5 w-3.5" />
               Visualizar Impressão
@@ -1225,7 +1225,7 @@ export function TarefasDashboardClient() {
             <Button
               onClick={handleExportCSV}
               variant="outline"
-              className="h-9 gap-2 rounded-xl border-emerald-500/20 bg-emerald-500/10 text-xs font-medium text-emerald-300 shadow-sm hover:bg-emerald-500/15"
+              className="h-9 gap-2 rounded-xl border-emerald-500/20 bg-emerald-500/10 text-xs font-medium text-emerald-700 dark:text-emerald-300 shadow-sm hover:bg-emerald-500/15"
             >
               <Download className="h-3.5 w-3.5" />
               Exportar Filtrados (CSV)
@@ -1234,16 +1234,16 @@ export function TarefasDashboardClient() {
         </div>
 
         {/* Barra de Filtros */}
-        <div className="grid grid-cols-1 gap-3 border-b border-white/8 bg-[#0B1020]/92 px-6 py-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-1 gap-3 border-b border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-[#0B1020]/92 px-6 py-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {/* Busca por Protocolo / Texto */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-white/40" />
             <input
               type="text"
               placeholder="Buscar protocolo, responsável..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-10 w-full rounded-xl border border-white/8 bg-[#0C1323] pl-9 pr-3 text-xs text-white shadow-sm placeholder:text-white/40 focus:border-purple-400 focus:outline-none"
+              className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0C1323] pl-9 pr-3 text-xs text-slate-900 dark:text-white shadow-sm placeholder:text-slate-400 dark:placeholder:text-white/40 focus:border-purple-500 focus:outline-none"
             />
           </div>
 
@@ -1251,7 +1251,7 @@ export function TarefasDashboardClient() {
           <select
             value={selectedTarefa}
             onChange={(e) => setSelectedTarefa(e.target.value)}
-            className="h-10 w-full rounded-xl border border-white/8 bg-[#0C1323] px-3 text-xs text-white shadow-sm focus:border-purple-400 focus:outline-none"
+            className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0C1323] px-3 text-xs text-slate-900 dark:text-white shadow-sm focus:border-purple-500 focus:outline-none"
           >
             <option value="ALL">Todas as Tarefas</option>
             {listaTarefasUnicas.map((tar) => (
@@ -1268,7 +1268,7 @@ export function TarefasDashboardClient() {
               setSelectedResponsavel(e.target.value);
               setSelectedPrevisao("ALL");
             }}
-            className="h-10 w-full rounded-xl border border-white/8 bg-[#0C1323] px-3 text-xs text-white shadow-sm focus:border-purple-400 focus:outline-none"
+            className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0C1323] px-3 text-xs text-slate-900 dark:text-white shadow-sm focus:border-purple-500 focus:outline-none"
           >
             <option value="ALL">Todos os Responsáveis</option>
             {listaResponsaveisUnicos.map((resp) => (
@@ -1283,7 +1283,7 @@ export function TarefasDashboardClient() {
             value={selectedPrevisao}
             onChange={(e) => setSelectedPrevisao(e.target.value)}
             aria-label="Filtrar por data de previsão"
-            className="h-10 w-full rounded-xl border border-white/8 bg-[#0C1323] px-3 text-xs text-white shadow-sm focus:border-purple-400 focus:outline-none"
+            className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0C1323] px-3 text-xs text-slate-900 dark:text-white shadow-sm focus:border-purple-500 focus:outline-none"
           >
             <option value="ALL">Todas as Previsões</option>
             {listaPrevisoesUnicas.map((previsao) => (
@@ -1297,7 +1297,7 @@ export function TarefasDashboardClient() {
           <select
             value={selectedStatusPrevisao}
             onChange={(e) => setSelectedStatusPrevisao(e.target.value)}
-            className="h-10 w-full rounded-xl border border-white/8 bg-[#0C1323] px-3 text-xs text-white shadow-sm focus:border-purple-400 focus:outline-none"
+            className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0C1323] px-3 text-xs text-slate-900 dark:text-white shadow-sm focus:border-purple-500 focus:outline-none"
           >
             <option value="ALL">Todos os Status</option>
             <option value="ATRASADO">Somente Atrasados</option>
@@ -1308,7 +1308,7 @@ export function TarefasDashboardClient() {
           <select
             value={selectedRisco}
             onChange={(e) => setSelectedRisco(e.target.value)}
-            className="h-10 w-full rounded-xl border border-white/8 bg-[#0C1323] px-3 text-xs text-white shadow-sm focus:border-purple-400 focus:outline-none"
+            className="h-10 w-full rounded-xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0C1323] px-3 text-xs text-slate-900 dark:text-white shadow-sm focus:border-purple-500 focus:outline-none"
           >
             <option value="ALL">Todos os Riscos</option>
             <option value="CRITICO">Risco Crítico / Alto</option>
@@ -1317,63 +1317,63 @@ export function TarefasDashboardClient() {
         </div>
 
         {/* Tabela de Dados */}
-        <div className="max-h-[600px] overflow-auto bg-[#0B1020]/72 [scrollbar-color:rgba(148,163,184,0.55)_transparent] [scrollbar-width:thin]">
+        <div className="max-h-[600px] overflow-auto bg-white dark:bg-[#0B1020]/72 [scrollbar-color:rgba(148,163,184,0.55)_transparent] [scrollbar-width:thin]">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-10 select-none border-b border-white/8 bg-[#0B1020] text-[11px] uppercase tracking-wider text-white/58 shadow-[0_1px_0_rgba(255,255,255,0.08)]">
+            <thead className="sticky top-0 z-10 select-none border-b border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-[#0B1020] text-[11px] uppercase tracking-wider text-slate-500 dark:text-white/58 shadow-[0_1px_0_rgba(0,0,0,0.06)] dark:shadow-[0_1px_0_rgba(255,255,255,0.08)]">
               <tr>
                 <th className="px-2 py-1.5 font-semibold" aria-sort={getAriaSort("protocolo")}>
-                  <button type="button" onClick={() => handleSort("protocolo")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por protocolo">
+                  <button type="button" onClick={() => handleSort("protocolo")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-slate-200/60 hover:text-slate-900 dark:hover:bg-white/[0.06] dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por protocolo">
                     Protocolo {renderSortIcon("protocolo")}
                   </button>
                 </th>
                 <th className="px-2 py-1.5 font-semibold" aria-sort={getAriaSort("dtPrevisao")}>
-                  <button type="button" onClick={() => handleSort("dtPrevisao")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por previsão">
+                  <button type="button" onClick={() => handleSort("dtPrevisao")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-slate-200/60 hover:text-slate-900 dark:hover:bg-white/[0.06] dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por previsão">
                     Previsão {renderSortIcon("dtPrevisao")}
                   </button>
                 </th>
                 <th className="px-2 py-1.5 font-semibold" aria-sort={getAriaSort("statusPrevisao")}>
-                  <button type="button" onClick={() => handleSort("statusPrevisao")} className="flex w-full items-center justify-center gap-1.5 rounded-md px-2 py-2 text-center transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por status da previsão">
+                  <button type="button" onClick={() => handleSort("statusPrevisao")} className="flex w-full items-center justify-center gap-1.5 rounded-md px-2 py-2 text-center transition-colors hover:bg-slate-200/60 hover:text-slate-900 dark:hover:bg-white/[0.06] dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por status da previsão">
                     Status Previsão {renderSortIcon("statusPrevisao")}
                   </button>
                 </th>
                 <th className="px-2 py-1.5 font-semibold" aria-sort={getAriaSort("nivelRisco")}>
-                  <button type="button" onClick={() => handleSort("nivelRisco")} className="flex w-full items-center justify-center gap-1.5 rounded-md px-2 py-2 text-center transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por nível de risco">
+                  <button type="button" onClick={() => handleSort("nivelRisco")} className="flex w-full items-center justify-center gap-1.5 rounded-md px-2 py-2 text-center transition-colors hover:bg-slate-200/60 hover:text-slate-900 dark:hover:bg-white/[0.06] dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por nível de risco">
                     Nível Risco {renderSortIcon("nivelRisco")}
                   </button>
                 </th>
                 <th className="px-2 py-1.5 font-semibold" aria-sort={getAriaSort("tarefa")}>
-                  <button type="button" onClick={() => handleSort("tarefa")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por tarefa">
+                  <button type="button" onClick={() => handleSort("tarefa")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-slate-200/60 hover:text-slate-900 dark:hover:bg-white/[0.06] dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por tarefa">
                     Tarefa {renderSortIcon("tarefa")}
                   </button>
                 </th>
                 <th className="px-2 py-1.5 font-semibold" aria-sort={getAriaSort("responsavel")}>
-                  <button type="button" onClick={() => handleSort("responsavel")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por responsável">
+                  <button type="button" onClick={() => handleSort("responsavel")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-slate-200/60 hover:text-slate-900 dark:hover:bg-white/[0.06] dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por responsável">
                     Responsável {renderSortIcon("responsavel")}
                   </button>
                 </th>
                 <th className="px-2 py-1.5 font-semibold" aria-sort={getAriaSort("situacaoTarefa")}>
-                  <button type="button" onClick={() => handleSort("situacaoTarefa")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por situação">
+                  <button type="button" onClick={() => handleSort("situacaoTarefa")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-slate-200/60 hover:text-slate-900 dark:hover:bg-white/[0.06] dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por situação">
                     Situação {renderSortIcon("situacaoTarefa")}
                   </button>
                 </th>
                 <th className="px-2 py-1.5 font-semibold" aria-sort={getAriaSort("tipoNatureza")}>
-                  <button type="button" onClick={() => handleSort("tipoNatureza")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por tipo e natureza">
+                  <button type="button" onClick={() => handleSort("tipoNatureza")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-slate-200/60 hover:text-slate-900 dark:hover:bg-white/[0.06] dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por tipo e natureza">
                     Tipo / Natureza {renderSortIcon("tipoNatureza")}
                   </button>
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5 text-white/80">
+            <tbody className="divide-y divide-slate-200 dark:divide-white/5 text-slate-700 dark:text-white/80">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-white/50">
-                    <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-purple-400" />
+                  <td colSpan={8} className="py-8 text-center text-slate-500 dark:text-white/50">
+                    <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-purple-600 dark:text-purple-400" />
                     Carregando dados de previsão de tarefas...
                   </td>
                 </tr>
               ) : tarefasFiltradas.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-white/50">
+                  <td colSpan={8} className="py-8 text-center text-slate-500 dark:text-white/50">
                     Nenhuma tarefa encontrada com os filtros selecionados.
                   </td>
                 </tr>
@@ -1383,37 +1383,37 @@ export function TarefasDashboardClient() {
                   const isCritico = (row.nivelRisco || "").toUpperCase().includes("CRITIC");
 
                   return (
-                    <tr key={`${row.idTarefa}-${row.protocolo}-${idx}`} className="transition-colors hover:bg-white/[0.035]">
-                      <td className="py-3 px-4 font-bold text-white">{row.protocolo}</td>
-                      <td className="py-3 px-4 font-medium text-slate-300">
+                    <tr key={`${row.idTarefa}-${row.protocolo}-${idx}`} className="transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.035]">
+                      <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">{row.protocolo}</td>
+                      <td className="py-3 px-4 font-medium text-slate-600 dark:text-slate-300">
                         {formatDisplayDate(row.dtPrevisao)}
                       </td>
                       <td className="py-3 px-4 text-center">
                         {isAtrasado ? (
-                          <Badge className="bg-rose-500/20 text-rose-300 border-rose-500/30">
+                          <Badge className="bg-rose-500/20 text-rose-700 dark:text-rose-300 border-rose-500/30">
                             ATRASADO
                           </Badge>
                         ) : (
-                          <Badge className="bg-emerald-500/10 text-emerald-300 border-emerald-500/20">
+                          <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20">
                             NO PRAZO
                           </Badge>
                         )}
                       </td>
                       <td className="py-3 px-4 text-center">
                         {isCritico ? (
-                          <Badge className="border-red-500/30 bg-red-500/15 font-semibold text-red-200">
+                          <Badge className="border-red-500/30 bg-red-500/15 font-semibold text-red-700 dark:text-red-200">
                             CRÍTICO
                           </Badge>
                         ) : (
-                          <Badge className="bg-slate-500/10 text-slate-300 border-slate-500/20">
+                          <Badge className="bg-slate-100 dark:bg-slate-500/10 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-500/20">
                             NORMAL
                           </Badge>
                         )}
                       </td>
-                      <td className="py-3 px-4 font-semibold text-purple-300">{row.tarefa}</td>
-                      <td className="py-3 px-4 text-slate-300">{row.responsavel}</td>
-                      <td className="py-3 px-4 text-slate-400">{row.situacaoTarefa}</td>
-                      <td className="py-3 px-4 text-slate-400 text-[11px]">
+                      <td className="py-3 px-4 font-semibold text-purple-700 dark:text-purple-300">{row.tarefa}</td>
+                      <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{row.responsavel}</td>
+                      <td className="py-3 px-4 text-slate-500 dark:text-slate-400">{row.situacaoTarefa}</td>
+                      <td className="py-3 px-4 text-slate-500 dark:text-slate-400 text-[11px]">
                         {row.tipo} {row.natureza ? `• ${row.natureza}` : ""}
                       </td>
                     </tr>
@@ -1423,17 +1423,17 @@ export function TarefasDashboardClient() {
             </tbody>
           </table>
         </div>
-        <div className="flex flex-col items-center justify-between gap-4 border-t border-white/8 bg-white/[0.03] px-6 py-3.5 text-xs text-white/60 sm:flex-row">
+        <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.03] px-6 py-3.5 text-xs text-slate-500 dark:text-white/60 sm:flex-row">
           <span className="text-center sm:text-left">
-            Exibindo <strong className="text-white">{startItem.toLocaleString("pt-BR")}</strong> a{" "}
-            <strong className="text-white">{endItem.toLocaleString("pt-BR")}</strong> de{" "}
-            <strong className="text-white">{tarefasFiltradas.length.toLocaleString("pt-BR")}</strong> registros
+            Exibindo <strong className="text-slate-900 dark:text-white">{startItem.toLocaleString("pt-BR")}</strong> a{" "}
+            <strong className="text-slate-900 dark:text-white">{endItem.toLocaleString("pt-BR")}</strong> de{" "}
+            <strong className="text-slate-900 dark:text-white">{tarefasFiltradas.length.toLocaleString("pt-BR")}</strong> registros
           </span>
 
           <div className="flex flex-wrap items-center justify-center gap-4 sm:justify-end">
             <div className="flex items-center gap-1.5">
               <span>Exibir:</span>
-              <div className="flex items-center gap-1 rounded-lg border border-white/8 bg-white/[0.04] p-0.5">
+              <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] p-0.5">
                 {[10, 20, 50, 100].map((size) => (
                   <button
                     key={size}
@@ -1441,8 +1441,8 @@ export function TarefasDashboardClient() {
                     onClick={() => setPageSize(size)}
                     className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-all ${
                       pageSize === size
-                        ? "bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-xs"
-                        : "text-white/60 hover:text-white"
+                        ? "bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-xs font-semibold"
+                        : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
                     }`}
                   >
                     {size}
@@ -1455,7 +1455,7 @@ export function TarefasDashboardClient() {
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+                className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08]"
                 disabled={safeCurrentPage <= 1}
                 onClick={() => setCurrentPage(1)}
                 title="Primeira página"
@@ -1465,20 +1465,20 @@ export function TarefasDashboardClient() {
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+                className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08]"
                 disabled={safeCurrentPage <= 1}
                 onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
                 title="Página anterior"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
-              <span className="min-w-[90px] px-2 text-center font-medium text-white">
+              <span className="min-w-[90px] px-2 text-center font-medium text-slate-700 dark:text-white">
                 Página {safeCurrentPage.toLocaleString("pt-BR")} de {totalPages.toLocaleString("pt-BR")}
               </span>
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+                className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08]"
                 disabled={safeCurrentPage >= totalPages}
                 onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
                 title="Próxima página"
@@ -1488,7 +1488,7 @@ export function TarefasDashboardClient() {
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+                className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08]"
                 disabled={safeCurrentPage >= totalPages}
                 onClick={() => setCurrentPage(totalPages)}
                 title="Última página"
@@ -1501,13 +1501,13 @@ export function TarefasDashboardClient() {
       </section>
 
       <Dialog open={isPrintPreviewOpen} onOpenChange={setIsPrintPreviewOpen}>
-        <DialogContent className="h-[92vh] w-[calc(100vw-2rem)] max-w-none grid-rows-[auto_minmax(0,1fr)_auto] gap-4 border border-white/12 bg-[#080D19] p-5 text-white shadow-2xl sm:max-w-[95vw]">
+        <DialogContent className="h-[92vh] w-[calc(100vw-2rem)] max-w-none grid-rows-[auto_minmax(0,1fr)_auto] gap-4 border border-slate-200 dark:border-white/12 bg-white dark:bg-[#080D19] p-5 text-slate-900 dark:text-white shadow-2xl sm:max-w-[95vw]">
           <DialogHeader className="pr-10">
-            <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-white">
-              <Eye className="h-5 w-5 text-purple-300" />
+            <DialogTitle className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
+              <Eye className="h-5 w-5 text-purple-600 dark:text-purple-300" />
               Pré-visualização da impressão
             </DialogTitle>
-            <DialogDescription className="text-xs text-white/55">
+            <DialogDescription className="text-xs text-slate-500 dark:text-white/55">
               Confira abaixo os {tarefasOrdenadas.length.toLocaleString("pt-BR")} registros que serão impressos, respeitando os filtros e a ordenação atuais.
             </DialogDescription>
           </DialogHeader>
@@ -1558,12 +1558,12 @@ export function TarefasDashboardClient() {
             </article>
           </div>
 
-          <DialogFooter className="-mx-5 -mb-5 border-white/10 bg-white/[0.03] px-5 py-4">
+          <DialogFooter className="-mx-5 -mb-5 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.03] px-5 py-4">
             <Button
               type="button"
               variant="outline"
               onClick={() => setIsPrintPreviewOpen(false)}
-              className="border-white/12 bg-transparent text-white hover:bg-white/[0.08]"
+              className="border border-slate-200 dark:border-white/12 bg-white dark:bg-transparent text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08]"
             >
               Voltar
             </Button>

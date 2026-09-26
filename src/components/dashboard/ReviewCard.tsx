@@ -32,11 +32,11 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
 
   if (!reviews || reviews.length === 0) {
     return (
-      <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
-        <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-4">
-          <h3 className="text-card-title font-bold text-white">Últimas Avaliações</h3>
+      <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+        <div className="mb-4 flex items-center justify-between border-b border-slate-200 dark:border-white/8 pb-4">
+          <h3 className="text-card-title font-bold text-slate-900 dark:text-white">Últimas Avaliações</h3>
         </div>
-        <div className="py-8 text-center text-xs text-white/40">Nenhuma avaliação registrada ainda.</div>
+        <div className="py-8 text-center text-xs text-slate-400 dark:text-white/40">Nenhuma avaliação registrada ainda.</div>
       </div>
     );
   }
@@ -48,9 +48,9 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
   };
 
   return (
-    <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
-      <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-4">
-        <h3 className="text-card-title font-bold text-white">Últimas Avaliações</h3>
+    <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
+      <div className="mb-4 flex items-center justify-between border-b border-slate-200 dark:border-white/8 pb-4">
+        <h3 className="text-card-title font-bold text-slate-900 dark:text-white">Últimas Avaliações</h3>
         <Link href="/avaliacoes" className="text-xs font-semibold text-amber-300 transition-colors hover:text-amber-200 hover:underline">
           Ver todas →
         </Link>
@@ -72,7 +72,7 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
                   ? 'border-l-4 border-l-red-500 border-red-500/35 bg-red-500/[0.04]'
                   : isMidRating
                     ? 'border-l-4 border-l-amber-400 border-amber-500/30 bg-amber-500/[0.035]'
-                    : 'border-white/8 bg-white/[0.03] hover:border-white/18'
+                    : 'border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.03] hover:border-slate-300 dark:hover:border-white/18'
               }`}
             >
               <div className="flex items-start justify-between gap-2">
@@ -81,8 +81,8 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
                     {rev.reviewerName ? rev.reviewerName[0].toUpperCase() : 'A'}
                   </div>
                   <div>
-                    <h4 className="text-indicator-label font-bold leading-tight text-white">{rev.reviewerName}</h4>
-                    <span className="text-badge text-white/50" suppressHydrationWarning>
+                    <h4 className="text-indicator-label font-bold leading-tight text-slate-900 dark:text-white">{rev.reviewerName}</h4>
+                    <span className="text-badge text-slate-400 dark:text-white/50" suppressHydrationWarning>
                       {new Date(rev.publishedAt).toLocaleDateString('pt-BR')}
                     </span>
                   </div>
@@ -93,7 +93,7 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
                 </div>
               </div>
 
-              <div className="mt-2 text-body-reading text-[#E5E7EB]">
+              <div className="mt-2 text-body-reading text-slate-700 dark:text-[#E5E7EB]">
                 <p className={!isExpanded && isLong ? 'line-clamp-2' : ''}>&quot;{cleanedText}&quot;</p>
                 {isLong && (
                   <button onClick={() => toggleExpand(rev.id)} className="mt-1 inline-block cursor-pointer text-badge font-bold text-amber-300 hover:underline">
@@ -102,7 +102,7 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
                 )}
               </div>
 
-              <div className="mt-2.5 flex items-center justify-between border-t border-white/8 pt-2">
+              <div className="mt-2.5 flex items-center justify-between border-t border-slate-200 dark:border-white/8 pt-2">
                 {rev.status === 'RESPONDED' ? (
                   <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-badge font-bold text-emerald-300">
                     <span>✓</span> Respondida

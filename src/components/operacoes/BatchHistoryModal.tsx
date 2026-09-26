@@ -44,20 +44,20 @@ export function BatchHistoryModal({ isOpen, onClose, moduleName, moduleKey, batc
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
       <div 
-        className="relative w-full max-w-2xl rounded-2xl border border-white/12 bg-[#0B1020]/95 p-6 shadow-2xl backdrop-blur-2xl text-white space-y-5 animate-in zoom-in-95 duration-200"
+        className="relative w-full max-w-2xl rounded-2xl border border-slate-200 bg-white dark:border-white/12 dark:bg-[#0B1020]/95 p-6 shadow-2xl backdrop-blur-2xl text-slate-900 dark:text-white space-y-5 animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/8 pb-4">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/8 pb-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
               <Layers className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold tracking-tight text-white flex items-center gap-2">
+              <h3 className="text-base font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
                 Histórico de Lotes — {moduleName}
               </h3>
-              <p className="text-xs text-white/50">
+              <p className="text-xs text-slate-500 dark:text-white/50">
                 Últimos lotes recebidos via conector para a fonte <span className="font-mono text-white/80">{moduleKey}</span>
               </p>
             </div>
@@ -76,7 +76,7 @@ export function BatchHistoryModal({ isOpen, onClose, moduleName, moduleKey, batc
         <div className="overflow-x-auto max-h-[380px] overflow-y-auto">
           {batches && batches.length > 0 ? (
             <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 bg-[#0B1020] border-b border-white/8 text-[11px] uppercase tracking-wider text-white/40 font-semibold">
+              <thead className="sticky top-0 bg-[#0B1020] border-b border-slate-200 dark:border-white/8 text-[11px] uppercase tracking-wider text-slate-500 dark:text-white/40 font-semibold">
                 <tr>
                   <th className="pb-3 pt-1">Identificador</th>
                   <th className="pb-3 pt-1">Horário</th>
@@ -85,9 +85,9 @@ export function BatchHistoryModal({ isOpen, onClose, moduleName, moduleKey, batc
                   <th className="pb-3 pt-1 text-right">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/6 font-mono text-white/80">
+              <tbody className="divide-y divide-slate-200 dark:divide-white/6 font-mono text-slate-700 dark:text-white/80">
                 {batches.map((batch) => (
-                  <tr key={batch.id} className="hover:bg-white/[0.02] transition-colors">
+                  <tr key={batch.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
                     <td className="py-3 text-[11px] text-white/50">
                       {batch.batchId ? `${batch.batchId.slice(0, 8)}...${batch.batchId.slice(-4)}` : batch.id}
                     </td>

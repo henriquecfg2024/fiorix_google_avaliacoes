@@ -80,7 +80,7 @@ export function BatchDeleteFeriasModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
       <div className="relative w-full max-w-xl bg-[#0d0d18] border border-rose-500/30 rounded-2xl flex flex-col shadow-[0_25px_70px_rgba(0,0,0,0.8)] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-rose-500/10">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-rose-500/10">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30">
               <Trash2 className="w-5 h-5" />
@@ -115,10 +115,10 @@ export function BatchDeleteFeriasModal({
                 onClick={() => selectedCount > 0 && setMode("selected")}
                 className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
                   selectedCount === 0
-                    ? "opacity-50 border-white/5 bg-white/[0.01] cursor-not-allowed"
+                    ? "opacity-50 border-slate-200 dark:border-white/5 bg-white/[0.01] cursor-not-allowed"
                     : mode === "selected"
                     ? "border-rose-500 bg-rose-500/10 shadow-lg shadow-rose-500/10"
-                    : "border-white/10 bg-[#12141F] hover:border-white/20"
+                    : "border-slate-200 dark:border-white/10 bg-[#12141F] hover:border-white/20"
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -146,7 +146,7 @@ export function BatchDeleteFeriasModal({
                 className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
                   mode === "all"
                     ? "border-rose-500 bg-rose-500/10 shadow-lg shadow-rose-500/10"
-                    : "border-white/10 bg-[#12141F] hover:border-white/20"
+                    : "border-slate-200 dark:border-white/10 bg-[#12141F] hover:border-white/20"
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -171,7 +171,7 @@ export function BatchDeleteFeriasModal({
 
           {/* Amostra dos colaboradores afetados */}
           {mode === "selected" && selectedNames.length > 0 && (
-            <div className="p-3 bg-white/[0.03] border border-white/10 rounded-xl space-y-2">
+            <div className="p-3 bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl space-y-2">
               <span className="text-[10px] font-mono uppercase text-slate-400 block">
                 Colaboradores que serão excluídos ({selectedNames.length}):
               </span>
@@ -185,7 +185,7 @@ export function BatchDeleteFeriasModal({
                   </span>
                 ))}
                 {selectedNames.length > 12 && (
-                  <span className="px-2 py-0.5 rounded-md text-[11px] bg-white/5 border border-white/10 text-slate-400">
+                  <span className="px-2 py-0.5 rounded-md text-[11px] bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400">
                     +{selectedNames.length - 12} outros
                   </span>
                 )}
@@ -227,7 +227,7 @@ export function BatchDeleteFeriasModal({
 
           {/* Checkbox de Confirmação Obrigatório */}
           <div className="pt-2">
-            <label className="flex items-start gap-2.5 p-3 rounded-xl bg-white/[0.03] border border-white/10 hover:border-white/20 cursor-pointer">
+            <label className="flex items-start gap-2.5 p-3 rounded-xl bg-white/[0.03] border border-slate-200 dark:border-white/10 hover:border-white/20 cursor-pointer">
               <input
                 type="checkbox"
                 checked={confirmedCheck}
@@ -253,7 +253,7 @@ export function BatchDeleteFeriasModal({
           )}
 
           {/* Footer / Ações */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-white/10">
             <Button
               type="button"
               variant="ghost"

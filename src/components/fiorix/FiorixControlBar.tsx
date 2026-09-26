@@ -34,16 +34,16 @@ export function FiorixControlBar({
 
   return (
     <div className="space-y-3">
-      <Card className="flex flex-col gap-4 rounded-2xl border border-white/8 bg-[#0B1020]/72 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+      <Card className="flex flex-col gap-4 rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 p-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
         {/* Left Status */}
         <div className="flex items-center gap-3 w-full sm:w-auto text-sm">
-          <span className="font-semibold text-white">Gráficos exibidos</span>
-          <span className="hidden text-white/52 md:inline">
-            <strong className="text-white">{activeCount}</strong> de 3 gráficos ativos.
+          <span className="font-semibold text-slate-900 dark:text-white">Gráficos exibidos</span>
+          <span className="hidden text-slate-500 dark:text-white/52 md:inline">
+            <strong className="text-slate-900 dark:text-white">{activeCount}</strong> de 3 gráficos ativos.
           </span>
           <button
             onClick={() => setIsManagerOpen(!isManagerOpen)}
-            className="ml-2 flex items-center gap-1 text-sm font-medium text-amber-300 underline-offset-4 hover:underline"
+            className="ml-2 flex items-center gap-1 text-sm font-medium text-amber-600 dark:text-amber-300 underline-offset-4 hover:underline"
           >
             {isManagerOpen ? (
               <>Fechar painel <ChevronUp size={14} /></>
@@ -59,19 +59,19 @@ export function FiorixControlBar({
             variant="outline"
             size="sm"
             onClick={onResetCharts}
-            className="w-full border-white/8 bg-white/[0.04] text-xs font-medium text-white shadow-sm hover:bg-white/[0.08] sm:w-auto"
+            className="w-full border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] text-xs font-medium text-slate-700 dark:text-white shadow-xs hover:bg-slate-200 dark:hover:bg-white/[0.08] sm:w-auto"
             title="Restaurar visualização dos 3 gráficos padrão"
           >
-            <RotateCcw className="mr-1.5 h-3.5 w-3.5 text-white/60" />
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5 text-slate-500 dark:text-white/60" />
             Restaurar padrão
           </Button>
           <Button
             size="sm"
             onClick={() => setIsManagerOpen(!isManagerOpen)}
-            className={`w-full text-xs font-semibold shadow-sm transition-all sm:w-auto ${
+            className={`w-full text-xs font-semibold shadow-xs transition-all sm:w-auto ${
               isManagerOpen
-                ? "border border-white/8 bg-white/[0.06] text-white hover:bg-white/[0.1]"
-                : "border border-amber-400/20 bg-gradient-to-r from-indigo-500 to-amber-400 text-white hover:brightness-105"
+                ? "border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.06] text-slate-800 dark:text-white hover:bg-slate-200 dark:hover:bg-white/[0.1]"
+                : "border border-amber-400/20 bg-gradient-to-r from-indigo-500 to-amber-500 text-white hover:brightness-105"
             }`}
           >
             <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />
@@ -82,16 +82,16 @@ export function FiorixControlBar({
 
       {/* Expandable Chart Manager Panel */}
       {isManagerOpen && (
-        <Card className="animate-in fade-in rounded-2xl border border-white/8 bg-white/[0.03] p-4 shadow-[0_16px_45px_rgba(0,0,0,0.12)] duration-200">
+        <Card className="animate-in fade-in rounded-2xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.03] p-4 shadow-sm dark:shadow-[0_16px_45px_rgba(0,0,0,0.12)] duration-200">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-white/70">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-white/70">
               Selecione os gráficos visíveis no Dashboard:
             </h4>
             <Button
               variant="ghost"
               size="sm"
               onClick={onResetCharts}
-              className="h-6 px-2 text-xs text-amber-300 hover:bg-white/[0.05] hover:text-white"
+              className="h-6 px-2 text-xs text-amber-600 dark:text-amber-300 hover:bg-slate-200 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white"
             >
               Marcar todos
             </Button>
@@ -105,24 +105,24 @@ export function FiorixControlBar({
                   onClick={() => onToggleChart(item.key)}
                   className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all select-none ${
                     isChecked
-                      ? "border-amber-400/20 bg-white/[0.05] shadow-sm ring-1 ring-amber-400/15"
-                      : "border-white/8 bg-white/[0.03] text-white/58 opacity-80 hover:opacity-100"
+                      ? "border-amber-400/30 bg-amber-500/5 dark:bg-white/[0.05] shadow-xs ring-1 ring-amber-400/20"
+                      : "border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.03] text-slate-500 dark:text-white/58 opacity-80 hover:opacity-100"
                   }`}
                 >
                   <div
                     className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
                       isChecked
-                        ? "border-amber-400 bg-amber-400 text-slate-950"
-                        : "border-white/15 bg-transparent"
+                        ? "border-amber-500 bg-amber-500 text-white dark:border-amber-400 dark:bg-amber-400 dark:text-slate-950"
+                        : "border-slate-300 dark:border-white/15 bg-transparent"
                     }`}
                   >
                     {isChecked && <Check className="h-3 w-3" />}
                   </div>
                   <div>
-                    <span className="block text-xs font-bold text-white">
+                    <span className="block text-xs font-bold text-slate-900 dark:text-white">
                       {item.name}
                     </span>
-                    <span className="mt-0.5 block text-[11px] leading-tight text-white/48">
+                    <span className="mt-0.5 block text-[11px] leading-tight text-slate-500 dark:text-white/48">
                       {item.desc}
                     </span>
                   </div>

@@ -96,7 +96,7 @@ export function FiorixSidebar() {
     return "bg-white/10 text-white/90 border border-white/20";
   };
 
-  if (!mounted) return <div className="hidden lg:flex w-64 h-full bg-[#080A12] border-r border-white/5" />;
+  if (!mounted) return <div className="hidden lg:flex w-64 h-full bg-white dark:bg-[#080A12] border-r border-slate-200 dark:border-white/5" />;
 
   const homeRoute = getHomeRouteForRole(role);
   const visibleGroups = filterNavigationByRole(role);
@@ -104,18 +104,18 @@ export function FiorixSidebar() {
   return (
     <TooltipProvider delay={0}>
       <aside
-        className={`hidden lg:flex flex-col h-full bg-[#080A12] border-r border-white/5 transition-all duration-300 ease-in-out relative z-40 ${
+        className={`hidden lg:flex flex-col h-full bg-white dark:bg-[#080A12] border-r border-slate-200 dark:border-white/5 transition-all duration-300 ease-in-out relative z-40 ${
           isCollapsed ? "w-20" : "w-64"
         }`}
       >
         {/* Logo & Toggle Section */}
-        <div className="flex items-center justify-between h-14 px-3.5 border-b border-white/5 shrink-0 overflow-hidden">
+        <div className="flex items-center justify-between h-14 px-3.5 border-b border-slate-200 dark:border-white/5 shrink-0 overflow-hidden">
           <div className="flex items-center gap-2.5 overflow-hidden">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#6366f1] to-[#a855f7] text-white font-extrabold shadow-md shrink-0">
               F
             </div>
             {!isCollapsed && (
-              <span className="font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-white to-white/80 text-lg whitespace-nowrap transition-opacity duration-300">
+              <span className="font-black tracking-wider text-slate-900 dark:text-white text-lg whitespace-nowrap transition-opacity duration-300">
                 FIORIX
               </span>
             )}
@@ -124,7 +124,7 @@ export function FiorixSidebar() {
           <button
             onClick={toggleCollapse}
             title={isCollapsed ? "Expandir menu" : "Recolher menu"}
-            className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/5 transition-colors cursor-pointer shrink-0"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 dark:text-white/50 dark:hover:text-white dark:hover:bg-white/5 transition-colors cursor-pointer shrink-0"
           >
             {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
@@ -142,8 +142,8 @@ export function FiorixSidebar() {
                   href={homeRoute}
                   className={`flex items-center justify-center h-10 w-full rounded-lg transition-colors ${
                     isActive(homeRoute)
-                      ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
-                      : "text-white/60 hover:bg-white/5 hover:text-white"
+                      ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20"
+                      : "text-slate-600 dark:text-white/60 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
                   <Home className="w-5 h-5" />
@@ -157,16 +157,16 @@ export function FiorixSidebar() {
               onClick={() => handleNavClick(homeRoute)}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
                 navigatingTo === homeRoute
-                  ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 pointer-events-none"
+                  ? "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 pointer-events-none"
                   : isActive(homeRoute)
-                  ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+                  ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20"
                   : isNavigating
-                  ? "text-white/40 pointer-events-none border border-transparent"
-                  : "text-white/60 hover:bg-white/5 hover:text-white border border-transparent"
+                  ? "text-slate-400 dark:text-white/40 pointer-events-none border border-transparent"
+                  : "text-slate-600 dark:text-white/60 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white border border-transparent"
               }`}
             >
               {navigatingTo === homeRoute ? (
-                <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+                <Loader2 className="w-4 h-4 animate-spin text-indigo-600 dark:text-indigo-400" />
               ) : (
                 <Home className="w-4 h-4 opacity-75" />
               )}
@@ -312,7 +312,7 @@ export function FiorixSidebar() {
               // @ts-expect-error Radix UI type mismatch
               <Accordion type="single" collapsible key={key} defaultValue={(isGroupActive || role === "RH" || key === "rhGestao" ? key : undefined) as any}>
                 <AccordionItem value={key} className="border-none">
-                  <AccordionTrigger className="flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-extrabold text-white/75 uppercase tracking-wider hover:bg-white/5 hover:text-white hover:no-underline [&_[data-slot=accordion-trigger-icon]]:text-white/60 [&_[data-slot=accordion-trigger-icon]]:size-3.5 group-hover/accordion-trigger:[&_[data-slot=accordion-trigger-icon]]:text-white">
+                  <AccordionTrigger className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold text-slate-500 dark:text-white/70 uppercase tracking-wider hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white hover:no-underline [&_[data-slot=accordion-trigger-icon]]:text-slate-400 dark:[&_[data-slot=accordion-trigger-icon]]:text-white/60 [&_[data-slot=accordion-trigger-icon]]:size-3.5 group-hover/accordion-trigger:[&_[data-slot=accordion-trigger-icon]]:text-slate-900 dark:group-hover/accordion-trigger:[&_[data-slot=accordion-trigger-icon]]:text-white">
                     <span className="truncate">{group.label}</span>
                   </AccordionTrigger>
                   <AccordionContent className="pt-1 pb-1 space-y-1">
@@ -333,25 +333,25 @@ export function FiorixSidebar() {
                           }}
                         >
                           <div
-                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
                               navigatingTo === item.href
-                                ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30"
+                                ? "bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30"
                                 : active
-                                ? "bg-white/[0.08] text-white border border-white/5"
+                                ? "bg-slate-100 dark:bg-white/[0.08] text-slate-900 dark:text-white border border-slate-200 dark:border-white/5 shadow-sm"
                                 : isNavigating
-                                ? "text-white/30 pointer-events-none border border-transparent"
-                                : "text-slate-300 hover:bg-white/[0.06] hover:text-white border border-transparent"
+                                ? "text-slate-400 dark:text-white/30 pointer-events-none border border-transparent"
+                                : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-slate-900 dark:hover:text-white border border-transparent"
                             }`}
                           >
                             {navigatingTo === item.href ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-indigo-400 shrink-0" />
+                              <Loader2 className="w-4 h-4 animate-spin text-indigo-600 dark:text-indigo-400 shrink-0" />
                             ) : (
                               <ItemIcon className="w-4 h-4 opacity-80 shrink-0" />
                             )}
                             <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
                               <span className="truncate">{item.label}</span>
                               {item.isNew && (
-                                <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[9.5px] font-black rounded-md uppercase tracking-wide leading-none shrink-0">
+                                <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[9.5px] font-black rounded-md uppercase tracking-wide leading-none shrink-0">
                                   NOVO
                                 </span>
                               )}

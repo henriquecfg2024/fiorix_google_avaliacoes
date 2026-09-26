@@ -43,10 +43,24 @@ export interface ErroMensal {
   semMarcador: number;
 }
 
+export interface TopCausa {
+  id: string;
+  nome: string;
+  descricao: string;
+  quantidade: number;
+  percentual: number;
+  cor: string;
+}
+
 export interface RetornosKpis {
   total: number;
   corrigidos: number;
   semMarcador: number;
+  reingressos: number;
+  taxaRetrabalho: number;  // percentual (ex: 28.5)
+  tempoMedioDias: number;  // média de dias desde a recepção
+  taxaResolucao: number;   // percentual de corrigidos (ex: 42.1)
+  topCausas?: TopCausa[];
 }
 
 export interface RetornosResponse {
@@ -57,6 +71,8 @@ export interface RetornosResponse {
   responsaveisCompleto: ResponsavelContagemCompleta[];
   /** Agregação mensal de eventos */
   errosMensais: ErroMensal[];
+  /** Principais causas de retorno/exigência */
+  topCausas: TopCausa[];
   items: RetornoItem[];
   total: number;
   page: number;

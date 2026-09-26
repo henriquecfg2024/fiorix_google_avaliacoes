@@ -65,19 +65,19 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
   };
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden pb-12">
+    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-amber-500/30 dark:bg-[#070A12] dark:text-white transition-colors duration-300 relative overflow-hidden pb-12">
       {/* Background Glows */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/10 via-emerald-500/10 to-amber-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-white/10" />
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
         {/* 1. Header Global com Identificação Rigorosa */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/8">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
                 Central de Operações FIORIX
               </h1>
               <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
@@ -91,22 +91,22 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
                 {health.globalStatus}
               </span>
             </div>
-            <p className="text-xs text-white/50 mt-1">
+            <p className="text-xs text-slate-500 dark:text-white/50 mt-1">
               Observabilidade de ponta a ponta: SaaS, conectividade e rotinas do cartório
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             {/* Indicador de Ambiente Fixo e Auditado */}
-            <div className="flex items-center gap-2 bg-[#0B1020] px-3 py-1.5 rounded-xl border border-white/10 text-xs">
+            <div className="flex items-center gap-2 bg-white border border-slate-200 dark:bg-[#0B1020] dark:border-white/10 px-3 py-1.5 rounded-xl text-xs">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-              <span className="font-semibold text-white/90">Produção — único ambiente monitorado</span>
+              <span className="font-semibold text-slate-700 dark:text-white/90">Produção — único ambiente monitorado</span>
             </div>
 
             {/* Timestamp e Status de Entrega */}
-            <div className="hidden sm:flex flex-col text-right text-[11px] font-mono text-white/40 leading-tight">
+            <div className="hidden sm:flex flex-col text-right text-[11px] font-mono text-slate-500 dark:text-white/40 leading-tight">
               <span>Atualizado às: {lastUpdated}</span>
-              <span className="text-[10px] text-white/30">Entrega: {health.delivery === 'cached' ? `cache (${Math.round(health.cacheAgeMs / 1000)}s)` : 'em tempo real'}</span>
+              <span className="text-[10px] text-slate-400 dark:text-white/30">Entrega: {health.delivery === 'cached' ? `cache (${Math.round(health.cacheAgeMs / 1000)}s)` : 'em tempo real'}</span>
             </div>
 
             <button
@@ -122,14 +122,14 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
         </div>
 
         {/* Navegação entre Abas */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-white/8 pb-2">
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-white/8 pb-2">
           <button
             type="button"
             onClick={() => setActiveTab('overview')}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'overview'
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25 border border-blue-500/30'
-                : 'text-white/60 hover:text-white hover:bg-white/[0.04] border border-transparent'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 dark:text-white/60 dark:hover:text-white dark:hover:bg-white/[0.04] border border-transparent'
             }`}
           >
             <BarChart3 className="h-4 w-4" />
@@ -142,7 +142,7 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'audit'
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25 border border-blue-500/30'
-                : 'text-white/60 hover:text-white hover:bg-white/[0.04] border border-transparent'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 dark:text-white/60 dark:hover:text-white dark:hover:bg-white/[0.04] border border-transparent'
             }`}
           >
             <Database className="h-4 w-4" />
@@ -155,7 +155,7 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
               activeTab === 'alerts'
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25 border border-blue-500/30'
-                : 'text-white/60 hover:text-white hover:bg-white/[0.04] border border-transparent'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 dark:text-white/60 dark:hover:text-white dark:hover:bg-white/[0.04] border border-transparent'
             }`}
           >
             <Bell className="h-4 w-4" />

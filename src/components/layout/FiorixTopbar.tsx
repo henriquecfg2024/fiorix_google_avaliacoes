@@ -14,6 +14,7 @@ import {
   loadNavigationStatsOnce,
   type NavigationStats,
 } from "@/lib/navigation/client-data";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 export function FiorixTopbar() {
   const router = useRouter();
@@ -83,7 +84,7 @@ export function FiorixTopbar() {
   const canViewReviews = ["MASTER", "ADMIN", "SUBSTITUTO"].includes(role.toUpperCase());
 
   return (
-    <header className="sticky top-0 z-50 h-14 w-full border-b border-white/[0.06] bg-[#080A12]/90 backdrop-blur-md">
+    <header className="sticky top-0 z-50 h-14 w-full border-b border-slate-200 dark:border-white/[0.06] bg-white/90 dark:bg-[#080A12]/90 backdrop-blur-md transition-colors duration-300">
       <div className="flex h-full items-center justify-between px-4 lg:px-8">
         
         {/* Esquerda: Contexto, Hamburguer (Mobile) */}
@@ -91,7 +92,7 @@ export function FiorixTopbar() {
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>
               <button
-                className="lg:hidden p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors cursor-pointer -ml-2"
+                className="lg:hidden p-2 rounded-lg bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-white transition-colors cursor-pointer -ml-2"
                 aria-label="Abrir menu"
               >
                 <Menu className="w-5 h-5" />
@@ -99,11 +100,11 @@ export function FiorixTopbar() {
             </SheetTrigger>
             <SheetContent
               side="left"
-              className="w-80 bg-[#080A12] border-white/10 text-white p-0 flex flex-col justify-between"
+              className="w-80 bg-white dark:bg-[#080A12] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white p-0 flex flex-col justify-between"
             >
               <div className="flex-1 overflow-y-auto">
-                <SheetHeader className="p-5 border-b border-white/10 text-left">
-                  <SheetTitle className="text-white flex items-center justify-between">
+                <SheetHeader className="p-5 border-b border-slate-200 dark:border-white/10 text-left">
+                  <SheetTitle className="text-slate-900 dark:text-white flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#6366f1] to-[#a855f7] text-white font-extrabold shadow-md shadow-indigo-500/20">
                         F
@@ -279,6 +280,9 @@ export function FiorixTopbar() {
             </Link>
           )}
 
+          {/* Theme Toggle (Claro / Escuro) */}
+          <ThemeToggle />
+
           {/* User Profile Dropdown */}
           <div className="relative">
             <button
@@ -295,16 +299,16 @@ export function FiorixTopbar() {
                   className="fixed inset-0 z-40"
                   onClick={() => setUserMenuOpen(false)}
                 />
-                <div className="absolute right-0 top-10 z-50 w-52 rounded-xl border border-white/10 bg-[#12141F] p-2 shadow-2xl backdrop-blur-xl">
-                  <div className="px-3 py-2 border-b border-white/5 mb-1.5">
-                    <p className="text-xs font-bold text-white truncate">
+                <div className="absolute right-0 top-10 z-50 w-52 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#12141F] p-2 shadow-2xl backdrop-blur-xl text-slate-900 dark:text-white">
+                  <div className="px-3 py-2 border-b border-slate-100 dark:border-white/5 mb-1.5">
+                    <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
                       {currentUser?.name || "Usuário"}
                     </p>
-                    <p className="text-[10px] text-white/50 truncate mt-0.5">
+                    <p className="text-[10px] text-slate-500 dark:text-white/50 truncate mt-0.5">
                       {currentUser?.email}
                     </p>
                     <div className="mt-1.5">
-                      <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider">
+                      <span className="bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wider">
                         {currentUser?.role || "USER"}
                       </span>
                     </div>
@@ -315,10 +319,18 @@ export function FiorixTopbar() {
                       setUserMenuOpen(false);
                       router.push("/minha-conta");
                     }}
-                    className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-white/70 hover:bg-white/[0.04] hover:text-white text-left cursor-pointer"
+                    className="flex w-full items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-white/70 dark:hover:bg-white/[0.04] dark:hover:text-white text-left cursor-pointer"
                   >
                     👤 Minha Conta
                   </button>
+
+                  {/* Seletor de Tema no Menu */}
+                  <div className="px-2 py-2 my-1 border-t border-b border-slate-100 dark:border-white/5 flex flex-col gap-1.5">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-white/40 tracking-wider px-1">
+                      Aparência
+                    </span>
+                    <ThemeToggle variant="pills" className="w-full justify-between" />
+                  </div>
 
                   <form action={handleSignOut} className="mt-1">
                     <button

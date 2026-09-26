@@ -75,11 +75,11 @@ export function ServiceHealthGrid({ services }: Props) {
         return (
           <div 
             key={service.id} 
-            className="rounded-2xl border border-white/10 bg-[#0B1020]/90 p-3.5 shadow-lg backdrop-blur-xl flex flex-col justify-between hover:border-white/20 transition-all group relative"
+            className="rounded-2xl border border-slate-200 bg-white/90 p-3.5 shadow-sm dark:border-white/10 dark:bg-[#0B1020]/90 dark:shadow-lg backdrop-blur-xl flex flex-col justify-between hover:border-slate-300 dark:hover:border-white/20 transition-all group relative"
             title={service.reason ? `${service.details || ''} - ${service.reason}` : service.details || undefined}
           >
             <div className="flex items-start justify-between gap-2 mb-3">
-              <div className="p-2 rounded-xl bg-white/[0.04] border border-white/8 text-white group-hover:bg-amber-500/10 group-hover:text-amber-300 transition-colors">
+              <div className="p-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 dark:bg-white/[0.04] dark:border-white/8 dark:text-white group-hover:bg-amber-500/10 group-hover:text-amber-500 dark:group-hover:text-amber-300 transition-colors">
                 <Icon className="h-4 w-4" />
               </div>
               <div>
@@ -88,12 +88,12 @@ export function ServiceHealthGrid({ services }: Props) {
             </div>
 
             <div>
-              <h3 className="text-xs font-bold text-white tracking-wide truncate mb-1">
+              <h3 className="text-xs font-bold text-slate-900 dark:text-white tracking-wide truncate mb-1">
                 {service.name}
               </h3>
               
               {service.reason && (
-                <p className="text-[10px] text-white/40 truncate mb-1 font-sans">
+                <p className="text-[10px] text-slate-500 dark:text-white/40 truncate mb-1 font-sans">
                   {service.reason}
                 </p>
               )}

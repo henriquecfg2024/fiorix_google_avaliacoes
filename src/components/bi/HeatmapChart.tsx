@@ -106,17 +106,17 @@ function HeatmapChartInner({ data }: HeatmapChartProps) {
   };
 
   return (
-    <div className="space-y-6 rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+    <div className="space-y-6 rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="flex items-center gap-2 text-base font-bold tracking-tight text-white">
+          <h3 className="flex items-center gap-2 text-base font-bold tracking-tight text-slate-900 dark:text-white">
             Distribuição por Dia e Hora (Heatmap 7x24)
           </h3>
-          <p className="text-xs text-white/40">Visualização de produtividade por faixa horária de Domingo a Sábado</p>
+          <p className="text-xs text-slate-500 dark:text-white/40">Visualização de produtividade por faixa horária de Domingo a Sábado</p>
         </div>
         {heatmapData.maxVal > 1 && (
-          <div className="flex items-center gap-1.5 rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs text-amber-300">
-            <Info className="h-3.5 w-3.5" />
+          <div className="flex items-center gap-1.5 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs text-amber-700 dark:text-amber-300 font-semibold">
+            <Info className="h-3.5 w-3.5 text-amber-500" />
             <span>Pico: {heatmapData.maxDayPt} às {heatmapData.maxHour}h ({heatmapData.maxVal.toLocaleString("pt-BR")})</span>
           </div>
         )}
@@ -125,10 +125,10 @@ function HeatmapChartInner({ data }: HeatmapChartProps) {
       <div className="select-none overflow-x-auto pt-2">
         <div className="min-w-[800px] space-y-1">
           <div className="flex items-center">
-            <div className="w-20 pr-2 text-right text-xs font-medium text-white/40">Dia</div>
+            <div className="w-20 pr-2 text-right text-xs font-medium text-slate-400 dark:text-white/40">Dia</div>
             <div className="grid flex-1 grid-cols-[repeat(24,minmax(0,1fr))] gap-[2px]">
               {HOURS.map((hour) => (
-                <div key={hour} className="text-center font-mono text-[10px] text-white/40">
+                <div key={hour} className="text-center font-mono text-[10px] text-slate-400 dark:text-white/40">
                   {String(hour).padStart(2, "0")}h
                 </div>
               ))}
@@ -137,7 +137,7 @@ function HeatmapChartInner({ data }: HeatmapChartProps) {
 
           {DAYS_OF_WEEK.map((day, dIdx) => (
             <div key={day} className="flex items-center">
-              <div className="w-20 pr-2 text-right text-xs font-semibold text-white/60">
+              <div className="w-20 pr-2 text-right text-xs font-semibold text-slate-700 dark:text-white/60">
                 {DAYS_OF_WEEK_PT[dIdx]}
               </div>
 
@@ -151,19 +151,19 @@ function HeatmapChartInner({ data }: HeatmapChartProps) {
                     <div
                       key={hour}
                       style={{ backgroundColor: color }}
-                      className={`group relative flex h-8 cursor-pointer items-center justify-center rounded-[3px] border border-white/[0.02] transition-all ${
-                        isPeak ? "border-amber-300/50 shadow-[0_0_12px_rgba(251,191,36,0.35)]" : "hover:border-white/30"
+                      className={`group relative flex h-8 cursor-pointer items-center justify-center rounded-[3px] border border-slate-200/50 dark:border-white/[0.02] transition-all ${
+                        isPeak ? "border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.35)]" : "hover:border-slate-400 dark:hover:border-white/30"
                       }`}
                     >
-                      {isPeak && <span className="absolute h-2 w-2 rounded-full bg-amber-300 shadow-[0_0_6px_rgba(251,191,36,0.8)]" />}
+                      {isPeak && <span className="absolute h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]" />}
 
-                      <div className="pointer-events-none absolute bottom-full left-1/2 z-[25] hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-white/10 bg-[#0B1020]/95 px-3 py-1.5 text-center text-[11px] shadow-[0_20px_60px_rgba(0,0,0,0.28)] group-hover:block">
-                        <p className="font-semibold text-white">
+                      <div className="pointer-events-none absolute bottom-full left-1/2 z-[25] hidden -translate-x-1/2 whitespace-nowrap rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/95 px-3 py-1.5 text-center text-[11px] shadow-xl group-hover:block">
+                        <p className="font-semibold text-slate-900 dark:text-white">
                           {DAYS_OF_WEEK_PT[dIdx]}, {hour}h
                         </p>
-                        <p className="mt-0.5 font-bold text-cyan-300">{(value ?? 0).toLocaleString("pt-BR")} autenticações</p>
+                        <p className="mt-0.5 font-bold text-cyan-600 dark:text-cyan-300">{(value ?? 0).toLocaleString("pt-BR")} autenticações</p>
                         {isPeak && (
-                          <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-amber-300">
+                          <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-300">
                             Maior Pico do Período
                           </p>
                         )}
@@ -177,12 +177,12 @@ function HeatmapChartInner({ data }: HeatmapChartProps) {
         </div>
       </div>
 
-      <div className="flex items-center justify-end gap-3 border-t border-white/5 pt-2 text-xs text-white/40">
+      <div className="flex items-center justify-end gap-3 border-t border-slate-100 dark:border-white/5 pt-2 text-xs text-slate-500 dark:text-white/40">
         <span>Menos ativo</span>
         <div className="flex gap-[2px]">
-          <div className="h-3 w-5 rounded-[2px]" style={{ backgroundColor: "rgba(11, 16, 32, 0.85)" }} />
-          <div className="h-3 w-5 rounded-[2px]" style={{ backgroundColor: "rgba(20, 184, 166, 0.38)" }} />
-          <div className="h-3 w-5 rounded-[2px]" style={{ backgroundColor: "rgba(56, 189, 248, 0.7)" }} />
+          <div className="h-3 w-5 rounded-[2px] bg-slate-200 dark:bg-[#0B1020]" />
+          <div className="h-3 w-5 rounded-[2px]" style={{ backgroundColor: "rgba(20, 184, 166, 0.45)" }} />
+          <div className="h-3 w-5 rounded-[2px]" style={{ backgroundColor: "rgba(56, 189, 248, 0.75)" }} />
           <div className="h-3 w-5 rounded-[2px]" style={{ backgroundColor: "rgba(251, 191, 36, 0.9)" }} />
         </div>
         <span>Mais ativo</span>

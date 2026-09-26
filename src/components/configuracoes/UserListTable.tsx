@@ -310,7 +310,7 @@ export function UserListTable({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-[#070A12] border border-white/10 rounded-xl px-3 py-1 text-xs">
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1 text-xs dark:bg-[#070A12] dark:border-white/10">
             <Building className="w-3.5 h-3.5 text-white/40" />
             <select
               value={selectedDepto}
@@ -325,7 +325,7 @@ export function UserListTable({
             </select>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-[#070A12] border border-white/10 rounded-xl px-3 py-1 text-xs">
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1 text-xs dark:bg-[#070A12] dark:border-white/10">
             <Filter className="w-3.5 h-3.5 text-white/40" />
             <select
               value={selectedRole}
@@ -345,10 +345,10 @@ export function UserListTable({
       </div>
 
       {/* Tabela de Usuários */}
-      <div className="overflow-x-auto rounded-2xl border border-white/12">
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-white/12">
         <table className="w-full min-w-[900px] border-collapse text-left text-xs">
           <thead>
-            <tr className="border-b border-white/12 bg-[#0B1020] text-[11px] font-bold uppercase tracking-[0.16em] text-white/58">
+            <tr className="border-b border-slate-200 bg-slate-100 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:border-white/12 dark:bg-[#0B1020] dark:text-white/58">
               <th className="p-3 pl-5 sm:p-4">Colaborador / Nome</th>
               <th className="p-3 sm:p-4">E-mail</th>
               <th className="p-3 sm:p-4">CPF (Validação RH)</th>
@@ -359,20 +359,20 @@ export function UserListTable({
               <th className="p-3 pr-5 text-right sm:p-4">Ações</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/8 font-medium text-white/80">
+          <tbody className="divide-y divide-slate-200 dark:divide-white/8 font-medium text-white/80">
             {filteredUsers.map((u) => {
               const isMaster = u.role === 'MASTER' || u.email === 'admin@fiorix.com.br';
               const isRevealed = Boolean(revealedCpfs[u.id]);
 
               return (
-                <tr key={u.id} className="hover:bg-white/[0.03] transition-colors">
+                <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors">
                   <td className="p-3 pl-5 sm:p-4">
                     <div className="flex items-center gap-2.5">
                       <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-600/40 to-purple-600/40 border border-white/10 flex items-center justify-center font-bold text-xs text-white">
                         {u.name?.charAt(0) || 'U'}
                       </div>
                       <div>
-                        <div className="font-bold text-white flex items-center gap-1.5">
+                        <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                           <span>{u.name || 'Sem nome'}</span>
                           {isMaster && (
                             <span
@@ -397,14 +397,14 @@ export function UserListTable({
                     </div>
                   </td>
 
-                  <td className="p-3 sm:p-4 text-white/70 font-mono text-[11px]">
+                  <td className="p-3 sm:p-4 text-slate-600 dark:text-white/70 font-mono text-[11px]">
                     {u.email}
                   </td>
 
                   {/* CPF com Reveal Eye */}
                   <td className="p-3 sm:p-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs text-white/90">
+                      <span className="font-mono text-xs text-slate-800 dark:text-white/90">
                         {maskCpfDisplay(u.cpf, isRevealed)}
                       </span>
                       {u.cpf && (

@@ -525,22 +525,22 @@ export function ChatArea({
 
   return (
     <div
-      className="flex h-full w-full rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)] overflow-hidden relative"
+      className="flex h-full w-full rounded-[24px] border border-slate-200 bg-white/90 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] overflow-hidden relative"
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       {/* ── MAIN CHAT COLUMN ──────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#070A12]/40 relative">
+      <div className="flex-1 flex flex-col min-w-0 bg-slate-50/50 dark:bg-[#070A12]/40 relative">
         {/* Header */}
-        <div className="flex items-center gap-2.5 px-3.5 border-b border-white/10 bg-white/[0.02] shrink-0 h-14">
+        <div className="flex items-center gap-2.5 px-3.5 border-b border-slate-200 bg-white dark:border-white/10 dark:bg-white/[0.02] shrink-0 h-14">
           {onBackToConversations && (
             <button
               type="button"
               onClick={onBackToConversations}
               aria-label="Voltar para lista de conversas"
-              className="md:hidden p-2 -ml-1 mr-1 rounded-xl text-slate-300 hover:text-white bg-white/[0.05] hover:bg-white/10 transition cursor-pointer"
+              className="md:hidden p-2 -ml-1 mr-1 rounded-xl text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 dark:text-slate-300 dark:hover:text-white dark:bg-white/[0.05] dark:hover:bg-white/10 transition cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
@@ -554,7 +554,7 @@ export function ChatArea({
           </div>
 
           <div className="flex-1 min-w-0">
-            <h2 className="text-sm font-semibold text-white truncate">{conversation.titulo}</h2>
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-white truncate">{conversation.titulo}</h2>
             {isGroup ? (
               <p className="text-[10px] text-slate-400 truncate">
                 {conversation.membros.length} participante{conversation.membros.length !== 1 ? 's' : ''}
@@ -587,7 +587,7 @@ export function ChatArea({
             <button
               onClick={() => setSidePanel(sidePanel === 'search' ? 'none' : 'search')}
               className={`p-1.5 rounded-lg transition ${
-                sidePanel === 'search' ? 'bg-emerald-600/20 text-emerald-400' : 'text-slate-400 hover:text-white hover:bg-white/10'
+                sidePanel === 'search' ? 'bg-emerald-600/20 text-emerald-500 dark:text-emerald-400' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/10'
               }`}
             >
               <Search className="w-4 h-4" />
@@ -597,7 +597,7 @@ export function ChatArea({
               <button
                 onClick={() => setSidePanel(sidePanel === 'info' ? 'none' : 'info')}
                 className={`p-1.5 rounded-lg transition ${
-                  sidePanel === 'info' ? 'bg-emerald-600/20 text-emerald-400' : 'text-slate-400 hover:text-white hover:bg-white/10'
+                  sidePanel === 'info' ? 'bg-emerald-600/20 text-emerald-500 dark:text-emerald-400' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/10'
                 }`}
               >
                 <Info className="w-4 h-4" />
@@ -629,7 +629,7 @@ export function ChatArea({
 
         {/* Busca inline */}
         {sidePanel === 'search' && (
-          <div className="px-4 py-2 border-b border-white/10 bg-[#0d1117]">
+          <div className="px-4 py-2 border-b border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-[#0d1117]">
             <div className="relative">
               <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-slate-500" />
               <input
@@ -637,7 +637,7 @@ export function ChatArea({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Pesquisar nesta conversa…"
-                className="w-full pl-8 pr-4 py-1.5 text-xs rounded-lg bg-slate-900 border border-white/10 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/60"
+                className="w-full pl-8 pr-4 py-1.5 text-xs rounded-lg bg-white border border-slate-200 text-slate-900 placeholder-slate-400 dark:bg-slate-900 dark:border-white/10 dark:text-white dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500/60"
               />
             </div>
             {searchFiltered && (
@@ -680,11 +680,11 @@ export function ChatArea({
                   <div key={date}>
                     {/* Separador de data */}
                     <div className="flex items-center gap-2 my-4">
-                      <div className="flex-1 h-px bg-white/[0.06]" />
-                      <span className="text-[10px] font-medium text-slate-500 px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]">
+                      <div className="flex-1 h-px bg-slate-200 dark:bg-white/[0.06]" />
+                      <span className="text-[10px] font-medium text-slate-500 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 dark:bg-white/[0.04] dark:border-white/[0.06]">
                         {date}
                       </span>
-                      <div className="flex-1 h-px bg-white/[0.06]" />
+                      <div className="flex-1 h-px bg-slate-200 dark:bg-white/[0.06]" />
                     </div>
 
                     {msgs.map((msg, idx) => {
@@ -788,11 +788,11 @@ export function ChatArea({
                                         key={a.id}
                                         onClick={() => setPreviewAnexo(a)}
                                         title="Clique para visualizar o anexo"
-                                        className="flex items-center gap-2.5 bg-black/30 hover:bg-black/45 rounded-xl px-3 py-2 border border-white/10 hover:border-emerald-500/40 cursor-pointer transition group/anexo"
+                                        className="flex items-center gap-2.5 bg-slate-100/90 hover:bg-slate-200/90 border border-slate-200 dark:bg-black/30 dark:hover:bg-black/45 dark:border-white/10 dark:hover:border-emerald-500/40 rounded-xl px-3 py-2 cursor-pointer transition group/anexo"
                                       >
                                         <span className="text-lg shrink-0">{mimeIcon(a.mimeType)}</span>
                                         <div className="flex-1 min-w-0">
-                                          <p className="text-[11px] font-medium text-white truncate group-hover/anexo:text-emerald-300 transition">
+                                          <p className="text-[11px] font-medium text-slate-900 group-hover/anexo:text-emerald-700 dark:text-white dark:group-hover/anexo:text-emerald-300 truncate transition">
                                             {a.nomeArquivo}
                                           </p>
                                           <p className="text-[10px] text-slate-400 font-mono">
@@ -1021,7 +1021,7 @@ export function ChatArea({
         </div>
 
         {/* ── Barra de Composição ─────────────────────────────────────── */}
-        <div className="shrink-0 border-t border-white/10 bg-[#0B1020]/90 backdrop-blur-md px-3.5 pb-3 pt-2.5">
+        <div className="shrink-0 border-t border-slate-200 bg-white/95 dark:border-white/10 dark:bg-[#0B1020]/90 backdrop-blur-md px-3.5 pb-3 pt-2.5">
           {/* Banner: sem permissão de envio */}
           {!canSend && (
             <div className="flex items-center gap-2 text-[11px] text-slate-400 mb-2 px-2 py-1.5 rounded-lg bg-white/[0.03] border border-white/10">
@@ -1054,7 +1054,7 @@ export function ChatArea({
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading || !canSend}
                 title="Anexar arquivo (PDF, imagens, documentos — Limite máximo: 25 MB)"
-                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition disabled:opacity-40 cursor-pointer"
+                className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/10 transition disabled:opacity-40 cursor-pointer"
               >
                 {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
               </button>
@@ -1074,7 +1074,7 @@ export function ChatArea({
                   }}
                   placeholder={canSend ? 'Mensagem…' : 'Sem permissão de envio'}
                   disabled={!canSend}
-                  className="w-full bg-white/[0.04] border border-white/10 text-white text-xs rounded-xl px-3 py-2.5 resize-none focus:outline-none focus:border-emerald-500/60 placeholder-slate-500 disabled:opacity-40 max-h-40 leading-relaxed"
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 dark:bg-white/[0.04] dark:border-white/10 dark:text-white dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500/60 text-xs rounded-xl px-3 py-2.5 resize-none disabled:opacity-40 max-h-40 leading-relaxed"
                 />
               </div>
 
@@ -1115,16 +1115,16 @@ export function ChatArea({
           ref={contextRef}
           onMouseDown={(e) => e.stopPropagation()}
           style={{ position: 'fixed', top: contextMenu.y, left: contextMenu.x, zIndex: 99999 }}
-          className="bg-[#1a2236] border border-white/15 rounded-xl shadow-2xl py-1 min-w-[180px] overflow-hidden animate-in fade-in zoom-in-95 duration-100 backdrop-blur-md"
+          className="bg-white border border-slate-200 shadow-xl dark:bg-[#1a2236] dark:border-white/15 dark:shadow-2xl rounded-xl py-1 min-w-[180px] overflow-hidden animate-in fade-in zoom-in-95 duration-100 backdrop-blur-md"
         >
           {/* Emojis rápidos */}
-          <div className="flex gap-1 px-2 pt-1.5 pb-1 border-b border-white/10">
+          <div className="flex gap-1 px-2 pt-1.5 pb-1 border-b border-slate-200 dark:border-white/10">
             {QUICK_EMOJIS.map((e) => (
               <button
                 key={e}
                 type="button"
                 onClick={() => handleReaction(contextMenu.msg.id, e)}
-                className="w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center text-base transition cursor-pointer"
+                className="w-7 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 flex items-center justify-center text-base transition cursor-pointer"
               >
                 {e}
               </button>
@@ -1146,7 +1146,7 @@ export function ChatArea({
               type="button"
               onClick={action}
               className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs transition cursor-pointer ${
-                danger ? 'text-rose-400 hover:bg-rose-500/10' : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                danger ? 'text-rose-400 hover:bg-rose-500/10' : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white'
               }`}
             >
               <Icon className="w-3.5 h-3.5 shrink-0" />
@@ -1164,7 +1164,7 @@ export function ChatArea({
           onClick={() => scrollToBottom(true)}
           aria-label="Rolar para o fim da conversa"
           title="Rolar para as mensagens mais recentes"
-          className="absolute bottom-20 right-6 z-30 w-10 h-10 rounded-full bg-[#111827]/90 hover:bg-[#1f2937] text-slate-200 hover:text-white border border-white/15 shadow-2xl backdrop-blur-md flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer animate-in fade-in slide-in-from-bottom-2 duration-150"
+          className="absolute bottom-20 right-6 z-30 w-10 h-10 rounded-full bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 shadow-xl dark:bg-[#111827]/90 dark:hover:bg-[#1f2937] dark:text-slate-200 dark:hover:text-white dark:border-white/15 dark:shadow-2xl backdrop-blur-md flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer animate-in fade-in slide-in-from-bottom-2 duration-150"
         >
           <ChevronDown className="w-5 h-5 stroke-[2.5]" />
           {unreadBelowCount > 0 && (

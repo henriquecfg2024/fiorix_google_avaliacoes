@@ -197,12 +197,12 @@ export function ReviewItemCard({ review, staffNames }: ReviewItemProps) {
   return (
     <>
       <div
-        className={`space-y-3.5 rounded-[24px] border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all ${
+        className={`space-y-3.5 rounded-[24px] border p-5 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all ${
           isLowRating
-            ? 'border-red-500/35 border-l-4 border-l-red-500 bg-[#0B1020]/72'
+            ? 'border-red-500/35 border-l-4 border-l-red-500 bg-white dark:bg-[#0B1020]/72'
             : isMidRating
-              ? 'border-amber-500/30 border-l-4 border-l-amber-400 bg-[#0B1020]/72'
-              : 'border-white/12 bg-[#0B1020]/72 hover:border-white/18'
+              ? 'border-amber-500/30 border-l-4 border-l-amber-500 bg-white dark:bg-[#0B1020]/72'
+              : 'border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 hover:border-slate-300 dark:hover:border-white/18'
         }`}
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -211,35 +211,35 @@ export function ReviewItemCard({ review, staffNames }: ReviewItemProps) {
               {review.reviewerName ? review.reviewerName[0].toUpperCase() : 'A'}
             </div>
             <div>
-              <h4 className="text-base font-bold leading-tight text-white">{review.reviewerName}</h4>
-              <span className="text-xs sm:text-sm text-slate-400 font-medium">{formatDate(review.publishedAt)}</span>
+              <h4 className="text-base font-bold leading-tight text-slate-900 dark:text-white">{review.reviewerName}</h4>
+              <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">{formatDate(review.publishedAt)}</span>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={`text-base font-bold tracking-wider ${
-                review.rating >= 4 ? 'text-emerald-400' : review.rating === 3 ? 'text-amber-400' : 'text-red-400'
+                review.rating >= 4 ? 'text-emerald-600 dark:text-emerald-400' : review.rating === 3 ? 'text-amber-500 dark:text-amber-400' : 'text-red-500 dark:text-red-400'
               }`}
             >
               {renderStars(review.rating)}
             </span>
 
             {review.status === 'RESPONDED' ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/12 px-3 py-1 text-xs sm:text-sm font-semibold text-emerald-300">
-                <CheckCircle className="h-3.5 w-3.5 text-emerald-400" />
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/12 px-3 py-1 text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                <CheckCircle className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                 Respondida
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/12 px-3 py-1 text-xs sm:text-sm font-semibold text-amber-300">
-                <Clock className="h-3.5 w-3.5 text-amber-400" />
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/12 px-3 py-1 text-xs sm:text-sm font-semibold text-amber-700 dark:text-amber-300">
+                <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                 Aguardando resposta
               </span>
             )}
 
             {isLowRating && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/20 bg-red-500/12 px-3 py-1 text-xs sm:text-sm font-bold text-red-300">
-                <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/20 bg-red-500/12 px-3 py-1 text-xs sm:text-sm font-bold text-red-700 dark:text-red-300">
+                <AlertTriangle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
                 Crítica • Requer atenção
               </span>
             )}
@@ -256,16 +256,16 @@ export function ReviewItemCard({ review, staffNames }: ReviewItemProps) {
           </div>
         )}
 
-        <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 text-sm sm:text-base leading-relaxed text-slate-100">
+        <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.03] p-4 text-sm sm:text-base leading-relaxed text-slate-800 dark:text-slate-100">
           {!cleanedComment ? (
-            <p className="italic text-slate-400">Sem comentário por extenso.</p>
+            <p className="italic text-slate-400 dark:text-slate-400">Sem comentário por extenso.</p>
           ) : (
             <div>
               <p className={!isExpanded && isLong ? 'line-clamp-3' : ''}>"{renderCommentWithPills(cleanedComment, staffNames)}"</p>
               {isLong && (
                 <button
                   onClick={() => setIsExpanded(!isExpanded)}
-                  className="mt-1.5 inline-block cursor-pointer text-xs sm:text-sm font-bold text-amber-300 hover:underline"
+                  className="mt-1.5 inline-block cursor-pointer text-xs sm:text-sm font-bold text-amber-600 dark:text-amber-300 hover:underline"
                 >
                   {isExpanded ? 'Ver menos ↑' : 'Ler completo →'}
                 </button>
@@ -275,31 +275,31 @@ export function ReviewItemCard({ review, staffNames }: ReviewItemProps) {
         </div>
 
         {review.status === 'RESPONDED' && review.response?.content && (
-          <div className="space-y-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 sm:p-5">
+          <div className="space-y-2 rounded-2xl border border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 p-4 sm:p-5">
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-xs sm:text-sm font-bold uppercase tracking-wider text-emerald-300">
-                <CheckCircle className="h-4 w-4 text-emerald-400" />
+              <span className="flex items-center gap-1.5 text-xs sm:text-sm font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                 Resposta enviada ✓ IA
               </span>
               <button
                 onClick={handleCopyResponse}
-                className="flex cursor-pointer items-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs sm:text-sm font-semibold text-emerald-300 transition-colors hover:bg-emerald-500/18"
+                className="flex cursor-pointer items-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-100 dark:bg-emerald-500/10 px-2.5 py-1 text-xs sm:text-sm font-semibold text-emerald-800 dark:text-emerald-300 transition-colors hover:bg-emerald-200 dark:hover:bg-emerald-500/18"
               >
-                {copiedResponse ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
+                {copiedResponse ? <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
                 <span>{copiedResponse ? 'Copiado!' : 'Copiar'}</span>
               </button>
             </div>
-            <p className="text-sm sm:text-base leading-relaxed text-slate-100">{review.response.content}</p>
+            <p className="text-sm sm:text-base leading-relaxed text-slate-800 dark:text-slate-100">{review.response.content}</p>
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/8 pt-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 dark:border-white/8 pt-2">
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleOpenModal}
-              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-white/8 px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border px-4 py-2 text-xs sm:text-sm font-bold transition-all ${
                 review.status === 'RESPONDED'
-                  ? 'bg-white/[0.04] text-white hover:bg-white/[0.08]'
+                  ? 'border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] text-slate-700 dark:text-white hover:bg-slate-200 dark:hover:bg-white/[0.08]'
                   : 'bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-xs hover:brightness-105'
               }`}
             >
@@ -320,7 +320,7 @@ export function ReviewItemCard({ review, staffNames }: ReviewItemProps) {
               href="https://business.google.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-300 transition-colors hover:bg-white/[0.04] hover:text-white"
+              className="inline-flex items-center gap-1 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.04] hover:text-slate-900 dark:hover:text-white"
             >
               <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
               <span>Ver no Google</span>
@@ -329,7 +329,7 @@ export function ReviewItemCard({ review, staffNames }: ReviewItemProps) {
 
           <button
             onClick={() => setShowTechDetails(!showTechDetails)}
-            className="inline-flex cursor-pointer items-center gap-1 py-1 text-xs sm:text-sm font-semibold text-slate-400 transition-colors hover:text-slate-200"
+            className="inline-flex cursor-pointer items-center gap-1 py-1 text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400 transition-colors hover:text-slate-800 dark:hover:text-slate-200"
           >
             <span>Detalhes técnicos</span>
             {showTechDetails ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -337,49 +337,49 @@ export function ReviewItemCard({ review, staffNames }: ReviewItemProps) {
         </div>
 
         {showTechDetails && (
-          <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs">
+          <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.03] p-3 text-xs">
             <div className="flex items-center gap-2 overflow-hidden">
-              <span className="shrink-0 font-semibold text-slate-400">ID Google:</span>
-              <code className="truncate rounded bg-slate-800/80 px-2 py-0.5 font-mono text-[11px] text-slate-200">
+              <span className="shrink-0 font-semibold text-slate-500 dark:text-slate-400">ID Google:</span>
+              <code className="truncate rounded bg-slate-200 dark:bg-slate-800/80 px-2 py-0.5 font-mono text-[11px] text-slate-800 dark:text-slate-200">
                 {review.googleId || review.id}
               </code>
             </div>
             <button
               onClick={handleCopyGoogleId}
-              className="flex shrink-0 cursor-pointer items-center gap-1 rounded-lg border border-white/10 bg-slate-800/80 px-2 py-1 text-[11px] font-bold text-slate-200 transition-colors hover:bg-slate-700"
+              className="flex shrink-0 cursor-pointer items-center gap-1 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-200 dark:bg-slate-800/80 px-2 py-1 text-[11px] font-bold text-slate-700 dark:text-slate-200 transition-colors hover:bg-slate-300 dark:hover:bg-slate-700"
             >
-              {copiedId ? <Check className="h-3 w-3 text-emerald-300" /> : <Copy className="h-3 w-3" />}
-              <span>{copiedId ? 'Copiado!' : 'Copiar ID'}</span>
+              {copiedId ? <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" /> : <Copy className="h-3 w-3" />}
+              <span>{copiedId ? 'Copiado' : 'Copiar'}</span>
             </button>
           </div>
         )}
       </div>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-xl animate-in zoom-in-95 space-y-4 rounded-2xl border border-white/10 bg-slate-900 p-6 shadow-2xl duration-200">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 dark:bg-slate-950/75 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-xl animate-in zoom-in-95 space-y-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 p-6 shadow-2xl duration-200 text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-3">
               <div className="flex items-center gap-2">
-                <Bot className="h-5 w-5 text-blue-400" />
-                <h3 className="text-base font-bold text-white">Resposta com Inteligência Artificial</h3>
+                <Bot className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Resposta com Inteligência Artificial</h3>
               </div>
-              <button onClick={() => setIsOpen(false)} className="cursor-pointer rounded-lg p-1 text-slate-400 hover:bg-white/[0.04] hover:text-white">
+              <button onClick={() => setIsOpen(false)} className="cursor-pointer rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.04] hover:text-slate-900 dark:hover:text-white">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="space-y-1 rounded-xl border border-white/10 bg-white/[0.03] p-3.5 text-xs">
+            <div className="space-y-1 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.03] p-3.5 text-xs">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-white">
+                <span className="font-bold text-slate-900 dark:text-white">
                   {review.reviewerName} ({review.rating}★)
                 </span>
-                <span className="font-bold text-amber-400">{renderStars(review.rating)}</span>
+                <span className="font-bold text-amber-500 dark:text-amber-400">{renderStars(review.rating)}</span>
               </div>
-              <p className="italic text-slate-300">"{cleanedComment || 'Sem comentário'}"</p>
+              <p className="italic text-slate-600 dark:text-slate-300">"{cleanedComment || 'Sem comentário'}"</p>
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-300">Selecione o tom de voz da IA:</label>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">Selecione o tom de voz da IA:</label>
               <div className="grid grid-cols-3 gap-2 text-xs font-semibold">
                 {[
                   { key: 'formal', label: 'Formal 👔' },
@@ -396,8 +396,8 @@ export function ReviewItemCard({ review, staffNames }: ReviewItemProps) {
                     }}
                     className={`cursor-pointer rounded-xl border p-2 text-center transition-all ${
                       selectedTone === tone.key
-                        ? 'border-blue-500/30 bg-blue-500/12 font-bold text-blue-300'
-                        : 'border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.05]'
+                        ? 'border-blue-500/30 bg-blue-500/12 font-bold text-blue-700 dark:text-blue-300'
+                        : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.03] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.05]'
                     }`}
                   >
                     {tone.label}
@@ -409,12 +409,12 @@ export function ReviewItemCard({ review, staffNames }: ReviewItemProps) {
             <form onSubmit={handleSubmitResponse} className="space-y-4">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-300">Sugestão de Resposta Rascunhada:</label>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Sugestão de Resposta Rascunhada:</label>
                   <button
                     type="button"
                     onClick={() => handleGenerate(selectedTone)}
                     disabled={isGenerating}
-                    className="inline-flex cursor-pointer items-center gap-1 text-[11px] font-bold text-blue-400 hover:underline"
+                    className="inline-flex cursor-pointer items-center gap-1 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline"
                   >
                     <RefreshCw className={`h-3 w-3 ${isGenerating ? 'animate-spin' : ''}`} />
                     <span>Regerar Rascunho</span>
@@ -426,7 +426,7 @@ export function ReviewItemCard({ review, staffNames }: ReviewItemProps) {
                   value={responseText}
                   onChange={(e) => setResponseText(e.target.value)}
                   disabled={isGenerating}
-                  className="w-full rounded-xl border border-white/10 bg-slate-950/70 p-3 text-sm leading-relaxed text-slate-100 outline-none focus:border-blue-500/40 focus:ring-2 focus:ring-blue-500/30 disabled:bg-slate-900"
+                  className="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-950/70 p-3 text-sm leading-relaxed text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500/40 focus:ring-2 focus:ring-blue-500/30 disabled:bg-slate-100 dark:disabled:bg-slate-900"
                 />
               </div>
 
@@ -434,7 +434,7 @@ export function ReviewItemCard({ review, staffNames }: ReviewItemProps) {
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="cursor-pointer rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-white/[0.08]"
+                  className="cursor-pointer rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors hover:bg-slate-200 dark:hover:bg-white/[0.08]"
                 >
                   Cancelar
                 </button>
@@ -454,3 +454,4 @@ export function ReviewItemCard({ review, staffNames }: ReviewItemProps) {
     </>
   );
 }
+

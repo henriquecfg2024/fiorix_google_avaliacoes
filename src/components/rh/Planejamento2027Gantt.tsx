@@ -40,8 +40,8 @@ export function Planejamento2027Gantt({ ano = 2027, colaboradores }: Planejament
   });
 
   return (
-    <div className="space-y-4 rounded-2xl border border-white/10 bg-[#0d0d18] p-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
+    <div className="space-y-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-[#0d0d18] p-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-white/5 pb-3">
         <div>
           <h4 className="text-xs font-bold uppercase tracking-wider text-white">
             Timeline / Gantt Anual — Escala Consolidada {ano}
@@ -73,9 +73,9 @@ export function Planejamento2027Gantt({ ano = 2027, colaboradores }: Planejament
       <div className="overflow-x-auto">
         <div className="min-w-[900px]">
           {/* Header meses */}
-          <div className="grid grid-cols-12 gap-0 border-b border-white/10 pb-2 text-[11px] font-mono text-slate-400 text-center pl-48">
+          <div className="grid grid-cols-12 gap-0 border-b border-slate-200 dark:border-white/10 pb-2 text-[11px] font-mono text-slate-400 text-center pl-48">
             {MESES_ABREV.map((m) => (
-              <div key={m} className="border-l border-white/5 first:border-l-0">
+              <div key={m} className="border-l border-slate-200 dark:border-white/5 first:border-l-0">
                 {m}
               </div>
             ))}
@@ -104,11 +104,11 @@ export function Planejamento2027Gantt({ ano = 2027, colaboradores }: Planejament
                   </div>
 
                   {/* Barra do Ano */}
-                  <div className="flex-1 relative h-6 bg-white/[0.02] rounded-lg border border-white/5 overflow-hidden">
+                  <div className="flex-1 relative h-6 bg-white/[0.02] rounded-lg border border-slate-200 dark:border-white/5 overflow-hidden">
                     {/* Grid lines mensais */}
                     <div className="absolute inset-0 grid grid-cols-12 pointer-events-none">
                       {MESES_ABREV.map((_, i) => (
-                        <div key={i} className="border-r border-white/5 h-full" />
+                        <div key={i} className="border-r border-slate-200 dark:border-white/5 h-full" />
                       ))}
                     </div>
 

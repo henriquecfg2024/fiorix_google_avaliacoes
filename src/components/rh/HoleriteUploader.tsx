@@ -344,8 +344,8 @@ export function HoleriteUploader() {
   return (
     <div className="space-y-6">
       {/* Upload em Lote Card */}
-      <div className="rounded-2xl border border-white/10 bg-[#10101a] p-6 shadow-xl space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+      <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a] p-6 shadow-xl space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/5 pb-4">
           <div>
             <h3 className="text-sm font-bold text-white uppercase tracking-wider">
               Upload em Lote de Holerites & Comprovantes de Rendimentos
@@ -374,7 +374,7 @@ export function HoleriteUploader() {
         </div>
 
         {files.length > 0 && (
-          <div className="flex items-center justify-between p-3 bg-white/[0.03] border border-white/10 rounded-xl">
+          <div className="flex items-center justify-between p-3 bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl">
             <span className="text-xs text-slate-200">
               <strong className="text-cyan-400">{files.length}</strong> arquivos PDF prontos para processamento
             </span>
@@ -396,8 +396,8 @@ export function HoleriteUploader() {
       </div>
 
       {/* Tabela de Gestão de Holerites Emitidos (ABAIXO DO DRAG & DROP) */}
-      <div className="rounded-2xl border border-white/10 bg-[#10101a] p-6 shadow-xl space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+      <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a] p-6 shadow-xl space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/5 pb-4">
           <div>
             <h3 className="text-sm font-bold text-white uppercase tracking-wider">
               Holerites Armazenados & Registro de Visualizações
@@ -413,7 +413,7 @@ export function HoleriteUploader() {
                 size="sm"
                 variant="outline"
                 onClick={handleRestaurarPadrao}
-                className="border-white/10 hover:bg-white/5 text-slate-400 hover:text-white text-xs h-9 rounded-xl gap-1.5"
+                className="border-slate-200 dark:border-white/10 hover:bg-white/5 text-slate-400 hover:text-white text-xs h-9 rounded-xl gap-1.5"
                 title="Restaurar lista demonstrativa original"
               >
                 <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
@@ -464,9 +464,9 @@ export function HoleriteUploader() {
         )}
 
         {/* Tabela de Holerites */}
-        <div className="border border-white/10 rounded-xl overflow-hidden bg-[#05050a]">
+        <div className="border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden bg-[#05050a]">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#12141F] text-slate-400 uppercase font-mono text-[10px] border-b border-white/10">
+            <thead className="bg-[#12141F] text-slate-400 uppercase font-mono text-[10px] border-b border-slate-200 dark:border-white/10">
               <tr>
                 <th className="px-4 py-3.5 w-10 text-center">
                   <button onClick={toggleSelectAll} className="text-slate-400 hover:text-white">
@@ -570,7 +570,7 @@ export function HoleriteUploader() {
                         size="sm"
                         variant="outline"
                         onClick={handleRestaurarPadrao}
-                        className="text-xs border-white/10 hover:bg-white/5 text-slate-300 gap-1.5 mt-2"
+                        className="text-xs border-slate-200 dark:border-white/10 hover:bg-white/5 text-slate-300 gap-1.5 mt-2"
                       >
                         <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
                         <span>Restaurar Holerites Demonstrativos</span>
@@ -587,8 +587,8 @@ export function HoleriteUploader() {
       {/* Modal Visualizador Seguro de PDF */}
       {viewPdfItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-          <div className="relative w-full max-w-2xl bg-[#0d0d18] border border-white/10 rounded-2xl flex flex-col shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#12141F]">
+          <div className="relative w-full max-w-2xl bg-[#0d0d18] border border-slate-200 dark:border-white/10 rounded-2xl flex flex-col shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-[#12141F]">
               <div>
                 <h3 className="text-sm font-bold text-white">Visualizador Seguro de Holerite (SecurePDFViewer)</h3>
                 <p className="text-xs text-slate-400">
@@ -600,7 +600,7 @@ export function HoleriteUploader() {
               </button>
             </div>
 
-            <div className="p-8 bg-[#05050a] flex flex-col items-center justify-center relative min-h-[300px] border-b border-white/5">
+            <div className="p-8 bg-[#05050a] flex flex-col items-center justify-center relative min-h-[300px] border-b border-slate-200 dark:border-white/5">
               {/* Watermark Diagonal */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10 rotate-[-25deg] select-none text-2xl font-black text-white text-center leading-tight">
                 7º REGISTRO DE IMÓVEIS SP
@@ -610,8 +610,8 @@ export function HoleriteUploader() {
                 ACESSADO EM {new Date().toLocaleDateString("pt-BR")}
               </div>
 
-              <div className="w-full max-w-md bg-white/[0.04] border border-white/10 rounded-xl p-6 space-y-3 z-10">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+              <div className="w-full max-w-md bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-xl p-6 space-y-3 z-10">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-2">
                   <span className="text-xs font-bold text-white">RECIBO DE PAGAMENTO DE SALÁRIO</span>
                   <span className="text-[10px] font-mono text-cyan-400 font-bold">{viewPdfItem.mesAno}</span>
                 </div>
@@ -621,7 +621,7 @@ export function HoleriteUploader() {
                   <p><strong>CPF:</strong> {viewPdfItem.cpf}</p>
                   <p><strong>Hash do Documento:</strong> <span className="font-mono text-[10px] text-slate-400">{viewPdfItem.hash.substring(0, 24)}...</span></p>
                 </div>
-                <div className="pt-3 border-t border-white/10 flex justify-between text-xs font-bold">
+                <div className="pt-3 border-t border-slate-200 dark:border-white/10 flex justify-between text-xs font-bold">
                   <span className="text-slate-300">LÍQUIDO A RECEBER:</span>
                   <span className="text-emerald-400 font-mono">R$ 5.480,20</span>
                 </div>
@@ -641,8 +641,8 @@ export function HoleriteUploader() {
       {/* Modal de Logs de Acesso do Holerite */}
       {viewLogsItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-          <div className="relative w-full max-w-xl bg-[#0d0d18] border border-white/10 rounded-2xl flex flex-col shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#12141F]">
+          <div className="relative w-full max-w-xl bg-[#0d0d18] border border-slate-200 dark:border-white/10 rounded-2xl flex flex-col shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-[#12141F]">
               <div className="flex items-center gap-2">
                 <ScrollText className="w-5 h-5 text-indigo-400" />
                 <div>
@@ -656,7 +656,7 @@ export function HoleriteUploader() {
             </div>
 
             <div className="p-6 bg-[#05050a] space-y-3 max-h-[350px] overflow-y-auto">
-              <div className="p-3 bg-white/[0.03] rounded-xl border border-white/5 space-y-1 text-xs">
+              <div className="p-3 bg-white/[0.03] rounded-xl border border-slate-200 dark:border-white/5 space-y-1 text-xs">
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="font-bold text-emerald-400">CIÊNCIA REGISTRADA</span>
                   <span className="font-mono text-slate-400">30/08/2026 14:10:05</span>
@@ -665,7 +665,7 @@ export function HoleriteUploader() {
                 <p className="text-[10px] font-mono text-slate-500">Hash: 8a4c11b0e9... (Assinatura Digital Válida)</p>
               </div>
 
-              <div className="p-3 bg-white/[0.03] rounded-xl border border-white/5 space-y-1 text-xs">
+              <div className="p-3 bg-white/[0.03] rounded-xl border border-slate-200 dark:border-white/5 space-y-1 text-xs">
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="font-bold text-indigo-400">VISUALIZAÇÃO DE CONFERÊNCIA</span>
                   <span className="font-mono text-slate-400">30/08/2026 09:45:12</span>
@@ -673,7 +673,7 @@ export function HoleriteUploader() {
                 <p className="text-slate-300">IP: 189.40.12.88 • Tempo de permanência: 45s</p>
               </div>
 
-              <div className="p-3 bg-white/[0.03] rounded-xl border border-white/5 space-y-1 text-xs">
+              <div className="p-3 bg-white/[0.03] rounded-xl border border-slate-200 dark:border-white/5 space-y-1 text-xs">
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="font-bold text-cyan-400">UPLOAD EM LOTE & DISPONIBILIZAÇÃO</span>
                   <span className="font-mono text-slate-400">30/08/2026 09:00:00</span>

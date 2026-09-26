@@ -109,7 +109,7 @@ export function Planejamento2027Calendar({ ano = 2027, colaboradores, onSelectMe
           const maxSetor = Math.max(0, ...Object.values(setorCount));
           const hasSetorConflict = maxSetor > 3;
 
-          let statusBg = "border-white/10 bg-[#0d0d18]";
+          let statusBg = "border-slate-200 dark:border-white/10 bg-[#0d0d18]";
           let badgeColor = "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
           let statusText = "Normal";
 
@@ -129,7 +129,7 @@ export function Planejamento2027Calendar({ ano = 2027, colaboradores, onSelectMe
               onClick={() => onSelectMes?.(idx)}
               className={`rounded-2xl border p-4 transition-all duration-200 hover:border-indigo-500/50 cursor-pointer ${statusBg}`}
             >
-              <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-white/5">
+              <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-200 dark:border-white/5">
                 <span className="font-bold text-sm text-white">{mes}</span>
                 <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${badgeColor}`}>
                   {count} {count === 1 ? "colab." : "colabs."}
@@ -148,7 +148,7 @@ export function Planejamento2027Calendar({ ano = 2027, colaboradores, onSelectMe
                   emFerias.map((c) => (
                     <div
                       key={c.id}
-                      className="flex items-center justify-between bg-white/[0.03] px-2 py-1 rounded-lg border border-white/5 text-[11px]"
+                      className="flex items-center justify-between bg-white/[0.03] px-2 py-1 rounded-lg border border-slate-200 dark:border-white/5 text-[11px]"
                     >
                       <span className="text-white truncate max-w-[110px] font-medium" title={c.nome}>
                         {c.nome.split(" ")[0]} {c.nome.split(" ")[1]?.charAt(0) || ""}.

@@ -52,7 +52,7 @@ export function DeleteConfirmModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200">
       <div className="relative w-full max-w-lg bg-[#0d0d18] border border-rose-500/30 rounded-2xl flex flex-col shadow-[0_25px_70px_rgba(0,0,0,0.8)] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-rose-500/10">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-rose-500/10">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30">
               <ShieldAlert className="w-5 h-5" />
@@ -73,7 +73,7 @@ export function DeleteConfirmModal({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Target Item Detail */}
-          <div className="p-3 bg-white/[0.03] border border-white/8 rounded-xl">
+          <div className="p-3 bg-white/[0.03] border border-slate-200 dark:border-white/8 rounded-xl">
             <span className="text-[10px] font-mono uppercase text-slate-400 block mb-1">Registro Selecionado:</span>
             <p className="text-xs font-semibold text-white break-words">{itemDescription}</p>
           </div>
@@ -121,7 +121,7 @@ export function DeleteConfirmModal({
           )}
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-white/10">
             <Button
               type="button"
               variant="ghost"

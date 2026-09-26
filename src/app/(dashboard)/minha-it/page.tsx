@@ -8,11 +8,11 @@ const MinhaItCleanClient = nextDynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="min-h-screen bg-[#070A12] text-white p-6 sm:p-8">
+      <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white p-6 sm:p-8">
         <div className="mx-auto max-w-[1600px] space-y-6">
-          <div className="h-8 w-64 rounded-xl bg-white/5 animate-pulse" />
-          <div className="h-96 rounded-[28px] border border-white/8 bg-[#0B1020]/72 animate-pulse" />
-          <div className="h-64 rounded-[28px] border border-white/8 bg-[#0B1020]/72 animate-pulse" />
+          <div className="h-8 w-64 rounded-xl bg-slate-200 dark:bg-white/5 animate-pulse" />
+          <div className="h-96 rounded-[28px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 animate-pulse" />
+          <div className="h-64 rounded-[28px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 animate-pulse" />
         </div>
       </div>
     ),

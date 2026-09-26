@@ -434,15 +434,15 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
     return (
 
-      <div className="min-h-screen bg-[#070A12] text-white p-6 sm:p-8">
+      <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white p-6 sm:p-8">
 
         <div className="mx-auto max-w-[1600px] space-y-6">
 
-          <div className="h-8 w-64 rounded-xl bg-white/5 animate-pulse" />
+          <div className="h-8 w-64 rounded-xl bg-slate-200 dark:bg-white/5 animate-pulse" />
 
-          <div className="h-96 rounded-[28px] border border-white/8 bg-[#0B1020]/72 animate-pulse" />
+          <div className="h-96 rounded-[28px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 animate-pulse" />
 
-          <div className="h-64 rounded-[28px] border border-white/8 bg-[#0B1020]/72 animate-pulse" />
+          <div className="h-64 rounded-[28px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 animate-pulse" />
 
         </div>
 
@@ -680,7 +680,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
   // Estado Vazio: usuário sem nenhuma IT atribuída
   if (!hasCustodia || !currentIt) {
     return (
-      <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden">
+      <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-500/12 via-indigo-500/10 to-cyan-500/8 blur-3xl" />
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
@@ -691,8 +691,8 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
             <p className="text-xs font-bold tracking-widest text-teal-400 uppercase mb-1">MEU ESPAÇO</p>
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-white">Minha Instrução de Trabalho</h1>
-                <p className="text-sm text-slate-400 mt-0.5">Cadastre e acompanhe a IT sob sua responsabilidade.</p>
+                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Minha Instrução de Trabalho</h1>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Cadastre e acompanhe a IT sob sua responsabilidade.</p>
               </div>
               <div className="flex items-center gap-3">
                 {isColaborador && (
@@ -714,11 +714,11 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
             </div>
           </div>
           {colaboradorItEnviada ? (
-            <div className="rounded-2xl border border-white/10 bg-[#0B1020]/70 p-6 space-y-4">
+            <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/70 p-6 space-y-4 shadow-sm">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Instrução de Trabalho</p>
-                  <h2 className="text-lg font-bold text-white">{colaboradorItEnviada.titulo}</h2>
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-white">{colaboradorItEnviada.titulo}</h2>
                   {colaboradorItEnviada.codigo && (
                     <p className="text-xs text-slate-400 mt-0.5 font-mono">{colaboradorItEnviada.codigo} • versão {colaboradorItEnviada.versao}</p>
                   )}
@@ -729,11 +729,11 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 })()}
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                <div className="bg-white/4 rounded-xl p-3"><p className="text-slate-500 mb-0.5">Setor</p><p className="text-slate-200 font-medium">{colaboradorItEnviada.departamento}</p></div>
-                <div className="bg-white/4 rounded-xl p-3"><p className="text-slate-500 mb-0.5">Versão</p><p className="text-slate-200 font-medium">{colaboradorItEnviada.versao}</p></div>
-                <div className="bg-white/4 rounded-xl p-3"><p className="text-slate-500 mb-0.5">Enviado em</p><p className="text-slate-200 font-medium">{colaboradorItEnviada.dataEnvio}</p></div>
+                <div className="bg-slate-50 dark:bg-white/4 rounded-xl p-3 border border-slate-100 dark:border-transparent"><p className="text-slate-500 mb-0.5">Setor</p><p className="text-slate-800 dark:text-slate-200 font-medium">{colaboradorItEnviada.departamento}</p></div>
+                <div className="bg-slate-50 dark:bg-white/4 rounded-xl p-3 border border-slate-100 dark:border-transparent"><p className="text-slate-500 mb-0.5">Versão</p><p className="text-slate-800 dark:text-slate-200 font-medium">{colaboradorItEnviada.versao}</p></div>
+                <div className="bg-slate-50 dark:bg-white/4 rounded-xl p-3 border border-slate-100 dark:border-transparent"><p className="text-slate-500 mb-0.5">Enviado em</p><p className="text-slate-800 dark:text-slate-200 font-medium">{colaboradorItEnviada.dataEnvio}</p></div>
                 {colaboradorItEnviada.pdfNome && (
-                  <div className="bg-white/4 rounded-xl p-3"><p className="text-slate-500 mb-0.5">Arquivo</p><p className="text-slate-200 font-medium truncate">{colaboradorItEnviada.pdfNome}</p></div>
+                  <div className="bg-slate-50 dark:bg-white/4 rounded-xl p-3 border border-slate-100 dark:border-transparent"><p className="text-slate-500 mb-0.5">Arquivo</p><p className="text-slate-200 font-medium truncate">{colaboradorItEnviada.pdfNome}</p></div>
                 )}
               </div>
               {colaboradorItEnviada.status === 'correcao_solicitada' && colaboradorItEnviada.motivoCorrecao && (
@@ -800,7 +800,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-white/8 bg-[#0B1020]/60 p-10 flex flex-col items-center text-center">
+            <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/60 p-10 flex flex-col items-center text-center shadow-sm">
               <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-5">
                 <FileText className="w-7 h-7 text-emerald-400" />
               </div>
@@ -815,17 +815,17 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 </button>
               )}
               <div className="flex items-center gap-1 sm:gap-3 text-xs text-slate-500 flex-wrap justify-center">
-                <div className="flex items-center gap-1.5 border border-white/8 bg-white/3 px-3 py-2 rounded-lg">
+                <div className="flex items-center gap-1.5 border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/3 px-3 py-2 rounded-lg">
                   <span className="w-4 h-4 rounded-full bg-indigo-600/50 text-indigo-300 text-[10px] flex items-center justify-center font-bold">1</span>
                   Preencha os dados
                 </div>
                 <span className="text-slate-700">→</span>
-                <div className="flex items-center gap-1.5 border border-white/8 bg-white/3 px-3 py-2 rounded-lg">
+                <div className="flex items-center gap-1.5 border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/3 px-3 py-2 rounded-lg">
                   <span className="w-4 h-4 rounded-full bg-indigo-600/50 text-indigo-300 text-[10px] flex items-center justify-center font-bold">2</span>
                   Envie o PDF
                 </div>
                 <span className="text-slate-700">→</span>
-                <div className="flex items-center gap-1.5 border border-white/8 bg-white/3 px-3 py-2 rounded-lg">
+                <div className="flex items-center gap-1.5 border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/3 px-3 py-2 rounded-lg">
                   <span className="w-4 h-4 rounded-full bg-indigo-600/50 text-indigo-300 text-[10px] flex items-center justify-center font-bold">3</span>
                   Acompanhe a análise
                 </div>
@@ -837,7 +837,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
           {itsByParticipation && itsByParticipation.length > 0 && (
             <div className="mt-6">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Participação em outras ITs</p>
-              <div className="rounded-2xl border border-white/8 bg-[#0B1020]/60 divide-y divide-white/6">
+              <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/60 divide-y divide-slate-100 dark:divide-white/6 shadow-sm">
                 {itsByParticipation.map((it) => {
                   const papelConfig = {
                     CORRESPONSAVEL: { label: 'Corresponsável', color: 'text-violet-300', bg: 'bg-violet-500/15 border-violet-500/30' },
@@ -1072,7 +1072,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
   return (
 
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-emerald-500/30 transition-colors duration-300 relative overflow-hidden pb-36 font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white selection:bg-emerald-500/30 transition-colors duration-300 relative overflow-hidden pb-36 font-sans">
 
       {/* Background Ambient Glows */}
 
@@ -1119,7 +1119,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
 
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-white/6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-200 dark:border-white/6">
 
           <div>
 
@@ -1133,7 +1133,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
               <span className="text-slate-600">/</span>
 
-              <span className="text-emerald-400">{isSupervisao ? 'Supervisão ITs' : 'Minha IT'}</span>
+              <span className="text-emerald-600 dark:text-emerald-400">{isSupervisao ? 'Supervisão ITs' : 'Minha IT'}</span>
 
             </div>
 
@@ -1390,11 +1390,11 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
         <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
 
-          <div className="bg-[#0B1020] w-full max-w-lg rounded-3xl border border-white/12 shadow-[0_25px_70px_rgba(0,0,0,0.6)] p-6 space-y-5 relative text-white animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-[#0B1020] w-full max-w-lg rounded-3xl border border-slate-200 dark:border-white/12 shadow-2xl p-6 space-y-5 relative text-slate-900 dark:text-white animate-in fade-in zoom-in-95 duration-200">
 
             {/* Header Modal */}
 
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
 
               <div>
 
@@ -1434,7 +1434,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
             {/* Aviso Neutro */}
 
-            <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/8 text-xs text-slate-300 space-y-1">
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/8 text-xs text-slate-700 dark:text-slate-300 space-y-1">
 
               <div className="font-semibold text-white">Controle de Versão Oficial</div>
 
@@ -1522,7 +1522,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
               </label>
 
-              <label className="border-2 border-dashed border-white/15 hover:border-emerald-500/50 rounded-2xl p-6 flex flex-col items-center justify-center gap-2.5 cursor-pointer transition-colors bg-white/[0.02] hover:bg-white/[0.04]">
+              <label className="border-2 border-dashed border-slate-300 dark:border-white/15 hover:border-emerald-500/50 rounded-2xl p-6 flex flex-col items-center justify-center gap-2.5 cursor-pointer transition-colors bg-slate-50 dark:bg-white/[0.02] hover:bg-slate-100 dark:hover:bg-white/[0.04]">
 
                 <Upload className="w-7 h-7 text-slate-400" />
 
@@ -1596,7 +1596,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
                 rows={3}
 
-                className="w-full text-xs p-3.5 rounded-xl bg-white/[0.03] border border-white/10 focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/40 text-white placeholder-slate-500 focus:outline-none transition-all"
+                className="w-full text-xs p-3.5 rounded-xl bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/40 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-all"
 
               />
 

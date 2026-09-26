@@ -127,13 +127,13 @@ export function NotificacoesConfig() {
   return (
     <div className="space-y-6">
       {/* Banner de Ativação do Web Push no Navegador */}
-      <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-slate-900 to-indigo-950/20 border border-indigo-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-50 dark:from-indigo-950/40 via-slate-100 dark:via-slate-900 to-indigo-50 dark:to-indigo-950/20 border border-indigo-200 dark:border-indigo-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start gap-3">
           <div className="w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/30">
             <Smartphone className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-white">
+            <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
               Notificações Web Push & PWA no Dispositivo
             </h4>
             <p className="text-xs text-slate-400 mt-0.5">
@@ -149,7 +149,7 @@ export function NotificacoesConfig() {
             <button
               onClick={handleTestPush}
               disabled={testingPush}
-              className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 transition inline-flex items-center gap-1.5"
+              className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 transition inline-flex items-center gap-1.5"
             >
               {testingPush ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
               <span>Testar</span>
@@ -183,83 +183,83 @@ export function NotificacoesConfig() {
       {/* Grid de Opções de Privacidade */}
       <div className="grid gap-3 sm:grid-cols-2">
         {/* Mensagens Diretas */}
-        <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] flex items-center justify-between">
+        <div className="p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <MessageSquare className="w-4 h-4 text-indigo-400" />
             <div>
-              <p className="text-xs font-semibold text-white">Mensagens Diretas (1-para-1)</p>
-              <p className="text-[11px] text-slate-400">Alertas de colegas da sua organização</p>
+              <p className="text-xs font-semibold text-slate-900 dark:text-white">Mensagens Diretas (1-para-1)</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Alertas de colegas da sua organização</p>
             </div>
           </div>
           <input
             type="checkbox"
             checked={settings.directMessages}
             onChange={() => handleToggle('directMessages')}
-            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-slate-900 border-white/20 cursor-pointer"
+            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-white dark:bg-slate-900 border-slate-300 dark:border-white/20 cursor-pointer"
           />
         </div>
 
         {/* Grupos */}
-        <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] flex items-center justify-between">
+        <div className="p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Users className="w-4 h-4 text-amber-400" />
             <div>
-              <p className="text-xs font-semibold text-white">Mensagens em Grupos</p>
-              <p className="text-[11px] text-slate-400">Notificações de conversas coletivas</p>
+              <p className="text-xs font-semibold text-slate-900 dark:text-white">Mensagens em Grupos</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Notificações de conversas coletivas</p>
             </div>
           </div>
           <input
             type="checkbox"
             checked={settings.groupMessages}
             onChange={() => handleToggle('groupMessages')}
-            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-slate-900 border-white/20 cursor-pointer"
+            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-white dark:bg-slate-900 border-slate-300 dark:border-white/20 cursor-pointer"
           />
         </div>
 
         {/* Efeitos Sonoros */}
-        <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] flex items-center justify-between">
+        <div className="p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Volume2 className="w-4 h-4 text-cyan-400" />
             <div>
-              <p className="text-xs font-semibold text-white">Som de Notificação</p>
-              <p className="text-[11px] text-slate-400">Emitir alerta sonoro ao receber mensagem</p>
+              <p className="text-xs font-semibold text-slate-900 dark:text-white">Som de Notificação</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Emitir alerta sonoro ao receber mensagem</p>
             </div>
           </div>
           <input
             type="checkbox"
             checked={settings.sound}
             onChange={() => handleToggle('sound')}
-            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-slate-900 border-white/20 cursor-pointer"
+            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-white dark:bg-slate-900 border-slate-300 dark:border-white/20 cursor-pointer"
           />
         </div>
 
         {/* Notificações no Navegador */}
-        <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] flex items-center justify-between">
+        <div className="p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Bell className="w-4 h-4 text-purple-400" />
             <div>
-              <p className="text-xs font-semibold text-white">Notificações no Navegador</p>
-              <p className="text-[11px] text-slate-400">Toasts e Web Push corporativo</p>
+              <p className="text-xs font-semibold text-slate-900 dark:text-white">Notificações no Navegador</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">Toasts e Web Push corporativo</p>
             </div>
           </div>
           <input
             type="checkbox"
             checked={settings.browserNotifications}
             onChange={() => handleToggle('browserNotifications')}
-            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-slate-900 border-white/20 cursor-pointer"
+            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-white dark:bg-slate-900 border-slate-300 dark:border-white/20 cursor-pointer"
           />
         </div>
       </div>
 
       {/* Seção Especial: Prévia da Mensagem (LGPD / Privacidade de Tela de Bloqueio) */}
-      <div className="p-4 rounded-2xl border border-white/10 bg-slate-900/50 flex items-start justify-between gap-4">
+      <div className="p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/30 mt-0.5">
             <Lock className="w-4 h-4" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h4 className="text-xs font-semibold text-white">
+              <h4 className="text-xs font-semibold text-slate-900 dark:text-white">
                 Prévia do Conteúdo da Mensagem nas Notificações
               </h4>
               <span className="text-[10px] font-semibold px-2 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
@@ -269,7 +269,7 @@ export function NotificacoesConfig() {
             <p className="text-xs text-slate-400 mt-1">
               Quando desativado (recomendado), as notificações na tela de bloqueio do celular ou monitor exibirão apenas:
               <br />
-              <span className="font-mono text-slate-300 bg-black/30 px-1.5 py-0.5 rounded text-[11px] inline-block mt-1">
+              <span className="font-mono text-slate-600 dark:text-slate-300 bg-slate-200 dark:bg-black/30 px-1.5 py-0.5 rounded text-[11px] inline-block mt-1">
                 &ldquo;FIORIX: Você recebeu uma nova mensagem.&rdquo;
               </span>
               <br />
@@ -282,7 +282,7 @@ export function NotificacoesConfig() {
           type="checkbox"
           checked={settings.previewContent}
           onChange={() => handleToggle('previewContent')}
-          className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 bg-slate-900 border-white/20 cursor-pointer shrink-0 mt-1"
+          className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 bg-white dark:bg-slate-900 border-slate-300 dark:border-white/20 cursor-pointer shrink-0 mt-1"
         />
       </div>
     </div>

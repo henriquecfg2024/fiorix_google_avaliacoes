@@ -33,14 +33,14 @@ export function FeriasCalendar() {
   return (
     <div className="space-y-6">
       {/* Capacidade do Setor Card */}
-      <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)] p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <div className="p-3.5 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_20px_rgba(34,211,238,0.15)]">
             <Users className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Capacidade Operacional do Cartório</h3>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Capacidade Operacional do Cartório</h3>
               <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-300">
                 NORMAL
               </span>
@@ -55,13 +55,13 @@ export function FeriasCalendar() {
               <span className="text-3xl font-black text-cyan-400 tracking-tight">{porcentagemDisponivel}%</span>
               <span className="text-xs text-slate-300 font-bold uppercase tracking-wider">disponível</span>
             </div>
-            <div className="w-32 bg-slate-700/60 h-1.5 rounded-full mt-1.5 overflow-hidden">
+            <div className="w-32 bg-slate-200 dark:bg-slate-700/60 h-1.5 rounded-full mt-1.5 overflow-hidden">
               <div className="bg-gradient-to-r from-violet-500 to-cyan-400 h-full w-[72%]" />
             </div>
             <p className="text-[11px] text-slate-400 mt-1">{disponiveisCount} de {totalColaboradores} colaboradores</p>
           </div>
 
-          <div className="h-10 w-px bg-white/10 hidden sm:block" />
+          <div className="h-10 w-px bg-slate-200 dark:bg-white/10 hidden sm:block" />
 
           <div className="text-right">
             <span className="text-xs font-bold text-amber-400 flex items-center justify-end gap-1.5 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
@@ -73,8 +73,8 @@ export function FeriasCalendar() {
       </div>
 
       {/* Calendário da Equipe */}
-      <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)] p-6 space-y-5">
-        <div className="flex items-center justify-between border-b border-white/8 pb-4">
+      <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] p-6 space-y-5">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/8 pb-4">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
               <CalendarIcon className="w-4 h-4" />

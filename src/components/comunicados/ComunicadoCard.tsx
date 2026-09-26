@@ -120,12 +120,12 @@ export function ComunicadoCard({
 
   // Classes de estilo baseadas na prioridade
   const borderClass = isCiente
-    ? "border-emerald-500/25 bg-[#0B1020]/72 hover:border-emerald-500/40 shadow-[0_20px_50px_rgba(0,0,0,0.25)]"
+    ? "border-emerald-500/30 bg-white dark:bg-[#0B1020]/72 hover:border-emerald-500/50 shadow-sm dark:shadow-[0_20px_50px_rgba(0,0,0,0.25)]"
     : isUrgente
-    ? "border-rose-500/35 bg-[#140a12]/80 hover:border-rose-500/60 shadow-[0_20px_50px_rgba(244,63,94,0.15)]"
+    ? "border-rose-500/35 bg-rose-50/40 dark:bg-[#140a12]/80 hover:border-rose-500/60 shadow-sm dark:shadow-[0_20px_50px_rgba(244,63,94,0.15)]"
     : isImportante
-    ? "border-amber-500/30 bg-[#14100c]/80 hover:border-amber-500/50 shadow-[0_20px_50px_rgba(245,158,11,0.1)]"
-    : "border-cyan-500/20 bg-[#0B1020]/72 hover:border-cyan-500/40 shadow-[0_20px_50px_rgba(0,0,0,0.25)]";
+    ? "border-amber-500/30 bg-amber-50/40 dark:bg-[#14100c]/80 hover:border-amber-500/50 shadow-sm dark:shadow-[0_20px_50px_rgba(245,158,11,0.1)]"
+    : "border-slate-200 dark:border-cyan-500/20 bg-white dark:bg-[#0B1020]/72 hover:border-slate-300 dark:hover:border-cyan-500/40 shadow-sm dark:shadow-[0_20px_50px_rgba(0,0,0,0.25)]";
 
   const badgeClass = isUrgente
     ? "bg-rose-500 text-white font-black shadow-[0_0_12px_rgba(244,63,94,0.4)]"
@@ -146,8 +146,8 @@ export function ComunicadoCard({
             >
               {comunicado.prioridade}
             </span>
-            <span className="text-xs text-white/50">{dataFormatada}</span>
-            <span className="text-[10px] font-mono text-white/40">v{comunicado.versao}</span>
+            <span className="text-xs text-slate-500 dark:text-white/50">{dataFormatada}</span>
+            <span className="text-[10px] font-mono text-slate-400 dark:text-white/40">v{comunicado.versao}</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -178,14 +178,14 @@ export function ComunicadoCard({
 
         {/* Title */}
         <h3
-          className="text-base font-bold text-white tracking-tight hover:text-indigo-300 transition-colors cursor-pointer"
+          className="text-base font-bold text-slate-900 dark:text-white tracking-tight hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors cursor-pointer"
           onClick={() => onOpenCiencia(comunicado)}
         >
           {comunicado.titulo}
         </h3>
 
         {/* Autor & Anexos metadata */}
-        <div className="flex items-center gap-2 text-xs text-white/50 mt-1 mb-3">
+        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-white/50 mt-1 mb-3">
           <span>{comunicado.autorNome || "Administração"}</span>
           <span>•</span>
           <span>{comunicado.setor || "Diretoria Geral"}</span>
@@ -201,7 +201,7 @@ export function ComunicadoCard({
         </div>
 
         {/* Text snippet */}
-        <p className="text-xs text-white/70 line-clamp-2 leading-relaxed mb-4">
+        <p className="text-xs text-slate-600 dark:text-white/70 line-clamp-2 leading-relaxed mb-4">
           {comunicado.conteudo}
         </p>
       </div>
@@ -218,7 +218,7 @@ export function ComunicadoCard({
               {dataCienciaFormatada || "Ciência Homologada"}
             </span>
           </div>
-          <div className="text-[10px] font-mono text-cyan-300/80 truncate bg-[#070A12]/80 p-1.5 rounded-lg border border-white/5 flex items-center justify-between">
+          <div className="text-[10px] font-mono text-cyan-300/80 truncate bg-slate-100 dark:bg-[#070A12]/80 p-1.5 rounded-lg border border-slate-200 dark:border-white/5 flex items-center justify-between">
             <span>SHA-256: {comunicado.ciencias?.[0]?.comprovanteHash || comunicado.conteudoHash}</span>
             <QrCode className="w-3.5 h-3.5 text-cyan-400 shrink-0 ml-2" />
           </div>
@@ -226,7 +226,7 @@ export function ComunicadoCard({
       )}
 
       {/* Status da Ciência / Barra de aviso */}
-      <div className="space-y-3 pt-3 border-t border-white/5">
+      <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-white/5">
         {comunicado.exigeCiencia && (
           <div
             onClick={() => onOpenCiencia(comunicado)}
@@ -270,7 +270,7 @@ export function ComunicadoCard({
           {!isCiente ? (
             <Button
               onClick={() => onOpenCiencia(comunicado)}
-              className="flex-1 bg-white hover:bg-white/90 text-black font-bold text-xs py-2 rounded-xl flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+              className="flex-1 bg-[#6366f1] hover:bg-[#4f46e5] text-white font-bold text-xs py-2 rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer"
             >
               <Eye className="w-3.5 h-3.5" />
               <span>Ler e Dar Ciência com Prova</span>
@@ -279,7 +279,7 @@ export function ComunicadoCard({
             <Button
               variant="outline"
               onClick={() => onOpenCiencia(comunicado)}
-              className="flex-1 border-white/10 text-white/90 hover:bg-white/5 text-xs py-2 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+              className="flex-1 border-slate-200 dark:border-white/10 text-slate-800 dark:text-white/90 hover:bg-slate-100 dark:hover:bg-white/5 text-xs py-2 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
             >
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
               <span>Ver Comprovante</span>
@@ -311,7 +311,7 @@ export function ComunicadoCard({
             className={`p-2 rounded-xl border transition-colors cursor-pointer ${
               bookmarked
                 ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-400"
-                : "border-white/10 bg-[#12141F] text-white/40 hover:text-white hover:bg-white/10"
+                : "border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-[#12141F] text-slate-400 hover:text-slate-900 hover:bg-slate-200 dark:text-white/40 dark:hover:text-white dark:hover:bg-white/10"
             }`}
             title="Favoritar Comunicado"
           >

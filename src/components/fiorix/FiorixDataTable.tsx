@@ -252,29 +252,29 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
 
   const getStatusBadge = (status: string) => {
     if (status === "Atrasado") {
-      return <Badge className="bg-red-500/10 border border-red-500/20 text-red-300 backdrop-blur-md font-semibold text-[11px]">Atrasado</Badge>;
+      return <Badge className="bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-300 backdrop-blur-md font-semibold text-[11px]">Atrasado</Badge>;
     }
-    return <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 backdrop-blur-md font-semibold text-[11px]">Em dia</Badge>;
+    return <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-300 backdrop-blur-md font-semibold text-[11px]">Em dia</Badge>;
   };
 
   const getAtrasoBadge = (dias: number) => {
     if (dias === 0) {
-      return <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 backdrop-blur-md font-mono font-bold text-[11px]">0 dias</Badge>;
+      return <Badge className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-300 backdrop-blur-md font-mono font-bold text-[11px]">0 dias</Badge>;
     }
     if (dias >= 1 && dias <= 15) {
-      return <Badge className="bg-amber-500/10 border border-amber-500/20 text-amber-300 backdrop-blur-md font-mono font-bold text-[11px]">{dias} dias</Badge>;
+      return <Badge className="bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 backdrop-blur-md font-mono font-bold text-[11px]">{dias} dias</Badge>;
     }
     if (dias >= 16 && dias <= 30) {
-      return <Badge className="bg-orange-500/10 border border-orange-500/20 text-orange-300 backdrop-blur-md font-mono font-bold text-[11px]">{dias} dias</Badge>;
+      return <Badge className="bg-orange-500/10 border border-orange-500/20 text-orange-600 dark:text-orange-300 backdrop-blur-md font-mono font-bold text-[11px]">{dias} dias</Badge>;
     }
-    return <Badge className="bg-red-500/10 border border-red-500/20 text-red-300 backdrop-blur-md font-mono font-bold text-[11px]">{dias} dias</Badge>;
+    return <Badge className="bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-300 backdrop-blur-md font-mono font-bold text-[11px]">{dias} dias</Badge>;
   };
 
   const getServicoBadge = (servico: string) => {
     if (servico === "REGISTRADO") {
-      return <Badge className="bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 backdrop-blur-md font-semibold text-[11px]">REGISTRADO</Badge>;
+      return <Badge className="bg-cyan-500/10 border border-cyan-500/20 text-cyan-700 dark:text-cyan-300 backdrop-blur-md font-semibold text-[11px]">REGISTRADO</Badge>;
     }
-    return <Badge className="bg-amber-500/10 border border-amber-500/20 text-amber-300 backdrop-blur-md font-semibold text-[11px]">DEVOLVIDO</Badge>;
+    return <Badge className="bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 backdrop-blur-md font-semibold text-[11px]">DEVOLVIDO</Badge>;
   };
 
   const totalOverallCount = totalAtrasadosCount || rangeCounts[0] || pagination.totalItems;
@@ -284,15 +284,15 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
   const endItem = Math.min(pagination.page * pagination.pageSize, pagination.totalItems);
 
   return (
-    <Card className="mt-4 overflow-hidden rounded-2xl border border-white/8 bg-[#0B1020]/72 text-white shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+    <Card className="mt-4 overflow-hidden rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 text-slate-800 dark:text-white shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
       {/* Abas Superiores */}
-      <div className="flex border-b border-white/8 bg-[#0B1020]/92">
+      <div className="flex border-b border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-[#0B1020]/92">
         <button
           onClick={() => handleToggleQueryMode('atrasado')}
           className={`flex-1 sm:flex-initial px-6 py-3.5 text-xs uppercase font-bold tracking-wider transition-colors border-b-2 ${
             queryMode === 'atrasado'
-              ? 'border-amber-400 text-amber-300 bg-white/[0.03]'
-              : 'border-transparent text-white/50 hover:text-white/80'
+              ? 'border-amber-500 text-amber-600 dark:text-amber-300 bg-white dark:bg-white/[0.03]'
+              : 'border-transparent text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white/80'
           }`}
         >
           ⏰ Títulos em Atraso ({formattedTotalOverall})
@@ -301,37 +301,37 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
           onClick={() => handleToggleQueryMode('full')}
           className={`flex-1 sm:flex-initial px-6 py-3.5 text-xs uppercase font-bold tracking-wider transition-colors border-b-2 ${
             queryMode === 'full'
-              ? 'border-cyan-400 text-cyan-300 bg-white/[0.03]'
-              : 'border-transparent text-white/50 hover:text-white/80'
+              ? 'border-cyan-500 text-cyan-600 dark:text-cyan-300 bg-white dark:bg-white/[0.03]'
+              : 'border-transparent text-slate-500 dark:text-white/50 hover:text-slate-900 dark:hover:text-white/80'
           }`}
         >
           🔍 Consulta Geral
         </button>
       </div>
 
-      <CardHeader className="space-y-4 border-b border-white/8 pb-4">
+      <CardHeader className="space-y-4 border-b border-slate-200 dark:border-white/8 pb-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <CardTitle className="text-base font-semibold text-white">
+            <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">
               {queryMode === 'full' ? 'Consulta Geral (Todos os Títulos)' : 'Títulos em Atraso (Drill-down)'}
             </CardTitle>
-            <CardDescription className="text-xs text-white/50">
+            <CardDescription className="text-xs text-slate-500 dark:text-white/50">
               {queryMode === 'full' 
                 ? 'Exibição completa de títulos e prazos registrados no sistema' 
                 : 'Detalhamento dos protocolos críticos com estouro de prazo legal'}
             </CardDescription>
           </div>
           <div className="relative w-full sm:w-72">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-white/40" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400 dark:text-white/40" />
             <Input
               type="search"
               placeholder="Buscar protocolo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 bg-[#0C1323] border-white/8 text-white rounded-xl shadow-sm text-xs focus:ring-0 focus:border-amber-400"
+              className="pl-8 bg-slate-50 dark:bg-[#0C1323] border-slate-200 dark:border-white/8 text-slate-900 dark:text-white rounded-xl shadow-xs text-xs focus:ring-0 focus:border-amber-500"
             />
             {isLoading && (
-              <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 text-emerald-300 animate-spin" />
+              <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 text-emerald-500 dark:text-emerald-300 animate-spin" />
             )}
           </div>
         </div>
@@ -347,44 +347,44 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
         {queryMode === 'full' && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] uppercase font-bold text-white/40">Status</label>
+              <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-white/40">Status</label>
               <select
                 value={statusFilter}
                 onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-                className="rounded-xl border border-white/8 bg-[#0C1323] px-2 py-1.5 text-xs text-white outline-none focus:border-amber-400"
+                className="rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-[#0C1323] px-2 py-1.5 text-xs text-slate-900 dark:text-white outline-none focus:border-amber-500"
               >
-                <option value="ALL" className="bg-[#0B1020]">Todos os Status</option>
-                <option value="Em dia" className="bg-[#0B1020]">Em dia</option>
-                <option value="Atrasado" className="bg-[#0B1020]">Atrasado</option>
+                <option value="ALL" className="bg-white dark:bg-[#0B1020]">Todos os Status</option>
+                <option value="Em dia" className="bg-white dark:bg-[#0B1020]">Em dia</option>
+                <option value="Atrasado" className="bg-white dark:bg-[#0B1020]">Atrasado</option>
               </select>
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] uppercase font-bold text-white/40">Serviço</label>
+              <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-white/40">Serviço</label>
               <select
                 value={servicoFilter}
                 onChange={(e) => { setServicoFilter(e.target.value); setPage(1); }}
-                className="rounded-xl border border-white/8 bg-[#0C1323] px-2 py-1.5 text-xs text-white outline-none focus:border-amber-400"
+                className="rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-[#0C1323] px-2 py-1.5 text-xs text-slate-900 dark:text-white outline-none focus:border-amber-500"
               >
-                <option value="ALL" className="bg-[#0B1020]">Todos os Serviços</option>
-                <option value="REGISTRADO" className="bg-[#0B1020]">REGISTRADO</option>
-                <option value="DEVOLVIDO" className="bg-[#0B1020]">DEVOLVIDO</option>
+                <option value="ALL" className="bg-white dark:bg-[#0B1020]">Todos os Serviços</option>
+                <option value="REGISTRADO" className="bg-white dark:bg-[#0B1020]">REGISTRADO</option>
+                <option value="DEVOLVIDO" className="bg-white dark:bg-[#0B1020]">DEVOLVIDO</option>
               </select>
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] uppercase font-bold text-white/40">Tipo</label>
+              <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-white/40">Tipo</label>
               <select
                 value={tipoFilter}
                 onChange={(e) => { setTipoFilter(e.target.value); setPage(1); }}
-                className="rounded-xl border border-white/8 bg-[#0C1323] px-2 py-1.5 text-xs text-white outline-none focus:border-amber-400"
+                className="rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-[#0C1323] px-2 py-1.5 text-xs text-slate-900 dark:text-white outline-none focus:border-amber-500"
               >
-                <option value="ALL" className="bg-[#0B1020]">Todos os Tipos</option>
-                <option value="PRENOTADO" className="bg-[#0B1020]">PRENOTADO</option>
-                <option value="INTIMACAO" className="bg-[#0B1020]">INTIMACAO</option>
-                <option value="INTIMACAO ONLINE" className="bg-[#0B1020]">INTIMACAO ONLINE</option>
-                <option value="OFICIO - INDISPONIBILIDADE" className="bg-[#0B1020]">OFICIO - INDISPONIBILIDADE</option>
-                <option value="REGULARIZACAO FUNDIARIA" className="bg-[#0B1020]">REGULARIZACAO FUNDIARIA</option>
+                <option value="ALL" className="bg-white dark:bg-[#0B1020]">Todos os Tipos</option>
+                <option value="PRENOTADO" className="bg-white dark:bg-[#0B1020]">PRENOTADO</option>
+                <option value="INTIMACAO" className="bg-white dark:bg-[#0B1020]">INTIMACAO</option>
+                <option value="INTIMACAO ONLINE" className="bg-white dark:bg-[#0B1020]">INTIMACAO ONLINE</option>
+                <option value="OFICIO - INDISPONIBILIDADE" className="bg-white dark:bg-[#0B1020]">OFICIO - INDISPONIBILIDADE</option>
+                <option value="REGULARIZACAO FUNDIARIA" className="bg-white dark:bg-[#0B1020]">REGULARIZACAO FUNDIARIA</option>
               </select>
             </div>
           </div>
@@ -393,8 +393,8 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
         {/* Filtro por faixa de dias (Apenas para modo Atrasado) */}
         {queryMode === 'atrasado' && (
           <div className="flex items-center gap-2 flex-wrap">
-            <Filter size={14} className="text-white/40 shrink-0" />
-            <span className="text-xs text-white/60 font-medium mr-1">Dias de atraso:</span>
+            <Filter size={14} className="text-slate-400 dark:text-white/40 shrink-0" />
+            <span className="text-xs text-slate-600 dark:text-white/60 font-medium mr-1">Dias de atraso:</span>
             {DELAY_RANGES.map((r) => {
               const countForBadge = rangeCounts[r.index] ?? 0;
               return (
@@ -402,17 +402,17 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
                   key={r.label}
                   variant={activeRange === r.index ? "default" : "outline"}
                   size="sm"
-                  className={`h-7 rounded-full border border-white/8 px-3 text-xs transition-all ${
+                  className={`h-7 rounded-full border border-slate-200 dark:border-white/8 px-3 text-xs transition-all ${
                     activeRange === r.index
-                      ? "bg-gradient-to-r from-indigo-500 to-amber-400 font-medium text-white shadow-sm"
-                      : "text-white/70 hover:bg-white/5"
+                      ? "bg-gradient-to-r from-indigo-500 to-amber-500 font-medium text-white shadow-xs"
+                      : "text-slate-600 dark:text-white/70 hover:bg-slate-100 dark:hover:bg-white/5"
                   }`}
                   onClick={() => handleRangeChange(r.index)}
                 >
                   {r.label}
                   <span
                     className={`ml-1.5 text-[10px] font-bold ${
-                      activeRange === r.index ? "text-slate-700" : "text-white/40"
+                      activeRange === r.index ? "text-slate-900 dark:text-slate-900" : "text-slate-400 dark:text-white/40"
                     }`}
                   >
                     {countForBadge.toLocaleString("pt-BR")}
@@ -426,8 +426,8 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
       
       <div className="relative max-h-[600px] overflow-x-auto overflow-y-auto">
         {isLoading && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#0B1020]/55 backdrop-blur-[1px]">
-            <div className="flex items-center gap-2 rounded-xl border border-white/8 bg-[#0B1020] px-4 py-2 text-xs text-white/60 shadow-md">
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-[#0B1020]/55 backdrop-blur-[1px]">
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020] px-4 py-2 text-xs text-slate-700 dark:text-white/60 shadow-md">
               <Loader2 className="h-4 w-4 animate-spin text-emerald-300" />
               <span>Carregando dados...</span>
             </div>
@@ -435,20 +435,20 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
         )}
         
         <Table>
-          <TableHeader className="sticky top-0 z-20 bg-[#0B1020]">
-            <TableRow className="border-white/8 bg-[#0B1020]">
-              <TableHead className="sticky top-0 z-20 bg-[#0B1020] text-xs font-semibold uppercase tracking-wider text-white/58">Protocolo</TableHead>
-              <TableHead className="sticky top-0 z-20 bg-[#0B1020] text-xs font-semibold uppercase tracking-wider text-white/58">Tipo</TableHead>
-              <TableHead className="sticky top-0 z-20 bg-[#0B1020] text-xs font-semibold uppercase tracking-wider text-white/58">Status</TableHead>
-              <TableHead className="sticky top-0 z-20 bg-[#0B1020] text-xs font-semibold uppercase tracking-wider text-white/58">Atraso Dias</TableHead>
-              <TableHead className="sticky top-0 z-20 bg-[#0B1020] text-right text-xs font-semibold uppercase tracking-wider text-white/58">Serviço</TableHead>
+          <TableHeader className="sticky top-0 z-20 bg-slate-50 dark:bg-[#0B1020]">
+            <TableRow className="border-b border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-[#0B1020]">
+              <TableHead className="sticky top-0 z-20 bg-slate-50 dark:bg-[#0B1020] text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-white/58">Protocolo</TableHead>
+              <TableHead className="sticky top-0 z-20 bg-slate-50 dark:bg-[#0B1020] text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-white/58">Tipo</TableHead>
+              <TableHead className="sticky top-0 z-20 bg-slate-50 dark:bg-[#0B1020] text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-white/58">Status</TableHead>
+              <TableHead className="sticky top-0 z-20 bg-slate-50 dark:bg-[#0B1020] text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-white/58">Atraso Dias</TableHead>
+              <TableHead className="sticky top-0 z-20 bg-slate-50 dark:bg-[#0B1020] text-right text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-white/58">Serviço</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {items.map((row) => (
-              <TableRow key={row.id} className="border-white/5 text-white/80 transition-colors hover:bg-white/[0.035]">
-                <TableCell className="font-semibold text-amber-200">{row.protocolo}</TableCell>
-                <TableCell className="font-medium text-white/64">{row.tipo}</TableCell>
+              <TableRow key={row.id} className="border-b border-slate-100 dark:border-white/5 text-slate-700 dark:text-white/80 transition-colors hover:bg-slate-50/80 dark:hover:bg-white/[0.035]">
+                <TableCell className="font-semibold text-amber-700 dark:text-amber-200">{row.protocolo}</TableCell>
+                <TableCell className="font-medium text-slate-600 dark:text-white/64">{row.tipo}</TableCell>
                 <TableCell>{getStatusBadge(row.status)}</TableCell>
                 <TableCell>{getAtrasoBadge(row.atraso)}</TableCell>
                 <TableCell className="text-right">{getServicoBadge(row.servico)}</TableCell>
@@ -456,10 +456,10 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
             ))}
             {items.length === 0 && !isLoading && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-12 text-white/40">
+                <TableCell colSpan={5} className="text-center py-12 text-slate-400 dark:text-white/40">
                   <div className="space-y-1">
-                    <p className="font-medium text-sm text-white">Nenhum protocolo encontrado</p>
-                    <p className="text-xs text-white/40">
+                    <p className="font-medium text-sm text-slate-900 dark:text-white">Nenhum protocolo encontrado</p>
+                    <p className="text-xs text-slate-500 dark:text-white/40">
                       {debouncedSearch
                         ? `Nenhum resultado corresponde ao protocolo "${debouncedSearch}".`
                         : "Não há registros disponíveis nos filtros selecionados."}
@@ -473,31 +473,31 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
       </div>
 
       {/* Rodapé com Barra de Paginação Completa */}
-      <div className="flex flex-col items-center justify-between gap-4 border-t border-white/8 bg-white/[0.03] px-6 py-3.5 sm:flex-row">
+      <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-200 dark:border-white/8 bg-slate-50/70 dark:bg-white/[0.03] px-6 py-3.5 sm:flex-row">
         {/* Informação de intervalo */}
-        <div className="text-xs text-white/60 text-center sm:text-left">
-          Exibindo <strong className="text-white">{startItem.toLocaleString("pt-BR")}</strong> a{" "}
-          <strong className="text-white">{endItem.toLocaleString("pt-BR")}</strong> de{" "}
-          <strong className="text-white">{pagination.totalItems.toLocaleString("pt-BR")}</strong> registros
+        <div className="text-xs text-slate-600 dark:text-white/60 text-center sm:text-left">
+          Exibindo <strong className="text-slate-900 dark:text-white">{startItem.toLocaleString("pt-BR")}</strong> a{" "}
+          <strong className="text-slate-900 dark:text-white">{endItem.toLocaleString("pt-BR")}</strong> de{" "}
+          <strong className="text-slate-900 dark:text-white">{pagination.totalItems.toLocaleString("pt-BR")}</strong> registros
           {activeRange > 0 && queryMode === 'atrasado' && (
-            <span> · Faixa: <strong className="text-white">{DELAY_RANGES[activeRange].label}</strong></span>
+            <span> · Faixa: <strong className="text-slate-900 dark:text-white">{DELAY_RANGES[activeRange].label}</strong></span>
           )}
         </div>
 
         {/* Controles de Paginação & Itens Por Página */}
         <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
           {/* Seletor de Tamanho de Página */}
-          <div className="flex items-center gap-1.5 text-xs text-white/60">
+          <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-white/60">
             <span>Exibir:</span>
-            <div className="flex items-center gap-1 rounded-lg border border-white/8 bg-white/[0.04] p-0.5">
+            <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] p-0.5">
               {PAGE_SIZE_OPTIONS.map((size) => (
                 <button
                   key={size}
                   onClick={() => handlePageSizeChange(size)}
                   className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
                     pageSize === size
-                      ? "bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-xs"
-                      : "text-white/60 hover:text-white"
+                      ? "bg-gradient-to-r from-indigo-500 to-amber-500 text-white shadow-xs"
+                      : "text-slate-500 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
                   {size}
@@ -511,7 +511,7 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+              className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08]"
               disabled={page <= 1 || isLoading}
               onClick={() => setPage(1)}
               title="Primeira Página"
@@ -521,7 +521,7 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+              className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08]"
               disabled={page <= 1 || isLoading}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               title="Página Anterior"
@@ -529,14 +529,14 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
               <ChevronLeft size={15} />
             </Button>
 
-            <span className="text-xs px-2 font-medium text-white min-w-[90px] text-center">
+            <span className="text-xs px-2 font-medium text-slate-800 dark:text-white min-w-[90px] text-center">
               Página {pagination.page.toLocaleString("pt-BR")} de {pagination.totalPages.toLocaleString("pt-BR")}
             </span>
 
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+              className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08]"
               disabled={page >= pagination.totalPages || isLoading}
               onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
               title="Próxima Página"
@@ -546,7 +546,7 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+              className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08]"
               disabled={page >= pagination.totalPages || isLoading}
               onClick={() => setPage(pagination.totalPages)}
               title="Última Página"

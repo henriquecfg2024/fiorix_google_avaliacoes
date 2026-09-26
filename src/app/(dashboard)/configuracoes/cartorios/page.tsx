@@ -16,14 +16,14 @@ export default async function CartoriosConfigPage() {
   const cartorios = await getTenants();
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-amber-500/30 dark:bg-[#070A12] dark:text-white transition-colors duration-300 relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-white/10" />
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <Link href="/configuracoes" className="hover:text-amber-300 transition-colors">
@@ -33,7 +33,7 @@ export default async function CartoriosConfigPage() {
               <span className="text-amber-300">Cartórios</span>
             </div>
             <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                 Gestão de Cartórios (Multi-Tenant)
               </h1>
               <Badge className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-amber-300">
@@ -43,15 +43,15 @@ export default async function CartoriosConfigPage() {
           </div>
 
           <Link href="/configuracoes">
-            <Button variant="outline" className="gap-2 border-white/12 bg-white/[0.04] text-white hover:bg-white/[0.08] text-xs">
+            <Button variant="outline" className="gap-2 border-slate-200 bg-slate-50 text-slate-900 dark:border-white/12 dark:bg-white/[0.04] dark:text-white hover:bg-white/[0.08] text-xs">
               <ArrowLeft className="h-3.5 w-3.5" />
               Voltar para Configurações
             </Button>
           </Link>
         </div>
 
-        <form action={createTenant} className="rounded-2xl border border-white/12 bg-[#0B1020]/80 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] space-y-4">
-          <h4 className="flex items-center gap-2 text-sm font-bold text-white">
+        <form action={createTenant} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/80 space-y-4">
+          <h4 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
             <Building2 className="h-4 w-4 text-amber-300" />
             <span>Cadastrar Novo Cartório</span>
           </h4>
@@ -107,10 +107,10 @@ export default async function CartoriosConfigPage() {
           </div>
         </form>
 
-        <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
+        <div className="rounded-[28px] border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl space-y-4">
           <div className="flex items-center gap-2">
             <Building2 className="h-5 w-5 text-cyan-300" />
-            <h2 className="text-lg font-extrabold text-white">
+            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">
               Cartórios Cadastrados ({cartorios.length})
             </h2>
           </div>

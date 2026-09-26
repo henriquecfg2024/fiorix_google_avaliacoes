@@ -137,7 +137,7 @@ export function ItGeneratorModal({
       <div className="relative w-full max-w-3xl rounded-3xl border border-white/12 bg-[#0B1020] shadow-[0_25px_70px_rgba(0,0,0,0.7)] overflow-hidden flex flex-col max-h-[90vh] text-white animate-in zoom-in-95 duration-200">
         
         {/* Header com gradiente */}
-        <div className="p-5 sm:p-6 border-b border-white/10 bg-gradient-to-r from-[#0E1626] to-[#121A2F] flex items-center justify-between shrink-0">
+        <div className="p-5 sm:p-6 border-b border-slate-200 dark:border-white/10 bg-gradient-to-r from-[#0E1626] to-[#121A2F] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3.5 min-w-0 pr-3">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 text-black flex items-center justify-center font-bold shadow-lg shadow-amber-500/20 shrink-0">
               <Sparkles className="w-5 h-5 fill-black stroke-none" />
@@ -209,7 +209,7 @@ export function ItGeneratorModal({
                   value={rotinaMudou}
                   onChange={(e) => setRotinaMudou(e.target.value)}
                   disabled={gerando}
-                  className="w-full p-3.5 rounded-2xl border border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 resize-none transition-all"
+                  className="w-full p-3.5 rounded-2xl border border-slate-200 dark:border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/30 resize-none transition-all"
                 />
               </div>
 
@@ -261,7 +261,7 @@ export function ItGeneratorModal({
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                   Documento Proposto
                 </span>
-                <div className="flex gap-1 bg-white/5 p-1 rounded-xl border border-white/10">
+                <div className="flex gap-1 bg-white/5 p-1 rounded-xl border border-slate-200 dark:border-white/10">
                   <button
                     type="button"
                     onClick={() => setModoVisualizacao('novo')}
@@ -288,7 +288,7 @@ export function ItGeneratorModal({
 
               {/* Área do Documento */}
               {modoVisualizacao === 'novo' ? (
-                <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.03] border border-white/10 font-mono text-xs text-slate-200 leading-relaxed whitespace-pre-wrap max-h-96 overflow-y-auto select-text">
+                <div className="p-4 sm:p-5 rounded-2xl bg-white/[0.03] border border-slate-200 dark:border-white/10 font-mono text-xs text-slate-200 leading-relaxed whitespace-pre-wrap max-h-96 overflow-y-auto select-text">
                   {novoTexto}
                 </div>
               ) : (
@@ -331,7 +331,7 @@ export function ItGeneratorModal({
                     setSucesso('Texto copiado para a área de transferência!');
                     setTimeout(() => setSucesso(''), 2500);
                   }}
-                  className="px-4 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold text-xs transition-colors cursor-pointer"
+                  className="px-4 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-slate-200 dark:border-white/10 text-white font-semibold text-xs transition-colors cursor-pointer"
                 >
                   Copiar Markdown
                 </button>
@@ -348,7 +348,7 @@ export function ItGeneratorModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 rounded-xl border border-white/10 text-slate-300 hover:text-white hover:bg-white/5 text-xs font-semibold transition-colors cursor-pointer"
+            className="px-4 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-300 hover:text-white hover:bg-white/5 text-xs font-semibold transition-colors cursor-pointer"
           >
             Fechar
           </button>

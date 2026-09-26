@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useChartTheme } from '@/hooks/useChartTheme';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
 
 interface BarChartUserProps {
@@ -16,6 +17,7 @@ type TooltipPoint = {
 };
 
 export function BarChartUser({ data }: BarChartUserProps) {
+  const ct = useChartTheme();
   const chartData = useMemo(() => {
     const counts: { [key: string]: number } = {};
     data.forEach((row) => {
@@ -37,9 +39,9 @@ export function BarChartUser({ data }: BarChartUserProps) {
     if (active && payload && payload.length) {
       const item = payload[0];
       return (
-        <div className="rounded-xl border border-white/10 bg-[#0B1020]/95 p-3 text-xs text-white shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
-          <p className="font-semibold text-white/80">{item.name}</p>
-          <p className="mt-1 font-bold text-cyan-300">{(item.value ?? 0).toLocaleString("pt-BR")} autenticações</p>
+        <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/95 p-3 text-xs text-slate-900 dark:text-white shadow-xl">
+          <p className="font-semibold text-slate-700 dark:text-white/80">{item.name}</p>
+          <p className="mt-1 font-bold text-cyan-600 dark:text-cyan-300">{(item.value ?? 0).toLocaleString("pt-BR")} autenticações</p>
         </div>
       );
     }
@@ -47,26 +49,26 @@ export function BarChartUser({ data }: BarChartUserProps) {
   };
 
   return (
-    <div className="flex h-[350px] min-h-0 min-w-0 flex-col overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+    <div className="flex h-[350px] min-h-0 min-w-0 flex-col overflow-hidden rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
       <div>
-        <h3 className="text-base font-bold tracking-tight text-white">Ranking por Usuário</h3>
-        <p className="text-xs text-white/40">Colaboradores com maior volume de processamento</p>
+        <h3 className="text-base font-bold tracking-tight text-slate-900 dark:text-white">Ranking por Usuário</h3>
+        <p className="text-xs text-slate-500 dark:text-white/40">Colaboradores com maior volume de processamento</p>
       </div>
 
       <div className="mt-4 flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
           <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} vertical={false} />
             <XAxis
               dataKey="name"
-              stroke="rgba(255,255,255,0.38)"
+              stroke={ct.axisStroke}
               fontSize={10}
               tickLine={false}
               axisLine={false}
               tickFormatter={(val) => (val.length > 12 ? `${val.substring(0, 10)}...` : val)}
             />
-            <YAxis stroke="rgba(255,255,255,0.38)" fontSize={10} tickLine={false} axisLine={false} />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.02)" }} />
+            <YAxis stroke={ct.axisStroke} fontSize={10} tickLine={false} axisLine={false} />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: ct.tooltipCursor }} />
             <defs>
               <linearGradient id="userBarGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#38BDF8" />

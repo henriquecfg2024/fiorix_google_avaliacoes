@@ -17,7 +17,7 @@ export function HistoricoFeriasModal({ open, onClose, colaborador }: HistoricoFe
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg rounded-3xl border border-white/12 bg-[#0c101c] p-6 shadow-2xl text-white space-y-5">
+      <div className="relative w-full max-w-lg rounded-3xl border border-white/12 bg-white dark:bg-[#0c101c] p-6 shadow-2xl text-white space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/8 pb-4">
           <div className="flex items-center gap-3">

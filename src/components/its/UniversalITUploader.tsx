@@ -167,7 +167,7 @@ export function UniversalITUploader({ onParseSuccess, onCancel }: UniversalITUpl
   };
 
   return (
-    <div className="w-full bg-[#121212] border border-zinc-800 rounded-2xl p-6 text-white shadow-xl">
+    <div className="w-full bg-white dark:bg-[#121212] border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 text-slate-900 dark:text-white shadow-xl">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
@@ -183,7 +183,7 @@ export function UniversalITUploader({ onParseSuccess, onCancel }: UniversalITUpl
         {onCancel && (
           <button
             onClick={onCancel}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -214,7 +214,7 @@ export function UniversalITUploader({ onParseSuccess, onCancel }: UniversalITUpl
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center gap-3">
-            <div className="w-16 h-16 rounded-2xl bg-zinc-800 flex items-center justify-center text-zinc-300 shadow-inner group-hover:scale-105 transition-transform">
+            <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-300 shadow-inner group-hover:scale-105 transition-transform">
               <UploadCloud className="w-8 h-8 text-emerald-400" />
             </div>
 

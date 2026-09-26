@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function RetornosPage() {
   return (
-    <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden print:bg-white print:text-black print:min-h-0 print:p-0">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white transition-colors duration-300 relative overflow-hidden print:bg-white print:text-black print:min-h-0 print:p-0">
       {/* Luzes de fundo atmosféricas do Design System FIORIX (Ocultadas na Impressão) */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden print:hidden">
         <div className="absolute -top-32 left-1/3 h-80 w-[48rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-cyan-500/8 blur-3xl" />

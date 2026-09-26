@@ -230,24 +230,24 @@ export default function FiorixBiImportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-white/10 to-transparent" />
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
           <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
               <span>Dashboard</span>
-              <span className="text-slate-600">/</span>
+              <span className="text-slate-400 dark:text-slate-600">/</span>
               <span>Sistema</span>
-              <span className="text-slate-600">/</span>
-              <span className="text-amber-300">Nova Carga</span>
+              <span className="text-slate-400 dark:text-slate-600">/</span>
+              <span className="text-amber-600 dark:text-amber-300">Nova Carga</span>
             </div>
             <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                 Importador de Dados
               </h1>
               <Badge className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
@@ -258,25 +258,25 @@ export default function FiorixBiImportPage() {
 
           <div className="flex flex-wrap items-center gap-3">
             <Link href="/bi/importacoes">
-              <Button variant="outline" className="flex items-center gap-2 border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08] text-xs">
+              <Button variant="outline" className="flex items-center gap-2 border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08] text-xs">
                 Demonstrativo de importações
               </Button>
             </Link>
             <Link href="/bi">
-              <Button variant="outline" className="flex items-center gap-2 border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08] text-xs">
+              <Button variant="outline" className="flex items-center gap-2 border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08] text-xs">
                 <ArrowLeft size={14} /> Voltar ao BI
               </Button>
             </Link>
           </div>
         </div>
 
-        <Card className="border-white/8 bg-[#0B1020]/78 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+        <Card className="border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/78 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
           <CardHeader>
             <div className="flex items-center gap-2">
               <FileSpreadsheet className="text-amber-300" size={20} />
               <CardTitle className="text-lg">Nova Importação Manual (CSV)</CardTitle>
             </div>
-            <CardDescription className="text-white/55">
+            <CardDescription className="text-slate-500 dark:text-white/55">
               Arraste seu arquivo CSV exportado do SSMS para atualizar os indicadores do BI.
             </CardDescription>
           </CardHeader>
@@ -296,14 +296,14 @@ export default function FiorixBiImportPage() {
               onClick={() => fileInputRef.current?.click()}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
-              className="border-2 border-dashed border-white/10 rounded-xl p-10 text-center bg-white/[0.03] hover:bg-white/[0.05] transition-colors cursor-pointer flex flex-col items-center justify-center"
+              className="border-2 border-dashed border-slate-300 dark:border-white/10 rounded-xl p-10 text-center bg-slate-50 dark:bg-white/[0.03] hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors cursor-pointer flex flex-col items-center justify-center"
             >
               <UploadCloud size={40} className="text-amber-300 mb-4" />
-              <h3 className="text-sm font-semibold text-white mb-2">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">
                 Arraste seu arquivo CSV aqui ou clique para selecionar
               </h3>
-              <p className="text-xs text-white/55 mb-6">
-                Suporta <code className="bg-white/10 px-1 py-0.5 rounded text-white">fiorix_bi_YYYY-MM-DD.csv</code> gerado via Save Results As...
+              <p className="text-xs text-slate-500 dark:text-white/55 mb-6">
+                Suporta <code className="bg-slate-200 dark:bg-white/10 px-1 py-0.5 rounded text-slate-800 dark:text-white">fiorix_bi_YYYY-MM-DD.csv</code> gerado via Save Results As...
               </p>
 
               <Button
@@ -349,22 +349,22 @@ export default function FiorixBiImportPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-white/8 bg-[#0B1020]/78 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+        <Card className="border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/78 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
           <CardHeader>
             <CardTitle className="text-lg">Histórico de Importações</CardTitle>
-            <CardDescription className="text-white/55">
+            <CardDescription className="text-slate-500 dark:text-white/55">
               Registro de todas as importações feitas para a tabela <code>fiorix_bi_imports</code> no Supabase.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {importsList.length === 0 ? (
-              <div className="text-center text-sm text-white/55 py-10">
+              <div className="text-center text-sm text-slate-500 dark:text-white/55 py-10">
                 Nenhuma importação realizada ainda.
               </div>
             ) : (
-              <div className="rounded-md border border-white/8 overflow-x-auto">
+              <div className="rounded-md border border-slate-200 dark:border-white/8 overflow-x-auto">
                 <Table>
-                  <TableHeader className="bg-white/[0.03]">
+                  <TableHeader className="bg-slate-50 dark:bg-white/[0.03]">
                     <TableRow>
                       <TableHead>Data/Hora</TableHead>
                       <TableHead>Nome do Arquivo CSV</TableHead>
@@ -380,11 +380,11 @@ export default function FiorixBiImportPage() {
                         <TableCell className="font-medium">
                           {new Date(item.importedAt).toLocaleString('pt-BR')}
                         </TableCell>
-                        <TableCell className="text-slate-600">{item.fileName}</TableCell>
+                        <TableCell className="text-slate-800 dark:text-slate-200 font-mono text-xs">{item.fileName}</TableCell>
                         <TableCell className="text-emerald-600 font-semibold">
                           {Number(item.rowsCount || 0).toLocaleString('pt-BR')} linhas
                         </TableCell>
-                        <TableCell className="text-white/55 text-xs">{item.importedBy}</TableCell>
+                        <TableCell className="text-slate-500 dark:text-white/55 text-xs">{item.importedBy}</TableCell>
                         <TableCell className="text-center">
                           {item.status === 'SUCCESS' && (
                             <Badge variant="default" className="border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/10">
@@ -406,7 +406,7 @@ export default function FiorixBiImportPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="text-white/50 hover:text-rose-300 hover:bg-white/[0.05]"
+                            className="text-slate-400 hover:text-rose-600 dark:text-white/50 dark:hover:text-rose-300 hover:bg-slate-100 dark:hover:bg-white/[0.05]"
                             onClick={() => handleDeleteImport(item.id)}
                             title="Excluir lote"
                           >

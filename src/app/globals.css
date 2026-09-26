@@ -187,12 +187,25 @@ html {
       transition: background 0.5s ease, color 0.3s ease;
     }
 
+    /* ── TRANSIÇÕES SUAVES DE TEMA (Light ↔ Dark) ── */
+    *, *::before, *::after {
+      transition-property: background-color, border-color, color, box-shadow;
+      transition-duration: 0.25s;
+      transition-timing-function: ease;
+    }
+    /* Excluir animações existentes que não devem ser afetadas */
+    .animate-pulse, .animate-spin, .animate-ping, .animate-bounce,
+    [class*="animate-"], canvas, svg, video, iframe {
+      transition-property: none !important;
+    }
+
     body::before {
       content: '';
       position: fixed; top: -200px; left: -200px;
       width: 600px; height: 600px;
       background: radial-gradient(circle, rgba(59,130,246,0.14) 0%, transparent 70%);
       pointer-events: none;
+      transition: opacity 0.5s ease;
     }
     body::after {
       content: '';
@@ -200,6 +213,14 @@ html {
       width: 700px; height: 700px;
       background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
       pointer-events: none;
+      transition: opacity 0.5s ease;
+    }
+    /* No modo light, esconder os gradientes decorativos de fundo */
+    :root:not(.dark) body::before,
+    :root:not(.dark) body::after,
+    html:not(.dark) body::before,
+    html:not(.dark) body::after {
+      opacity: 0;
     }
 
     /* ── HEADER ── */
@@ -502,64 +523,64 @@ html {
       z-index: -1;
     }
 
-    .fiorix-dark-page .bg-white,
-    .fiorix-dark-page [class*="bg-slate-50"],
-    .fiorix-dark-page [class*="bg-slate-100"],
-    .fiorix-dark-page [class*="bg-blue-50"],
-    .fiorix-dark-page [class*="bg-emerald-50"],
-    .fiorix-dark-page [class*="bg-amber-50"],
-    .fiorix-dark-page [class*="bg-red-50"] {
+    .dark .fiorix-dark-page .bg-white,
+    .dark .fiorix-dark-page [class*="bg-slate-50"],
+    .dark .fiorix-dark-page [class*="bg-slate-100"],
+    .dark .fiorix-dark-page [class*="bg-blue-50"],
+    .dark .fiorix-dark-page [class*="bg-emerald-50"],
+    .dark .fiorix-dark-page [class*="bg-amber-50"],
+    .dark .fiorix-dark-page [class*="bg-red-50"] {
       background: #151C2F !important;
       backdrop-filter: blur(18px);
     }
 
-    .fiorix-dark-page [class*="border-gray-100"],
-    .fiorix-dark-page [class*="border-slate-100"],
-    .fiorix-dark-page [class*="border-slate-200"] {
+    .dark .fiorix-dark-page [class*="border-gray-100"],
+    .dark .fiorix-dark-page [class*="border-slate-100"],
+    .dark .fiorix-dark-page [class*="border-slate-200"] {
       border-color: rgba(255,255,255,0.10) !important;
     }
 
-    .fiorix-dark-page [class*="text-slate-900"],
-    .fiorix-dark-page [class*="text-gray-900"] {
+    .dark .fiorix-dark-page [class*="text-slate-900"],
+    .dark .fiorix-dark-page [class*="text-gray-900"] {
       color: #ffffff !important;
     }
 
-    .fiorix-dark-page [class*="text-slate-800"],
-    .fiorix-dark-page [class*="text-slate-700"],
-    .fiorix-dark-page [class*="text-gray-700"] {
+    .dark .fiorix-dark-page [class*="text-slate-800"],
+    .dark .fiorix-dark-page [class*="text-slate-700"],
+    .dark .fiorix-dark-page [class*="text-gray-700"] {
       color: rgba(255,255,255,0.82) !important;
     }
 
-    .fiorix-dark-page [class*="text-slate-600"],
-    .fiorix-dark-page [class*="text-slate-500"],
-    .fiorix-dark-page [class*="text-gray-500"],
-    .fiorix-dark-page [class*="text-slate-400"] {
+    .dark .fiorix-dark-page [class*="text-slate-600"],
+    .dark .fiorix-dark-page [class*="text-slate-500"],
+    .dark .fiorix-dark-page [class*="text-gray-500"],
+    .dark .fiorix-dark-page [class*="text-slate-400"] {
       color: rgba(255,255,255,0.55) !important;
     }
 
-    .fiorix-dark-page input,
-    .fiorix-dark-page select,
-    .fiorix-dark-page textarea {
+    .dark .fiorix-dark-page input,
+    .dark .fiorix-dark-page select,
+    .dark .fiorix-dark-page textarea {
       background: rgba(255,255,255,0.04) !important;
       border-color: rgba(255,255,255,0.10) !important;
       color: #ffffff !important;
     }
 
-    .fiorix-dark-page input::placeholder,
-    .fiorix-dark-page textarea::placeholder {
+    .dark .fiorix-dark-page input::placeholder,
+    .dark .fiorix-dark-page textarea::placeholder {
       color: rgba(255,255,255,0.38) !important;
     }
 
-    .fiorix-dark-page table thead tr {
+    .dark .fiorix-dark-page table thead tr {
       background: rgba(255,255,255,0.04) !important;
     }
 
-    .fiorix-dark-page table tbody tr {
+    .dark .fiorix-dark-page table tbody tr {
       border-color: rgba(255,255,255,0.08) !important;
     }
 
-    .fiorix-dark-page [class*="shadow-sm"],
-    .fiorix-dark-page [class*="shadow-md"] {
+    .dark .fiorix-dark-page [class*="shadow-sm"],
+    .dark .fiorix-dark-page [class*="shadow-md"] {
       box-shadow: 0 10px 30px rgba(0,0,0,0.22) !important;
     }
 
@@ -703,10 +724,21 @@ html {
   html {
     @apply font-sans; } }
 
+/* Light mode autofill */
 input:-webkit-autofill,
 input:-webkit-autofill:hover, 
 input:-webkit-autofill:focus, 
 input:-webkit-autofill:active {
+  -webkit-text-fill-color: #1e293b !important;
+  -webkit-box-shadow: 0 0 0px 1000px #f8fafc inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Dark mode autofill */
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover, 
+.dark input:-webkit-autofill:focus, 
+.dark input:-webkit-autofill:active {
   -webkit-text-fill-color: #ffffff !important;
   -webkit-box-shadow: 0 0 0px 1000px #0a0f1e inset !important;
   transition: background-color 5000s ease-in-out 0s;

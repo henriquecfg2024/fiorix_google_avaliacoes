@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useChartTheme } from '@/hooks/useChartTheme';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 
 interface AreaChartVolumeProps {
@@ -21,6 +22,7 @@ type TooltipPoint = {
 };
 
 export function AreaChartVolume({ data }: AreaChartVolumeProps) {
+  const ct = useChartTheme();
   const chartData = useMemo(() => {
     const hours = Array.from({ length: 24 }, (_, i) => ({
       hour: i,
@@ -49,8 +51,8 @@ export function AreaChartVolume({ data }: AreaChartVolumeProps) {
   const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: TooltipPoint[] }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="rounded-xl border border-white/10 bg-[#0B1020]/95 p-3 text-xs text-white shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
-          <p className="font-semibold text-white/80">Faixa Horária: {payload[0]?.payload?.displayHour}</p>
+        <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/95 p-3 text-xs text-slate-900 dark:text-white shadow-xl">
+          <p className="font-semibold text-slate-700 dark:text-white/80">Faixa Horária: {payload[0]?.payload?.displayHour}</p>
           {payload.map((p, idx: number) => (
             <p key={idx} className="font-bold" style={{ color: p.color }}>
               {p.name}: {(p.value ?? 0).toLocaleString("pt-BR")}
@@ -63,10 +65,10 @@ export function AreaChartVolume({ data }: AreaChartVolumeProps) {
   };
 
   return (
-    <div className="flex h-[350px] min-h-0 min-w-0 flex-col overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+    <div className="flex h-[350px] min-h-0 min-w-0 flex-col overflow-hidden rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
       <div>
-        <h3 className="text-base font-bold tracking-tight text-white">Volume por Hora</h3>
-        <p className="text-xs text-white/40">Comparação horária entre Títulos e Certidões</p>
+        <h3 className="text-base font-bold tracking-tight text-slate-900 dark:text-white">Volume por Hora</h3>
+        <p className="text-xs text-slate-500 dark:text-white/40">Comparação horária entre Títulos e Certidões</p>
       </div>
 
       <div className="mt-4 flex-1 min-h-0">
@@ -82,25 +84,25 @@ export function AreaChartVolume({ data }: AreaChartVolumeProps) {
                 <stop offset="95%" stopColor="#60A5FA" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} vertical={false} />
             <XAxis
               dataKey="displayHour"
-              stroke="rgba(255,255,255,0.38)"
+              stroke={ct.axisStroke}
               fontSize={10}
               tickLine={false}
               axisLine={false}
             />
-            <YAxis stroke="rgba(255,255,255,0.38)" fontSize={10} tickLine={false} axisLine={false} />
+            <YAxis stroke={ct.axisStroke} fontSize={10} tickLine={false} axisLine={false} />
             <Tooltip content={<CustomTooltip />} />
             <Legend
               verticalAlign="top"
               height={36}
               content={(({ payload }: { payload?: Array<{ color?: string; value?: string }> }) => (
-                <div className="flex justify-center gap-6 text-xs text-white/60">
+                <div className="flex justify-center gap-6 text-xs text-slate-600 dark:text-white/60">
                   {payload?.map((entry, index: number) => (
                     <div key={index} className="flex items-center gap-1.5">
                       <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-                      <span>{entry.value === "TITULO" ? "Títulos" : "Certidões"}</span>
+                      <span className="text-slate-800 dark:text-white/80">{entry.value === "TITULO" ? "Títulos" : "Certidões"}</span>
                     </div>
                   ))}
                 </div>

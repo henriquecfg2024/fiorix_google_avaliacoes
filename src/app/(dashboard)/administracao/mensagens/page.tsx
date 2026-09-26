@@ -30,15 +30,15 @@ export default async function GestaoMensagensPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-indigo-500/30 transition-colors duration-300 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-indigo-500/30 dark:bg-[#070A12] dark:text-white transition-colors duration-300 relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-indigo-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-white/10" />
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <span>Administração</span>
@@ -46,7 +46,7 @@ export default async function GestaoMensagensPage() {
               <span className="text-indigo-400">Gestão de Mensagens</span>
             </div>
             <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
                 <MessageCircle className="w-6 h-6 text-indigo-400" />
                 Gestão de Mensagens Corporativas
               </h1>

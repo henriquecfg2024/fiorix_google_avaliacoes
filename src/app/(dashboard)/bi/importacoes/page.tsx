@@ -75,29 +75,29 @@ export default async function BiImportacoesPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
       <AutoRefresh intervalMs={30000} enabled={hasActiveImports} />
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-white/10 to-transparent" />
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
           <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
               <span>Dashboard</span>
-              <span className="text-slate-600">/</span>
+              <span className="text-slate-400 dark:text-slate-600">/</span>
               <span>Sistema</span>
-              <span className="text-slate-600">/</span>
-              <span className="text-amber-300">Importações</span>
+              <span className="text-slate-400 dark:text-slate-600">/</span>
+              <span className="text-amber-600 dark:text-amber-300">Importações</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white mt-1">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mt-1">
               Gestão de Importações
             </h1>
           </div>
 
-          <Badge className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 font-sans text-xs font-semibold text-amber-300 self-start sm:self-center">
+          <Badge className="rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 font-sans text-xs font-semibold text-amber-700 dark:text-amber-300 self-start sm:self-center">
             HISTÓRICO DE CARGAS
           </Badge>
         </div>
@@ -106,86 +106,86 @@ export default async function BiImportacoesPage() {
           <ImportacoesActions />
         </div>
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4">
-          <div className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55">Módulo BI</div>
-            <div className="mt-2 text-2xl font-bold text-cyan-300">{biCount}</div>
-            <div className="mt-1 text-xs text-white/45">importações registradas</div>
+          <div className="rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Módulo BI</div>
+            <div className="mt-2 text-2xl font-bold text-cyan-600 dark:text-cyan-300">{biCount}</div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-white/45">importações registradas</div>
           </div>
-          <div className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55">Produtividade</div>
-            <div className="mt-2 text-2xl font-bold text-emerald-300">{produtividadeCount}</div>
-            <div className="mt-1 text-xs text-white/45">importações registradas</div>
+          <div className="rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Produtividade</div>
+            <div className="mt-2 text-2xl font-bold text-emerald-600 dark:text-emerald-300">{produtividadeCount}</div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-white/45">importações registradas</div>
           </div>
-          <div className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55">Metas</div>
-            <div className="mt-2 text-2xl font-bold text-violet-300">{metasCount}</div>
-            <div className="mt-1 text-xs text-white/45">importações registradas</div>
+          <div className="rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Metas</div>
+            <div className="mt-2 text-2xl font-bold text-violet-600 dark:text-violet-300">{metasCount}</div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-white/45">importações registradas</div>
           </div>
-          <div className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55">Tarefas</div>
-            <div className="mt-2 text-2xl font-bold text-purple-300">{tarefasCount}</div>
-            <div className="mt-1 text-xs text-white/45">importações registradas</div>
+          <div className="rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Tarefas</div>
+            <div className="mt-2 text-2xl font-bold text-purple-600 dark:text-purple-300">{tarefasCount}</div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-white/45">importações registradas</div>
           </div>
-          <div className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55">Períodos Inferidos</div>
-            <div className="mt-2 text-2xl font-bold text-amber-300">{produtividadeInferredCount}</div>
-            <div className="mt-1 text-xs text-white/45">detectados na base de produtividade</div>
+          <div className="rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Períodos Inferidos</div>
+            <div className="mt-2 text-2xl font-bold text-amber-600 dark:text-amber-300">{produtividadeInferredCount}</div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-white/45">detectados na base de produtividade</div>
           </div>
-          <div className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-white/20">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-white/55">Total de Linhas</div>
-            <div className="mt-2 text-2xl font-bold text-white">{totalRows.toLocaleString("pt-BR")}</div>
-            <div className="mt-1 text-xs text-white/45">somadas nas fontes exibidas</div>
+          <div className="rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Total de Linhas</div>
+            <div className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{totalRows.toLocaleString("pt-BR")}</div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-white/45">somadas nas fontes exibidas</div>
           </div>
         </div>
 
-        <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
+        <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
           <div className="flex items-center gap-2">
             <Database className="h-4 w-4 text-cyan-300" />
-            <h2 className="text-lg font-semibold">Histórico Unificado</h2>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Histórico Unificado</h2>
           </div>
           <ImportTableClient rows={unifiedRows} showSearch />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
+          <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
             <div className="flex items-center gap-2">
               <FileSpreadsheet className="h-4 w-4 text-emerald-300" />
-              <h2 className="text-lg font-semibold">Produtividade</h2>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Produtividade</h2>
             </div>
-            <p className="text-sm text-white/55">
-              Entradas com status <span className="text-emerald-300">Concluído</span> ou <span className="text-cyan-300">Processando</span> são registros formais.
+            <p className="text-sm text-slate-500 dark:text-white/55">
+              Entradas com status <span className="text-emerald-600 dark:text-emerald-300 font-semibold">Concluído</span> ou <span className="text-cyan-600 dark:text-cyan-300 font-semibold">Processando</span> são registros formais.
             </p>
             <ImportTableClient rows={[...produtividadeLogs, ...produtividadeInferredFiltered]} />
           </div>
 
-          <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
+          <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
             <div className="flex items-center gap-2">
               <Database className="h-4 w-4 text-cyan-300" />
-              <h2 className="text-lg font-semibold">Módulo BI</h2>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Módulo BI</h2>
             </div>
-            <p className="text-sm text-white/55">
+            <p className="text-sm text-slate-500 dark:text-white/55">
               Entradas da tabela `fiorix_bi_imports`.
             </p>
             <ImportTableClient rows={biImports} />
           </div>
 
-          <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
+          <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
             <div className="flex items-center gap-2">
               <Target className="h-4 w-4 text-violet-300" />
-              <h2 className="text-lg font-semibold">Metas</h2>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Metas</h2>
             </div>
-            <p className="text-sm text-white/55">
+            <p className="text-sm text-slate-500 dark:text-white/55">
               Entradas da tabela `fiorix_metas_imports`.
             </p>
             <ImportTableClient rows={metasImports} />
           </div>
 
-          <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
+          <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
             <div className="flex items-center gap-2">
               <Layers3 className="h-4 w-4 text-purple-300" />
-              <h2 className="text-lg font-semibold">Tarefas</h2>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Tarefas</h2>
             </div>
-            <p className="text-sm text-white/55">
+            <p className="text-sm text-slate-500 dark:text-white/55">
               Entradas da tabela `fiorix_tarefas_imports` (Previsão de Carga).
             </p>
             <ImportTableClient rows={tarefasImports} />

@@ -208,10 +208,10 @@ export function FeriasClient({
 
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-[#070A12] text-white p-8">
+      <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white p-8">
         <div className="mx-auto max-w-[1600px] space-y-6">
           <div className="h-8 w-48 bg-white/5 rounded-xl animate-pulse" />
-          <div className="h-64 bg-[#0B1020]/72 rounded-[28px] border border-white/8 animate-pulse" />
+          <div className="h-64 bg-white dark:bg-[#0B1020]/72 rounded-[28px] border border-slate-200 dark:border-white/8 animate-pulse" />
         </div>
       </div>
     );
@@ -224,7 +224,7 @@ export function FeriasClient({
   const historicoEvents = minhasFerias?.historico || [];
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden pb-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white relative overflow-hidden pb-20">
       {/* Ambient Glow */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-emerald-500/12 via-indigo-500/10 to-cyan-500/8 blur-3xl" />
@@ -237,7 +237,7 @@ export function FeriasClient({
           <div>
             {/* Seletor de abas */}
             <div className="flex justify-end mb-4">
-              <div className="flex gap-1.5 p-1 bg-white/[0.04] rounded-2xl border border-white/8 text-xs font-bold">
+              <div className="flex gap-1.5 p-1 bg-slate-100 dark:bg-white/[0.04] rounded-2xl border border-slate-200 dark:border-white/8 text-xs font-bold">
                 <button
                   onClick={() => setActiveTab("escala")}
                   className="px-4 py-2 rounded-xl transition-all cursor-pointer bg-indigo-600 text-white shadow-lg"
@@ -246,7 +246,7 @@ export function FeriasClient({
                 </button>
                 <button
                   onClick={() => setActiveTab("minhas")}
-                  className="px-4 py-2 rounded-xl transition-all cursor-pointer text-slate-400 hover:text-white"
+                  className="px-4 py-2 rounded-xl transition-all cursor-pointer text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 >
                   Minhas Férias
                 </button>
@@ -266,7 +266,7 @@ export function FeriasClient({
           ───────────────────────────────────────────────────────────── */
           <div className="space-y-6">
             {/* 1. Header & Seletor de Ano */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-white/6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/6">
               <div>
                 <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
                   <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
@@ -276,7 +276,7 @@ export function FeriasClient({
                   <span className="text-emerald-400 font-semibold">Férias</span>
                 </div>
                 <div className="flex items-center gap-3 mt-1.5">
-                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white uppercase">
+                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white uppercase">
                     MINHAS FÉRIAS
                   </h1>
                 </div>
@@ -287,12 +287,12 @@ export function FeriasClient({
 
               <div className="flex items-center gap-3">
                 {/* Seletor de Ano estilizado com borda violeta */}
-                <div className="flex items-center bg-[#0c1224] border border-indigo-500/30 rounded-2xl px-3.5 py-2 shadow-sm text-indigo-300">
+                <div className="flex items-center bg-white dark:bg-[#0c1224] border border-slate-200 dark:border-indigo-500/30 rounded-2xl px-3.5 py-2 shadow-sm text-indigo-700 dark:text-indigo-300">
                   <Calendar className="w-4 h-4 text-indigo-400 mr-2" />
                   <select
                     value={ano}
                     onChange={(e) => setAno(Number(e.target.value))}
-                    className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer pr-1"
+                    className="bg-transparent text-xs font-bold text-slate-900 dark:text-white focus:outline-none cursor-pointer pr-1"
                   >
                     <option value={2026} className="bg-[#0c101c] text-white">2026</option>
                     <option value={2027} className="bg-[#0c101c] text-white">2027</option>
@@ -301,10 +301,10 @@ export function FeriasClient({
                 </div>
 
                 {canAccessEscala && (
-                  <div className="flex gap-1.5 p-1 bg-white/[0.04] rounded-2xl border border-white/8 text-xs font-bold">
+                  <div className="flex gap-1.5 p-1 bg-slate-100 dark:bg-white/[0.04] rounded-2xl border border-slate-200 dark:border-white/8 text-xs font-bold">
                     <button
                       onClick={() => setActiveTab("escala")}
-                      className="px-4 py-2 rounded-xl transition-all cursor-pointer text-slate-400 hover:text-white"
+                      className="px-4 py-2 rounded-xl transition-all cursor-pointer text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                     >
                       Escala Anual de Férias
                     </button>
@@ -324,7 +324,7 @@ export function FeriasClient({
               <div className="space-y-6 animate-pulse">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                   {/* Skeleton Card Esquerdo: Próximas Férias */}
-                  <div className="lg:col-span-7 flex flex-col justify-between rounded-[24px] border border-white/8 bg-[#0c142e]/60 p-7 min-h-[340px]">
+                  <div className="lg:col-span-7 flex flex-col justify-between rounded-[24px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0c142e]/60 p-7 min-h-[340px] shadow-sm">
                     <div className="flex items-center gap-4">
                       <div className="w-14 h-14 rounded-2xl bg-white/5" />
                       <div className="space-y-2">
@@ -340,8 +340,8 @@ export function FeriasClient({
                   </div>
 
                   {/* Skeleton Card Direito: Calendário */}
-                  <div className="lg:col-span-5 flex flex-col justify-between rounded-[24px] border border-white/8 bg-[#0B1020]/72 p-7 min-h-[340px]">
-                    <div className="flex items-center justify-between pb-4 border-b border-white/6">
+                  <div className="lg:col-span-5 flex flex-col justify-between rounded-[24px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 p-7 min-h-[340px] shadow-sm">
+                    <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-white/6">
                       <div className="h-5 w-36 bg-white/10 rounded-lg" />
                       <div className="h-4 w-28 bg-white/5 rounded-full" />
                     </div>
@@ -355,19 +355,19 @@ export function FeriasClient({
                 </div>
 
                 {/* Skeleton Card Histórico */}
-                <div className="rounded-[24px] border border-white/8 bg-[#0B1020]/72 p-7 space-y-4">
+                <div className="rounded-[24px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 p-7 space-y-4 shadow-sm">
                   <div className="h-5 w-40 bg-white/10 rounded-lg" />
                   <div className="h-14 bg-white/5 rounded-2xl" />
                 </div>
               </div>
             ) : !canAccessEscala && publicacao.status !== "PUBLICADA" ? (
               /* 2. Aviso de escala não publicada (apenas quando a consulta retornou e realmente NÃO está publicada) */
-              <div className="w-full max-w-3xl mx-auto py-12 px-6 rounded-[28px] border border-white/10 bg-[#0B1020]/72 backdrop-blur-xl text-center space-y-4 shadow-xl">
+              <div className="w-full max-w-3xl mx-auto py-12 px-6 rounded-[28px] border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl text-center space-y-4 shadow-sm dark:shadow-xl">
                 <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.15)]">
                   <Calendar className="w-7 h-7" />
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-lg font-bold text-white">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                     A escala anual de férias ainda não foi publicada pelo RH.
                   </h3>
                   <p className="text-sm text-slate-400 max-w-md mx-auto">
@@ -396,7 +396,7 @@ export function FeriasClient({
                         <CalendarCheck className="w-7 h-7" />
                       </div>
                       <div>
-                        <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                        <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
                           Próximas férias
                         </h3>
                         <p className="text-xs sm:text-sm text-indigo-300/80 font-medium mt-0.5">
@@ -409,7 +409,7 @@ export function FeriasClient({
                     <div className="relative z-10 my-6 space-y-3">
                       {minhasFerias?.p1Inicio && minhasFerias?.p1Fim ? (
                         <>
-                          <div className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight font-mono sm:font-sans">
+                          <div className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight font-mono sm:font-sans">
                             {minhasFerias.p1Inicio.split("-").reverse().join("/")} — {minhasFerias.p1Fim.split("-").reverse().join("/")}
                           </div>
                           <div>
@@ -420,7 +420,7 @@ export function FeriasClient({
                         </>
                       ) : (
                         <div className="space-y-1.5 py-2">
-                          <div className="text-xl font-bold text-white">
+                          <div className="text-xl font-bold text-slate-900 dark:text-white">
                             Nenhuma férias programada
                           </div>
                           <p className="text-xs text-slate-400">
@@ -439,12 +439,12 @@ export function FeriasClient({
                   </div>
 
                   {/* Card Direito: Meu calendário [Ano] (aprox. 40-42%) */}
-                  <div className="lg:col-span-5 flex flex-col justify-between rounded-[24px] border border-white/8 bg-[#0B1020]/80 p-7 shadow-xl relative overflow-hidden backdrop-blur-xl min-h-[340px]">
+                  <div className="lg:col-span-5 flex flex-col justify-between rounded-[24px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/80 p-7 shadow-sm dark:shadow-xl relative overflow-hidden backdrop-blur-xl min-h-[340px]">
                     {/* Topo do Calendário com Ícone e Legenda */}
                     <div className="flex items-center justify-between gap-2 pb-4">
                       <div className="flex items-center gap-2.5">
                         <Calendar className="w-5 h-5 text-indigo-400" />
-                        <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                        <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
                           Meu calendário {ano}
                         </h3>
                       </div>
@@ -495,11 +495,11 @@ export function FeriasClient({
                 </div>
 
                 {/* Linha Inferior: Histórico de Férias (100% largura) */}
-                <div className="rounded-[24px] border border-white/8 bg-[#0B1020]/80 p-7 shadow-xl relative backdrop-blur-xl space-y-6">
+                <div className="rounded-[24px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/80 p-7 shadow-sm dark:shadow-xl relative backdrop-blur-xl space-y-6">
                   {/* Cabeçalho do Card */}
-                  <div className="flex items-center gap-2.5 border-b border-white/8 pb-4">
+                  <div className="flex items-center gap-2.5 border-b border-slate-200 dark:border-white/8 pb-4">
                     <Calendar className="w-5 h-5 text-indigo-400" />
-                    <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
                       Histórico de férias
                     </h3>
                   </div>
@@ -514,14 +514,14 @@ export function FeriasClient({
                           <div className="text-xs text-slate-400 font-mono">
                             {ev.data}
                           </div>
-                          <div className="text-sm font-bold text-white">
+                          <div className="text-sm font-bold text-slate-900 dark:text-white">
                             Férias de {ano} programadas
                           </div>
                           <div className="text-xs text-slate-400">
                             {ev.por || "Atualizado por RH"}
                           </div>
                           {ev.motivo && (
-                            <div className="rounded-2xl border border-white/6 bg-[#070A12]/60 p-3.5 text-xs text-slate-300 font-mono mt-1 max-w-2xl">
+                            <div className="rounded-2xl border border-slate-200 dark:border-white/6 bg-slate-50 dark:bg-[#070A12]/60 p-3.5 text-xs text-slate-700 dark:text-slate-300 font-mono mt-1 max-w-2xl">
                               {ev.motivo}
                             </div>
                           )}

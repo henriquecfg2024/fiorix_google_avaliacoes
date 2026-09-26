@@ -75,17 +75,17 @@ export function ComunicadosClient({
   };
 
   return (
-    <div className="w-full flex-1 flex flex-col bg-[#070A12] text-white relative overflow-hidden pb-16">
+    <div className="w-full flex-1 flex flex-col bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white relative overflow-hidden pb-16">
       {/* Ambient glow */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-violet-500/8 via-indigo-500/6 to-cyan-500/4 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/8 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-white/8 to-transparent" />
       </div>
 
       <div className="relative mx-auto w-full max-w-lg px-4 py-5 space-y-4">
 
         {/* Breadcrumb + Título */}
-        <div className="space-y-1 pb-3 border-b border-white/8">
+        <div className="space-y-1 pb-3 border-b border-slate-200 dark:border-white/8">
           <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
             <Link href="/dashboard" className="hover:text-slate-300 transition-colors">Dashboard</Link>
             <span>/</span>
@@ -93,7 +93,7 @@ export function ComunicadosClient({
             <span>/</span>
             <span className="text-rose-400 font-semibold">Comunicados</span>
           </div>
-          <h1 className="text-xl font-extrabold tracking-tight text-white">
+          <h1 className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
             COMUNICADOS INTERNOS
           </h1>
         </div>
@@ -118,20 +118,20 @@ export function ComunicadosClient({
         {/* Navegação: abas + ícones de busca/filtro */}
         <div className="flex items-center gap-2">
           {/* Controle segmentado */}
-          <div className="flex-1 flex items-center bg-white/[0.05] border border-white/10 rounded-2xl p-1 gap-1">
+          <div className="flex-1 flex items-center bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-2xl p-1 gap-1">
             <button
               onClick={() => setActiveTab("nao_lidos")}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
                 activeTab === "nao_lidos"
                   ? "bg-violet-600 text-white shadow-[0_0_14px_rgba(139,92,246,0.45)]"
-                  : "text-slate-400 hover:text-white"
+                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
               }`}
             >
               Não lidos
               <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full transition-all ${
                 activeTab === "nao_lidos"
                   ? "bg-white/20 text-white"
-                  : "bg-white/8 text-slate-400"
+                  : "bg-slate-200 text-slate-700 dark:bg-white/8 dark:text-slate-400"
               }`}>
                 {naoLidosCount}
               </span>
@@ -141,7 +141,7 @@ export function ComunicadosClient({
               className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
                 activeTab === "todos"
                   ? "bg-violet-600 text-white shadow-[0_0_14px_rgba(139,92,246,0.45)]"
-                  : "text-slate-400 hover:text-white"
+                  : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
               }`}
             >
               Todos
@@ -154,7 +154,7 @@ export function ComunicadosClient({
             className={`w-10 h-10 flex items-center justify-center rounded-2xl border transition-all ${
               searchOpen
                 ? "bg-violet-600/20 border-violet-500/40 text-violet-300"
-                : "bg-white/[0.05] border-white/10 text-slate-400 hover:text-white hover:bg-white/8"
+                : "bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200 dark:bg-white/[0.05] dark:border-white/10 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/8"
             }`}
             aria-label="Buscar"
           >
@@ -163,7 +163,7 @@ export function ComunicadosClient({
 
           {/* Botão filtro */}
           <button
-            className="w-10 h-10 flex items-center justify-center rounded-2xl border bg-white/[0.05] border-white/10 text-slate-400 hover:text-white hover:bg-white/8 transition-all"
+            className="w-10 h-10 flex items-center justify-center rounded-2xl border bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200 dark:bg-white/[0.05] dark:border-white/10 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/8 transition-all"
             aria-label="Filtrar"
           >
             <SlidersHorizontal className="w-4 h-4" />
@@ -179,7 +179,7 @@ export function ComunicadosClient({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar comunicados..."
-              className="pl-9 h-9 bg-white/[0.04] border-white/10 rounded-xl text-xs text-white placeholder:text-slate-500 focus:border-violet-500/60 focus:ring-0"
+              className="pl-9 h-9 bg-white dark:bg-white/[0.04] border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-violet-500/60 focus:ring-0"
             />
           </div>
         )}
@@ -188,7 +188,7 @@ export function ComunicadosClient({
         {filteredComunicados.length === 0 ? (
           <div className="pt-1">
             {/* Empty state premium */}
-            <div className="rounded-3xl border border-violet-500/20 bg-[#0B1022]/90 shadow-[inset_0_0_40px_rgba(139,92,246,0.06)] p-8 flex flex-col items-center text-center gap-4">
+            <div className="rounded-3xl border border-violet-500/20 bg-white dark:bg-[#0B1022]/90 shadow-sm dark:shadow-[inset_0_0_40px_rgba(139,92,246,0.06)] p-8 flex flex-col items-center text-center gap-4">
               {/* Ícone documento + check */}
               <div className="relative flex items-center justify-center w-20 h-20">
                 <span className="absolute top-1 left-2 w-1 h-1 rounded-full bg-violet-400/60" />
@@ -208,8 +208,8 @@ export function ComunicadosClient({
               </div>
 
               <div className="space-y-1.5">
-                <h2 className="text-lg font-bold text-white tracking-tight">Tudo em dia</h2>
-                <p className="text-sm font-semibold text-slate-300">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Tudo em dia</h2>
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                   Você não tem comunicados pendentes.
                 </p>
                 <p className="text-xs text-slate-500 leading-relaxed">

@@ -3,6 +3,7 @@
 import { Bar, BarChart, Area, AreaChart, CartesianGrid, XAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend, LabelList } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { useChartTheme } from "@/hooks/useChartTheme";
 
 interface FiorixChartsProps {
   pieChartData: any[];
@@ -34,6 +35,7 @@ const severityChartConfig = {
 } satisfies ChartConfig;
 
 export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPorDia, visibleCharts }: FiorixChartsProps) {
+  const ct = useChartTheme();
   const formattedEvolucao = evolucaoPrazoPorDia.map(d => {
     const parts = d.data.split('-');
     return {
@@ -49,9 +51,9 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
 
   if (activeCount === 0) {
     return (
-      <Card className="rounded-2xl border border-white/8 bg-[#0B1020]/72 p-8 text-center text-white shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
-        <p className="text-sm text-white/62">Nenhum gráfico selecionado para exibição.</p>
-        <p className="text-xs text-white/40 mt-1">Utilize o painel acima ou clique em "Restaurar padrão" para reexibir os gráficos.</p>
+      <Card className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 p-8 text-center text-slate-800 dark:text-white shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+        <p className="text-sm text-slate-600 dark:text-white/62">Nenhum gráfico selecionado para exibição.</p>
+        <p className="text-xs text-slate-400 dark:text-white/40 mt-1">Utilize o painel acima ou clique em "Restaurar padrão" para reexibir os gráficos.</p>
       </Card>
     );
   }
@@ -60,10 +62,10 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
     <div className="space-y-4">
       {/* Top Row: Main Trend / Evolution Chart (if active) */}
       {visibleCharts.chart1 && (
-        <Card className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+        <Card className="rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
           <CardHeader className="p-0 pb-4">
-            <CardTitle className="text-base font-semibold text-white">Gráfico 1: Evolução Diária do Prazo de Entrega</CardTitle>
-            <CardDescription className="text-xs text-white/50">Comparativo contínuo entre títulos entregues no prazo e em atraso</CardDescription>
+            <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Gráfico 1: Evolução Diária do Prazo de Entrega</CardTitle>
+            <CardDescription className="text-xs text-slate-500 dark:text-white/50">Comparativo contínuo entre títulos entregues no prazo e em atraso</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {formattedEvolucao.length > 0 ? (
@@ -79,25 +81,25 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
                       <stop offset="95%" stopColor="#F97316" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={ct.gridStroke} />
                   <XAxis
                     dataKey="displayDate"
                     tickLine={false}
                     axisLine={false}
                     tickMargin={10}
-                    tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 11 }}
+                    tick={{ fill: ct.tickFill, fontSize: 11 }}
                   />
                   <RechartsTooltip
-                    contentStyle={{ backgroundColor: '#0B1020', borderColor: 'rgba(255,255,255,0.08)', borderRadius: '12px', color: '#fff' }}
-                    itemStyle={{ color: '#fff' }}
-                    labelStyle={{ color: 'rgba(255,255,255,0.6)', fontWeight: 'bold' }}
+                    contentStyle={{ backgroundColor: ct.tooltipBg, borderColor: ct.tooltipBorder, borderRadius: '12px' }}
+                    itemStyle={{ color: ct.tooltipText }}
+                    labelStyle={{ color: ct.labelColor, fontWeight: 'bold' }}
                   />
                   <Area type="monotone" dataKey="noPrazo" name="No Prazo" stackId="1" stroke="#10B981" strokeWidth={2.5} fill="url(#colorNoPrazo)" dot={false} activeDot={{ r: 6 }} />
                   <Area type="monotone" dataKey="atrasado" name="Em Atraso" stackId="1" stroke="#F97316" strokeWidth={2.5} fill="url(#colorAtrasado)" dot={false} activeDot={{ r: 6 }} />
                 </AreaChart>
               </ChartContainer>
             ) : (
-              <div className="h-[250px] w-full flex items-center justify-center text-white/40">
+              <div className="h-[250px] w-full flex items-center justify-center text-slate-400 dark:text-white/40">
                 Sem dados suficientes no período.
               </div>
             )}
@@ -110,10 +112,10 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
         <div className={`grid grid-cols-1 ${visibleCharts.chart2 && visibleCharts.chart3 ? "lg:grid-cols-2" : "grid-cols-1"} gap-4`}>
           {/* Chart 2: Delay Severity */}
           {visibleCharts.chart2 && (
-            <Card className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+            <Card className="rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
               <CardHeader className="p-0 pb-4">
-                <CardTitle className="text-base font-semibold text-white">Gráfico 2: Severidade do Atraso</CardTitle>
-                <CardDescription className="text-xs text-white/50">Distribuição dos títulos fora do prazo por faixas de dias de atraso</CardDescription>
+                <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Gráfico 2: Severidade do Atraso</CardTitle>
+                <CardDescription className="text-xs text-slate-500 dark:text-white/50">Distribuição dos títulos fora do prazo por faixas de dias de atraso</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 {delaySeverity.length > 0 ? (
@@ -125,19 +127,20 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
                           <stop offset="95%" stopColor="#DC2626" stopOpacity={1}/>
                         </linearGradient>
                       </defs>
-                      <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                      <XAxis dataKey="bucket" tickLine={false} axisLine={false} tickMargin={10} tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 11 }} />
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" stroke={ct.gridStroke} />
+                      <XAxis dataKey="bucket" tickLine={false} axisLine={false} tickMargin={10} tick={{ fill: ct.tickFill, fontSize: 11 }} />
                       <RechartsTooltip
-                        contentStyle={{ backgroundColor: '#0B1020', borderColor: 'rgba(255,255,255,0.08)', borderRadius: '12px', color: '#fff' }}
-                        itemStyle={{ color: '#fff' }}
+                        contentStyle={{ backgroundColor: ct.tooltipBg, borderColor: ct.tooltipBorder, borderRadius: '12px' }}
+                        itemStyle={{ color: ct.tooltipText }}
+                        labelStyle={{ color: ct.labelColor, fontWeight: 'bold' }}
                       />
                       <Bar dataKey="count" fill="url(#colorSeverity)" radius={[6, 6, 0, 0]}>
-                        <LabelList dataKey="count" position="top" fill="rgba(255,255,255,0.6)" fontSize={11} formatter={((v: any) => v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v) as any} />
+                        <LabelList dataKey="count" position="top" fill={ct.tickFill} fontSize={11} formatter={((v: any) => v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v) as any} />
                       </Bar>
                     </BarChart>
                   </ChartContainer>
                 ) : (
-                  <div className="h-[250px] w-full flex items-center justify-center text-white/40">
+                  <div className="h-[250px] w-full flex items-center justify-center text-slate-400 dark:text-white/40">
                     Sem dados de severidade de atraso.
                   </div>
                 )}
@@ -147,10 +150,10 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
 
           {/* Chart 3: Pie / Donut Chart */}
           {visibleCharts.chart3 && (
-            <Card className="rounded-2xl border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+            <Card className="rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
               <CardHeader className="p-0 pb-4">
-                <CardTitle className="text-base font-semibold text-white">Gráfico 3: Distribuição Geral</CardTitle>
-                <CardDescription className="text-xs text-white/50">Visão macro da proporção de títulos no prazo, atrasos e exigências</CardDescription>
+                <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Gráfico 3: Distribuição Geral</CardTitle>
+                <CardDescription className="text-xs text-slate-500 dark:text-white/50">Visão macro da proporção de títulos no prazo, atrasos e exigências</CardDescription>
               </CardHeader>
               <CardContent className="flex justify-center pb-0 p-0 relative">
                 {pieChartData.length > 0 ? (
@@ -165,8 +168,8 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
                           outerRadius="90%"
                           paddingAngle={4}
                           dataKey="count"
-                          stroke="#0B1020"
-                          strokeWidth={4}
+                          stroke="transparent"
+                          strokeWidth={2}
                         >
                           {pieChartData.map((entry, index) => {
                             let fill = "#10B981";
@@ -176,19 +179,19 @@ export function FiorixCharts({ pieChartData, delaySeverity = [], evolucaoPrazoPo
                           })}
                         </Pie>
                         <RechartsTooltip 
-                          contentStyle={{ borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)', backgroundColor: '#0B1020', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                          itemStyle={{ color: '#fff', fontSize: '14px', fontWeight: 500 }}
+                          contentStyle={{ borderRadius: '8px', border: `1px solid ${ct.tooltipBorder}`, backgroundColor: ct.tooltipBg, boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                          itemStyle={{ color: ct.tooltipText, fontSize: '14px', fontWeight: 500 }}
                         />
-                        <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ color: '#fff', fontSize: '12px' }} />
+                        <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="absolute flex flex-col items-center justify-center text-center pointer-events-none">
-                      <span className="text-2xl font-black text-white">{atrasadoPct}</span>
-                      <span className="text-[10px] uppercase tracking-widest text-white/50">em atraso</span>
+                      <span className="text-2xl font-black text-slate-900 dark:text-white">{atrasadoPct}</span>
+                      <span className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-white/50 font-semibold">em atraso</span>
                     </div>
                   </div>
                 ) : (
-                  <div className="h-[250px] w-full flex items-center justify-center text-white/40">
+                  <div className="h-[250px] w-full flex items-center justify-center text-slate-400 dark:text-white/40">
                     Nenhum dado para o período.
                   </div>
                 )}

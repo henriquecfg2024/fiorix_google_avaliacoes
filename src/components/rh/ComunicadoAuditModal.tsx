@@ -56,9 +56,9 @@ export function ComunicadoAuditModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in">
-      <div className="relative w-full max-w-5xl max-h-[90vh] bg-[#0d0d18] border border-white/10 rounded-2xl flex flex-col shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-5xl max-h-[90vh] bg-[#0d0d18] border border-slate-200 dark:border-white/10 rounded-2xl flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#12141F]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-[#12141F]">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
               <Shield className="w-5 h-5" />
@@ -79,8 +79,8 @@ export function ComunicadoAuditModal({
         </div>
 
         {/* KPIs Resumo */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-6 bg-[#080A12] border-b border-white/5">
-          <div className="p-4 bg-[#101019] rounded-xl border border-white/5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-6 bg-[#080A12] border-b border-slate-200 dark:border-white/5">
+          <div className="p-4 bg-[#101019] rounded-xl border border-slate-200 dark:border-white/5">
             <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Taxa de Adesão & Ciência</span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-2xl font-black text-cyan-400">{taxaCiencia}%</span>
@@ -91,7 +91,7 @@ export function ComunicadoAuditModal({
             </div>
           </div>
 
-          <div className="p-4 bg-[#101019] rounded-xl border border-white/5">
+          <div className="p-4 bg-[#101019] rounded-xl border border-slate-200 dark:border-white/5">
             <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Visualizações Registradas</span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-2xl font-black text-indigo-400">{totalViews}</span>
@@ -100,7 +100,7 @@ export function ComunicadoAuditModal({
             <p className="text-[11px] text-slate-400 mt-2.5">Trilha de IP e User-Agent gravada</p>
           </div>
 
-          <div className="p-4 bg-[#101019] rounded-xl border border-white/5">
+          <div className="p-4 bg-[#101019] rounded-xl border border-slate-200 dark:border-white/5">
             <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">Hashes Criptográficos</span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-2xl font-black text-emerald-400">100%</span>
@@ -127,9 +127,9 @@ export function ComunicadoAuditModal({
             </Button>
           </div>
 
-          <div className="border border-white/10 rounded-xl overflow-hidden bg-[#101019]">
+          <div className="border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden bg-[#101019]">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#12141F] text-white/40 uppercase font-mono text-[10px] border-b border-white/5">
+              <thead className="bg-[#12141F] text-white/40 uppercase font-mono text-[10px] border-b border-slate-200 dark:border-white/5">
                 <tr>
                   <th className="px-4 py-3">Colaborador / Setor</th>
                   <th className="px-4 py-3">Visualizou</th>
@@ -180,7 +180,7 @@ export function ComunicadoAuditModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-[#0d0d18] border-t border-white/10 flex items-center justify-between">
+        <div className="px-6 py-4 bg-[#0d0d18] border-t border-slate-200 dark:border-white/10 flex items-center justify-between">
           <span className="text-xs text-slate-400 font-mono">
             Art. 7 Prov. 213/2026 — Trilha retida por 5 anos
           </span>

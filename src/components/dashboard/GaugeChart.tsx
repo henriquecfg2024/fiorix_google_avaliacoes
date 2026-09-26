@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { useChartTheme } from '@/hooks/useChartTheme';
 import ReactECharts from 'echarts-for-react';
 
 interface GaugeChartProps {
@@ -7,6 +8,7 @@ interface GaugeChartProps {
 }
 
 export function GaugeChart({ score = 85 }: GaugeChartProps) {
+  const ct = useChartTheme();
   const option = {
     series: [
       {
@@ -31,7 +33,7 @@ export function GaugeChart({ score = 85 }: GaugeChartProps) {
         pointer: { show: false },
         axisLine: {
           roundCap: true,
-          lineStyle: { width: 14, color: [[1, 'rgba(148,163,184,0.15)']] }
+          lineStyle: { width: 14, color: ct.gaugeTrackColor as any }
         },
         axisTick: { show: false },
         splitLine: { show: false },

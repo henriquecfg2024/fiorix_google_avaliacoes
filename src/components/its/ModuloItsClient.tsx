@@ -411,7 +411,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
   return (
     <div className="space-y-6">
       {/* Header com Tabs */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl border border-white/10 bg-[#10101a] shadow-2xl">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a] shadow-2xl">
         <div>
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
@@ -559,7 +559,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
           )}
 
           {/* Barra de Filtros e Busca */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border border-white/10 bg-[#10101a]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a]">
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative w-64">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -611,11 +611,11 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
             {filteredIts.map((it) => (
               <div
                 key={it.id}
-                className="flex flex-col justify-between rounded-2xl border border-white/10 bg-[#10101a] p-5 shadow-xl hover:border-indigo-500/40 transition-all group"
+                className="flex flex-col justify-between rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a] p-5 shadow-xl hover:border-indigo-500/40 transition-all group"
               >
                 <div className="space-y-3">
                   {/* Card Header: Código + Departamento + Versão */}
-                  <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-3">
+                  <div className="flex items-center justify-between gap-2 border-b border-slate-200 dark:border-white/5 pb-3">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-mono font-black text-cyan-300 bg-cyan-500/10 px-2.5 py-1 rounded-lg border border-cyan-500/20">
                         {it.codigo}
@@ -664,7 +664,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
                 </div>
 
                 {/* Card Footer: Ações */}
-                <div className="flex items-center justify-between border-t border-white/5 pt-4 mt-4">
+                <div className="flex items-center justify-between border-t border-slate-200 dark:border-white/5 pt-4 mt-4">
                   <div className="flex items-center gap-2">
                     <Link href={`/instrucoes-trabalho/${it.id}`}>
                       <Button
@@ -692,7 +692,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
                     <Button
                       size="sm"
                       onClick={() => setViewItModal(it)}
-                      className="bg-white/5 hover:bg-white/10 text-slate-300 text-xs rounded-xl gap-1.5 border border-white/10"
+                      className="bg-white/5 hover:bg-white/10 text-slate-300 text-xs rounded-xl gap-1.5 border border-slate-200 dark:border-white/10"
                     >
                       <span>Passos</span>
                     </Button>
@@ -743,8 +743,8 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
       {/* TAB 2: COLABORADORES (63 REAIS)                                     */}
       {/* ─────────────────────────────────────────────────────────────────── */}
       {activeTab === "colaboradores" && (
-        <div className="rounded-2xl border border-white/10 bg-[#10101a] p-6 shadow-xl space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+        <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a] p-6 shadow-xl space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/5 pb-4">
             <div>
               <h3 className="text-sm font-bold text-white uppercase tracking-wider">
                 Quadro de Colaboradores & Qualificação — 7º RI SP
@@ -782,7 +782,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-300">
-              <thead className="bg-[#080811] text-[11px] font-mono uppercase text-slate-400 border-y border-white/5">
+              <thead className="bg-[#080811] text-[11px] font-mono uppercase text-slate-400 border-y border-slate-200 dark:border-white/5">
                 <tr>
                   <th className="py-3 px-4">Colaborador</th>
                   <th className="py-3 px-4">Departamento</th>
@@ -808,7 +808,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
                     </td>
 
                     <td className="py-3 px-4">
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/5 text-slate-300 border border-white/10">
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/5 text-slate-300 border border-slate-200 dark:border-white/10">
                         {c.departamento}
                       </span>
                     </td>
@@ -824,7 +824,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
                           className={`text-[10px] font-mono px-2.5 py-1 rounded-full border transition-all ${
                             c.podeSerTutor
                               ? "bg-purple-500/20 text-purple-300 border-purple-500/40 hover:bg-purple-500/30"
-                              : "bg-slate-800 text-slate-400 border-white/5 hover:bg-white/10"
+                              : "bg-slate-800 text-slate-400 border-slate-200 dark:border-white/5 hover:bg-white/10"
                           }`}
                         >
                           {c.podeSerTutor ? "★ Tutor Apto" : "Em Formação"}
@@ -878,7 +878,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
           </div>
 
           {/* Legenda de Níveis 0 a 4 */}
-          <div className="p-4 rounded-2xl border border-white/10 bg-[#10101a] space-y-3">
+          <div className="p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a] space-y-3">
             <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 block font-bold">
               Escala de Polivalência Operacional (Níveis 0 a 4):
             </span>
@@ -899,8 +899,8 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
           </div>
 
           {/* Matriz Heatmap Interativa */}
-          <div className="rounded-2xl border border-white/10 bg-[#10101a] p-6 shadow-xl space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
+          <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a] p-6 shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-white/5 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">
                   Matriz de Competências & Polivalência (Mapa de Calor)
@@ -926,9 +926,9 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-[#080811] text-[11px] font-mono uppercase text-slate-400 border-y border-white/5">
+                <thead className="bg-[#080811] text-[11px] font-mono uppercase text-slate-400 border-y border-slate-200 dark:border-white/5">
                   <tr>
-                    <th className="py-3 px-3 min-w-[200px] sticky left-0 bg-[#080811] z-10 border-r border-white/5">
+                    <th className="py-3 px-3 min-w-[200px] sticky left-0 bg-[#080811] z-10 border-r border-slate-200 dark:border-white/5">
                       Colaborador
                     </th>
                     {itsList.map((it) => (
@@ -952,7 +952,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
 
                       return (
                         <tr key={colab.id} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="py-2.5 px-3 font-medium text-white sticky left-0 bg-[#10101a] z-10 border-r border-white/5">
+                          <td className="py-2.5 px-3 font-medium text-white sticky left-0 bg-[#10101a] z-10 border-r border-slate-200 dark:border-white/5">
                             <div className="truncate max-w-[190px]">{colab.name}</div>
                             <div className="text-[10px] text-slate-500 font-mono">{colab.cargo}</div>
                           </td>
@@ -1003,7 +1003,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
         <div className="space-y-6">
           {/* KPIs Gerenciais */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div className="p-4 rounded-2xl border border-white/10 bg-[#10101a]">
+            <div className="p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a]">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">ITs Ativas</span>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-2xl font-black text-white">{itsList.length}</span>
@@ -1012,7 +1012,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
               <p className="text-[11px] text-slate-500 mt-1">100% sob governança</p>
             </div>
 
-            <div className="p-4 rounded-2xl border border-white/10 bg-[#10101a]">
+            <div className="p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a]">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Colaboradores</span>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-2xl font-black text-cyan-400">{colabsList.length}</span>
@@ -1021,7 +1021,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
               <p className="text-[11px] text-slate-500 mt-1">Base oficial sem fictícios</p>
             </div>
 
-            <div className="p-4 rounded-2xl border border-white/10 bg-[#10101a]">
+            <div className="p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a]">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Solicitações Cross</span>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-2xl font-black text-amber-400">
@@ -1032,7 +1032,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
               <p className="text-[11px] text-slate-500 mt-1">Aguardam liberação RH</p>
             </div>
 
-            <div className="p-4 rounded-2xl border border-white/10 bg-[#10101a]">
+            <div className="p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a]">
               <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Revisão &gt;90 Dias</span>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-2xl font-black text-emerald-400">
@@ -1045,7 +1045,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
           </div>
 
           {/* Fila de Solicitações Cross-Setor Pendentes */}
-          <div className="rounded-2xl border border-white/10 bg-[#10101a] p-6 shadow-xl space-y-4">
+          <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a] p-6 shadow-xl space-y-4">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider">
               Solicitações de Acesso Cross-Setor Aguardando Aprovação
             </h3>
@@ -1105,7 +1105,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
           </div>
 
           {/* Tabela de Monitoramento de Atualização das ITs (>90 dias) */}
-          <div className="rounded-2xl border border-white/10 bg-[#10101a] p-6 shadow-xl space-y-4">
+          <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-[#10101a] p-6 shadow-xl space-y-4">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider">
               Relatório de Revisão Periódica das ITs (Melhoria Contínua)
             </h3>
@@ -1115,7 +1115,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-[#080811] text-[11px] font-mono uppercase text-slate-400 border-y border-white/5">
+                <thead className="bg-[#080811] text-[11px] font-mono uppercase text-slate-400 border-y border-slate-200 dark:border-white/5">
                   <tr>
                     <th className="py-3 px-4">Código</th>
                     <th className="py-3 px-4">Título da IT</th>
@@ -1164,7 +1164,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
       {viewItModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in">
           <div className="relative w-full max-w-3xl max-h-[90vh] bg-[#0d0d18] border border-white/15 rounded-2xl flex flex-col shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#121422]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-[#121422]">
               <div className="flex items-center gap-3">
                 <span className="text-xs font-mono font-black text-cyan-300 bg-cyan-500/15 px-3 py-1 rounded-lg border border-cyan-500/30">
                   {viewItModal.codigo}
@@ -1187,11 +1187,11 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
             <div className="p-6 overflow-y-auto space-y-6">
               {/* Objetivo & Quando Usar */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-xl space-y-1">
+                <div className="p-4 bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-xl space-y-1">
                   <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Objetivo:</span>
                   <p className="text-xs text-slate-300 leading-relaxed">{viewItModal.objetivo || "Não informado."}</p>
                 </div>
-                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-xl space-y-1">
+                <div className="p-4 bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-xl space-y-1">
                   <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Quando Usar:</span>
                   <p className="text-xs text-slate-300 leading-relaxed">{viewItModal.quandoUsar || "Rotina operacional diária."}</p>
                 </div>
@@ -1199,7 +1199,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
 
               {/* Matriz RACI */}
               {viewItModal.raci && (
-                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-xl space-y-2">
+                <div className="p-4 bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-xl space-y-2">
                   <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Matriz RACI de Responsabilidades:</span>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs">
@@ -1230,7 +1230,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
                 <div className="space-y-2.5">
                   {viewItModal.passoAPasso && viewItModal.passoAPasso.length > 0 ? (
                     viewItModal.passoAPasso.map((p, idx) => (
-                      <div key={idx} className="flex gap-3 p-3.5 rounded-xl bg-white/[0.03] border border-white/5 items-start">
+                      <div key={idx} className="flex gap-3 p-3.5 rounded-xl bg-white/[0.03] border border-slate-200 dark:border-white/5 items-start">
                         <div className="w-6 h-6 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
                           {p.ordem || idx + 1}
                         </div>
@@ -1247,7 +1247,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
               </div>
             </div>
 
-            <div className="px-6 py-3.5 bg-[#121422] border-t border-white/10 flex justify-end">
+            <div className="px-6 py-3.5 bg-[#121422] border-t border-slate-200 dark:border-white/10 flex justify-end">
               <Button size="sm" onClick={() => setViewItModal(null)} className="bg-white/10 hover:bg-white/20 text-xs">
                 Fechar Visualização
               </Button>
@@ -1262,7 +1262,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
       {(createItModalOpen || editItModal) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
           <div className="relative w-full max-w-2xl max-h-[90vh] bg-[#0d0d18] border border-white/15 rounded-2xl flex flex-col shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#121422]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-white/10 bg-[#121422]">
               <h3 className="text-sm font-bold text-white">
                 {editItModal ? `Editar IT — ${editItModal.codigo}` : "Cadastrar Nova Instrução de Trabalho"}
               </h3>
@@ -1355,7 +1355,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
               </div>
 
               {/* Seção de Anexo de PDF */}
-              <div className="pt-2 border-t border-white/10">
+              <div className="pt-2 border-t border-slate-200 dark:border-white/10">
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs text-slate-300 font-medium flex items-center gap-1.5">
                     <FileText className="w-3.5 h-3.5 text-indigo-400" />
@@ -1454,7 +1454,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
                 )}
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-white/10">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-white/10">
                 <Button
                   type="button"
                   variant="ghost"
@@ -1492,7 +1492,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
       {selectedCell && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in">
           <div className="relative w-full max-w-md bg-[#0d0d18] border border-white/15 rounded-2xl flex flex-col shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-white">Avaliação de Polivalência</h3>
                 <p className="text-xs text-cyan-300 font-mono">
@@ -1519,7 +1519,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
                     className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition-all ${
                       isCurrent
                         ? "border-cyan-400 bg-cyan-500/20 text-white"
-                        : "border-white/5 hover:border-white/20 bg-white/[0.02] text-slate-300"
+                        : "border-slate-200 dark:border-white/5 hover:border-white/20 bg-white/[0.02] text-slate-300"
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -1546,7 +1546,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
       {crossModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in">
           <div className="relative w-full max-w-lg bg-[#0d0d18] border border-white/15 rounded-2xl flex flex-col shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-3">
               <h3 className="text-sm font-bold text-white">Solicitar Capacitação Cross-Setor</h3>
               <button onClick={() => setCrossModalOpen(false)} className="p-1 text-slate-400 hover:text-white">
                 <X className="w-5 h-5" />
@@ -1605,7 +1605,7 @@ export function ModuloItsClient({ initialData }: ModuloItsClientProps) {
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-white/10">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-white/10">
                 <Button type="button" variant="ghost" onClick={() => setCrossModalOpen(false)} className="text-xs">
                   Cancelar
                 </Button>

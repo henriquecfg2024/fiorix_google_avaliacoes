@@ -245,8 +245,8 @@ export function ItDetailViewClient({ initialData }: { initialData: ITDetailData 
   return (
     <div
       ref={containerRef}
-      className={`relative min-h-screen text-white transition-all ${
-        isFullscreen ? 'fixed inset-0 z-[9999] bg-[#070A12] overflow-y-auto p-4 sm:p-8' : 'p-4 sm:p-6 lg:p-8'
+      className={`relative min-h-screen text-slate-900 dark:text-white bg-slate-50 dark:bg-[#070A12] transition-all ${
+        isFullscreen ? 'fixed inset-0 z-[9999] bg-slate-50 dark:bg-[#070A12] overflow-y-auto p-4 sm:p-8' : 'p-4 sm:p-6 lg:p-8'
       }`}
     >
       {/* Barra de Progresso Fina no Topo (Leitura) */}
@@ -262,12 +262,12 @@ export function ItDetailViewClient({ initialData }: { initialData: ITDetailData 
         <div className="flex items-center gap-3">
           <Link
             href="/minha-it"
-            className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white px-2.5 py-1 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all mr-1"
+            className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-slate-300 dark:bg-zinc-900 dark:border-zinc-800 dark:hover:border-zinc-700 transition-all mr-1 shadow-xs"
             title="Voltar para Minhas Instruções de Trabalho"
           >
             <ArrowLeft className="w-3.5 h-3.5" /> Voltar
           </Link>
-          <span className="text-xs font-mono font-bold px-2.5 py-1 rounded bg-zinc-800 text-emerald-400 border border-zinc-700">
+          <span className="text-xs font-mono font-bold px-2.5 py-1 rounded bg-slate-100 text-emerald-600 border border-slate-200 dark:bg-zinc-800 dark:text-emerald-400 dark:border-zinc-700">
             {it.codigo}
           </span>
           <span className="text-xs text-zinc-400 font-mono">v{it.versao}</span>
@@ -277,13 +277,13 @@ export function ItDetailViewClient({ initialData }: { initialData: ITDetailData 
 
         <div className="flex items-center gap-2">
           {/* Alternador Modo A4 vs Checklist */}
-          <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-lg p-0.5">
+          <div className="flex items-center bg-white border border-slate-200 dark:bg-zinc-900 dark:border-zinc-800 rounded-lg p-0.5 shadow-xs">
             <button
               onClick={() => setViewMode('a4')}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md font-medium transition-all ${
                 viewMode === 'a4'
-                  ? 'bg-zinc-800 text-emerald-400 shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
+                  ? 'bg-emerald-50 text-emerald-700 dark:bg-zinc-800 dark:text-emerald-400 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white'
               }`}
             >
               <BookOpen className="w-3.5 h-3.5" /> Modo A4 Oficial
@@ -292,8 +292,8 @@ export function ItDetailViewClient({ initialData }: { initialData: ITDetailData 
               onClick={() => setViewMode('checklist')}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md font-medium transition-all ${
                 viewMode === 'checklist'
-                  ? 'bg-zinc-800 text-emerald-400 shadow-sm'
-                  : 'text-zinc-400 hover:text-white'
+                  ? 'bg-emerald-50 text-emerald-700 dark:bg-zinc-800 dark:text-emerald-400 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white'
               }`}
             >
               <CheckSquare className="w-3.5 h-3.5" /> Checklist de Bancada

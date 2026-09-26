@@ -61,7 +61,7 @@ export function MinhasItsClient({ initialData }: MinhasItsClientProps) {
 
         <div className="relative mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-8 space-y-8">
           {/* Breadcrumb & Header */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-white/5">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/5">
             <div>
               <div className="flex items-center gap-2 text-xs font-medium text-zinc-400">
                 <Link href="/pessoas" className="hover:text-zinc-200 transition-colors">
@@ -136,7 +136,7 @@ export function MinhasItsClient({ initialData }: MinhasItsClientProps) {
 
       <div className="relative mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-8 space-y-6">
         {/* Breadcrumb & Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-white/5">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/5">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-zinc-400">
               <Link href="/pessoas" className="hover:text-zinc-200 transition-colors">

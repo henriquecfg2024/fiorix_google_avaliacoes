@@ -277,15 +277,15 @@ export function AuditoriaDashboardClient() {
   };
 
   return (
-    <div className="space-y-6 font-[Inter,system-ui,sans-serif] text-white">
+    <div className="space-y-6 font-[Inter,system-ui,sans-serif] text-slate-900 dark:text-white">
       {/* Upper info / Header Meta */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-[22px] border border-white/8 bg-[#0B1020]/72 px-4 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-        <div className="text-white/60 text-xs flex flex-wrap items-center gap-3">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-[22px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 px-4 py-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+        <div className="text-slate-500 dark:text-white/60 text-xs flex flex-wrap items-center gap-3">
           <span>Última auditoria: {lastAuditAt ? `hoje ${lastAuditAt}` : "carregando..."}</span>
-          <span className="w-1 h-1 rounded-full bg-white/22"></span>
+          <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-white/22"></span>
           <span>{protocolos.length.toLocaleString("pt-BR")} títulos auditados</span>
-          <span className="w-1 h-1 rounded-full bg-white/22"></span>
-          <span className="rounded-full border border-emerald-500/18 bg-emerald-500/10 px-2 py-0.5 font-bold text-emerald-300">
+          <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-white/22"></span>
+          <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 font-bold text-emerald-600 dark:text-emerald-300">
             Dados reais
           </span>
         </div>
@@ -303,62 +303,62 @@ export function AuditoriaDashboardClient() {
       {/* Top Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1 */}
-        <div className="rounded-2xl border border-white/8 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-white/12">
+        <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/78 p-5 shadow-sm dark:shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-slate-300 dark:hover:border-white/12">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-white/48">Antes FIORIX</span>
-            <span className="rounded-full border border-white/10 bg-white/6 px-2 py-0.5 text-[10px] font-bold text-white/80">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-white/48">Antes FIORIX</span>
+            <span className="rounded-full border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/6 px-2 py-0.5 text-[10px] font-bold text-slate-700 dark:text-white/80">
               gargalo: {metrics.avgDays}d
             </span>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-white">{protocolos.length.toLocaleString("pt-BR")}</span>
-            <span className="text-xs text-white/40">títulos</span>
+            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{protocolos.length.toLocaleString("pt-BR")}</span>
+            <span className="text-xs text-slate-500 dark:text-white/40">títulos</span>
           </div>
-          <p className="text-xs text-white/60 mt-1">
+          <p className="text-xs text-slate-500 dark:text-white/60 mt-1">
             {protocolos.length > 0 ? `${protocolos.length} pendentes` : "0 pendentes"}
           </p>
         </div>
 
         {/* Card 2 */}
-        <div className="rounded-2xl border border-white/8 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-white/12">
+        <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/78 p-5 shadow-sm dark:shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-slate-300 dark:hover:border-white/12">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-white/48">Meta FIORIX</span>
-            <span className="rounded-full border border-indigo-400/20 bg-indigo-500/12 px-2 py-0.5 text-[10px] font-bold text-indigo-200">SLA: 48h</span>
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-white/48">Meta FIORIX</span>
+            <span className="rounded-full border border-indigo-400/25 bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-200">SLA: 48h</span>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-amber-300">Zerar {protocolos.length}</span>
+            <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-300">Zerar {protocolos.length}</span>
           </div>
-          <p className="text-xs text-white/58 mt-1">Regularização contínua • Compliance</p>
+          <p className="text-xs text-slate-500 dark:text-white/58 mt-1">Regularização contínua • Compliance</p>
         </div>
 
         {/* Card 3 */}
-        <div className="rounded-2xl border border-white/8 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-white/12">
+        <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/78 p-5 shadow-sm dark:shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-slate-300 dark:hover:border-white/12">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-white/48">Realizado FIORIX</span>
-            <span className="rounded-full border border-emerald-500/20 bg-emerald-500/12 px-2 py-0.5 text-[10px] font-bold text-emerald-200">HOJE</span>
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-white/48">Realizado FIORIX</span>
+            <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-200">HOJE</span>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-emerald-300">{protocolos.length.toLocaleString("pt-BR")}</span>
-            <span className="text-xs text-white/40">pendências ativas</span>
+            <span className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-300">{protocolos.length.toLocaleString("pt-BR")}</span>
+            <span className="text-xs text-slate-500 dark:text-white/40">pendências ativas</span>
           </div>
-          <p className="text-xs text-white/58 mt-1">Média de {metrics.avgDays}d por pendência</p>
+          <p className="text-xs text-slate-500 dark:text-white/58 mt-1">Média de {metrics.avgDays}d por pendência</p>
         </div>
 
         {/* Card 4 */}
-        <div className="rounded-2xl border border-white/8 bg-[#0B1020]/78 p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-white/12">
+        <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/78 p-5 shadow-sm dark:shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-slate-300 dark:hover:border-white/12">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-white/48">Risco Atual</span>
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-white/48">Risco Atual</span>
             <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
-              metrics.riskColor === "red" ? "border-red-500/20 bg-red-500/12 text-red-200" :
-              metrics.riskColor === "amber" ? "border-amber-500/20 bg-amber-500/12 text-amber-200" :
-              "border-emerald-500/20 bg-emerald-500/12 text-emerald-200"
+              metrics.riskColor === "red" ? "border-red-500/25 bg-red-500/10 text-red-600 dark:text-red-200" :
+              metrics.riskColor === "amber" ? "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-200" :
+              "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
             }`}>{metrics.riskLevel} RISCO</span>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-white">{protocolos.length}</span>
-            <span className="text-xs text-white/40">pendências</span>
+            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{protocolos.length}</span>
+            <span className="text-xs text-slate-500 dark:text-white/40">pendências</span>
           </div>
-          <p className="mt-1 flex items-center gap-1 text-xs text-amber-200/85">
+          <p className="mt-1 flex items-center gap-1 text-xs text-amber-700 dark:text-amber-200/85">
             <AlertTriangle className="w-3.5 h-3.5" />
             {protocolos.length > 0 ? `${protocolos.filter(p => p.dias > 30).length} com mais de 30 dias` : "Nenhum risco detectado"}
           </p>
@@ -366,11 +366,11 @@ export function AuditoriaDashboardClient() {
       </div>
 
       {/* Tabs */}
-      <div className="flex w-fit rounded-2xl border border-white/8 bg-[#0B1020]/72 p-1 shadow-[0_14px_36px_rgba(0,0,0,0.14)] backdrop-blur-xl">
+      <div className="flex w-fit rounded-2xl border border-slate-200 dark:border-white/8 bg-slate-100/90 dark:bg-[#0B1020]/72 p-1 shadow-sm dark:shadow-[0_14px_36px_rgba(0,0,0,0.14)] backdrop-blur-xl">
         <button
           onClick={() => setActiveTab("dashboard")}
           className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-            activeTab === "dashboard" ? "bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-lg shadow-amber-500/10" : "text-white/60 hover:text-white"
+            activeTab === "dashboard" ? "bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-lg shadow-amber-500/10" : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
           }`}
         >
           Dashboard Diário
@@ -378,29 +378,29 @@ export function AuditoriaDashboardClient() {
         <button
           onClick={() => setActiveTab("pendencias")}
           className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
-            activeTab === "pendencias" ? "bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-lg shadow-amber-500/10" : "text-white/60 hover:text-white"
+            activeTab === "pendencias" ? "bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-lg shadow-amber-500/10" : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
           }`}
         >
           Pendências Inteligentes de Fluxo
-          <span className="rounded-full border border-white/10 bg-white/10 px-1.5 py-0.5 text-[10px]">{protocolos.length}</span>
+          <span className="rounded-full border border-slate-300 dark:border-white/10 bg-slate-200 dark:bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-700 dark:text-white">{protocolos.length}</span>
         </button>
         <button
           onClick={() => setActiveTab("historico")}
           className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
-            activeTab === "historico" ? "bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-lg shadow-amber-500/10" : "text-white/60 hover:text-white"
+            activeTab === "historico" ? "bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-lg shadow-amber-500/10" : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
           }`}
         >
           Histórico de Auditorias
-          <span className="rounded-full border border-white/10 bg-white/10 px-1.5 py-0.5 text-[10px]">{historicoAuditorias.length}</span>
+          <span className="rounded-full border border-slate-300 dark:border-white/10 bg-slate-200 dark:bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-700 dark:text-white">{historicoAuditorias.length}</span>
         </button>
         <button
           onClick={() => setActiveTab("importacoes")}
           className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
-            activeTab === "importacoes" ? "bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-lg shadow-amber-500/10" : "text-white/60 hover:text-white"
+            activeTab === "importacoes" ? "bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-lg shadow-amber-500/10" : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
           }`}
         >
           Auditoria Importações
-          <span className="rounded-full border border-white/10 bg-white/10 px-1.5 py-0.5 text-[10px]">{protocolos.length}</span>
+          <span className="rounded-full border border-slate-300 dark:border-white/10 bg-slate-200 dark:bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-700 dark:text-white">{protocolos.length}</span>
         </button>
       </div>
 
@@ -408,21 +408,21 @@ export function AuditoriaDashboardClient() {
       {activeTab === "dashboard" && (
         <div className="space-y-6">
           {/* Card de Fluxo Recomendado */}
-          <Card className="space-y-3 rounded-2xl border border-white/8 bg-gradient-to-br from-[#0B1020]/90 via-[#0B1020]/72 to-[#11172A]/72 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
-            <h4 className="flex items-center gap-2 text-sm font-bold text-white">
+          <Card className="space-y-3 rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-gradient-to-br dark:from-[#0B1020]/90 dark:via-[#0B1020]/72 dark:to-[#11172A]/72 p-5 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+            <h4 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
               📋 Plano de Regularização
             </h4>
-            <div className="grid gap-3 md:grid-cols-3 text-xs text-white/70">
-              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-                <p className="font-bold text-white">1. Priorizar</p>
+            <div className="grid gap-3 md:grid-cols-3 text-xs text-slate-600 dark:text-white/70">
+              <div className="rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.03] p-3">
+                <p className="font-bold text-slate-900 dark:text-white">1. Priorizar</p>
                 <p className="mt-1">Atuar primeiro nos protocolos com maior tempo de permanência e impacto no prazo.</p>
               </div>
-              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-                <p className="font-bold text-white">2. Regularizar</p>
+              <div className="rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.03] p-3">
+                <p className="font-bold text-slate-900 dark:text-white">2. Regularizar</p>
                 <p className="mt-1">Confirmar os andamentos pendentes junto às equipes responsáveis.</p>
               </div>
-              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-                <p className="font-bold text-white">3. Validar</p>
+              <div className="rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.03] p-3">
+                <p className="font-bold text-slate-900 dark:text-white">3. Validar</p>
                 <p className="mt-1">Acompanhar a próxima auditoria até a redução dos itens pendentes.</p>
               </div>
             </div>
@@ -430,13 +430,13 @@ export function AuditoriaDashboardClient() {
 
           {/* Evolução Diária */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 rounded-2xl border border-white/12 bg-[#0B1020]/72 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] flex flex-col justify-between">
+            <div className="lg:col-span-2 rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-5 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] flex flex-col justify-between">
               <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_0_6px_rgba(16,185,129,0.08)]"></span>
                   Evolução diária das correções FIORIX
                 </h3>
-                <p className="mt-1 text-xs text-white/42">Metas de andamento validadas pelo motor de compliance</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-white/42">Metas de andamento validadas pelo motor de compliance</p>
               </div>
 
               <div className="h-[220px] mt-4">
@@ -448,10 +448,10 @@ export function AuditoriaDashboardClient() {
                         <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="name" stroke="rgba(255,255,255,0.3)" fontSize={10} />
-                    <YAxis stroke="rgba(255,255,255,0.3)" fontSize={10} />
-                    <Tooltip contentStyle={{ background: "#0B1020", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "10px" }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+                    <XAxis dataKey="name" stroke="currentColor" className="text-slate-400 dark:text-white/30" fontSize={10} />
+                    <YAxis stroke="currentColor" className="text-slate-400 dark:text-white/30" fontSize={10} />
+                    <Tooltip contentStyle={{ backgroundColor: "var(--card-bg, #0B1020)", borderColor: "rgba(148,163,184,0.2)", borderRadius: "10px", color: "inherit" }} />
                     <Area type="monotone" dataKey="Correcoes" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorCorrecoes)" name="Auto-correções" />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -460,28 +460,28 @@ export function AuditoriaDashboardClient() {
 
             {/* Resumo cards no dashboard */}
             <div className="space-y-4">
-              <div className="rounded-2xl border border-white/8 bg-[#0B1020]/72 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+              <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 p-5 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-black uppercase tracking-wider text-amber-300">Sem Balcão Registrado</h4>
-                  <span className="rounded-full border border-amber-500/20 bg-amber-500/12 px-2 py-0.5 text-[10px] font-bold text-amber-200">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-amber-600 dark:text-amber-300">Sem Balcão Registrado</h4>
+                  <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-200">
                     {protocolos.filter((p) => p.falta === 76).length} Protocolos
                   </span>
                 </div>
                 <div className="mt-4">
-                  <span className="text-[32px] font-black text-white">{metrics.avgRegistrado}d</span>
-                  <p className="mt-1 text-xs text-white/52">Média parado • Setor Competência</p>
+                  <span className="text-[32px] font-black text-slate-900 dark:text-white">{metrics.avgRegistrado}d</span>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-white/52">Média parado • Setor Competência</p>
                 </div>
               </div>
-              <div className="rounded-2xl border border-white/8 bg-[#0B1020]/72 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+              <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 p-5 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-black uppercase tracking-wider text-emerald-300">Sem Balcão Devolvido</h4>
-                  <span className="rounded-full border border-emerald-500/20 bg-emerald-500/12 px-2 py-0.5 text-[10px] font-bold text-emerald-200">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-300">Sem Balcão Devolvido</h4>
+                  <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-200">
                     {protocolos.filter((p) => p.falta === 75).length} Protocolos
                   </span>
                 </div>
                 <div className="mt-4">
-                  <span className="text-[32px] font-black text-white">{metrics.avgDevolvido}d</span>
-                  <p className="mt-1 text-xs text-white/52">{metrics.avgDevolvido === 0 ? "Status: Fluxo normalizado" : `Média parado • ${protocolos.filter(p => p.falta === 75).length} pendências`}</p>
+                  <span className="text-[32px] font-black text-slate-900 dark:text-white">{metrics.avgDevolvido}d</span>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-white/52">{metrics.avgDevolvido === 0 ? "Status: Fluxo normalizado" : `Média parado • ${protocolos.filter(p => p.falta === 75).length} pendências`}</p>
                 </div>
               </div>
             </div>
@@ -490,17 +490,17 @@ export function AuditoriaDashboardClient() {
       )}
 
       {activeTab === "pendencias" && (
-        <div className="space-y-4 overflow-hidden rounded-2xl border border-white/8 bg-[#0B1020]/72 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+        <div className="space-y-4 overflow-hidden rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 p-5 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
           
           {/* A. FILTROS AVANÇADOS */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-xl border border-white/8 bg-white/[0.03] p-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.03] p-4">
             {/* Filtro Falta ID */}
             <div className="space-y-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-white/42">Inconformidade</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/42">Inconformidade</span>
               <select
                 value={filtroFalta}
                 onChange={(e) => setFiltroFalta(e.target.value as typeof filtroFalta)}
-                className="w-full rounded-lg border border-white/8 bg-[#0C1323] px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                className="w-full rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0C1323] px-2.5 py-1.5 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-amber-400"
               >
                 <option value="todos">Todos</option>
                 <option value="76">Balcão registrado pendente</option>
@@ -512,11 +512,11 @@ export function AuditoriaDashboardClient() {
 
             {/* Filtro Setor */}
             <div className="space-y-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-white/42">Setor</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/42">Setor</span>
               <select
                 value={filtroSetor}
                 onChange={(e) => setFiltroSetor(e.target.value as typeof filtroSetor)}
-                className="w-full rounded-lg border border-white/8 bg-[#0C1323] px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                className="w-full rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0C1323] px-2.5 py-1.5 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-amber-400"
               >
                 <option value="todos">Todos</option>
                 <option value="Balcão">Balcão</option>
@@ -528,11 +528,11 @@ export function AuditoriaDashboardClient() {
 
             {/* Filtro Responsável */}
             <div className="space-y-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-white/42">Responsável</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/42">Responsável</span>
               <select
                 value={filtroResponsavel}
                 onChange={(e) => setFiltroResponsavel(e.target.value)}
-                className="w-full rounded-lg border border-white/8 bg-[#0C1323] px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                className="w-full rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0C1323] px-2.5 py-1.5 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-amber-400"
               >
                 <option value="todos">Todos</option>
                 {responsaveisList.map((resp) => (
@@ -545,15 +545,15 @@ export function AuditoriaDashboardClient() {
 
             {/* Busca Protocolo */}
             <div className="space-y-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-white/42">Buscar por Texto</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/42">Buscar por Texto</span>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/38" />
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 dark:text-white/38" />
                 <input
                   type="text"
                   placeholder="Buscar protocolo..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full rounded-lg border border-white/8 bg-[#0C1323] py-1.5 pl-9 pr-3 text-xs text-white placeholder-white/28 focus:outline-none focus:border-amber-400"
+                  className="w-full rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0C1323] py-1.5 pl-9 pr-3 text-xs text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-white/28 focus:outline-none focus:border-amber-400"
                 />
               </div>
             </div>
@@ -561,33 +561,33 @@ export function AuditoriaDashboardClient() {
 
           {/* B. AÇÕES EM MASSA E TOP CONTROLS */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-            <h3 className="text-sm font-bold text-white/96">Pendências Inteligentes de Fluxo</h3>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white/96">Pendências Inteligentes de Fluxo</h3>
 
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={handleOpenPrintPreview}
-                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/8 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-white/[0.08]"
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-white transition hover:bg-slate-200 dark:hover:bg-white/[0.08]"
               >
                 <Printer className="w-3.5 h-3.5" />
                 🖨️ Imprimir Relatório
               </button>
               <button
                 onClick={handleOpenPrintPreview}
-                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/8 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-white/[0.08]"
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-white transition hover:bg-slate-200 dark:hover:bg-white/[0.08]"
               >
-                <FileText className="w-3.5 h-3.5 text-red-400" />
+                <FileText className="w-3.5 h-3.5 text-red-500 dark:text-red-400" />
                 📄 Exportar PDF por Setor
               </button>
               <button
                 onClick={handleExportCSV}
-                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/8 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-white/[0.08]"
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-white transition hover:bg-slate-200 dark:hover:bg-white/[0.08]"
               >
-                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 📊 Exportar Lista
               </button>
               <button
                 onClick={handleCopyList}
-                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/8 bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-white/[0.08]"
+                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-white transition hover:bg-slate-200 dark:hover:bg-white/[0.08]"
               >
                 <Copy className="w-3.5 h-3.5" />
                 📋 Copiar Lista
@@ -596,17 +596,17 @@ export function AuditoriaDashboardClient() {
           </div>
 
           {/* C. TABELA DE AUDITORIA */}
-          <div className="flex flex-col overflow-hidden rounded-2xl border border-white/12 bg-[#0B1020]/72 text-white shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+          <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 text-slate-900 dark:text-white shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="select-none bg-[#0B1020] text-xs uppercase tracking-wider text-white/58 border-b border-white/8">
+                <thead className="select-none bg-slate-50 dark:bg-[#0B1020] text-xs uppercase tracking-wider text-slate-600 dark:text-white/58 border-b border-slate-200 dark:border-white/8">
                   <tr>
                     <th className="p-4 w-12 text-center">
                       <input
                         type="checkbox"
                         checked={selectedProtocolos.length === sortedAndFilteredProtocolos.length && sortedAndFilteredProtocolos.length > 0}
                         onChange={(e) => handleSelectAll(e.target.checked)}
-                        className="rounded border-white/20 bg-transparent text-amber-400 focus:ring-0"
+                        className="rounded border-slate-300 dark:border-white/20 bg-transparent text-amber-500 focus:ring-0"
                       />
                     </th>
                     {(() => {
@@ -622,12 +622,12 @@ export function AuditoriaDashboardClient() {
                                 setSortDirection("asc");
                               }
                             }}
-                            className="cursor-pointer select-none p-4 hover:text-white transition-colors"
+                            className="cursor-pointer select-none p-4 hover:text-slate-900 dark:hover:text-white transition-colors"
                           >
                             <div className="flex items-center gap-1.5 font-semibold">
                               {label}
                               {isActive ? (
-                                <span className="text-[9px] font-bold text-amber-300">{sortDirection === "asc" ? "▲" : "▼"}</span>
+                                <span className="text-[9px] font-bold text-amber-600 dark:text-amber-300">{sortDirection === "asc" ? "▲" : "▼"}</span>
                               ) : (
                                 <span className="opacity-20 text-[9px]">↕</span>
                               )}
@@ -650,10 +650,10 @@ export function AuditoriaDashboardClient() {
                     <th className="p-4 text-right font-semibold">Encaminhamento</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5 bg-transparent">
+                <tbody className="divide-y divide-slate-100 dark:divide-white/5 bg-transparent">
                   {paginatedProtocolos.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="p-8 text-center text-xs text-white/30">
+                      <td colSpan={9} className="p-8 text-center text-xs text-slate-400 dark:text-white/30">
                         Nenhuma pendência encontrada.
                       </td>
                     </tr>
@@ -661,39 +661,39 @@ export function AuditoriaDashboardClient() {
                     paginatedProtocolos.map((p) => {
                       const isSelected = selectedProtocolos.includes(p.id);
                       return (
-                        <tr key={p.id} className={`transition hover:bg-white/[0.03] text-white/80 ${isSelected ? "bg-amber-500/[0.03]" : ""}`}>
+                        <tr key={p.id} className={`transition hover:bg-slate-50 dark:hover:bg-white/[0.03] text-slate-700 dark:text-white/80 ${isSelected ? "bg-amber-50 dark:bg-amber-500/[0.03]" : ""}`}>
                           <td className="p-4 text-center">
                             <input
                               type="checkbox"
                               checked={isSelected}
                               onChange={(e) => handleSelectOne(p.id, e.target.checked)}
-                              className="rounded border-white/20 bg-transparent text-amber-400 focus:ring-0"
+                              className="rounded border-slate-300 dark:border-white/20 bg-transparent text-amber-500 focus:ring-0"
                             />
                           </td>
-                          <td className="p-4 font-bold text-white">
+                          <td className="p-4 font-bold text-slate-900 dark:text-white">
                             {p.id}
-                            <span className="ml-2 rounded-md border border-white/8 bg-white/5 px-1.5 py-0.5 text-[9px] font-medium text-white/72">
+                            <span className="ml-2 rounded-md border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 text-[9px] font-medium text-slate-600 dark:text-white/72">
                               {p.badge}
                             </span>
                           </td>
-                          <td className="p-4 text-white/80">{p.cliente}</td>
-                          <td className="p-4 text-white/60">{p.fase}</td>
+                          <td className="p-4 text-slate-800 dark:text-white/80">{p.cliente}</td>
+                          <td className="p-4 text-slate-600 dark:text-white/60">{p.fase}</td>
                           <td className="p-4">
                             {p.falta === 76 ? (
-                              <span className="rounded-full border border-amber-500/20 bg-amber-500/12 px-2 py-0.5 text-[10px] font-bold text-amber-200">
+                              <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-200">
                                 Balcão registrado pendente
                               </span>
                             ) : (
-                              <span className="rounded-full border border-red-500/20 bg-red-500/12 px-2 py-0.5 text-[10px] font-bold text-red-200">
+                              <span className="rounded-full border border-red-500/25 bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-200">
                                 Balcão devolvido pendente
                               </span>
                             )}
                           </td>
-                          <td className="p-4 font-semibold text-amber-200">{p.dias}d</td>
-                          <td className="p-4 text-white/70">
+                          <td className="p-4 font-semibold text-amber-600 dark:text-amber-200">{p.dias}d</td>
+                          <td className="p-4 text-slate-700 dark:text-white/70">
                             {p.setor}
                           </td>
-                          <td className="p-4 text-white/55">{p.dataUltAndamento}</td>
+                          <td className="p-4 text-slate-500 dark:text-white/55">{p.dataUltAndamento}</td>
                           <td className="p-4 text-right">
                             <div className="flex flex-col items-end gap-1">
                               <button
@@ -703,12 +703,12 @@ export function AuditoriaDashboardClient() {
                                     description: "Use este número para localizar o protocolo na rotina interna."
                                   });
                                 }}
-                                className="flex cursor-pointer items-center gap-1 rounded-md border border-white/8 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-white transition hover:bg-white/[0.08]"
+                                className="flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-slate-700 dark:text-white transition hover:bg-slate-200 dark:hover:bg-white/[0.08]"
                                 title="Copiar número do protocolo"
                               >
                                 📋 Copiar Protocolo
                               </button>
-                              <span className="text-[9px] text-white/42">
+                              <span className="text-[9px] text-slate-400 dark:text-white/42">
                                 Encaminhar para regularização do andamento pendente
                               </span>
                             </div>
@@ -722,20 +722,20 @@ export function AuditoriaDashboardClient() {
             </div>
 
             {/* Rodapé com Barra de Paginação Completa */}
-            <div className="flex flex-col items-center justify-between gap-4 border-t border-white/8 bg-white/[0.03] px-6 py-3.5 sm:flex-row">
+            <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-200 dark:border-white/8 bg-slate-50/70 dark:bg-white/[0.03] px-6 py-3.5 sm:flex-row">
               {/* Informação de intervalo */}
-              <div className="text-xs text-white/60 text-center sm:text-left">
-                Exibindo <strong className="text-white">{sortedAndFilteredProtocolos.length > 0 ? (Math.min(sortedAndFilteredProtocolos.length, (currentPage - 1) * itemsPerPage + 1)).toLocaleString("pt-BR") : "0"}</strong> a{" "}
-                <strong className="text-white">{Math.min(sortedAndFilteredProtocolos.length, currentPage * itemsPerPage).toLocaleString("pt-BR")}</strong> de{" "}
-                <strong className="text-white">{sortedAndFilteredProtocolos.length.toLocaleString("pt-BR")}</strong> pendências
+              <div className="text-xs text-slate-600 dark:text-white/60 text-center sm:text-left">
+                Exibindo <strong className="text-slate-900 dark:text-white">{sortedAndFilteredProtocolos.length > 0 ? (Math.min(sortedAndFilteredProtocolos.length, (currentPage - 1) * itemsPerPage + 1)).toLocaleString("pt-BR") : "0"}</strong> a{" "}
+                <strong className="text-slate-900 dark:text-white">{Math.min(sortedAndFilteredProtocolos.length, currentPage * itemsPerPage).toLocaleString("pt-BR")}</strong> de{" "}
+                <strong className="text-slate-900 dark:text-white">{sortedAndFilteredProtocolos.length.toLocaleString("pt-BR")}</strong> pendências
               </div>
 
               {/* Controles de Paginação & Itens Por Página */}
               <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
                 {/* Seletor de Tamanho de Página */}
-                <div className="flex items-center gap-1.5 text-xs text-white/60">
+                <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-white/60">
                   <span>Exibir:</span>
-                  <div className="flex items-center gap-1 rounded-lg border border-white/8 bg-white/[0.04] p-0.5">
+                  <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] p-0.5">
                     {[10, 20, 50, 100].map((size) => (
                       <button
                         key={size}
@@ -743,7 +743,7 @@ export function AuditoriaDashboardClient() {
                         className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
                           itemsPerPage === size
                             ? "bg-gradient-to-r from-indigo-500 to-amber-400 font-semibold text-white shadow-xs"
-                            : "text-white/60 hover:text-white"
+                            : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
                         }`}
                       >
                         {size}
@@ -759,7 +759,7 @@ export function AuditoriaDashboardClient() {
                     onClick={() => setCurrentPage(1)}
                     disabled={currentPage <= 1}
                     title="Primeira Página"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white transition-all hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     <ChevronsLeft size={15} />
                   </button>
@@ -769,12 +769,12 @@ export function AuditoriaDashboardClient() {
                     onClick={() => setCurrentPage((c) => Math.max(1, c - 1))}
                     disabled={currentPage <= 1}
                     title="Página Anterior"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white transition-all hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     <ChevronLeft size={15} />
                   </button>
 
-                  <span className="text-xs px-2 font-medium text-white min-w-[90px] text-center">
+                  <span className="text-xs px-2 font-medium text-slate-800 dark:text-white min-w-[90px] text-center">
                     Página {currentPage.toLocaleString("pt-BR")} de {totalPages.toLocaleString("pt-BR")}
                   </span>
 
@@ -783,7 +783,7 @@ export function AuditoriaDashboardClient() {
                     onClick={() => setCurrentPage((c) => Math.min(totalPages, c + 1))}
                     disabled={currentPage >= totalPages}
                     title="Próxima Página"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white transition-all hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     <ChevronRight size={15} />
                   </button>
@@ -793,7 +793,7 @@ export function AuditoriaDashboardClient() {
                     onClick={() => setCurrentPage(totalPages)}
                     disabled={currentPage >= totalPages}
                     title="Última Página"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/8 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white transition-all hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     <ChevronsRight size={15} />
                   </button>
@@ -806,10 +806,10 @@ export function AuditoriaDashboardClient() {
 
       {/* 3. ABA HISTÓRICO DE AUDITORIAS */}
       {activeTab === "historico" && (
-        <div className="bg-[#0F172A]/50 border border-white/10 rounded-2xl p-5 space-y-4">
+        <div className="bg-white dark:bg-[#0F172A]/50 border border-slate-200 dark:border-white/10 rounded-2xl p-5 space-y-4 shadow-sm">
           <div>
-            <h3 className="text-sm font-bold text-white">Histórico de Auditorias</h3>
-            <p className="text-xs text-white/40 mt-1">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Histórico de Auditorias</h3>
+            <p className="text-xs text-slate-500 dark:text-white/40 mt-1">
               Histórico consolidado para acompanhamento da evolução das pendências
             </p>
           </div>
@@ -817,7 +817,7 @@ export function AuditoriaDashboardClient() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-white/5 text-white/50 font-bold bg-white/[0.01]">
+                <tr className="border-b border-slate-200 dark:border-white/5 text-slate-600 dark:text-white/50 font-bold bg-slate-50 dark:bg-white/[0.01]">
                   <th className="p-4">Data/Hora Auditoria</th>
                   <th className="p-4">Total Auditado</th>
                   <th className="p-4">Pendências Encontradas</th>
@@ -825,21 +825,21 @@ export function AuditoriaDashboardClient() {
                   <th className="p-4 text-right">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                 {historicoAuditorias.map((i) => (
-                  <tr key={i.id} className="hover:bg-white/[0.02] transition">
-                    <td className="p-4 text-white/50">{i.data}</td>
-                    <td className="p-4 text-white font-bold">{i.totalAuditado} títulos</td>
-                    <td className="p-4 font-semibold text-amber-400">{i.pendencias}</td>
-                    <td className="p-4 text-white/60 font-mono">{i.arquivo}</td>
+                  <tr key={i.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition">
+                    <td className="p-4 text-slate-500 dark:text-white/50">{i.data}</td>
+                    <td className="p-4 text-slate-900 dark:text-white font-bold">{i.totalAuditado} títulos</td>
+                    <td className="p-4 font-semibold text-amber-600 dark:text-amber-400">{i.pendencias}</td>
+                    <td className="p-4 text-slate-600 dark:text-white/60 font-mono">{i.arquivo}</td>
                     <td className="p-4 text-right">
                       <span
                         className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
                           i.status === "Validado"
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
                             : i.status === "Regularizado"
-                            ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
-                            : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
+                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
                         }`}
                       >
                         {i.status}
@@ -855,10 +855,10 @@ export function AuditoriaDashboardClient() {
 
       {/* 4. IMPORTAÇÕES TAB */}
       {activeTab === "importacoes" && (
-        <div className="bg-[#0F172A]/50 border border-white/10 rounded-2xl p-5 space-y-4">
+        <div className="bg-white dark:bg-[#0F172A]/50 border border-slate-200 dark:border-white/10 rounded-2xl p-5 space-y-4 shadow-sm">
           <div>
-            <h3 className="text-sm font-bold text-white">Histórico de Auditoria de Cargas</h3>
-            <p className="text-xs text-white/40 mt-1">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Histórico de Auditoria de Cargas</h3>
+            <p className="text-xs text-slate-500 dark:text-white/40 mt-1">
               Conformidade e status das cargas de dados importadas para o módulo BI
             </p>
           </div>
@@ -866,7 +866,7 @@ export function AuditoriaDashboardClient() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-white/5 text-white/50 font-bold bg-white/[0.01]">
+                <tr className="border-b border-slate-200 dark:border-white/5 text-slate-600 dark:text-white/50 font-bold bg-slate-50 dark:bg-white/[0.01]">
                   <th className="p-4">Data</th>
                   <th className="p-4">Arquivo</th>
                   <th className="p-4">Total Linhas</th>
@@ -876,18 +876,18 @@ export function AuditoriaDashboardClient() {
                   <th className="p-4 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                 {importacoesMock.map((i) => (
-                  <tr key={i.id} className="hover:bg-white/[0.02] transition">
-                    <td className="p-4 text-white/50">{i.data}</td>
-                    <td className="p-4 font-semibold text-white">{i.arquivo}</td>
-                    <td className="p-4 text-white/80">{i.linhas.toLocaleString("pt-BR")}</td>
+                  <tr key={i.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition">
+                    <td className="p-4 text-slate-500 dark:text-white/50">{i.data}</td>
+                    <td className="p-4 font-semibold text-slate-900 dark:text-white">{i.arquivo}</td>
+                    <td className="p-4 text-slate-700 dark:text-white/80">{i.linhas.toLocaleString("pt-BR")}</td>
                     <td className="p-4">
                       <span
                         className={`px-2 py-0.5 text-[9px] rounded font-bold ${
                           i.origem === "Inferido"
-                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                            : "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                            : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
                         }`}
                       >
                         {i.origem}
@@ -897,21 +897,21 @@ export function AuditoriaDashboardClient() {
                       <span
                         className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
                           i.status === "SUCCESS"
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/15"
-                            : "bg-rose-500/10 text-rose-400 border border-rose-500/15"
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/15"
+                            : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/15"
                         }`}
                       >
                         {i.status}
                       </span>
                     </td>
-                    <td className="p-4 text-rose-300/80 max-w-[200px] truncate" title={i.erro}>
+                    <td className="p-4 text-rose-600 dark:text-rose-300/80 max-w-[200px] truncate" title={i.erro}>
                       {i.erro || "Sem inconsistências"}
                     </td>
                     <td className="p-4 text-right">
                       {i.status === "FAILED" && (
                         <button
                           onClick={() => toast.info(`Reprocessando importação ${i.id}...`)}
-                          className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 rounded-md text-[10px] font-bold transition flex items-center gap-1.5 ml-auto"
+                          className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-600 dark:text-rose-400 rounded-md text-[10px] font-bold transition flex items-center gap-1.5 ml-auto"
                         >
                           <RotateCcw className="w-3 h-3" />
                           Reprocessar

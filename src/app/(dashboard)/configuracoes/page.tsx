@@ -42,14 +42,14 @@ export default async function ConfiguracoesPage({
   const errorDetails = Array.isArray(rawDetails) ? rawDetails[0] : rawDetails;
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-amber-500/30 dark:bg-[#070A12] dark:text-white transition-colors duration-300 relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-white/10" />
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <span>Dashboard</span>
@@ -59,7 +59,7 @@ export default async function ConfiguracoesPage({
               <span className="text-amber-300">Configurações</span>
             </div>
             <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                 Configurações Gerais
               </h1>
               <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-amber-300">
@@ -70,9 +70,9 @@ export default async function ConfiguracoesPage({
         </div>
 
         {isUserOnly ? (
-          <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-            <h2 className="text-lg font-semibold text-white">🔑 Segurança e Alteração de Senha</h2>
-            <p className="mt-1 text-sm text-white/55">
+          <section className="rounded-[28px] border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl space-y-4">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">🔑 Segurança e Alteração de Senha</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-white/55">
               Atualize a sua senha de acesso ao painel do FIORIX a qualquer momento.
             </p>
 
@@ -83,9 +83,9 @@ export default async function ConfiguracoesPage({
         ) : (
           <>
 
-            <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-              <h2 className="text-lg font-semibold text-white">🌐 Integração com Google Meu Negócio</h2>
-              <p className="mt-1 text-sm text-white/55">
+            <section className="rounded-[28px] border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl space-y-4">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">🌐 Integração com Google Meu Negócio</h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-white/55">
                 Conecte sua conta do Google para buscar avaliações automaticamente e permitir respostas diretas pelo painel do FIORIX.
               </p>
 
@@ -132,43 +132,43 @@ export default async function ConfiguracoesPage({
               </div>
             </section>
 
-            <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-              <h2 className="text-lg font-semibold text-white">👥 Gestão de Colaboradores</h2>
-              <p className="mt-1 text-sm text-white/55">
+            <section className="rounded-[28px] border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl space-y-4">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">👥 Gestão de Colaboradores</h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-white/55">
                 Cadastre os colaboradores do cartório e seus respectivos apelidos/variações de nome para monitoramento e análise de menções em resenhas.
               </p>
 
               <Link
                 href="/configuracoes/colaboradores"
-                className="mt-5 inline-flex rounded-xl border border-white/12 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
+                className="mt-5 inline-flex rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-100 dark:border-white/12 dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.08]"
               >
                 Gerenciar Colaboradores →
               </Link>
             </section>
 
-            <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-              <h2 className="text-lg font-semibold text-white">🏢 Gestão de Departamentos</h2>
-              <p className="mt-1 text-sm text-white/55">
+            <section className="rounded-[28px] border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl space-y-4">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">🏢 Gestão de Departamentos</h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-white/55">
                 Cadastre, edite e organize os departamentos da sua organização. Os departamentos são utilizados para lotação de colaboradores e vinculação de Instruções de Trabalho.
               </p>
 
               <Link
                 href="/configuracoes/departamentos"
-                className="mt-5 inline-flex rounded-xl border border-white/12 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
+                className="mt-5 inline-flex rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-100 dark:border-white/12 dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.08]"
               >
                 Gerenciar Departamentos →
               </Link>
             </section>
 
-            <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-              <h2 className="text-lg font-semibold text-white">👤 Gestão de Usuários do Cartório</h2>
-              <p className="mt-1 text-sm text-white/55">
+            <section className="rounded-[28px] border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl space-y-4">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">👤 Gestão de Usuários do Cartório</h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-white/55">
                 Cadastre novos usuários (funcionários/equipe) para acessar o painel do FIORIX neste cartório.
               </p>
 
               <Link
                 href="/configuracoes/usuarios"
-                className="mt-5 inline-flex rounded-xl border border-white/12 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
+                className="mt-5 inline-flex rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-100 dark:border-white/12 dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/[0.08]"
               >
                 Gerenciar Usuários →
               </Link>
@@ -192,9 +192,9 @@ export default async function ConfiguracoesPage({
               </section>
             )}
 
-            <section className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
-              <h2 className="text-lg font-semibold text-white">🔑 Segurança e Alteração de Senha</h2>
-              <p className="mt-1 text-sm text-white/55">
+            <section className="rounded-[28px] border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl space-y-4">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">🔑 Segurança e Alteração de Senha</h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-white/55">
                 Atualize a sua senha de acesso ao painel do FIORIX a qualquer momento.
               </p>
 

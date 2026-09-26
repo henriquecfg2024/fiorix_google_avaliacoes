@@ -299,7 +299,7 @@ export function AlertSettingsSection() {
                     <Smartphone className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white">Canal WhatsApp Direto</h3>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">Canal WhatsApp Direto</h3>
                     <p className="text-xs text-slate-400">
                       Disparo de mensagens em tempo real para o celular de quem estiver de plantão.
                     </p>
@@ -485,7 +485,7 @@ export function AlertSettingsSection() {
                     <Mail className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white">Canal E-mail Corporativo</h3>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">Canal E-mail Corporativo</h3>
                     <p className="text-xs text-slate-400">
                       Disparo de e-mails em formato executivo HTML para caixas postais da TI e gerência.
                     </p>
@@ -660,7 +660,7 @@ export function AlertSettingsSection() {
                     <Globe className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white">Canal Webhook Externo</h3>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">Canal Webhook Externo</h3>
                     <p className="text-xs text-slate-400">
                       Disparo para Microsoft Teams, Slack, n8n ou endpoints REST.
                     </p>
@@ -750,7 +750,7 @@ export function AlertSettingsSection() {
           <div className="pt-4 border-t border-slate-800/80 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                   Gatilhos de Notificação Ativos
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
@@ -868,7 +868,7 @@ export function AlertSettingsSection() {
         <div className="flex items-center justify-between pb-4 border-b border-slate-800">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-indigo-400" />
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
               Histórico de Alertas Disparados Recentemente
             </h3>
           </div>

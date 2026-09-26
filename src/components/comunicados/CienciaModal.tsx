@@ -129,7 +129,7 @@ Autenticidade garantida por integridade criptográfica SHA-256.
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-      <div className="relative w-full max-w-2xl max-h-[90vh] bg-[#0B1020] border border-white/12 rounded-[28px] flex flex-col shadow-[0_25px_70px_rgba(0,0,0,0.5)] overflow-hidden">
+      <div className="relative w-full max-w-2xl max-h-[90vh] bg-white dark:bg-[#0B1020] border border-white/12 rounded-[28px] flex flex-col shadow-[0_25px_70px_rgba(0,0,0,0.5)] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-white/8 bg-[#070A12]/80">
           <div className="flex items-center gap-3">
@@ -172,7 +172,7 @@ Autenticidade garantida por integridade criptográfica SHA-256.
               onScroll={handleScroll}
               className="flex-1 p-6 overflow-y-auto space-y-4 text-white/80 leading-relaxed text-sm bg-[#080A12]/50"
             >
-              <div className="p-4 bg-[#101019] rounded-xl border border-white/5 mb-4">
+              <div className="p-4 bg-[#101019] rounded-xl border border-slate-200 dark:border-white/5 mb-4">
                 <h3 className="text-xs font-bold text-white/60 uppercase tracking-wide mb-1">
                   Diretriz de Leitura Obrigatória
                 </h3>
@@ -198,7 +198,7 @@ Autenticidade garantida por integridade criptográfica SHA-256.
 
               {/* Anexos */}
               {comunicado.anexos && comunicado.anexos.length > 0 && (
-                <div className="pt-4 border-t border-white/10 mt-6">
+                <div className="pt-4 border-t border-slate-200 dark:border-white/10 mt-6">
                   <h4 className="text-xs font-bold text-white/70 uppercase mb-2">
                     Documento Anexo Oficial ({comunicado.anexos.length})
                   </h4>
@@ -229,15 +229,15 @@ Autenticidade garantida por integridade criptográfica SHA-256.
               )}
 
               {/* Hash de Conteúdo */}
-              <div className="pt-4 border-t border-white/5 text-[11px] font-mono text-white/40 flex items-center gap-2">
+              <div className="pt-4 border-t border-slate-200 dark:border-white/5 text-[11px] font-mono text-white/40 flex items-center gap-2">
                 <Lock className="w-3 h-3 text-indigo-400" />
                 <span>Hash do Conteúdo: {comunicado.conteudoHash}</span>
               </div>
             </div>
 
             {/* Footer with Checkbox and Action */}
-            <div className="p-6 border-t border-white/10 bg-[#0d0d16] space-y-4">
-              <div className={`p-4 rounded-xl border transition-all ${hasScrolledToBottom ? "bg-indigo-500/5 border-indigo-500/30" : "bg-white/[0.02] border-white/5 opacity-60"}`}>
+            <div className="p-6 border-t border-slate-200 dark:border-white/10 bg-[#0d0d16] space-y-4">
+              <div className={`p-4 rounded-xl border transition-all ${hasScrolledToBottom ? "bg-indigo-500/5 border-indigo-500/30" : "bg-white/[0.02] border-slate-200 dark:border-white/5 opacity-60"}`}>
                 <div className="flex items-start gap-3">
                   <Checkbox
                     id="declaracao"
@@ -283,18 +283,18 @@ Autenticidade garantida por integridade criptográfica SHA-256.
               </p>
             </div>
 
-            <div className="w-full max-w-md p-4 bg-[#101019] rounded-2xl border border-white/10 space-y-3 text-xs">
-              <div className="flex justify-between py-1 border-b border-white/5">
+            <div className="w-full max-w-md p-4 bg-[#101019] rounded-2xl border border-slate-200 dark:border-white/10 space-y-3 text-xs">
+              <div className="flex justify-between py-1 border-b border-slate-200 dark:border-white/5">
                 <span className="text-white/40">Data e Hora:</span>
                 <span className="text-white font-mono">{new Date(resultadoCiencia.timestamp).toLocaleString("pt-BR")}</span>
               </div>
-              <div className="flex justify-between py-1 border-b border-white/5">
+              <div className="flex justify-between py-1 border-b border-slate-200 dark:border-white/5">
                 <span className="text-white/40">IP Mascarado:</span>
                 <span className="text-white font-mono">{resultadoCiencia.ipMascarado}</span>
               </div>
-              <div className="flex flex-col py-1 border-b border-white/5">
+              <div className="flex flex-col py-1 border-b border-slate-200 dark:border-white/5">
                 <span className="text-white/40 mb-1">Hash do Comprovante (SHA-256):</span>
-                <span className="text-cyan-400 font-mono text-[10px] break-all bg-black/40 p-1.5 rounded border border-white/5">
+                <span className="text-cyan-400 font-mono text-[10px] break-all bg-black/40 p-1.5 rounded border border-slate-200 dark:border-white/5">
                   {resultadoCiencia.comprovanteHash}
                 </span>
               </div>
@@ -309,7 +309,7 @@ Autenticidade garantida por integridade criptográfica SHA-256.
               <Button
                 variant="outline"
                 onClick={handleDownloadComprovante}
-                className="flex-1 border-white/10 text-white/80 hover:bg-white/10 text-xs gap-1.5"
+                className="flex-1 border-slate-200 dark:border-white/10 text-white/80 hover:bg-white/10 text-xs gap-1.5"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Baixar Comprovante</span>

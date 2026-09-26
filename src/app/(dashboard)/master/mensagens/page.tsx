@@ -50,15 +50,15 @@ export default async function MasterMensagensPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-amber-500/30 dark:bg-[#070A12] dark:text-white transition-colors duration-300 relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-amber-500/12 via-indigo-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-white/10" />
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <span>Master SaaS</span>
@@ -66,7 +66,7 @@ export default async function MasterMensagensPage() {
               <span className="text-amber-400">Mensagens Multi-Tenant</span>
             </div>
             <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
                 <Crown className="w-6 h-6 text-amber-400" />
                 Telemetria Global de Mensagens SaaS
               </h1>
@@ -82,25 +82,25 @@ export default async function MasterMensagensPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="p-5 rounded-2xl bg-[#111827] border border-white/10">
             <p className="text-xs uppercase font-mono text-slate-400">Cartórios / Tenants</p>
-            <h3 className="text-2xl font-bold text-white mt-1">{totals.tenantsCount}</h3>
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{totals.tenantsCount}</h3>
             <span className="text-[11px] text-amber-400 mt-1 inline-block">Instâncias registradas</span>
           </div>
 
           <div className="p-5 rounded-2xl bg-[#111827] border border-white/10">
             <p className="text-xs uppercase font-mono text-slate-400">Total de Conversas</p>
-            <h3 className="text-2xl font-bold text-white mt-1">{totals.conversations}</h3>
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{totals.conversations}</h3>
             <span className="text-[11px] text-indigo-400 mt-1 inline-block">Diretas e grupos</span>
           </div>
 
           <div className="p-5 rounded-2xl bg-[#111827] border border-white/10">
             <p className="text-xs uppercase font-mono text-slate-400">Volume de Mensagens</p>
-            <h3 className="text-2xl font-bold text-white mt-1">{totals.messages}</h3>
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{totals.messages}</h3>
             <span className="text-[11px] text-emerald-400 mt-1 inline-block">Histórico global</span>
           </div>
 
           <div className="p-5 rounded-2xl bg-[#111827] border border-white/10">
             <p className="text-xs uppercase font-mono text-slate-400">Aparelhos Web Push</p>
-            <h3 className="text-2xl font-bold text-white mt-1">{totals.subscriptions}</h3>
+            <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">{totals.subscriptions}</h3>
             <span className="text-[11px] text-purple-400 mt-1 inline-block">Inscrições ativas</span>
           </div>
         </div>
@@ -139,7 +139,7 @@ export default async function MasterMensagensPage() {
                           <Building2 className="w-3.5 h-3.5" />
                         </div>
                         <div>
-                          <p className="font-semibold text-white">{t.name}</p>
+                          <p className="font-semibold text-slate-900 dark:text-white">{t.name}</p>
                           <span className="text-[10px] text-slate-500 font-mono">{t.slug || t.id}</span>
                         </div>
                       </div>

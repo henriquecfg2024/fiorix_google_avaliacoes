@@ -15,7 +15,7 @@ export function QRComprovante({ url, hash }: QRComprovanteProps) {
   )}&bgcolor=12141F&color=22D3EE&margin=1`;
 
   return (
-    <div className="flex flex-col items-center justify-center p-4 bg-[#0d0d16] border border-white/10 rounded-xl">
+    <div className="flex flex-col items-center justify-center p-4 bg-[#0d0d16] border border-slate-200 dark:border-white/10 rounded-xl">
       <div className="relative w-36 h-36 bg-[#12141F] rounded-lg p-2 flex items-center justify-center border border-cyan-500/30 shadow-[0_0_15px_rgba(34,211,238,0.15)]">
         {/* Imagem do QR Code ou fallback */}
         <img

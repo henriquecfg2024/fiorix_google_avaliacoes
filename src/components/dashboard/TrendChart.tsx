@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useChartTheme } from '@/hooks/useChartTheme';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 type TrendTooltipProps = {
@@ -26,6 +27,7 @@ const defaultData: TrendDataPoint[] = [
 
 export function TrendChart({ data }: TrendChartProps) {
   const [isMounted, setIsMounted] = useState(false);
+  const ct = useChartTheme();
 
   useEffect(() => {
     setIsMounted(true);
@@ -36,8 +38,8 @@ export function TrendChart({ data }: TrendChartProps) {
   const CustomTooltip = ({ active, payload, label }: TrendTooltipProps) => {
     if (active && payload && payload.length) {
       return (
-        <div className="space-y-1 rounded-xl border border-white/10 bg-[#0B1020]/95 p-3 text-xs text-white shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-          <p className="border-b border-white/10 pb-1 font-bold text-slate-200">{label}</p>
+        <div className="space-y-1 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/95 p-3 text-xs text-slate-900 dark:text-white shadow-lg dark:shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+          <p className="border-b border-slate-200 dark:border-white/10 pb-1 font-bold text-slate-700 dark:text-slate-200">{label}</p>
           <div className="flex items-center justify-between gap-4 font-semibold text-cyan-300">
             <span>⭐ Nota Média:</span>
             <span>{payload[0]?.value}</span>
@@ -53,14 +55,14 @@ export function TrendChart({ data }: TrendChartProps) {
   };
 
   return (
-    <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
-      <div className="mb-5 flex flex-col justify-between gap-3 border-b border-white/8 pb-4 sm:flex-row sm:items-center">
+    <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
+      <div className="mb-5 flex flex-col justify-between gap-3 border-b border-slate-200 dark:border-white/8 pb-4 sm:flex-row sm:items-center">
         <div>
-          <h3 className="text-card-title font-bold text-white">Tendência de Avaliações</h3>
-          <p className="mt-0.5 text-xs text-slate-400">Evolução da nota média e volume acumulado</p>
+          <h3 className="text-card-title font-bold text-slate-900 dark:text-white">Tendência de Avaliações</h3>
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Evolução da nota média e volume acumulado</p>
         </div>
 
-        <div className="inline-flex self-start gap-1 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-cyan-200 sm:self-auto">
+        <div className="inline-flex self-start gap-1 rounded-full border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] px-3 py-1 text-xs font-semibold text-cyan-700 dark:text-cyan-200 sm:self-auto">
           Últimos 6 meses
         </div>
       </div>
@@ -80,20 +82,20 @@ export function TrendChart({ data }: TrendChartProps) {
               </linearGradient>
             </defs>
 
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.18)" opacity={0.8} />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={ct.gridStroke} opacity={0.8} />
 
-            <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94A3B8', fontSize: 11.5, fontWeight: 500 }} />
+            <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: ct.tickFill, fontSize: 11.5, fontWeight: 500 }} />
 
             <YAxis
               yAxisId="left"
               domain={[3.0, 5.0]}
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#94A3B8', fontSize: 11.5 }}
+              tick={{ fill: ct.tickFill, fontSize: 11.5 }}
               tickFormatter={(v) => v.toFixed(1)}
             />
 
-            <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#64748B', fontSize: 11.5 }} />
+            <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: ct.tickFillMuted, fontSize: 11.5 }} />
 
             <Tooltip content={<CustomTooltip />} />
 

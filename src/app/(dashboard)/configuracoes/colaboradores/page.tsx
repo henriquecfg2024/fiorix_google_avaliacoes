@@ -10,14 +10,14 @@ export default async function ColaboradoresConfigPage() {
   const colaboradores = await getColaboradores();
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-amber-500/30 dark:bg-[#070A12] dark:text-white transition-colors duration-300 relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-white/10" />
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <Link href="/configuracoes" className="hover:text-amber-300 transition-colors">
@@ -27,7 +27,7 @@ export default async function ColaboradoresConfigPage() {
               <span className="text-amber-300">Colaboradores</span>
             </div>
             <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                 Gestão de Colaboradores
               </h1>
               <Badge className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-amber-300">
@@ -44,8 +44,8 @@ export default async function ColaboradoresConfigPage() {
           </Link>
         </div>
 
-          <form action={addColaborador} className="mt-4 rounded-2xl border border-white/12 bg-[#0B1020]/80 p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] space-y-4">
-            <h4 className="flex items-center gap-2 text-sm font-bold text-white">
+          <form action={addColaborador} className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/80 space-y-4">
+            <h4 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
               <UserPlus className="h-4 w-4 text-amber-300" />
               <span>Cadastrar Novo Colaborador</span>
             </h4>
@@ -60,7 +60,7 @@ export default async function ColaboradoresConfigPage() {
                   name="name"
                   required
                   placeholder="Ex: Carlos Eduardo ou Maria Silva"
-                  className="border-white/12 bg-white/[0.04] text-white placeholder:text-white/30 focus:border-amber-400/50"
+                  className="border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 dark:border-white/12 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/30 focus:border-amber-400/50"
                 />
               </div>
 
@@ -72,7 +72,7 @@ export default async function ColaboradoresConfigPage() {
                   type="text"
                   name="aliases"
                   placeholder="Ex: Carlinhos, Cadu"
-                  className="border-white/12 bg-white/[0.04] text-white placeholder:text-white/30 focus:border-amber-400/50"
+                  className="border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 dark:border-white/12 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/30 focus:border-amber-400/50"
                 />
               </div>
 
@@ -87,10 +87,10 @@ export default async function ColaboradoresConfigPage() {
             </div>
           </form>
 
-        <div className="rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4">
+        <div className="rounded-[28px] border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl space-y-4">
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-cyan-300" />
-            <h2 className="text-lg font-extrabold text-white">
+            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">
               Colaboradores Cadastrados ({colaboradores.length})
             </h2>
           </div>
@@ -100,20 +100,20 @@ export default async function ColaboradoresConfigPage() {
               Nenhum colaborador cadastrado ainda. Preencha o formulário acima para adicionar o primeiro.
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-white/12">
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-white/12">
               <table className="w-full min-w-[640px] border-collapse text-left text-xs">
                 <thead>
-                  <tr className="border-b border-white/12 bg-[#0B1020] text-[11px] font-bold uppercase tracking-[0.16em] text-white/58">
+                  <tr className="border-b border-slate-200 bg-slate-100 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-600 dark:border-white/12 dark:bg-[#0B1020] dark:text-white/58">
                     <th className="p-3 pl-5 sm:p-4">Nome</th>
                     <th className="p-3 sm:p-4">Apelidos / Variações</th>
                     <th className="p-3 sm:p-4">Status</th>
                     <th className="p-3 pr-5 text-right sm:p-4">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/8 font-medium text-white/80">
+                <tbody className="divide-y divide-slate-200 dark:divide-white/8 font-medium text-white/80">
                   {colaboradores.map((colab) => (
-                    <tr key={colab.id} className="hover:bg-white/[0.03] transition-colors">
-                      <td className="p-3 pl-5 font-bold text-white sm:p-4">
+                    <tr key={colab.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors">
+                      <td className="p-3 pl-5 font-bold text-slate-900 dark:text-white sm:p-4">
                         {colab.name}
                       </td>
                       <td className="p-3 sm:p-4 text-white/60">

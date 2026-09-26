@@ -22,11 +22,11 @@ export function ConnectorDetailCard({ connector }: Props) {
   const isAmbiguous = connector.status === 'AMBIGUOUS';
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#0B1020]/90 p-5 shadow-xl backdrop-blur-xl flex flex-col justify-between h-full">
+    <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-white/10 dark:bg-[#0B1020]/90 dark:shadow-xl backdrop-blur-xl flex flex-col justify-between h-full">
       <div>
         <div className="flex items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2.5">
-            <h3 className="text-sm font-bold text-white tracking-wide flex items-center gap-2">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-wide flex items-center gap-2">
               FIORIX Connector
             </h3>
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border ${
@@ -51,19 +51,19 @@ export function ConnectorDetailCard({ connector }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Coluna Esquerda: Metadados do Serviço */}
           <div className="space-y-2.5 text-xs">
-            <div className="flex items-center justify-between text-white/60">
+            <div className="flex items-center justify-between text-slate-500 dark:text-white/60">
               <span className="flex items-center gap-1.5">
-                <Layers className="h-3.5 w-3.5 text-white/40" />
+                <Layers className="h-3.5 w-3.5 text-slate-400 dark:text-white/40" />
                 Ambiente
               </span>
-              <span className="font-semibold text-white bg-white/[0.04] px-2 py-0.5 rounded border border-white/8 font-mono text-[11px]">
+              <span className="font-semibold text-slate-900 dark:text-white bg-slate-100 dark:bg-white/[0.04] px-2 py-0.5 rounded border border-slate-200 dark:border-white/8 font-mono text-[11px]">
                 {connector.environment}
               </span>
             </div>
 
-            <div className="flex items-center justify-between text-white/60">
+            <div className="flex items-center justify-between text-slate-500 dark:text-white/60">
               <span className="flex items-center gap-1.5">
-                <Server className="h-3.5 w-3.5 text-white/40" />
+                <Server className="h-3.5 w-3.5 text-slate-400 dark:text-white/40" />
                 Origem
               </span>
               <span className="font-medium text-white text-[11px]">
@@ -71,9 +71,9 @@ export function ConnectorDetailCard({ connector }: Props) {
               </span>
             </div>
 
-            <div className="flex items-center justify-between text-white/60">
+            <div className="flex items-center justify-between text-slate-500 dark:text-white/60">
               <span className="flex items-center gap-1.5">
-                <Activity className="h-3.5 w-3.5 text-white/40" />
+                <Activity className="h-3.5 w-3.5 text-slate-400 dark:text-white/40" />
                 Windows Service
               </span>
               <span className={`inline-flex items-center gap-1 font-semibold text-[11px] ${isOnline ? 'text-emerald-400' : 'text-amber-400'}`}>
@@ -82,9 +82,9 @@ export function ConnectorDetailCard({ connector }: Props) {
               </span>
             </div>
 
-            <div className="flex items-center justify-between text-white/60">
+            <div className="flex items-center justify-between text-slate-500 dark:text-white/60">
               <span className="flex items-center gap-1.5">
-                <Activity className="h-3.5 w-3.5 text-white/40" />
+                <Activity className="h-3.5 w-3.5 text-slate-400 dark:text-white/40" />
                 Heartbeat
               </span>
               <span className="font-mono text-[11px] font-semibold text-white/80">
@@ -92,9 +92,9 @@ export function ConnectorDetailCard({ connector }: Props) {
               </span>
             </div>
 
-            <div className="flex items-center justify-between text-white/60 pt-1 border-t border-white/6">
+            <div className="flex items-center justify-between text-slate-500 dark:text-white/60 pt-1 border-t border-slate-200 dark:border-white/6">
               <span className="flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-white/40" />
+                <Clock className="h-3.5 w-3.5 text-slate-400 dark:text-white/40" />
                 Expediente
               </span>
               <div className="flex items-center gap-1.5">
@@ -105,42 +105,42 @@ export function ConnectorDetailCard({ connector }: Props) {
 
           {/* Coluna Direita: Telemetria de Conexão e Processo */}
           <div className="space-y-3">
-            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/6 flex flex-col justify-between h-full">
-              <div className="flex items-center justify-between text-white/60 mb-2">
+            <div className="p-3 rounded-xl bg-white/[0.02] border border-slate-200 dark:border-white/6 flex flex-col justify-between h-full">
+              <div className="flex items-center justify-between text-slate-500 dark:text-white/60 mb-2">
                 <span className="text-[11px] font-semibold text-white">Status do Conector</span>
                 <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
                   {isOnline ? 'Ativo' : 'Offline'}
                 </span>
               </div>
               <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between text-white/60">
+                <div className="flex items-center justify-between text-slate-500 dark:text-white/60">
                   <span>Modo de Operação</span>
                   <span className="font-semibold text-white/90">Produção Local</span>
                 </div>
-                <div className="flex items-center justify-between text-white/60">
+                <div className="flex items-center justify-between text-slate-500 dark:text-white/60">
                   <span>Uptime do Serviço</span>
                   <span className="font-semibold font-mono text-white/90">
                     {connector.uptimeFormatted || (isOnline ? 'Ativo' : 'Offline')}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-white/60">
+                <div className="flex items-center justify-between text-slate-500 dark:text-white/60">
                   <span>Memória RAM</span>
                   <span className="font-semibold font-mono text-cyan-400">
                     {connector.ramMb ? `${connector.ramMb} MB` : (isOnline ? '< 150 MB' : '-')}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-white/60">
+                <div className="flex items-center justify-between text-slate-500 dark:text-white/60">
                   <span>Fila SQLite Local</span>
                   <span className={`font-semibold font-mono ${connector.pendingQueue && connector.pendingQueue > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
                     {connector.pendingQueue !== null ? `${connector.pendingQueue} pendente(s)` : '0 pendentes'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-white/60">
+                <div className="flex items-center justify-between text-slate-500 dark:text-white/60">
                   <span>Rotinas Integradas</span>
                   <span className="font-semibold text-white/90">4 fontes ativas</span>
                 </div>
               </div>
-              <div className="mt-3 pt-2 border-t border-white/6 text-[10px] text-white/40 flex items-center justify-between">
+              <div className="mt-3 pt-2 border-t border-slate-200 dark:border-white/6 text-[10px] text-slate-400 dark:text-white/40 flex items-center justify-between">
                 <span>Agente de Sincronização</span>
                 <span className="text-emerald-400/90 font-mono">100% Operacional</span>
               </div>
@@ -150,7 +150,7 @@ export function ConnectorDetailCard({ connector }: Props) {
       </div>
 
       {/* Rodapé do Card */}
-      <div className="mt-4 pt-3 border-t border-white/6 flex items-center justify-between text-xs text-white/50 font-mono">
+      <div className="mt-4 pt-3 border-t border-slate-200 dark:border-white/6 flex items-center justify-between text-xs text-white/50 font-mono">
         <div>
           <span className="text-[10px] text-white/30 block uppercase font-sans">Conectores ativos</span>
           <span className="text-white font-semibold">{connector.activeConnectorsCount}</span>

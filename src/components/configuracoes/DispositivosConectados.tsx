@@ -80,20 +80,20 @@ export function DispositivosConectados() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between pb-2 border-b border-white/5">
+      <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-white/5">
         <div>
-          <h3 className="text-sm font-semibold text-white">Dispositivos Conectados (Web Push / PWA)</h3>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Dispositivos Conectados (Web Push / PWA)</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Aparelhos autorizados a receber notificações corporativas em segundo plano.
           </p>
         </div>
-        <span className="text-xs font-mono text-slate-400 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">
+        <span className="text-xs font-mono text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-white/5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-white/10">
           {devices.filter((d) => d.isActive).length} ativo(s)
         </span>
       </div>
 
       {devices.length === 0 ? (
-        <div className="p-6 text-center text-xs text-slate-500 rounded-2xl border border-white/5 bg-slate-950/20">
+        <div className="p-6 text-center text-xs text-slate-500 rounded-2xl border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-950/20">
           Nenhum dispositivo registrado ainda para Web Push. Ative as notificações no painel acima para registrar este aparelho.
         </div>
       ) : (
@@ -109,8 +109,8 @@ export function DispositivosConectados() {
                 key={device.id}
                 className={`p-4 rounded-2xl border transition flex flex-col justify-between ${
                   device.isActive
-                    ? 'bg-[#151C2F] border-white/10 shadow-sm'
-                    : 'bg-white/[0.01] border-white/5 opacity-60'
+                    ? 'bg-white dark:bg-[#151C2F] border-slate-200 dark:border-white/10 shadow-sm'
+                    : 'bg-slate-50 dark:bg-white/[0.01] border-slate-200 dark:border-white/5 opacity-60'
                 }`}
               >
                 <div>
@@ -120,13 +120,13 @@ export function DispositivosConectados() {
                         className={`w-8 h-8 rounded-xl flex items-center justify-center border ${
                           device.isActive
                             ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30'
-                            : 'bg-slate-800 text-slate-500 border-white/5'
+                            : 'bg-slate-200 dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-white/5'
                         }`}
                       >
                         {isMobile ? <Smartphone className="w-4 h-4" /> : <Laptop className="w-4 h-4" />}
                       </div>
                       <div>
-                        <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                           {device.deviceName || 'Navegador Web'}
                           {isPwa && (
                             <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
@@ -153,7 +153,7 @@ export function DispositivosConectados() {
                         onClick={() => handleRevoke(device.id)}
                         disabled={revokingId === device.id}
                         title="Revogar este dispositivo"
-                        className="p-1.5 text-slate-400 hover:text-red-400 rounded-lg hover:bg-white/5 transition"
+                        className="p-1.5 text-slate-400 hover:text-red-400 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition"
                       >
                         {revokingId === device.id ? (
                           <Loader2 className="w-4 h-4 animate-spin text-red-400" />
@@ -164,10 +164,10 @@ export function DispositivosConectados() {
                     )}
                   </div>
 
-                  <div className="text-[11px] text-slate-400 space-y-0.5 mt-3 pt-2 border-t border-white/5 font-mono">
+                  <div className="text-[11px] text-slate-400 space-y-0.5 mt-3 pt-2 border-t border-slate-200 dark:border-white/5 font-mono">
                     <p>
                       Último uso:{' '}
-                      <span className="text-slate-300">
+                      <span className="text-slate-600 dark:text-slate-300">
                         {new Date(device.lastUsedAt).toLocaleString([], {
                           day: '2-digit',
                           month: '2-digit',
@@ -178,7 +178,7 @@ export function DispositivosConectados() {
                     </p>
                     <p>
                       Inscrito em:{' '}
-                      <span className="text-slate-300">
+                      <span className="text-slate-600 dark:text-slate-300">
                         {new Date(device.createdAt).toLocaleDateString()}
                       </span>
                     </p>

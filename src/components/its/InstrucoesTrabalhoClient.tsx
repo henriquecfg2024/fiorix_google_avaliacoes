@@ -148,11 +148,11 @@ function ItDetailModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden">
-        <div className="flex items-start justify-between p-6 border-b border-white/8 gap-4">
+      <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0D1424] shadow-2xl overflow-hidden">
+        <div className="flex items-start justify-between p-6 border-b border-slate-200 dark:border-white/8 gap-4">
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{it.codigo} • v{it.versao}</p>
-            <h2 className="font-bold text-white text-base leading-tight">{it.titulo}</h2>
+            <h2 className="font-bold text-slate-900 dark:text-white text-base leading-tight">{it.titulo}</h2>
             <p className="text-xs text-slate-400 mt-1">{it.departamento}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -168,7 +168,7 @@ function ItDetailModal({
           {it.objetivo && (
             <div>
               <p className="text-xs font-semibold text-slate-500 mb-1">Objetivo</p>
-              <p className="text-sm text-slate-300">{it.objetivo}</p>
+              <p className="text-sm text-slate-700 dark:text-slate-300">{it.objetivo}</p>
             </div>
           )}
           {it.pdfOriginalUrl && (
@@ -182,10 +182,10 @@ function ItDetailModal({
             </a>
           )}
         </div>
-        <div className="p-4 border-t border-white/8 flex justify-end">
+        <div className="p-4 border-t border-slate-200 dark:border-white/8 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-white/8 hover:bg-white/12 text-white text-xs font-semibold transition-colors border border-white/10"
+            className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-white/8 dark:hover:bg-white/12 dark:text-white text-xs font-semibold transition-colors border border-white/10"
           >
             Fechar
           </button>
@@ -209,10 +209,10 @@ function PessoasPendentesModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-sm rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-white/8">
+      <div className="relative w-full max-w-sm rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0D1424] shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-white/8">
           <div>
-            <h3 className="font-bold text-white text-sm">{item.titulo}</h3>
+            <h3 className="font-bold text-slate-900 dark:text-white text-sm">{item.titulo}</h3>
             <p className="text-xs text-slate-400 mt-0.5">
               {item.pendentesCount} colaborador{item.pendentesCount !== 1 ? 'es' : ''} com ciência pendente
             </p>
@@ -238,8 +238,8 @@ function PessoasPendentesModal({
             </ul>
           )}
         </div>
-        <div className="p-4 border-t border-white/8">
-          <button onClick={onClose} className="w-full px-4 py-2 rounded-xl bg-white/8 hover:bg-white/12 text-white text-xs font-semibold transition-colors border border-white/10">
+        <div className="p-4 border-t border-slate-200 dark:border-white/8">
+          <button onClick={onClose} className="w-full px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-white/8 dark:hover:bg-white/12 dark:text-white text-xs font-semibold transition-colors border border-white/10">
             Fechar
           </button>
         </div>
@@ -339,20 +339,20 @@ function AnalisarItModal({
     });
   }
 
-  const statusInfo = STATUS_FLUXO_LABELS[itResumo.status] || { label: itResumo.status, color: 'text-slate-300', bg: 'bg-slate-500/20 border-slate-500/30' };
+  const statusInfo = STATUS_FLUXO_LABELS[itResumo.status] || { label: itResumo.status, color: 'text-slate-700 dark:text-slate-300', bg: 'bg-slate-500/20 border-slate-500/30' };
   const isAprovada = itResumo.status === 'aprovada';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !pending && onClose()} />
-      <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0D1424] shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-start justify-between p-6 border-b border-white/8 gap-4">
+        <div className="flex items-start justify-between p-6 border-b border-slate-200 dark:border-white/8 gap-4">
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
               {step === 'publicar' ? 'Publicar IT' : step === 'solicitar_correcao' ? 'Solicitar Correção' : step === 'rejeitar' ? 'Rejeitar IT' : 'Analisar IT'}
             </p>
-            <h2 className="font-bold text-white text-base leading-tight">{itResumo.titulo}</h2>
+            <h2 className="font-bold text-slate-900 dark:text-white text-base leading-tight">{itResumo.titulo}</h2>
             <p className="text-xs text-slate-400 mt-1">{itResumo.codigo} • {itResumo.departamento}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -412,7 +412,7 @@ function AnalisarItModal({
               {detalhe.objetivo && (
                 <div>
                   <p className="text-xs font-semibold text-slate-500 mb-1">Objetivo / Descrição</p>
-                  <p className="text-sm text-slate-300 leading-relaxed">{detalhe.objetivo}</p>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{detalhe.objetivo}</p>
                 </div>
               )}
 
@@ -443,7 +443,7 @@ function AnalisarItModal({
           {/* Solicitar Correção */}
           {step === 'solicitar_correcao' && (
             <div className="space-y-3">
-              <p className="text-sm text-slate-300">Descreva o que precisa ser corrigido. O colaborador receberá este motivo.</p>
+              <p className="text-sm text-slate-700 dark:text-slate-300">Descreva o que precisa ser corrigido. O colaborador receberá este motivo.</p>
               <textarea
                 value={motivo}
                 onChange={(e) => setMotivo(e.target.value)}
@@ -458,7 +458,7 @@ function AnalisarItModal({
           {/* Rejeitar */}
           {step === 'rejeitar' && (
             <div className="space-y-3">
-              <p className="text-sm text-slate-300">Esta IT será arquivada como rejeitada. Informe o motivo obrigatoriamente.</p>
+              <p className="text-sm text-slate-700 dark:text-slate-300">Esta IT será arquivada como rejeitada. Informe o motivo obrigatoriamente.</p>
               <textarea
                 value={motivo}
                 onChange={(e) => setMotivo(e.target.value)}
@@ -483,7 +483,7 @@ function AnalisarItModal({
         </div>
 
         {/* Footer actions */}
-        <div className="flex items-center gap-3 p-6 border-t border-white/8 flex-wrap">
+        <div className="flex items-center gap-3 p-6 border-t border-slate-200 dark:border-white/8 flex-wrap">
           {step === 'view' && !isAprovada && (
             <>
               <button onClick={() => { setMotivo(''); setStep('rejeitar'); }} disabled={pending}
@@ -663,11 +663,11 @@ export function InstrucoesTrabalhoClient({
   }
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white pb-16 font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#070A12] dark:text-white pb-16 font-sans relative overflow-hidden transition-colors">
       {/* Background glows */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[52rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/10 via-purple-500/8 to-cyan-500/6 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/8 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-white/8" />
       </div>
 
       <div className="relative mx-auto max-w-[1100px] px-4 sm:px-6 pt-6">
@@ -678,22 +678,22 @@ export function InstrucoesTrabalhoClient({
             <p className="text-xs font-bold tracking-widest text-teal-400 uppercase mb-1">
               Gestão de ITs
             </p>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
               Gestão de Instruções de Trabalho
             </h1>
-            <p className="text-sm text-slate-400 mt-1">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
               Acompanhe, revise e aprove novas Instruções de Trabalho.
             </p>
           </div>
 
           {/* Tab switcher */}
-          <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/4 p-1 self-start sm:self-auto">
+          <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 self-start sm:self-auto dark:border-white/10 dark:bg-white/4">
             <button
               onClick={() => setActiveTab('catalogo')}
               className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
                 activeTab === 'catalogo'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/40'
-                  : 'text-slate-400 hover:text-white'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
               Catálogo
@@ -703,7 +703,7 @@ export function InstrucoesTrabalhoClient({
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
                 activeTab === 'fiscalizacao'
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/40'
-                  : 'text-slate-400 hover:text-white'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
               Aprovações
@@ -798,7 +798,7 @@ export function InstrucoesTrabalhoClient({
                 <select
                   value={filterSetor}
                   onChange={(e) => setFilterSetor(e.target.value)}
-                  className="appearance-none w-full sm:w-48 pl-4 pr-8 py-2.5 rounded-xl border border-white/10 bg-white/4 text-sm text-slate-300 focus:outline-none focus:border-indigo-500/60 transition-all cursor-pointer"
+                  className="appearance-none w-full sm:w-48 pl-4 pr-8 py-2.5 rounded-xl border border-white/10 bg-white/4 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-indigo-500/60 transition-all cursor-pointer"
                 >
                   {setores.map((s) => (
                     <option key={s} value={s} className="bg-[#0D1424]">
@@ -826,7 +826,7 @@ export function InstrucoesTrabalhoClient({
             {itsFiltradas.length === 0 ? (
               <div className="rounded-2xl border border-white/8 bg-white/[0.02] py-16 text-center">
                 <FileText className="mx-auto w-10 h-10 text-slate-600 mb-3" />
-                <p className="text-base font-semibold text-slate-300">Nenhuma IT encontrada</p>
+                <p className="text-base font-semibold text-slate-700 dark:text-slate-300">Nenhuma IT encontrada</p>
                 <p className="text-sm text-slate-500 mt-1">Tente outro termo ou setor.</p>
               </div>
             ) : (
@@ -879,13 +879,13 @@ export function InstrucoesTrabalhoClient({
                             >
                               <button
                                 onClick={() => { setMenuAberto(null); setHistoricoModal(it); }}
-                                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs text-slate-300 hover:bg-white/6 hover:text-white transition-colors"
+                                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-white/6 hover:text-white transition-colors"
                               >
                                 <History className="w-3.5 h-3.5" /> Ver histórico
                               </button>
                               <button
                                 onClick={() => { setMenuAberto(null); setArquivarModal(it); }}
-                                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs text-slate-300 hover:bg-white/6 hover:text-white transition-colors"
+                                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-white/6 hover:text-white transition-colors"
                               >
                                 <Archive className="w-3.5 h-3.5" /> Arquivar IT
                               </button>
@@ -947,7 +947,7 @@ export function InstrucoesTrabalhoClient({
               {pendencias.length === 0 ? (
                 <div className="py-16 text-center">
                   <CheckCircle2 className="mx-auto w-10 h-10 text-emerald-500/50 mb-3" />
-                  <p className="text-base font-semibold text-slate-300">Tudo em dia</p>
+                  <p className="text-base font-semibold text-slate-700 dark:text-slate-300">Tudo em dia</p>
                   <p className="text-sm text-slate-500 mt-1">Nenhuma pendência no momento.</p>
                 </div>
               ) : (
@@ -1174,8 +1174,8 @@ function ArquivarItModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !pending && onClose()} />
-      <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden">
-        <div className="flex items-start justify-between p-6 border-b border-white/8">
+      <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0D1424] shadow-2xl overflow-hidden">
+        <div className="flex items-start justify-between p-6 border-b border-slate-200 dark:border-white/8">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Archive className="w-4 h-4 text-slate-400" />
@@ -1220,7 +1220,7 @@ function ArquivarItModal({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-3 p-6 border-t border-white/8">
+        <div className="flex items-center gap-3 p-6 border-t border-slate-200 dark:border-white/8">
           <button onClick={() => !pending && onClose()} disabled={pending || success}
             className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-white text-sm font-semibold transition-colors disabled:opacity-50">
             Cancelar
@@ -1273,9 +1273,9 @@ function HistoricoVersoesModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-2xl rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div className="relative w-full max-w-2xl rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0D1424] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="flex items-start justify-between p-6 border-b border-white/8 shrink-0">
+        <div className="flex items-start justify-between p-6 border-b border-slate-200 dark:border-white/8 shrink-0">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <History className="w-4 h-4 text-slate-400" />
@@ -1294,7 +1294,7 @@ function HistoricoVersoesModal({
           <button
             onClick={() => setActiveSection('audit')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeSection === 'audit' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+              activeSection === 'audit' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
             Audit Log
@@ -1302,7 +1302,7 @@ function HistoricoVersoesModal({
           <button
             onClick={() => setActiveSection('versoes')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeSection === 'versoes' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+              activeSection === 'versoes' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
             Versões
@@ -1330,7 +1330,7 @@ function HistoricoVersoesModal({
               ) : (
                 data.auditLog.map((entry) => {
                   const isFinal = entry.versaoNova.includes('EXCLUÍD') || entry.versaoNova === 'ARQUIVADA';
-                  const colorClass = auditColorMap[entry.versaoNova] || 'text-slate-300 bg-white/4 border-white/8';
+                  const colorClass = auditColorMap[entry.versaoNova] || 'text-slate-700 dark:text-slate-300 bg-white/4 border-white/8';
                   return (
                     <div key={entry.id} className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
                       <div className="flex items-start justify-between gap-3 mb-2">
@@ -1369,7 +1369,7 @@ function HistoricoVersoesModal({
                           <GitBranch className="w-3.5 h-3.5 text-indigo-400" />
                           <span className="text-xs font-bold text-indigo-300">v{v.versao}</span>
                         </div>
-                        <p className="text-sm text-slate-300 leading-relaxed">{v.alteracoes}</p>
+                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{v.alteracoes}</p>
                         <p className="text-xs text-slate-500 mt-1">{v.autorNome} • {v.criadoEm}</p>
                       </div>
                     </div>
@@ -1386,9 +1386,9 @@ function HistoricoVersoesModal({
           )}
         </div>
 
-        <div className="p-4 border-t border-white/8 shrink-0">
+        <div className="p-4 border-t border-slate-200 dark:border-white/8 shrink-0">
           <button onClick={onClose}
-            className="w-full px-4 py-2 rounded-xl bg-white/8 hover:bg-white/12 text-white text-xs font-semibold transition-colors border border-white/10">
+            className="w-full px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-white/8 dark:hover:bg-white/12 dark:text-white text-xs font-semibold transition-colors border border-white/10">
             Fechar
           </button>
         </div>

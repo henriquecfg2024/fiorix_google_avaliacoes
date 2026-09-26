@@ -50,6 +50,7 @@ export function ControleImpressoesClient() {
   const [buscaNatureza, setBuscaNatureza] = useState('');
   const [tipoImpressaoFiltro, setTipoImpressaoFiltro] = useState<'todos' | 'certidao' | 'livro'>('todos');
   const [statusFiltro, setStatusFiltro] = useState<'todos' | 'pendente' | 'realizado'>('todos');
+  const [operadorFiltro, setOperadorFiltro] = useState<string | null>(null);
   const [activeCardLabel, setActiveCardLabel] = useState<string | null>(null);
 
   // Pagination State
@@ -112,6 +113,7 @@ export function ControleImpressoesClient() {
         busca: buscaNatureza,
         tipoImpressao: tipoImpressaoFiltro,
         status: statusFiltro,
+        operador: operadorFiltro || '',
         sortBy,
         sortOrder,
         page: String(currentPage),
@@ -130,7 +132,7 @@ export function ControleImpressoesClient() {
     } finally {
       setLoading(false);
     }
-  }, [dataInicio, dataFim, visao, buscaNatureza, tipoImpressaoFiltro, statusFiltro, sortBy, sortOrder, currentPage, pageSize]);
+  }, [dataInicio, dataFim, visao, buscaNatureza, tipoImpressaoFiltro, statusFiltro, operadorFiltro, sortBy, sortOrder, currentPage, pageSize]);
 
   useEffect(() => {
     fetchDados();
@@ -229,7 +231,21 @@ export function ControleImpressoesClient() {
   };
 
   const paginatedRows = useMemo(() => {
-    const rows = [...data.itens];
+    let rows = [...data.itens];
+    if (operadorFiltro) {
+      const opLower = operadorFiltro.toLowerCase();
+      rows = rows.filter((r) => {
+        if (tipoImpressaoFiltro === 'livro') {
+          return (r.livroResponsavel || '').toLowerCase() === opLower;
+        } else if (tipoImpressaoFiltro === 'certidao') {
+          return (r.certidaoResponsavel || '').toLowerCase() === opLower;
+        }
+        return (
+          (r.livroResponsavel || '').toLowerCase() === opLower ||
+          (r.certidaoResponsavel || '').toLowerCase() === opLower
+        );
+      });
+    }
     return rows.sort((a, b) => {
       let valA: any;
       let valB: any;
@@ -282,7 +298,7 @@ export function ControleImpressoesClient() {
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [data.itens, sortBy, sortOrder]);
+  }, [data.itens, sortBy, sortOrder, operadorFiltro, tipoImpressaoFiltro]);
 
   // Registros que serão exibidos na tabela (suporta carga completa para impressão)
   const rowsParaExibir = useMemo(() => {
@@ -327,6 +343,7 @@ export function ControleImpressoesClient() {
         busca: buscaNatureza,
         tipoImpressao: tipoImpressaoFiltro,
         status: statusFiltro,
+        operador: operadorFiltro || '',
         sortBy,
         sortOrder,
         export: 'true',
@@ -374,10 +391,11 @@ export function ControleImpressoesClient() {
     if (buscaNatureza.trim() !== '') count++;
     if (tipoImpressaoFiltro !== 'todos') count++;
     if (statusFiltro !== 'todos') count++;
+    if (operadorFiltro !== null) count++;
     if (activeCardLabel !== null) count++;
     if (dataPreset !== '7dias') count++;
     return count;
-  }, [buscaNatureza, tipoImpressaoFiltro, statusFiltro, activeCardLabel, dataPreset]);
+  }, [buscaNatureza, tipoImpressaoFiltro, statusFiltro, operadorFiltro, activeCardLabel, dataPreset]);
 
   const exportarParaCSV = async () => {
     try {
@@ -396,6 +414,7 @@ export function ControleImpressoesClient() {
           busca: buscaNatureza,
           tipoImpressao: tipoImpressaoFiltro,
           status: statusFiltro,
+          operador: operadorFiltro || '',
           sortBy,
           sortOrder,
           export: 'true',
@@ -491,10 +510,27 @@ export function ControleImpressoesClient() {
     setBuscaNatureza('');
     setStatusFiltro('todos');
     setTipoImpressaoFiltro('todos');
+    setOperadorFiltro(null);
     setActiveCardLabel(null);
     setDataPreset('7dias');
     setCurrentPage(1);
     toast.success('Filtros restaurados para o padrão.');
+  };
+
+  const handleOperadorClick = (nome: string) => {
+    if (operadorFiltro === nome) {
+      setOperadorFiltro(null);
+      toast.info('Filtro de operador removido');
+    } else {
+      setOperadorFiltro(nome);
+      setCurrentPage(1);
+      toast.success(`Filtrando protocolos do operador: ${nome}`, {
+        icon: <User className="w-4 h-4 text-purple-400" />
+      });
+      setTimeout(() => {
+        tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 120);
+    }
   };
 
   const handleFiltrarClick = () => {
@@ -559,6 +595,7 @@ export function ControleImpressoesClient() {
           <div>
             Período: <strong>{dataInicio.split('-').reverse().join('/')}</strong> até <strong>{dataFim.split('-').reverse().join('/')}</strong>
             {activeCardLabel && <span> | Filtro: <strong>{activeCardLabel}</strong></span>}
+            {operadorFiltro && <span> | Operador: <strong>{operadorFiltro}</strong></span>}
             {tipoImpressaoFiltro !== 'todos' && <span> | Tipo: <strong>{tipoImpressaoFiltro === 'certidao' ? 'Certidão de Registro' : 'Ato no Livro'}</strong></span>}
             {statusFiltro !== 'todos' && <span> | Status: <strong>{statusFiltro === 'realizado' ? 'Realizado' : 'Pendente'}</strong></span>}
             <span> | Ordem: <strong>{getColumnLabel(sortBy)} ({sortOrder === 'asc' ? 'Crescente' : 'Decrescente'})</strong></span>
@@ -578,15 +615,15 @@ export function ControleImpressoesClient() {
       {/* ────────────────── TOP BAR / HEADER DO RELATÓRIO NA TELA ────────────────── */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 print:hidden">
         <div>
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
             <span>Gestão de Prazos</span>
-            <span className="text-slate-600">&gt;</span>
-            <span className="text-white font-semibold">Impressões</span>
+            <span className="text-slate-400 dark:text-slate-600">&gt;</span>
+            <span className="text-slate-900 dark:text-white font-semibold">Impressões</span>
           </div>
-          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-white mt-1">
+          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-slate-900 dark:text-white mt-1">
             Controle de Impressões
           </h1>
-          <p className="text-sm text-slate-400 mt-0.5">
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
             Painel de produtividade das impressões com base na data do último registro e data das impressões realizadas.
           </p>
         </div>
@@ -608,14 +645,14 @@ export function ControleImpressoesClient() {
             title={filtrosAbertos ? 'Recolher painel de filtros' : 'Expandir painel de filtros'}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-lg border text-xs font-medium transition-all shadow-sm ${
               filtrosAbertos
-                ? 'bg-purple-600/20 hover:bg-purple-600/30 border-purple-500/40 text-purple-200 shadow-purple-900/10'
-                : 'bg-[#141B2D] hover:bg-[#1A233A] border-white/10 text-slate-200'
+                ? 'bg-purple-50 dark:bg-purple-600/20 hover:bg-purple-100 dark:hover:bg-purple-600/30 border-purple-300 dark:border-purple-500/40 text-purple-700 dark:text-purple-200 shadow-purple-900/10'
+                : 'bg-white dark:bg-[#141B2D] hover:bg-slate-100 dark:hover:bg-[#1A233A] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200'
             }`}
           >
-            <Filter className={`w-3.5 h-3.5 ${filtrosAbertos ? 'text-purple-400' : 'text-slate-400'}`} />
+            <Filter className={`w-3.5 h-3.5 ${filtrosAbertos ? 'text-purple-600 dark:text-purple-400' : 'text-slate-500 dark:text-slate-400'}`} />
             <span>Filtros</span>
             {totalFiltrosAtivos > 0 && (
-              <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] bg-purple-500 text-white rounded-full font-bold">
+              <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] bg-purple-600 dark:bg-purple-500 text-white rounded-full font-bold">
                 {totalFiltrosAtivos}
               </span>
             )}
@@ -627,12 +664,12 @@ export function ControleImpressoesClient() {
             onClick={exportarParaCSV}
             disabled={exportando}
             title="Exportar todos os registros filtrados para CSV (compatível com Excel)"
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#141B2D] hover:bg-[#1A233A] border border-white/10 text-xs font-medium text-slate-200 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white dark:bg-[#141B2D] hover:bg-slate-100 dark:hover:bg-[#1A233A] border border-slate-200 dark:border-white/10 text-xs font-medium text-slate-700 dark:text-slate-200 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {exportando ? (
-              <RotateCw className="w-3.5 h-3.5 text-purple-400 animate-spin" />
+              <RotateCw className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 animate-spin" />
             ) : (
-              <Download className="w-3.5 h-3.5 text-slate-400" />
+              <Download className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
             )}
             <span>{exportando ? 'Exportando...' : 'Exportar'}</span>
           </button>
@@ -645,16 +682,16 @@ export function ControleImpressoesClient() {
               title="Mais opções e ações do painel"
               className={`p-2 rounded-lg border transition-all ${
                 menuAberto
-                  ? 'bg-purple-600/30 border-purple-500/50 text-white'
-                  : 'bg-[#141B2D] hover:bg-[#1A233A] border-white/10 text-slate-400 hover:text-white'
+                  ? 'bg-purple-50 dark:bg-purple-600/30 border-purple-300 dark:border-purple-500/50 text-purple-700 dark:text-white'
+                  : 'bg-white dark:bg-[#141B2D] hover:bg-slate-100 dark:hover:bg-[#1A233A] border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <MoreVertical className="w-4 h-4" />
             </button>
 
             {menuAberto && (
-              <div className="absolute right-0 top-full mt-2 w-64 rounded-xl border border-white/15 bg-[#0D1424] shadow-2xl py-1.5 z-50 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100 print:hidden">
-                <div className="px-3.5 py-1.5 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              <div className="absolute right-0 top-full mt-2 w-64 rounded-xl border border-slate-200 dark:border-white/15 bg-white dark:bg-[#0D1424] shadow-xl dark:shadow-2xl py-1.5 z-50 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100 print:hidden">
+                <div className="px-3.5 py-1.5 text-[10px] font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
                   Ações Rápidas
                 </div>
 
@@ -665,9 +702,9 @@ export function ControleImpressoesClient() {
                     fetchDados();
                     toast.success('Dados atualizados com sucesso');
                   }}
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white transition-colors"
                 >
-                  <RotateCw className="w-3.5 h-3.5 text-purple-400" />
+                  <RotateCw className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
                   <span>Atualizar dados agora</span>
                 </button>
 
@@ -677,9 +714,9 @@ export function ControleImpressoesClient() {
                     setMenuAberto(false);
                     exportarParaCSV();
                   }}
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white transition-colors"
                 >
-                  <Download className="w-3.5 h-3.5 text-cyan-400" />
+                  <Download className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                   <span>Exportar planilha (CSV)</span>
                 </button>
 
@@ -691,15 +728,15 @@ export function ControleImpressoesClient() {
                       window.print();
                     }, 150);
                   }}
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white transition-colors"
                 >
-                  <Printer className="w-3.5 h-3.5 text-emerald-400" />
+                  <Printer className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   <span>Imprimir / Salvar PDF</span>
                 </button>
 
-                <div className="h-px bg-white/10 my-1 mx-2" />
+                <div className="h-px bg-slate-200 dark:bg-white/10 my-1 mx-2" />
 
-                <div className="px-3.5 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                <div className="px-3.5 py-1 text-[10px] font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
                   Visualização
                 </div>
 
@@ -714,9 +751,9 @@ export function ControleImpressoesClient() {
                       `Visão alterada para ${novaVisao === 'producao' ? 'Produção (Data Impressão)' : 'Demanda (Último Registro)'}`
                     );
                   }}
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white transition-colors"
                 >
-                  <ArrowUpDown className="w-3.5 h-3.5 text-amber-400" />
+                  <ArrowUpDown className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                   <span>Alternar p/ {visao === 'demanda' ? 'Visão Produção' : 'Visão Demanda'}</span>
                 </button>
 
@@ -726,13 +763,13 @@ export function ControleImpressoesClient() {
                     setMenuAberto(false);
                     setFiltrosAbertos((prev) => !prev);
                   }}
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white transition-colors"
                 >
-                  <Filter className="w-3.5 h-3.5 text-indigo-400" />
+                  <Filter className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                   <span>{filtrosAbertos ? 'Ocultar barra de filtros' : 'Exibir barra de filtros'}</span>
                 </button>
 
-                <div className="h-px bg-white/10 my-1 mx-2" />
+                <div className="h-px bg-slate-200 dark:bg-white/10 my-1 mx-2" />
 
                 <button
                   type="button"
@@ -740,7 +777,7 @@ export function ControleImpressoesClient() {
                     setMenuAberto(false);
                     limparFiltros();
                   }}
-                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3.5 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-700 dark:hover:text-rose-300 transition-colors"
                 >
                   <RotateCw className="w-3.5 h-3.5" />
                   <span>Restaurar filtros padrão</span>
@@ -752,43 +789,43 @@ export function ControleImpressoesClient() {
       </div>
 
       {/* Info Banner dinâmico com base na Visão */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-2.5 rounded-lg bg-[#0E1526]/80 border border-blue-500/20 text-xs print:hidden">
-        <div className="flex items-center gap-2 text-blue-300">
-          <Info className="w-4 h-4 text-blue-400 shrink-0" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-2.5 rounded-lg bg-blue-50/80 dark:bg-[#0E1526]/80 border border-blue-200 dark:border-blue-500/20 text-xs print:hidden">
+        <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+          <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
           <span>
             Base principal do relatório:{' '}
-            <strong className="font-semibold text-white">
+            <strong className="font-semibold text-slate-900 dark:text-white">
               {visao === 'producao'
                 ? 'Data das Impressões Realizadas (Visão Produção)'
                 : 'Data do Último Registro (Visão Demanda)'}
             </strong>
           </span>
         </div>
-        <div className="flex items-center gap-2 text-slate-400 font-mono text-[11px]">
+        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-mono text-[11px]">
           <span>Atualizado em: {data.ultimaSincronizacao}</span>
           <button
             onClick={() => {
               fetchDados();
               toast.success('Dados atualizados com sucesso');
             }}
-            className="p-1 hover:text-white transition-colors"
+            className="p-1 hover:text-slate-900 dark:hover:text-white transition-colors"
             title="Recarregar dados"
           >
-            <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-purple-400' : ''}`} />
+            <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-purple-600 dark:text-purple-400' : ''}`} />
           </button>
         </div>
       </div>
 
       {/* ────────────────── BARRA DE FILTROS ────────────────── */}
       {filtrosAbertos ? (
-        <div ref={filtersRef} className="p-5 rounded-2xl bg-[#0c1222]/90 border border-white/10 backdrop-blur-md space-y-4 shadow-lg transition-all animate-fadeIn print:hidden">
+        <div ref={filtersRef} className="p-5 rounded-2xl bg-white/90 dark:bg-[#0c1222]/90 border border-slate-200 dark:border-white/10 backdrop-blur-md space-y-4 shadow-sm dark:shadow-lg transition-all animate-fadeIn print:hidden">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
           {/* Período */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               {visao === 'producao' ? 'Período da Data de Impressão' : 'Período do Último Registro'}
             </label>
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#141B2D] border border-white/10 text-xs text-white shadow-inner">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#141B2D] border border-slate-200 dark:border-white/10 text-xs text-slate-800 dark:text-white shadow-inner">
               <input
                 type="date"
                 value={dataInicio}
@@ -797,7 +834,7 @@ export function ControleImpressoesClient() {
                   setDataPreset('personalizado');
                   setCurrentPage(1);
                 }}
-                className="bg-transparent text-slate-200 focus:outline-none cursor-pointer w-28 text-xs font-medium"
+                className="bg-transparent text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer w-28 text-xs font-medium"
               />
               <span className="text-slate-400 text-xs font-medium">até</span>
               <input
@@ -808,7 +845,7 @@ export function ControleImpressoesClient() {
                   setDataPreset('personalizado');
                   setCurrentPage(1);
                 }}
-                className="bg-transparent text-slate-200 focus:outline-none cursor-pointer w-28 text-xs font-medium"
+                className="bg-transparent text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer w-28 text-xs font-medium"
               />
               <Calendar className="w-4 h-4 text-slate-400 ml-auto shrink-0" />
             </div>
@@ -817,12 +854,12 @@ export function ControleImpressoesClient() {
           {/* Visão */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-semibold text-slate-300">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                 Visão
               </label>
-              <span className="text-[10px] text-slate-400 font-medium">Passe o mouse p/ detalhes</span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Passe o mouse p/ detalhes</span>
             </div>
-            <div className="flex p-1 rounded-lg bg-[#141B2D] border border-white/10 text-xs shadow-inner gap-1">
+            <div className="flex p-1 rounded-lg bg-slate-100 dark:bg-[#141B2D] border border-slate-200 dark:border-white/10 text-xs shadow-inner gap-1">
               {/* Botão Demanda */}
               <div className="relative flex-1 group">
                 <button
@@ -834,20 +871,20 @@ export function ControleImpressoesClient() {
                   title="Demanda (Último Registro): Filtra protocolos pela data em que o registro foi concluído. Mostra o volume registrado e o andamento das impressões dessa data."
                   className={`w-full py-1.5 px-2 rounded-md font-semibold transition-all text-center ${
                     visao === 'demanda'
-                      ? 'bg-[#5b21b6] text-white shadow-md'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                      ? 'bg-purple-700 dark:bg-[#5b21b6] text-white shadow-md'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-white/5'
                   }`}
                 >
                   Demanda (Último Reg.)
                 </button>
                 {/* Tooltip moderno flutuante */}
-                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 rounded-xl bg-[#090d19] border border-purple-500/40 text-slate-200 text-[11px] leading-relaxed shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-200 z-50 transform group-hover:-translate-y-1">
+                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 rounded-xl bg-slate-900 dark:bg-[#090d19] border border-purple-500/40 text-slate-100 dark:text-slate-200 text-[11px] leading-relaxed shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-200 z-50 transform group-hover:-translate-y-1">
                   <div className="font-bold text-purple-300 text-xs mb-1 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-purple-400 shadow-sm shadow-purple-400/50"></span>
                     Visão Demanda (Último Registro)
                   </div>
                   Filtra os protocolos pela <strong>data em que foram registrados</strong> no cartório. Permite avaliar a taxa de entrega e quantas pendências de impressão ainda restam dessa data específica.
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#090d19]" />
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-[#090d19]" />
                 </div>
               </div>
 
@@ -862,20 +899,20 @@ export function ControleImpressoesClient() {
                   title="Produção (Data Impressão): Filtra pela data em que a impressão física ou certidão foi efetivamente realizada. Mede a produtividade real dos operadores."
                   className={`w-full py-1.5 px-2 rounded-md font-semibold transition-all text-center ${
                     visao === 'producao'
-                      ? 'bg-[#5b21b6] text-white shadow-md'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                      ? 'bg-purple-700 dark:bg-[#5b21b6] text-white shadow-md'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-white/5'
                   }`}
                 >
                   Produção (Data Impr.)
                 </button>
                 {/* Tooltip moderno flutuante */}
-                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 rounded-xl bg-[#090d19] border border-cyan-500/40 text-slate-200 text-[11px] leading-relaxed shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-200 z-50 transform group-hover:-translate-y-1">
+                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 rounded-xl bg-slate-900 dark:bg-[#090d19] border border-cyan-500/40 text-slate-100 dark:text-slate-200 text-[11px] leading-relaxed shadow-2xl opacity-0 group-hover:opacity-100 transition-all duration-200 z-50 transform group-hover:-translate-y-1">
                   <div className="font-bold text-cyan-300 text-xs mb-1 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/50"></span>
                     Visão Produção (Data Impressão)
                   </div>
                   Filtra os protocolos pela <strong>data em que a impressão ou preparação foi concluída</strong>. Ideal para auditar o volume e a produtividade real entregue por cada operador (Antonio e David) no dia.
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#090d19]" />
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-[#090d19]" />
                 </div>
               </div>
             </div>
@@ -883,7 +920,7 @@ export function ControleImpressoesClient() {
 
           {/* Tipo / Natureza / Protocolo / Livro */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               Buscar Protocolo / Livro / Natureza
             </label>
             <div className="relative">
@@ -898,7 +935,7 @@ export function ControleImpressoesClient() {
                     handleFiltrarClick();
                   }
                 }}
-                className="w-full px-3.5 py-2 pl-9 rounded-lg bg-[#141B2D] border border-white/10 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors shadow-inner"
+                className="w-full px-3.5 py-2 pl-9 rounded-lg bg-slate-50 dark:bg-[#141B2D] border border-slate-200 dark:border-white/10 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors shadow-inner"
               />
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             </div>
@@ -906,7 +943,7 @@ export function ControleImpressoesClient() {
 
           {/* Tipo de Impressão */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               Tipo de Impressão
             </label>
             <select
@@ -915,7 +952,7 @@ export function ControleImpressoesClient() {
                 setTipoImpressaoFiltro(e.target.value as any);
                 setCurrentPage(1);
               }}
-              className="w-full px-3 py-2 rounded-lg bg-[#141B2D] border border-white/10 text-xs sm:text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer shadow-inner"
+              className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#141B2D] border border-slate-200 dark:border-white/10 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer shadow-inner"
             >
               <option value="todos">Todos os tipos</option>
               <option value="certidao">Certidão de Registro</option>
@@ -925,7 +962,7 @@ export function ControleImpressoesClient() {
 
           {/* Status + Ações */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
               Status
             </label>
             <div className="flex gap-2">
@@ -935,7 +972,7 @@ export function ControleImpressoesClient() {
                   setStatusFiltro(e.target.value as any);
                   setCurrentPage(1);
                 }}
-                className="w-full px-3 py-2 rounded-lg bg-[#141B2D] border border-white/10 text-xs sm:text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer shadow-inner"
+                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#141B2D] border border-slate-200 dark:border-white/10 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer shadow-inner"
               >
                 <option value="todos">Todos</option>
                 <option value="pendente">Pendente</option>
@@ -943,7 +980,7 @@ export function ControleImpressoesClient() {
               </select>
               <button
                 onClick={handleFiltrarClick}
-                className="px-4 py-2 rounded-lg bg-[#6366f1] hover:bg-[#4f46e5] text-xs font-bold text-white whitespace-nowrap transition-all shadow-md shadow-indigo-500/25 active:scale-95"
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 dark:bg-[#6366f1] dark:hover:bg-[#4f46e5] text-xs font-bold text-white whitespace-nowrap transition-all shadow-md shadow-indigo-500/25 active:scale-95"
               >
                 Filtrar
               </button>
@@ -952,7 +989,7 @@ export function ControleImpressoesClient() {
         </div>
 
         {/* Quick Date Presets */}
-        <div className="flex items-center justify-between pt-3 border-t border-white/8 flex-wrap gap-2 text-xs">
+        <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-white/8 flex-wrap gap-2 text-xs">
           <div className="flex items-center gap-2 flex-wrap">
             {(['hoje', 'ontem', '7dias', 'mesAtual', 'mesAnterior'] as const).map((preset) => {
               const labels = {
@@ -969,8 +1006,8 @@ export function ControleImpressoesClient() {
                   onClick={() => handlePresetChange(preset)}
                   className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     active
-                      ? 'bg-[#3b1578] text-purple-100 border border-purple-400/50 shadow-sm font-semibold'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'
+                      ? 'bg-purple-50 dark:bg-[#3b1578] text-purple-700 dark:text-purple-100 border border-purple-300 dark:border-purple-400/50 shadow-sm font-semibold'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 border border-transparent'
                   }`}
                 >
                   {labels[preset]}
@@ -981,7 +1018,7 @@ export function ControleImpressoesClient() {
 
           <button
             onClick={limparFiltros}
-            className="text-xs text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/5"
+            className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors flex items-center gap-1.5 px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-white/5"
           >
             <RotateCw className="w-3.5 h-3.5" />
             <span>Limpar filtros</span>
@@ -989,12 +1026,12 @@ export function ControleImpressoesClient() {
         </div>
       </div>
     ) : (
-        <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-[#0c1222]/70 border border-white/10 text-xs text-slate-300 shadow-sm print:hidden">
+        <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-white/80 dark:bg-[#0c1222]/70 border border-slate-200 dark:border-white/10 text-xs text-slate-700 dark:text-slate-300 shadow-sm print:hidden">
           <div className="flex items-center gap-2">
-            <Filter className="w-3.5 h-3.5 text-purple-400" />
+            <Filter className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
             <span>Painel de filtros recolhido.</span>
             {totalFiltrosAtivos > 0 && (
-              <span className="text-purple-300 font-semibold">({totalFiltrosAtivos} filtro(s) ativo(s))</span>
+              <span className="text-purple-700 dark:text-purple-300 font-semibold">({totalFiltrosAtivos} filtro(s) ativo(s))</span>
             )}
           </div>
           <button
@@ -1006,7 +1043,7 @@ export function ControleImpressoesClient() {
                 buscaInputRef.current?.focus();
               }, 80);
             }}
-            className="text-purple-400 hover:text-purple-300 font-semibold underline transition-colors"
+            className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 font-semibold underline transition-colors"
           >
             Expandir filtros
           </button>
@@ -1015,16 +1052,16 @@ export function ControleImpressoesClient() {
 
       {/* ────────────────── BARRA DE FILTROS ATIVOS ────────────────── */}
       {(buscaNatureza || tipoImpressaoFiltro !== 'todos' || statusFiltro !== 'todos') && (
-        <div className="flex items-center gap-2.5 p-3 rounded-xl bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900/60 border border-indigo-500/30 text-xs flex-wrap shadow-inner animate-fadeIn print:hidden">
-          <span className="text-indigo-300 font-bold flex items-center gap-1.5">
-            <Filter className="w-3.5 h-3.5 text-indigo-400" /> Filtros Ativos:
+        <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-100 dark:bg-gradient-to-r dark:from-indigo-950/60 dark:via-purple-950/40 dark:to-slate-900/60 border border-slate-200 dark:border-indigo-500/30 text-xs flex-wrap shadow-inner animate-fadeIn print:hidden">
+          <span className="text-indigo-700 dark:text-indigo-300 font-bold flex items-center gap-1.5">
+            <Filter className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Filtros Ativos:
           </span>
           {buscaNatureza && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-200 text-xs font-medium">
-              Termo: <strong className="text-white">"{buscaNatureza}"</strong>
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/40 text-indigo-800 dark:text-indigo-200 text-xs font-medium">
+              Termo: <strong className="text-slate-900 dark:text-white">"{buscaNatureza}"</strong>
               <button
                 onClick={() => { setBuscaNatureza(''); setCurrentPage(1); }}
-                className="hover:text-red-300 font-bold ml-1 text-sm leading-none"
+                className="hover:text-red-500 dark:hover:text-red-300 font-bold ml-1 text-sm leading-none"
                 title="Remover filtro de busca"
               >
                 ×
@@ -1034,13 +1071,13 @@ export function ControleImpressoesClient() {
           {tipoImpressaoFiltro !== 'todos' && (
             <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-medium ${
               tipoImpressaoFiltro === 'certidao'
-                ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-200'
-                : 'bg-amber-500/20 border-amber-500/40 text-amber-200'
+                ? 'bg-cyan-50 dark:bg-cyan-500/20 border-cyan-200 dark:border-cyan-500/40 text-cyan-800 dark:text-cyan-200'
+                : 'bg-amber-50 dark:bg-amber-500/20 border-amber-200 dark:border-amber-500/40 text-amber-800 dark:text-amber-200'
             }`}>
-              Tipo: <strong className="text-white">{tipoImpressaoFiltro === 'certidao' ? 'Certidão de Registro' : 'Ato no Livro'}</strong>
+              Tipo: <strong className="text-slate-900 dark:text-white">{tipoImpressaoFiltro === 'certidao' ? 'Certidão de Registro' : 'Ato no Livro'}</strong>
               <button
                 onClick={() => { setTipoImpressaoFiltro('todos'); setCurrentPage(1); }}
-                className="hover:text-red-300 font-bold ml-1 text-sm leading-none"
+                className="hover:text-red-500 dark:hover:text-red-300 font-bold ml-1 text-sm leading-none"
                 title="Remover filtro de tipo"
               >
                 ×
@@ -1050,25 +1087,38 @@ export function ControleImpressoesClient() {
           {statusFiltro !== 'todos' && (
             <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-medium ${
               statusFiltro === 'realizado'
-                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-200'
-                : 'bg-rose-500/20 border-rose-500/40 text-rose-200'
+                ? 'bg-emerald-50 dark:bg-emerald-500/20 border-emerald-200 dark:border-emerald-500/40 text-emerald-800 dark:text-emerald-200'
+                : 'bg-rose-50 dark:bg-rose-500/20 border-rose-200 dark:border-rose-500/40 text-rose-800 dark:text-rose-200'
             }`}>
-              Status: <strong className="text-white">{statusFiltro === 'realizado' ? 'Realizado' : 'Pendente'}</strong>
+              Status: <strong className="text-slate-900 dark:text-white">{statusFiltro === 'realizado' ? 'Realizado' : 'Pendente'}</strong>
               <button
                 onClick={() => { setStatusFiltro('todos'); setCurrentPage(1); }}
-                className="hover:text-red-300 font-bold ml-1 text-sm leading-none"
+                className="hover:text-red-500 dark:hover:text-red-300 font-bold ml-1 text-sm leading-none"
                 title="Remover filtro de status"
               >
                 ×
               </button>
             </span>
           )}
-          <span className="text-slate-400 ml-auto font-mono text-[11px] pr-2">
+          {operadorFiltro && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-500/20 border border-purple-200 dark:border-purple-500/40 text-purple-800 dark:text-purple-200 text-xs font-medium animate-fadeIn">
+              <User className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+              <span>Operador: <strong className="text-slate-900 dark:text-white">{operadorFiltro}</strong></span>
+              <button
+                onClick={() => { setOperadorFiltro(null); setCurrentPage(1); }}
+                className="hover:text-red-500 dark:hover:text-red-300 font-bold ml-1 text-sm leading-none"
+                title="Remover filtro de operador"
+              >
+                ×
+              </button>
+            </span>
+          )}
+          <span className="text-slate-500 dark:text-slate-400 ml-auto font-mono text-[11px] pr-2">
             {data.totalRegistros} {data.totalRegistros === 1 ? 'protocolo listado' : 'protocolos listados'}
           </span>
           <button
             onClick={limparFiltros}
-            className="text-[11px] text-indigo-300 hover:text-white font-semibold underline transition-colors"
+            className="text-[11px] text-indigo-600 dark:text-indigo-300 hover:text-indigo-900 dark:hover:text-white font-semibold underline transition-colors"
           >
             Limpar todos
           </button>
@@ -1079,14 +1129,14 @@ export function ControleImpressoesClient() {
       <div className={`grid grid-cols-1 xl:grid-cols-2 gap-5 items-start ${imprimindoApenasTabela ? 'print:hidden' : ''}`}>
         {/* Banner informativo quando o fluxo de Livro está ocultado */}
         {tipoImpressaoFiltro === 'certidao' && (
-          <div className="xl:col-span-2 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between text-xs text-amber-200 shadow-sm animate-fadeIn">
+          <div className="xl:col-span-2 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 flex items-center justify-between text-xs text-amber-800 dark:text-amber-200 shadow-sm animate-fadeIn">
             <div className="flex items-center gap-2.5">
-              <BookOpen className="w-4 h-4 text-amber-400 shrink-0" />
+              <BookOpen className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
               <span>Fluxo <strong>Impressão Definitiva do Ato no Livro</strong> oculto pelo filtro Tipo de Impressão.</span>
             </div>
             <button
               onClick={() => { setTipoImpressaoFiltro('todos'); setCurrentPage(1); }}
-              className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold transition-all text-xs"
+              className="px-3 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 text-amber-800 dark:text-amber-300 font-bold transition-all text-xs"
             >
               Exibir Ambos os Fluxos
             </button>
@@ -1097,22 +1147,22 @@ export function ControleImpressoesClient() {
         {tipoImpressaoFiltro !== 'certidao' && (
           <div className={`flex flex-col gap-4 ${tipoImpressaoFiltro === 'livro' ? 'xl:col-span-2' : ''}`}>
             {/* CARD 1: IMPRESSÃO DEFINITIVA DO ATO NO LIVRO (ÂMBAR) */}
-            <div className="rounded-2xl bg-[#171208]/90 border border-amber-500/35 p-6 shadow-xl shadow-amber-950/20 relative overflow-hidden flex flex-col justify-between">
+            <div className="rounded-2xl bg-white dark:bg-[#171208]/90 border border-amber-200 dark:border-amber-500/35 p-6 shadow-sm dark:shadow-xl dark:shadow-amber-950/20 relative overflow-hidden flex flex-col justify-between">
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600" />
 
-              <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
+              <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-200 dark:border-white/10">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-300 shadow-inner">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 flex items-center justify-center text-amber-700 dark:text-amber-300 shadow-inner">
                     <BookOpen className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-sm sm:text-base font-bold uppercase tracking-wider text-amber-400">
+                    <h2 className="text-sm sm:text-base font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400">
                       Impressão Definitiva do Ato no Livro
                     </h2>
-                    <p className="text-xs text-slate-400 mt-0.5">Fluxo de impressão física dos atos no livro</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Fluxo de impressão física dos atos no livro</p>
                   </div>
                 </div>
-                <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-300 uppercase tracking-wider">
+                <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-300 uppercase tracking-wider">
                   Livro
                 </span>
               </div>
@@ -1123,25 +1173,25 @@ export function ControleImpressoesClient() {
                   onClick={() => handleCardClick('livro', 'todos', 'Livro – Demanda total')}
                   className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
                     isLivroDemandaActive
-                      ? 'bg-amber-500/15 border-amber-400/80 ring-2 ring-amber-400/50 shadow-md shadow-amber-500/20'
+                      ? 'bg-amber-50 dark:bg-amber-500/15 border-amber-400 dark:border-amber-400/80 ring-2 ring-amber-400/50 shadow-md shadow-amber-500/20'
                       : statusFiltro !== 'todos'
-                        ? 'bg-white/[0.02] border-white/5 opacity-60 hover:opacity-100'
-                        : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-amber-400/30'
+                        ? 'bg-slate-50/50 dark:bg-white/[0.02] border-slate-200/60 dark:border-white/5 opacity-60 hover:opacity-100'
+                        : 'bg-slate-50 dark:bg-white/[0.03] border-slate-200 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:border-amber-300 dark:hover:border-amber-400/30'
                   }`}
                   title="Clique para filtrar por demanda"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-semibold text-slate-200 block">Demanda</span>
-                      <span className="text-[11px] text-slate-400 block truncate leading-tight">(Último Registro)</span>
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 block">Demanda</span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate leading-tight">(Último Registro)</span>
                     </div>
                     {isLivroDemandaActive && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold uppercase">Ativo</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 font-bold uppercase">Ativo</span>
                     )}
                   </div>
                   <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
-                    <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight group-hover:text-amber-200 transition-colors">{data.livroStats.demanda}</span>
-                    <span className="text-xs text-slate-400 font-medium">livros</span>
+                    <span className="text-2xl xl:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight group-hover:text-amber-700 dark:group-hover:text-amber-200 transition-colors">{data.livroStats.demanda}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">livros</span>
                   </div>
                 </div>
 
@@ -1150,25 +1200,25 @@ export function ControleImpressoesClient() {
                   onClick={() => handleCardClick('livro', 'realizado', 'Livro – Produzidas')}
                   className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
                     isLivroProduzidasActive
-                      ? 'bg-emerald-500/15 border-emerald-400/80 ring-2 ring-emerald-400/50 shadow-md shadow-emerald-500/20'
+                      ? 'bg-emerald-50 dark:bg-emerald-500/15 border-emerald-400 dark:border-emerald-400/80 ring-2 ring-emerald-400/50 shadow-md shadow-emerald-500/20'
                       : statusFiltro === 'pendente'
-                        ? 'bg-white/[0.02] border-white/5 opacity-60 hover:opacity-100'
-                        : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-emerald-400/30'
+                        ? 'bg-slate-50/50 dark:bg-white/[0.02] border-slate-200/60 dark:border-white/5 opacity-60 hover:opacity-100'
+                        : 'bg-slate-50 dark:bg-white/[0.03] border-slate-200 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:border-emerald-300 dark:hover:border-emerald-400/30'
                   }`}
                   title="Clique para filtrar por produzidas"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-semibold text-slate-200 block">Produzidas</span>
-                      <span className="text-[11px] text-slate-400 block truncate leading-tight">(Data Impressão)</span>
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 block">Produzidas</span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate leading-tight">(Data Impressão)</span>
                     </div>
                     {isLivroProduzidasActive && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold uppercase">Ativo</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 font-bold uppercase">Ativo</span>
                     )}
                   </div>
                   <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
-                    <span className="text-2xl xl:text-3xl font-extrabold text-amber-300 tracking-tight group-hover:text-emerald-300 transition-colors">{data.livroStats.produzidas}</span>
-                    <span className="text-xs text-slate-400 font-medium">livros</span>
+                    <span className="text-2xl xl:text-3xl font-extrabold text-amber-700 dark:text-amber-300 tracking-tight group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">{data.livroStats.produzidas}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">livros</span>
                   </div>
                 </div>
 
@@ -1177,53 +1227,53 @@ export function ControleImpressoesClient() {
                   onClick={() => handleCardClick('livro', 'pendente', 'Livro – Pendências')}
                   className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
                     isLivroPendenciasActive
-                      ? 'bg-rose-500/20 border-rose-400/80 ring-2 ring-rose-400/50 shadow-md shadow-rose-500/20'
+                      ? 'bg-rose-50 dark:bg-rose-500/20 border-rose-400 dark:border-rose-400/80 ring-2 ring-rose-400/50 shadow-md shadow-rose-500/20'
                       : statusFiltro === 'realizado'
-                        ? 'bg-white/[0.02] border-white/5 opacity-60 hover:opacity-100'
-                        : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-rose-400/30'
+                        ? 'bg-slate-50/50 dark:bg-white/[0.02] border-slate-200/60 dark:border-white/5 opacity-60 hover:opacity-100'
+                        : 'bg-slate-50 dark:bg-white/[0.03] border-slate-200 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:border-rose-300 dark:hover:border-rose-400/30'
                   }`}
                   title="Clique para filtrar por pendências"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-semibold text-slate-200 block">Pendências</span>
-                      <span className="text-[11px] text-rose-400/90 block truncate leading-tight">(Saldo Atual)</span>
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 block">Pendências</span>
+                      <span className="text-[11px] text-rose-600 dark:text-rose-400/90 block truncate leading-tight">(Saldo Atual)</span>
                     </div>
                     {isLivroPendenciasActive && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold uppercase">Ativo</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300 font-bold uppercase">Ativo</span>
                     )}
                   </div>
                   <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
-                    <span className="text-2xl xl:text-3xl font-extrabold text-rose-400 tracking-tight">{data.livroStats.pendencias}</span>
-                    <span className="text-xs text-slate-400 font-medium">livros</span>
+                    <span className="text-2xl xl:text-3xl font-extrabold text-rose-600 dark:text-rose-400 tracking-tight">{data.livroStats.pendencias}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">livros</span>
                   </div>
                 </div>
 
                 {/* Saldo Operacional */}
-                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 flex flex-col justify-between hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors">
                   <div>
-                    <span className="text-xs font-semibold text-slate-200 block">Saldo Operac.</span>
-                    <span className="text-[11px] text-slate-400 block truncate leading-tight">(Prod. - Dem.)</span>
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 block">Saldo Operac.</span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate leading-tight">(Prod. - Dem.)</span>
                   </div>
                   <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
-                    <span className={`text-2xl xl:text-3xl font-extrabold tracking-tight ${data.livroStats.saldoOperacional >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    <span className={`text-2xl xl:text-3xl font-extrabold tracking-tight ${data.livroStats.saldoOperacional >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                       {data.livroStats.saldoOperacional}
                     </span>
-                    <span className="text-xs text-slate-400 font-medium">livros</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">livros</span>
                   </div>
                 </div>
 
                 {/* Taxa de Atendimento */}
-                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 flex flex-col justify-between hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors">
                   <div>
-                    <span className="text-xs font-semibold text-slate-200 block">Taxa Atend.</span>
-                    <span className="text-[11px] text-slate-400 block truncate leading-tight">Eficiência</span>
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 block">Taxa Atend.</span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate leading-tight">Eficiência</span>
                   </div>
                   <div className="mt-3">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">{data.livroStats.taxaAtendimento}%</span>
+                      <span className="text-2xl xl:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">{data.livroStats.taxaAtendimento}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-amber-950/80 rounded-full mt-2 overflow-hidden border border-amber-500/20">
+                    <div className="w-full h-1.5 bg-amber-100 dark:bg-amber-950/80 rounded-full mt-2 overflow-hidden border border-amber-200 dark:border-amber-500/20">
                       <div
                         className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full transition-all duration-500"
                         style={{ width: `${Math.min(100, data.livroStats.taxaAtendimento)}%` }}
@@ -1233,28 +1283,28 @@ export function ControleImpressoesClient() {
                 </div>
 
                 {/* Tempo Médio */}
-                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 flex flex-col justify-between hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors">
                   <div>
-                    <span className="text-xs font-semibold text-slate-200 block">Tempo Médio</span>
-                    <span className="text-[11px] text-slate-400 block truncate leading-tight">para Impressão</span>
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 block">Tempo Médio</span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate leading-tight">para Impressão</span>
                   </div>
                   <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
-                    <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">0,8</span>
-                    <span className="text-xs text-slate-400 font-medium">dia</span>
+                    <span className="text-2xl xl:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">0,8</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">dia</span>
                   </div>
                 </div>
               </div>
 
-              <div className="pt-3.5 border-t border-white/10 text-xs text-slate-300 flex items-center justify-between flex-wrap gap-2">
+              <div className="pt-3.5 border-t border-slate-200 dark:border-white/10 text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-400">Backlog início do período:</span>
-                  <span className="px-2.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-300 font-bold font-mono text-xs">
+                  <span className="text-slate-500 dark:text-slate-400">Backlog início do período:</span>
+                  <span className="px-2.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 text-amber-800 dark:text-amber-300 font-bold font-mono text-xs">
                     {data.livroStats.backlogInicio} livros
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-400">Backlog final do período:</span>
-                  <span className="px-2.5 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-300 font-bold font-mono text-xs">
+                  <span className="text-slate-500 dark:text-slate-400">Backlog final do período:</span>
+                  <span className="px-2.5 py-0.5 rounded-md bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25 text-rose-800 dark:text-rose-300 font-bold font-mono text-xs">
                     {data.livroStats.backlogFinal} livros
                   </span>
                 </div>
@@ -1262,18 +1312,18 @@ export function ControleImpressoesClient() {
             </div>
 
             {/* CARD DE PRODUÇÃO DO OPERADOR DO LIVRO (ANTONIO) */}
-            <div className="rounded-2xl bg-[#140e06]/90 border border-amber-500/30 p-5 shadow-lg relative overflow-hidden">
+            <div className="rounded-2xl bg-white dark:bg-[#140e06]/90 border border-amber-200 dark:border-amber-500/30 p-5 shadow-sm dark:shadow-lg relative overflow-hidden">
               <div className="flex items-center justify-between mb-3.5">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
-                    <User className="w-4 h-4 text-amber-400" />
+                  <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 flex items-center justify-center">
+                    <User className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-amber-300">Produção por Operador · Livro</h3>
-                    <p className="text-[11px] text-slate-400">Atos impressos fisicamente no Livro no período</p>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">Produção por Operador · Livro</h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Atos impressos fisicamente no Livro no período</p>
                   </div>
                 </div>
-                <span className="text-[11px] font-semibold text-amber-400/90 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/25">
+                <span className="text-[11px] font-semibold text-amber-800 dark:text-amber-400/90 bg-amber-50 dark:bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-500/25">
                   {operadoresLivro.length} {operadoresLivro.length === 1 ? 'operador' : 'operadores'}
                 </span>
               </div>
@@ -1281,26 +1331,49 @@ export function ControleImpressoesClient() {
               {operadoresLivro.length > 0 ? (
                 <div className="space-y-2.5">
                   {operadoresLivro.map((op) => {
+                    const isSelected = operadorFiltro === op.nome;
                     const maxLivro = operadoresLivro[0]?.totalLivro || 1;
                     const pct = Math.round((op.totalLivro / maxLivro) * 100);
                     return (
-                      <div key={op.nome} className="rounded-xl bg-white/[0.03] border border-amber-500/15 p-3.5 flex flex-col gap-2.5 hover:bg-white/[0.05] transition-colors">
+                      <div
+                        key={op.nome}
+                        onClick={() => handleOperadorClick(op.nome)}
+                        role="button"
+                        tabIndex={0}
+                        title={isSelected ? `Remover filtro de ${op.nome}` : `Filtrar protocolos impressos por ${op.nome}`}
+                        className={`rounded-xl p-3.5 flex flex-col gap-2.5 cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-amber-100/70 dark:bg-amber-500/20 border-2 border-amber-500 dark:border-amber-400 shadow-md shadow-amber-500/20 ring-2 ring-amber-400/40'
+                            : 'bg-slate-50 dark:bg-white/[0.03] border border-amber-200/60 dark:border-amber-500/15 hover:bg-amber-50/60 dark:hover:bg-amber-500/10 hover:border-amber-400/50'
+                        }`}
+                      >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-7 h-7 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
-                              <User className="w-3.5 h-3.5 text-amber-300" />
+                            <div className={`w-7 h-7 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                              isSelected
+                                ? 'bg-amber-500 text-white border-amber-600'
+                                : 'bg-amber-100 dark:bg-amber-500/15 border-amber-300 dark:border-amber-500/30 text-amber-700 dark:text-amber-300'
+                            }`}>
+                              <User className="w-3.5 h-3.5" />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-xs font-bold text-white truncate">{op.nome}</p>
-                              <p className="text-[10px] text-slate-400">Operador de Impressão</p>
+                              <div className="flex items-center gap-1.5">
+                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{op.nome}</p>
+                                {isSelected && (
+                                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500 text-white font-bold uppercase tracking-wider">
+                                    Ativo
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400">Operador de Impressão</p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <span className="text-xl font-black font-mono text-amber-300">{op.totalLivro}</span>
-                            <span className="text-[10px] text-slate-400 block -mt-1 font-medium">atos impressos</span>
+                            <span className="text-xl font-black font-mono text-amber-700 dark:text-amber-300">{op.totalLivro}</span>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 block -mt-1 font-medium">atos impressos</span>
                           </div>
                         </div>
-                        <div className="w-full h-1.5 bg-amber-950/60 rounded-full overflow-hidden border border-amber-500/20">
+                        <div className="w-full h-1.5 bg-amber-100 dark:bg-amber-950/60 rounded-full overflow-hidden border border-amber-200 dark:border-amber-500/20">
                           <div
                             className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 rounded-full transition-all duration-500"
                             style={{ width: `${pct}%` }}
@@ -1311,7 +1384,7 @@ export function ControleImpressoesClient() {
                   })}
                 </div>
               ) : (
-                <div className="text-center py-4 text-xs text-slate-400">
+                <div className="text-center py-4 text-xs text-slate-500 dark:text-slate-400">
                   Nenhum ato impresso no livro no período selecionado.
                 </div>
               )}
@@ -1321,14 +1394,14 @@ export function ControleImpressoesClient() {
 
         {/* Banner informativo quando o fluxo de Certidão está ocultado */}
         {tipoImpressaoFiltro === 'livro' && (
-          <div className="xl:col-span-2 p-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-between text-xs text-cyan-200 shadow-sm animate-fadeIn">
+          <div className="xl:col-span-2 p-3.5 rounded-xl bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/25 flex items-center justify-between text-xs text-cyan-800 dark:text-cyan-200 shadow-sm animate-fadeIn">
             <div className="flex items-center gap-2.5">
-              <Printer className="w-4 h-4 text-cyan-400 shrink-0" />
+              <Printer className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
               <span>Fluxo <strong>Impressão de Certidão de Registro</strong> oculto pelo filtro Tipo de Impressão.</span>
             </div>
             <button
               onClick={() => { setTipoImpressaoFiltro('todos'); setCurrentPage(1); }}
-              className="px-3 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 font-bold transition-all text-xs"
+              className="px-3 py-1 rounded-lg bg-cyan-100 hover:bg-cyan-200 dark:bg-cyan-500/20 dark:hover:bg-cyan-500/30 text-cyan-800 dark:text-cyan-300 font-bold transition-all text-xs"
             >
               Exibir Ambos os Fluxos
             </button>
@@ -1339,22 +1412,22 @@ export function ControleImpressoesClient() {
         {tipoImpressaoFiltro !== 'livro' && (
           <div className={`flex flex-col gap-4 ${tipoImpressaoFiltro === 'certidao' ? 'xl:col-span-2' : ''}`}>
             {/* CARD 2: IMPRESSÃO DE CERTIDÃO DE REGISTRO (CIANO) */}
-            <div className="rounded-2xl bg-[#0c1427]/90 border border-cyan-500/35 p-6 shadow-xl shadow-cyan-950/20 relative overflow-hidden flex flex-col justify-between">
+            <div className="rounded-2xl bg-white dark:bg-[#0c1427]/90 border border-cyan-200 dark:border-cyan-500/35 p-6 shadow-sm dark:shadow-xl dark:shadow-cyan-950/20 relative overflow-hidden flex flex-col justify-between">
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 via-teal-400 to-cyan-600" />
               
-              <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
+              <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-200 dark:border-white/10">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-300 shadow-inner">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-500/15 border border-cyan-200 dark:border-cyan-500/30 flex items-center justify-center text-cyan-700 dark:text-cyan-300 shadow-inner">
                     <Printer className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-sm sm:text-base font-bold uppercase tracking-wider text-cyan-400">
+                    <h2 className="text-sm sm:text-base font-bold uppercase tracking-wider text-cyan-800 dark:text-cyan-400">
                       Impressão de Certidão de Registro
                     </h2>
-                    <p className="text-xs text-slate-400 mt-0.5">Fluxo de emissão e controle das certidões</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Fluxo de emissão e controle das certidões</p>
                   </div>
                 </div>
-                <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 uppercase tracking-wider">
+                <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/30 text-cyan-800 dark:text-cyan-300 uppercase tracking-wider">
                   Certidão
                 </span>
               </div>
@@ -1365,25 +1438,25 @@ export function ControleImpressoesClient() {
                   onClick={() => handleCardClick('certidao', 'todos', 'Certidão – Demanda total')}
                   className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
                     isCertidaoDemandaActive
-                      ? 'bg-cyan-500/15 border-cyan-400/80 ring-2 ring-cyan-400/50 shadow-md shadow-cyan-500/20'
+                      ? 'bg-cyan-50 dark:bg-cyan-500/15 border-cyan-400 dark:border-cyan-400/80 ring-2 ring-cyan-400/50 shadow-md shadow-cyan-500/20'
                       : statusFiltro !== 'todos'
-                        ? 'bg-white/[0.02] border-white/5 opacity-60 hover:opacity-100'
-                        : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-cyan-400/30'
+                        ? 'bg-slate-50/50 dark:bg-white/[0.02] border-slate-200/60 dark:border-white/5 opacity-60 hover:opacity-100'
+                        : 'bg-slate-50 dark:bg-white/[0.03] border-slate-200 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:border-cyan-300 dark:hover:border-cyan-400/30'
                   }`}
                   title="Clique para filtrar por demanda"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-semibold text-slate-200 block">Demanda</span>
-                      <span className="text-[11px] text-slate-400 block truncate leading-tight">(Último Registro)</span>
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 block">Demanda</span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate leading-tight">(Último Registro)</span>
                     </div>
                     {isCertidaoDemandaActive && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold uppercase">Ativo</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-100 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-300 font-bold uppercase">Ativo</span>
                     )}
                   </div>
                   <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
-                    <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight group-hover:text-cyan-200 transition-colors">{data.certidaoStats.demanda}</span>
-                    <span className="text-xs text-slate-400 font-medium">livros</span>
+                    <span className="text-2xl xl:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight group-hover:text-cyan-700 dark:group-hover:text-cyan-200 transition-colors">{data.certidaoStats.demanda}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">livros</span>
                   </div>
                 </div>
 
@@ -1392,25 +1465,25 @@ export function ControleImpressoesClient() {
                   onClick={() => handleCardClick('certidao', 'realizado', 'Certidão – Produzidas')}
                   className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
                     isCertidaoProduzidasActive
-                      ? 'bg-emerald-500/15 border-emerald-400/80 ring-2 ring-emerald-400/50 shadow-md shadow-emerald-500/20'
+                      ? 'bg-emerald-50 dark:bg-emerald-500/15 border-emerald-400 dark:border-emerald-400/80 ring-2 ring-emerald-400/50 shadow-md shadow-emerald-500/20'
                       : statusFiltro === 'pendente'
-                        ? 'bg-white/[0.02] border-white/5 opacity-60 hover:opacity-100'
-                        : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-emerald-400/30'
+                        ? 'bg-slate-50/50 dark:bg-white/[0.02] border-slate-200/60 dark:border-white/5 opacity-60 hover:opacity-100'
+                        : 'bg-slate-50 dark:bg-white/[0.03] border-slate-200 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:border-emerald-300 dark:hover:border-emerald-400/30'
                   }`}
                   title="Clique para filtrar por produzidas"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-semibold text-slate-200 block">Produzidas</span>
-                      <span className="text-[11px] text-slate-400 block truncate leading-tight">(Data Impressão)</span>
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 block">Produzidas</span>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate leading-tight">(Data Impressão)</span>
                     </div>
                     {isCertidaoProduzidasActive && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold uppercase">Ativo</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 font-bold uppercase">Ativo</span>
                     )}
                   </div>
                   <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
-                    <span className="text-2xl xl:text-3xl font-extrabold text-cyan-300 tracking-tight group-hover:text-emerald-300 transition-colors">{data.certidaoStats.produzidas}</span>
-                    <span className="text-xs text-slate-400 font-medium">livros</span>
+                    <span className="text-2xl xl:text-3xl font-extrabold text-cyan-700 dark:text-cyan-300 tracking-tight group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">{data.certidaoStats.produzidas}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">livros</span>
                   </div>
                 </div>
 
@@ -1419,53 +1492,53 @@ export function ControleImpressoesClient() {
                   onClick={() => handleCardClick('certidao', 'pendente', 'Certidão – Pendências')}
                   className={`p-3.5 rounded-xl border flex flex-col justify-between cursor-pointer transition-all group ${
                     isCertidaoPendenciasActive
-                      ? 'bg-rose-500/20 border-rose-400/80 ring-2 ring-rose-400/50 shadow-md shadow-rose-500/20'
+                      ? 'bg-rose-50 dark:bg-rose-500/20 border-rose-400 dark:border-rose-400/80 ring-2 ring-rose-400/50 shadow-md shadow-rose-500/20'
                       : statusFiltro === 'realizado'
-                        ? 'bg-white/[0.02] border-white/5 opacity-60 hover:opacity-100'
-                        : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06] hover:border-rose-400/30'
+                        ? 'bg-slate-50/50 dark:bg-white/[0.02] border-slate-200/60 dark:border-white/5 opacity-60 hover:opacity-100'
+                        : 'bg-slate-50 dark:bg-white/[0.03] border-slate-200 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:border-rose-300 dark:hover:border-rose-400/30'
                   }`}
                   title="Clique para filtrar por pendências"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-semibold text-slate-200 block">Pendências</span>
-                      <span className="text-[11px] text-rose-400/90 block truncate leading-tight">(Saldo Atual)</span>
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 block">Pendências</span>
+                      <span className="text-[11px] text-rose-600 dark:text-rose-400/90 block truncate leading-tight">(Saldo Atual)</span>
                     </div>
                     {isCertidaoPendenciasActive && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold uppercase">Ativo</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300 font-bold uppercase">Ativo</span>
                     )}
                   </div>
                   <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
-                    <span className="text-2xl xl:text-3xl font-extrabold text-rose-400 tracking-tight">{data.certidaoStats.pendencias}</span>
-                    <span className="text-xs text-slate-400 font-medium">livros</span>
+                    <span className="text-2xl xl:text-3xl font-extrabold text-rose-600 dark:text-rose-400 tracking-tight">{data.certidaoStats.pendencias}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">livros</span>
                   </div>
                 </div>
 
                 {/* Saldo Operacional */}
-                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 flex flex-col justify-between hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors">
                   <div>
-                    <span className="text-xs font-semibold text-slate-200 block">Saldo Operac.</span>
-                    <span className="text-[11px] text-slate-400 block truncate leading-tight">(Prod. - Dem.)</span>
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 block">Saldo Operac.</span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate leading-tight">(Prod. - Dem.)</span>
                   </div>
                   <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
-                    <span className={`text-2xl xl:text-3xl font-extrabold tracking-tight ${data.certidaoStats.saldoOperacional >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    <span className={`text-2xl xl:text-3xl font-extrabold tracking-tight ${data.certidaoStats.saldoOperacional >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                       {data.certidaoStats.saldoOperacional}
                     </span>
-                    <span className="text-xs text-slate-400 font-medium">livros</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">livros</span>
                   </div>
                 </div>
 
                 {/* Taxa de Atendimento */}
-                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 flex flex-col justify-between hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors">
                   <div>
-                    <span className="text-xs font-semibold text-slate-200 block">Taxa Atend.</span>
-                    <span className="text-[11px] text-slate-400 block truncate leading-tight">Eficiência</span>
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 block">Taxa Atend.</span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate leading-tight">Eficiência</span>
                   </div>
                   <div className="mt-3">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">{data.certidaoStats.taxaAtendimento}%</span>
+                      <span className="text-2xl xl:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">{data.certidaoStats.taxaAtendimento}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-cyan-950/80 rounded-full mt-2 overflow-hidden border border-cyan-500/20">
+                    <div className="w-full h-1.5 bg-cyan-100 dark:bg-cyan-950/80 rounded-full mt-2 overflow-hidden border border-cyan-200 dark:border-cyan-500/20">
                       <div
                         className="h-full bg-gradient-to-r from-cyan-500 to-teal-400 rounded-full transition-all duration-500"
                         style={{ width: `${Math.min(100, data.certidaoStats.taxaAtendimento)}%` }}
@@ -1475,28 +1548,28 @@ export function ControleImpressoesClient() {
                 </div>
 
                 {/* Tempo Médio */}
-                <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition-colors">
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/5 flex flex-col justify-between hover:bg-slate-100 dark:hover:bg-white/[0.05] transition-colors">
                   <div>
-                    <span className="text-xs font-semibold text-slate-200 block">Tempo Médio</span>
-                    <span className="text-[11px] text-slate-400 block truncate leading-tight">para Impressão</span>
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 block">Tempo Médio</span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate leading-tight">para Impressão</span>
                   </div>
                   <div className="mt-3 flex items-baseline gap-1.5 overflow-hidden min-w-0">
-                    <span className="text-2xl xl:text-3xl font-extrabold text-white tracking-tight">1,3</span>
-                    <span className="text-xs text-slate-400 font-medium">dias</span>
+                    <span className="text-2xl xl:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">1,3</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">dias</span>
                   </div>
                 </div>
               </div>
 
-              <div className="pt-3.5 border-t border-white/10 text-xs text-slate-300 flex items-center justify-between flex-wrap gap-2">
+              <div className="pt-3.5 border-t border-slate-200 dark:border-white/10 text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-400">Backlog início do período:</span>
-                  <span className="px-2.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-amber-300 font-bold font-mono text-xs">
+                  <span className="text-slate-500 dark:text-slate-400">Backlog início do período:</span>
+                  <span className="px-2.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 text-amber-800 dark:text-amber-300 font-bold font-mono text-xs">
                     {data.certidaoStats.backlogInicio} livros
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-400">Backlog final do período:</span>
-                  <span className="px-2.5 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-300 font-bold font-mono text-xs">
+                  <span className="text-slate-500 dark:text-slate-400">Backlog final do período:</span>
+                  <span className="px-2.5 py-0.5 rounded-md bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25 text-rose-800 dark:text-rose-300 font-bold font-mono text-xs">
                     {data.certidaoStats.backlogFinal} livros
                   </span>
                 </div>
@@ -1504,18 +1577,18 @@ export function ControleImpressoesClient() {
             </div>
 
             {/* CARD DE PRODUÇÃO DO OPERADOR DA CERTIDÃO (DAVID) */}
-            <div className="rounded-2xl bg-[#0c1427]/90 border border-cyan-500/30 p-5 shadow-lg relative overflow-hidden">
+            <div className="rounded-2xl bg-white dark:bg-[#0c1427]/90 border border-cyan-200 dark:border-cyan-500/30 p-5 shadow-sm dark:shadow-lg relative overflow-hidden">
               <div className="flex items-center justify-between mb-3.5">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center">
-                    <User className="w-4 h-4 text-cyan-400" />
+                  <div className="w-8 h-8 rounded-lg bg-cyan-50 dark:bg-cyan-500/15 border border-cyan-200 dark:border-cyan-500/30 flex items-center justify-center">
+                    <User className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-300">Produção por Operador · Certidão</h3>
-                    <p className="text-[11px] text-slate-400">Certidões de Registro emitidas/preparadas no período</p>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-cyan-800 dark:text-cyan-300">Produção por Operador · Certidão</h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Certidões de Registro emitidas/preparadas no período</p>
                   </div>
                 </div>
-                <span className="text-[11px] font-semibold text-cyan-400/90 bg-cyan-500/10 px-2.5 py-0.5 rounded-full border border-cyan-500/25">
+                <span className="text-[11px] font-semibold text-cyan-800 dark:text-cyan-400/90 bg-cyan-50 dark:bg-cyan-500/10 px-2.5 py-0.5 rounded-full border border-cyan-200 dark:border-cyan-500/25">
                   {operadoresCertidao.length} {operadoresCertidao.length === 1 ? 'operador' : 'operadores'}
                 </span>
               </div>
@@ -1523,26 +1596,49 @@ export function ControleImpressoesClient() {
               {operadoresCertidao.length > 0 ? (
                 <div className="space-y-2.5">
                   {operadoresCertidao.map((op) => {
+                    const isSelected = operadorFiltro === op.nome;
                     const maxCertidao = operadoresCertidao[0]?.totalCertidao || 1;
                     const pct = Math.round((op.totalCertidao / maxCertidao) * 100);
                     return (
-                      <div key={op.nome} className="rounded-xl bg-white/[0.03] border border-cyan-500/15 p-3.5 flex flex-col gap-2.5 hover:bg-white/[0.05] transition-colors">
+                      <div
+                        key={op.nome}
+                        onClick={() => handleOperadorClick(op.nome)}
+                        role="button"
+                        tabIndex={0}
+                        title={isSelected ? `Remover filtro de ${op.nome}` : `Filtrar protocolos emitidos por ${op.nome}`}
+                        className={`rounded-xl p-3.5 flex flex-col gap-2.5 cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-cyan-100/70 dark:bg-cyan-500/20 border-2 border-cyan-500 dark:border-cyan-400 shadow-md shadow-cyan-500/20 ring-2 ring-cyan-400/40'
+                            : 'bg-slate-50 dark:bg-white/[0.03] border border-cyan-200/60 dark:border-cyan-500/15 hover:bg-cyan-50/60 dark:hover:bg-cyan-500/10 hover:border-cyan-400/50'
+                        }`}
+                      >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-7 h-7 rounded-full bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center shrink-0">
-                              <User className="w-3.5 h-3.5 text-cyan-300" />
+                            <div className={`w-7 h-7 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                              isSelected
+                                ? 'bg-cyan-600 text-white border-cyan-700'
+                                : 'bg-cyan-100 dark:bg-cyan-500/15 border-cyan-300 dark:border-cyan-500/30 text-cyan-700 dark:text-cyan-300'
+                            }`}>
+                              <User className="w-3.5 h-3.5" />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-xs font-bold text-white truncate">{op.nome}</p>
-                              <p className="text-[10px] text-slate-400">Operador de Certidões</p>
+                              <div className="flex items-center gap-1.5">
+                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{op.nome}</p>
+                                {isSelected && (
+                                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-600 text-white font-bold uppercase tracking-wider">
+                                    Ativo
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400">Operador de Certidões</p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <span className="text-xl font-black font-mono text-cyan-300">{op.totalCertidao}</span>
-                            <span className="text-[10px] text-slate-400 block -mt-1 font-medium">certidões emitidas</span>
+                            <span className="text-xl font-black font-mono text-cyan-700 dark:text-cyan-300">{op.totalCertidao}</span>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 block -mt-1 font-medium">certidões emitidas</span>
                           </div>
                         </div>
-                        <div className="w-full h-1.5 bg-cyan-950/60 rounded-full overflow-hidden border border-cyan-500/20">
+                        <div className="w-full h-1.5 bg-cyan-100 dark:bg-cyan-950/60 rounded-full overflow-hidden border border-cyan-200 dark:border-cyan-500/20">
                           <div
                             className="h-full bg-gradient-to-r from-cyan-500 via-teal-400 to-cyan-600 rounded-full transition-all duration-500"
                             style={{ width: `${pct}%` }}
@@ -1553,7 +1649,7 @@ export function ControleImpressoesClient() {
                   })}
                 </div>
               ) : (
-                <div className="text-center py-4 text-xs text-slate-400">
+                <div className="text-center py-4 text-xs text-slate-500 dark:text-slate-400">
                   Nenhuma certidão emitida no período selecionado.
                 </div>
               )}
@@ -1563,29 +1659,29 @@ export function ControleImpressoesClient() {
       </div>
 
       {/* ────────────────── TABELA DE SITUAÇÃO DAS IMPRESSÕES ────────────────── */}
-      <div ref={tableRef} className="w-full rounded-2xl bg-[#0c1222]/90 border border-white/10 p-6 shadow-xl overflow-hidden print:p-0 print:border-none print:shadow-none print:bg-white">
-        <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10 flex-wrap gap-3 print:hidden">
+      <div ref={tableRef} className="w-full rounded-2xl bg-white dark:bg-[#0c1222]/90 border border-slate-200 dark:border-white/10 p-6 shadow-sm dark:shadow-xl overflow-hidden print:p-0 print:border-none print:shadow-none print:bg-white">
+        <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-200 dark:border-white/10 flex-wrap gap-3 print:hidden">
           <div>
-            <h3 className="text-sm sm:text-base font-bold uppercase tracking-wider text-slate-100">
+            <h3 className="text-sm sm:text-base font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
               Pendências e Situação das Impressões
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               (base: {visao === 'producao' ? 'Data das Impressões Realizadas' : 'Data do Último Registro'})
             </p>
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
-            <span className="px-3 py-1 rounded-lg bg-slate-800/90 border border-white/15 text-xs text-slate-200 font-mono font-semibold">
+            <span className="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-white/15 text-xs text-slate-700 dark:text-slate-200 font-mono font-semibold">
               {data.totalRegistros} {data.totalRegistros === 1 ? 'registro' : 'registros'}
             </span>
             {activeCardLabel && (
               <div className="flex items-center gap-1.5">
-                <span className="px-2.5 py-0.5 rounded-full bg-violet-500/20 border border-violet-500/40 text-violet-300 text-xs font-semibold">
+                <span className="px-2.5 py-0.5 rounded-full bg-violet-50 dark:bg-violet-500/20 border border-violet-200 dark:border-violet-500/40 text-violet-700 dark:text-violet-300 text-xs font-semibold">
                   Filtro: {activeCardLabel}
                 </span>
                 <button
                   onClick={() => { setTipoImpressaoFiltro('todos'); setStatusFiltro('todos'); setActiveCardLabel(null); }}
-                  className="text-xs text-slate-400 hover:text-white px-2 py-0.5 rounded border border-white/10 hover:bg-white/5 transition-colors"
+                  className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-2 py-0.5 rounded border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
                 >
                   × Limpar
                 </button>
@@ -1594,20 +1690,20 @@ export function ControleImpressoesClient() {
             {/* Indicador de Ordenação Ativa */}
             <div
               onClick={() => handleSort(sortBy)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141B2D] hover:bg-[#1A233A] border border-white/15 text-xs text-slate-300 shadow-sm cursor-pointer select-none transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-[#141B2D] hover:bg-slate-100 dark:hover:bg-[#1A233A] border border-slate-200 dark:border-white/15 text-xs text-slate-700 dark:text-slate-300 shadow-sm cursor-pointer select-none transition-colors"
               title="Clique para alternar a direção da ordenação"
             >
-              <ArrowUpDown className="w-3.5 h-3.5 text-purple-400" />
+              <ArrowUpDown className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
               <span>Ordem:</span>
-              <strong className="text-white">{getColumnLabel(sortBy)}</strong>
-              <span className="text-[11px] text-purple-300 font-semibold">
+              <strong className="text-slate-900 dark:text-white">{getColumnLabel(sortBy)}</strong>
+              <span className="text-[11px] text-purple-700 dark:text-purple-300 font-semibold">
                 ({sortOrder === 'asc' ? 'Crescente' : 'Decrescente'})
               </span>
             </div>
 
             {/* NOVO: Botão Imprimir Listagem */}
             <div className="relative" ref={printTableMenuRef}>
-              <div className="inline-flex rounded-lg shadow-sm border border-emerald-500/40 bg-emerald-600/20 p-0.5">
+              <div className="inline-flex rounded-lg shadow-sm border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-600/20 p-0.5">
                 <button
                   type="button"
                   onClick={handleImprimirPaginaAtual}
@@ -1618,7 +1714,7 @@ export function ControleImpressoesClient() {
                   {preparandoImpressaoTodos ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-200" />
                   ) : (
-                    <Printer className="w-3.5 h-3.5 text-emerald-200" />
+                    <Printer className="w-3.5 h-3.5 text-white" />
                   )}
                   <span>{preparandoImpressaoTodos ? 'Carregando...' : 'Imprimir Listagem'}</span>
                 </button>
@@ -1626,7 +1722,7 @@ export function ControleImpressoesClient() {
                   type="button"
                   onClick={() => setMenuImprimirTabelaAberto((prev) => !prev)}
                   disabled={preparandoImpressaoTodos}
-                  className="px-1.5 py-1.5 rounded-md hover:bg-emerald-500/40 text-emerald-200 transition-colors disabled:opacity-50"
+                  className="px-1.5 py-1.5 rounded-md hover:bg-emerald-500/30 text-emerald-700 dark:text-emerald-200 transition-colors disabled:opacity-50"
                   title="Mais opções de impressão desta listagem"
                 >
                   <ChevronDown className="w-3.5 h-3.5" />
@@ -1635,20 +1731,20 @@ export function ControleImpressoesClient() {
 
               {/* Dropdown com opções de impressão */}
               {menuImprimirTabelaAberto && (
-                <div className="absolute right-0 mt-1.5 w-64 rounded-xl bg-[#10172A] border border-white/15 shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-                  <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider border-b border-white/10 mb-1">
+                <div className="absolute right-0 mt-1.5 w-64 rounded-xl bg-white dark:bg-[#10172A] border border-slate-200 dark:border-white/15 shadow-xl dark:shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-white/10 mb-1">
                     Opções de Impressão da Listagem
                   </div>
 
                   <button
                     type="button"
                     onClick={handleImprimirPaginaAtual}
-                    className="flex items-start gap-2.5 w-full px-3 py-2 text-left rounded-lg text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors"
+                    className="flex items-start gap-2.5 w-full px-3 py-2 text-left rounded-lg text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white transition-colors"
                   >
-                    <Printer className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <Printer className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                     <div>
-                      <div className="font-semibold text-white">Imprimir página atual</div>
-                      <div className="text-[11px] text-slate-400">
+                      <div className="font-semibold text-slate-900 dark:text-white">Imprimir página atual</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
                         {paginatedRows.length} {paginatedRows.length === 1 ? 'protocolo visível' : 'protocolos visíveis'} na página
                       </div>
                     </div>
@@ -1657,18 +1753,18 @@ export function ControleImpressoesClient() {
                   <button
                     type="button"
                     onClick={handleImprimirTodosRegistros}
-                    className="flex items-start gap-2.5 w-full px-3 py-2 text-left rounded-lg text-xs text-slate-200 hover:bg-white/10 hover:text-white transition-colors"
+                    className="flex items-start gap-2.5 w-full px-3 py-2 text-left rounded-lg text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white transition-colors"
                   >
-                    <Download className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                    <Download className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
                     <div>
-                      <div className="font-semibold text-white">Imprimir todos os registros</div>
-                      <div className="text-[11px] text-slate-400">
+                      <div className="font-semibold text-slate-900 dark:text-white">Imprimir todos os registros</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
                         Carrega todos os {data.totalRegistros} protocolos filtrados
                       </div>
                     </div>
                   </button>
 
-                  <div className="mt-1 pt-1.5 border-t border-white/10 px-3 py-1 text-[10px] text-slate-400">
+                  <div className="mt-1 pt-1.5 border-t border-slate-200 dark:border-white/10 px-3 py-1 text-[10px] text-slate-500 dark:text-slate-400">
                     💡 <em>Você também pode escolher ver até 100 linhas por página no rodapé da tabela.</em>
                   </div>
                 </div>
@@ -1678,15 +1774,15 @@ export function ControleImpressoesClient() {
         </div>
 
         {/* Tabela Responsiva com Distribuição Equilibrada */}
-        <div className="overflow-x-auto rounded-xl border border-white/8 print:overflow-visible print:border print:border-slate-300 print:rounded-none">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/8 print:overflow-visible print:border print:border-slate-300 print:rounded-none">
           <table className="w-full table-fixed text-left border-collapse min-w-[960px] print:min-w-0 print:w-full print:border-collapse">
             <thead>
-              <tr className="border-b border-white/10 bg-white/[0.02] text-xs font-semibold text-slate-300 print:bg-slate-100 print:border-b-2 print:border-slate-400">
+              <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-xs font-semibold text-slate-700 dark:text-slate-300 print:bg-slate-100 print:border-b-2 print:border-slate-400">
                 {/* Protocolo */}
                 <th
                   onClick={() => handleSort('protocolo')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[8%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
-                    sortBy === 'protocolo' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  className={`py-3 px-3.5 whitespace-nowrap w-[8%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                    sortBy === 'protocolo' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
                   }`}
                   title="Clique para ordenar por Protocolo"
                 >
@@ -1699,8 +1795,8 @@ export function ControleImpressoesClient() {
                 {/* Nº Livro */}
                 <th
                   onClick={() => handleSort('numeroLivro')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[9%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
-                    sortBy === 'numeroLivro' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  className={`py-3 px-3.5 whitespace-nowrap w-[9%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                    sortBy === 'numeroLivro' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
                   }`}
                   title="Clique para ordenar por Nº Livro / Matrícula"
                 >
@@ -1713,8 +1809,8 @@ export function ControleImpressoesClient() {
                 {/* Tipo / Natureza */}
                 <th
                   onClick={() => handleSort('tipoNatureza')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[14%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
-                    sortBy === 'tipoNatureza' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  className={`py-3 px-3.5 whitespace-nowrap w-[14%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                    sortBy === 'tipoNatureza' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
                   }`}
                   title="Clique para ordenar por Natureza"
                 >
@@ -1727,8 +1823,8 @@ export function ControleImpressoesClient() {
                 {/* Data Entrada */}
                 <th
                   onClick={() => handleSort('dataEntrada')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[8%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
-                    sortBy === 'dataEntrada' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  className={`py-3 px-3.5 whitespace-nowrap w-[8%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                    sortBy === 'dataEntrada' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
                   }`}
                   title="Clique para ordenar por Data de Entrada"
                 >
@@ -1741,8 +1837,8 @@ export function ControleImpressoesClient() {
                 {/* Etapa Atual */}
                 <th
                   onClick={() => handleSort('etapaAtual')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[13%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
-                    sortBy === 'etapaAtual' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  className={`py-3 px-3.5 whitespace-nowrap w-[13%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                    sortBy === 'etapaAtual' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
                   }`}
                   title="Clique para ordenar por Etapa Atual"
                 >
@@ -1755,8 +1851,8 @@ export function ControleImpressoesClient() {
                 {/* Último Registro */}
                 <th
                   onClick={() => handleSort('ultimoRegistro')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[11%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
-                    sortBy === 'ultimoRegistro' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  className={`py-3 px-3.5 whitespace-nowrap w-[11%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                    sortBy === 'ultimoRegistro' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
                   }`}
                   title="Clique para ordenar por Data do Último Registro"
                 >
@@ -1769,9 +1865,9 @@ export function ControleImpressoesClient() {
                 {/* Impressão no Livro */}
                 <th
                   onClick={() => handleSort('livroStatus')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[11%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
-                    sortBy === 'livroStatus' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
-                  } ${tipoImpressaoFiltro === 'livro' ? 'border-b-2 border-amber-400 font-bold' : ''}`}
+                  className={`py-3 px-3.5 whitespace-nowrap w-[11%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                    sortBy === 'livroStatus' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
+                  } ${tipoImpressaoFiltro === 'livro' ? 'border-b-2 border-amber-500 dark:border-amber-400 font-bold' : ''}`}
                   title="Clique para ordenar por Status de Impressão do Livro"
                 >
                   <div className="flex items-center gap-1.5">
@@ -1783,9 +1879,9 @@ export function ControleImpressoesClient() {
                 {/* Certidão Registro */}
                 <th
                   onClick={() => handleSort('certidaoStatus')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[10%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
-                    sortBy === 'certidaoStatus' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
-                  } ${tipoImpressaoFiltro === 'certidao' ? 'border-b-2 border-cyan-400 font-bold' : ''}`}
+                  className={`py-3 px-3.5 whitespace-nowrap w-[10%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                    sortBy === 'certidaoStatus' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
+                  } ${tipoImpressaoFiltro === 'certidao' ? 'border-b-2 border-cyan-500 dark:border-cyan-400 font-bold' : ''}`}
                   title="Clique para ordenar por Status da Certidão"
                 >
                   <div className="flex items-center gap-1.5">
@@ -1797,8 +1893,8 @@ export function ControleImpressoesClient() {
                 {/* Impresso por */}
                 <th
                   onClick={() => handleSort('impressoPor')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[10%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
-                    sortBy === 'impressoPor' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  className={`py-3 px-3.5 whitespace-nowrap w-[10%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                    sortBy === 'impressoPor' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
                   }`}
                   title="Clique para ordenar por Operador Responsável"
                 >
@@ -1812,8 +1908,8 @@ export function ControleImpressoesClient() {
                 {/* Dias */}
                 <th
                   onClick={() => handleSort('diasPendente')}
-                  className={`py-3 px-3.5 text-center whitespace-nowrap w-[6%] cursor-pointer select-none group transition-colors hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold ${
-                    sortBy === 'diasPendente' ? 'text-purple-300 font-bold bg-purple-500/10' : 'text-slate-300'
+                  className={`py-3 px-3.5 text-center whitespace-nowrap w-[6%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold ${
+                    sortBy === 'diasPendente' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
                   }`}
                   title="Clique para ordenar por Dias de Pendência"
                 >
@@ -1824,79 +1920,79 @@ export function ControleImpressoesClient() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5 text-xs sm:text-[13px] print:divide-slate-200">
+            <tbody className="divide-y divide-slate-200 dark:divide-white/5 text-xs sm:text-[13px] print:divide-slate-200">
               {rowsParaExibir.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-400 text-sm font-medium print:text-slate-600 print:py-6">
+                  <td colSpan={10} className="py-12 text-center text-slate-500 dark:text-slate-400 text-sm font-medium print:text-slate-600 print:py-6">
                     Nenhum registro encontrado para os filtros selecionados.
                   </td>
                 </tr>
               ) : (
                 rowsParaExibir.map((row) => (
-                  <tr key={row.id} className="hover:bg-white/[0.04] transition-colors print:even:bg-slate-50">
+                  <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors print:even:bg-slate-50">
                     {/* Protocolo */}
-                    <td className="py-3.5 px-3.5 font-mono font-bold text-white whitespace-nowrap text-sm print:text-slate-950 print:py-1.5 print:px-2 print:text-[11px] print:border-b print:border-slate-200">
+                    <td className="py-3.5 px-3.5 font-mono font-bold text-slate-900 dark:text-white whitespace-nowrap text-sm print:text-slate-950 print:py-1.5 print:px-2 print:text-[11px] print:border-b print:border-slate-200">
                       {row.protocolo}
                     </td>
 
                     {/* Nº Livro */}
-                    <td className="py-3.5 px-3.5 font-mono font-semibold text-slate-200 whitespace-nowrap text-xs sm:text-sm print:text-slate-850 print:py-1.5 print:px-2 print:text-[10px] print:border-b print:border-slate-200">
+                    <td className="py-3.5 px-3.5 font-mono font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap text-xs sm:text-sm print:text-slate-850 print:py-1.5 print:px-2 print:text-[10px] print:border-b print:border-slate-200">
                       {row.numeroLivro}
                     </td>
 
                     {/* Tipo / Natureza Badge */}
                     <td className="py-3.5 px-3.5 print:py-1.5 print:px-2 print:border-b print:border-slate-200">
-                      <span className="inline-block px-2.5 py-1 rounded-md bg-[#221544] border border-purple-500/35 text-xs font-semibold text-purple-200 shadow-sm whitespace-nowrap print:bg-slate-100 print:border print:border-slate-300 print:text-slate-900 print:shadow-none print:py-0.5 print:px-1.5 print:text-[9.5px]">
+                      <span className="inline-block px-2.5 py-1 rounded-md bg-purple-50 dark:bg-[#221544] border border-purple-200 dark:border-purple-500/35 text-xs font-semibold text-purple-700 dark:text-purple-200 shadow-sm whitespace-nowrap print:bg-slate-100 print:border print:border-slate-300 print:text-slate-900 print:shadow-none print:py-0.5 print:px-1.5 print:text-[9.5px]">
                         {row.tipoNatureza}
                       </span>
                     </td>
 
                     {/* Data Entrada */}
-                    <td className="py-3.5 px-3.5 font-mono text-xs text-slate-300 whitespace-nowrap print:text-slate-700 print:py-1.5 print:px-2 print:text-[10px] print:border-b print:border-slate-200">
+                    <td className="py-3.5 px-3.5 font-mono text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap print:text-slate-700 print:py-1.5 print:px-2 print:text-[10px] print:border-b print:border-slate-200">
                       {row.dataEntrada || '-'}
                     </td>
 
                     {/* Etapa Atual Badge */}
                     <td className="py-3.5 px-3.5 print:py-1.5 print:px-2 print:border-b print:border-slate-200">
                       {row.etapaAtual?.toLowerCase().includes('devolvido') ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-950/40 border border-amber-500/30 text-amber-300 shadow-sm whitespace-nowrap print:bg-transparent print:border-none print:text-amber-800 print:shadow-none print:p-0 print:text-[9.5px] print:font-semibold">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 print:hidden" />
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-300 shadow-sm whitespace-nowrap print:bg-transparent print:border-none print:text-amber-800 print:shadow-none print:p-0 print:text-[9.5px] print:font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 print:hidden" />
                           {row.etapaAtual}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-cyan-950/40 border border-cyan-500/25 text-cyan-200 shadow-sm whitespace-nowrap print:bg-transparent print:border-none print:text-slate-800 print:shadow-none print:p-0 print:text-[9.5px] print:font-semibold">
-                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0 animate-pulse print:hidden" />
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-500/25 text-cyan-800 dark:text-cyan-200 shadow-sm whitespace-nowrap print:bg-transparent print:border-none print:text-slate-800 print:shadow-none print:p-0 print:text-[9.5px] print:font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 shrink-0 animate-pulse print:hidden" />
                           {row.etapaAtual || 'Impressão'}
                         </span>
                       )}
                     </td>
 
                     {/* Último Registro */}
-                    <td className="py-3.5 px-3.5 font-mono text-xs text-slate-300 whitespace-nowrap print:text-slate-700 print:py-1.5 print:px-2 print:text-[10px] print:border-b print:border-slate-200">
+                    <td className="py-3.5 px-3.5 font-mono text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap print:text-slate-700 print:py-1.5 print:px-2 print:text-[10px] print:border-b print:border-slate-200">
                       {row.ultimoRegistro}
                     </td>
 
                     {/* Impressão no Livro Status */}
-                    <td className={`py-3.5 px-3.5 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200 ${tipoImpressaoFiltro === 'livro' ? 'bg-amber-500/[0.06] print:bg-transparent' : ''}`}>
+                    <td className={`py-3.5 px-3.5 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200 ${tipoImpressaoFiltro === 'livro' ? 'bg-amber-50/50 dark:bg-amber-500/[0.06] print:bg-transparent' : ''}`}>
                       {row.livroStatus === 'REALIZADO' && (
                         <div className="flex items-start gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0 print:hidden" />
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0 print:hidden" />
                           <div>
-                            <span className="font-semibold text-emerald-300 text-xs sm:text-[13px] print:text-emerald-800 print:font-bold print:text-[10.5px]">Realizado</span>
+                            <span className="font-semibold text-emerald-700 dark:text-emerald-300 text-xs sm:text-[13px] print:text-emerald-800 print:font-bold print:text-[10.5px]">Realizado</span>
                             {row.livroData && (
-                              <p className="text-[11px] text-slate-400 font-mono mt-0.5 print:text-slate-600 print:text-[9px]">{row.livroData}</p>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5 print:text-slate-600 print:text-[9px]">{row.livroData}</p>
                             )}
                           </div>
                         </div>
                       )}
                       {row.livroStatus === 'PENDENTE' && (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-300 font-semibold text-xs print:bg-rose-50 print:border print:border-rose-400 print:text-rose-800 print:py-0.5 print:px-1.5 print:text-[9.5px] print:font-bold">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-50 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 font-semibold text-xs print:bg-rose-50 print:border print:border-rose-400 print:text-rose-800 print:py-0.5 print:px-1.5 print:text-[9.5px] print:font-bold">
                           <AlertCircle className="w-3.5 h-3.5 shrink-0 print:hidden" />
                           <span>Pendente</span>
                         </div>
                       )}
                       {row.livroStatus === 'NAO_APLICAVEL' && (
-                        <div className="flex items-center gap-1.5 text-slate-500 text-xs print:text-slate-400 print:text-[9.5px]">
+                        <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 text-xs print:text-slate-400 print:text-[9.5px]">
                           <MinusCircle className="w-3.5 h-3.5 shrink-0 print:hidden" />
                           <span>Não aplicável</span>
                         </div>
@@ -1904,26 +2000,26 @@ export function ControleImpressoesClient() {
                     </td>
 
                     {/* Certidão Registro Status */}
-                    <td className={`py-3.5 px-3.5 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200 ${tipoImpressaoFiltro === 'certidao' ? 'bg-cyan-500/[0.06] print:bg-transparent' : ''}`}>
+                    <td className={`py-3.5 px-3.5 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200 ${tipoImpressaoFiltro === 'certidao' ? 'bg-cyan-50/50 dark:bg-cyan-500/[0.06] print:bg-transparent' : ''}`}>
                       {row.certidaoStatus === 'REALIZADO' && (
                         <div className="flex items-start gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0 print:hidden" />
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0 print:hidden" />
                           <div>
-                            <span className="font-semibold text-emerald-300 text-xs sm:text-[13px] print:text-emerald-800 print:font-bold print:text-[10.5px]">Realizado</span>
+                            <span className="font-semibold text-emerald-700 dark:text-emerald-300 text-xs sm:text-[13px] print:text-emerald-800 print:font-bold print:text-[10.5px]">Realizado</span>
                             {row.certidaoData && (
-                              <p className="text-[11px] text-slate-400 font-mono mt-0.5 print:text-slate-600 print:text-[9px]">{row.certidaoData}</p>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5 print:text-slate-600 print:text-[9px]">{row.certidaoData}</p>
                             )}
                           </div>
                         </div>
                       )}
                       {row.certidaoStatus === 'PENDENTE' && (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-300 font-semibold text-xs print:bg-rose-50 print:border print:border-rose-400 print:text-rose-800 print:py-0.5 print:px-1.5 print:text-[9.5px] print:font-bold">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-50 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 font-semibold text-xs print:bg-rose-50 print:border print:border-rose-400 print:text-rose-800 print:py-0.5 print:px-1.5 print:text-[9.5px] print:font-bold">
                           <AlertCircle className="w-3.5 h-3.5 shrink-0 print:hidden" />
                           <span>Pendente</span>
                         </div>
                       )}
                       {row.certidaoStatus === 'NAO_APLICAVEL' && (
-                        <div className="flex items-center gap-1.5 text-slate-500 text-xs print:text-slate-400 print:text-[9.5px]">
+                        <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-500 text-xs print:text-slate-400 print:text-[9.5px]">
                           <MinusCircle className="w-3.5 h-3.5 shrink-0 print:hidden" />
                           <span>Não aplicável</span>
                         </div>
@@ -1937,20 +2033,46 @@ export function ControleImpressoesClient() {
                           ? (row.certidaoResponsavel || row.livroResponsavel)
                           : (row.livroResponsavel || row.certidaoResponsavel);
 
-                        if (!resp) return <span className="text-slate-600 text-xs print:text-slate-400">—</span>;
+                        if (!resp) return <span className="text-slate-400 dark:text-slate-600 text-xs print:text-slate-400">—</span>;
 
                         return (
                           <div className="flex flex-col gap-0.5" title={`Livro: ${row.livroResponsavel || '-'} | Certidão: ${row.certidaoResponsavel || '-'}`}>
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-5 h-5 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center shrink-0 print:hidden">
-                                <User className="w-2.5 h-2.5 text-violet-400" />
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOperadorClick(resp);
+                              }}
+                              role="button"
+                              tabIndex={0}
+                              title={`Clique para filtrar pelo operador ${resp}`}
+                              className="flex items-center gap-1.5 cursor-pointer group/op w-fit"
+                            >
+                              <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-all print:hidden ${
+                                operadorFiltro === resp
+                                  ? 'bg-purple-600 text-white border-purple-700'
+                                  : 'bg-violet-100 dark:bg-violet-500/20 border-violet-200 dark:border-violet-500/30 group-hover/op:border-purple-400'
+                              }`}>
+                                <User className={`w-2.5 h-2.5 ${operadorFiltro === resp ? 'text-white' : 'text-violet-600 dark:text-violet-400'}`} />
                               </div>
-                              <span className="text-xs text-slate-200 truncate max-w-[120px] font-medium print:text-slate-900 print:max-w-none print:text-[10px]">
+                              <span className={`text-xs truncate max-w-[120px] font-medium transition-colors print:text-slate-900 print:max-w-none print:text-[10px] ${
+                                operadorFiltro === resp
+                                  ? 'text-purple-700 dark:text-purple-300 font-bold underline'
+                                  : 'text-slate-800 dark:text-slate-200 group-hover/op:text-purple-600 dark:group-hover/op:text-purple-300 group-hover/op:underline'
+                              }`}>
                                 {resp}
                               </span>
                             </div>
                             {row.livroResponsavel && row.certidaoResponsavel && row.livroResponsavel !== row.certidaoResponsavel && tipoImpressaoFiltro === 'todos' && (
-                              <span className="text-[10px] text-slate-400 pl-6 truncate max-w-[130px] print:text-slate-600 print:pl-0 print:text-[9px]">
+                              <span
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOperadorClick(row.certidaoResponsavel!);
+                                }}
+                                role="button"
+                                tabIndex={0}
+                                title={`Clique para filtrar pelo operador de certidão ${row.certidaoResponsavel}`}
+                                className="text-[10px] text-slate-500 dark:text-slate-400 pl-6 truncate max-w-[130px] cursor-pointer hover:underline hover:text-cyan-600 dark:hover:text-cyan-300 print:text-slate-600 print:pl-0 print:text-[9px]"
+                              >
                                 Cert: {row.certidaoResponsavel}
                               </span>
                             )}
@@ -1962,11 +2084,11 @@ export function ControleImpressoesClient() {
                     {/* Dias Pendente */}
                     <td className="py-3.5 px-3.5 text-center font-mono whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200">
                       {row.diasPendente > 0 ? (
-                        <span className="inline-block px-2.5 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-300 font-bold text-xs sm:text-[13px] print:bg-transparent print:border-none print:text-rose-700 print:font-extrabold print:text-[11px]">
+                        <span className="inline-block px-2.5 py-0.5 rounded-md bg-rose-50 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 font-bold text-xs sm:text-[13px] print:bg-transparent print:border-none print:text-rose-700 print:font-extrabold print:text-[11px]">
                           {row.diasPendente}
                         </span>
                       ) : (
-                        <span className="text-slate-500 text-xs sm:text-[13px] print:text-slate-400 print:text-[11px]">0</span>
+                        <span className="text-slate-400 dark:text-slate-500 text-xs sm:text-[13px] print:text-slate-400 print:text-[11px]">0</span>
                       )}
                     </td>
                   </tr>
@@ -1978,16 +2100,16 @@ export function ControleImpressoesClient() {
         </div>
 
         {/* Paginação */}
-        <div className="flex items-center justify-between pt-4 mt-4 border-t border-white/10 text-xs sm:text-sm text-slate-300 flex-wrap gap-3 print:hidden">
+        <div className="flex items-center justify-between pt-4 mt-4 border-t border-slate-200 dark:border-white/10 text-xs sm:text-sm text-slate-600 dark:text-slate-300 flex-wrap gap-3 print:hidden">
           <div className="flex items-center gap-2.5">
-            <span className="text-slate-400 font-medium">Linhas por página:</span>
+            <span className="text-slate-500 dark:text-slate-400 font-medium">Linhas por página:</span>
             <select
               value={pageSize}
               onChange={(e) => {
                 setPageSize(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="bg-[#141B2D] border border-white/15 rounded-md px-2.5 py-1 text-xs text-white focus:outline-none focus:border-indigo-500"
+              className="bg-slate-50 dark:bg-[#141B2D] border border-slate-200 dark:border-white/15 rounded-md px-2.5 py-1 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-indigo-500"
             >
               <option value={5}>5</option>
               <option value={10}>10</option>
@@ -1997,7 +2119,7 @@ export function ControleImpressoesClient() {
             </select>
           </div>
 
-          <div className="font-mono text-slate-400">
+          <div className="font-mono text-slate-500 dark:text-slate-400">
             {data.totalRegistros === 0
               ? '0 de 0'
               : `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, data.totalRegistros)} de ${data.totalRegistros}`}
@@ -2007,7 +2129,7 @@ export function ControleImpressoesClient() {
             <button
               disabled={currentPage <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="p-1.5 rounded-md bg-[#141B2D] border border-white/15 text-slate-300 hover:text-white hover:bg-[#1A233A] disabled:opacity-40 disabled:hover:bg-[#141B2D] transition-colors"
+              className="p-1.5 rounded-md bg-slate-100 dark:bg-[#141B2D] border border-slate-200 dark:border-white/15 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#1A233A] disabled:opacity-40 disabled:hover:bg-slate-100 dark:disabled:hover:bg-[#141B2D] transition-colors"
               title="Página anterior"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -2018,7 +2140,7 @@ export function ControleImpressoesClient() {
             <button
               disabled={currentPage >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="p-1.5 rounded-md bg-[#141B2D] border border-white/15 text-slate-300 hover:text-white hover:bg-[#1A233A] disabled:opacity-40 disabled:hover:bg-[#141B2D] transition-colors"
+              className="p-1.5 rounded-md bg-slate-100 dark:bg-[#141B2D] border border-slate-200 dark:border-white/15 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#1A233A] disabled:opacity-40 disabled:hover:bg-slate-100 dark:disabled:hover:bg-[#141B2D] transition-colors"
               title="Próxima página"
             >
               <ChevronRight className="w-4 h-4" />

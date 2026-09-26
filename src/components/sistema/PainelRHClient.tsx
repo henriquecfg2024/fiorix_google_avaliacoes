@@ -387,7 +387,7 @@ export function PainelRHClient({
   const percentFeriasProgramadas = totalColaboradores > 0 ? Math.round((totalFeriasProgramadas / totalColaboradores) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden pb-24 font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white relative overflow-hidden pb-24 font-sans selection:bg-indigo-500 selection:text-white">
       {/* Ambient Glow */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[48rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-purple-500/10 to-cyan-500/8 blur-3xl" />
@@ -397,7 +397,7 @@ export function PainelRHClient({
       <div className="relative mx-auto max-w-[1600px] px-5 py-6 sm:px-8 space-y-8">
         {/* Breadcrumb + Header Dinâmico com Identidade Própria */}
         {currentTab !== "ferias" && (
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-white/5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/5">
             <div>
               <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
                 <span>Dashboard</span>
@@ -411,7 +411,7 @@ export function PainelRHClient({
                 </span>
               </div>
               <div className="flex items-center gap-3 mt-1.5">
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                   {currentTab === "holerites" && "GESTÃO DE HOLERITES"}
                   {currentTab === "comunicados" && "GESTÃO DE COMUNICADOS"}
                   {currentTab === "geral" && "PAINEL DE RH"}
@@ -454,7 +454,7 @@ export function PainelRHClient({
         {/* 2. CARDS: HOLERITES */}
         {currentTab === "holerites" && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="p-6 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+            <div className="p-6 rounded-[24px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Holerites Disponibilizados</span>
                 <FileText className="w-4 h-4 text-cyan-400" />
@@ -476,7 +476,7 @@ export function PainelRHClient({
               </p>
             </div>
 
-            <div className="p-6 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+            <div className="p-6 rounded-[24px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Colaboradores Atendidos</span>
                 <Users className="w-4 h-4 text-emerald-400" />
@@ -501,7 +501,7 @@ export function PainelRHClient({
               </p>
             </div>
 
-            <div className="p-6 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+            <div className="p-6 rounded-[24px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Rastreabilidade & WORM</span>
                 <ShieldCheck className={`w-4 h-4 ${totalHolerites > 0 ? "text-indigo-400" : "text-slate-500"}`} />
@@ -528,7 +528,7 @@ export function PainelRHClient({
         {/* 3. CARDS: COMUNICADOS */}
         {currentTab === "comunicados" && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="p-6 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+            <div className="p-6 rounded-[24px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Comunicados Ativos</span>
                 <FileText className="w-4 h-4 text-indigo-400" />
@@ -540,7 +540,7 @@ export function PainelRHClient({
               <p className="text-[11px] text-slate-400 mt-3.5">Assinatura digital e hash SHA-256</p>
             </div>
 
-            <div className="p-6 rounded-[24px] border border-white/12 bg-[#0B1020]/72 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+            <div className="p-6 rounded-[24px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Taxa Geral de Ciência</span>
                 <CheckCircle2 className="w-4 h-4 text-[#06b6d4]" />
@@ -589,7 +589,7 @@ export function PainelRHClient({
                         <FileText className="w-5 h-5" />
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-white tracking-tight">
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
                           Gestão de Comunicados
                         </h3>
                         <p className="text-xs text-slate-400/90">Mural oficial & ciências nominais</p>
@@ -597,10 +597,10 @@ export function PainelRHClient({
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 space-y-2.5 backdrop-blur-sm">
+                  <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.03] p-4 space-y-2.5 backdrop-blur-sm">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-400 font-medium">Total cadastrados:</span>
-                      <span className="font-bold text-white font-mono">{comunicadosAtivos.length}</span>
+                      <span className="font-bold text-slate-900 dark:text-white font-mono">{comunicadosAtivos.length}</span>
                     </div>
                     <div className="h-px bg-white/[0.04]" />
                     <div className="flex items-center justify-between text-xs">
@@ -639,7 +639,7 @@ export function PainelRHClient({
                         <Upload className="w-5 h-5" />
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-white tracking-tight">
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
                           Lançamento de Holerites
                         </h3>
                         <p className="text-xs text-slate-400/90">Upload em lote & recibos de pagamento</p>
@@ -647,10 +647,10 @@ export function PainelRHClient({
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 space-y-2.5 backdrop-blur-sm">
+                  <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.03] p-4 space-y-2.5 backdrop-blur-sm">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-400 font-medium">Total distribuídos:</span>
-                      <span className="font-bold text-white font-mono">
+                      <span className="font-bold text-slate-900 dark:text-white font-mono">
                         {totalHolerites > 0 ? `${totalHolerites} recibos` : "0 recibos"}
                       </span>
                     </div>
@@ -695,7 +695,7 @@ export function PainelRHClient({
                         <Briefcase className="w-5 h-5" />
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-white tracking-tight">
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
                           Lançamento de Férias
                         </h3>
                         <p className="text-xs text-slate-400/90">Planejamento 2027 & Validador CLT</p>
@@ -703,10 +703,10 @@ export function PainelRHClient({
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 space-y-2.5 backdrop-blur-sm">
+                  <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.03] p-4 space-y-2.5 backdrop-blur-sm">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-400 font-medium">Escala 2027:</span>
-                      <span className="font-bold text-white font-mono">
+                      <span className="font-bold text-slate-900 dark:text-white font-mono">
                         {totalFeriasProgramadas > 0
                           ? `${totalFeriasProgramadas} / ${totalColaboradores} programadas`
                           : "Nenhuma programação cadastrada"}
@@ -749,10 +749,10 @@ export function PainelRHClient({
             1. COMUNICADOS TAB
         ══════════════════════════════════════════════════════════════ */}
         {currentTab === "comunicados" && (
-          <div className="rounded-2xl border border-white/10 bg-[#10101a] p-6 shadow-xl space-y-6">
+          <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#10101a] p-6 shadow-sm dark:shadow-xl space-y-6">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/5 pb-4">
               <div>
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                   Gestão de Comunicados Internos
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
@@ -768,7 +768,7 @@ export function PainelRHClient({
                     value={searchComunicados}
                     onChange={(e) => setSearchComunicados(e.target.value)}
                     placeholder="Buscar comunicado..."
-                    className="bg-[#05050a] border-white/15 pl-9 text-xs h-9 rounded-xl text-white placeholder:text-slate-500"
+                    className="bg-slate-50 dark:bg-[#05050a] border border-slate-200 dark:border-white/15 pl-9 text-xs h-9 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   />
                 </div>
 
@@ -776,7 +776,7 @@ export function PainelRHClient({
                 <select
                   value={filterStatusComunicados}
                   onChange={(e) => setFilterStatusComunicados(e.target.value)}
-                  className="bg-[#05050a] border border-white/15 text-white text-xs rounded-xl px-3 py-2 outline-none font-medium"
+                  className="bg-slate-50 dark:bg-[#05050a] border border-slate-200 dark:border-white/15 text-slate-900 dark:text-white text-xs rounded-xl px-3 py-2 outline-none font-medium"
                 >
                   <option value="TODOS">Todos os Status</option>
                   <option value="PUBLICADO">Publicado</option>
@@ -794,9 +794,9 @@ export function PainelRHClient({
               </div>
             </div>
 
-            <div className="border border-white/10 rounded-xl overflow-x-auto bg-[#05050a]">
+            <div className="border border-slate-200 dark:border-white/10 rounded-xl overflow-x-auto bg-white dark:bg-[#05050a]">
               <table className="w-full text-left text-xs min-w-[950px]">
-                <thead className="bg-[#12141F] text-slate-400 uppercase font-mono text-[10px] border-b border-white/10">
+                <thead className="bg-slate-50 dark:bg-[#12141F] text-slate-500 dark:text-slate-400 uppercase font-mono text-[10px] border-b border-slate-200 dark:border-white/10">
                   <tr>
                     <th className="px-5 py-3.5">Título</th>
                     <th className="px-5 py-3.5">Data</th>
@@ -830,7 +830,7 @@ export function PainelRHClient({
                           isExcluido ? "opacity-60 bg-rose-950/10" : ""
                         }`}
                       >
-                        <td className="px-5 py-3.5 font-bold text-white">
+                        <td className="px-5 py-3.5 font-bold text-slate-900 dark:text-white">
                           <div className="flex items-center gap-2">
                             <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                             <span>{item.titulo}</span>
@@ -963,7 +963,7 @@ export function PainelRHClient({
       {/* Modal Criar Novo Comunicado */}
       {novoModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in">
-          <div className="relative w-full max-w-2xl bg-[#0d0d18] border border-white/10 rounded-2xl flex flex-col shadow-2xl p-6 space-y-4">
+          <div className="relative w-full max-w-2xl bg-white dark:bg-[#0d0d18] border border-slate-200 dark:border-white/10 rounded-2xl flex flex-col shadow-2xl p-6 space-y-4 text-slate-900 dark:text-white">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider">
                 Publicar Novo Comunicado com Integridade SHA-256
@@ -1086,7 +1086,7 @@ export function PainelRHClient({
       {/* Modal Visualizar Comunicado */}
       {viewComunicadoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-          <div className="relative w-full max-w-xl bg-[#0d0d18] border border-white/10 rounded-2xl flex flex-col shadow-2xl p-6 space-y-4">
+          <div className="relative w-full max-w-xl bg-white dark:bg-[#0d0d18] border border-slate-200 dark:border-white/10 rounded-2xl flex flex-col shadow-2xl p-6 space-y-4 text-slate-900 dark:text-white">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-white">{viewComunicadoModal.titulo}</h3>
@@ -1261,7 +1261,7 @@ export function PainelRHClient({
       {/* Modal de Confirmação de Publicação / Retirada do ar da Escala Anual */}
       {pubConfirmModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md rounded-3xl border border-white/12 bg-[#0c101c] p-6 shadow-2xl text-white space-y-4">
+          <div className="relative w-full max-w-md rounded-3xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0c101c] p-6 shadow-2xl text-slate-900 dark:text-white space-y-4">
             <div className="flex items-center gap-3">
               <div
                 className={`p-3 rounded-2xl border ${

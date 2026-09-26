@@ -52,26 +52,26 @@ export function PasswordForm() {
       )}
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-white/70">Senha Atual *</label>
+        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-white/70">Senha Atual *</label>
         <input
           type="password"
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
           required
           placeholder="••••••••"
-          className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/35"
+          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/35"
         />
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-white/70">Nova Senha *</label>
+        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-white/70">Nova Senha *</label>
         <input
           type="password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           required
           placeholder="No mínimo 6 caracteres"
-          className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/35"
+          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/35"
         />
       </div>
 

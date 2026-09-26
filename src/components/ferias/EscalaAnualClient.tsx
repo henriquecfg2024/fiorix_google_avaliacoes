@@ -299,21 +299,21 @@ export function EscalaAnualClient({
   };
 
   return (
-    <div className="space-y-6 text-white animate-in fade-in duration-200">
+    <div className="space-y-6 text-slate-900 dark:text-white animate-in fade-in duration-200">
       {/* ─────────────────────────────────────────────────────────────
           1. CABEÇALHO & SELETOR DE ANO (IDÊNTICO AO PREVIEW)
       ───────────────────────────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
         <div>
           <div className="flex items-center gap-2 text-xs font-medium text-slate-400 mb-2">
-            <Link href="/sistema/pessoas" className="hover:text-white transition-colors">Dashboard</Link>
+            <Link href="/sistema/pessoas" className="hover:text-slate-900 dark:hover:text-white transition-colors">Dashboard</Link>
             <span className="text-slate-600">&gt;</span>
             <span className="text-slate-400">Gestão de RH</span>
             <span className="text-slate-600">&gt;</span>
             <span className="text-slate-300 font-semibold">Lançamento de Férias</span>
           </div>
 
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white uppercase">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white uppercase">
             ESCALA ANUAL DE FÉRIAS
           </h1>
           <p className="text-xs text-slate-400 mt-1">
@@ -331,16 +331,16 @@ export function EscalaAnualClient({
           )}
 
           {/* Seletor de Ano */}
-          <div className="flex items-center bg-[#0B1020]/90 border border-white/10 rounded-2xl px-3 py-1.5 shadow-sm">
+          <div className="flex items-center bg-white dark:bg-[#0B1020]/90 border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-1.5 shadow-sm">
             <CalendarIcon className="w-4 h-4 text-indigo-400 mr-2" />
             <select
               value={ano}
               onChange={(e) => setAno(Number(e.target.value))}
-              className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer pr-1"
+              className="bg-transparent text-xs font-bold text-slate-900 dark:text-white focus:outline-none cursor-pointer pr-1"
             >
-              <option value={2026} className="bg-[#0c101c] text-white">2026</option>
-              <option value={2027} className="bg-[#0c101c] text-white">2027</option>
-              <option value={2028} className="bg-[#0c101c] text-white">2028</option>
+              <option value={2026} className="bg-white dark:bg-[#0c101c] text-slate-900 dark:text-white">2026</option>
+              <option value={2027} className="bg-white dark:bg-[#0c101c] text-slate-900 dark:text-white">2027</option>
+              <option value={2028} className="bg-white dark:bg-[#0c101c] text-slate-900 dark:text-white">2028</option>
             </select>
           </div>
 

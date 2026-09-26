@@ -73,16 +73,16 @@ export default function HoleritesPage() {
   };
 
   return (
-    <div className="w-full flex-1 flex flex-col justify-start bg-[#070A12] text-white relative overflow-hidden pb-12">
+    <div className="w-full flex-1 flex flex-col justify-start bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white relative overflow-hidden pb-12">
       {/* Ambient Glow */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[90vw] max-w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-violet-500/10 via-indigo-500/8 to-purple-500/6 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-white/10 to-transparent" />
       </div>
 
       <div className="relative mx-auto w-full max-w-[1600px] px-5 py-6 sm:px-8 space-y-6">
         {/* ── Breadcrumb + Header ────────────────────────────────────── */}
-        <div className="flex flex-col gap-1.5 pb-4 border-b border-white/6">
+        <div className="flex flex-col gap-1.5 pb-4 border-b border-slate-200 dark:border-white/6">
           <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
             <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
             <span className="text-slate-600">/</span>
@@ -90,16 +90,16 @@ export default function HoleritesPage() {
             <span className="text-slate-600">/</span>
             <span className="text-violet-400 font-semibold">Holerites</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
             MEUS HOLERITES
           </h1>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Consulte e baixe seus comprovantes de pagamento.
           </p>
         </div>
 
         {/* ── Card Principal ─────────────────────────────────────────── */}
-        <div className="rounded-[22px] border border-white/8 bg-gradient-to-br from-[#0B1020]/80 to-[#0E0A1C]/60 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl overflow-hidden">
+        <div className="rounded-[22px] border border-slate-200 dark:border-white/8 bg-white dark:bg-gradient-to-br dark:from-[#0B1020]/80 dark:to-[#0E0A1C]/60 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl overflow-hidden">
 
           {/* Cabeçalho do Card */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-6 py-5 gap-3">
@@ -107,7 +107,7 @@ export default function HoleritesPage() {
               <div className="p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/15 text-violet-400">
                 <FileText className="w-5 h-5" />
               </div>
-              <h2 className="text-base sm:text-lg font-bold text-white">
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                 Holerites de {anoSelecionado}
               </h2>
             </div>
@@ -117,7 +117,7 @@ export default function HoleritesPage() {
               <select
                 value={anoSelecionado}
                 onChange={(e) => setAnoSelecionado(Number(e.target.value))}
-                className="appearance-none bg-violet-500/10 border border-violet-500/20 text-white text-sm font-semibold rounded-xl px-4 py-2 pr-9 focus:outline-none focus:ring-2 focus:ring-violet-500/40 cursor-pointer transition-colors hover:bg-violet-500/15"
+                className="appearance-none bg-violet-500/10 border border-violet-500/20 text-slate-800 dark:text-white text-sm font-semibold rounded-xl px-4 py-2 pr-9 focus:outline-none focus:ring-2 focus:ring-violet-500/40 cursor-pointer transition-colors hover:bg-violet-500/15"
               >
                 {anosDisponiveis.map((ano) => (
                   <option key={ano} value={ano} className="bg-[#0B1020] text-white">
@@ -130,7 +130,7 @@ export default function HoleritesPage() {
           </div>
 
           {/* Divisor sutil */}
-          <div className="h-px bg-gradient-to-r from-transparent via-white/8 to-transparent" />
+          <div className="h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-white/8 to-transparent" />
 
           {/* ── Conteúdo ─────────────────────────────────────────────── */}
           <div className="px-6 py-6">
@@ -147,7 +147,7 @@ export default function HoleritesPage() {
                   <FileText className="w-14 h-14 text-violet-400/70" />
                 </div>
                 <div className="text-center space-y-2">
-                  <h3 className="text-lg font-bold text-white">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                     Nenhum holerite disponível
                   </h3>
                   <p className="text-sm text-slate-400 max-w-sm">
@@ -161,7 +161,7 @@ export default function HoleritesPage() {
                 {holeritesFiltrados.map((h) => (
                   <div
                     key={h.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-4 rounded-2xl bg-white/[0.03] border border-white/6 hover:bg-white/[0.06] transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/6 hover:bg-slate-100/70 dark:hover:bg-white/[0.06] transition-colors"
                   >
                     {/* Info */}
                     <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -169,7 +169,7 @@ export default function HoleritesPage() {
                         <FileText className="w-4 h-4" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-white truncate">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                           {MESES_PT[h.mes]} de {h.ano}
                         </p>
                         <p className="text-xs text-slate-400">
@@ -205,7 +205,7 @@ export default function HoleritesPage() {
                         size="sm"
                         variant="outline"
                         onClick={() => handleDownload(h)}
-                        className="border-white/10 text-white/70 hover:bg-white/10 text-xs h-8 px-3 gap-1.5 rounded-xl transition-all"
+                        className="border-slate-200 dark:border-white/10 text-slate-700 dark:text-white/70 hover:bg-slate-100 dark:hover:bg-white/10 text-xs h-8 px-3 gap-1.5 rounded-xl transition-all"
                       >
                         <Download className="w-3.5 h-3.5" />
                         <span className="sm:hidden">PDF</span>
@@ -219,7 +219,7 @@ export default function HoleritesPage() {
           </div>
 
           {/* ── Rodapé discreto do card ──────────────────────────────── */}
-          <div className="px-6 py-3 border-t border-white/5">
+          <div className="px-6 py-3 border-t border-slate-200 dark:border-white/5">
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <Lock className="w-3.5 h-3.5 text-slate-500" />
               <span>Somente você pode visualizar seus documentos.</span>

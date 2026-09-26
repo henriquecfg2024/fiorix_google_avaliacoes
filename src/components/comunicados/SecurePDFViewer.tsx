@@ -68,7 +68,7 @@ export function SecurePDFViewer({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-      <div className="relative w-full max-w-4xl h-[85vh] bg-[#0B1020] border border-white/12 rounded-[28px] flex flex-col shadow-[0_25px_70px_rgba(0,0,0,0.5)] overflow-hidden">
+      <div className="relative w-full max-w-4xl h-[85vh] bg-white dark:bg-[#0B1020] border border-white/12 rounded-[28px] flex flex-col shadow-[0_25px_70px_rgba(0,0,0,0.5)] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/8 bg-[#070A12]/80">
           <div className="flex items-center gap-3">
@@ -90,7 +90,7 @@ export function SecurePDFViewer({
               variant="outline"
               size="sm"
               onClick={handlePrint}
-              className="border-white/10 text-white/80 hover:bg-white/10 text-xs gap-1.5"
+              className="border-slate-200 dark:border-white/10 text-white/80 hover:bg-white/10 text-xs gap-1.5"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Imprimir</span>
@@ -100,7 +100,7 @@ export function SecurePDFViewer({
                 variant="outline"
                 size="sm"
                 onClick={handleDownload}
-                className="border-white/10 text-white/80 hover:bg-white/10 text-xs gap-1.5"
+                className="border-slate-200 dark:border-white/10 text-white/80 hover:bg-white/10 text-xs gap-1.5"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Baixar</span>
@@ -111,7 +111,7 @@ export function SecurePDFViewer({
                 href={fileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="border border-white/10 text-white/80 hover:bg-white/10 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+                className="border border-slate-200 dark:border-white/10 text-white/80 hover:bg-white/10 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
                 title="Abrir PDF em nova aba"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -150,7 +150,7 @@ export function SecurePDFViewer({
 
           {/* PDF Frame or Simulated Document Canvas */}
           {fileUrl ? (
-            <div className="w-full h-full min-h-[500px] flex-1 flex flex-col bg-[#101019] border border-white/10 rounded-xl overflow-hidden shadow-inner relative z-0">
+            <div className="w-full h-full min-h-[500px] flex-1 flex flex-col bg-[#101019] border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden shadow-inner relative z-0">
               <iframe
                 src={fileUrl}
                 title={documentTitle}
@@ -158,8 +158,8 @@ export function SecurePDFViewer({
               />
             </div>
           ) : (
-            <div className="w-full max-w-2xl min-h-[500px] bg-[#101019] border border-white/10 rounded-xl p-8 shadow-inner flex flex-col justify-between text-white/90">
-              <div className="border-b border-white/10 pb-4 flex justify-between items-start">
+            <div className="w-full max-w-2xl min-h-[500px] bg-[#101019] border border-slate-200 dark:border-white/10 rounded-xl p-8 shadow-inner flex flex-col justify-between text-white/90">
+              <div className="border-b border-slate-200 dark:border-white/10 pb-4 flex justify-between items-start">
                 <div>
                   <h3 className="font-bold text-base text-white">7º REGISTRO DE IMÓVEIS DE SÃO PAULO</h3>
                   <p className="text-xs text-white/50">Sistema Integrado FIORIX PESSOAS</p>
@@ -170,7 +170,7 @@ export function SecurePDFViewer({
               </div>
 
               <div className="my-8 space-y-4 text-xs text-white/70 leading-relaxed">
-                <div className="p-3 bg-white/5 rounded-lg border border-white/5 flex items-center justify-between">
+                <div className="p-3 bg-white/5 rounded-lg border border-slate-200 dark:border-white/5 flex items-center justify-between">
                   <div>
                     <span className="text-white/40 block text-[10px] uppercase">Titular</span>
                     <span className="font-bold text-white">{userName}</span>
@@ -182,7 +182,7 @@ export function SecurePDFViewer({
                 </div>
               </div>
 
-              <div className="border-t border-white/10 pt-4 flex items-center justify-between text-[10px] text-white/40">
+              <div className="border-t border-slate-200 dark:border-white/10 pt-4 flex items-center justify-between text-[10px] text-white/40">
                 <div className="flex items-center gap-1.5">
                   <Lock className="w-3.5 h-3.5 text-indigo-400" />
                   <span>Somente você pode visualizar este documento.</span>
@@ -193,7 +193,7 @@ export function SecurePDFViewer({
         </div>
 
         {/* Footer Security Notice */}
-        <div className="px-6 py-3 bg-[#080A12] border-t border-white/5 flex items-center text-xs text-white/50">
+        <div className="px-6 py-3 bg-[#080A12] border-t border-slate-200 dark:border-white/5 flex items-center text-xs text-white/50">
           <div className="flex items-center gap-2">
             <Lock className="w-3.5 h-3.5 text-indigo-400" />
             <span>Somente você pode visualizar seus documentos.</span>

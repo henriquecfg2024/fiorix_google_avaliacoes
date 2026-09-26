@@ -48,14 +48,14 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
 
   return (
     <>
-      <div className="rounded-2xl border border-white/10 bg-[#0B1020]/90 p-5 shadow-xl backdrop-blur-xl flex flex-col justify-between h-full">
+      <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-white/10 dark:bg-[#0B1020]/90 dark:shadow-xl backdrop-blur-xl flex flex-col justify-between h-full">
         <div>
           <div className="flex items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h3 className="text-sm font-bold text-white tracking-wide">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-wide">
                 Sincronização Incremental
               </h3>
-              <span className="px-2 py-0.5 rounded-md bg-white/[0.06] text-[11px] font-medium text-white/70 border border-white/8">
+              <span className="px-2 py-0.5 rounded-md bg-slate-100 text-[11px] font-medium text-slate-700 border border-slate-200 dark:bg-white/[0.06] dark:text-slate-600 dark:text-white/70 dark:border-white/8">
                 Ciclos: 60 min (Escalonado a cada 15 min)
               </span>
               <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-[11px] font-semibold text-indigo-300 border border-indigo-500/20 flex items-center gap-1.5">
@@ -68,7 +68,7 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-white/8 text-[11px] uppercase tracking-wider text-white/40 font-semibold">
+                <tr className="border-b border-slate-200 dark:border-white/8 text-[11px] uppercase tracking-wider text-slate-500 dark:text-white/40 font-semibold">
                   <th className="pb-3 font-medium">Módulo</th>
                   <th className="pb-3 font-medium">Status</th>
                   <th className="pb-3 font-medium">Última Execução</th>
@@ -79,22 +79,22 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
                   <th className="pb-3 font-medium text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/6 font-mono text-white/80">
+              <tbody className="divide-y divide-slate-200 dark:divide-white/6 font-mono text-slate-700 dark:text-white/80">
                 {modules.map((item) => (
-                  <tr key={item.key} className="hover:bg-white/[0.02] transition-colors" title={item.statusNote}>
-                    <td className="py-3 font-sans font-semibold text-white">
+                  <tr key={item.key} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors" title={item.statusNote}>
+                    <td className="py-3 font-sans font-semibold text-slate-900 dark:text-white">
                       {item.module}
-                      <span className="block text-[10px] font-normal text-white/40 font-mono">
+                      <span className="block text-[10px] font-normal text-slate-500 dark:text-white/40 font-mono">
                         Janela: {item.expectedIntervalSeconds}s ({Math.round(item.expectedIntervalSeconds / 60)} min)
                       </span>
                     </td>
                     <td className="py-3">
                       {getStatusBadge(item.status)}
                     </td>
-                    <td className="py-3 text-white/70">
+                    <td className="py-3 text-slate-600 dark:text-white/70">
                       {item.lastSyncAt ?? 'Não disponível'}
                     </td>
-                    <td className="py-3 text-white/50">
+                    <td className="py-3 text-slate-500 dark:text-white/50">
                       {item.nextExpectedAt ?? '-'}
                     </td>
                     <td className="py-3">
@@ -126,7 +126,7 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
                       <button
                         type="button"
                         onClick={() => setSelectedModule({ name: item.module, key: item.key })}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-blue-600/20 text-white/70 hover:text-blue-300 border border-white/8 hover:border-blue-500/30 text-[11px] font-sans font-semibold transition-all active:scale-95"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-blue-600/20 text-slate-600 dark:text-white/70 hover:text-blue-300 border border-white/8 hover:border-blue-500/30 text-[11px] font-sans font-semibold transition-all active:scale-95"
                         title="Ver histórico de lotes recebidos"
                       >
                         <Eye className="h-3 w-3" />

@@ -148,7 +148,7 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="pl-9 rounded-lg border border-white/8 bg-white/[0.04] text-xs text-white placeholder:text-white/40 focus:border-amber-400 focus:outline-none focus:ring-0"
+              className="pl-9 rounded-lg border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.04] text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/40 focus:border-amber-400 focus:outline-none focus:ring-0"
             />
           </div>
         </div>
@@ -156,7 +156,7 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
 
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
-          <thead className="select-none bg-[#0B1020] text-xs uppercase tracking-wider text-white/58 border-b border-white/8">
+          <thead className="select-none bg-slate-50 dark:bg-[#0B1020] text-xs uppercase tracking-wider text-slate-600 dark:text-white/58 border-b border-slate-200 dark:border-white/8">
             <tr>
               <th className="px-4 py-3.5 font-semibold">Origem</th>
               <th className="px-4 py-3.5 font-semibold">Arquivo / Referência</th>
@@ -169,10 +169,10 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
               <th className="px-4 py-3.5 font-semibold text-right">Ações</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5 bg-transparent">
+          <tbody className="divide-y divide-slate-100 dark:divide-white/5 bg-transparent">
             {paginatedRows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="p-8 text-center text-xs text-white/30">
+                <td colSpan={9} className="p-8 text-center text-xs text-slate-400 dark:text-white/30">
                   Nenhuma importação encontrada.
                 </td>
               </tr>
@@ -182,33 +182,33 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
                   row.source === "METAS" &&
                   (row.status === "Concluído" || row.status === "SUCCESS" || row.status === "COMPLETED");
                 return (
-                  <tr key={`${row.source}-${row.id}`} className="transition hover:bg-white/[0.03] text-white/80 align-top">
+                  <tr key={`${row.source}-${row.id}`} className="transition hover:bg-slate-50 dark:hover:bg-white/[0.03] text-slate-700 dark:text-white/80 align-top">
                     <td className="px-4 py-3">
                       <div className="space-y-1.5">
                         {sourceBadge(row.source)}
                         {row.origin === "inferred" && (
-                          <div className="text-[10px] text-white/45">Histórico inferido pela base</div>
+                          <div className="text-[10px] text-slate-500 dark:text-white/45">Histórico inferido pela base</div>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-white">
+                    <td className="px-4 py-3 text-slate-900 dark:text-white">
                       <div className="font-semibold break-all">{displayReference(row)}</div>
                       {row.origin === "inferred" && (
-                        <div className="mt-0.5 text-xs text-white/45 break-all">{row.fileName}</div>
+                        <div className="mt-0.5 text-xs text-slate-500 dark:text-white/45 break-all">{row.fileName}</div>
                       )}
                       {row.errorMessage && (
                         <div className="mt-0.5 text-xs text-red-300">{row.errorMessage}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-white/70">{formatPeriod(row.periodStart, row.periodEnd)}</td>
-                    <td className="px-4 py-3 text-white/70">{formatDateTime(row.importedAt)}</td>
-                    <td className={`px-4 py-3 font-semibold ${isMetasCompleted ? "text-emerald-300" : "text-white"}`}>
+                    <td className="px-4 py-3 text-slate-600 dark:text-white/70">{formatPeriod(row.periodStart, row.periodEnd)}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-white/70">{formatDateTime(row.importedAt)}</td>
+                    <td className={`px-4 py-3 font-semibold ${isMetasCompleted ? "text-emerald-600 dark:text-emerald-300" : "text-slate-900 dark:text-white"}`}>
                       {Number(row.rowsCount || 0).toLocaleString("pt-BR")}
                     </td>
-                    <td className={`px-4 py-3 font-semibold ${isMetasCompleted ? "text-emerald-300" : "text-emerald-400"}`}>
+                    <td className={`px-4 py-3 font-semibold ${isMetasCompleted ? "text-emerald-600 dark:text-emerald-300" : "text-emerald-600 dark:text-emerald-400"}`}>
                       {row.insertedCount !== null ? Number(row.insertedCount || 0).toLocaleString("pt-BR") : "-"}
                     </td>
-                    <td className="px-4 py-3 text-white/65">{row.importedBy || "-"}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-white/65">{row.importedBy || "-"}</td>
                     <td className="px-4 py-3">{statusBadge(row)}</td>
                     <td className="px-4 py-3 text-right">
                       <DeleteImportButton id={row.id} source={row.source as any} />
@@ -222,17 +222,17 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
       </div>
 
       {/* Unified Pagination Footer */}
-      <div className="flex flex-col items-center justify-between gap-4 border-t border-white/8 bg-white/[0.03] px-6 py-3.5 sm:flex-row">
-        <div className="text-xs text-white/60 text-center sm:text-left">
-          Exibindo <strong className="text-white">{totalItems > 0 ? startIndex.toLocaleString("pt-BR") : "0"}</strong> a{" "}
-          <strong className="text-white">{endIndex.toLocaleString("pt-BR")}</strong> de{" "}
-          <strong className="text-white">{totalItems.toLocaleString("pt-BR")}</strong> registros
+      <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-200 dark:border-white/8 bg-slate-50/70 dark:bg-white/[0.03] px-6 py-3.5 sm:flex-row">
+        <div className="text-xs text-slate-600 dark:text-white/60 text-center sm:text-left">
+          Exibindo <strong className="text-slate-900 dark:text-white">{totalItems > 0 ? startIndex.toLocaleString("pt-BR") : "0"}</strong> a{" "}
+          <strong className="text-slate-900 dark:text-white">{endIndex.toLocaleString("pt-BR")}</strong> de{" "}
+          <strong className="text-slate-900 dark:text-white">{totalItems.toLocaleString("pt-BR")}</strong> registros
         </div>
 
         <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
-          <div className="flex items-center gap-1.5 text-xs text-white/60">
+          <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-white/60">
             <span>Exibir:</span>
-            <div className="flex items-center gap-1 rounded-lg border border-white/8 bg-white/[0.04] p-0.5">
+            <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] p-0.5">
               {[10, 20, 50, 100].map((size) => (
                 <button
                   key={size}
@@ -244,7 +244,7 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
                   className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
                     pageSize === size
                       ? "bg-gradient-to-r from-indigo-500 to-amber-400 font-semibold text-white shadow-xs"
-                      : "text-white/60 hover:text-white"
+                      : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
                   {size}
@@ -257,7 +257,7 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+              className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08]"
               disabled={currentPage <= 1}
               onClick={() => setCurrentPage(1)}
               title="Primeira Página"
@@ -267,7 +267,7 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+              className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08]"
               disabled={currentPage <= 1}
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               title="Página Anterior"
@@ -275,14 +275,14 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
               <ChevronLeft size={15} />
             </Button>
 
-            <span className="text-xs px-2 font-medium text-white min-w-[90px] text-center">
+            <span className="text-xs px-2 font-medium text-slate-800 dark:text-white min-w-[90px] text-center">
               Página {currentPage.toLocaleString("pt-BR")} de {totalPages.toLocaleString("pt-BR")}
             </span>
 
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+              className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08]"
               disabled={currentPage >= totalPages}
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               title="Próxima Página"
@@ -292,7 +292,7 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
             <Button
               variant="outline"
               size="icon"
-              className="h-8 w-8 rounded-lg border border-white/8 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+              className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08]"
               disabled={currentPage >= totalPages}
               onClick={() => setCurrentPage(totalPages)}
               title="Última Página"

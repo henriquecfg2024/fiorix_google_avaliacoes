@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useChartTheme } from '@/hooks/useChartTheme';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 
 interface DonutChartProps {
@@ -18,6 +19,7 @@ type TooltipPoint = {
 };
 
 export function DonutChart({ data }: DonutChartProps) {
+  const ct = useChartTheme();
   const chartData = useMemo(() => {
     const counts: { [key: string]: number } = {};
     data.forEach((row) => {
@@ -45,9 +47,9 @@ export function DonutChart({ data }: DonutChartProps) {
       const total = item?.total ?? 0;
       const pct = totalSum > 0 ? ((total / totalSum) * 100).toFixed(1) : "0";
       return (
-        <div className="rounded-xl border border-white/10 bg-[#0B1020]/95 p-3 text-xs text-white shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
-          <p className="font-semibold text-white/80">{item?.tipo}</p>
-          <p className="mt-1 font-bold text-white">
+        <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/95 p-3 text-xs text-slate-900 dark:text-white shadow-xl">
+          <p className="font-semibold text-slate-700 dark:text-white/80">{item?.tipo}</p>
+          <p className="mt-1 font-bold text-slate-900 dark:text-white">
             {total.toLocaleString("pt-BR")} ({pct}%)
           </p>
         </div>
@@ -59,15 +61,15 @@ export function DonutChart({ data }: DonutChartProps) {
   const renderLegend = (props: { payload?: Array<{ color?: string; value?: string }> }) => {
     const { payload } = props;
     return (
-      <ul className="mt-2 flex max-h-[72px] flex-wrap justify-center gap-x-4 gap-y-2 overflow-y-auto px-1 text-xs text-white/60">
+      <ul className="mt-2 flex max-h-[72px] flex-wrap justify-center gap-x-4 gap-y-2 overflow-y-auto px-1 text-xs text-slate-600 dark:text-white/60">
         {payload?.map((entry, index: number) => {
           const itemVal = chartData.find((d) => d.tipo === entry.value)?.total || 0;
           const itemPct = totalSum > 0 ? ((itemVal / totalSum) * 100).toFixed(1) : "0";
           return (
             <li key={`item-${index}`} className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-              <span className="text-white/80">{entry.value}</span>
-              <span className="text-white/40">({itemPct}%)</span>
+              <span className="text-slate-800 dark:text-white/80">{entry.value}</span>
+              <span className="text-slate-400 dark:text-white/40">({itemPct}%)</span>
             </li>
           );
         })}
@@ -76,10 +78,10 @@ export function DonutChart({ data }: DonutChartProps) {
   };
 
   return (
-    <div className="flex h-full min-h-[350px] min-w-0 flex-col overflow-hidden rounded-[28px] border border-white/12 bg-[#0B1020]/72 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+    <div className="flex h-full min-h-[350px] min-w-0 flex-col overflow-hidden rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
       <div>
-        <h3 className="text-base font-bold tracking-tight text-white">Distribuição por Tipo de Pedido</h3>
-        <p className="text-xs text-white/40">Proporção dos serviços executados</p>
+        <h3 className="text-base font-bold tracking-tight text-slate-900 dark:text-white">Distribuição por Tipo de Pedido</h3>
+        <p className="text-xs text-slate-500 dark:text-white/40">Proporção dos serviços executados</p>
       </div>
 
       <div className="relative mt-2 h-[250px] min-h-0 flex-1">
@@ -105,8 +107,8 @@ export function DonutChart({ data }: DonutChartProps) {
         </ResponsiveContainer>
 
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Total</span>
-          <span className="mt-0.5 text-lg font-bold text-white">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/40">Total</span>
+          <span className="mt-0.5 text-lg font-bold text-slate-900 dark:text-white">
             {totalSum > 1000 ? `${(totalSum / 1000).toFixed(1)}k` : totalSum}
           </span>
         </div>

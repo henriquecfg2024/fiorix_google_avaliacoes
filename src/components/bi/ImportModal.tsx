@@ -169,13 +169,13 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#05070D]/80 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-4xl rounded-[28px] border border-white/10 bg-[#0B1020]/92 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.28)] animate-in zoom-in-95 duration-250 text-white">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 dark:bg-[#05070D]/80 backdrop-blur-sm p-4">
+      <div className="relative w-full max-w-4xl rounded-[28px] border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/92 p-6 shadow-2xl dark:shadow-[0_20px_60px_rgba(0,0,0,0.28)] animate-in zoom-in-95 duration-250 text-slate-900 dark:text-white">
         
         {/* Header */}
-        <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-4">
+        <div className="mb-4 flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-4">
           <h2 className="text-xl font-bold tracking-tight">Importar Dados de Produtividade</h2>
-          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full text-white/60 hover:text-white hover:bg-white/10">
+          <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full text-slate-500 hover:text-slate-900 dark:text-white/60 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10">
             <X className="h-5 w-5" />
           </Button>
         </div>
@@ -186,7 +186,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className="group flex cursor-pointer flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-white/15 bg-white/[0.02] p-10 transition-all hover:border-cyan-400/35 hover:bg-white/[0.04]"
+            className="group flex cursor-pointer flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-slate-300 dark:border-white/15 bg-slate-50 dark:bg-white/[0.02] p-10 transition-all hover:border-cyan-500 dark:hover:border-cyan-400/35 hover:bg-slate-100 dark:hover:bg-white/[0.04]"
           >
             <input
               type="file"
@@ -195,18 +195,18 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
               accept=".csv"
               className="hidden"
             />
-            <div className="mb-4 rounded-full border border-white/10 bg-white/[0.03] p-4 transition-all group-hover:border-cyan-400/30">
-              <Upload className="h-8 w-8 text-white/60 transition-colors group-hover:text-cyan-300" />
+            <div className="mb-4 rounded-full border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.03] p-4 transition-all group-hover:border-cyan-500 dark:group-hover:border-cyan-400/30">
+              <Upload className="h-8 w-8 text-slate-400 dark:text-white/60 transition-colors group-hover:text-cyan-500 dark:group-hover:text-cyan-300" />
             </div>
-            <p className="text-sm font-semibold mb-1 text-white">Arraste e solte o arquivo CSV aqui</p>
-            <p className="text-xs text-white/40">ou clique para selecionar do computador</p>
-            <div className="mt-4 rounded border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/50">
+            <p className="text-sm font-semibold mb-1 text-slate-900 dark:text-white">Arraste e solte o arquivo CSV aqui</p>
+            <p className="text-xs text-slate-500 dark:text-white/40">ou clique para selecionar do computador</p>
+            <div className="mt-4 rounded border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 px-3 py-1.5 text-xs text-slate-600 dark:text-white/50">
               Colunas esperadas: DATA, HORA_NUM, DIA_SEMANA, HORA, PEDIDO, NOME, TIPO, TIPO_PEDIDO, QUANTIDADE
             </div>
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] p-3">
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] p-3">
               <div className="flex items-center gap-3">
                 <div className="rounded bg-cyan-500/10 border border-cyan-500/20 p-2">
                   <Check className="h-5 w-5 text-cyan-300" />
@@ -224,7 +224,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
                   setPreview([]);
                   setParsedData([]);
                 }}
-                className="text-white/60 hover:text-red-400 hover:bg-white/5"
+                className="text-slate-500 hover:text-red-600 dark:text-white/60 dark:hover:text-red-400 hover:bg-slate-100 dark:hover:bg-white/5"
               >
                 Remover
               </Button>
@@ -232,31 +232,31 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
 
             {/* Preview Table */}
             <div>
-              <p className="text-xs font-semibold text-white/60 uppercase tracking-wider mb-2">Preview (Primeiras 10 linhas)</p>
-              <div className="max-h-[300px] overflow-x-auto rounded-xl border border-white/10">
+              <p className="text-xs font-semibold text-slate-500 dark:text-white/60 uppercase tracking-wider mb-2">Preview (Primeiras 10 linhas)</p>
+              <div className="max-h-[300px] overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10">
                 <table className="w-full text-xs text-left">
-                  <thead className="sticky top-0 bg-white/5 text-white/80">
+                  <thead className="sticky top-0 bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-white/80">
                     <tr>
-                      <th className="p-2 border-b border-white/10">Pedido</th>
-                      <th className="p-2 border-b border-white/10">Data</th>
-                      <th className="p-2 border-b border-white/10">Hora</th>
-                      <th className="p-2 border-b border-white/10">Dia</th>
-                      <th className="p-2 border-b border-white/10">Nome</th>
-                      <th className="p-2 border-b border-white/10">Tipo</th>
-                      <th className="p-2 border-b border-white/10">Tipo Pedido</th>
-                      <th className="p-2 border-b border-white/10">Qtd</th>
+                      <th className="p-2 border-b border-slate-200 dark:border-white/10">Pedido</th>
+                      <th className="p-2 border-b border-slate-200 dark:border-white/10">Data</th>
+                      <th className="p-2 border-b border-slate-200 dark:border-white/10">Hora</th>
+                      <th className="p-2 border-b border-slate-200 dark:border-white/10">Dia</th>
+                      <th className="p-2 border-b border-slate-200 dark:border-white/10">Nome</th>
+                      <th className="p-2 border-b border-slate-200 dark:border-white/10">Tipo</th>
+                      <th className="p-2 border-b border-slate-200 dark:border-white/10">Tipo Pedido</th>
+                      <th className="p-2 border-b border-slate-200 dark:border-white/10">Qtd</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5 bg-white/[0.01]">
+                  <tbody className="divide-y divide-slate-100 dark:divide-white/5 bg-transparent text-slate-700 dark:text-slate-300">
                     {preview.map((row, index) => (
-                      <tr key={index} className="hover:bg-white/[0.02]">
-                        <td className="p-2 border-r border-white/5 font-semibold text-[#2B7FFF]">{row.PEDIDO}</td>
-                        <td className="p-2 border-r border-white/5">{row.DATA}</td>
-                        <td className="p-2 border-r border-white/5">{row.HORA}</td>
-                        <td className="p-2 border-r border-white/5">{row.DIA_SEMANA}</td>
-                        <td className="p-2 border-r border-white/5 text-white/80">{row.NOME}</td>
-                        <td className="p-2 border-r border-white/5">{row.TIPO}</td>
-                        <td className="p-2 border-r border-white/5">{row.TIPO_PEDIDO}</td>
+                      <tr key={index} className="hover:bg-slate-50 dark:hover:bg-white/[0.02]">
+                        <td className="p-2 border-r border-slate-100 dark:border-white/5 font-semibold text-[#2B7FFF]">{row.PEDIDO}</td>
+                        <td className="p-2 border-r border-slate-100 dark:border-white/5">{row.DATA}</td>
+                        <td className="p-2 border-r border-slate-100 dark:border-white/5">{row.HORA}</td>
+                        <td className="p-2 border-r border-slate-100 dark:border-white/5">{row.DIA_SEMANA}</td>
+                        <td className="p-2 border-r border-slate-100 dark:border-white/5 text-white/80">{row.NOME}</td>
+                        <td className="p-2 border-r border-slate-100 dark:border-white/5">{row.TIPO}</td>
+                        <td className="p-2 border-r border-slate-100 dark:border-white/5">{row.TIPO_PEDIDO}</td>
                         <td className="p-2">{row.QUANTIDADE}</td>
                       </tr>
                     ))}
@@ -266,11 +266,11 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
             </div>
 
             {/* Actions */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-white/10">
               <Button
                 variant="ghost"
                 onClick={onClose}
-                className="text-white hover:bg-white/10"
+                className="text-slate-600 hover:bg-slate-100 dark:text-white dark:hover:bg-white/10"
                 disabled={isImporting}
               >
                 Cancelar

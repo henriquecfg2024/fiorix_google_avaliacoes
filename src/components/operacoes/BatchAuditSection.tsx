@@ -112,7 +112,7 @@ export function BatchAuditSection() {
       case 'tarefas':
         return <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">Tarefas</span>;
       default:
-        return <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-white/5 text-white/70 border border-white/10">{source}</span>;
+        return <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-white/5 text-slate-600 dark:text-white/70 border border-white/10">{source}</span>;
     }
   };
 
@@ -152,7 +152,7 @@ export function BatchAuditSection() {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <form onSubmit={handleSearch} className="flex items-center gap-2 flex-1 max-w-md">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/40" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 dark:text-white/40" />
               <input
                 type="text"
                 value={searchTerm}
@@ -224,11 +224,11 @@ export function BatchAuditSection() {
         <div className="p-4 sm:p-5 border-b border-white/8 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Layers className="h-4 w-4 text-blue-400" />
-            <h3 className="text-sm font-bold text-white tracking-wide">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-wide">
               Registro Histórico de Lotes & Chunks
             </h3>
           </div>
-          <span className="text-xs font-mono text-white/50">
+          <span className="text-xs font-mono text-slate-500 dark:text-white/50">
             Total: <strong className="text-white font-semibold">{pagination.total}</strong> lotes indexados
           </span>
         </div>
@@ -236,7 +236,7 @@ export function BatchAuditSection() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-white/80">
             <thead>
-              <tr className="border-b border-white/8 text-[11px] uppercase tracking-wider text-white/40 font-semibold bg-white/[0.01]">
+              <tr className="border-b border-slate-200 dark:border-white/8 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 dark:text-white/40 font-semibold bg-white/[0.01]">
                 <th className="py-3 px-4 font-medium">Lote / Batch ID</th>
                 <th className="py-3 px-4 font-medium">Módulo</th>
                 <th className="py-3 px-4 font-medium">Modo</th>
@@ -251,14 +251,14 @@ export function BatchAuditSection() {
             <tbody className="divide-y divide-white/6 font-mono text-xs">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-white/40 font-sans">
+                  <td colSpan={9} className="py-12 text-center text-slate-400 dark:text-white/40 font-sans">
                     <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-blue-400" />
                     Carregando histórico de lotes...
                   </td>
                 </tr>
               ) : batches.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-white/40 font-sans">
+                  <td colSpan={9} className="py-12 text-center text-slate-400 dark:text-white/40 font-sans">
                     Nenhum lote encontrado com os filtros selecionados.
                   </td>
                 </tr>
@@ -266,7 +266,7 @@ export function BatchAuditSection() {
                 batches.map((batch) => {
                   const receivedDate = new Date(batch.receivedAt);
                   return (
-                    <tr key={batch.id} className="hover:bg-white/[0.02] transition-colors">
+                    <tr key={batch.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
                       {/* ID do Lote com Cópia */}
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-1.5">
@@ -276,7 +276,7 @@ export function BatchAuditSection() {
                           <button
                             type="button"
                             onClick={() => handleCopy(batch.batchId)}
-                            className="p-1 rounded hover:bg-white/10 text-white/40 hover:text-white transition-colors"
+                            className="p-1 rounded hover:bg-white/10 text-slate-400 dark:text-white/40 hover:text-white transition-colors"
                             title="Copiar UUID completo"
                           >
                             {copiedId === batch.batchId ? (
@@ -322,7 +322,7 @@ export function BatchAuditSection() {
                             {batch.durationMs >= 1000 ? `${(batch.durationMs / 1000).toFixed(1)}s` : `${batch.durationMs}ms`}
                           </span>
                         ) : (
-                          <span className="text-white/40">-</span>
+                          <span className="text-slate-400 dark:text-white/40">-</span>
                         )}
                       </td>
 
@@ -337,7 +337,7 @@ export function BatchAuditSection() {
                         <button
                           type="button"
                           onClick={() => setSelectedBatch(batch)}
-                          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-blue-600/20 text-white/70 hover:text-blue-300 border border-white/8 hover:border-blue-500/30 text-[11px] font-semibold transition-all"
+                          className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-blue-600/20 text-slate-600 dark:text-white/70 hover:text-blue-300 border border-white/8 hover:border-blue-500/30 text-[11px] font-semibold transition-all"
                         >
                           Detalhes
                         </button>
@@ -400,7 +400,7 @@ export function BatchAuditSection() {
 
             <div className="space-y-3 text-xs font-sans">
               <div className="p-3 rounded-xl bg-white/[0.02] border border-white/6 flex items-center justify-between">
-                <span className="text-white/50">UUID do Lote:</span>
+                <span className="text-slate-500 dark:text-white/50">UUID do Lote:</span>
                 <span className="font-mono text-white font-semibold select-all">
                   {selectedBatch.batchId}
                 </span>
@@ -408,38 +408,38 @@ export function BatchAuditSection() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-xl bg-white/[0.02] border border-white/6">
-                  <span className="text-white/50 block text-[11px]">Módulo / Fonte</span>
+                  <span className="text-slate-500 dark:text-white/50 block text-[11px]">Módulo / Fonte</span>
                   <div className="mt-1">{getSourceBadge(selectedBatch.source)}</div>
                 </div>
 
                 <div className="p-3 rounded-xl bg-white/[0.02] border border-white/6">
-                  <span className="text-white/50 block text-[11px]">Status</span>
+                  <span className="text-slate-500 dark:text-white/50 block text-[11px]">Status</span>
                   <div className="mt-1">{getStatusBadge(selectedBatch.status)}</div>
                 </div>
 
                 <div className="p-3 rounded-xl bg-white/[0.02] border border-white/6">
-                  <span className="text-white/50 block text-[11px]">Modo de Envio</span>
+                  <span className="text-slate-500 dark:text-white/50 block text-[11px]">Modo de Envio</span>
                   <span className="font-mono text-white font-bold uppercase mt-1 block">
                     {selectedBatch.syncMode}
                   </span>
                 </div>
 
                 <div className="p-3 rounded-xl bg-white/[0.02] border border-white/6">
-                  <span className="text-white/50 block text-[11px]">Duração de Ingestão</span>
+                  <span className="text-slate-500 dark:text-white/50 block text-[11px]">Duração de Ingestão</span>
                   <span className="font-mono text-white font-bold mt-1 block">
                     {selectedBatch.durationMs !== null ? `${selectedBatch.durationMs} ms` : 'Não registrado'}
                   </span>
                 </div>
 
                 <div className="p-3 rounded-xl bg-white/[0.02] border border-white/6">
-                  <span className="text-white/50 block text-[11px]">Registros Recebidos</span>
+                  <span className="text-slate-500 dark:text-white/50 block text-[11px]">Registros Recebidos</span>
                   <span className="font-mono text-emerald-400 font-bold text-sm mt-1 block">
                     {selectedBatch.recordsReceived.toLocaleString('pt-BR')}
                   </span>
                 </div>
 
                 <div className="p-3 rounded-xl bg-white/[0.02] border border-white/6">
-                  <span className="text-white/50 block text-[11px]">Chunks Processados</span>
+                  <span className="text-slate-500 dark:text-white/50 block text-[11px]">Chunks Processados</span>
                   <span className="font-mono text-white font-bold mt-1 block">
                     {selectedBatch.chunksReceived} de {selectedBatch.chunkCount}
                   </span>
