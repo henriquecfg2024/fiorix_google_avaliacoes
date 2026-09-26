@@ -68,7 +68,7 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-white/8 text-[11px] uppercase tracking-wider text-slate-500 dark:text-white/40 font-semibold">
+                <tr className="border-b border-white/8 text-[11px] uppercase tracking-wider text-slate-500 dark:text-white/40 font-semibold">
                   <th className="pb-3 font-medium">Módulo</th>
                   <th className="pb-3 font-medium">Status</th>
                   <th className="pb-3 font-medium">Última Execução</th>

@@ -219,7 +219,7 @@ export function GerenciarResponsaveisModal({
       <div className="relative w-full max-w-2xl rounded-2xl border border-slate-200 dark:border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-white animate-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="flex items-center justify-between p-5 sm:p-6 border-b border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/70 shrink-0">
+        <div className="flex items-center justify-between p-5 sm:p-6 border-b border-white/8 bg-white dark:bg-[#0B1020]/70 shrink-0">
           <div className="flex items-center gap-3.5 min-w-0 pr-3">
             <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center shrink-0">
               <Users className="w-5 h-5 text-indigo-400" />
@@ -392,7 +392,7 @@ export function GerenciarResponsaveisModal({
                         setFiltroSetor(e.target.value);
                         handleBuscar(e.target.value);
                       }}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020] text-xs text-slate-300 focus:outline-none focus:border-indigo-500/60 cursor-pointer"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-800/80 bg-[#0B1020]/90 text-xs text-slate-300 focus:outline-none focus:border-indigo-500/60 cursor-pointer"
                     >
                       <option value="TODOS">Todos os setores</option>
                       {setoresDisponiveis.map((s) => (
@@ -487,7 +487,7 @@ export function GerenciarResponsaveisModal({
                   <select
                     value={transferirParaId}
                     onChange={(e) => setTransferirParaId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020] text-xs text-white focus:outline-none focus:border-indigo-500/60"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-800/80 bg-[#0B1020]/90 text-xs text-white focus:outline-none focus:border-indigo-500/60"
                   >
                     <option value="">Selecione o novo responsável...</option>
                     {participantes
@@ -508,7 +508,7 @@ export function GerenciarResponsaveisModal({
                     value={transferirMotivo}
                     onChange={(e) => setTransferirMotivo(e.target.value)}
                     rows={2}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020] text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 resize-none"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-800/80 bg-[#0B1020]/90 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 resize-none"
                   />
 
                   <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
@@ -546,7 +546,7 @@ export function GerenciarResponsaveisModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/70 flex justify-end shrink-0">
+        <div className="p-4 border-t border-slate-800/80 bg-[#0B1020]/90 flex justify-end shrink-0">
           <button
             type="button"
             onClick={onClose}

@@ -18,7 +18,7 @@ export function InsightCard({ insights }: InsightCardProps) {
   // Demo fallback
   if (!insights) {
     return (
-      <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
+      <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl transition-all">
         <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-4">
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-cyan-400" />
@@ -26,7 +26,7 @@ export function InsightCard({ insights }: InsightCardProps) {
           </div>
           <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-xs font-bold text-amber-200">DEMO</span>
         </div>
-        <div className="flex items-start gap-2.5 rounded-xl border border-white/10 bg-[#080D1A]/80 p-3.5">
+        <div className="flex items-start gap-2.5 rounded-xl border border-white/20 bg-[#080D1A] p-3.5">
           <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
           <p className="text-sm text-slate-400">
             Conecte o Google Meu Negócio para gerar insights baseados em dados reais.
@@ -39,7 +39,7 @@ export function InsightCard({ insights }: InsightCardProps) {
   const hasInsights = insights.topComplaint || insights.topColab || insights.worstDay || insights.taxaResposta > 0;
 
   return (
-    <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
+    <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl transition-all">
       <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-4">
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-cyan-400" />
@@ -51,7 +51,7 @@ export function InsightCard({ insights }: InsightCardProps) {
       </div>
 
       {!hasInsights && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-white/10 bg-[#080D1A]/80 p-3.5">
+        <div className="flex items-start gap-2.5 rounded-xl border border-white/20 bg-[#080D1A] p-3.5">
           <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
           <p className="text-sm text-slate-400">
             Ainda não há dados suficientes para gerar insights. Continue coletando avaliações.
@@ -60,7 +60,7 @@ export function InsightCard({ insights }: InsightCardProps) {
       )}
 
       {insights.topComplaint && (
-        <div className="mb-3 space-y-1.5 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-3.5 backdrop-blur-sm">
+        <div className="mb-3 space-y-1.5 rounded-xl border border-amber-500/30 bg-[#080D1A] p-3.5 backdrop-blur-sm">
           <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-300">
             <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
             <span>Alerta de Reclamações</span>
@@ -74,7 +74,7 @@ export function InsightCard({ insights }: InsightCardProps) {
 
       <div className="space-y-2.5">
         {insights.topColab && (
-          <div className="flex items-start gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-3 transition-colors hover:border-emerald-500/30">
+          <div className="flex items-start gap-2.5 rounded-xl border border-emerald-500/30 bg-[#080D1A] p-3 transition-colors hover:border-emerald-500/50">
             <ThumbsUp className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
             <p className="text-sm text-slate-200">
               <strong className="text-white">Destaque:</strong> <strong>{insights.topColab.nome}</strong> foi elogiado(a) em{' '}
@@ -84,7 +84,7 @@ export function InsightCard({ insights }: InsightCardProps) {
         )}
 
         {insights.worstDay && (
-          <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-3 transition-colors hover:border-amber-500/30">
+          <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-[#080D1A] p-3 transition-colors hover:border-amber-500/50">
             <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
             <p className="text-sm text-slate-200">
               <strong className="text-white">Padrão {insights.worstDay.day}:</strong> Notas dadas às{' '}
@@ -95,7 +95,7 @@ export function InsightCard({ insights }: InsightCardProps) {
         )}
 
         {insights.taxaResposta > 0 && (
-          <div className="flex items-start gap-2.5 rounded-xl border border-cyan-500/20 bg-cyan-500/[0.04] p-3 transition-colors hover:border-cyan-500/30">
+          <div className="flex items-start gap-2.5 rounded-xl border border-cyan-500/30 bg-[#080D1A] p-3 transition-colors hover:border-cyan-500/50">
             <Zap className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" />
             <p className="text-sm text-slate-200">
               <strong className="text-white">Taxa de Resposta:</strong> {insights.respondidas} de {insights.totalActive} avaliações respondidas{' '}

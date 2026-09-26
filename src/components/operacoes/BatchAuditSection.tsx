@@ -236,7 +236,7 @@ export function BatchAuditSection() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-white/80">
             <thead>
-              <tr className="border-b border-slate-200 dark:border-white/8 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 dark:text-white/40 font-semibold bg-white/[0.01]">
+              <tr className="border-b border-white/8 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400 dark:text-white/40 font-semibold bg-white/[0.01]">
                 <th className="py-3 px-4 font-medium">Lote / Batch ID</th>
                 <th className="py-3 px-4 font-medium">Módulo</th>
                 <th className="py-3 px-4 font-medium">Modo</th>

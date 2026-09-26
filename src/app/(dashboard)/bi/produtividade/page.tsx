@@ -331,7 +331,7 @@ export default function ProdutividadePage() {
 
                   <div className="text-xs text-slate-500 dark:text-white/45 mb-2">{item.helper}</div>
 
-                  <div className="mt-auto flex items-baseline justify-between border-t border-slate-100 dark:border-white/5 pt-2.5">
+                  <div className="mt-auto flex items-baseline justify-between border-t border-white/8 pt-2.5">
                     <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
                       {item.count}
                     </span>
@@ -357,7 +357,7 @@ export default function ProdutividadePage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] space-y-4">
+          <div className="rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 backdrop-blur-xl p-5 shadow-sm space-y-4">
             <div className="flex items-center gap-2 text-slate-800 dark:text-white/80 font-bold text-sm">
               <LayoutGrid className="h-4 w-4 text-[#00C950]" />
               <span>Filtros do Painel de Produtividade</span>

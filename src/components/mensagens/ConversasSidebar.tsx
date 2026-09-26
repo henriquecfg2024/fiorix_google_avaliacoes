@@ -169,7 +169,7 @@ export function ConversasSidebar({
 
   return (
     <aside
-      className={`h-full rounded-[24px] border border-slate-200 bg-white/90 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] flex flex-col transition-all duration-300 select-none relative shrink-0 overflow-hidden ${
+      className={`h-full rounded-[24px] border border-slate-200 bg-white/90 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-sm flex flex-col transition-all duration-300 select-none relative shrink-0 overflow-hidden ${
         isCollapsed ? 'w-16 min-w-16 max-w-16' : 'w-full md:w-[360px] md:min-w-[360px] md:max-w-[360px]'
       }`}
     >

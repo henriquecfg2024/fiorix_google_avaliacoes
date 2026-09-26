@@ -55,7 +55,7 @@ export function TrendChart({ data }: TrendChartProps) {
   };
 
   return (
-    <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
+    <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl transition-all">
       <div className="mb-5 flex flex-col justify-between gap-3 border-b border-white/8 pb-4 sm:flex-row sm:items-center">
         <div>
           <h3 className="text-base font-bold text-white">Tendência de Avaliações</h3>

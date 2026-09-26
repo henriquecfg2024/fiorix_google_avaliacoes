@@ -270,7 +270,7 @@ export default function FiorixBiImportPage() {
           </div>
         </div>
 
-        <Card className="border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/78 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+        <Card className="border-slate-800/80 bg-[#0B1020]/90 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
           <CardHeader>
             <div className="flex items-center gap-2">
               <FileSpreadsheet className="text-amber-300" size={20} />
@@ -349,7 +349,7 @@ export default function FiorixBiImportPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/78 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+        <Card className="border-slate-800/80 bg-[#0B1020]/90 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
           <CardHeader>
             <CardTitle className="text-lg">Histórico de Importações</CardTitle>
             <CardDescription className="text-slate-500 dark:text-white/55">

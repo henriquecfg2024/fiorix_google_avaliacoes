@@ -135,7 +135,7 @@ export default async function PessoasDashboard() {
 
         {/* Painel de Gestão & Lançamentos de RH (Condicional: ADMIN / MASTER / RH) */}
         {isAdmin && (
-          <div className="rounded-[24px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-5 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-center gap-3.5">
               <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 dark:bg-indigo-500/10 dark:border-indigo-500/20 dark:text-indigo-400 shrink-0">
                 <ShieldCheck className="w-5 h-5" />

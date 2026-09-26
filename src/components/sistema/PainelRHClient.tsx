@@ -454,7 +454,7 @@ export function PainelRHClient({
         {/* 2. CARDS: HOLERITES */}
         {currentTab === "holerites" && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="p-6 rounded-[24px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+            <div className="p-6 rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Holerites Disponibilizados</span>
                 <FileText className="w-4 h-4 text-cyan-400" />
@@ -476,7 +476,7 @@ export function PainelRHClient({
               </p>
             </div>
 
-            <div className="p-6 rounded-[24px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+            <div className="p-6 rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Colaboradores Atendidos</span>
                 <Users className="w-4 h-4 text-emerald-400" />
@@ -501,7 +501,7 @@ export function PainelRHClient({
               </p>
             </div>
 
-            <div className="p-6 rounded-[24px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+            <div className="p-6 rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Rastreabilidade & WORM</span>
                 <ShieldCheck className={`w-4 h-4 ${totalHolerites > 0 ? "text-indigo-400" : "text-slate-500"}`} />
@@ -528,7 +528,7 @@ export function PainelRHClient({
         {/* 3. CARDS: COMUNICADOS */}
         {currentTab === "comunicados" && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="p-6 rounded-[24px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+            <div className="p-6 rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Comunicados Ativos</span>
                 <FileText className="w-4 h-4 text-indigo-400" />
@@ -540,7 +540,7 @@ export function PainelRHClient({
               <p className="text-[11px] text-slate-400 mt-3.5">Assinatura digital e hash SHA-256</p>
             </div>
 
-            <div className="p-6 rounded-[24px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+            <div className="p-6 rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Taxa Geral de Ciência</span>
                 <CheckCircle2 className="w-4 h-4 text-[#06b6d4]" />

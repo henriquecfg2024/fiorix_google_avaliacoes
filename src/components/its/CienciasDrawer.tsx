@@ -368,7 +368,7 @@ export function CienciasDrawer({
         <aside className="w-screen max-w-md sm:max-w-lg bg-white dark:bg-[#0B1020] border-l border-slate-200 dark:border-white/10 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
           
           {/* Header Superior */}
-          <div className="p-5 sm:p-6 border-b border-slate-200 dark:border-white/8 bg-[#0E1626]/80 flex items-center gap-3 shrink-0">
+          <div className="p-5 sm:p-6 border-b border-white/8 bg-[#0E1626]/80 flex items-center gap-3 shrink-0">
             {subModoEquipe !== 'lista' ? (
               <button
                 type="button"

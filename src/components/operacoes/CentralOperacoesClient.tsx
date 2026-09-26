@@ -74,7 +74,7 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
         {/* 1. Header Global com Identificação Rigorosa */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/8">
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
@@ -122,7 +122,7 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
         </div>
 
         {/* Navegação entre Abas */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-white/8 pb-2">
+        <div className="flex flex-wrap items-center gap-2 border-b border-white/8 pb-2">
           <button
             type="button"
             onClick={() => setActiveTab('overview')}

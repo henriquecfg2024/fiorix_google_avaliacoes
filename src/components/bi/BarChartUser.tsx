@@ -39,7 +39,7 @@ export function BarChartUser({ data }: BarChartUserProps) {
     if (active && payload && payload.length) {
       const item = payload[0];
       return (
-        <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/95 p-3 text-xs text-slate-900 dark:text-white shadow-xl">
+        <div className="rounded-xl border border-slate-800/80 bg-[#0B1020]/90 p-3 text-xs text-slate-900 dark:text-white shadow-xl">
           <p className="font-semibold text-slate-700 dark:text-white/80">{item.name}</p>
           <p className="mt-1 font-bold text-cyan-600 dark:text-cyan-300">{(item.value ?? 0).toLocaleString("pt-BR")} autenticações</p>
         </div>
@@ -49,7 +49,7 @@ export function BarChartUser({ data }: BarChartUserProps) {
   };
 
   return (
-    <div className="flex h-[350px] min-h-0 min-w-0 flex-col overflow-hidden rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+    <div className="flex h-[350px] min-h-0 min-w-0 flex-col overflow-hidden rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl">
       <div>
         <h3 className="text-base font-bold tracking-tight text-slate-900 dark:text-white">Ranking por Usuário</h3>
         <p className="text-xs text-slate-500 dark:text-white/40">Colaboradores com maior volume de processamento</p>

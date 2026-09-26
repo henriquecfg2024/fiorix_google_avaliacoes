@@ -113,7 +113,7 @@ export default async function RelatoriosPage() {
   const top3 = colaboradoresList[2];
   const totalElogiosSum = colaboradoresList.reduce((acc, c) => acc + c.elogios, 0);
 
-  const surfaceCard = 'rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl';
+  const surfaceCard = 'rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 shadow-sm shadow-sm backdrop-blur-xl';
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-800 dark:text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
@@ -238,7 +238,7 @@ export default async function RelatoriosPage() {
 
       {colaboradoresList.length >= 3 && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="relative space-y-2 overflow-hidden rounded-2xl border border-amber-200 dark:border-white/12 bg-amber-50/50 dark:bg-[#0B1020]/72 p-5 shadow-xs dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-amber-300 dark:hover:border-white/20">
+          <div className="relative space-y-2 overflow-hidden rounded-2xl border border-amber-200 dark:border-white/12 bg-amber-50/50 dark:bg-[#0B1020]/72 p-5 shadow-xs shadow-sm backdrop-blur-xl transition-all hover:border-amber-300 dark:hover:border-white/20">
             <div className="flex items-center justify-between">
               <span className="text-2xl">🥇</span>
               <span className="rounded-full border border-amber-500/20 bg-amber-500/12 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-amber-700 dark:text-amber-300">1º Lugar • Ouro</span>
@@ -252,7 +252,7 @@ export default async function RelatoriosPage() {
             </div>
           </div>
 
-          <div className="relative space-y-2 overflow-hidden rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-5 shadow-xs dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
+          <div className="relative space-y-2 overflow-hidden rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-xs shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
             <div className="flex items-center justify-between">
               <span className="text-2xl">🥈</span>
               <span className="rounded-full border border-slate-300 dark:border-slate-400/20 bg-slate-100 dark:bg-slate-400/12 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-slate-700 dark:text-slate-200">2º Lugar • Prata</span>
@@ -266,7 +266,7 @@ export default async function RelatoriosPage() {
             </div>
           </div>
 
-          <div className="relative space-y-2 overflow-hidden rounded-2xl border border-orange-200 dark:border-white/12 bg-orange-50/50 dark:bg-[#0B1020]/72 p-5 shadow-xs dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-orange-300 dark:hover:border-white/20">
+          <div className="relative space-y-2 overflow-hidden rounded-2xl border border-orange-200 dark:border-white/12 bg-orange-50/50 dark:bg-[#0B1020]/72 p-5 shadow-xs shadow-sm backdrop-blur-xl transition-all hover:border-orange-300 dark:hover:border-white/20">
             <div className="flex items-center justify-between">
               <span className="text-2xl">🥉</span>
               <span className="rounded-full border border-orange-500/20 bg-orange-500/12 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-orange-700 dark:text-orange-300">3º Lugar • Bronze</span>
@@ -283,7 +283,7 @@ export default async function RelatoriosPage() {
       )}
 
       <div className={`${surfaceCard} space-y-4 overflow-hidden p-6`}>
-        <div className="flex flex-col justify-between gap-4 border-b border-slate-200 dark:border-white/8 pb-5 md:flex-row md:items-center">
+        <div className="flex flex-col justify-between gap-4 border-b border-white/8 pb-5 md:flex-row md:items-center">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-lg">👥</span>

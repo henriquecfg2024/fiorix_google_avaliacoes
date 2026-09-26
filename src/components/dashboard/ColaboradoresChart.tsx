@@ -89,7 +89,7 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
   };
 
   return (
-    <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
+    <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl transition-all">
       <div className="mb-5 flex flex-col justify-between gap-3 border-b border-white/8 pb-4 sm:flex-row sm:items-center">
         <div>
           <h3 className="text-base font-bold text-white">Ranking dos Colaboradores</h3>
@@ -102,7 +102,7 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
           </p>
         </div>
 
-        <div className="inline-flex self-start gap-1 rounded-xl border border-white/10 bg-white/[0.04] p-1 text-xs font-semibold sm:self-auto">
+        <div className="inline-flex self-start gap-1 rounded-xl border border-white/20 bg-[#080D1A] p-1 text-xs font-semibold sm:self-auto">
           <button
             onClick={() => setPeriod('month')}
             className={`rounded-lg px-3 py-1.5 transition-all ${
@@ -139,7 +139,7 @@ export function ColaboradoresChart({ monthData, quarterData, totalData }: Colabo
             <div
               key={idx}
               className={`flex flex-col items-center justify-center rounded-xl border p-2.5 text-center transition-all ${
-                isTop ? 'border-cyan-500/25 bg-cyan-500/[0.08] shadow-xs' : 'border border-white/8 bg-[#080D1A]/80 hover:border-white/16'
+                isTop ? 'border-cyan-500/50 bg-cyan-500/[0.12] shadow-xs' : 'border border-white/20 bg-[#080D1A] hover:border-white/30'
               }`}
             >
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{medal} Rank</span>

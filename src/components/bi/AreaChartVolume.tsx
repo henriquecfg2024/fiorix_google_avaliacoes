@@ -51,7 +51,7 @@ export function AreaChartVolume({ data }: AreaChartVolumeProps) {
   const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: TooltipPoint[] }) => {
     if (active && payload && payload.length) {
       return (
-        <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/95 p-3 text-xs text-slate-900 dark:text-white shadow-xl">
+        <div className="rounded-xl border border-slate-800/80 bg-[#0B1020]/90 p-3 text-xs text-slate-900 dark:text-white shadow-xl">
           <p className="font-semibold text-slate-700 dark:text-white/80">Faixa Horária: {payload[0]?.payload?.displayHour}</p>
           {payload.map((p, idx: number) => (
             <p key={idx} className="font-bold" style={{ color: p.color }}>
@@ -65,7 +65,7 @@ export function AreaChartVolume({ data }: AreaChartVolumeProps) {
   };
 
   return (
-    <div className="flex h-[350px] min-h-0 min-w-0 flex-col overflow-hidden rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+    <div className="flex h-[350px] min-h-0 min-w-0 flex-col overflow-hidden rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl">
       <div>
         <h3 className="text-base font-bold tracking-tight text-slate-900 dark:text-white">Volume por Hora</h3>
         <p className="text-xs text-slate-500 dark:text-white/40">Comparação horária entre Títulos e Certidões</p>

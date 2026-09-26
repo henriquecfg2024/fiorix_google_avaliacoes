@@ -254,7 +254,7 @@ export function KpiCards({
           <div
             key={idx}
             className={cn(
-              "group relative flex min-h-[125px] flex-col justify-between overflow-hidden rounded-[24px] border bg-white dark:bg-[#0B1020]/72 p-4 sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all",
+              "group relative flex min-h-[125px] flex-col justify-between overflow-hidden rounded-[24px] border bg-white dark:bg-[#0B1020]/72 p-4 sm:p-5 shadow-sm backdrop-blur-xl transition-all",
               card.border,
               card.hoverBorder
             )}

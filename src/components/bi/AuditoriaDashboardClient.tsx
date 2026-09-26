@@ -279,7 +279,7 @@ export function AuditoriaDashboardClient() {
   return (
     <div className="space-y-6 font-[Inter,system-ui,sans-serif] text-slate-900 dark:text-white">
       {/* Upper info / Header Meta */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-[22px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 px-4 py-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-[22px] border border-slate-800/80 bg-[#0B1020]/90 px-4 py-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
         <div className="text-slate-500 dark:text-white/60 text-xs flex flex-wrap items-center gap-3">
           <span>Última auditoria: {lastAuditAt ? `hoje ${lastAuditAt}` : "carregando..."}</span>
           <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-white/22"></span>
@@ -303,7 +303,7 @@ export function AuditoriaDashboardClient() {
       {/* Top Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1 */}
-        <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/78 p-5 shadow-sm dark:shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-slate-300 dark:hover:border-white/12">
+        <div className="rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm dark:shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-slate-300 dark:hover:border-white/12">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-white/48">Antes FIORIX</span>
             <span className="rounded-full border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/6 px-2 py-0.5 text-[10px] font-bold text-slate-700 dark:text-white/80">
@@ -320,7 +320,7 @@ export function AuditoriaDashboardClient() {
         </div>
 
         {/* Card 2 */}
-        <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/78 p-5 shadow-sm dark:shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-slate-300 dark:hover:border-white/12">
+        <div className="rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm dark:shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-slate-300 dark:hover:border-white/12">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-white/48">Meta FIORIX</span>
             <span className="rounded-full border border-indigo-400/25 bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-200">SLA: 48h</span>
@@ -332,7 +332,7 @@ export function AuditoriaDashboardClient() {
         </div>
 
         {/* Card 3 */}
-        <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/78 p-5 shadow-sm dark:shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-slate-300 dark:hover:border-white/12">
+        <div className="rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm dark:shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-slate-300 dark:hover:border-white/12">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-white/48">Realizado FIORIX</span>
             <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-200">HOJE</span>
@@ -345,7 +345,7 @@ export function AuditoriaDashboardClient() {
         </div>
 
         {/* Card 4 */}
-        <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/78 p-5 shadow-sm dark:shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-slate-300 dark:hover:border-white/12">
+        <div className="rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm dark:shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-slate-300 dark:hover:border-white/12">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-white/48">Risco Atual</span>
             <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
@@ -408,7 +408,7 @@ export function AuditoriaDashboardClient() {
       {activeTab === "dashboard" && (
         <div className="space-y-6">
           {/* Card de Fluxo Recomendado */}
-          <Card className="space-y-3 rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-gradient-to-br dark:from-[#0B1020]/90 dark:via-[#0B1020]/72 dark:to-[#11172A]/72 p-5 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+          <Card className="space-y-3 rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-gradient-to-br dark:from-[#0B1020]/90 dark:via-[#0B1020]/72 dark:to-[#11172A]/72 p-5 shadow-sm shadow-sm">
             <h4 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
               📋 Plano de Regularização
             </h4>
@@ -430,7 +430,7 @@ export function AuditoriaDashboardClient() {
 
           {/* Evolução Diária */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-5 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] flex flex-col justify-between">
+            <div className="lg:col-span-2 rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm flex flex-col justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_0_6px_rgba(16,185,129,0.08)]"></span>
@@ -460,7 +460,7 @@ export function AuditoriaDashboardClient() {
 
             {/* Resumo cards no dashboard */}
             <div className="space-y-4">
-              <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 p-5 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+              <div className="rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-black uppercase tracking-wider text-amber-600 dark:text-amber-300">Sem Balcão Registrado</h4>
                   <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-200">
@@ -472,7 +472,7 @@ export function AuditoriaDashboardClient() {
                   <p className="mt-1 text-xs text-slate-500 dark:text-white/52">Média parado • Setor Competência</p>
                 </div>
               </div>
-              <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 p-5 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+              <div className="rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-300">Sem Balcão Devolvido</h4>
                   <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-200">
@@ -490,7 +490,7 @@ export function AuditoriaDashboardClient() {
       )}
 
       {activeTab === "pendencias" && (
-        <div className="space-y-4 overflow-hidden rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 p-5 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+        <div className="space-y-4 overflow-hidden rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm">
           
           {/* A. FILTROS AVANÇADOS */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.03] p-4">
@@ -596,10 +596,10 @@ export function AuditoriaDashboardClient() {
           </div>
 
           {/* C. TABELA DE AUDITORIA */}
-          <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 text-slate-900 dark:text-white shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+          <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 text-slate-900 dark:text-white shadow-sm shadow-sm backdrop-blur-xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="select-none bg-slate-50 dark:bg-[#0B1020] text-xs uppercase tracking-wider text-slate-600 dark:text-white/58 border-b border-slate-200 dark:border-white/8">
+                <thead className="select-none bg-slate-50 dark:bg-[#0B1020] text-xs uppercase tracking-wider text-slate-600 dark:text-white/58 border-b border-white/8">
                   <tr>
                     <th className="p-4 w-12 text-center">
                       <input
@@ -650,7 +650,7 @@ export function AuditoriaDashboardClient() {
                     <th className="p-4 text-right font-semibold">Encaminhamento</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-white/5 bg-transparent">
+                <tbody className="divide-y divide-white/8 bg-transparent">
                   {paginatedProtocolos.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="p-8 text-center text-xs text-slate-400 dark:text-white/30">
@@ -825,7 +825,7 @@ export function AuditoriaDashboardClient() {
                   <th className="p-4 text-right">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+              <tbody className="divide-y divide-white/8">
                 {historicoAuditorias.map((i) => (
                   <tr key={i.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition">
                     <td className="p-4 text-slate-500 dark:text-white/50">{i.data}</td>
@@ -876,7 +876,7 @@ export function AuditoriaDashboardClient() {
                   <th className="p-4 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+              <tbody className="divide-y divide-white/8">
                 {importacoesMock.map((i) => (
                   <tr key={i.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition">
                     <td className="p-4 text-slate-500 dark:text-white/50">{i.data}</td>

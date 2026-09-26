@@ -660,7 +660,7 @@ export function MensagensClient({
               onArchive={handleArchive}
             />
           ) : (
-            <div className="h-full flex-1 rounded-[24px] border border-slate-200 bg-white/90 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] flex flex-col items-center justify-center text-center p-8 select-none">
+            <div className="h-full flex-1 rounded-[24px] border border-slate-200 bg-white/90 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-sm flex flex-col items-center justify-center text-center p-8 select-none">
               <div className="w-24 h-24 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400 flex items-center justify-center mb-6 shadow-inner">
                 <MessagesSquare className="w-10 h-10 text-emerald-400 stroke-[1.75]" />
               </div>

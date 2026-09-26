@@ -99,7 +99,7 @@ export default function HoleritesPage() {
         </div>
 
         {/* ── Card Principal ─────────────────────────────────────────── */}
-        <div className="rounded-[22px] border border-slate-200 dark:border-white/8 bg-white dark:bg-gradient-to-br dark:from-[#0B1020]/80 dark:to-[#0E0A1C]/60 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl overflow-hidden">
+        <div className="rounded-[22px] border border-slate-200 dark:border-white/8 bg-white dark:bg-gradient-to-br dark:from-[#0B1020]/80 dark:to-[#0E0A1C]/60 shadow-sm shadow-sm backdrop-blur-xl overflow-hidden">
 
           {/* Cabeçalho do Card */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-6 py-5 gap-3">

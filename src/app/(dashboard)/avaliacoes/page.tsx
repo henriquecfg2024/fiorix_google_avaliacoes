@@ -321,7 +321,7 @@ export default async function AvaliacoesPage({
         </div>
 
         {/* Card Executivo de Distribuição das Avaliações */}
-        <div className="rounded-[24px] border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/80 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+        <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm shadow-sm backdrop-blur-xl">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-stretch">
             {/* Coluna Principal: Distribuição (~78%) */}
             <div className="lg:col-span-9 flex flex-col justify-between space-y-5">
@@ -561,7 +561,7 @@ export default async function AvaliacoesPage({
       )}
 
       {/* Unified Pagination Footer */}
-      <div className="flex flex-col items-center justify-between gap-4 rounded-[24px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 px-6 py-4 text-slate-900 dark:text-white shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl sm:flex-row">
+      <div className="flex flex-col items-center justify-between gap-4 rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 px-6 py-4 text-slate-900 dark:text-white shadow-sm shadow-sm backdrop-blur-xl sm:flex-row">
         {/* Interval text */}
         <div className="text-xs text-slate-500 dark:text-white/60 text-center sm:text-left">
           Exibindo <strong className="text-slate-900 dark:text-white">{startItemIndex.toLocaleString("pt-BR")}</strong> a{" "}

@@ -106,39 +106,39 @@ export default async function BiImportacoesPage() {
           <ImportacoesActions />
         </div>
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4">
-          <div className="rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
+          <div className="rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-4 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Módulo BI</div>
             <div className="mt-2 text-2xl font-bold text-cyan-600 dark:text-cyan-300">{biCount}</div>
             <div className="mt-1 text-xs text-slate-500 dark:text-white/45">importações registradas</div>
           </div>
-          <div className="rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
+          <div className="rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-4 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Produtividade</div>
             <div className="mt-2 text-2xl font-bold text-emerald-600 dark:text-emerald-300">{produtividadeCount}</div>
             <div className="mt-1 text-xs text-slate-500 dark:text-white/45">importações registradas</div>
           </div>
-          <div className="rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
+          <div className="rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-4 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Metas</div>
             <div className="mt-2 text-2xl font-bold text-violet-600 dark:text-violet-300">{metasCount}</div>
             <div className="mt-1 text-xs text-slate-500 dark:text-white/45">importações registradas</div>
           </div>
-          <div className="rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
+          <div className="rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-4 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Tarefas</div>
             <div className="mt-2 text-2xl font-bold text-purple-600 dark:text-purple-300">{tarefasCount}</div>
             <div className="mt-1 text-xs text-slate-500 dark:text-white/45">importações registradas</div>
           </div>
-          <div className="rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
+          <div className="rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-4 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Períodos Inferidos</div>
             <div className="mt-2 text-2xl font-bold text-amber-600 dark:text-amber-300">{produtividadeInferredCount}</div>
             <div className="mt-1 text-xs text-slate-500 dark:text-white/45">detectados na base de produtividade</div>
           </div>
-          <div className="rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
+          <div className="rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-4 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Total de Linhas</div>
             <div className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{totalRows.toLocaleString("pt-BR")}</div>
             <div className="mt-1 text-xs text-slate-500 dark:text-white/45">somadas nas fontes exibidas</div>
           </div>
         </div>
 
-        <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
+        <div className="rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm shadow-sm backdrop-blur-xl space-y-4">
           <div className="flex items-center gap-2">
             <Database className="h-4 w-4 text-cyan-300" />
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Histórico Unificado</h2>
@@ -147,7 +147,7 @@ export default async function BiImportacoesPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
+          <div className="rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm shadow-sm backdrop-blur-xl space-y-4">
             <div className="flex items-center gap-2">
               <FileSpreadsheet className="h-4 w-4 text-emerald-300" />
               <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Produtividade</h2>
@@ -158,7 +158,7 @@ export default async function BiImportacoesPage() {
             <ImportTableClient rows={[...produtividadeLogs, ...produtividadeInferredFiltered]} />
           </div>
 
-          <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
+          <div className="rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm shadow-sm backdrop-blur-xl space-y-4">
             <div className="flex items-center gap-2">
               <Database className="h-4 w-4 text-cyan-300" />
               <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Módulo BI</h2>
@@ -169,7 +169,7 @@ export default async function BiImportacoesPage() {
             <ImportTableClient rows={biImports} />
           </div>
 
-          <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
+          <div className="rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm shadow-sm backdrop-blur-xl space-y-4">
             <div className="flex items-center gap-2">
               <Target className="h-4 w-4 text-violet-300" />
               <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Metas</h2>
@@ -180,7 +180,7 @@ export default async function BiImportacoesPage() {
             <ImportTableClient rows={metasImports} />
           </div>
 
-          <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl space-y-4">
+          <div className="rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm shadow-sm backdrop-blur-xl space-y-4">
             <div className="flex items-center gap-2">
               <Layers3 className="h-4 w-4 text-purple-300" />
               <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Tarefas</h2>

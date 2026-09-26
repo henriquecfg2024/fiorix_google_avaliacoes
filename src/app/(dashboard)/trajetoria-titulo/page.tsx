@@ -102,7 +102,7 @@ export default async function LocalizacaoTitulosPage({
           {/* Date / time display */}
           <div
             className="flex items-center gap-2.5 shrink-0 px-3.5 py-2 rounded-xl
-              border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-xs"
+              border border-slate-800/80 bg-[#0B1020]/90 backdrop-blur-xl shadow-xs"
           >
             <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
             <div className="text-right">

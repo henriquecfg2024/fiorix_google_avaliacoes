@@ -34,7 +34,7 @@ export function FiorixControlBar({
 
   return (
     <div className="space-y-3">
-      <Card className="flex flex-col gap-4 rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 p-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+      <Card className="flex flex-col gap-4 rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-4 shadow-sm shadow-sm backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
         {/* Left Status */}
         <div className="flex items-center gap-3 w-full sm:w-auto text-sm">
           <span className="font-semibold text-slate-900 dark:text-white">Gráficos exibidos</span>

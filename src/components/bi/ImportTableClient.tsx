@@ -156,7 +156,7 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
 
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
-          <thead className="select-none bg-slate-50 dark:bg-[#0B1020] text-xs uppercase tracking-wider text-slate-600 dark:text-white/58 border-b border-slate-200 dark:border-white/8">
+          <thead className="select-none bg-slate-50 dark:bg-[#0B1020] text-xs uppercase tracking-wider text-slate-600 dark:text-white/58 border-b border-white/8">
             <tr>
               <th className="px-4 py-3.5 font-semibold">Origem</th>
               <th className="px-4 py-3.5 font-semibold">Arquivo / Referência</th>
@@ -169,7 +169,7 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
               <th className="px-4 py-3.5 font-semibold text-right">Ações</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-white/5 bg-transparent">
+          <tbody className="divide-y divide-white/8 bg-transparent">
             {paginatedRows.length === 0 ? (
               <tr>
                 <td colSpan={9} className="p-8 text-center text-xs text-slate-400 dark:text-white/30">

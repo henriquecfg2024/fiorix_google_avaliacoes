@@ -138,9 +138,9 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
   };
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 text-slate-900 dark:text-white shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+    <div className="flex flex-col overflow-hidden rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 text-white shadow-sm backdrop-blur-xl">
       {/* Controls Header Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-white/8 bg-slate-50/50 dark:bg-white/[0.01] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/8 bg-slate-50/50 dark:bg-white/[0.01] p-4">
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-white/40" />
           <Input
@@ -166,7 +166,7 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
       {/* Table Container */}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs">
-          <thead className="select-none bg-slate-50 dark:bg-[#0B1020] text-xs uppercase tracking-wider text-slate-600 dark:text-white/58 border-b border-slate-200 dark:border-white/8">
+          <thead className="select-none bg-slate-50 dark:bg-[#0B1020] text-xs uppercase tracking-wider text-slate-600 dark:text-white/58 border-b border-white/8">
             <tr>
               <th onClick={() => handleSort("DATA")} className="px-4 py-3.5 font-semibold cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors">
                 Data {sortField === "DATA" && (sortDirection === "asc" ? "▲" : "▼")}
@@ -194,7 +194,7 @@ export function DataTablePremium({ data }: DataTablePremiumProps) {
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-white/5 bg-transparent">
+          <tbody className="divide-y divide-white/8 bg-transparent">
             {paginatedData.length > 0 ? (
               paginatedData.map((row, idx) => (
                 <tr key={idx} className="transition-colors hover:bg-slate-50/80 dark:hover:bg-white/[0.03] text-slate-700 dark:text-white/80">

@@ -86,7 +86,7 @@ export default function PreviewVisaoConsolidadaPage() {
       {/* ── CONTEÚDO PRINCIPAL DA VISÃO CONSOLIDADA ── */}
       <main className="max-w-7xl mx-auto px-4 py-8 lg:px-8 space-y-6">
         {/* Cabeçalho da Página */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-200 dark:border-white/8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-white/8">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
               <span>Dashboard</span>
@@ -116,7 +116,7 @@ export default function PreviewVisaoConsolidadaPage() {
         {/* ── ILHA DE CLAREZA / CARDS DE DESTAQUE SUPERIOR ── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           {/* CARD 1: SAÚDE DA REPUTAÇÃO (SCORE 81/100) */}
-          <div className="lg:col-span-7 rounded-[28px] border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/90 p-6 sm:p-7 shadow-[0_15px_40px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.3)] transition-all">
+          <div className="lg:col-span-7 rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-6 sm:p-7 shadow-[0_15px_40px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.3)] transition-all">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-white/8">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
@@ -248,7 +248,7 @@ export default function PreviewVisaoConsolidadaPage() {
         {/* ── LINHA DE KPIS OPERACIONAIS ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* KPI 1 */}
-          <div className="p-5 rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020] shadow-sm">
+          <div className="p-5 rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 shadow-sm">
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
               <span>Nota Média Google</span>
               <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
@@ -263,7 +263,7 @@ export default function PreviewVisaoConsolidadaPage() {
           </div>
 
           {/* KPI 2 */}
-          <div className="p-5 rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020] shadow-sm">
+          <div className="p-5 rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 shadow-sm">
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
               <span>Taxa de Resposta</span>
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
@@ -277,7 +277,7 @@ export default function PreviewVisaoConsolidadaPage() {
           </div>
 
           {/* KPI 3 */}
-          <div className="p-5 rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020] shadow-sm">
+          <div className="p-5 rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 shadow-sm">
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
               <span>Tempo Médio Resposta</span>
               <Clock className="w-4 h-4 text-cyan-500" />
@@ -291,7 +291,7 @@ export default function PreviewVisaoConsolidadaPage() {
           </div>
 
           {/* KPI 4 */}
-          <div className="p-5 rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020] shadow-sm">
+          <div className="p-5 rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 shadow-sm">
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
               <span>Satisfação Líquida (NPS)</span>
               <ThumbsUp className="w-4 h-4 text-indigo-500" />

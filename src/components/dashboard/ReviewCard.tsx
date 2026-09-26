@@ -32,7 +32,7 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
 
   if (!reviews || reviews.length === 0) {
     return (
-      <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+      <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl">
         <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-4">
           <h3 className="text-base font-bold text-white">Últimas Avaliações</h3>
         </div>
@@ -48,7 +48,7 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
   };
 
   return (
-    <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
+    <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl transition-all">
       <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-4">
         <h3 className="text-base font-bold text-white">Últimas Avaliações</h3>
         <Link href="/avaliacoes" className="text-xs font-semibold text-amber-300 transition-colors hover:text-amber-200 hover:underline">
@@ -69,10 +69,10 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
               key={rev.id}
               className={`rounded-xl border p-3.5 transition-all ${
                 isLowRating
-                  ? 'border-l-4 border-l-red-500 border-red-500/35 bg-red-500/[0.04]'
+                  ? 'border-l-4 border-l-red-500 border-red-500/50 bg-[#080D1A]'
                   : isMidRating
-                    ? 'border-l-4 border-l-amber-400 border-amber-500/30 bg-amber-500/[0.035]'
-                    : 'border border-white/8 bg-[#080D1A]/80 hover:border-white/18 hover:bg-[#0c1428]'
+                    ? 'border-l-4 border-l-amber-400 border-amber-500/40 bg-[#080D1A]'
+                    : 'border border-white/20 bg-[#080D1A] hover:border-white/30 hover:bg-[#0c1428]'
               }`}
             >
               <div className="flex items-start justify-between gap-2">

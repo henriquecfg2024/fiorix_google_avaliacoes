@@ -147,9 +147,9 @@ export function OperationsChartsSection() {
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/90 p-5 sm:p-6 shadow-xl backdrop-blur-xl space-y-6">
+    <div className="rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-5 sm:p-6 shadow-xl backdrop-blur-xl space-y-6">
       {/* Header com Controles de Intervalo */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/8">
         <div>
           <div className="flex items-center gap-2.5">
             <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">

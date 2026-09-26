@@ -330,21 +330,21 @@ export default async function Dashboard({
           </div>
         </div>
       {syncError && (
-        <div className="flex items-center gap-3 rounded-[20px] border border-rose-500/20 bg-[#0B1020]/80 px-5 py-4 text-sm text-rose-200 shadow-[0_18px_50px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+        <div className="flex items-center gap-3 rounded-[20px] border border-rose-500/30 bg-[#0B1020]/90 px-5 py-4 text-sm text-rose-200 shadow-sm backdrop-blur-xl">
           <span className="flex h-9 w-9 items-center justify-center rounded-full border border-rose-500/20 bg-rose-500/10 text-base">!</span>
           <span><strong>Erro ao Sincronizar com o Google:</strong> {syncError}</span>
         </div>
       )}
 
       {syncedCount && (
-        <div className="flex items-center gap-3 rounded-[20px] border border-emerald-500/20 bg-[#0B1020]/80 px-5 py-4 text-sm text-emerald-200 shadow-[0_18px_50px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+        <div className="flex items-center gap-3 rounded-[20px] border border-emerald-500/30 bg-[#0B1020]/90 px-5 py-4 text-sm text-emerald-200 shadow-sm backdrop-blur-xl">
           <span className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-500/20 bg-emerald-500/10 text-base">v</span>
           <span><strong>Sincronização Concluída:</strong> {syncedCount} novas avaliações importadas!</span>
         </div>
       )}
 
       {!isConnected && isDemo && (
-        <div className="flex flex-col items-start justify-between gap-3 rounded-[20px] border border-amber-400/20 bg-[#0B1020]/80 px-5 py-4 text-sm text-amber-100 shadow-[0_18px_50px_rgba(0,0,0,0.22)] backdrop-blur-xl sm:flex-row sm:items-center">
+        <div className="flex flex-col items-start justify-between gap-3 rounded-[20px] border border-amber-400/30 bg-[#0B1020]/90 px-5 py-4 text-sm text-amber-100 shadow-sm backdrop-blur-xl sm:flex-row sm:items-center">
           <div className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-400/20 bg-amber-400/10 text-base">i</span>
             <span>
@@ -353,7 +353,7 @@ export default async function Dashboard({
           </div>
           <a
             href="/configuracoes"
-            className="rounded-xl border border-amber-400/20 bg-amber-400/15 px-4 py-2 text-xs font-bold whitespace-nowrap text-amber-200 transition-colors hover:bg-amber-400/25 self-end sm:self-auto"
+            className="rounded-xl border border-amber-400/30 bg-amber-400/15 px-4 py-2 text-xs font-bold whitespace-nowrap text-amber-200 transition-colors hover:bg-amber-400/25 self-end sm:self-auto"
           >
             Conectar Google &rarr;
           </a>

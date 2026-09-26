@@ -73,12 +73,12 @@ export function CentralResumo({
         {/* CARD 1: COMUNICADOS INTERNOS */}
         <Link href="/pessoas/comunicados" className="group block h-full">
           <div
-            className={`relative h-full rounded-[24px] border p-6 transition-all duration-300 backdrop-blur-xl shadow-xs dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] flex flex-col justify-between cursor-pointer ${
+            className={`relative h-full rounded-[24px] border p-6 transition-all duration-300 backdrop-blur-xl shadow-xs shadow-sm flex flex-col justify-between cursor-pointer ${
               isUrgent
                 ? "border-rose-300 dark:border-rose-500/35 bg-rose-50/70 dark:bg-[#140a12]/80 hover:border-rose-400 dark:hover:border-rose-500/60 hover:bg-rose-100/70 dark:hover:bg-[#180c16]/90 shadow-sm"
                 : isPending
                 ? "border-amber-300 dark:border-amber-500/30 bg-amber-50/70 dark:bg-amber-500/[0.035] hover:border-amber-400 dark:hover:border-amber-500/50 hover:bg-amber-100/70 dark:hover:bg-amber-500/[0.06] shadow-sm"
-                : "border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-50 dark:hover:bg-[#0B1020]/90 shadow-sm"
+                : "border-slate-800/80 bg-[#0B1020]/90 hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-50 dark:hover:bg-[#0B1020]/90 shadow-sm"
             }`}
           >
             <div>
@@ -148,7 +148,7 @@ export function CentralResumo({
 
         {/* CARD 2: FÉRIAS PREVISTAS */}
         <Link href="/pessoas/ferias" className="group block h-full">
-          <div className="h-full rounded-[24px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 transition-all duration-300 backdrop-blur-xl shadow-xs dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] hover:border-emerald-400 dark:hover:border-emerald-500/40 hover:bg-slate-50 dark:hover:bg-[#0B1020]/90 flex flex-col justify-between cursor-pointer">
+          <div className="h-full rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 transition-all duration-300 backdrop-blur-xl shadow-xs shadow-sm hover:border-emerald-400 dark:hover:border-emerald-500/40 hover:bg-slate-50 dark:hover:bg-[#0B1020]/90 flex flex-col justify-between cursor-pointer">
             <div>
               <div className="flex items-center justify-between">
                 <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400 shadow-xs">
@@ -199,7 +199,7 @@ export function CentralResumo({
 
         {/* CARD 3: HOLERITES */}
         <Link href="/pessoas/holerites" className="group block h-full">
-          <div className="h-full rounded-[24px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 transition-all duration-300 backdrop-blur-xl shadow-xs dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] hover:border-cyan-400 dark:hover:border-cyan-500/40 hover:bg-slate-50 dark:hover:bg-[#0B1020]/90 flex flex-col justify-between cursor-pointer">
+          <div className="h-full rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 transition-all duration-300 backdrop-blur-xl shadow-xs shadow-sm hover:border-cyan-400 dark:hover:border-cyan-500/40 hover:bg-slate-50 dark:hover:bg-[#0B1020]/90 flex flex-col justify-between cursor-pointer">
             <div>
               <div className="flex items-center justify-between">
                 <div className="p-2.5 rounded-xl bg-cyan-50 border border-cyan-200 text-cyan-600 dark:bg-cyan-500/10 dark:border-cyan-500/20 dark:text-cyan-400 shadow-xs">
@@ -246,7 +246,7 @@ export function CentralResumo({
       </div>
 
       {/* RODAPÉ DE SEGURANÇA E PRIVACIDADE NO PADRÃO FIORIX */}
-      <div className="w-full rounded-[20px] border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/72 p-4.5 backdrop-blur-xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
+      <div className="w-full rounded-[20px] border border-slate-800/80 bg-[#0B1020]/90 p-4.5 backdrop-blur-xl flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
         <div className="flex items-center gap-3.5">
           <div className="p-2.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 dark:bg-violet-500/10 dark:border-violet-500/20 dark:text-violet-400 shrink-0">
             <ShieldCheck className="w-5 h-5" />

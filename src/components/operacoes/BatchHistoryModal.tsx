@@ -48,7 +48,7 @@ export function BatchHistoryModal({ isOpen, onClose, moduleName, moduleKey, batc
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/8 pb-4">
+        <div className="flex items-center justify-between border-b border-white/8 pb-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
               <Layers className="h-5 w-5" />
@@ -76,7 +76,7 @@ export function BatchHistoryModal({ isOpen, onClose, moduleName, moduleKey, batc
         <div className="overflow-x-auto max-h-[380px] overflow-y-auto">
           {batches && batches.length > 0 ? (
             <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 bg-[#0B1020] border-b border-slate-200 dark:border-white/8 text-[11px] uppercase tracking-wider text-slate-500 dark:text-white/40 font-semibold">
+              <thead className="sticky top-0 bg-[#0B1020] border-b border-white/8 text-[11px] uppercase tracking-wider text-slate-500 dark:text-white/40 font-semibold">
                 <tr>
                   <th className="pb-3 pt-1">Identificador</th>
                   <th className="pb-3 pt-1">Horário</th>

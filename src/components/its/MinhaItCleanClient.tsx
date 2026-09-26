@@ -440,9 +440,9 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
           <div className="h-8 w-64 rounded-xl bg-slate-200 dark:bg-white/5 animate-pulse" />
 
-          <div className="h-96 rounded-[28px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 animate-pulse" />
+          <div className="h-96 rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 animate-pulse" />
 
-          <div className="h-64 rounded-[28px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 animate-pulse" />
+          <div className="h-64 rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 animate-pulse" />
 
         </div>
 
@@ -714,7 +714,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
             </div>
           </div>
           {colaboradorItEnviada ? (
-            <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/70 p-6 space-y-4 shadow-sm">
+            <div className="rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-6 space-y-4 shadow-sm">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Instrução de Trabalho</p>
@@ -800,7 +800,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/60 p-10 flex flex-col items-center text-center shadow-sm">
+            <div className="rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-10 flex flex-col items-center text-center shadow-sm">
               <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-5">
                 <FileText className="w-7 h-7 text-emerald-400" />
               </div>
@@ -837,7 +837,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
           {itsByParticipation && itsByParticipation.length > 0 && (
             <div className="mt-6">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Participação em outras ITs</p>
-              <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/60 divide-y divide-slate-100 dark:divide-white/6 shadow-sm">
+              <div className="rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 divide-y divide-white/8 shadow-sm">
                 {itsByParticipation.map((it) => {
                   const papelConfig = {
                     CORRESPONSAVEL: { label: 'Corresponsável', color: 'text-violet-300', bg: 'bg-violet-500/15 border-violet-500/30' },

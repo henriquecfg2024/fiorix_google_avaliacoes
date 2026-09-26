@@ -121,7 +121,7 @@ export default async function EstatisticasPage() {
         {/* Linha Superior: Distribuição de Notas & Análise Qualitativa Real */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 items-stretch">
           {/* Card 1: Distribuição de Notas */}
-          <div className="flex flex-col justify-between rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all space-y-5">
+          <div className="flex flex-col justify-between rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm shadow-sm backdrop-blur-xl transition-all space-y-5">
             <div>
               {/* Header do Card */}
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -273,7 +273,7 @@ export default async function EstatisticasPage() {
           </div>
 
           {/* Card 2: Análise Qualitativa Semântica */}
-          <div className="flex flex-col justify-between rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all space-y-4">
+          <div className="flex flex-col justify-between rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm shadow-sm backdrop-blur-xl transition-all space-y-4">
             {/* Header do Card */}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -402,9 +402,9 @@ export default async function EstatisticasPage() {
         {/* Seção Complementar: Metodologia da Saúde da Reputação */}
         <div
           id="metodologia-reputacao"
-          className="space-y-5 rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all scroll-mt-6"
+          className="space-y-5 rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm shadow-sm backdrop-blur-xl transition-all scroll-mt-6"
         >
-          <div className="flex flex-col justify-between gap-4 border-b border-slate-200 dark:border-white/8 pb-5 md:flex-row md:items-center">
+          <div className="flex flex-col justify-between gap-4 border-b border-white/8 pb-5 md:flex-row md:items-center">
             <div>
               <div className="flex items-center gap-2">
                 <Target className="h-5 w-5 text-cyan-600 dark:text-cyan-300" />
@@ -467,7 +467,7 @@ export default async function EstatisticasPage() {
         </div>
 
         {/* Nota Metodológica de Rodapé */}
-        <div className="mt-6 flex items-start gap-3 rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-5 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all">
+        <div className="mt-6 flex items-start gap-3 rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all">
           <Lightbulb className="mt-0.5 h-6 w-6 shrink-0 text-amber-500 dark:text-amber-300" />
           <div className="space-y-1 text-xs text-slate-600 dark:text-white/80">
             <h4 className="text-sm font-bold text-amber-600 dark:text-amber-300">

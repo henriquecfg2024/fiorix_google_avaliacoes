@@ -197,12 +197,12 @@ export function ReviewItemCard({ review, staffNames }: ReviewItemProps) {
   return (
     <>
       <div
-        className={`space-y-3.5 rounded-[24px] border p-5 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all ${
+        className={`space-y-3.5 rounded-[24px] border p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all ${
           isLowRating
             ? 'border-red-500/35 border-l-4 border-l-red-500 bg-white dark:bg-[#0B1020]/72'
             : isMidRating
               ? 'border-amber-500/30 border-l-4 border-l-amber-500 bg-white dark:bg-[#0B1020]/72'
-              : 'border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 hover:border-slate-300 dark:hover:border-white/18'
+              : 'border-slate-800/80 bg-[#0B1020]/90 hover:border-slate-300 dark:hover:border-white/18'
         }`}
       >
         <div className="flex flex-wrap items-start justify-between gap-3">

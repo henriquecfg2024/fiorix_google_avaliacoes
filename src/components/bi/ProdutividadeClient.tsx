@@ -143,7 +143,7 @@ export function ProdutividadeClient() {
     <div className="min-h-screen bg-slate-50 dark:bg-[#05070D] text-slate-900 dark:text-white p-4 lg:p-8 space-y-6">
       
       {/* Breadcrumb Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 rounded-[28px] border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/72 px-5 py-5 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 px-5 py-5 shadow-sm shadow-sm backdrop-blur-xl">
         <div>
           <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-white/40 mb-1.5 font-medium">
             <span>Dashboard</span>
@@ -181,7 +181,7 @@ export function ProdutividadeClient() {
       </div>
 
       {/* Date Picker Row */}
-      <div className="rounded-[28px] border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl p-5 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] space-y-4">
+      <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 backdrop-blur-xl p-5 shadow-sm space-y-4">
         <div className="flex items-center gap-2 text-slate-700 dark:text-white/80 font-bold text-sm">
           <LayoutGrid className="h-4 w-4 text-cyan-300" />
           <span>Filtros do Painel de Produtividade</span>
@@ -195,7 +195,7 @@ export function ProdutividadeClient() {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="bg-white dark:bg-white/5 border-slate-300 dark:border-white/10 text-slate-900 dark:text-white focus:border-cyan-500 dark:focus:border-cyan-400/50"
+              className="bg-[#080D1A] border-white/20 text-slate-900 dark:text-white focus:border-cyan-500 dark:focus:border-cyan-400/50"
             />
           </div>
 
@@ -206,7 +206,7 @@ export function ProdutividadeClient() {
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="bg-white dark:bg-white/5 border-slate-300 dark:border-white/10 text-slate-900 dark:text-white focus:border-cyan-500 dark:focus:border-cyan-400/50"
+              className="bg-[#080D1A] border-white/20 text-slate-900 dark:text-white focus:border-cyan-500 dark:focus:border-cyan-400/50"
             />
           </div>
 
@@ -214,10 +214,10 @@ export function ProdutividadeClient() {
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white/50 font-bold">Tipo</label>
             <Select value={tipo} onValueChange={(val) => setTipo(val || "ALL")}>
-              <SelectTrigger className="bg-white dark:bg-white/5 border-slate-300 dark:border-white/10 text-slate-900 dark:text-white focus:border-cyan-500 dark:focus:border-cyan-400/50">
+              <SelectTrigger className="bg-[#080D1A] border-white/20 text-slate-900 dark:text-white focus:border-cyan-500 dark:focus:border-cyan-400/50">
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-[#0B1020] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
+              <SelectContent className="bg-[#0B1020] border-white/15 text-slate-900 dark:text-white">
                 <SelectItem value="ALL">Todos</SelectItem>
                 <SelectItem value="TÍTULO">TÍTULO</SelectItem>
                 <SelectItem value="CERTIDÃO">CERTIDÃO</SelectItem>
@@ -229,10 +229,10 @@ export function ProdutividadeClient() {
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white/50 font-bold">Tipo Pedido</label>
             <Select value={tipoPedido} onValueChange={(val) => setTipoPedido(val || "ALL")}>
-              <SelectTrigger className="bg-white dark:bg-white/5 border-slate-300 dark:border-white/10 text-slate-900 dark:text-white focus:border-cyan-500 dark:focus:border-cyan-400/50">
+              <SelectTrigger className="bg-[#080D1A] border-white/20 text-slate-900 dark:text-white focus:border-cyan-500 dark:focus:border-cyan-400/50">
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-[#0B1020] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
+              <SelectContent className="bg-[#0B1020] border-white/15 text-slate-900 dark:text-white">
                 <SelectItem value="ALL">Todos</SelectItem>
                 {selectOptions.tiposPedidos.map((tp) => (
                   <SelectItem key={tp} value={tp}>
@@ -247,10 +247,10 @@ export function ProdutividadeClient() {
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white/50 font-bold">Nome Colaborador</label>
             <Select value={nome} onValueChange={(val) => setNome(val || "ALL")}>
-              <SelectTrigger className="bg-white dark:bg-white/5 border-slate-300 dark:border-white/10 text-slate-900 dark:text-white focus:border-cyan-500 dark:focus:border-cyan-400/50">
+              <SelectTrigger className="bg-[#080D1A] border-white/20 text-slate-900 dark:text-white focus:border-cyan-500 dark:focus:border-cyan-400/50">
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-[#0B1020] border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
+              <SelectContent className="bg-[#0B1020] border-white/15 text-slate-900 dark:text-white">
                 <SelectItem value="ALL">Todos</SelectItem>
                 {selectOptions.nomes.map((n) => (
                   <SelectItem key={n} value={n}>
@@ -277,7 +277,7 @@ export function ProdutividadeClient() {
       {loading ? (
         <FiorixSkeleton />
       ) : data.length === 0 ? (
-        <div className="flex flex-col items-center justify-center space-y-4 rounded-[28px] border border-dashed border-slate-300 dark:border-white/15 bg-white dark:bg-[#0B1020]/72 p-12 text-center shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+        <div className="flex flex-col items-center justify-center space-y-4 rounded-[28px] border border-dashed border-slate-300 dark:border-white/15 bg-white dark:bg-[#0B1020]/72 p-12 text-center shadow-sm shadow-sm backdrop-blur-xl">
           <Sparkles className="h-10 w-10 animate-pulse text-cyan-300" />
           <div>
             <h3 className="text-lg font-bold">Nenhum dado cadastrado no Supabase</h3>

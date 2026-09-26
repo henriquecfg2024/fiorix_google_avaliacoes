@@ -147,7 +147,7 @@ function matchesKpiFilter(
 }
 
 const taskPanelClass =
-  "rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-6 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl";
+  "rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm shadow-sm backdrop-blur-xl";
 const chartVisibilityStorageKey = "fiorix:tarefas:chart-visibility";
 
 function escapePrintValue(value: unknown) {
@@ -824,7 +824,7 @@ export function TarefasDashboardClient() {
   return (
     <div className="space-y-6">
       {/* Barra de Escopo de Visualização / Filtro de Cohort (Ano e Tipo de Ato) */}
-      <div className="flex flex-col gap-4 rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 p-5 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-purple-500/30 bg-purple-500/15 text-purple-600 dark:text-purple-400">
             <Filter className="h-5 w-5" />
@@ -1131,9 +1131,9 @@ export function TarefasDashboardClient() {
           )}
         </div>
 
-        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72">
+        <div className="overflow-x-auto rounded-xl border border-slate-800/80 bg-[#0B1020]/90">
           <table className="w-full text-left text-xs">
-            <thead className="select-none border-b border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-[#0B1020] text-[11px] uppercase tracking-wider text-slate-500 dark:text-white/58">
+            <thead className="select-none border-b border-white/8 bg-slate-50 dark:bg-[#0B1020] text-[11px] uppercase tracking-wider text-slate-500 dark:text-white/58">
               <tr>
                 <th className="px-4 py-3.5 font-semibold">Responsável</th>
                 <th className="px-4 py-3.5 text-center font-semibold">Tarefas Abertas</th>
@@ -1187,9 +1187,9 @@ export function TarefasDashboardClient() {
       {/* Tabela Detalhada com Filtros */}
       <section
         id="tarefas-detalhamento"
-        className="scroll-mt-24 overflow-hidden rounded-2xl border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)]"
+        className="scroll-mt-24 overflow-hidden rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 shadow-sm shadow-sm"
       >
-        <div className="flex flex-col gap-4 border-b border-slate-200 dark:border-white/8 px-6 py-5 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-4 border-b border-white/8 px-6 py-5 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-white">
               <Filter className="h-4 w-4 text-purple-600 dark:text-purple-400" />
@@ -1234,7 +1234,7 @@ export function TarefasDashboardClient() {
         </div>
 
         {/* Barra de Filtros */}
-        <div className="grid grid-cols-1 gap-3 border-b border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-[#0B1020]/92 px-6 py-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-1 gap-3 border-b border-white/8 bg-slate-50 dark:bg-[#0B1020]/92 px-6 py-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           {/* Busca por Protocolo / Texto */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-white/40" />
@@ -1319,7 +1319,7 @@ export function TarefasDashboardClient() {
         {/* Tabela de Dados */}
         <div className="max-h-[600px] overflow-auto bg-white dark:bg-[#0B1020]/72 [scrollbar-color:rgba(148,163,184,0.55)_transparent] [scrollbar-width:thin]">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 z-10 select-none border-b border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-[#0B1020] text-[11px] uppercase tracking-wider text-slate-500 dark:text-white/58 shadow-[0_1px_0_rgba(0,0,0,0.06)] dark:shadow-[0_1px_0_rgba(255,255,255,0.08)]">
+            <thead className="sticky top-0 z-10 select-none border-b border-white/8 bg-slate-50 dark:bg-[#0B1020] text-[11px] uppercase tracking-wider text-slate-500 dark:text-white/58 shadow-[0_1px_0_rgba(0,0,0,0.06)] dark:shadow-[0_1px_0_rgba(255,255,255,0.08)]">
               <tr>
                 <th className="px-2 py-1.5 font-semibold" aria-sort={getAriaSort("protocolo")}>
                   <button type="button" onClick={() => handleSort("protocolo")} className="flex w-full items-center gap-1.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-slate-200/60 hover:text-slate-900 dark:hover:bg-white/[0.06] dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/70" title="Ordenar por protocolo">

@@ -84,7 +84,7 @@ export function FiorixKpiCard({
         }
       }}
       className={cn(
-        "group relative flex min-h-[145px] flex-col justify-between overflow-hidden rounded-[28px] border bg-white dark:bg-[#0B1020]/72 p-5 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all",
+        "group relative flex min-h-[145px] flex-col justify-between overflow-hidden rounded-[28px] border bg-white dark:bg-[#0B1020]/72 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all",
         styles.border,
         styles.hoverBorder,
         onClick && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-[#070A12]",
@@ -126,7 +126,7 @@ export function FiorixKpiCard({
               <Info className="w-4 h-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent className="max-w-[200px] border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020] text-center text-xs leading-relaxed text-slate-800 dark:text-white shadow-md">
+          <TooltipContent className="max-w-[200px] border-slate-800/80 bg-[#0B1020]/90 text-center text-xs leading-relaxed text-slate-800 dark:text-white shadow-md">
             {subtitle}
           </TooltipContent>
         </Tooltip>

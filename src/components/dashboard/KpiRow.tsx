@@ -29,7 +29,7 @@ function KpiCard({
   badgeText: React.ReactNode;
 }) {
   return (
-    <div className="group flex h-full flex-col justify-between rounded-[24px] border border-white/10 bg-[#0B1020]/80 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-white/20 hover:bg-[#0c1428]">
+    <div className="group flex h-full flex-col justify-between rounded-[20px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-700 hover:bg-[#0c1428]">
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-400 group-hover:text-slate-300 transition-colors">{title}</span>
         <div className={`rounded-xl border p-2 transition-transform group-hover:scale-105 ${iconClass}`}>{icon}</div>

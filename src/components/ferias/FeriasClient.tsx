@@ -340,7 +340,7 @@ export function FeriasClient({
                   </div>
 
                   {/* Skeleton Card Direito: Calendário */}
-                  <div className="lg:col-span-5 flex flex-col justify-between rounded-[24px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 p-7 min-h-[340px] shadow-sm">
+                  <div className="lg:col-span-5 flex flex-col justify-between rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-7 min-h-[340px] shadow-sm">
                     <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-white/6">
                       <div className="h-5 w-36 bg-white/10 rounded-lg" />
                       <div className="h-4 w-28 bg-white/5 rounded-full" />
@@ -355,14 +355,14 @@ export function FeriasClient({
                 </div>
 
                 {/* Skeleton Card Histórico */}
-                <div className="rounded-[24px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 p-7 space-y-4 shadow-sm">
+                <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-7 space-y-4 shadow-sm">
                   <div className="h-5 w-40 bg-white/10 rounded-lg" />
                   <div className="h-14 bg-white/5 rounded-2xl" />
                 </div>
               </div>
             ) : !canAccessEscala && publicacao.status !== "PUBLICADA" ? (
               /* 2. Aviso de escala não publicada (apenas quando a consulta retornou e realmente NÃO está publicada) */
-              <div className="w-full max-w-3xl mx-auto py-12 px-6 rounded-[28px] border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl text-center space-y-4 shadow-sm dark:shadow-xl">
+              <div className="w-full max-w-3xl mx-auto py-12 px-6 rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 backdrop-blur-xl text-center space-y-4 shadow-sm dark:shadow-xl">
                 <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.15)]">
                   <Calendar className="w-7 h-7" />
                 </div>
@@ -439,7 +439,7 @@ export function FeriasClient({
                   </div>
 
                   {/* Card Direito: Meu calendário [Ano] (aprox. 40-42%) */}
-                  <div className="lg:col-span-5 flex flex-col justify-between rounded-[24px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/80 p-7 shadow-sm dark:shadow-xl relative overflow-hidden backdrop-blur-xl min-h-[340px]">
+                  <div className="lg:col-span-5 flex flex-col justify-between rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-7 shadow-sm dark:shadow-xl relative overflow-hidden backdrop-blur-xl min-h-[340px]">
                     {/* Topo do Calendário com Ícone e Legenda */}
                     <div className="flex items-center justify-between gap-2 pb-4">
                       <div className="flex items-center gap-2.5">
@@ -495,9 +495,9 @@ export function FeriasClient({
                 </div>
 
                 {/* Linha Inferior: Histórico de Férias (100% largura) */}
-                <div className="rounded-[24px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/80 p-7 shadow-sm dark:shadow-xl relative backdrop-blur-xl space-y-6">
+                <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-7 shadow-sm dark:shadow-xl relative backdrop-blur-xl space-y-6">
                   {/* Cabeçalho do Card */}
-                  <div className="flex items-center gap-2.5 border-b border-slate-200 dark:border-white/8 pb-4">
+                  <div className="flex items-center gap-2.5 border-b border-white/8 pb-4">
                     <Calendar className="w-5 h-5 text-indigo-400" />
                     <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
                       Histórico de férias

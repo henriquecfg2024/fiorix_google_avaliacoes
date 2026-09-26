@@ -85,7 +85,7 @@ export function ComunicadosClient({
       <div className="relative mx-auto w-full max-w-lg px-4 py-5 space-y-4">
 
         {/* Breadcrumb + Título */}
-        <div className="space-y-1 pb-3 border-b border-slate-200 dark:border-white/8">
+        <div className="space-y-1 pb-3 border-b border-white/8">
           <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
             <Link href="/dashboard" className="hover:text-slate-300 transition-colors">Dashboard</Link>
             <span>/</span>

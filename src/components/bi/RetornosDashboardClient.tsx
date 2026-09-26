@@ -636,7 +636,7 @@ export function RetornosDashboardClient() {
   return (
     <div className="space-y-6">
       {/* 1. CABEÇALHO */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/8 print:hidden">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-white/8 print:hidden">
         <div>
           <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-white/50">
             <span>GESTÃO DE PRAZOS</span>
@@ -678,7 +678,7 @@ export function RetornosDashboardClient() {
       {/* 2. CARDS DE INDICADORES (KPIS) — PADRÃO FIORIX */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 print:hidden">
         {/* KPI 1: Eventos de retorno */}
-        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020] p-5 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-cyan-400/50">
+        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-cyan-400/50">
           <div className="flex justify-between items-start w-full">
             <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/55">
               Eventos de retorno
@@ -698,7 +698,7 @@ export function RetornosDashboardClient() {
         </div>
 
         {/* KPI 2: Marcados como corrigidos */}
-        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020] p-5 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-emerald-400/50">
+        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-emerald-400/50">
           <div className="flex justify-between items-start w-full">
             <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/55">
               Corrigidos
@@ -718,7 +718,7 @@ export function RetornosDashboardClient() {
         </div>
 
         {/* KPI 3: Sem marcador de correção */}
-        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020] p-5 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-amber-400/50">
+        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-amber-400/50">
           <div className="flex justify-between items-start w-full">
             <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/55">
               Sem marcador
@@ -738,7 +738,7 @@ export function RetornosDashboardClient() {
         </div>
 
         {/* KPI 4: Taxa de Retrabalho (Reingressos) */}
-        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020] p-5 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-purple-400/50">
+        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-purple-400/50">
           <div className="flex justify-between items-start w-full">
             <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/55">
               Taxa retrabalho
@@ -758,7 +758,7 @@ export function RetornosDashboardClient() {
         </div>
 
         {/* KPI 5: Tempo Médio de Retorno */}
-        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020] p-5 shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition-all hover:border-blue-400/50">
+        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-blue-400/50">
           <div className="flex justify-between items-start w-full">
             <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/55">
               Tempo médio
@@ -781,7 +781,7 @@ export function RetornosDashboardClient() {
       {/* 3. ABAS E BARRA DE FILTROS */}
       <div className="space-y-4 print:hidden">
         {/* Abas */}
-        <div className="flex border-b border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-[#0B1020]/40 rounded-t-xl px-2">
+        <div className="flex border-b border-white/8 bg-slate-100 dark:bg-[#0B1020]/40 rounded-t-xl px-2">
           {[
             { id: "ALL", label: "Todos" },
             { id: "PESSOAL", label: "Pessoal" },
@@ -929,7 +929,7 @@ export function RetornosDashboardClient() {
       </div>
 
       {/* 4A. CARD — ERROS MÊS A MÊS */}
-      <div className="rounded-[28px] border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/90 p-6 sm:p-7 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.25)] backdrop-blur-xl space-y-5 print:hidden">
+      <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-5 print:hidden">
         {/* Cabeçalho do Card */}
         <div className="flex items-start justify-between">
           <div>
@@ -1031,7 +1031,7 @@ export function RetornosDashboardClient() {
             </div>
 
             {/* Rodapé explicativo */}
-            <div className="pt-2 border-t border-slate-100 dark:border-white/5">
+            <div className="pt-2 border-t border-white/8">
               <p className="text-[11px] sm:text-xs text-slate-500 dark:text-white/45">
                 Barra empilhada: Total = Corrigidos + Sem marcador • Valores exibem contagens mensais
               </p>
@@ -1041,7 +1041,7 @@ export function RetornosDashboardClient() {
       </div>
 
       {/* 4B. CARD — TOP CAUSAS DE EXIGÊNCIA & RETORNO — PADRÃO FIORIX */}
-      <div className="rounded-[28px] border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/90 p-6 sm:p-7 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.25)] backdrop-blur-xl space-y-5 print:hidden">
+      <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-5 print:hidden">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
             <div className="flex items-center gap-2.5">
@@ -1155,7 +1155,7 @@ export function RetornosDashboardClient() {
       </div>
 
       {/* 4C. CARD ERROS POR RESPONSÁVEL — PADRÃO FIORIX */}
-      <div className="rounded-[24px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 p-5 sm:p-6 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4 print:hidden">
+      <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-4 print:hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
             <h2 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">Erros por responsável</h2>
@@ -1250,9 +1250,9 @@ export function RetornosDashboardClient() {
       </div>
 
       {/* 5. TABELA DE EVENTOS DE RETORNO — PADRÃO FIORIX */}
-      <div className="rounded-[24px] border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl overflow-hidden space-y-0 print:border-0 print:shadow-none print:bg-white print:rounded-none">
+      <div className="rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 shadow-sm backdrop-blur-xl overflow-hidden space-y-0 print:border-0 print:shadow-none print:bg-white print:rounded-none">
         {/* Cabeçalho na tela */}
-        <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 dark:border-white/8 print:hidden">
+        <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/8 print:hidden">
           <div>
             <h2 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">Eventos de retorno</h2>
             <span className="text-xs text-slate-500 dark:text-white/50">
@@ -1328,7 +1328,7 @@ export function RetornosDashboardClient() {
 
         <div className="overflow-x-auto print:overflow-visible">
           <table className="w-full text-left text-xs text-slate-900 dark:text-white print:text-slate-900 print:text-[10px]">
-            <thead className="bg-slate-50 dark:bg-[#0B1020]/95 text-slate-600 dark:text-[#9CA3AF] uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-white/8 print:bg-slate-100 print:text-slate-900 print:border-slate-400">
+            <thead className="bg-slate-50 dark:bg-[#0B1020]/95 text-slate-600 dark:text-[#9CA3AF] uppercase text-[10px] tracking-wider border-b border-white/8 print:bg-slate-100 print:text-slate-900 print:border-slate-400">
               <tr>
                 <th
                   onClick={() => handleHeaderSort("numeroPrenotacao")}
@@ -1397,7 +1397,7 @@ export function RetornosDashboardClient() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-white/6 print:divide-slate-200">
+            <tbody className="divide-y divide-white/8 print:divide-slate-200">
               {isLoading ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-xs text-slate-500 dark:text-white/50">
@@ -1570,8 +1570,8 @@ export function RetornosDashboardClient() {
       {/* 6. MODAL EXCLUSIVO DE OBSERVAÇÃO DO PROTOCOLO */}
       {selectedObsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in print:hidden">
-          <div className="w-full max-w-xl rounded-[24px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/95 text-slate-900 dark:text-white shadow-2xl backdrop-blur-2xl p-6 space-y-4 max-h-[85vh] overflow-y-auto">
-            <div className="flex items-start justify-between pb-3 border-b border-slate-200 dark:border-white/8">
+          <div className="w-full max-w-xl rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 text-slate-900 dark:text-white shadow-2xl backdrop-blur-2xl p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-start justify-between pb-3 border-b border-white/8">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300">
@@ -1601,7 +1601,7 @@ export function RetornosDashboardClient() {
               <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/45">
                 Conteúdo da Observação
               </span>
-              <div className="bg-slate-50 dark:bg-[#0C1323] border border-slate-200 dark:border-white/8 rounded-xl p-4 text-xs text-slate-900 dark:text-white/95 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto font-sans selection:bg-cyan-500/30">
+              <div className="bg-[#080D1A] border border-white/20 rounded-xl p-4 text-xs text-slate-900 dark:text-white/95 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto font-sans selection:bg-cyan-500/30">
                 {selectedObsModal.observacao || "Sem observação informada."}
               </div>
             </div>
@@ -1648,8 +1648,8 @@ export function RetornosDashboardClient() {
       {/* 7. MODAL DE DETALHES DO EVENTO — PADRÃO FIORIX */}
       {selectedEvento && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in print:hidden">
-          <div className="w-full max-w-2xl rounded-[24px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/95 text-slate-900 dark:text-white shadow-2xl backdrop-blur-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/8">
+          <div className="w-full max-w-2xl rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 text-slate-900 dark:text-white shadow-2xl backdrop-blur-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-white/8">
               <div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                   Detalhes do Retorno — Prenotação {selectedEvento.numeroPrenotacao}
@@ -1718,7 +1718,7 @@ export function RetornosDashboardClient() {
             {/* Observação Completa */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-500 dark:text-white/50">Observação do Andamento:</label>
-              <div className="bg-slate-50 dark:bg-[#0C1323] border border-slate-200 dark:border-white/8 rounded-xl p-4 text-xs text-slate-800 dark:text-white/90 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
+              <div className="bg-[#080D1A] border border-white/20 rounded-xl p-4 text-xs text-slate-800 dark:text-white/90 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
                 {selectedEvento.observacao || "Sem observação informada."}
               </div>
             </div>
@@ -1745,8 +1745,8 @@ export function RetornosDashboardClient() {
       {/* 7. MODAL DE CONFIGURAÇÃO DE PDF — PADRÃO FIORIX */}
       {isPdfModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md animate-in fade-in print:hidden">
-          <div className="w-full max-w-lg rounded-[24px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/95 text-slate-900 dark:text-white shadow-2xl backdrop-blur-2xl p-6 space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/8">
+          <div className="w-full max-w-lg rounded-[24px] border border-slate-800/80 bg-[#0B1020]/90 text-slate-900 dark:text-white shadow-2xl backdrop-blur-2xl p-6 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-white/8">
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Configurar e Gerar PDF</h3>
               <button
                 onClick={() => setIsPdfModalOpen(false)}
@@ -1763,7 +1763,7 @@ export function RetornosDashboardClient() {
                 <select
                   value={pdfScope}
                   onChange={(e) => setPdfScope(e.target.value as "filtered" | "current")}
-                  className="w-full bg-slate-50 dark:bg-[#0C1323] border border-slate-200 dark:border-white/8 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white shadow-sm focus:outline-none focus:border-cyan-400"
+                  className="w-full bg-[#080D1A] border border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white shadow-sm focus:outline-none focus:border-cyan-400"
                 >
                   <option value="filtered">Todos os resultados filtrados ({kpis.total} eventos)</option>
                   <option value="current">Somente a página atual ({items.length} eventos)</option>
@@ -1776,7 +1776,7 @@ export function RetornosDashboardClient() {
                 <select
                   value={pdfContentType}
                   onChange={(e) => setPdfContentType(e.target.value as "resumido" | "detalhado")}
-                  className="w-full bg-slate-50 dark:bg-[#0C1323] border border-slate-200 dark:border-white/8 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white shadow-sm focus:outline-none focus:border-cyan-400"
+                  className="w-full bg-[#080D1A] border border-white/20 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white shadow-sm focus:outline-none focus:border-cyan-400"
                 >
                   <option value="resumido">Listagem resumida (A4 Paisagem)</option>
                   <option value="detalhado">Relatório detalhado com observações completas (A4 Retrato)</option>

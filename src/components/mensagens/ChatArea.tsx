@@ -525,7 +525,7 @@ export function ChatArea({
 
   return (
     <div
-      className="flex h-full w-full rounded-[24px] border border-slate-200 bg-white/90 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] overflow-hidden relative"
+      className="flex h-full w-full rounded-[24px] border border-slate-200 bg-white/90 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-sm overflow-hidden relative"
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}

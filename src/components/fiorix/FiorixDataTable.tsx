@@ -284,9 +284,9 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
   const endItem = Math.min(pagination.page * pagination.pageSize, pagination.totalItems);
 
   return (
-    <Card className="mt-4 overflow-hidden rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 text-slate-800 dark:text-white shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+    <Card className="mt-4 overflow-hidden rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 text-slate-800 dark:text-white shadow-sm shadow-sm backdrop-blur-xl">
       {/* Abas Superiores */}
-      <div className="flex border-b border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-[#0B1020]/92">
+      <div className="flex border-b border-white/8 bg-slate-50 dark:bg-[#0B1020]/92">
         <button
           onClick={() => handleToggleQueryMode('atrasado')}
           className={`flex-1 sm:flex-initial px-6 py-3.5 text-xs uppercase font-bold tracking-wider transition-colors border-b-2 ${
@@ -309,7 +309,7 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
         </button>
       </div>
 
-      <CardHeader className="space-y-4 border-b border-slate-200 dark:border-white/8 pb-4">
+      <CardHeader className="space-y-4 border-b border-white/8 pb-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">
@@ -427,7 +427,7 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
       <div className="relative max-h-[600px] overflow-x-auto overflow-y-auto">
         {isLoading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-[#0B1020]/55 backdrop-blur-[1px]">
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020] px-4 py-2 text-xs text-slate-700 dark:text-white/60 shadow-md">
+            <div className="flex items-center gap-2 rounded-xl border border-slate-800/80 bg-[#0B1020]/90 px-4 py-2 text-xs text-slate-700 dark:text-white/60 shadow-md">
               <Loader2 className="h-4 w-4 animate-spin text-emerald-300" />
               <span>Carregando dados...</span>
             </div>
@@ -436,7 +436,7 @@ export function FiorixDataTable({ initialData, initialFilters, totalAtrasadosCou
         
         <Table>
           <TableHeader className="sticky top-0 z-20 bg-slate-50 dark:bg-[#0B1020]">
-            <TableRow className="border-b border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-[#0B1020]">
+            <TableRow className="border-b border-white/8 bg-slate-50 dark:bg-[#0B1020]">
               <TableHead className="sticky top-0 z-20 bg-slate-50 dark:bg-[#0B1020] text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-white/58">Protocolo</TableHead>
               <TableHead className="sticky top-0 z-20 bg-slate-50 dark:bg-[#0B1020] text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-white/58">Tipo</TableHead>
               <TableHead className="sticky top-0 z-20 bg-slate-50 dark:bg-[#0B1020] text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-white/58">Status</TableHead>

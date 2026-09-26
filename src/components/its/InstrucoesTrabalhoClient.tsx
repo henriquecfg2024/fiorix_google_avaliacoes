@@ -149,7 +149,7 @@ function ItDetailModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0D1424] shadow-2xl overflow-hidden">
-        <div className="flex items-start justify-between p-6 border-b border-slate-200 dark:border-white/8 gap-4">
+        <div className="flex items-start justify-between p-6 border-b border-white/8 gap-4">
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{it.codigo} • v{it.versao}</p>
             <h2 className="font-bold text-slate-900 dark:text-white text-base leading-tight">{it.titulo}</h2>
@@ -210,7 +210,7 @@ function PessoasPendentesModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-sm rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0D1424] shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-white/8">
+        <div className="flex items-center justify-between p-4 border-b border-white/8">
           <div>
             <h3 className="font-bold text-slate-900 dark:text-white text-sm">{item.titulo}</h3>
             <p className="text-xs text-slate-400 mt-0.5">
@@ -347,7 +347,7 @@ function AnalisarItModal({
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !pending && onClose()} />
       <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0D1424] shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-start justify-between p-6 border-b border-slate-200 dark:border-white/8 gap-4">
+        <div className="flex items-start justify-between p-6 border-b border-white/8 gap-4">
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
               {step === 'publicar' ? 'Publicar IT' : step === 'solicitar_correcao' ? 'Solicitar Correção' : step === 'rejeitar' ? 'Rejeitar IT' : 'Analisar IT'}
@@ -1175,7 +1175,7 @@ function ArquivarItModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !pending && onClose()} />
       <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0D1424] shadow-2xl overflow-hidden">
-        <div className="flex items-start justify-between p-6 border-b border-slate-200 dark:border-white/8">
+        <div className="flex items-start justify-between p-6 border-b border-white/8">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Archive className="w-4 h-4 text-slate-400" />
@@ -1275,7 +1275,7 @@ function HistoricoVersoesModal({
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-2xl rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0D1424] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="flex items-start justify-between p-6 border-b border-slate-200 dark:border-white/8 shrink-0">
+        <div className="flex items-start justify-between p-6 border-b border-white/8 shrink-0">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <History className="w-4 h-4 text-slate-400" />

@@ -33,7 +33,7 @@ export function FeriasCalendar() {
   return (
     <div className="space-y-6">
       {/* Capacidade do Setor Card */}
-      <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm shadow-sm p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <div className="p-3.5 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_20px_rgba(34,211,238,0.15)]">
             <Users className="w-6 h-6" />
@@ -73,8 +73,8 @@ export function FeriasCalendar() {
       </div>
 
       {/* Calendário da Equipe */}
-      <div className="rounded-[28px] border border-slate-200 dark:border-white/12 bg-white dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-sm dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)] p-6 space-y-5">
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/8 pb-4">
+      <div className="rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm shadow-sm p-6 space-y-5">
+        <div className="flex items-center justify-between border-b border-white/8 pb-4">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
               <CalendarIcon className="w-4 h-4" />

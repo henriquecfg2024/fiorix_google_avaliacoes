@@ -19,7 +19,7 @@ interface FiorixFiltersProps {
 
 export function FiorixFilters({ tiposPrenotacao, filters, onFilterChange }: FiorixFiltersProps) {
   return (
-    <Card className="rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020]/72 p-5 text-slate-800 dark:text-white shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl">
+    <Card className="rounded-2xl border border-slate-800/80 bg-[#0B1020]/90 p-5 text-slate-800 dark:text-white shadow-sm shadow-sm backdrop-blur-xl">
       <div className="mb-5 flex items-center gap-2">
         <Filter className="h-5 w-5 text-amber-600 dark:text-amber-300" />
         <h2 className="text-base font-semibold text-slate-900 dark:text-white">Filtros de Análise</h2>
@@ -64,7 +64,7 @@ export function FiorixFilters({ tiposPrenotacao, filters, onFilterChange }: Fior
             <SelectTrigger className="h-10 rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-[#0C1323] text-sm text-slate-900 dark:text-white shadow-xs focus:border-amber-500 focus:ring-0">
               <SelectValue placeholder="Selecione o tipo..." />
             </SelectTrigger>
-            <SelectContent className="border-slate-200 dark:border-white/8 bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+            <SelectContent className="border-slate-800/80 bg-[#0B1020]/90 text-slate-900 dark:text-white">
               <SelectItem value="ALL">Todos os Tipos</SelectItem>
               {tiposPrenotacao.map((tipo) => (
                 <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>

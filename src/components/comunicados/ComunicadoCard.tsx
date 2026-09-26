@@ -226,7 +226,7 @@ export function ComunicadoCard({
       )}
 
       {/* Status da Ciência / Barra de aviso */}
-      <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-white/5">
+      <div className="space-y-3 pt-3 border-t border-white/8">
         {comunicado.exigeCiencia && (
           <div
             onClick={() => onOpenCiencia(comunicado)}

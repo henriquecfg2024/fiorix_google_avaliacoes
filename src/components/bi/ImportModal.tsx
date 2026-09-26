@@ -170,7 +170,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 dark:bg-[#05070D]/80 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-4xl rounded-[28px] border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020]/92 p-6 shadow-2xl dark:shadow-[0_20px_60px_rgba(0,0,0,0.28)] animate-in zoom-in-95 duration-250 text-slate-900 dark:text-white">
+      <div className="relative w-full max-w-4xl rounded-[28px] border border-slate-800/80 bg-[#0B1020]/90 p-6 shadow-2xl dark:shadow-[0_20px_60px_rgba(0,0,0,0.28)] animate-in zoom-in-95 duration-250 text-slate-900 dark:text-white">
         
         {/* Header */}
         <div className="mb-4 flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-4">
@@ -247,7 +247,7 @@ export function ImportModal({ isOpen, onClose, onSuccess }: ImportModalProps) {
                       <th className="p-2 border-b border-slate-200 dark:border-white/10">Qtd</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-white/5 bg-transparent text-slate-700 dark:text-slate-300">
+                  <tbody className="divide-y divide-white/8 bg-transparent text-slate-700 dark:text-slate-300">
                     {preview.map((row, index) => (
                       <tr key={index} className="hover:bg-slate-50 dark:hover:bg-white/[0.02]">
                         <td className="p-2 border-r border-slate-100 dark:border-white/5 font-semibold text-[#2B7FFF]">{row.PEDIDO}</td>
