@@ -836,21 +836,21 @@ export function RetornosDashboardClient() {
       </div>
 
       {/* 4A. CARD — ERROS MÊS A MÊS */}
-      <div className="rounded-[24px] border border-white/8 bg-[#0B1020]/72 p-5 sm:p-6 shadow-[0_18px_50px_rgba(0,0,0,0.16)] backdrop-blur-xl space-y-4 print:hidden">
-        <div className="flex items-center justify-between">
+      <div className="rounded-[28px] border border-white/10 bg-[#0B1020]/90 p-6 sm:p-7 shadow-[0_20px_60px_rgba(0,0,0,0.25)] backdrop-blur-xl space-y-5 print:hidden">
+        {/* Cabeçalho do Card */}
+        <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-sm sm:text-base font-semibold text-white flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-cyan-400" />
+            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
               Erros mês a mês
             </h2>
-            <p className="text-xs text-white/50">
-              Todos os eventos de retorno (292-297) agrupados por mês
+            <p className="text-xs sm:text-sm text-gray-400 mt-1">
+              Erros registrados e corrigidos por mês • 2026
             </p>
           </div>
           {errosMensais.length > 0 && (
             <div className="text-right">
-              <div className="text-xs text-white/50 font-medium">Total no período</div>
-              <div className="text-lg font-bold text-cyan-400">
+              <div className="text-xs sm:text-sm text-gray-400 font-medium">Total no período</div>
+              <div className="text-3xl sm:text-4xl font-extrabold text-[#22D3EE] tracking-tight">
                 {errosMensais.reduce((s, m) => s + m.total, 0).toLocaleString("pt-BR")}
               </div>
             </div>
@@ -862,61 +862,86 @@ export function RetornosDashboardClient() {
             Nenhum dado mensal disponível para o período selecionado.
           </div>
         ) : (
-          <div className="space-y-2">
-            {/* Legenda */}
-            <div className="flex items-center gap-4 text-[11px] text-white/60 pb-1">
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-sm bg-gradient-to-r from-cyan-500 to-blue-500" />
-                <span>Total</span>
+          <div className="space-y-4">
+            {/* Legenda Centralizada */}
+            <div className="flex items-center justify-center gap-6 sm:gap-8 pt-1 pb-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]" />
+                <span className="text-xs sm:text-sm font-medium text-white/90">Total</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
-                <span>Corrigidos</span>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
+                <span className="text-xs sm:text-sm font-medium text-white/90">Corrigidos</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2.5 h-2.5 rounded-sm bg-amber-500" />
-                <span>Sem marcador</span>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#F97316]" />
+                <span className="text-xs sm:text-sm font-medium text-white/90">Sem marcador</span>
               </div>
             </div>
 
-            {/* Barras */}
-            <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1">
-              {(() => {
-                const maxTotal = Math.max(...errosMensais.map((m) => m.total), 1);
-                return errosMensais.map((m) => (
-                  <div key={m.mes} className="group">
-                    <div className="flex items-center gap-3">
-                      <span className="text-[11px] font-semibold text-white/70 w-[52px] shrink-0 text-right font-mono">
-                        {m.mesLabel}
-                      </span>
-                      <div className="flex-1 relative">
-                        {/* Barra de fundo (total) */}
+            {/* Lista de Barras por Mês */}
+            <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+              {errosMensais.map((m) => {
+                const percCorrigidos = m.total > 0 ? (m.corrigidos / m.total) * 100 : 0;
+                const percSemMarcador = m.total > 0 ? (m.semMarcador / m.total) * 100 : 0;
+
+                return (
+                  <div key={m.mes} className="flex items-center gap-3 sm:gap-4 group">
+                    {/* Rótulo do Mês */}
+                    <span className="text-base sm:text-lg font-medium text-white/90 w-16 sm:w-20 text-right shrink-0">
+                      {m.mesLabel}
+                    </span>
+
+                    {/* Barra Empilhada em Pílula */}
+                    <div className="flex-1 h-11 sm:h-12 rounded-full overflow-hidden flex items-center bg-[#131927] border border-white/5 shadow-inner relative">
+                      {/* Segmento Corrigidos (Verde Esmeralda) */}
+                      {m.corrigidos > 0 && (
                         <div
-                          className="h-6 rounded-lg bg-gradient-to-r from-cyan-500/25 to-blue-500/15 border border-cyan-500/15 transition-all duration-500 relative overflow-hidden"
-                          style={{ width: `${Math.max((m.total / maxTotal) * 100, 4)}%` }}
+                          className="h-full bg-[#10B981] flex items-center justify-center transition-all duration-500 hover:brightness-110"
+                          style={{ width: `${percCorrigidos}%` }}
+                          title={`${m.corrigidos} corrigidos (${percCorrigidos.toFixed(1)}%)`}
                         >
-                          {/* Barra corrigidos */}
-                          {m.corrigidos > 0 && (
-                            <div
-                              className="absolute left-0 top-0 h-full bg-emerald-500/40 border-r border-emerald-400/30 rounded-l-lg transition-all duration-500"
-                              style={{ width: `${(m.corrigidos / m.total) * 100}%` }}
-                            />
-                          )}
-                          {/* Valor no interior */}
-                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-white/90">
-                            {m.total}
+                          <span className="text-white font-extrabold text-sm sm:text-base drop-shadow-sm select-none">
+                            {m.corrigidos}
                           </span>
                         </div>
-                      </div>
+                      )}
+
+                      {/* Segmento Sem Marcador (Laranja Vibrante) */}
+                      {m.semMarcador > 0 && (
+                        <div
+                          className="h-full bg-[#F97316] flex items-center justify-center transition-all duration-500 hover:brightness-110"
+                          style={{ width: `${percSemMarcador}%` }}
+                          title={`${m.semMarcador} sem marcador (${percSemMarcador.toFixed(1)}%)`}
+                        >
+                          <span className="text-white font-extrabold text-sm sm:text-base drop-shadow-sm select-none">
+                            {m.semMarcador}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Caso ambos sejam 0 */}
+                      {m.total === 0 && (
+                        <div className="w-full h-full flex items-center justify-center text-xs text-white/40">
+                          0
+                        </div>
+                      )}
                     </div>
-                    {/* Tooltip expandido no hover */}
-                    <div className="hidden group-hover:flex items-center gap-3 ml-[64px] mt-0.5 text-[10px] text-white/50">
-                      <span className="text-emerald-400">{m.corrigidos} corrigidos</span>
-                      <span className="text-amber-400">{m.semMarcador} sem marcador</span>
-                    </div>
+
+                    {/* Total numérico à direita */}
+                    <span className="text-base sm:text-lg font-bold text-white/80 w-10 sm:w-12 text-left shrink-0 pl-1">
+                      {m.total}
+                    </span>
                   </div>
-                ));
-              })()}
+                );
+              })}
+            </div>
+
+            {/* Rodapé explicativo */}
+            <div className="pt-2 border-t border-white/5">
+              <p className="text-[11px] sm:text-xs text-white/45">
+                Barra empilhada: Total = Corrigidos + Sem marcador • Valores exibem contagens mensais
+              </p>
             </div>
           </div>
         )}
