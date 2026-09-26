@@ -258,93 +258,93 @@ export default async function AvaliacoesPage({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#070A12] text-slate-900 dark:text-white selection:bg-amber-500/30 transition-colors duration-300 relative overflow-hidden">
+    <div className="min-h-screen bg-[#070A12] text-white selection:bg-amber-500/30 relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/12 via-amber-500/10 to-cyan-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-white/10 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/8">
           <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+            <div className="flex items-center gap-2 text-xs font-medium text-white/60">
               <span>Dashboard</span>
-              <span className="text-slate-400 dark:text-slate-600">/</span>
+              <span className="text-white/30">/</span>
               <span>Gestão</span>
-              <span className="text-slate-400 dark:text-slate-600">/</span>
-              <span className="text-amber-600 dark:text-amber-300">Avaliações</span>
+              <span className="text-white/30">/</span>
+              <span className="text-amber-300">Avaliações</span>
             </div>
             <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
                 Avaliações do Google
               </h1>
-              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
                 GOOGLE MY BUSINESS
               </span>
             </div>
           </div>
 
-          <div className="inline-flex flex-wrap gap-1 self-start rounded-xl border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] p-1 text-xs font-semibold sm:self-auto">
-              <Link
-                href="/avaliacoes"
-                className={`rounded-xl px-4 py-2 text-sm transition-all ${
-                  !statusFilter ? 'bg-amber-400 font-bold text-slate-950 shadow-sm' : 'text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-white/[0.08] hover:text-slate-900 dark:hover:text-white font-medium'
-                }`}
-              >
-                Todas ({totalCount})
-              </Link>
-              <Link
-                href="/avaliacoes?status=PENDING"
-                className={`rounded-xl px-4 py-2 text-sm transition-all ${
-                  statusFilter === 'PENDING' ? 'bg-amber-500 font-bold text-slate-950 shadow-sm' : 'text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-white/[0.08] hover:text-slate-900 dark:hover:text-white font-medium'
-                }`}
-              >
-                <span className="flex items-center gap-1.5">
-                  <Clock className="h-4 w-4" />
-                  Aguardando ({pendingCount})
-                </span>
-              </Link>
-              <Link
-                href="/avaliacoes?status=RESPONDED"
-                className={`rounded-xl px-4 py-2 text-sm transition-all ${
-                  statusFilter === 'RESPONDED'
-                    ? 'bg-emerald-600 font-bold text-white shadow-sm'
-                    : 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/16 font-medium'
-                }`}
-              >
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle className="h-4 w-4" />
-                  Respondidas ({respondedCount})
-                </span>
-              </Link>
-            </div>
+          <div className="inline-flex flex-wrap gap-1 self-start rounded-xl border border-white/20 bg-[#080D1A] p-1 text-xs font-semibold sm:self-auto">
+            <Link
+              href="/avaliacoes"
+              className={`rounded-lg px-4 py-2 text-sm transition-all ${
+                !statusFilter ? 'bg-amber-400 font-bold text-slate-950 shadow-sm' : 'text-white/70 hover:bg-white/[0.08] hover:text-white font-medium'
+              }`}
+            >
+              Todas ({totalCount})
+            </Link>
+            <Link
+              href="/avaliacoes?status=PENDING"
+              className={`rounded-lg px-4 py-2 text-sm transition-all ${
+                statusFilter === 'PENDING' ? 'bg-amber-500 font-bold text-slate-950 shadow-sm' : 'text-white/70 hover:bg-white/[0.08] hover:text-white font-medium'
+              }`}
+            >
+              <span className="flex items-center gap-1.5">
+                <Clock className="h-4 w-4" />
+                Aguardando ({pendingCount})
+              </span>
+            </Link>
+            <Link
+              href="/avaliacoes?status=RESPONDED"
+              className={`rounded-lg px-4 py-2 text-sm transition-all ${
+                statusFilter === 'RESPONDED'
+                  ? 'bg-emerald-600 font-bold text-white shadow-sm'
+                  : 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 font-medium'
+              }`}
+            >
+              <span className="flex items-center gap-1.5">
+                <CheckCircle className="h-4 w-4" />
+                Respondidas ({respondedCount})
+              </span>
+            </Link>
+          </div>
         </div>
 
         {/* Card Executivo de Distribuição das Avaliações */}
-        <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm shadow-sm backdrop-blur-xl">
+        <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-stretch">
             {/* Coluna Principal: Distribuição (~78%) */}
             <div className="lg:col-span-9 flex flex-col justify-between space-y-5">
               {/* Header com Título e Total de Avaliações */}
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border border-blue-500/30 text-blue-600 dark:text-blue-400 shadow-sm">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/20 to-indigo-600/20 border border-blue-500/30 text-blue-400 shadow-sm">
                     <BarChart3 className="h-5 w-5" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+                    <h2 className="text-lg font-bold text-white tracking-tight">
                       Distribuição das Avaliações
                     </h2>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                    <p className="text-xs text-white/60">
                       Panorama geral das notas recebidas no Google.
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0D152A]/80 px-4 py-2 shadow-xs">
-                  <Users className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
-                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Total de avaliações:</span>
-                  <span className="font-bold text-sm text-slate-900 dark:text-white font-mono">
+                <div className="flex items-center gap-2 rounded-xl border border-white/20 bg-[#080D1A] px-4 py-2 shadow-xs">
+                  <Users className="h-4 w-4 text-cyan-400" />
+                  <span className="text-xs text-white/60 font-medium">Total de avaliações:</span>
+                  <span className="font-bold text-sm text-white font-mono">
                     {totalCount.toLocaleString('pt-BR')}
                   </span>
                 </div>
@@ -352,7 +352,7 @@ export default async function AvaliacoesPage({
 
               {/* Barra de Distribuição Proporcional */}
               <div className="py-0.5">
-                <div className="flex h-3.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800/90 shadow-inner">
+                <div className="flex h-3.5 w-full overflow-hidden rounded-full bg-[#080D1A] border border-white/10 shadow-inner">
                   <div
                     className="h-full bg-emerald-500 transition-all duration-500"
                     style={{ width: `${ratingStats.pct5}%` }}
@@ -379,64 +379,64 @@ export default async function AvaliacoesPage({
               {/* 4 Cards das Faixas de Avaliação */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {/* 5 Estrelas */}
-                <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-[#070D1E]/90 p-4 transition-all hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-100/70 dark:hover:bg-[#0A122A]/90 shadow-xs dark:shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
+                <div className="rounded-2xl border border-white/20 bg-[#080D1A] p-4 transition-all hover:border-white/40 hover:bg-[#0A122A] shadow-xs">
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
-                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">5 estrelas</span>
+                    <span className="text-xs font-semibold text-white/80">5 estrelas</span>
                   </div>
                   <div className="mt-2.5 flex items-baseline gap-1.5">
-                    <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                    <span className="text-2xl font-black text-white tracking-tight">
                       {ratingStats.count5.toLocaleString('pt-BR')}
                     </span>
-                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <span className="text-xs font-medium text-white/60">
                       ({ratingStats.pct5.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)
                     </span>
                   </div>
                 </div>
 
                 {/* 4 Estrelas */}
-                <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-[#070D1E]/90 p-4 transition-all hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-100/70 dark:hover:bg-[#0A122A]/90 shadow-xs dark:shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
+                <div className="rounded-2xl border border-white/20 bg-[#080D1A] p-4 transition-all hover:border-white/40 hover:bg-[#0A122A] shadow-xs">
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.6)]" />
-                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">4 estrelas</span>
+                    <span className="text-xs font-semibold text-white/80">4 estrelas</span>
                   </div>
                   <div className="mt-2.5 flex items-baseline gap-1.5">
-                    <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                    <span className="text-2xl font-black text-white tracking-tight">
                       {ratingStats.count4.toLocaleString('pt-BR')}
                     </span>
-                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <span className="text-xs font-medium text-white/60">
                       ({ratingStats.pct4.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)
                     </span>
                   </div>
                 </div>
 
                 {/* 3 Estrelas */}
-                <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-[#070D1E]/90 p-4 transition-all hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-100/70 dark:hover:bg-[#0A122A]/90 shadow-xs dark:shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
+                <div className="rounded-2xl border border-white/20 bg-[#080D1A] p-4 transition-all hover:border-white/40 hover:bg-[#0A122A] shadow-xs">
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
-                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">3 estrelas</span>
+                    <span className="text-xs font-semibold text-white/80">3 estrelas</span>
                   </div>
                   <div className="mt-2.5 flex items-baseline gap-1.5">
-                    <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                    <span className="text-2xl font-black text-white tracking-tight">
                       {ratingStats.count3.toLocaleString('pt-BR')}
                     </span>
-                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <span className="text-xs font-medium text-white/60">
                       ({ratingStats.pct3.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)
                     </span>
                   </div>
                 </div>
 
                 {/* 1 - 2 Estrelas */}
-                <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-[#070D1E]/90 p-4 transition-all hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-100/70 dark:hover:bg-[#0A122A]/90 shadow-xs dark:shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
+                <div className="rounded-2xl border border-white/20 bg-[#080D1A] p-4 transition-all hover:border-white/40 hover:bg-[#0A122A] shadow-xs">
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]" />
-                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">1 – 2 estrelas</span>
+                    <span className="text-xs font-semibold text-white/80">1 – 2 estrelas</span>
                   </div>
                   <div className="mt-2.5 flex items-baseline gap-1.5">
-                    <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                    <span className="text-2xl font-black text-white tracking-tight">
                       {ratingStats.count12.toLocaleString('pt-BR')}
                     </span>
-                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <span className="text-xs font-medium text-white/60">
                       ({ratingStats.pct12.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%)
                     </span>
                   </div>
@@ -445,30 +445,30 @@ export default async function AvaliacoesPage({
             </div>
 
             {/* Coluna Lateral: Nota Média & Positivas (~22%) */}
-            <div className="lg:col-span-3 flex flex-col justify-between rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-[#070D1E]/90 p-5 space-y-4 shadow-xs dark:shadow-[0_10px_30px_rgba(0,0,0,0.2)]">
+            <div className="lg:col-span-3 flex flex-col justify-between rounded-2xl border border-white/20 bg-[#080D1A] p-5 space-y-4 shadow-xs">
               <div className="space-y-1">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-white/60">
                   <span>Nota Média</span>
                 </div>
                 <div className="flex items-center gap-2 pt-1">
-                  <span className="text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
+                  <span className="text-4xl lg:text-5xl font-black text-white tracking-tight leading-none">
                     {ratingStats.avg.replace('.', ',')}
                   </span>
                   <Star className="h-8 w-8 text-amber-400 fill-amber-400 drop-shadow-[0_2px_8px_rgba(251,191,36,0.3)]" />
                 </div>
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 pt-0.5">de 5</p>
+                <p className="text-xs font-medium text-white/60 pt-0.5">de 5</p>
               </div>
 
               {/* Destaque Avaliações Positivas */}
-              <div className="rounded-xl border border-emerald-500/25 bg-emerald-50 dark:bg-emerald-500/10 p-3.5 flex items-center gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+              <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-3.5 flex items-center gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
                   <BarChart3 className="h-4 w-4" />
                 </div>
                 <div>
-                  <span className="text-xs font-extrabold text-emerald-800 dark:text-emerald-300 block">
+                  <span className="text-xs font-extrabold text-emerald-300 block">
                     {ratingStats.pctPositive.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}% das avaliações
                   </span>
-                  <span className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 block leading-tight">
+                  <span className="text-[11px] text-emerald-400/80 block leading-tight">
                     possuem 4 ou 5 estrelas
                   </span>
                 </div>
@@ -479,13 +479,13 @@ export default async function AvaliacoesPage({
 
         <form action="/avaliacoes" method="GET" className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-12">
           <div className="relative sm:col-span-6">
-            <Search className="absolute left-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 transform text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 h-4.5 w-4.5 -translate-y-1/2 transform text-white/40" />
             <input
               type="text"
               name="search"
               defaultValue={searchQuery || ''}
               placeholder="Buscar por nome, comentário ou colaborador..."
-              className="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-950/60 py-2.5 pl-10 pr-4 text-sm text-slate-900 dark:text-slate-100 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-blue-500/40 focus:ring-2 focus:ring-blue-500/30 font-medium"
+              className="w-full rounded-xl border border-white/20 bg-[#080D1A] py-2.5 pl-10 pr-4 text-sm text-white outline-none placeholder:text-white/40 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 font-medium"
             />
           </div>
 
@@ -493,12 +493,12 @@ export default async function AvaliacoesPage({
             <select
               name="rating"
               defaultValue={ratingFilter ? String(ratingFilter) : ''}
-              className="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-950/60 px-3.5 py-2.5 text-sm font-medium text-slate-900 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/30"
+              className="w-full rounded-xl border border-white/20 bg-[#080D1A] px-3.5 py-2.5 text-sm font-medium text-white outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20"
             >
-              <option value="">Todas as Estrelas</option>
-              <option value="5">5 Estrelas (★★★★★)</option>
-              <option value="4">4 Estrelas (★★★★☆)</option>
-              <option value="3">3 Estrelas ou menos (★-★★★)</option>
+              <option value="" className="bg-[#0B1020] text-white">Todas as Estrelas</option>
+              <option value="5" className="bg-[#0B1020] text-white">5 Estrelas (★★★★★)</option>
+              <option value="4" className="bg-[#0B1020] text-white">4 Estrelas (★★★★☆)</option>
+              <option value="3" className="bg-[#0B1020] text-white">3 Estrelas ou menos (★-★★★)</option>
             </select>
           </div>
 
@@ -506,154 +506,154 @@ export default async function AvaliacoesPage({
             <select
               name="colaborador"
               defaultValue={colabFilter || ''}
-              className="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-950/60 px-3.5 py-2.5 text-sm font-medium text-slate-900 dark:text-slate-200 outline-none focus:ring-2 focus:ring-blue-500/30"
+              className="w-full rounded-xl border border-white/20 bg-[#080D1A] px-3.5 py-2.5 text-sm font-medium text-white outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20"
             >
-              <option value="">Todos Colaboradores</option>
+              <option value="" className="bg-[#0B1020] text-white">Todos Colaboradores</option>
               {staffList.map((colab) => (
-                <option key={colab} value={colab}>
+                <option key={colab} value={colab} className="bg-[#0B1020] text-white">
                   {colab}
                 </option>
               ))}
             </select>
 
-            <button type="submit" className="shrink-0 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-500 shadow-sm cursor-pointer">
+            <button type="submit" className="shrink-0 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 px-5 py-2.5 text-sm font-bold text-white transition-all shadow-sm cursor-pointer">
               Filtrar
             </button>
           </div>
         </form>
 
-      {(searchQuery || ratingFilter || colabFilter || statusFilter) && (
-        <div className="flex items-center justify-between rounded-xl border border-blue-500/20 bg-blue-50 dark:bg-blue-500/10 p-3.5 px-4 text-sm text-blue-900 dark:text-blue-100">
-          <div className="flex items-center gap-2 font-medium">
-            <Filter className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400 shrink-0" />
-            <span>
-              Filtros ativos:{' '}
-              {[searchQuery && `Busca: "${searchQuery}"`, ratingFilter && `Nota: ${ratingFilter}★`, colabFilter && `Colaborador: ${colabFilter}`, statusFilter && `Status: ${statusFilter}`]
-                .filter(Boolean)
-                .join(' • ')}
-            </span>
+        {(searchQuery || ratingFilter || colabFilter || statusFilter) && (
+          <div className="flex items-center justify-between rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-3.5 px-4 text-sm text-cyan-200">
+            <div className="flex items-center gap-2 font-medium">
+              <Filter className="h-4.5 w-4.5 text-cyan-400 shrink-0" />
+              <span>
+                Filtros ativos:{' '}
+                {[searchQuery && `Busca: "${searchQuery}"`, ratingFilter && `Nota: ${ratingFilter}★`, colabFilter && `Colaborador: ${colabFilter}`, statusFilter && `Status: ${statusFilter}`]
+                  .filter(Boolean)
+                  .join(' • ')}
+              </span>
+            </div>
+            <Link href="/avaliacoes" className="font-bold text-cyan-400 hover:text-cyan-300 hover:underline">
+              ✕ Limpar tudo
+            </Link>
           </div>
-          <Link href="/avaliacoes" className="font-bold text-blue-600 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-200 hover:underline">
-            ✕ Limpar tudo
-          </Link>
-        </div>
-      )}
+        )}
 
-      {!displayReviews || displayReviews.length === 0 ? (
-        <div className="space-y-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900/80 p-12 text-center shadow-sm">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-white/[0.05] text-slate-500 dark:text-slate-400">
-            <MessageSquare className="h-6 w-6" />
+        {!displayReviews || displayReviews.length === 0 ? (
+          <div className="space-y-3 rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-12 text-center shadow-sm backdrop-blur-xl">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.05] text-white/60">
+              <MessageSquare className="h-6 w-6" />
+            </div>
+            <h3 className="text-base font-bold text-white">Nenhuma avaliação encontrada</h3>
+            <p className="mx-auto max-w-sm text-xs text-white/60">
+              Tente remover alguns filtros ou buscar por outro termo para encontrar o registro desejado.
+            </p>
+            <Link href="/avaliacoes" className="inline-block rounded-xl border border-white/20 bg-[#080D1A] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/[0.08]">
+              Ver todas as avaliações
+            </Link>
           </div>
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">Nenhuma avaliação encontrada</h3>
-          <p className="mx-auto max-w-sm text-xs text-slate-500 dark:text-slate-400">
-            Tente remover alguns filtros ou buscar por outro termo para encontrar o registro desejado.
-          </p>
-          <Link href="/avaliacoes" className="inline-block rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors hover:bg-slate-200 dark:hover:bg-white/[0.08]">
-            Ver todas as avaliações
-          </Link>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {displayReviews.map((rev) => (
-            <ReviewItemCard key={rev.id} review={rev} staffNames={staffList} />
-          ))}
-        </div>
-      )}
+        ) : (
+          <div className="space-y-4">
+            {displayReviews.map((rev) => (
+              <ReviewItemCard key={rev.id} review={rev} staffNames={staffList} />
+            ))}
+          </div>
+        )}
 
-      {/* Unified Pagination Footer */}
-      <div className="flex flex-col items-center justify-between gap-4 rounded-[24px] border border-white/20 bg-[#0B1020]/90 px-6 py-4 text-slate-900 dark:text-white shadow-sm shadow-sm backdrop-blur-xl sm:flex-row">
-        {/* Interval text */}
-        <div className="text-xs text-slate-500 dark:text-white/60 text-center sm:text-left">
-          Exibindo <strong className="text-slate-900 dark:text-white">{startItemIndex.toLocaleString("pt-BR")}</strong> a{" "}
-          <strong className="text-slate-900 dark:text-white">{endItemIndex.toLocaleString("pt-BR")}</strong> de{" "}
-          <strong className="text-slate-900 dark:text-white">{effectiveTotalCount.toLocaleString("pt-BR")}</strong> avaliações
-        </div>
+        {/* Unified Pagination Footer */}
+        <div className="flex flex-col items-center justify-between gap-4 rounded-[24px] border border-white/20 bg-[#0B1020]/90 px-6 py-4 text-white shadow-sm backdrop-blur-xl sm:flex-row">
+          {/* Interval text */}
+          <div className="text-xs text-white/60 text-center sm:text-left">
+            Exibindo <strong className="text-white">{startItemIndex.toLocaleString("pt-BR")}</strong> a{" "}
+            <strong className="text-white">{endItemIndex.toLocaleString("pt-BR")}</strong> de{" "}
+            <strong className="text-white">{effectiveTotalCount.toLocaleString("pt-BR")}</strong> avaliações
+          </div>
 
-        {/* Page Controls & Size Selector */}
-        <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
-          {/* Seletor de Tamanho de Página */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-white/60">
-            <span>Exibir:</span>
-            <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.04] p-0.5">
-              {[10, 20, 50, 100].map((size) => (
+          {/* Page Controls & Size Selector */}
+          <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
+            {/* Seletor de Tamanho de Página */}
+            <div className="flex items-center gap-1.5 text-xs text-white/60">
+              <span>Exibir:</span>
+              <div className="flex items-center gap-1 rounded-lg border border-white/20 bg-[#080D1A] p-0.5">
+                {[10, 20, 50, 100].map((size) => (
+                  <Link
+                    key={size}
+                    href={buildPageUrl(1, size)}
+                    className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
+                      pageSize === size
+                        ? "bg-gradient-to-r from-indigo-500 to-amber-400 font-semibold text-white shadow-xs"
+                        : "text-white/60 hover:text-white"
+                    }`}
+                  >
+                    {size}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {currentPage > 1 ? (
                 <Link
-                  key={size}
-                  href={buildPageUrl(1, size)}
-                  className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
-                    pageSize === size
-                      ? "bg-gradient-to-r from-indigo-500 to-amber-400 font-semibold text-white shadow-xs"
-                      : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
-                  }`}
+                  href={buildPageUrl(1)}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/20 bg-[#080D1A] text-white transition-all hover:bg-white/[0.08]"
+                  title="Primeira Página"
                 >
-                  {size}
+                  <ChevronsLeft size={16} />
                 </Link>
-              ))}
+              ) : (
+                <button disabled className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-[#080D1A]/50 text-white/20 cursor-not-allowed">
+                  <ChevronsLeft size={16} />
+                </button>
+              )}
+
+              {currentPage > 1 ? (
+                <Link
+                  href={buildPageUrl(currentPage - 1)}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/20 bg-[#080D1A] text-white transition-all hover:bg-white/[0.08]"
+                  title="Página Anterior"
+                >
+                  <ChevronLeft size={16} />
+                </Link>
+              ) : (
+                <button disabled className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-[#080D1A]/50 text-white/20 cursor-not-allowed">
+                  <ChevronLeft size={16} />
+                </button>
+              )}
+
+              <span className="text-sm px-3 font-semibold text-white min-w-[110px] text-center">
+                Página {currentPage.toLocaleString("pt-BR")} de {totalPages.toLocaleString("pt-BR")}
+              </span>
+
+              {currentPage < totalPages ? (
+                <Link
+                  href={buildPageUrl(currentPage + 1)}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/20 bg-[#080D1A] text-white transition-all hover:bg-white/[0.08]"
+                  title="Próxima Página"
+                >
+                  <ChevronRight size={16} />
+                </Link>
+              ) : (
+                <button disabled className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-[#080D1A]/50 text-white/20 cursor-not-allowed">
+                  <ChevronRight size={16} />
+                </button>
+              )}
+
+              {currentPage < totalPages ? (
+                <Link
+                  href={buildPageUrl(totalPages)}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/20 bg-[#080D1A] text-white transition-all hover:bg-white/[0.08]"
+                  title="Última Página"
+                >
+                  <ChevronsRight size={16} />
+                </Link>
+              ) : (
+                <button disabled className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-[#080D1A]/50 text-white/20 cursor-not-allowed">
+                  <ChevronsRight size={16} />
+                </button>
+              )}
             </div>
           </div>
-
-          <div className="flex items-center gap-1.5">
-            {currentPage > 1 ? (
-              <Link
-                href={buildPageUrl(1)}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white transition-all hover:bg-slate-100 dark:hover:bg-white/[0.08]"
-                title="Primeira Página"
-              >
-                <ChevronsLeft size={16} />
-              </Link>
-            ) : (
-              <button disabled className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/50 dark:border-white/5 bg-slate-100/50 dark:bg-white/[0.02] text-slate-300 dark:text-white/20 cursor-not-allowed">
-                <ChevronsLeft size={16} />
-              </button>
-            )}
-
-            {currentPage > 1 ? (
-              <Link
-                href={buildPageUrl(currentPage - 1)}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white transition-all hover:bg-slate-100 dark:hover:bg-white/[0.08]"
-                title="Página Anterior"
-              >
-                <ChevronLeft size={16} />
-              </Link>
-            ) : (
-              <button disabled className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/50 dark:border-white/5 bg-slate-100/50 dark:bg-white/[0.02] text-slate-300 dark:text-white/20 cursor-not-allowed">
-                <ChevronLeft size={16} />
-              </button>
-            )}
-
-            <span className="text-sm px-3 font-semibold text-slate-700 dark:text-slate-200 min-w-[110px] text-center">
-              Página {currentPage.toLocaleString("pt-BR")} de {totalPages.toLocaleString("pt-BR")}
-            </span>
-
-            {currentPage < totalPages ? (
-              <Link
-                href={buildPageUrl(currentPage + 1)}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white transition-all hover:bg-slate-100 dark:hover:bg-white/[0.08]"
-                title="Próxima Página"
-              >
-                <ChevronRight size={16} />
-              </Link>
-            ) : (
-              <button disabled className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/50 dark:border-white/5 bg-slate-100/50 dark:bg-white/[0.02] text-slate-300 dark:text-white/20 cursor-not-allowed">
-                <ChevronRight size={16} />
-              </button>
-            )}
-
-            {currentPage < totalPages ? (
-              <Link
-                href={buildPageUrl(totalPages)}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white transition-all hover:bg-slate-100 dark:hover:bg-white/[0.08]"
-                title="Última Página"
-              >
-                <ChevronsRight size={16} />
-              </Link>
-            ) : (
-              <button disabled className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/50 dark:border-white/5 bg-slate-100/50 dark:bg-white/[0.02] text-slate-300 dark:text-white/20 cursor-not-allowed">
-                <ChevronsRight size={16} />
-              </button>
-            )}
-          </div>
         </div>
-      </div>
       </main>
     </div>
   );
