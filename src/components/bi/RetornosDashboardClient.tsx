@@ -28,6 +28,16 @@ import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+function escapeHtml(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 export function RetornosDashboardClient() {
   // Dados principais
   const [items, setItems] = useState<RetornoItem[]>([]);
@@ -413,16 +423,26 @@ export function RetornosDashboardClient() {
       return;
     }
     const dt = formatDateTime(item.dataRetorno);
-    const safeObs = item.observacao
-      ? item.observacao.replace(/</g, "&lt;").replace(/>/g, "&gt;")
-      : "Sem observação informada.";
+    const safeObs = escapeHtml(item.observacao || "Sem observação informada.");
+    const safePrenotacao = escapeHtml(item.numeroPrenotacao);
+    const safeClassificacao = escapeHtml(item.classificacao);
+    const safeTipoRecepcao = escapeHtml(item.tipoRecepcao);
+    const safeFormaTitulo = escapeHtml(item.formaTitulo || "Instrumento Geral");
+    const safeTipoRetorno = escapeHtml(item.tipoRetorno);
+    const safeSiglaRetorno = escapeHtml(item.siglaRetorno);
+    const safeFamiliaRetorno = escapeHtml(item.familiaRetorno);
+    const safeDataRetorno = escapeHtml(dt.full);
+    const safeSeqTitulo = escapeHtml(item.seqTitulo || 1);
+    const safeUsuarioDestino = escapeHtml(item.usuarioDestinoRetorno);
+    const safeUsuarioOrigem = escapeHtml(item.usuarioOrigem || "Não informado");
+    const safeIdAndamento = escapeHtml(item.idAndamento);
 
     printWindow.document.write(`
       <!DOCTYPE html>
       <html lang="pt-BR">
       <head>
         <meta charset="utf-8">
-        <title>Ficha do Protocolo ${item.numeroPrenotacao} - Retorno</title>
+        <title>Ficha do Protocolo ${safePrenotacao} - Retorno</title>
         <style>
           * { box-sizing: border-box; }
           body {
@@ -514,43 +534,43 @@ export function RetornosDashboardClient() {
         <div class="header">
           <div>
             <h1 class="title">7º Registro de Imóveis • FIORIX</h1>
-            <div class="subtitle">Comprovante do Evento de Retorno • Prenotação ${item.numeroPrenotacao}</div>
+            <div class="subtitle">Comprovante do Evento de Retorno • Prenotação ${safePrenotacao}</div>
           </div>
-          <div class="badge">${item.classificacao}</div>
+          <div class="badge">${safeClassificacao}</div>
         </div>
 
         <div class="grid">
           <div class="card">
             <div class="label">Prenotação / Protocolo</div>
-            <div class="value">${item.numeroPrenotacao}</div>
+            <div class="value">${safePrenotacao}</div>
           </div>
           <div class="card">
             <div class="label">Tipo de Recepção</div>
-            <div class="value">${item.tipoRecepcao} (${item.formaTitulo || "Instrumento Geral"})</div>
+            <div class="value">${safeTipoRecepcao} (${safeFormaTitulo})</div>
           </div>
           <div class="card">
             <div class="label">Tipo de Retorno</div>
-            <div class="value">${item.tipoRetorno} [${item.siglaRetorno}]</div>
+            <div class="value">${safeTipoRetorno} [${safeSiglaRetorno}]</div>
           </div>
           <div class="card">
             <div class="label">Família do Retorno</div>
-            <div class="value">${item.familiaRetorno}</div>
+            <div class="value">${safeFamiliaRetorno}</div>
           </div>
           <div class="card">
             <div class="label">Data do Retorno</div>
-            <div class="value">${dt.full}</div>
+            <div class="value">${safeDataRetorno}</div>
           </div>
           <div class="card">
             <div class="label">Título Sequencial</div>
-            <div class="value">Título ${item.seqTitulo || 1}</div>
+            <div class="value">Título ${safeSeqTitulo}</div>
           </div>
           <div class="card">
             <div class="label">Destinatário Responsável</div>
-            <div class="value">${item.usuarioDestinoRetorno}</div>
+            <div class="value">${safeUsuarioDestino}</div>
           </div>
           <div class="card">
             <div class="label">Usuário de Origem</div>
-            <div class="value">${item.usuarioOrigem || "Não informado"}</div>
+            <div class="value">${safeUsuarioOrigem}</div>
           </div>
         </div>
 
@@ -561,7 +581,7 @@ export function RetornosDashboardClient() {
 
         <div class="footer">
           <span>FIORIX Gestão de Prazos • Emitido em ${new Date().toLocaleString("pt-BR")}</span>
-          <span>ID Andamento: ${item.idAndamento}</span>
+          <span>ID Andamento: ${safeIdAndamento}</span>
         </div>
 
         <script>

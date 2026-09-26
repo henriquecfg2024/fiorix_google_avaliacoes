@@ -3,9 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/auth-helpers";
 import { Prisma } from "@prisma/client";
 import { getFullMockRetornos } from "@/lib/retornos/mock-data";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import { RetornoItem, ResponsavelContagem, ResponsavelContagemCompleta, ErroMensal, RetornosResponse } from "@/lib/retornos/types";
 
 export const dynamic = "force-dynamic";
+
+const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 const ALLOWED_SORT_COLUMNS: Record<string, string> = {
   numeroPrenotacao: "numero_prenotacao",
@@ -57,9 +60,27 @@ const MONTH_LABELS: Record<string, string> = {
 export async function GET(request: Request) {
   try {
     const user = await requireTenant();
+
+    // 0. Rate limiting por usuário (máximo 40 req/min)
+    const rateLimit = checkRateLimit(`retornos:${user.id}`, { windowMs: 60_000, max: 40 });
+    if (!rateLimit.ok) {
+      return NextResponse.json(
+        { success: false, error: "Muitas requisições em pouco tempo. Aguarde alguns segundos." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.ceil((rateLimit.retryAfterMs || 1000) / 1000)),
+          },
+        }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
 
-    const search = searchParams.get("search")?.trim() || "";
+    // Sanitização e limitação de comprimento da busca (anti-DoS)
+    const rawSearch = searchParams.get("search")?.trim() || "";
+    const search = rawSearch.slice(0, 100).replace(/[%_]{3,}/g, "");
+
     const aba = (searchParams.get("aba") || "ALL").toUpperCase();
     const classificacao = (searchParams.get("classificacao") || "ALL").toUpperCase();
     const idResponsavel = searchParams.get("idResponsavel")?.trim() || "";
@@ -68,9 +89,11 @@ export async function GET(request: Request) {
     const sortByParam = searchParams.get("sortBy") || "dataRetorno";
     const sortOrderParam = (searchParams.get("sortOrder") || "desc").toLowerCase() === "asc" ? "asc" : "desc";
 
-    // Período — filtro de datas (YYYY-MM-DD)
-    const dateFrom = searchParams.get("dateFrom")?.trim() || "";
-    const dateTo = searchParams.get("dateTo")?.trim() || "";
+    // Período — filtro de datas com validação estrita (YYYY-MM-DD)
+    const rawDateFrom = searchParams.get("dateFrom")?.trim() || "";
+    const rawDateTo = searchParams.get("dateTo")?.trim() || "";
+    const dateFrom = DATE_REGEX.test(rawDateFrom) ? rawDateFrom : "";
+    const dateTo = DATE_REGEX.test(rawDateTo) ? rawDateTo : "";
 
     // 1. Verificar última sincronização do conector
     let lastSyncAt: string | null = null;
