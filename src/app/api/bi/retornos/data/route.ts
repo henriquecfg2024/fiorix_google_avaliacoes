@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/auth-helpers";
 import { Prisma } from "@prisma/client";
 import { getFullMockRetornos } from "@/lib/retornos/mock-data";
-import { RetornoItem, ResponsavelContagem, RetornosResponse } from "@/lib/retornos/types";
+import { RetornoItem, ResponsavelContagem, ResponsavelContagemCompleta, ErroMensal, RetornosResponse } from "@/lib/retornos/types";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +32,28 @@ interface RespRawResult {
   quantidade: number;
 }
 
+interface RespCompletoRawResult {
+  id: string;
+  nome: string;
+  total: number;
+  corrigidos: number;
+  sem_marcador: number;
+}
+
+interface ErroMensalRawResult {
+  mes: string;
+  total: number;
+  corrigidos: number;
+  sem_marcador: number;
+}
+
+/** Mapa pt-BR para rótulos curtos de mês */
+const MONTH_LABELS: Record<string, string> = {
+  "01": "Jan", "02": "Fev", "03": "Mar", "04": "Abr",
+  "05": "Mai", "06": "Jun", "07": "Jul", "08": "Ago",
+  "09": "Set", "10": "Out", "11": "Nov", "12": "Dez",
+};
+
 export async function GET(request: Request) {
   try {
     const user = await requireTenant();
@@ -45,6 +67,10 @@ export async function GET(request: Request) {
     const pageSize = Math.max(1, Math.min(100, parseInt(searchParams.get("pageSize") || "20", 10)));
     const sortByParam = searchParams.get("sortBy") || "dataRetorno";
     const sortOrderParam = (searchParams.get("sortOrder") || "desc").toLowerCase() === "asc" ? "asc" : "desc";
+
+    // Período — filtro de datas (YYYY-MM-DD)
+    const dateFrom = searchParams.get("dateFrom")?.trim() || "";
+    const dateTo = searchParams.get("dateTo")?.trim() || "";
 
     // 1. Verificar última sincronização do conector
     let lastSyncAt: string | null = null;
@@ -120,9 +146,18 @@ export async function GET(request: Request) {
         whereConditions.push(Prisma.sql`id_usuario_destino = ${idResponsavel}`);
       }
 
+      // Filtro de período (datas)
+      if (dateFrom) {
+        whereConditions.push(Prisma.sql`data_retorno >= ${dateFrom}::date`);
+      }
+      if (dateTo) {
+        whereConditions.push(Prisma.sql`data_retorno < (${dateTo}::date + INTERVAL '1 day')`);
+      }
+
       const combinedWhere = Prisma.join(whereConditions, " AND ");
 
-      const [kpiRows, respRows, itemRows] = await Promise.all([
+      const [kpiRows, respRows, respCompletoRows, errosMensaisRows, itemRows] = await Promise.all([
+        // KPIs globais
         prisma.$queryRaw<KpiRawResult[]>(Prisma.sql`
           SELECT
             COUNT(*)::int AS total,
@@ -131,6 +166,7 @@ export async function GET(request: Request) {
           FROM public.fiorix_retornos_dados
           WHERE ${combinedWhere}
         `),
+        // Responsáveis (somente sem marcador — 292,293,294) — backward-compat
         prisma.$queryRaw<RespRawResult[]>(Prisma.sql`
           SELECT
             COALESCE(id_usuario_destino, 'SEM_ID') AS id,
@@ -141,6 +177,32 @@ export async function GET(request: Request) {
           GROUP BY id_usuario_destino, usuario_destino_retorno
           ORDER BY quantidade DESC, nome ASC
         `),
+        // Responsáveis completo (TODOS os 6 tipos: 292-297)
+        prisma.$queryRaw<RespCompletoRawResult[]>(Prisma.sql`
+          SELECT
+            COALESCE(id_usuario_destino, 'SEM_ID') AS id,
+            COALESCE(NULLIF(usuario_destino_retorno, ''), 'Não informado') AS nome,
+            COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE id_tipo_retorno IN (295, 296, 297))::int AS corrigidos,
+            COUNT(*) FILTER (WHERE id_tipo_retorno IN (292, 293, 294))::int AS sem_marcador
+          FROM public.fiorix_retornos_dados
+          WHERE ${combinedWhere}
+          GROUP BY id_usuario_destino, usuario_destino_retorno
+          ORDER BY total DESC, nome ASC
+        `),
+        // Erros mês a mês (todos os 6 tipos)
+        prisma.$queryRaw<ErroMensalRawResult[]>(Prisma.sql`
+          SELECT
+            TO_CHAR(data_retorno, 'YYYY-MM') AS mes,
+            COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE id_tipo_retorno IN (295, 296, 297))::int AS corrigidos,
+            COUNT(*) FILTER (WHERE id_tipo_retorno IN (292, 293, 294))::int AS sem_marcador
+          FROM public.fiorix_retornos_dados
+          WHERE ${combinedWhere}
+          GROUP BY TO_CHAR(data_retorno, 'YYYY-MM')
+          ORDER BY mes ASC
+        `),
+        // Itens paginados
         prisma.$queryRaw<RetornoItem[]>(Prisma.sql`
           SELECT
             id_andamento::text AS "idAndamento",
@@ -169,6 +231,20 @@ export async function GET(request: Request) {
       ]);
 
       const total = kpiRows[0]?.total || 0;
+
+      // Mapear erros mensais com rótulos pt-BR
+      const errosMensais: ErroMensal[] = errosMensaisRows.map((row) => {
+        const [year, month] = row.mes.split("-");
+        const label = `${MONTH_LABELS[month] || month}/${year.slice(2)}`;
+        return {
+          mes: row.mes,
+          mesLabel: label,
+          total: row.total,
+          corrigidos: row.corrigidos,
+          semMarcador: row.sem_marcador,
+        };
+      });
+
       const response: RetornosResponse = {
         success: true,
         kpis: {
@@ -181,6 +257,14 @@ export async function GET(request: Request) {
           nome: r.nome,
           quantidade: r.quantidade,
         })),
+        responsaveisCompleto: respCompletoRows.map((r) => ({
+          id: r.id,
+          nome: r.nome,
+          total: r.total,
+          corrigidos: r.corrigidos,
+          semMarcador: r.sem_marcador,
+        })),
+        errosMensais,
         items: itemRows,
         total,
         page,
@@ -194,6 +278,17 @@ export async function GET(request: Request) {
 
     // 3. Fallback com Mock Data
     let filtered = getFullMockRetornos();
+
+    // Filtro de período (datas)
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      filtered = filtered.filter((i) => new Date(i.dataRetorno) >= fromDate);
+    }
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setDate(toDate.getDate() + 1);
+      filtered = filtered.filter((i) => new Date(i.dataRetorno) < toDate);
+    }
 
     if (search) {
       const q = search.toLowerCase();
@@ -220,6 +315,7 @@ export async function GET(request: Request) {
       filtered = filtered.filter((i) => [292, 293, 294].includes(i.idTipoRetorno));
     }
 
+    // Responsáveis backward-compat (somente 292, 293, 294)
     const respMap = new Map<string, { id: string; nome: string; quantidade: number }>();
     filtered
       .filter((i) => [292, 293, 294].includes(i.idTipoRetorno))
@@ -237,6 +333,47 @@ export async function GET(request: Request) {
     const responsaveis: ResponsavelContagem[] = Array.from(respMap.values()).sort(
       (a, b) => b.quantidade - a.quantidade || a.nome.localeCompare(b.nome)
     );
+
+    // Responsáveis completo (todos os 6 tipos)
+    const respCompletoMap = new Map<string, ResponsavelContagemCompleta>();
+    filtered.forEach((item) => {
+      const key = item.idUsuarioDestino || item.usuarioDestinoRetorno;
+      const current = respCompletoMap.get(key) || {
+        id: item.idUsuarioDestino || key,
+        nome: item.usuarioDestinoRetorno || "Não informado",
+        total: 0,
+        corrigidos: 0,
+        semMarcador: 0,
+      };
+      current.total += 1;
+      if ([295, 296, 297].includes(item.idTipoRetorno)) current.corrigidos += 1;
+      if ([292, 293, 294].includes(item.idTipoRetorno)) current.semMarcador += 1;
+      respCompletoMap.set(key, current);
+    });
+
+    const responsaveisCompleto: ResponsavelContagemCompleta[] = Array.from(respCompletoMap.values()).sort(
+      (a, b) => b.total - a.total || a.nome.localeCompare(b.nome)
+    );
+
+    // Erros mês a mês
+    const mesMap = new Map<string, { total: number; corrigidos: number; semMarcador: number }>();
+    filtered.forEach((item) => {
+      const d = new Date(item.dataRetorno);
+      const mes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const current = mesMap.get(mes) || { total: 0, corrigidos: 0, semMarcador: 0 };
+      current.total += 1;
+      if ([295, 296, 297].includes(item.idTipoRetorno)) current.corrigidos += 1;
+      if ([292, 293, 294].includes(item.idTipoRetorno)) current.semMarcador += 1;
+      mesMap.set(mes, current);
+    });
+
+    const errosMensais: ErroMensal[] = Array.from(mesMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([mes, data]) => {
+        const [year, month] = mes.split("-");
+        const label = `${MONTH_LABELS[month] || month}/${year.slice(2)}`;
+        return { mes, mesLabel: label, ...data };
+      });
 
     if (idResponsavel) {
       filtered = filtered.filter((i) => i.idUsuarioDestino === idResponsavel || i.usuarioDestinoRetorno === idResponsavel);
@@ -281,6 +418,8 @@ export async function GET(request: Request) {
         semMarcador: filtered.filter((i) => [292, 293, 294].includes(i.idTipoRetorno)).length,
       },
       responsaveis,
+      responsaveisCompleto,
+      errosMensais,
       items: paginatedItems,
       total,
       page,

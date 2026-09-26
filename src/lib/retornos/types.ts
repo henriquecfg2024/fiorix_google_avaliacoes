@@ -25,6 +25,24 @@ export interface ResponsavelContagem {
   quantidade: number;
 }
 
+/** Contagem de TODOS os eventos (292-297) por colaborador — para o card "Erros por colaborador" */
+export interface ResponsavelContagemCompleta {
+  id: string;
+  nome: string;
+  total: number;
+  corrigidos: number;
+  semMarcador: number;
+}
+
+/** Agregação mensal — para o card "Erros mês a mês" */
+export interface ErroMensal {
+  mes: string;       // "YYYY-MM"
+  mesLabel: string;   // "Jan/25", "Fev/25"…
+  total: number;
+  corrigidos: number;
+  semMarcador: number;
+}
+
 export interface RetornosKpis {
   total: number;
   corrigidos: number;
@@ -35,6 +53,10 @@ export interface RetornosResponse {
   success: boolean;
   kpis: RetornosKpis;
   responsaveis: ResponsavelContagem[];
+  /** Contagem completa (292-297) por colaborador */
+  responsaveisCompleto: ResponsavelContagemCompleta[];
+  /** Agregação mensal de eventos */
+  errosMensais: ErroMensal[];
   items: RetornoItem[];
   total: number;
   page: number;
