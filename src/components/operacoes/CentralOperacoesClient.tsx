@@ -13,7 +13,7 @@ import {
   XCircle,
   ShieldCheck
 } from 'lucide-react';
-import { OperationsHealthSnapshot } from '@/lib/health/operations-service';
+import type { OperationsHealthSnapshot } from '@/lib/health/types';
 import { ServiceHealthGrid } from './ServiceHealthGrid';
 import { IncrementalSyncTable } from './IncrementalSyncTable';
 import { ConnectorDetailCard } from './ConnectorDetailCard';

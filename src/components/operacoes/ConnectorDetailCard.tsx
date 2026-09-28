@@ -11,7 +11,7 @@ import {
   HelpCircle,
   AlertCircle
 } from 'lucide-react';
-import { ConnectorTelemetry } from '@/lib/health/operations-service';
+import type { ConnectorTelemetry } from '@/lib/health/types';
 
 interface Props {
   connector: ConnectorTelemetry;

@@ -9,7 +9,7 @@ import {
   ExternalLink,
   ShieldCheck
 } from 'lucide-react';
-import { OperationsHealthSnapshot } from '@/lib/health/operations-service';
+import type { OperationsHealthSnapshot } from '@/lib/health/types';
 
 interface Props {
   incidents: OperationsHealthSnapshot['incidents'];

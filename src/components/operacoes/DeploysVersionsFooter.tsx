@@ -1,6 +1,6 @@
 import React from 'react';
 import { GitCommit, HardDrive, CheckCircle2, Globe, ExternalLink } from 'lucide-react';
-import { OperationsHealthSnapshot } from '@/lib/health/operations-service';
+import type { OperationsHealthSnapshot } from '@/lib/health/types';
 
 interface Props {
   deploys: OperationsHealthSnapshot['deploys'];

@@ -13,7 +13,7 @@ import {
   Clock,
   HelpCircle
 } from 'lucide-react';
-import { ServiceHealthItem } from '@/lib/health/operations-service';
+import type { ServiceHealthItem } from '@/lib/health/types';
 
 interface Props {
   services: ServiceHealthItem[];

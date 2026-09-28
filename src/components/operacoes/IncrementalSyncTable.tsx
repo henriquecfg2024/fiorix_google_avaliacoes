@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { CheckCircle2, Clock, RefreshCw, AlertCircle, HelpCircle, Layers, Eye } from 'lucide-react';
-import { IncrementalModuleStatus, BatchHistoryItem } from '@/lib/health/operations-service';
+import type { IncrementalModuleStatus, BatchHistoryItem } from '@/lib/health/types';
 import { BatchHistoryModal } from './BatchHistoryModal';
 
 interface Props {

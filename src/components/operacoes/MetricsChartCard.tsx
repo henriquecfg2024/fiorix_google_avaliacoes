@@ -1,6 +1,6 @@
 import React from 'react';
 import { TrendingUp, Activity, HelpCircle, Zap, Database } from 'lucide-react';
-import { OperationsHealthSnapshot } from '@/lib/health/operations-service';
+import type { OperationsHealthSnapshot } from '@/lib/health/types';
 
 interface Props {
   metrics: OperationsHealthSnapshot['metrics'];

@@ -1,28 +1,9 @@
 import { redirect } from 'next/navigation';
 import { isRedirectError } from 'next/dist/client/components/redirect';
-import dynamicImport from 'next/dynamic';
 import { requireRole } from '@/lib/auth-helpers';
-import { getOperationsHealth, type OperationsHealthSnapshot } from '@/lib/health/operations-service';
-
-const CentralOperacoesClient = dynamicImport(
-  () => import('@/components/operacoes/CentralOperacoesClient').then((mod) => mod.CentralOperacoesClient),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-amber-500/30 dark:bg-[#070A12] dark:text-white transition-colors duration-300 relative overflow-hidden pb-12">
-        <div className="mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6 animate-pulse">
-          <div className="h-16 w-full rounded-2xl bg-slate-200 border border-slate-300 dark:bg-white/[0.04] dark:border-white/8" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-28 rounded-2xl bg-slate-200 border border-slate-300 dark:bg-white/[0.03] dark:border-white/8" />
-            ))}
-          </div>
-          <div className="h-72 w-full rounded-2xl bg-slate-200 border border-slate-300 dark:bg-white/[0.03] dark:border-white/8" />
-        </div>
-      </div>
-    ),
-  }
-);
+import { getOperationsHealth } from '@/lib/health/operations-service';
+import type { OperationsHealthSnapshot } from '@/lib/health/types';
+import { CentralOperacoesClient } from '@/components/operacoes/CentralOperacoesClient';
 
 export const dynamic = 'force-dynamic';
 

@@ -21,7 +21,7 @@ import {
   HelpCircle,
   Lock,
 } from 'lucide-react';
-import { AlertChannelConfig, AlertLogItem } from '@/lib/alerts/alert-storage';
+import type { AlertChannelConfig, AlertLogItem } from '@/lib/health/types';
 
 export function AlertSettingsSection() {
   const [config, setConfig] = useState<AlertChannelConfig>({

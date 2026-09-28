@@ -25,7 +25,7 @@ import {
   TrendingUp,
   Zap,
 } from 'lucide-react';
-import { TelemetryHistoryResponse, TelemetryPoint } from '@/app/api/v1/operacoes/telemetry-history/route';
+import type { TelemetryHistoryResponse, TelemetryPoint } from '@/lib/health/types';
 
 interface CustomTooltipProps {
   active?: boolean;

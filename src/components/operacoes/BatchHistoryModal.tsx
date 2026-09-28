@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { X, Layers, Clock, CheckCircle2, AlertTriangle, XCircle, ArrowUpDown } from 'lucide-react';
-import { BatchHistoryItem } from '@/lib/health/operations-service';
+import type { BatchHistoryItem } from '@/lib/health/types';
 
 interface Props {
   isOpen: boolean;
