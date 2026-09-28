@@ -106,6 +106,10 @@ model Tenant {
   messagingSettings  MessagingNotificationSettings[]
   messagingPolicy    MessagingPolicy?
   messagingAuditLogs MessagingAuditLog[]
+
+  // INTEGRAÇÕES EXTERNAS
+  integrationConfigs   IntegrationConfig[]
+  integrationAuditLogs IntegrationAuditLog[]
 }
 
 // ── USERS ─────────────────────────────────────────────────────────────
@@ -1008,4 +1012,76 @@ model MessagingAuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("fiorix_messaging_audit_logs")
+}
+
+// ── INTEGRAÇÕES EXTERNAS ──────────────────────────────────────────────
+
+enum IntegrationStatus {
+  CONNECTED
+  ATTENTION
+  DISCONNECTED
+  UNCONFIGURED
+}
+
+model IntegrationConfig {
+  id              String            @id @default(cuid())
+  tenantId        String            @map("tenant_id")
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  integrationId   String            @map("integration_id") // e.g. 'nextqs', 'google_avaliacoes'
+  displayName     String            @map("display_name")   // e.g. 'NextQS'
+  status          IntegrationStatus @default(UNCONFIGURED)
+
+  // Credenciais criptografadas (AES-256-GCM) — nunca retornadas ao frontend
+  encryptedConfig String?           @map("encrypted_config") @db.Text
+  configIv        String?           @map("config_iv")       // IV para decriptação
+  configMask      String?           @map("config_mask")     // Exibição mascarada ex: '••••••••4K9P'
+
+  // Metadados operacionais
+  lastTestAt      DateTime?         @map("last_test_at")
+  lastTestOk      Boolean?          @map("last_test_ok")
+  lastTestLatency Int?              @map("last_test_latency_ms")
+  lastSyncAt      DateTime?         @map("last_sync_at")
+  configuredAt    DateTime?         @map("configured_at")
+  configuredBy    String?           @map("configured_by")
+
+  // Parâmetros operacionais
+  slaMinutes      Int               @default(15) @map("sla_minutes")
+  syncIntervalMin Int               @default(30) @map("sync_interval_min")
+  maxFailures     Int               @default(3)  @map("max_failures")
+  maxGapMinutes   Int               @default(120) @map("max_gap_minutes")
+
+  isActive        Boolean           @default(true) @map("is_active")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  auditLogs       IntegrationAuditLog[]
+
+  @@unique([tenantId, integrationId])
+  @@index([tenantId])
+  @@index([integrationId])
+  @@map("fiorix_integration_configs")
+}
+
+model IntegrationAuditLog {
+  id              String   @id @default(cuid())
+  tenantId        String   @map("tenant_id")
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  integrationId   String?  @map("integration_id")
+  integration     IntegrationConfig? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+
+  action          String               // 'CREATE', 'UPDATE', 'TEST', 'DEACTIVATE', 'PARAM_CHANGE'
+  target          String               // Nome legível do alvo ex: 'NextQS', 'SLA de Espera'
+  actorUserId     String   @map("actor_user_id")
+  actorUserName   String   @map("actor_user_name")
+  result          String   @default("success") // 'success', 'failure', 'warning'
+  detail          String?  @db.Text     // Diagnóstico sanitizado
+
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([integrationId])
+  @@index([createdAt])
+  @@map("fiorix_integration_audit_logs")
 }
