@@ -678,9 +678,9 @@ export function RetornosDashboardClient() {
       {/* 2. CARDS DE INDICADORES (KPIS) — PADRÃO FIORIX */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 print:hidden">
         {/* KPI 1: Eventos de retorno */}
-        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-cyan-400/50">
+        <div className="group relative flex min-h-[135px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-cyan-400/50">
           <div className="flex justify-between items-start w-full">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/55">
+            <span className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/80">
               Eventos de retorno
             </span>
             <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 p-2 transition-all group-hover:brightness-110">
@@ -691,16 +691,16 @@ export function RetornosDashboardClient() {
             <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#22D3EE]">
               {isLoading ? "..." : kpis.total.toLocaleString("pt-BR")}
             </div>
-            <div className="text-[11px] text-slate-500 dark:text-[#9CA3AF]">
+            <div className="text-xs sm:text-[13px] font-medium text-slate-600 dark:text-gray-300">
               Resultados no período
             </div>
           </div>
         </div>
 
         {/* KPI 2: Marcados como corrigidos */}
-        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-emerald-400/50">
+        <div className="group relative flex min-h-[135px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-emerald-400/50">
           <div className="flex justify-between items-start w-full">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/55">
+            <span className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/80">
               Corrigidos
             </span>
             <div className="rounded-xl border border-[#10B981]/30 bg-[#10B981]/15 p-2 transition-all group-hover:brightness-110">
@@ -711,16 +711,16 @@ export function RetornosDashboardClient() {
             <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#10B981]">
               {isLoading ? "..." : kpis.corrigidos.toLocaleString("pt-BR")}
             </div>
-            <div className="text-[11px] text-slate-500 dark:text-[#9CA3AF]">
+            <div className="text-xs sm:text-[13px] font-medium text-slate-600 dark:text-gray-300">
               RTC · RPC · RRC {kpis.total > 0 ? `(${((kpis.corrigidos / kpis.total) * 100).toFixed(1)}%)` : ""}
             </div>
           </div>
         </div>
 
         {/* KPI 3: Sem marcador de correção */}
-        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-amber-400/50">
+        <div className="group relative flex min-h-[135px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-amber-400/50">
           <div className="flex justify-between items-start w-full">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/55">
+            <span className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/80">
               Sem marcador
             </span>
             <div className="rounded-xl border border-[#F59E0B]/30 bg-[#F59E0B]/15 p-2 transition-all group-hover:brightness-110">
@@ -731,16 +731,16 @@ export function RetornosDashboardClient() {
             <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#F59E0B]">
               {isLoading ? "..." : kpis.semMarcador.toLocaleString("pt-BR")}
             </div>
-            <div className="text-[11px] text-slate-500 dark:text-[#9CA3AF]">
+            <div className="text-xs sm:text-[13px] font-medium text-slate-600 dark:text-gray-300">
               RTR · RPE · RRE {kpis.total > 0 ? `(${((kpis.semMarcador / kpis.total) * 100).toFixed(1)}%)` : ""}
             </div>
           </div>
         </div>
 
         {/* KPI 4: Taxa de Retrabalho (Reingressos) */}
-        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-purple-400/50">
+        <div className="group relative flex min-h-[135px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-purple-400/50">
           <div className="flex justify-between items-start w-full">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/55">
+            <span className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/80">
               Taxa retrabalho
             </span>
             <div className="rounded-xl border border-purple-500/30 bg-purple-500/15 p-2 transition-all group-hover:brightness-110">
@@ -751,16 +751,16 @@ export function RetornosDashboardClient() {
             <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#A855F7]">
               {isLoading ? "..." : `${(kpis.taxaRetrabalho || 0).toFixed(1)}%`}
             </div>
-            <div className="text-[11px] text-slate-500 dark:text-[#9CA3AF]">
+            <div className="text-xs sm:text-[13px] font-medium text-slate-600 dark:text-gray-300">
               {(kpis.reingressos || 0).toLocaleString("pt-BR")} reingressos na base
             </div>
           </div>
         </div>
 
         {/* KPI 5: Tempo Médio de Retorno */}
-        <div className="group relative flex min-h-[130px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm backdrop-blur-xl transition-all hover:border-blue-400/50">
+        <div className="group relative flex min-h-[135px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-blue-400/50">
           <div className="flex justify-between items-start w-full">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-white/55">
+            <span className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/80">
               Tempo médio
             </span>
             <div className="rounded-xl border border-blue-500/30 bg-blue-500/15 p-2 transition-all group-hover:brightness-110">
@@ -771,7 +771,7 @@ export function RetornosDashboardClient() {
             <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#3B82F6]">
               {isLoading ? "..." : (kpis.tempoMedioDias > 0 ? `${kpis.tempoMedioDias}d` : "—")}
             </div>
-            <div className="text-[11px] text-slate-500 dark:text-[#9CA3AF]">
+            <div className="text-xs sm:text-[13px] font-medium text-slate-600 dark:text-gray-300">
               Ciclo médio até a devolução
             </div>
           </div>
@@ -936,13 +936,13 @@ export function RetornosDashboardClient() {
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
               Erros mês a mês
             </h2>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-400 mt-1">
+            <p className="text-sm text-slate-600 dark:text-gray-300 font-medium mt-1">
               Erros registrados e corrigidos por mês • 2026
             </p>
           </div>
           {errosMensais.length > 0 && (
             <div className="text-right">
-              <div className="text-xs sm:text-sm text-slate-500 dark:text-gray-400 font-medium">Total no período</div>
+              <div className="text-sm text-slate-600 dark:text-gray-300 font-semibold">Total no período</div>
               <div className="text-3xl sm:text-4xl font-extrabold text-cyan-600 dark:text-[#22D3EE] tracking-tight">
                 {errosMensais.reduce((s, m) => s + m.total, 0).toLocaleString("pt-BR")}
               </div>
@@ -951,7 +951,7 @@ export function RetornosDashboardClient() {
         </div>
 
         {errosMensais.length === 0 ? (
-          <div className="py-10 text-center text-xs text-slate-400 dark:text-white/40 italic">
+          <div className="py-10 text-center text-sm text-slate-400 dark:text-white/40 italic">
             Nenhum dado mensal disponível para o período selecionado.
           </div>
         ) : (
@@ -959,16 +959,16 @@ export function RetornosDashboardClient() {
             {/* Legenda Centralizada */}
             <div className="flex items-center justify-center gap-6 sm:gap-8 pt-1 pb-1">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]" />
-                <span className="text-xs sm:text-sm font-medium text-slate-700 dark:text-white/90">Total</span>
+                <span className="w-3 h-3 rounded-full bg-[#3B82F6]" />
+                <span className="text-sm sm:text-base font-semibold text-slate-700 dark:text-white/90">Total</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
-                <span className="text-xs sm:text-sm font-medium text-slate-700 dark:text-white/90">Corrigidos</span>
+                <span className="w-3 h-3 rounded-full bg-[#10B981]" />
+                <span className="text-sm sm:text-base font-semibold text-slate-700 dark:text-white/90">Corrigidos</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#F97316]" />
-                <span className="text-xs sm:text-sm font-medium text-slate-700 dark:text-white/90">Sem marcador</span>
+                <span className="w-3 h-3 rounded-full bg-[#F97316]" />
+                <span className="text-sm sm:text-base font-semibold text-slate-700 dark:text-white/90">Sem marcador</span>
               </div>
             </div>
 
@@ -981,7 +981,7 @@ export function RetornosDashboardClient() {
                 return (
                   <div key={m.mes} className="flex items-center gap-3 sm:gap-4 group">
                     {/* Rótulo do Mês */}
-                    <span className="text-base sm:text-lg font-medium text-slate-700 dark:text-white/90 w-16 sm:w-20 text-right shrink-0">
+                    <span className="text-base sm:text-lg font-bold text-slate-800 dark:text-white w-16 sm:w-20 text-right shrink-0">
                       {m.mesLabel}
                     </span>
 
@@ -994,7 +994,7 @@ export function RetornosDashboardClient() {
                           style={{ width: `${percCorrigidos}%` }}
                           title={`${m.corrigidos} corrigidos (${percCorrigidos.toFixed(1)}%)`}
                         >
-                          <span className="text-white font-extrabold text-sm sm:text-base drop-shadow-sm select-none">
+                          <span className="text-white font-extrabold text-base sm:text-lg drop-shadow-sm select-none">
                             {m.corrigidos}
                           </span>
                         </div>
@@ -1007,7 +1007,7 @@ export function RetornosDashboardClient() {
                           style={{ width: `${percSemMarcador}%` }}
                           title={`${m.semMarcador} sem marcador (${percSemMarcador.toFixed(1)}%)`}
                         >
-                          <span className="text-white font-extrabold text-sm sm:text-base drop-shadow-sm select-none">
+                          <span className="text-white font-extrabold text-base sm:text-lg drop-shadow-sm select-none">
                             {m.semMarcador}
                           </span>
                         </div>
@@ -1015,14 +1015,14 @@ export function RetornosDashboardClient() {
 
                       {/* Caso ambos sejam 0 */}
                       {m.total === 0 && (
-                        <div className="w-full h-full flex items-center justify-center text-xs text-slate-400 dark:text-white/40">
+                        <div className="w-full h-full flex items-center justify-center text-sm text-slate-400 dark:text-white/40 font-semibold">
                           0
                         </div>
                       )}
                     </div>
 
                     {/* Total numérico à direita */}
-                    <span className="text-base sm:text-lg font-bold text-slate-800 dark:text-white/80 w-10 sm:w-12 text-left shrink-0 pl-1">
+                    <span className="text-lg sm:text-xl font-extrabold text-slate-800 dark:text-white/90 w-10 sm:w-12 text-left shrink-0 pl-1">
                       {m.total}
                     </span>
                   </div>
@@ -1032,7 +1032,7 @@ export function RetornosDashboardClient() {
 
             {/* Rodapé explicativo */}
             <div className="pt-2 border-t border-white/8">
-              <p className="text-[11px] sm:text-xs text-slate-500 dark:text-white/45">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-gray-400">
                 Barra empilhada: Total = Corrigidos + Sem marcador • Valores exibem contagens mensais
               </p>
             </div>
@@ -1048,18 +1048,18 @@ export function RetornosDashboardClient() {
               <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
                 Top causas de exigência
               </h2>
-              <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-0.5 text-xs font-semibold text-purple-700 dark:text-purple-300">
+              <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-xs sm:text-sm font-bold text-purple-700 dark:text-purple-300">
                 Análise de Causa Raiz
               </span>
             </div>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-400 mt-1">
+            <p className="text-sm text-slate-600 dark:text-gray-300 font-medium mt-1">
               Classificação semântica dos motivos de notas devolutivas e reingressos
             </p>
           </div>
 
           {topCausas.length > 0 && (
-            <div className="flex items-center gap-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/8 px-3.5 py-2 rounded-2xl text-xs">
-              <span className="text-slate-500 dark:text-white/50">Principal fator:</span>
+            <div className="flex items-center gap-2 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/8 px-3.5 py-2 rounded-2xl text-xs sm:text-sm">
+              <span className="text-slate-500 dark:text-white/60 font-medium">Principal fator:</span>
               <span className="font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: topCausas[0].cor }} />
                 {topCausas[0].nome} ({topCausas[0].percentual}%)
@@ -1070,7 +1070,7 @@ export function RetornosDashboardClient() {
 
         {/* Grid de Causas com Barras de Progresso e Filtro Clicável */}
         {topCausas.length === 0 ? (
-          <div className="py-8 text-center text-xs text-slate-400 dark:text-white/40 italic">
+          <div className="py-8 text-center text-sm text-slate-400 dark:text-white/40 italic">
             Nenhuma exigência identificada no período selecionado.
           </div>
         ) : (
@@ -1094,35 +1094,35 @@ export function RetornosDashboardClient() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: causa.cor }} />
-                        <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white group-hover:text-cyan-600 dark:group-hover:text-cyan-300 transition-colors">
+                        <span className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: causa.cor }} />
+                        <span className="text-sm sm:text-base font-bold text-slate-900 dark:text-white group-hover:text-cyan-600 dark:group-hover:text-cyan-300 transition-colors">
                           {causa.nome}
                         </span>
                       </div>
                       <span
-                        className="text-xs font-mono font-bold px-2 py-0.5 rounded-full shrink-0"
+                        className="text-xs sm:text-sm font-mono font-extrabold px-2.5 py-0.5 rounded-full shrink-0"
                         style={{ backgroundColor: `${causa.cor}18`, color: causa.cor }}
                       >
                         {causa.percentual}%
                       </span>
                     </div>
 
-                    <p className="text-[11px] text-slate-500 dark:text-white/50 line-clamp-1">
+                    <p className="text-xs sm:text-[13px] text-slate-600 dark:text-white/70 line-clamp-1">
                       {causa.descricao}
                     </p>
 
                     <div className="space-y-1.5 pt-1">
-                      <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
+                      <div className="h-2.5 w-full rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-500"
                           style={{ width: `${causa.percentual}%`, backgroundColor: causa.cor }}
                         />
                       </div>
-                      <div className="flex justify-between items-center text-[10.5px]">
-                        <span className="text-slate-500 dark:text-white/60 font-medium">
-                          <strong>{causa.quantidade}</strong> títulos afetados
+                      <div className="flex justify-between items-center text-xs sm:text-[13px]">
+                        <span className="text-slate-600 dark:text-white/80 font-medium">
+                          <strong className="font-bold text-slate-900 dark:text-white">{causa.quantidade}</strong> títulos afetados
                         </span>
-                        <span className={`font-semibold ${isSelected ? "text-cyan-600 dark:text-cyan-300" : "text-slate-400 dark:text-white/40 group-hover:text-slate-700 dark:group-hover:text-white/70"}`}>
+                        <span className={`font-bold ${isSelected ? "text-cyan-600 dark:text-cyan-300" : "text-slate-500 dark:text-white/50 group-hover:text-slate-800 dark:group-hover:text-white/80"}`}>
                           {isSelected ? "Filtro ativo ✓" : "Filtrar"}
                         </span>
                       </div>
@@ -1134,7 +1134,7 @@ export function RetornosDashboardClient() {
 
             {/* Banner explicativo quando filtro por causa está ativo */}
             {selectedCausaId && (
-              <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-xs">
+              <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-xs sm:text-sm">
                 <div className="flex items-center gap-2 text-cyan-800 dark:text-cyan-200">
                   <Filter className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                   <span>
@@ -1144,7 +1144,7 @@ export function RetornosDashboardClient() {
                 <button
                   type="button"
                   onClick={() => setSelectedCausaId(null)}
-                  className="text-xs font-semibold text-cyan-700 dark:text-cyan-300 hover:underline"
+                  className="text-xs sm:text-sm font-bold text-cyan-700 dark:text-cyan-300 hover:underline"
                 >
                   Remover filtro de causa
                 </button>
@@ -1158,8 +1158,8 @@ export function RetornosDashboardClient() {
       <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-4 print:hidden">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
-            <h2 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">Erros por responsável</h2>
-            <p className="text-xs text-slate-500 dark:text-white/50">Eventos sem marcador de correção por destinatário</p>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Erros por responsável</h2>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-gray-300 font-medium">Eventos sem marcador de correção por destinatário</p>
           </div>
 
           {/* Dropdown de ordenação do card */}
@@ -1167,7 +1167,7 @@ export function RetornosDashboardClient() {
             <select
               value={sortResponsaveisBy}
               onChange={(e) => setSortResponsaveisBy(e.target.value as "maior" | "menor" | "nome")}
-              className="bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/8 rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-white shadow-sm focus:outline-none focus:border-cyan-400"
+              className="bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/8 rounded-xl px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-800 dark:text-white shadow-sm focus:outline-none focus:border-cyan-400"
             >
               <option value="maior">Maior quantidade</option>
               <option value="menor">Menor quantidade</option>
@@ -1178,7 +1178,7 @@ export function RetornosDashboardClient() {
 
         {/* Lista de Responsáveis */}
         {visibleResponsaveis.length === 0 ? (
-          <div className="py-6 text-center text-xs text-slate-400 dark:text-white/40 italic">
+          <div className="py-6 text-center text-sm text-slate-400 dark:text-white/40 italic">
             Não há eventos sem marcador de correção nos filtros selecionados.
           </div>
         ) : (
@@ -1199,21 +1199,21 @@ export function RetornosDashboardClient() {
                     setSelectedResponsavelId(isSelected ? null : resp.id);
                     setCurrentPage(1);
                   }}
-                  className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${
+                  className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer transition-all ${
                     isSelected
                       ? "bg-cyan-50 dark:bg-cyan-500/10 border-cyan-400 dark:border-cyan-400/50 ring-1 ring-cyan-400/50 shadow-md"
                       : "bg-slate-50 dark:bg-white/[0.03] border-slate-200 dark:border-white/8 hover:border-cyan-400/60 dark:hover:border-white/20 hover:bg-slate-100/80 dark:hover:bg-white/[0.06]"
                   }`}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-[11px] font-bold text-cyan-600 dark:text-[#22D3EE] shrink-0">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-xs sm:text-sm font-bold text-cyan-600 dark:text-[#22D3EE] shrink-0">
                       {initials || "U"}
                     </div>
-                    <span className="text-xs text-slate-800 dark:text-white/90 font-medium truncate uppercase" title={resp.nome.toUpperCase()}>
+                    <span className="text-xs sm:text-sm text-slate-800 dark:text-white font-semibold truncate uppercase tracking-wide" title={resp.nome.toUpperCase()}>
                       {resp.nome.toUpperCase()}
                     </span>
                   </div>
-                  <span className="text-sm font-extrabold text-slate-900 dark:text-white ml-2 shrink-0 px-2 py-0.5 rounded-lg bg-slate-200/70 dark:bg-white/[0.06] border border-slate-300/80 dark:border-white/10 font-mono">
+                  <span className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white ml-2 shrink-0 px-2.5 py-0.5 rounded-lg bg-slate-200/70 dark:bg-white/[0.06] border border-slate-300/80 dark:border-white/10 font-mono">
                     {resp.quantidade}
                   </span>
                 </div>
@@ -1227,7 +1227,7 @@ export function RetornosDashboardClient() {
           <div className="flex items-center justify-between pt-1">
             <button
               onClick={() => setShowAllResponsaveis(!showAllResponsaveis)}
-              className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors"
+              className="text-sm font-bold text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors"
             >
               {showAllResponsaveis ? "Recolher lista" : `Ver todos os ${orderedResponsaveis.length} responsáveis`}
             </button>
@@ -1235,7 +1235,7 @@ export function RetornosDashboardClient() {
             {selectedResponsavelId && (
               <button
                 onClick={() => setSelectedResponsavelId(null)}
-                className="text-xs text-cyan-600 dark:text-cyan-400 hover:underline"
+                className="text-sm font-semibold text-cyan-600 dark:text-cyan-400 hover:underline"
               >
                 Limpar seleção do responsável
               </button>
@@ -1244,7 +1244,7 @@ export function RetornosDashboardClient() {
         )}
 
         {/* Nota explicativa de compliance */}
-        <p className="text-[11px] text-slate-400 dark:text-white/40 italic pt-1">
+        <p className="text-xs sm:text-[13px] text-slate-500 dark:text-gray-400 italic pt-1">
           Contagem de eventos por destinatário: não indica autoria do erro nem quantidade de pendências.
         </p>
       </div>
@@ -1254,8 +1254,8 @@ export function RetornosDashboardClient() {
         {/* Cabeçalho na tela */}
         <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/8 print:hidden">
           <div>
-            <h2 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white">Eventos de retorno</h2>
-            <span className="text-xs text-slate-500 dark:text-white/50">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Eventos de retorno</h2>
+            <span className="text-xs sm:text-sm text-slate-500 dark:text-white/60 font-medium">
               {selectedResponsavelId
                 ? `Filtrado por responsável`
                 : `Todos os responsáveis`}
@@ -1265,7 +1265,7 @@ export function RetornosDashboardClient() {
             <button
               onClick={handlePrint}
               disabled={isLoadingPrintAll}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] text-xs font-medium text-slate-700 dark:text-white hover:bg-slate-200 dark:hover:bg-white/[0.08] transition-all shadow-sm focus:outline-none disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] text-xs sm:text-sm font-semibold text-slate-700 dark:text-white hover:bg-slate-200 dark:hover:bg-white/[0.08] transition-all shadow-sm focus:outline-none disabled:opacity-50"
               title="Imprimir lista completa de protocolos"
             >
               <Printer className="w-3.5 h-3.5 text-slate-600 dark:text-white/70" />
@@ -1273,7 +1273,7 @@ export function RetornosDashboardClient() {
             </button>
             <button
               onClick={() => setIsPdfModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/15 text-xs font-semibold text-cyan-700 dark:text-cyan-200 hover:bg-cyan-500/25 transition-all shadow-sm focus:outline-none"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/15 text-xs sm:text-sm font-bold text-cyan-700 dark:text-cyan-200 hover:bg-cyan-500/25 transition-all shadow-sm focus:outline-none"
               title="Gerar relatório PDF dos protocolos"
             >
               <FileDown className="w-3.5 h-3.5" />
@@ -1327,71 +1327,71 @@ export function RetornosDashboardClient() {
         </div>
 
         <div className="overflow-x-auto print:overflow-visible">
-          <table className="w-full text-left text-xs text-slate-900 dark:text-white print:text-slate-900 print:text-[10px]">
-            <thead className="bg-slate-50 dark:bg-[#0B1020]/95 text-slate-600 dark:text-[#9CA3AF] uppercase text-[10px] tracking-wider border-b border-white/8 print:bg-slate-100 print:text-slate-900 print:border-slate-400">
+          <table className="w-full text-left text-xs sm:text-sm text-slate-900 dark:text-white print:text-slate-900 print:text-[10px]">
+            <thead className="bg-slate-50 dark:bg-[#0B1020]/95 text-slate-700 dark:text-gray-200 uppercase text-xs tracking-wider border-b border-white/8 print:bg-slate-100 print:text-slate-900 print:border-slate-400 font-bold">
               <tr>
                 <th
                   onClick={() => handleHeaderSort("numeroPrenotacao")}
-                  className="px-4 py-3 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors"
+                  className="px-4 py-3.5 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>Prenotação</span>
                     {sortBy === "numeroPrenotacao" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-3 h-3 text-cyan-500 dark:text-cyan-400" />
+                      sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
                     ) : (
-                      <ArrowUpDown className="w-3 h-3 opacity-40" />
+                      <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
                     )}
                   </div>
                 </th>
                 <th
                   onClick={() => handleHeaderSort("tipoRetorno")}
-                  className="px-4 py-3 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors"
+                  className="px-4 py-3.5 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>Tipo de retorno</span>
                     {sortBy === "tipoRetorno" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-3 h-3 text-cyan-500 dark:text-cyan-400" />
+                      sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
                     ) : (
-                      <ArrowUpDown className="w-3 h-3 opacity-40" />
+                      <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
                     )}
                   </div>
                 </th>
                 <th
                   onClick={() => handleHeaderSort("dataRetorno")}
-                  className="px-4 py-3 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors"
+                  className="px-4 py-3.5 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>Data do retorno</span>
                     {sortBy === "dataRetorno" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-3 h-3 text-cyan-500 dark:text-cyan-400" />
+                      sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
                     ) : (
-                      <ArrowUpDown className="w-3 h-3 opacity-40" />
+                      <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
                     )}
                   </div>
                 </th>
                 <th
                   onClick={() => handleHeaderSort("usuarioDestino")}
-                  className="px-4 py-3 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors"
+                  className="px-4 py-3.5 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>Destinatário</span>
                     {sortBy === "usuarioDestino" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-3 h-3 text-cyan-500 dark:text-cyan-400" />
+                      sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
                     ) : (
-                      <ArrowUpDown className="w-3 h-3 opacity-40" />
+                      <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
                     )}
                   </div>
                 </th>
                 <th
                   onClick={() => handleHeaderSort("observacao")}
-                  className="px-4 py-3 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors min-w-[260px]"
+                  className="px-4 py-3.5 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors min-w-[260px]"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>Observação</span>
                     {sortBy === "observacao" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-3 h-3 text-cyan-500 dark:text-cyan-400" />
+                      sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
                     ) : (
-                      <ArrowUpDown className="w-3 h-3 opacity-40" />
+                      <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
                     )}
                   </div>
                 </th>
@@ -1400,7 +1400,7 @@ export function RetornosDashboardClient() {
             <tbody className="divide-y divide-white/8 print:divide-slate-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-xs text-slate-500 dark:text-white/50">
+                  <td colSpan={5} className="py-12 text-center text-sm text-slate-500 dark:text-white/50 font-medium">
                     <div className="flex items-center justify-center gap-2">
                       <RefreshCw className="w-4 h-4 animate-spin text-cyan-500 dark:text-cyan-400" />
                       <span>Carregando eventos de retorno...</span>
@@ -1409,7 +1409,7 @@ export function RetornosDashboardClient() {
                 </tr>
               ) : displayedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-xs text-slate-400 dark:text-white/40">
+                  <td colSpan={5} className="py-12 text-center text-sm text-slate-400 dark:text-white/40 font-medium">
                     Nenhum evento encontrado com os filtros selecionados.
                   </td>
                 </tr>
@@ -1423,44 +1423,44 @@ export function RetornosDashboardClient() {
                       className="hover:bg-slate-50/80 dark:hover:bg-white/[0.03] transition-colors group print:border-b print:border-slate-300"
                     >
                       {/* Prenotação / Título */}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         <button
                           onClick={() => setSelectedEvento(item)}
-                          className="font-semibold text-cyan-600 dark:text-[#22D3EE] hover:text-cyan-700 dark:hover:text-cyan-300 underline decoration-cyan-500/40 hover:decoration-cyan-400 text-left block print:text-slate-900 print:no-underline"
+                          className="font-bold text-sm sm:text-base text-cyan-600 dark:text-[#22D3EE] hover:text-cyan-700 dark:hover:text-cyan-300 underline decoration-cyan-500/40 hover:decoration-cyan-400 text-left block print:text-slate-900 print:no-underline"
                         >
                           {item.numeroPrenotacao}
                         </button>
-                        <span className="text-[11px] text-slate-500 dark:text-white/45 print:text-slate-600 block truncate max-w-[200px]" title={item.formaTitulo}>
+                        <span className="text-xs sm:text-[13px] font-medium text-slate-500 dark:text-gray-300 print:text-slate-600 block truncate max-w-[200px]" title={item.formaTitulo}>
                           {item.formaTitulo || "Instrumento Geral"}
                         </span>
                       </td>
 
                       {/* Tipo de retorno */}
-                      <td className="px-4 py-3">
-                        <div className="text-xs text-slate-900 dark:text-white font-medium print:text-slate-900">{item.familiaRetorno}</div>
-                        <div className="text-[11px] text-slate-500 dark:text-white/45 print:text-slate-600">
+                      <td className="px-4 py-3.5">
+                        <div className="text-sm font-semibold text-slate-900 dark:text-white print:text-slate-900">{item.familiaRetorno}</div>
+                        <div className="text-xs sm:text-[13px] font-medium text-slate-500 dark:text-gray-300 print:text-slate-600">
                           {item.siglaRetorno} • Título {item.seqTitulo || 1}
                         </div>
                       </td>
 
                       {/* Data do retorno */}
-                      <td className="px-4 py-3">
-                        <div className="text-xs text-slate-800 dark:text-white print:text-slate-900">{dt.datePart}</div>
-                        <div className="text-[11px] text-slate-500 dark:text-white/45 print:text-slate-600">{dt.timePart}</div>
+                      <td className="px-4 py-3.5">
+                        <div className="text-sm font-semibold text-slate-800 dark:text-white print:text-slate-900">{dt.datePart}</div>
+                        <div className="text-xs sm:text-[13px] font-medium text-slate-500 dark:text-gray-300 print:text-slate-600">{dt.timePart}</div>
                       </td>
 
                       {/* Destinatário */}
-                      <td className="px-4 py-3">
-                        <div className="text-xs text-slate-900 dark:text-white font-medium print:text-slate-900">{item.usuarioDestinoRetorno}</div>
-                        <div className="text-[11px] text-slate-500 dark:text-white/45 print:text-slate-600">De: {item.usuarioOrigem}</div>
+                      <td className="px-4 py-3.5">
+                        <div className="text-sm font-semibold text-slate-900 dark:text-white print:text-slate-900">{item.usuarioDestinoRetorno}</div>
+                        <div className="text-xs sm:text-[13px] font-medium text-slate-500 dark:text-gray-300 print:text-slate-600">De: {item.usuarioOrigem}</div>
                       </td>
 
                       {/* Observação com Prévia (2 linhas) + Expansão inline e Pop-up */}
-                      <td className="px-4 py-3 min-w-[260px]">
+                      <td className="px-4 py-3.5 min-w-[260px]">
                         {item.observacao ? (
                           <div className="space-y-1">
                             <p
-                              className={`text-xs text-slate-700 dark:text-white/80 leading-relaxed print:text-slate-800 ${
+                              className={`text-xs sm:text-sm text-slate-700 dark:text-gray-200 leading-relaxed print:text-slate-800 ${
                                 expandedObsIds.has(item.idAndamento)
                                   ? "whitespace-pre-wrap break-words"
                                   : "line-clamp-2"
@@ -1477,16 +1477,16 @@ export function RetornosDashboardClient() {
                                     e.stopPropagation();
                                     toggleExpandObs(item.idAndamento);
                                   }}
-                                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors"
+                                  className="inline-flex items-center gap-1 text-xs sm:text-[13px] font-bold text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors"
                                 >
                                   {expandedObsIds.has(item.idAndamento) ? (
                                     <>
-                                      <ChevronUp className="w-3 h-3" />
+                                      <ChevronUp className="w-3.5 h-3.5" />
                                       <span>Recolher</span>
                                     </>
                                   ) : (
                                     <>
-                                      <ChevronDown className="w-3 h-3" />
+                                      <ChevronDown className="w-3.5 h-3.5" />
                                       <span>Ver mais</span>
                                     </>
                                   )}
@@ -1498,7 +1498,7 @@ export function RetornosDashboardClient() {
                                     setSelectedObsModal(item);
                                   }}
                                   title="Abrir observação completa em pop-up"
-                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-slate-400 dark:text-white/45 hover:text-cyan-600 dark:hover:text-cyan-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all text-[10.5px]"
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-slate-400 dark:text-white/60 hover:text-cyan-600 dark:hover:text-cyan-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all text-xs font-semibold"
                                 >
                                   <Maximize2 className="w-3 h-3" />
                                   <span>Pop-up</span>
@@ -1507,7 +1507,7 @@ export function RetornosDashboardClient() {
                             )}
                           </div>
                         ) : (
-                          <span className="text-[11px] text-slate-400 dark:text-[#6B7280] italic print:text-slate-400">
+                          <span className="text-xs sm:text-[13px] text-slate-400 dark:text-[#6B7280] italic print:text-slate-400">
                             Sem observação
                           </span>
                         )}
@@ -1521,7 +1521,7 @@ export function RetornosDashboardClient() {
         </div>
 
         {/* Paginação */}
-        <div className="p-4 border-t border-slate-200 dark:border-white/8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-slate-500 dark:text-white/50 print:hidden">
+        <div className="p-4 border-t border-slate-200 dark:border-white/8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs sm:text-sm font-medium text-slate-600 dark:text-white/70 print:hidden">
           <div>
             Exibindo {displayedItems.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}–
             {Math.min(currentPage * pageSize, selectedCausaId ? displayedItems.length : kpis.total)} de {selectedCausaId ? displayedItems.length : kpis.total} eventos
@@ -1529,14 +1529,14 @@ export function RetornosDashboardClient() {
 
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
-              <span className="text-slate-400 dark:text-white/40 text-[11px]">Exibir:</span>
+              <span className="text-slate-500 dark:text-white/50 text-xs sm:text-sm">Exibir:</span>
               <select
                 value={pageSize}
                 onChange={(e) => {
                   setPageSize(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/8 rounded-xl px-2 py-1 text-xs text-slate-800 dark:text-white focus:outline-none"
+                className="bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/8 rounded-xl px-2.5 py-1 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none"
               >
                 <option value={10}>10 / pág</option>
                 <option value={20}>20 / pág</option>
@@ -1552,7 +1552,7 @@ export function RetornosDashboardClient() {
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="px-2 font-mono text-slate-700 dark:text-white/80">
+              <span className="px-2 font-mono font-bold text-slate-800 dark:text-white/90 text-xs sm:text-sm">
                 {currentPage} / {Math.ceil(kpis.total / pageSize) || 1}
               </span>
               <button

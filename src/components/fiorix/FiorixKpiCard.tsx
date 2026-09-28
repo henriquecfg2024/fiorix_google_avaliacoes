@@ -91,7 +91,7 @@ export function FiorixKpiCard({
       )}
     >
       <div className="flex justify-between items-start w-full mb-3">
-        <h3 className="w-[80%] text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">
+        <h3 className="w-[80%] text-xs sm:text-[13px] font-bold uppercase tracking-wider text-white/80">
           {title}
         </h3>
         <div className={cn("rounded-xl border p-2 transition-all group-hover:brightness-110", styles.iconBox)}>
@@ -101,15 +101,15 @@ export function FiorixKpiCard({
 
       <div className="mt-auto flex items-end justify-between">
         <div className="flex flex-col space-y-1">
-          <span className={`text-3xl font-extrabold ${styles.text} tracking-tight`}>
+          <span className={`text-3xl sm:text-4xl font-extrabold ${styles.text} tracking-tight`}>
             {formattedValue}
           </span>
           {trend && (
-            <div className="flex items-center gap-1 mt-1 text-[11px] font-semibold">
+            <div className="flex items-center gap-1 mt-1 text-xs sm:text-[13px] font-semibold">
               <span className={trend.isGood ? "text-emerald-300" : "text-rose-300"}>
                 {trend.isUp ? "↑" : "↓"} {trend.value}
               </span>
-              <span className="text-white/40">vs mês anterior</span>
+              <span className="text-white/60">vs mês anterior</span>
             </div>
           )}
         </div>
@@ -118,7 +118,7 @@ export function FiorixKpiCard({
           {/* @ts-expect-error Radix UI asChild type mismatch */}
           <TooltipTrigger asChild>
             <button
-              className="p-1 text-white/40 hover:text-white transition-colors cursor-pointer"
+              className="p-1 text-white/50 hover:text-white transition-colors cursor-pointer"
               onClick={(event) => event.stopPropagation()}
             >
               <Info className="w-4 h-4" />

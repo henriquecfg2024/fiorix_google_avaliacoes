@@ -1048,51 +1048,51 @@ export function MetasDashboardClient() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
           <div>
-            <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-white/60">
+            <p className="mb-1 flex items-center gap-2 text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/80">
               <Target className="w-4 h-4 text-cyan-600 dark:text-cyan-300" /> TOTAL
             </p>
-            <h3 className="text-3xl font-bold text-slate-900 dark:text-white">
+            <h3 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               {kpis?.total ? kpis.total.toLocaleString("pt-BR") : 0}
             </h3>
           </div>
-          <p className="text-xs text-slate-500 dark:text-white/40 mt-2">Protocolos em esteira</p>
+          <p className="text-xs sm:text-[13px] font-medium text-slate-500 dark:text-gray-300 mt-2">Protocolos em esteira</p>
         </div>
 
         <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
           <div>
-            <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-rose-600 dark:text-rose-300">
+            <p className="mb-1 flex items-center gap-2 text-xs sm:text-[13px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-300">
               <AlertCircle className="w-4 h-4" /> ATRASADOS
             </p>
-            <h3 className="text-3xl font-bold text-slate-900 dark:text-white">
+            <h3 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               {kpis?.atrasados ? kpis.atrasados.toLocaleString("pt-BR") : 0}
             </h3>
           </div>
-          <p className="text-xs text-rose-600/80 dark:text-rose-300/70 mt-2">Prazo legal excedido</p>
+          <p className="text-xs sm:text-[13px] font-medium text-rose-600/90 dark:text-rose-300/80 mt-2">Prazo legal excedido</p>
         </div>
 
         <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
           <div>
-            <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-300">
+            <p className="mb-1 flex items-center gap-2 text-xs sm:text-[13px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-300">
               <Clock className="w-4 h-4" /> ENTREGUE COM ATRASO
             </p>
-            <h3 className="text-3xl font-bold text-slate-900 dark:text-white">
+            <h3 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               {kpis?.entregueComAtraso ? kpis.entregueComAtraso.toLocaleString("pt-BR") : 0}
             </h3>
           </div>
-          <p className="text-xs text-emerald-600/80 dark:text-emerald-300/70 mt-2">Concluídos fora do prazo</p>
+          <p className="text-xs sm:text-[13px] font-medium text-emerald-600/90 dark:text-emerald-300/80 mt-2">Concluídos fora do prazo</p>
         </div>
 
         <div className="relative flex flex-col justify-between overflow-hidden rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
           <div>
-            <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-amber-600 dark:text-amber-300" title="Fase com maior volume de protocolos retidos">
+            <p className="mb-1 flex items-center gap-2 text-xs sm:text-[13px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-300" title="Fase com maior volume de protocolos retidos">
               <TrendingUp className="w-4 h-4" /> GARGALO MAIS FREQUENTE
             </p>
             <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white mt-2 leading-snug line-clamp-2" title={kpis?.topGargalo?.name}>
               {kpis?.topGargalo?.name ? kpis.topGargalo.name.replace(" -> ", " → ") : "-"}
             </h3>
           </div>
-          <p className="text-xs text-amber-700/80 dark:text-amber-300/80 mt-2">
-            Afeta <strong>{kpis?.topGargalo?.count?.toLocaleString("pt-BR") || 0} protocolos</strong> (volume)
+          <p className="text-xs sm:text-[13px] text-amber-700/90 dark:text-amber-300/90 font-medium mt-2">
+            Afeta <strong className="font-bold">{kpis?.topGargalo?.count?.toLocaleString("pt-BR") || 0} protocolos</strong> (volume)
           </p>
         </div>
       </div>
@@ -1116,15 +1116,15 @@ export function MetasDashboardClient() {
               </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-300">Sem Balcão Registrado</p>
-                  <span className="rounded border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:text-amber-200">ID 76</span>
+                  <p className="text-sm font-bold uppercase tracking-wider text-amber-600 dark:text-amber-300">Sem Balcão Registrado</p>
+                  <span className="rounded border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-200">ID 76</span>
                 </div>
-                <p className="mt-1 text-xs text-slate-500 dark:text-white/50">Protocolos atrasados e impressos sem baixa</p>
+                <p className="mt-1 text-xs sm:text-[13px] font-medium text-slate-600 dark:text-gray-300">Protocolos atrasados e impressos sem baixa</p>
               </div>
             </div>
             <div className="shrink-0 text-right">
               <p className="text-3xl font-bold text-slate-900 dark:text-amber-100">{balcaoAudit.semRegistro.toLocaleString("pt-BR")}</p>
-              <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-300/70">protocolos</p>
+              <p className="mt-1 text-xs font-semibold text-amber-600 dark:text-amber-300/80">protocolos</p>
             </div>
           </div>
         </button>
@@ -1146,15 +1146,15 @@ export function MetasDashboardClient() {
               </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-300">Sem Balcão Devolvido</p>
-                  <span className="rounded border border-rose-400/30 bg-rose-400/10 px-1.5 py-0.5 text-[9px] font-bold text-rose-700 dark:text-rose-200">ID 75</span>
+                  <p className="text-sm font-bold uppercase tracking-wider text-rose-600 dark:text-rose-300">Sem Balcão Devolvido</p>
+                  <span className="rounded border border-rose-400/30 bg-rose-400/10 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:text-rose-200">ID 75</span>
                 </div>
-                <p className="mt-1 text-xs text-slate-500 dark:text-white/50">Registrados e atrasados sem baixa de retirada</p>
+                <p className="mt-1 text-xs sm:text-[13px] font-medium text-slate-600 dark:text-gray-300">Registrados e atrasados sem baixa de retirada</p>
               </div>
             </div>
             <div className="shrink-0 text-right">
               <p className="text-3xl font-bold text-slate-900 dark:text-rose-100">{balcaoAudit.semDevolucao.toLocaleString("pt-BR")}</p>
-              <p className="mt-1 text-[10px] text-rose-600 dark:text-rose-300/70">protocolos</p>
+              <p className="mt-1 text-xs font-semibold text-rose-600 dark:text-rose-300/80">protocolos</p>
             </div>
           </div>
         </button>

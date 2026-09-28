@@ -254,18 +254,18 @@ export function KpiCards({
           <div
             key={idx}
             className={cn(
-              "group relative flex min-h-[125px] flex-col justify-between overflow-hidden rounded-[20px] border bg-[#0B1020]/90 p-4 sm:p-5 shadow-sm backdrop-blur-xl transition-all",
+              "group relative flex min-h-[135px] flex-col justify-between overflow-hidden rounded-[20px] border bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all",
               card.border,
               card.hoverBorder
             )}
           >
             <div className="mb-2 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">
+                <span className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-white/80">
                   {card.title}
                 </span>
                 {card.badge && (
-                  <span className="rounded-md border border-rose-500/30 bg-rose-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-rose-300">
+                  <span className="rounded-md border border-rose-500/30 bg-rose-500/15 px-2 py-0.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-rose-300">
                     {card.badge}
                   </span>
                 )}
@@ -277,16 +277,16 @@ export function KpiCards({
 
             <div className="mt-auto space-y-1">
               <div className="flex items-baseline gap-2 flex-wrap">
-                <span className={cn("text-2xl sm:text-3xl font-extrabold tracking-tight", card.valueColor)}>
+                <span className={cn("text-3xl sm:text-4xl font-extrabold tracking-tight", card.valueColor)}>
                   {card.primaryValue}
                 </span>
                 {card.secondaryValue && (
-                  <span className="text-xs sm:text-sm font-semibold text-white/60">
+                  <span className="text-sm sm:text-base font-bold text-white/75">
                     {card.secondaryValue}
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-white/45">{card.subText}</p>
+              <p className="text-xs sm:text-[13px] font-medium text-white/70">{card.subText}</p>
             </div>
           </div>
         );
