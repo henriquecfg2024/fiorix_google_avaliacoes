@@ -714,7 +714,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
             </div>
           </div>
           {colaboradorItEnviada ? (
-            <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-6 space-y-4 shadow-sm">
+            <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl p-6 space-y-4 shadow-sm">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Instrução de Trabalho</p>
@@ -729,11 +729,11 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                 })()}
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                <div className="bg-slate-50 dark:bg-white/4 rounded-xl p-3 border border-slate-100 dark:border-transparent"><p className="text-slate-500 mb-0.5">Setor</p><p className="text-slate-800 dark:text-slate-200 font-medium">{colaboradorItEnviada.departamento}</p></div>
-                <div className="bg-slate-50 dark:bg-white/4 rounded-xl p-3 border border-slate-100 dark:border-transparent"><p className="text-slate-500 mb-0.5">Versão</p><p className="text-slate-800 dark:text-slate-200 font-medium">{colaboradorItEnviada.versao}</p></div>
-                <div className="bg-slate-50 dark:bg-white/4 rounded-xl p-3 border border-slate-100 dark:border-transparent"><p className="text-slate-500 mb-0.5">Enviado em</p><p className="text-slate-800 dark:text-slate-200 font-medium">{colaboradorItEnviada.dataEnvio}</p></div>
+                <div className="bg-white/[0.04] rounded-xl p-3 border border-white/10"><p className="text-slate-400 mb-0.5">Setor</p><p className="text-white font-medium">{colaboradorItEnviada.departamento}</p></div>
+                <div className="bg-white/[0.04] rounded-xl p-3 border border-white/10"><p className="text-slate-400 mb-0.5">Versão</p><p className="text-white font-medium">{colaboradorItEnviada.versao}</p></div>
+                <div className="bg-white/[0.04] rounded-xl p-3 border border-white/10"><p className="text-slate-400 mb-0.5">Enviado em</p><p className="text-white font-medium">{colaboradorItEnviada.dataEnvio}</p></div>
                 {colaboradorItEnviada.pdfNome && (
-                  <div className="bg-slate-50 dark:bg-white/4 rounded-xl p-3 border border-slate-100 dark:border-transparent"><p className="text-slate-500 mb-0.5">Arquivo</p><p className="text-slate-200 font-medium truncate">{colaboradorItEnviada.pdfNome}</p></div>
+                  <div className="bg-white/[0.04] rounded-xl p-3 border border-white/10"><p className="text-slate-400 mb-0.5">Arquivo</p><p className="text-white font-medium truncate">{colaboradorItEnviada.pdfNome}</p></div>
                 )}
               </div>
               {colaboradorItEnviada.status === 'correcao_solicitada' && colaboradorItEnviada.motivoCorrecao && (
@@ -800,7 +800,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-10 flex flex-col items-center text-center shadow-sm">
+            <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl p-10 flex flex-col items-center text-center shadow-sm">
               <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-5">
                 <FileText className="w-7 h-7 text-emerald-400" />
               </div>
@@ -814,19 +814,19 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                   <Plus className="w-4 h-4" /> Cadastrar minha IT
                 </button>
               )}
-              <div className="flex items-center gap-1 sm:gap-3 text-xs text-slate-500 flex-wrap justify-center">
-                <div className="flex items-center gap-1.5 border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/3 px-3 py-2 rounded-lg">
-                  <span className="w-4 h-4 rounded-full bg-indigo-600/50 text-indigo-300 text-[10px] flex items-center justify-center font-bold">1</span>
+              <div className="flex items-center gap-1 sm:gap-3 text-xs text-white/70 flex-wrap justify-center">
+                <div className="flex items-center gap-1.5 border border-white/15 bg-white/[0.05] text-white/80 px-3.5 py-2 rounded-xl text-xs font-medium">
+                  <span className="w-4 h-4 rounded-full bg-indigo-500/30 text-indigo-300 text-[10px] flex items-center justify-center font-bold">1</span>
                   Preencha os dados
                 </div>
-                <span className="text-slate-700">→</span>
-                <div className="flex items-center gap-1.5 border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/3 px-3 py-2 rounded-lg">
-                  <span className="w-4 h-4 rounded-full bg-indigo-600/50 text-indigo-300 text-[10px] flex items-center justify-center font-bold">2</span>
+                <span className="text-white/30">→</span>
+                <div className="flex items-center gap-1.5 border border-white/15 bg-white/[0.05] text-white/80 px-3.5 py-2 rounded-xl text-xs font-medium">
+                  <span className="w-4 h-4 rounded-full bg-indigo-500/30 text-indigo-300 text-[10px] flex items-center justify-center font-bold">2</span>
                   Envie o PDF
                 </div>
-                <span className="text-slate-700">→</span>
-                <div className="flex items-center gap-1.5 border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/3 px-3 py-2 rounded-lg">
-                  <span className="w-4 h-4 rounded-full bg-indigo-600/50 text-indigo-300 text-[10px] flex items-center justify-center font-bold">3</span>
+                <span className="text-white/30">→</span>
+                <div className="flex items-center gap-1.5 border border-white/15 bg-white/[0.05] text-white/80 px-3.5 py-2 rounded-xl text-xs font-medium">
+                  <span className="w-4 h-4 rounded-full bg-indigo-500/30 text-indigo-300 text-[10px] flex items-center justify-center font-bold">3</span>
                   Acompanhe a análise
                 </div>
               </div>
@@ -837,7 +837,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
           {itsByParticipation && itsByParticipation.length > 0 && (
             <div className="mt-6">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Participação em outras ITs</p>
-              <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 divide-y divide-white/8 shadow-sm">
+              <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl divide-y divide-white/8 shadow-sm overflow-hidden">
                 {itsByParticipation.map((it) => {
                   const papelConfig = {
                     CORRESPONSAVEL: { label: 'Corresponsável', color: 'text-violet-300', bg: 'bg-violet-500/15 border-violet-500/30' },
