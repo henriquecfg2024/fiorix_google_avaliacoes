@@ -25,6 +25,11 @@ import {
   Clock,
   History,
   Filter,
+  Layers,
+  UserCheck,
+  Building2,
+  Monitor,
+  SlidersHorizontal,
 } from "lucide-react";
 import { RetornoItem, ResponsavelContagem, ResponsavelContagemCompleta, ErroMensal, RetornosResponse, RetornosKpis, TopCausa } from "@/lib/retornos/types";
 import { toast } from "sonner";
@@ -778,52 +783,157 @@ export function RetornosDashboardClient() {
         </div>
       </div>
 
-      {/* 3. ABAS E BARRA DE FILTROS */}
+      {/* 3. SELETOR DE FAMÍLIA / TIPO DE RETORNO (DESTAQUE ELEGANTE) */}
       <div className="space-y-4 print:hidden">
-        {/* Abas Tipo de Retorno */}
-        <div className="flex border-b border-white/10 bg-slate-100 dark:bg-[#0B1020]/60 rounded-t-2xl px-3 pt-1 gap-1">
-          {[
-            { id: "ALL", label: "Todos" },
-            { id: "PESSOAL", label: "Pessoal" },
-            { id: "REAL", label: "Real" },
-            { id: "RECEPCAO", label: "Tela de recepção" },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setSelectedAba(tab.id as "ALL" | "PESSOAL" | "REAL" | "RECEPCAO");
-                setCurrentPage(1);
-              }}
-              className={`px-5 sm:px-6 py-3 text-sm sm:text-base font-semibold transition-all border-b-2 -mb-px rounded-t-xl cursor-pointer ${
-                selectedAba === tab.id
-                  ? "border-cyan-500 dark:border-cyan-400 text-cyan-600 dark:text-cyan-300 font-bold bg-white dark:bg-white/[0.06] shadow-xs"
-                  : "border-transparent text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/[0.02]"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        {/* Painel Segmentado de Destaque para Família de Retorno */}
+        <div className="rounded-[24px] border border-white/20 bg-gradient-to-b from-[#0E172C]/95 to-[#080D1A]/95 p-4 shadow-xl backdrop-blur-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1 pb-3 mb-3 border-b border-white/10">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400">
+                <SlidersHorizontal className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-white tracking-wide flex items-center gap-2">
+                  <span>Filtrar por Tipo de Retorno</span>
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                    Visão Segmentada
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400 dark:text-white/50">
+                  Selecione a categoria para focar os gráficos, responsáveis e a listagem
+                </p>
+              </div>
+            </div>
+
+            {selectedAba !== "ALL" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedAba("ALL");
+                  setCurrentPage(1);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-cyan-300 hover:text-white transition-all cursor-pointer self-start sm:self-auto"
+              >
+                <span>Limpar seleção (ver todos)</span>
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Grid de Cards Interativos para Seleção do Tipo de Retorno */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            {[
+              {
+                id: "ALL",
+                label: "Todos os Retornos",
+                siglas: "Visão Geral Consolidada",
+                icon: Layers,
+                activeBg: "from-cyan-600 to-blue-600",
+                activeBorder: "border-cyan-300",
+                activeGlow: "shadow-cyan-500/25",
+                iconBg: "bg-cyan-500/20 border-cyan-400/30 text-cyan-300",
+              },
+              {
+                id: "PESSOAL",
+                label: "Pessoal",
+                siglas: "RPE · RPC",
+                icon: UserCheck,
+                activeBg: "from-emerald-600 to-teal-700",
+                activeBorder: "border-emerald-300",
+                activeGlow: "shadow-emerald-500/25",
+                iconBg: "bg-emerald-500/20 border-emerald-400/30 text-emerald-300",
+              },
+              {
+                id: "REAL",
+                label: "Real",
+                siglas: "RRE · RRC",
+                icon: Building2,
+                activeBg: "from-indigo-600 to-violet-700",
+                activeBorder: "border-indigo-300",
+                activeGlow: "shadow-indigo-500/25",
+                iconBg: "bg-indigo-500/20 border-indigo-400/30 text-indigo-300",
+              },
+              {
+                id: "RECEPCAO",
+                label: "Tela de Recepção",
+                siglas: "RTR · RTC",
+                icon: Monitor,
+                activeBg: "from-amber-600 to-orange-700",
+                activeBorder: "border-amber-300",
+                activeGlow: "shadow-amber-500/25",
+                iconBg: "bg-amber-500/20 border-amber-400/30 text-amber-300",
+              },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isSelected = selectedAba === tab.id;
+
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedAba(tab.id as "ALL" | "PESSOAL" | "REAL" | "RECEPCAO");
+                    setCurrentPage(1);
+                  }}
+                  className={`group relative flex items-center gap-3.5 p-3.5 rounded-2xl border transition-all duration-200 cursor-pointer text-left ${
+                    isSelected
+                      ? `bg-gradient-to-r ${tab.activeBg} ${tab.activeBorder} text-white shadow-lg ${tab.activeGlow} ring-2 ring-white/20 scale-[1.02]`
+                      : "bg-[#090E1B] hover:bg-[#121B30] border-white/10 hover:border-white/25 text-slate-300 hover:text-white"
+                  }`}
+                >
+                  <div
+                    className={`p-2.5 rounded-xl border shrink-0 transition-all ${
+                      isSelected
+                        ? "bg-white/20 border-white/40 text-white shadow-inner"
+                        : tab.iconBg
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className={`text-sm sm:text-base font-bold truncate ${isSelected ? "text-white" : "text-white"}`}>
+                      {tab.label}
+                    </div>
+                    <div className={`text-xs truncate mt-0.5 ${isSelected ? "text-white/90 font-medium" : "text-slate-400"}`}>
+                      {tab.siglas}
+                    </div>
+                  </div>
+
+                  {/* Indicador de Seleção Ativa */}
+                  {isSelected ? (
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white/25 border border-white/40 shadow-xs shrink-0">
+                      <CheckCircle2 className="w-4 h-4 text-white" />
+                    </div>
+                  ) : (
+                    <div className="w-2 h-2 rounded-full bg-white/20 group-hover:bg-white/40 shrink-0 transition-colors" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Controles de Filtros */}
-        <div className="space-y-3">
+        <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             {/* Campo Buscar */}
             <div className="md:col-span-4 space-y-1.5">
               <label className="text-xs sm:text-sm text-slate-700 dark:text-white/70 font-semibold">Buscar</label>
               <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 dark:text-white/40 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-400 dark:text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Prenotação, pessoa ou observação..."
-                  className="w-full bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-sm sm:text-[15px] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/35 shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/20 focus:border-cyan-400"
+                  className="w-full bg-[#080D1A] border border-white/20 rounded-xl pl-10 pr-3 py-2.5 text-sm sm:text-[15px] text-white placeholder:text-white/35 shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/20 focus:border-cyan-400"
                 />
                 {searchQuery && (
                   <button
+                    type="button"
                     onClick={() => setSearchQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40 hover:text-slate-700 dark:hover:text-white"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -834,7 +944,7 @@ export function RetornosDashboardClient() {
             {/* Filtro de Período - Data Início */}
             <div className="md:col-span-2 space-y-1.5">
               <label className="text-xs sm:text-sm text-slate-700 dark:text-white/70 font-semibold flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-cyan-500" />
+                <Calendar className="w-4 h-4 text-cyan-400" />
                 De
               </label>
               <input
@@ -844,14 +954,14 @@ export function RetornosDashboardClient() {
                   setDateFrom(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm sm:text-[15px] text-slate-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/20 focus:border-cyan-400"
+                className="w-full bg-[#080D1A] border border-white/20 rounded-xl px-3 py-2.5 text-sm sm:text-[15px] text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/20 focus:border-cyan-400"
               />
             </div>
 
             {/* Filtro de Período - Data Fim */}
             <div className="md:col-span-2 space-y-1.5">
               <label className="text-xs sm:text-sm text-slate-700 dark:text-white/70 font-semibold flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-cyan-500" />
+                <Calendar className="w-4 h-4 text-cyan-400" />
                 Até
               </label>
               <input
@@ -861,7 +971,7 @@ export function RetornosDashboardClient() {
                   setDateTo(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm sm:text-[15px] text-slate-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/20 focus:border-cyan-400"
+                className="w-full bg-[#080D1A] border border-white/20 rounded-xl px-3 py-2.5 text-sm sm:text-[15px] text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/20 focus:border-cyan-400"
               />
             </div>
 
@@ -874,19 +984,20 @@ export function RetornosDashboardClient() {
                   setSelectedClassificacao(e.target.value as "ALL" | "CORRIGIDO" | "SEM_MARCADOR");
                   setCurrentPage(1);
                 }}
-                className="w-full bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm sm:text-[15px] text-slate-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/20 focus:border-cyan-400"
+                className="w-full bg-[#080D1A] border border-white/20 rounded-xl px-3 py-2.5 text-sm sm:text-[15px] text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/20 focus:border-cyan-400"
               >
-                <option value="ALL">Todas</option>
-                <option value="CORRIGIDO">Corrigido</option>
-                <option value="SEM_MARCADOR">Sem marcador de correção</option>
+                <option value="ALL" className="bg-[#0B1020] text-white">Todas</option>
+                <option value="CORRIGIDO" className="bg-[#0B1020] text-white">Corrigido</option>
+                <option value="SEM_MARCADOR" className="bg-[#0B1020] text-white">Sem marcador de correção</option>
               </select>
             </div>
 
             {/* Botão Limpar */}
             <div className="md:col-span-2">
               <button
+                type="button"
                 onClick={handleLimparFiltros}
-                className="w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] text-sm font-semibold text-slate-700 dark:text-white/80 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/[0.08] transition-colors cursor-pointer"
+                className="w-full py-2.5 px-4 rounded-xl border border-white/15 bg-white/[0.05] text-sm font-semibold text-white/80 hover:text-white hover:bg-white/[0.10] hover:border-white/30 transition-all cursor-pointer shadow-sm"
               >
                 Limpar
               </button>
@@ -897,13 +1008,14 @@ export function RetornosDashboardClient() {
           <div className="flex flex-wrap items-center gap-2">
             {(dateFrom || dateTo) && (
               <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 w-fit">
-                <Calendar className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-                <span className="text-xs sm:text-sm text-cyan-800 dark:text-cyan-200 font-medium">
+                <Calendar className="w-4 h-4 text-cyan-400" />
+                <span className="text-xs sm:text-sm text-cyan-200 font-medium">
                   Período: {dateFrom ? new Date(dateFrom + "T00:00:00").toLocaleDateString("pt-BR") : "início"} — {dateTo ? new Date(dateTo + "T00:00:00").toLocaleDateString("pt-BR") : "hoje"}
                 </span>
                 <button
+                  type="button"
                   onClick={() => { setDateFrom(""); setDateTo(""); setCurrentPage(1); }}
-                  className="text-cyan-600 dark:text-cyan-400 hover:text-slate-900 dark:hover:text-white transition-colors ml-1"
+                  className="text-cyan-400 hover:text-white transition-colors ml-1"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -912,13 +1024,14 @@ export function RetornosDashboardClient() {
 
             {selectedCausaId && (
               <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 w-fit">
-                <Filter className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                <span className="text-xs sm:text-sm text-purple-800 dark:text-purple-200 font-medium">
+                <Filter className="w-4 h-4 text-purple-400" />
+                <span className="text-xs sm:text-sm text-purple-200 font-medium">
                   Causa: {topCausas.find((c) => c.id === selectedCausaId)?.nome || selectedCausaId}
                 </span>
                 <button
+                  type="button"
                   onClick={() => { setSelectedCausaId(null); setCurrentPage(1); }}
-                  className="text-purple-600 dark:text-purple-400 hover:text-slate-900 dark:hover:text-white transition-colors ml-1"
+                  className="text-purple-400 hover:text-white transition-colors ml-1"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
