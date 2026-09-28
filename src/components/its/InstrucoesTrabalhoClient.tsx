@@ -612,16 +612,18 @@ export function InstrucoesTrabalhoClient({
   // Setores únicos (catálogo = ITs publicadas)
   const setores = ['TODOS', ...Array.from(new Set(its.map((it) => it.departamento).filter(Boolean))).sort()];
 
-  // ITs filtradas do catálogo
-  const itsFiltradas = its.filter((it) => {
-    const termLower = searchTerm.toLowerCase();
-    const matchSearch =
-      !searchTerm ||
-      it.titulo.toLowerCase().includes(termLower) ||
-      it.codigo.toLowerCase().includes(termLower);
-    const matchSetor = filterSetor === 'TODOS' || it.departamento === filterSetor;
-    return matchSearch && matchSetor;
-  });
+  // ITs filtradas do catálogo ordenadas em ordem alfabética pelo título
+  const itsFiltradas = its
+    .filter((it) => {
+      const termLower = searchTerm.toLowerCase();
+      const matchSearch =
+        !searchTerm ||
+        it.titulo.toLowerCase().includes(termLower) ||
+        it.codigo.toLowerCase().includes(termLower);
+      const matchSetor = filterSetor === 'TODOS' || it.departamento === filterSetor;
+      return matchSearch && matchSetor;
+    })
+    .sort((a, b) => a.titulo.localeCompare(b.titulo, 'pt-BR', { sensitivity: 'base' }));
 
   // ── Pendências da Fiscalização ──────────────────────────
 

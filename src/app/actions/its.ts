@@ -176,7 +176,7 @@ export async function getItsPageData() {
      WHERE tenant_id = $1
        AND deleted_at IS NULL
        AND status IN ('vigente', 'ativa', 'publicada')
-     ORDER BY codigo ASC`,
+     ORDER BY titulo ASC`,
     tenantId
   );
 
@@ -201,6 +201,8 @@ export async function getItsPageData() {
     pdfPath: row.pdfPath || undefined,
     diasSemRevisao: Number(row.diasSemRevisao || 0),
   }));
+
+  its.sort((a, b) => a.titulo.localeCompare(b.titulo, 'pt-BR', { sensitivity: 'base' }));
 
   // 2. Buscar status do Aceite Mensal do usuário logado (Mês/Ano corrente)
   const now = new Date();

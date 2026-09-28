@@ -165,7 +165,7 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
       SELECT id, codigo, titulo, versao, departamento, status, responsavel_tecnico_id
       FROM public.fiorix_its
       WHERE deleted_at IS NULL
-      ORDER BY codigo ASC
+      ORDER BY titulo ASC
     `);
   } else if (isMaster || currentUser.role === 'ADMIN') {
     // ADMIN do cartório ou MASTER no contexto do tenant: apenas ITs deste tenant
@@ -173,7 +173,7 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
       SELECT id, codigo, titulo, versao, departamento, status, responsavel_tecnico_id
       FROM public.fiorix_its
       WHERE tenant_id = $1 AND deleted_at IS NULL
-      ORDER BY codigo ASC
+      ORDER BY titulo ASC
     `, tenantId);
   } else {
     // Demais: ITs onde é responsável técnico OU onde é autor dentro do mesmo tenant
@@ -184,7 +184,7 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
         AND deleted_at IS NULL
         AND (responsavel_tecnico_id = $2
           OR (autor_id = $2 AND (responsavel_tecnico_id IS NULL OR responsavel_tecnico_id = $2)))
-      ORDER BY codigo ASC
+      ORDER BY titulo ASC
     `, tenantId, userId);
   }
 
@@ -198,6 +198,8 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
     papelNaIt: 'RESPONSAVEL_PRINCIPAL' as const,
   }));
 
+  itsCustodia.sort((a, b) => a.titulo.localeCompare(b.titulo, 'pt-BR', { sensitivity: 'base' }));
+
   // 2b. ITs via fiorix_its_participants (CORRESPONSAVEL, LEITOR, RESPONSAVEL_PRINCIPAL não cobertos acima)
   let itsByParticipation: MinhaItCustodiaItem[] = [];
   try {
@@ -210,7 +212,7 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
          AND (i.tenant_id = $2 OR $2 IS NULL)
          AND p.status = 'ativo'
          AND i.deleted_at IS NULL
-       ORDER BY p.papel ASC, i.codigo ASC`,
+       ORDER BY p.papel ASC, i.titulo ASC`,
       userId,
       tenantId || null
     );
@@ -234,6 +236,7 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
         itsByParticipation.push(item);
       }
     }
+    itsByParticipation.sort((a, b) => a.titulo.localeCompare(b.titulo, 'pt-BR', { sensitivity: 'base' }));
   } catch (err) {
     console.warn('Aviso ao buscar itsByParticipation:', err);
   }
