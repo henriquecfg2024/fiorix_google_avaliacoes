@@ -780,8 +780,8 @@ export function RetornosDashboardClient() {
 
       {/* 3. ABAS E BARRA DE FILTROS */}
       <div className="space-y-4 print:hidden">
-        {/* Abas */}
-        <div className="flex border-b border-white/8 bg-slate-100 dark:bg-[#0B1020]/40 rounded-t-xl px-2">
+        {/* Abas Tipo de Retorno */}
+        <div className="flex border-b border-white/10 bg-slate-100 dark:bg-[#0B1020]/60 rounded-t-2xl px-3 pt-1 gap-1">
           {[
             { id: "ALL", label: "Todos" },
             { id: "PESSOAL", label: "Pessoal" },
@@ -794,10 +794,10 @@ export function RetornosDashboardClient() {
                 setSelectedAba(tab.id as "ALL" | "PESSOAL" | "REAL" | "RECEPCAO");
                 setCurrentPage(1);
               }}
-              className={`px-4 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px ${
+              className={`px-5 sm:px-6 py-3 text-sm sm:text-base font-semibold transition-all border-b-2 -mb-px rounded-t-xl cursor-pointer ${
                 selectedAba === tab.id
-                  ? "border-cyan-500 dark:border-cyan-400 text-cyan-700 dark:text-cyan-300 font-bold bg-white dark:bg-white/[0.03]"
-                  : "border-transparent text-slate-500 dark:text-white/50 hover:text-slate-800 dark:hover:text-white/80"
+                  ? "border-cyan-500 dark:border-cyan-400 text-cyan-600 dark:text-cyan-300 font-bold bg-white dark:bg-white/[0.06] shadow-xs"
+                  : "border-transparent text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white hover:bg-white/40 dark:hover:bg-white/[0.02]"
               }`}
             >
               {tab.label}
@@ -810,7 +810,7 @@ export function RetornosDashboardClient() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
             {/* Campo Buscar */}
             <div className="md:col-span-4 space-y-1.5">
-              <label className="text-xs text-slate-500 dark:text-white/50 font-medium">Buscar</label>
+              <label className="text-xs sm:text-sm text-slate-700 dark:text-white/70 font-semibold">Buscar</label>
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-400 dark:text-white/40 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
@@ -818,14 +818,14 @@ export function RetornosDashboardClient() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Prenotação, pessoa ou observação..."
-                  className="w-full bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/8 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/35 shadow-sm focus:outline-none focus:ring-1 focus:ring-cyan-400 focus:border-cyan-400"
+                  className="w-full bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-sm sm:text-[15px] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/35 shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/20 focus:border-cyan-400"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery("")}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40 hover:text-slate-700 dark:hover:text-white"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-4 h-4" />
                   </button>
                 )}
               </div>
@@ -833,8 +833,8 @@ export function RetornosDashboardClient() {
 
             {/* Filtro de Período - Data Início */}
             <div className="md:col-span-2 space-y-1.5">
-              <label className="text-xs text-slate-500 dark:text-white/50 font-medium flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5" />
+              <label className="text-xs sm:text-sm text-slate-700 dark:text-white/70 font-semibold flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-cyan-500" />
                 De
               </label>
               <input
@@ -844,14 +844,14 @@ export function RetornosDashboardClient() {
                   setDateFrom(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/8 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white shadow-sm focus:outline-none focus:ring-1 focus:ring-cyan-400 focus:border-cyan-400"
+                className="w-full bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm sm:text-[15px] text-slate-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/20 focus:border-cyan-400"
               />
             </div>
 
             {/* Filtro de Período - Data Fim */}
             <div className="md:col-span-2 space-y-1.5">
-              <label className="text-xs text-slate-500 dark:text-white/50 font-medium flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5" />
+              <label className="text-xs sm:text-sm text-slate-700 dark:text-white/70 font-semibold flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-cyan-500" />
                 Até
               </label>
               <input
@@ -861,20 +861,20 @@ export function RetornosDashboardClient() {
                   setDateTo(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/8 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white shadow-sm focus:outline-none focus:ring-1 focus:ring-cyan-400 focus:border-cyan-400"
+                className="w-full bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm sm:text-[15px] text-slate-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/20 focus:border-cyan-400"
               />
             </div>
 
             {/* Seletor Classificação */}
             <div className="md:col-span-2 space-y-1.5">
-              <label className="text-xs text-slate-500 dark:text-white/50 font-medium">Classificação</label>
+              <label className="text-xs sm:text-sm text-slate-700 dark:text-white/70 font-semibold">Classificação</label>
               <select
                 value={selectedClassificacao}
                 onChange={(e) => {
                   setSelectedClassificacao(e.target.value as "ALL" | "CORRIGIDO" | "SEM_MARCADOR");
                   setCurrentPage(1);
                 }}
-                className="w-full bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/8 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white shadow-sm focus:outline-none focus:ring-1 focus:ring-cyan-400 focus:border-cyan-400"
+                className="w-full bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-sm sm:text-[15px] text-slate-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/20 focus:border-cyan-400"
               >
                 <option value="ALL">Todas</option>
                 <option value="CORRIGIDO">Corrigido</option>
@@ -886,7 +886,7 @@ export function RetornosDashboardClient() {
             <div className="md:col-span-2">
               <button
                 onClick={handleLimparFiltros}
-                className="w-full py-2 px-3 rounded-xl border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] text-xs font-medium text-slate-600 dark:text-white/70 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/[0.08] transition-colors"
+                className="w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] text-sm font-semibold text-slate-700 dark:text-white/80 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/[0.08] transition-colors cursor-pointer"
               >
                 Limpar
               </button>
@@ -896,9 +896,9 @@ export function RetornosDashboardClient() {
           {/* Indicadores de filtros ativos */}
           <div className="flex flex-wrap items-center gap-2">
             {(dateFrom || dateTo) && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 w-fit">
-                <Calendar className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                <span className="text-xs text-cyan-800 dark:text-cyan-200 font-medium">
+              <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 w-fit">
+                <Calendar className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                <span className="text-xs sm:text-sm text-cyan-800 dark:text-cyan-200 font-medium">
                   Período: {dateFrom ? new Date(dateFrom + "T00:00:00").toLocaleDateString("pt-BR") : "início"} — {dateTo ? new Date(dateTo + "T00:00:00").toLocaleDateString("pt-BR") : "hoje"}
                 </span>
                 <button
@@ -911,9 +911,9 @@ export function RetornosDashboardClient() {
             )}
 
             {selectedCausaId && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 w-fit">
-                <Filter className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                <span className="text-xs text-purple-800 dark:text-purple-200 font-medium">
+              <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 w-fit">
+                <Filter className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                <span className="text-xs sm:text-sm text-purple-800 dark:text-purple-200 font-medium">
                   Causa: {topCausas.find((c) => c.id === selectedCausaId)?.nome || selectedCausaId}
                 </span>
                 <button
