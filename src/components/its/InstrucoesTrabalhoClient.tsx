@@ -847,9 +847,6 @@ export function InstrucoesTrabalhoClient({
                         <p className="font-bold text-white text-sm sm:text-base group-hover:text-purple-300 transition-colors truncate">
                           {it.titulo}
                         </p>
-                        <p className="text-xs text-slate-400 dark:text-white/40 mt-1 font-mono">
-                          {it.codigo}
-                        </p>
                       </div>
 
                       <div className="flex items-center gap-3 shrink-0 flex-wrap sm:flex-nowrap">
