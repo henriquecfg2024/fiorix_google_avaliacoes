@@ -147,28 +147,28 @@ function ItDetailModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0D1424] shadow-2xl overflow-hidden">
-        <div className="flex items-start justify-between p-6 border-b border-white/8 gap-4">
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={onClose} />
+      <div className="relative w-full max-w-lg rounded-[24px] border border-white/20 bg-[#0B1020]/95 shadow-2xl backdrop-blur-xl overflow-hidden">
+        <div className="flex items-start justify-between p-6 border-b border-white/10 gap-4">
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{it.codigo} • v{it.versao}</p>
-            <h2 className="font-bold text-slate-900 dark:text-white text-base leading-tight">{it.titulo}</h2>
-            <p className="text-xs text-slate-400 mt-1">{it.departamento}</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{it.codigo} • v{it.versao}</p>
+            <h2 className="font-bold text-white text-base leading-tight">{it.titulo}</h2>
+            <p className="text-xs text-slate-300 mt-1">{it.departamento}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${revisao.bg} ${revisao.color}`}>
+            <span className={`text-xs font-bold px-3 py-1 rounded-full border ${revisao.bg} ${revisao.color}`}>
               {revisao.label}
             </span>
-            <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+            <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
-        <div className="p-6 space-y-3 max-h-72 overflow-y-auto">
+        <div className="p-6 space-y-4 max-h-72 overflow-y-auto">
           {it.objetivo && (
             <div>
-              <p className="text-xs font-semibold text-slate-500 mb-1">Objetivo</p>
-              <p className="text-sm text-slate-700 dark:text-slate-300">{it.objetivo}</p>
+              <p className="text-xs font-semibold text-slate-400 mb-1">Objetivo</p>
+              <p className="text-sm text-slate-200 leading-relaxed">{it.objetivo}</p>
             </div>
           )}
           {it.pdfOriginalUrl && (
@@ -176,16 +176,16 @@ function ItDetailModal({
               href={it.pdfOriginalUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 transition-colors"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-400 hover:text-indigo-300 transition-colors py-1"
             >
-              <ExternalLink className="w-3.5 h-3.5" /> Visualizar PDF
+              <ExternalLink className="w-4 h-4" /> Visualizar PDF
             </a>
           )}
         </div>
-        <div className="p-4 border-t border-slate-200 dark:border-white/8 flex justify-end">
+        <div className="p-4 sm:p-5 border-t border-white/10 flex justify-end bg-white/[0.02]">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-white/8 dark:hover:bg-white/12 dark:text-white text-xs font-semibold transition-colors border border-white/10"
+            className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all border border-white/15 shadow-sm"
           >
             Fechar
           </button>
@@ -208,26 +208,26 @@ function PessoasPendentesModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-sm rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0D1424] shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-white/8">
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={onClose} />
+      <div className="relative w-full max-w-md rounded-[24px] border border-white/20 bg-[#0B1020]/95 shadow-2xl backdrop-blur-xl overflow-hidden">
+        <div className="flex items-center justify-between p-6 border-b border-white/10">
           <div>
-            <h3 className="font-bold text-slate-900 dark:text-white text-sm">{item.titulo}</h3>
+            <h3 className="font-bold text-white text-base">{item.titulo}</h3>
             <p className="text-xs text-slate-400 mt-0.5">
               {item.pendentesCount} colaborador{item.pendentesCount !== 1 ? 'es' : ''} com ciência pendente
             </p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="p-4 max-h-72 overflow-y-auto">
+        <div className="p-6 max-h-72 overflow-y-auto">
           {item.pendentesNomes.length === 0 ? (
             <p className="text-sm text-slate-400 text-center py-6">Nenhum pendente no momento.</p>
           ) : (
             <ul className="space-y-2">
               {item.pendentesNomes.map((nome, i) => (
-                <li key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/4 border border-white/6">
+                <li key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] border border-white/10">
                   <div className="w-7 h-7 rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center shrink-0">
                     <span className="text-xs font-bold text-rose-300">{nome.charAt(0).toUpperCase()}</span>
                   </div>
@@ -238,8 +238,8 @@ function PessoasPendentesModal({
             </ul>
           )}
         </div>
-        <div className="p-4 border-t border-slate-200 dark:border-white/8">
-          <button onClick={onClose} className="w-full px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-white/8 dark:hover:bg-white/12 dark:text-white text-xs font-semibold transition-colors border border-white/10">
+        <div className="p-4 sm:p-5 border-t border-white/10 bg-white/[0.02]">
+          <button onClick={onClose} className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all border border-white/15 shadow-sm">
             Fechar
           </button>
         </div>
@@ -344,22 +344,22 @@ function AnalisarItModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !pending && onClose()} />
-      <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0D1424] shadow-2xl overflow-hidden">
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={() => !pending && onClose()} />
+      <div className="relative w-full max-w-lg rounded-[24px] border border-white/20 bg-[#0B1020]/95 shadow-2xl backdrop-blur-xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-start justify-between p-6 border-b border-white/8 gap-4">
+        <div className="flex items-start justify-between p-6 border-b border-white/10 gap-4">
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
               {step === 'publicar' ? 'Publicar IT' : step === 'solicitar_correcao' ? 'Solicitar Correção' : step === 'rejeitar' ? 'Rejeitar IT' : 'Analisar IT'}
             </p>
-            <h2 className="font-bold text-slate-900 dark:text-white text-base leading-tight">{itResumo.titulo}</h2>
-            <p className="text-xs text-slate-400 mt-1">{itResumo.codigo} • {itResumo.departamento}</p>
+            <h2 className="font-bold text-white text-base leading-tight">{itResumo.titulo}</h2>
+            <p className="text-xs text-slate-300 mt-1">{itResumo.codigo} • {itResumo.departamento}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${statusInfo.bg} ${statusInfo.color}`}>
+            <span className={`text-xs font-bold px-3 py-1 rounded-full border ${statusInfo.bg} ${statusInfo.color}`}>
               {statusInfo.label}
             </span>
-            <button onClick={() => !pending && onClose()} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+            <button onClick={() => !pending && onClose()} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -1230,18 +1230,18 @@ function ArquivarItModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !pending && onClose()} />
-      <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0D1424] shadow-2xl overflow-hidden">
-        <div className="flex items-start justify-between p-6 border-b border-white/8">
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={() => !pending && onClose()} />
+      <div className="relative w-full max-w-md rounded-[24px] border border-white/20 bg-[#0B1020]/95 shadow-2xl backdrop-blur-xl overflow-hidden">
+        <div className="flex items-start justify-between p-6 border-b border-white/10">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <Archive className="w-4 h-4 text-slate-400" />
+              <Archive className="w-4 h-4 text-amber-400" />
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Arquivar IT</p>
             </div>
-            <h2 className="font-bold text-white">{it.titulo}</h2>
-            <p className="text-xs text-slate-400 mt-0.5">{it.codigo} • v{it.versao}</p>
+            <h2 className="font-bold text-white text-base">{it.titulo}</h2>
+            <p className="text-xs text-slate-300 mt-0.5">{it.codigo} • v{it.versao}</p>
           </div>
-          <button onClick={() => !pending && onClose()} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+          <button onClick={() => !pending && onClose()} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -1277,13 +1277,13 @@ function ArquivarItModal({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-3 p-6 border-t border-slate-200 dark:border-white/8">
+        <div className="flex items-center gap-3 p-6 border-t border-white/10 bg-white/[0.02]">
           <button onClick={() => !pending && onClose()} disabled={pending || success}
-            className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+            className="flex-1 px-4 py-2.5 rounded-xl border border-white/15 bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all disabled:opacity-50">
             Cancelar
           </button>
           <button onClick={handleArquivar} disabled={pending || success || !motivo.trim()}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold transition-colors disabled:opacity-50">
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition-all shadow-sm disabled:opacity-50">
             {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Archive className="w-4 h-4" />}
             Arquivar IT
           </button>
@@ -1329,19 +1329,19 @@ function HistoricoVersoesModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-2xl rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#0D1424] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={onClose} />
+      <div className="relative w-full max-w-2xl rounded-[24px] border border-white/20 bg-[#0B1020]/95 shadow-2xl backdrop-blur-xl overflow-hidden flex flex-col max-h-[85vh]">
         {/* Header */}
-        <div className="flex items-start justify-between p-6 border-b border-white/8 shrink-0">
+        <div className="flex items-start justify-between p-6 border-b border-white/10 shrink-0">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <History className="w-4 h-4 text-slate-400" />
+              <History className="w-4 h-4 text-purple-400" />
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Histórico</p>
             </div>
-            <h2 className="font-bold text-white">{it.titulo}</h2>
-            <p className="text-xs text-slate-400 mt-0.5">{it.codigo} • v{it.versao} atual</p>
+            <h2 className="font-bold text-white text-base">{it.titulo}</h2>
+            <p className="text-xs text-slate-300 mt-0.5">{it.codigo} • v{it.versao} atual</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -1351,7 +1351,7 @@ function HistoricoVersoesModal({
           <button
             onClick={() => setActiveSection('audit')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeSection === 'audit' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+              activeSection === 'audit' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
             }`}
           >
             Audit Log
@@ -1359,7 +1359,7 @@ function HistoricoVersoesModal({
           <button
             onClick={() => setActiveSection('versoes')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              activeSection === 'versoes' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+              activeSection === 'versoes' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
             }`}
           >
             Versões
@@ -1386,14 +1386,13 @@ function HistoricoVersoesModal({
                 <p className="text-sm text-slate-400 text-center py-8">Nenhum registro de auditoria encontrado.</p>
               ) : (
                 data.auditLog.map((entry) => {
-                  const isFinal = entry.versaoNova.includes('EXCLUÍD') || entry.versaoNova === 'ARQUIVADA';
-                  const colorClass = auditColorMap[entry.versaoNova] || 'text-slate-700 dark:text-slate-300 bg-white/4 border-white/8';
+                  const colorClass = auditColorMap[entry.versaoNova] || 'text-slate-300 bg-white/[0.04] border-white/10';
                   return (
-                    <div key={entry.id} className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
+                    <div key={entry.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
                       <div className="flex items-start justify-between gap-3 mb-2">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-white truncate">{entry.motivo}</p>
-                          <p className="text-xs text-slate-500 mt-0.5">{entry.autorNome} • {entry.criadoEm}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">{entry.autorNome} • {entry.criadoEm}</p>
                         </div>
                         <span className={`shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full border ${colorClass}`}>
                           {entry.versaoAnterior || '—'} → {entry.versaoNova}
@@ -1401,8 +1400,8 @@ function HistoricoVersoesModal({
                       </div>
                       {entry.hashSha256 && (
                         <div className="flex items-center gap-1.5 mt-2">
-                          <Hash className="w-3 h-3 text-slate-600" />
-                          <p className="text-[10px] font-mono text-slate-600 truncate">{entry.hashSha256.substring(0, 48)}…</p>
+                          <Hash className="w-3 h-3 text-slate-500" />
+                          <p className="text-[10px] font-mono text-slate-500 truncate">{entry.hashSha256.substring(0, 48)}…</p>
                         </div>
                       )}
                     </div>
@@ -1419,21 +1418,21 @@ function HistoricoVersoesModal({
                 <p className="text-sm text-slate-400 text-center py-8">Nenhuma versão registrada.</p>
               ) : (
                 data.versoes.map((v) => (
-                  <div key={v.id} className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
+                  <div key={v.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <GitBranch className="w-3.5 h-3.5 text-indigo-400" />
                           <span className="text-xs font-bold text-indigo-300">v{v.versao}</span>
                         </div>
-                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{v.alteracoes}</p>
-                        <p className="text-xs text-slate-500 mt-1">{v.autorNome} • {v.criadoEm}</p>
+                        <p className="text-sm text-slate-200 leading-relaxed">{v.alteracoes}</p>
+                        <p className="text-xs text-slate-400 mt-1">{v.autorNome} • {v.criadoEm}</p>
                       </div>
                     </div>
                     {v.hashVersao && (
                       <div className="flex items-center gap-1.5 mt-2">
-                        <Hash className="w-3 h-3 text-slate-600" />
-                        <p className="text-[10px] font-mono text-slate-600 truncate">{v.hashVersao.substring(0, 48)}…</p>
+                        <Hash className="w-3 h-3 text-slate-500" />
+                        <p className="text-[10px] font-mono text-slate-500 truncate">{v.hashVersao.substring(0, 48)}…</p>
                       </div>
                     )}
                   </div>
@@ -1443,9 +1442,9 @@ function HistoricoVersoesModal({
           )}
         </div>
 
-        <div className="p-4 border-t border-slate-200 dark:border-white/8 shrink-0">
+        <div className="p-4 sm:p-5 border-t border-white/10 bg-white/[0.02] shrink-0">
           <button onClick={onClose}
-            className="w-full px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-white/8 dark:hover:bg-white/12 dark:text-white text-xs font-semibold transition-colors border border-white/10">
+            className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all border border-white/15 shadow-sm">
             Fechar
           </button>
         </div>
@@ -1499,27 +1498,27 @@ function ExclusaoPermanenteModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !pending && onClose()} />
-      <div className="relative w-full max-w-md rounded-2xl border border-red-500/30 bg-[#0D1424] shadow-2xl overflow-hidden">
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={() => !pending && onClose()} />
+      <div className="relative w-full max-w-md rounded-[24px] border border-red-500/40 bg-[#0B1020]/95 shadow-2xl backdrop-blur-xl overflow-hidden">
         <div className="flex items-start justify-between p-6 border-b border-red-500/20">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <ShieldAlert className="w-4 h-4 text-red-400" />
               <p className="text-xs font-bold text-red-400 uppercase tracking-wider">Exclusão Permanente — MASTER</p>
             </div>
-            <h2 className="font-bold text-white">{it.titulo}</h2>
-            <p className="text-xs text-slate-400 mt-0.5">{it.codigo}</p>
+            <h2 className="font-bold text-white text-base">{it.titulo}</h2>
+            <p className="text-xs text-slate-300 mt-0.5">{it.codigo}</p>
           </div>
-          <button onClick={() => !pending && onClose()} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+          <button onClick={() => !pending && onClose()} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="p-6 space-y-4">
           {/* Aviso de consequências */}
-          <div className="rounded-xl border border-red-500/30 bg-red-500/8 p-4">
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
             <p className="text-sm font-bold text-red-300 mb-2">⚠ Esta ação é irreversível</p>
-            <ul className="space-y-1 text-xs text-red-200/70 list-disc list-inside">
+            <ul className="space-y-1 text-xs text-red-200/80 list-disc list-inside">
               <li>O registro receberá soft-delete definitivo com flag</li>
               <li>A ação será registrada no audit log WORM imutável</li>
               <li>Histórico, versões, ciências e PDFs são preservados</li>
@@ -1538,7 +1537,7 @@ function ExclusaoPermanenteModal({
               onChange={(e) => setCodigoInput(e.target.value)}
               placeholder={it.codigo}
               disabled={pending}
-              className={`w-full px-4 py-2.5 rounded-xl border bg-white/5 text-sm text-white placeholder-slate-600 focus:outline-none transition-all disabled:opacity-50 font-mono ${
+              className={`w-full px-4 py-2.5 rounded-xl border bg-white/5 text-sm text-white placeholder-slate-500 focus:outline-none transition-all disabled:opacity-50 font-mono ${
                 codigoOk ? 'border-emerald-500/50 focus:border-emerald-500' : 'border-white/10 focus:border-red-500/60'
               }`}
             />
@@ -1547,7 +1546,7 @@ function ExclusaoPermanenteModal({
           {/* Motivo */}
           <div>
             <label className="text-xs font-semibold text-slate-400 mb-1.5 block">
-              Motivo detalhado * <span className="text-slate-600">(mín. 20 chars — {motivo.length}/20)</span>
+              Motivo detalhado * <span className="text-slate-500">(mín. 20 chars — {motivo.length}/20)</span>
             </label>
             <textarea
               value={motivo}
@@ -1568,7 +1567,7 @@ function ExclusaoPermanenteModal({
               onChange={(e) => setSenha(e.target.value)}
               placeholder="••••••••"
               disabled={pending}
-              className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-red-500/50 transition-all disabled:opacity-50"
+              className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-red-500/50 transition-all disabled:opacity-50"
             />
           </div>
 
@@ -1584,13 +1583,13 @@ function ExclusaoPermanenteModal({
           )}
         </div>
 
-        <div className="flex items-center gap-3 p-6 border-t border-red-500/20">
+        <div className="flex items-center gap-3 p-6 border-t border-red-500/20 bg-white/[0.02]">
           <button onClick={() => !pending && onClose()} disabled={pending || success}
-            className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+            className="flex-1 px-4 py-2.5 rounded-xl border border-white/15 bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all disabled:opacity-50">
             Cancelar
           </button>
           <button onClick={handleExcluir} disabled={pending || success || !podeContinuar}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-700 hover:bg-red-600 text-white text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-700 hover:bg-red-600 text-white text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
             {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
             Excluir permanentemente
           </button>

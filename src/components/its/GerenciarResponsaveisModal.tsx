@@ -210,16 +210,16 @@ export function GerenciarResponsaveisModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-200"
+        className="absolute inset-0 bg-black/75 backdrop-blur-md transition-opacity duration-200"
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Modal Card */}
-      <div className="relative w-full max-w-2xl rounded-2xl border border-slate-200 dark:border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-white animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-2xl rounded-[24px] border border-white/20 bg-[#0B1020]/95 shadow-2xl backdrop-blur-xl overflow-hidden flex flex-col max-h-[90vh] text-white animate-in zoom-in-95 duration-200">
         
         {/* Header */}
-        <div className="flex items-center justify-between p-5 sm:p-6 border-b border-white/8 bg-white dark:bg-[#0B1020]/70 shrink-0">
+        <div className="flex items-center justify-between p-5 sm:p-6 border-b border-white/10 bg-white/[0.02] shrink-0">
           <div className="flex items-center gap-3.5 min-w-0 pr-3">
             <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center shrink-0">
               <Users className="w-5 h-5 text-indigo-400" />
@@ -237,7 +237,7 @@ export function GerenciarResponsaveisModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
             title="Fechar (Esc)"
             aria-label="Fechar modal"
           >
@@ -314,7 +314,7 @@ export function GerenciarResponsaveisModal({
                   return (
                     <div
                       key={p.id}
-                      className="flex items-center gap-3 bg-white/[0.03] rounded-xl p-3 border border-white/6 hover:border-slate-200 dark:border-white/10 transition-colors"
+                      className="flex items-center gap-3 bg-white/[0.03] rounded-xl p-3 border border-white/10 hover:border-white/20 transition-colors"
                     >
                       <div className="w-8 h-8 rounded-full bg-indigo-600/30 flex items-center justify-center text-indigo-200 text-xs font-bold shrink-0">
                         {p.nome.charAt(0).toUpperCase()}
@@ -364,7 +364,7 @@ export function GerenciarResponsaveisModal({
 
           {/* Adicionar Colaborador (Apenas para Responsável Principal ou Gestão) */}
           {podeGerenciar && (
-            <div className="border-t border-slate-200 dark:border-white/8 pt-5 space-y-3">
+            <div className="border-t border-white/10 pt-5 space-y-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Adicionar Colaborador
               </h3>
@@ -379,7 +379,7 @@ export function GerenciarResponsaveisModal({
                     value={buscaParticipante}
                     onChange={(e) => setBuscaParticipante(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleBuscar()}
-                    className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-all"
+                    className="w-full pl-9 pr-4 py-2 rounded-xl border border-white/15 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-all"
                   />
                 </div>
 
@@ -408,7 +408,7 @@ export function GerenciarResponsaveisModal({
                   type="button"
                   onClick={() => handleBuscar()}
                   disabled={buscandoUser}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
                 >
                   <Search className="w-3.5 h-3.5" />
                   <span>{buscandoUser ? 'Buscando...' : 'Buscar'}</span>
@@ -421,7 +421,7 @@ export function GerenciarResponsaveisModal({
                   {resultadosBusca.map((u) => (
                     <div
                       key={u.id}
-                      className="flex items-center justify-between gap-3 bg-white/[0.03] rounded-xl p-3 border border-white/6"
+                      className="flex items-center justify-between gap-3 bg-white/[0.03] rounded-xl p-3 border border-white/10"
                     >
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-semibold text-white truncate">{u.nome}</p>
@@ -464,7 +464,7 @@ export function GerenciarResponsaveisModal({
 
           {/* Transferir Responsabilidade Principal */}
           {podeGerenciar && (
-            <div className="border-t border-slate-200 dark:border-white/8 pt-4">
+            <div className="border-t border-white/10 pt-4">
               {!transferirModal ? (
                 <button
                   type="button"
@@ -546,11 +546,11 @@ export function GerenciarResponsaveisModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-white/20 bg-[#0B1020]/90 flex justify-end shrink-0">
+        <div className="p-4 border-t border-white/10 bg-white/[0.02] flex justify-end shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-white/8 text-white text-xs font-semibold transition-colors cursor-pointer"
+            className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all border border-white/15 shadow-sm cursor-pointer"
           >
             Fechar
           </button>
