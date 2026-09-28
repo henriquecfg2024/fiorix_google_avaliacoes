@@ -169,20 +169,20 @@ export function ConversasSidebar({
 
   return (
     <aside
-      className={`h-full rounded-[24px] border border-slate-200 bg-white/90 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl shadow-sm flex flex-col transition-all duration-300 select-none relative shrink-0 overflow-hidden ${
+      className={`h-full rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm flex flex-col transition-all duration-300 select-none relative shrink-0 overflow-hidden ${
         isCollapsed ? 'w-16 min-w-16 max-w-16' : 'w-full md:w-[360px] md:min-w-[360px] md:max-w-[360px]'
       }`}
     >
       {/* ── Header ── */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50/50 dark:border-white/10 dark:bg-white/[0.02] shrink-0 h-14">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#0B1020]/80 shrink-0 h-14">
         {!isCollapsed && (
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
               <MessageSquare className="w-4 h-4" />
             </div>
-            <span className="text-base font-semibold text-slate-900 dark:text-white tracking-tight">Mensagens</span>
+            <span className="text-base font-semibold text-white tracking-tight">Mensagens</span>
             {unreadTotal > 0 && (
-              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center">
+              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-bold flex items-center justify-center">
                 {unreadTotal > 9 ? '9+' : unreadTotal}
               </span>
             )}
@@ -224,7 +224,7 @@ export function ConversasSidebar({
             type="button"
             onClick={onOpenNovaConversa}
             title="Nova Conversa"
-            className="w-8 h-8 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white flex items-center justify-center transition shadow-md shadow-emerald-500/20 cursor-pointer"
+            className="w-8 h-8 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold flex items-center justify-center transition shadow-md shadow-emerald-500/20 cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
           </button>
@@ -232,7 +232,7 @@ export function ConversasSidebar({
           <button
             onClick={onToggleCollapse}
             title={isCollapsed ? 'Expandir conversas' : 'Recolher conversas'}
-            className="hidden md:flex p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:text-white dark:hover:bg-white/10 transition"
+            className="hidden md:flex p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
           >
             {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
@@ -244,18 +244,18 @@ export function ConversasSidebar({
           {/* ── Busca ── */}
           <div className="px-3.5 pt-3 pb-2 shrink-0">
             <div className="relative">
-              <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-500" />
+              <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
               <input
                 type="text"
                 placeholder="Pesquisar conversas..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-8 py-2 text-xs rounded-xl bg-slate-100 border border-slate-200 text-slate-900 placeholder-slate-400 dark:bg-white/[0.04] dark:border-white/10 dark:text-white dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 transition"
+                className="w-full pl-9 pr-8 py-2 text-xs rounded-xl bg-[#080D1A] border border-white/15 text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500/50 transition"
               />
               {search && (
                 <button
                   onClick={() => setSearch('')}
-                  className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-800 dark:hover:text-white text-base leading-none p-0.5"
+                  className="absolute right-2.5 top-2 text-slate-400 hover:text-white text-base leading-none p-0.5 cursor-pointer"
                 >
                   ×
                 </button>
@@ -271,15 +271,15 @@ export function ConversasSidebar({
                 <button
                   key={tab.key}
                   onClick={() => onFilterChange(tab.key)}
-                  className={`py-1.5 px-1 rounded-full text-[11px] font-semibold transition text-center truncate flex items-center justify-center gap-1 ${
+                  className={`py-1.5 px-1 rounded-full text-[11px] font-semibold transition text-center truncate flex items-center justify-center gap-1 cursor-pointer ${
                     isActive
-                      ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/20'
-                      : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 border border-slate-200/80 dark:bg-white/[0.04] dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/[0.08] dark:border-white/8'
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold shadow-sm shadow-emerald-500/20'
+                      : 'bg-white/[0.04] text-slate-300 hover:text-white hover:bg-white/[0.08] border border-white/10'
                   }`}
                 >
                   <span className="truncate">{tab.label}</span>
                   {tab.key === 'unread' && unreadTotal > 0 && (
-                    <span className={`text-[10px] font-mono px-1 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                    <span className={`text-[10px] font-mono px-1 rounded-full ${isActive ? 'bg-slate-950/30 text-slate-950 font-bold' : 'bg-emerald-500/20 text-emerald-400'}`}>
                       {unreadTotal}
                     </span>
                   )}
@@ -291,11 +291,11 @@ export function ConversasSidebar({
       )}
 
       {/* ── Lista de conversas ── */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar py-1 overflow-x-hidden">
+      <div className="flex-1 overflow-y-auto custom-scrollbar py-1 overflow-x-hidden bg-[#080D1A]/50">
         {filtered.length === 0 ? (
           <div className="py-24 flex flex-col items-center justify-center text-center px-4">
             {!isCollapsed && (
-              <p className="text-xs text-slate-500 font-normal">
+              <p className="text-xs text-slate-400 font-normal">
                 Nenhuma conversa encontrada
               </p>
             )}
@@ -325,20 +325,20 @@ export function ConversasSidebar({
                     <button
                       onClick={() => onSelectConversation(c.id)}
                       title={c.titulo}
-                      className={`relative w-10 h-10 rounded-full flex items-center justify-center transition border ${
+                      className={`relative w-10 h-10 rounded-full flex items-center justify-center transition border cursor-pointer ${
                         isActive
-                          ? 'border-emerald-500 shadow-lg shadow-emerald-500/20'
-                          : 'border-slate-200 dark:border-white/10 hover:border-emerald-500/40'
+                          ? 'border-emerald-500 shadow-lg shadow-emerald-500/20 ring-2 ring-emerald-500/30'
+                          : 'border-white/10 hover:border-emerald-500/40'
                       } ${color} text-white`}
                     >
                       {isGroup ? <Users className="w-4 h-4" /> : <span className="text-xs font-bold">{ini}</span>}
                       {c.unreadCount > 0 && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 text-white text-[9px] font-bold flex items-center justify-center border-2 border-[#0d1117]">
+                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 text-slate-950 text-[9px] font-bold flex items-center justify-center border-2 border-[#0B1020]">
                           {c.unreadCount > 9 ? '9+' : c.unreadCount}
                         </span>
                       )}
                       {isTyping && (
-                        <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-[#0d1117] animate-pulse" />
+                        <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-[#0B1020] animate-pulse" />
                       )}
                     </button>
                   </div>
@@ -350,10 +350,10 @@ export function ConversasSidebar({
                   key={c.id}
                   onClick={() => onSelectConversation(c.id)}
                   onContextMenu={(e) => handleContextMenu(e, c)}
-                  className={`w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-left transition group ${
+                  className={`w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-left transition group cursor-pointer ${
                     isActive
-                      ? 'bg-emerald-50 border border-emerald-300 shadow-xs dark:bg-emerald-600/15 dark:border-emerald-500/30'
-                      : 'hover:bg-slate-100/80 dark:hover:bg-white/5 border border-transparent'
+                      ? 'bg-gradient-to-r from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 shadow-sm'
+                      : 'hover:bg-white/[0.06] border border-transparent'
                   }`}
                 >
                   {/* Avatar */}
@@ -364,7 +364,7 @@ export function ConversasSidebar({
                       {isGroup ? <Users className="w-5 h-5" /> : ini}
                     </div>
                     {c.unreadCount > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-[#0d1117]">
+                      <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-bold flex items-center justify-center border-2 border-[#0B1020]">
                         {c.unreadCount > 9 ? '9+' : c.unreadCount}
                       </span>
                     )}
@@ -375,11 +375,11 @@ export function ConversasSidebar({
                     <div className="flex items-center justify-between gap-1 mb-0.5">
                       <div className="flex items-center gap-1.5 min-w-0">
                         {isPinned && <Pin className="w-3 h-3 text-emerald-400 shrink-0" />}
-                        <h3 className={`text-xs font-semibold truncate ${isActive ? 'text-emerald-950 dark:text-white' : 'text-slate-900 dark:text-slate-200'}`}>
+                        <h3 className={`text-xs font-semibold truncate ${isActive ? 'text-emerald-300 font-bold' : 'text-slate-200'}`}>
                           {c.titulo}
                         </h3>
                       </div>
-                      <span className="text-[10px] text-slate-500 shrink-0 font-mono">
+                      <span className="text-[10px] text-slate-400 shrink-0 font-mono">
                         {formatTime(c.lastMessageAt)}
                       </span>
                     </div>
@@ -404,25 +404,25 @@ export function ConversasSidebar({
                                 <CheckCheck className="w-3 h-3 text-emerald-400" />
                               </span>
                             ) : isGroup && c.lastMessage.remetenteNome ? (
-                              <span className="shrink-0 text-slate-500">{c.lastMessage.remetenteNome.split(' ')[0]}:</span>
+                              <span className="shrink-0 text-slate-400 font-medium">{c.lastMessage.remetenteNome.split(' ')[0]}:</span>
                             ) : null}
-                            <span className={`truncate ${c.unreadCount > 0 ? 'text-slate-900 font-semibold dark:text-white dark:font-medium' : ''}`}>
+                            <span className={`truncate ${c.unreadCount > 0 ? 'text-white font-medium' : 'text-slate-300'}`}>
                               {c.lastMessage.isDeleted ? (
-                                <em className="text-slate-500">Mensagem apagada</em>
+                                <em className="text-slate-400">Mensagem apagada</em>
                               ) : (
                                 c.lastMessage.conteudo
                               )}
                             </span>
                           </>
                         ) : (
-                          <span className="italic text-slate-500">Conversa iniciada</span>
+                          <span className="italic text-slate-400">Conversa iniciada</span>
                         )}
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0">
-                        {isMuted && <BellOff className="w-3 h-3 text-slate-500" />}
+                        {isMuted && <BellOff className="w-3 h-3 text-slate-400" />}
                         {c.unreadCount > 0 && (
-                          <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center">
+                          <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-bold flex items-center justify-center">
                             {c.unreadCount > 9 ? '9+' : c.unreadCount}
                           </span>
                         )}
@@ -452,7 +452,7 @@ export function ConversasSidebar({
                     <button
                       type="button"
                       title="Mais opções"
-                      className="p-1 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 dark:hover:text-white dark:hover:bg-white/10 transition cursor-pointer"
+                      className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleContextMenu(e as any, c);
@@ -478,7 +478,7 @@ export function ConversasSidebar({
             left: Math.max(10, Math.min(contextMenu.x - 140, (typeof window !== 'undefined' ? window.innerWidth : 800) - 200)),
             zIndex: 99999,
           }}
-          className="bg-white border border-slate-200 shadow-xl dark:bg-[#101626] dark:border-white/15 dark:shadow-2xl rounded-xl py-1 min-w-[190px] overflow-hidden backdrop-blur-xl"
+          className="bg-[#0B1020]/95 border border-white/20 shadow-2xl rounded-2xl py-1 min-w-[190px] overflow-hidden backdrop-blur-xl"
         >
           {[
             {
@@ -518,7 +518,7 @@ export function ConversasSidebar({
               key={label}
               type="button"
               onClick={() => { action(); setContextMenu(null); }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white transition text-left cursor-pointer"
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-300 hover:bg-white/10 hover:text-white transition text-left cursor-pointer"
             >
               <Icon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span>{label}</span>

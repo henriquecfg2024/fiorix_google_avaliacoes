@@ -112,25 +112,25 @@ export function GroupInfoPanel({
   ];
 
   return (
-    <div className="w-72 border-l border-slate-200 bg-white dark:border-white/10 dark:bg-[#0d1117] flex flex-col shrink-0 h-full overflow-hidden">
+    <div className="w-72 border-l border-white/10 bg-[#0B1020]/95 backdrop-blur-xl flex flex-col shrink-0 h-full overflow-hidden text-white">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Info do Grupo</h3>
-        <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/[0.02] h-14">
+        <h3 className="text-sm font-semibold text-white">Info do Grupo</h3>
+        <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer">
           <X className="w-4 h-4" />
         </button>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-200 dark:border-white/10">
+      <div className="flex border-b border-white/10 bg-white/[0.02]">
         {TABS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold transition border-b-2 ${
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-semibold transition border-b-2 cursor-pointer ${
               tab === key
                 ? 'border-emerald-500 text-emerald-400'
-                : 'border-transparent text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                : 'border-transparent text-slate-400 hover:text-white'
             }`}
           >
             <Icon className="w-3.5 h-3.5" />
@@ -144,13 +144,13 @@ export function GroupInfoPanel({
         {tab === 'members' && (
           <>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
+              <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
                 {conversation.membros.length} participante{conversation.membros.length !== 1 ? 's' : ''}
               </p>
               {isAdmin && (
                 <button
                   onClick={() => setShowAddMember(!showAddMember)}
-                  className="p-1 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition"
+                  className="p-1 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -163,7 +163,7 @@ export function GroupInfoPanel({
                   value={addSearch}
                   onChange={(e) => setAddSearch(e.target.value)}
                   placeholder="Pesquisar usuário…"
-                  className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 dark:bg-slate-900 dark:border-white/10 dark:text-white dark:placeholder-slate-500 focus:outline-none focus:border-emerald-500/60"
+                  className="w-full px-3 py-1.5 text-xs bg-[#080D1A] border border-white/15 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500/60"
                 />
                 {availableUsers.length > 0 && (
                   <div className="mt-1 space-y-0.5">
@@ -172,10 +172,10 @@ export function GroupInfoPanel({
                         key={u.id}
                         onClick={() => handleAddMember(u.id)}
                         disabled={addingId === u.id}
-                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5 text-xs text-slate-300 transition"
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5 text-xs text-slate-300 transition cursor-pointer"
                       >
                         {addingId === u.id ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <Loader2 className="w-3 h-3 animate-spin text-emerald-400" />
                         ) : (
                           <Plus className="w-3 h-3 text-emerald-400" />
                         )}
@@ -193,8 +193,8 @@ export function GroupInfoPanel({
                   {m.name.substring(0, 2).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">{m.name}</p>
-                  <p className="text-[10px] text-slate-500">{m.role}</p>
+                  <p className="text-xs font-medium text-slate-200 truncate">{m.name}</p>
+                  <p className="text-[10px] text-slate-400">{m.role}</p>
                 </div>
                 {m.papel === 'ADMIN' && (
                   <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
@@ -206,14 +206,14 @@ export function GroupInfoPanel({
                     <button
                       onClick={() => handleChangeRole(m.userId, m.papel === 'ADMIN' ? 'MEMBER' : 'ADMIN')}
                       title={m.papel === 'ADMIN' ? 'Rebaixar' : 'Promover a Admin'}
-                      className="p-1 rounded text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 transition"
+                      className="p-1 rounded text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition cursor-pointer"
                     >
                       <Crown className="w-3 h-3" />
                     </button>
                     <button
                       onClick={() => handleRemoveMember(m.userId)}
                       title="Remover"
-                      className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                      className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
                     >
                       <UserMinus className="w-3 h-3" />
                     </button>
@@ -232,7 +232,7 @@ export function GroupInfoPanel({
               <input
                 value={titulo}
                 onChange={(e) => setTitulo(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-900 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500/60"
+                className="w-full px-3 py-2 text-xs bg-[#080D1A] border border-white/15 rounded-xl text-white focus:outline-none focus:border-emerald-500/60"
                 maxLength={80}
               />
             </div>
@@ -243,7 +243,7 @@ export function GroupInfoPanel({
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
                 rows={3}
-                className="w-full px-3 py-2 text-xs bg-slate-900 border border-white/10 rounded-lg text-white focus:outline-none focus:border-emerald-500/60 resize-none"
+                className="w-full px-3 py-2 text-xs bg-[#080D1A] border border-white/15 rounded-xl text-white focus:outline-none focus:border-emerald-500/60 resize-none"
                 maxLength={500}
               />
             </div>
@@ -264,13 +264,13 @@ export function GroupInfoPanel({
                 },
               ].map(({ label, value, onChange }) => (
                 <div key={label}>
-                  <label className="text-[10px] text-slate-500 block mb-1">{label}</label>
+                  <label className="text-[10px] text-slate-400 block mb-1">{label}</label>
                   <div className="flex gap-2">
                     {(['ALL', 'ADMIN_ONLY'] as const).map((opt) => (
                       <button
                         key={opt}
                         onClick={() => onChange(opt)}
-                        className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-semibold border transition ${
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-semibold border transition cursor-pointer ${
                           value === opt
                             ? 'bg-emerald-600/20 border-emerald-500/50 text-emerald-400'
                             : 'bg-white/[0.03] border-white/10 text-slate-400 hover:text-white'
@@ -288,7 +288,7 @@ export function GroupInfoPanel({
             <button
               onClick={handleSaveSettings}
               disabled={savingSettings}
-              className="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold transition flex items-center justify-center gap-2"
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-50 text-slate-950 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-emerald-500/20"
             >
               {savingSettings ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
               Salvar Configurações
