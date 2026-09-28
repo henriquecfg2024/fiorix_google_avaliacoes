@@ -33,6 +33,8 @@ export function AlertSettingsSection() {
     notifyConnectorOffline: true,
     notifySyncFailed: true,
     notifyModuleDelayed: true,
+    notifyNextQsFailure: true,
+    notifyGoogleTokenExpiring: true,
     cooldownMinutes: 15,
     emailEnabled: false,
     emailRecipients: '',
@@ -776,8 +778,8 @@ export function AlertSettingsSection() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Gatilho 1 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Gatilho 1: Conector Offline */}
               <label
                 className={`flex items-start gap-3 p-4 rounded-xl border transition-all cursor-pointer ${
                   config.notifyConnectorOffline
@@ -801,7 +803,7 @@ export function AlertSettingsSection() {
                 </div>
               </label>
 
-              {/* Gatilho 2 */}
+              {/* Gatilho 2: Falhas em Lotes */}
               <label
                 className={`flex items-start gap-3 p-4 rounded-xl border transition-all cursor-pointer ${
                   config.notifySyncFailed
@@ -823,7 +825,7 @@ export function AlertSettingsSection() {
                 </div>
               </label>
 
-              {/* Gatilho 3 */}
+              {/* Gatilho 3: Atraso Crítico */}
               <label
                 className={`flex items-start gap-3 p-4 rounded-xl border transition-all cursor-pointer ${
                   config.notifyModuleDelayed
@@ -843,6 +845,54 @@ export function AlertSettingsSection() {
                   <div className="text-sm font-semibold">Atraso Crítico de Fonte</div>
                   <div className="text-xs text-slate-400 mt-1">
                     Módulo incremental com atraso superior a 3 vezes a janela tolerável.
+                  </div>
+                </div>
+              </label>
+
+              {/* Gatilho 4: Falha Crítica NextQS */}
+              <label
+                className={`flex items-start gap-3 p-4 rounded-xl border transition-all cursor-pointer ${
+                  config.notifyNextQsFailure
+                    ? 'bg-slate-950/80 border-indigo-500/40 text-white'
+                    : 'bg-slate-950/30 border-slate-800 text-slate-400'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={config.notifyNextQsFailure ?? true}
+                  onChange={(e) =>
+                    setConfig({ ...config, notifyNextQsFailure: e.target.checked })
+                  }
+                  className="mt-1 rounded border-slate-700 text-indigo-600 focus:ring-indigo-500/20"
+                />
+                <div>
+                  <div className="text-sm font-semibold">Falha Crítica NextQS</div>
+                  <div className="text-xs text-slate-400 mt-1">
+                    Sincronização de senhas/espera interrompida ou 3 falhas consecutivas de API.
+                  </div>
+                </div>
+              </label>
+
+              {/* Gatilho 5: Token Google Expirando / Desconectado */}
+              <label
+                className={`flex items-start gap-3 p-4 rounded-xl border transition-all cursor-pointer ${
+                  config.notifyGoogleTokenExpiring
+                    ? 'bg-slate-950/80 border-indigo-500/40 text-white'
+                    : 'bg-slate-950/30 border-slate-800 text-slate-400'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={config.notifyGoogleTokenExpiring ?? true}
+                  onChange={(e) =>
+                    setConfig({ ...config, notifyGoogleTokenExpiring: e.target.checked })
+                  }
+                  className="mt-1 rounded border-slate-700 text-indigo-600 focus:ring-indigo-500/20"
+                />
+                <div>
+                  <div className="text-sm font-semibold">Token Google Expirando</div>
+                  <div className="text-xs text-slate-400 mt-1">
+                    Alerta preventivo quando a autorização OAuth Google expirar em menos de 7 dias ou desconectar.
                   </div>
                 </div>
               </label>

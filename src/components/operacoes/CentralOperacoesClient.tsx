@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { OperationsHealthSnapshot } from '@/lib/health/types';
 import { ServiceHealthGrid } from './ServiceHealthGrid';
+import { IntegracoesSaudeSection } from './IntegracoesSaudeSection';
 import { IncrementalSyncTable } from './IncrementalSyncTable';
 import { ConnectorDetailCard } from './ConnectorDetailCard';
 import { IncidentesAlertasSection } from './IncidentesAlertasSection';
@@ -167,6 +168,12 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
           <>
             {/* 2. Grid de Cards de Serviços de Infraestrutura */}
             <ServiceHealthGrid services={health.services} />
+
+            {/* 2.1 Nova Seção: Saúde das Integrações Externas (NextQS, Google Avaliações, etc.) */}
+            <IntegracoesSaudeSection 
+              integrations={health.externalIntegrations} 
+              onRefresh={refreshHealth}
+            />
 
             {/* 3. Tabela de Sincronização Incremental + Card de Telemetria do Connector */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">

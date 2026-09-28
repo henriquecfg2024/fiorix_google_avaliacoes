@@ -47,6 +47,7 @@ const FALLBACK_SNAPSHOT: OperationsHealthSnapshot = {
     activeConnectorsCount: 0,
     provenance: { telemetry: 'unavailable', heartbeat: 'unavailable' },
   },
+  externalIntegrations: [],
   metrics: {
     availabilityPercent: 99.9,
     syncOnTimePercent: 100,

@@ -60,6 +60,46 @@ export interface BatchHistoryItem {
   receivedAt: string;
 }
 
+export type IntegrationStatus = 'OPERACIONAL' | 'ATENCAO' | 'INDISPONIVEL' | 'NAO_CONFIGURADA' | 'EM_SINCRONIZACAO';
+
+export interface IntegrationSyncHistoryItem {
+  id: string;
+  startedAt: string;
+  finishedAt: string | null;
+  durationMs: number | null;
+  status: 'SUCESSO' | 'PARCIAL' | 'FALHA';
+  recordsReceived: number;
+  recordsCreated?: number;
+  recordsUpdated?: number;
+  diagnosticMessage: string;
+}
+
+export interface ExternalIntegrationHealth {
+  id: 'nextqs' | 'google_avaliacoes' | string;
+  name: string;
+  category: 'ATENDIMENTO_ESPERA' | 'REPUTACAO_GOOGLE' | 'MENSAGERIA' | 'SISTEMA_CARTORIO';
+  status: IntegrationStatus;
+  isConfigured: boolean;
+  lastSyncAt: string | null;
+  nextSyncExpectedAt: string | null;
+  latencyMs: number | null;
+  processedVolume: number | null;
+  volumeLabel: string;
+  recentFailures24h: number;
+  lastErrorSanitized: string | null;
+  webhookActive?: boolean;
+  details: {
+    authStatus: 'VALID' | 'EXPIRING_SOON' | 'EXPIRED' | 'REVOKED' | 'NOT_CONFIGURED';
+    tokenDaysRemaining?: number | null;
+    unansweredReviewsCount?: number;
+    webhookUrlConfigured?: boolean;
+    diagnosticSummary: string;
+    history: IntegrationSyncHistoryItem[];
+  };
+  moduleUrl: string;
+  configUrl: string;
+}
+
 export interface OperationsHealthSnapshot {
   globalStatus: 'OPERACIONAL' | 'DEGRADADO' | 'INDISPONIBILIDADE PARCIAL' | 'INDISPONÍVEL' | 'MONITORAMENTO INCOMPLETO' | 'UNKNOWN';
   environment: 'Produção — único ambiente monitorado';
@@ -71,6 +111,7 @@ export interface OperationsHealthSnapshot {
   services: ServiceHealthItem[];
   incrementalModules: IncrementalModuleStatus[];
   connector: ConnectorTelemetry;
+  externalIntegrations: ExternalIntegrationHealth[];
   metrics: {
     availabilityPercent: number | null;
     syncOnTimePercent: number | null;
@@ -133,6 +174,8 @@ export interface AlertChannelConfig {
   notifyConnectorOffline: boolean;
   notifySyncFailed: boolean;
   notifyModuleDelayed: boolean;
+  notifyNextQsFailure?: boolean;
+  notifyGoogleTokenExpiring?: boolean;
   cooldownMinutes: number;
   lastTriggeredAt?: string | null;
   emailEnabled?: boolean;
