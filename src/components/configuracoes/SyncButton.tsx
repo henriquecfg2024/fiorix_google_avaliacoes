@@ -71,70 +71,34 @@ export function SyncButton() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={handleSync}
           disabled={isSyncing}
-          style={{
-            background: isSyncing ? '#93c5fd' : '#2563eb',
-            color: '#ffffff',
-            padding: '8px 18px',
-            borderRadius: '8px',
-            fontSize: '14px',
-            fontWeight: '600',
-            border: 'none',
-            cursor: isSyncing ? 'not-allowed' : 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)',
-            transition: 'all 0.2s ease',
-          }}
+          className="rounded-xl bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 text-sm font-semibold transition-all shadow-md shadow-blue-600/20 inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <RefreshCw
             size={16}
-            style={{
-              animation: isSyncing ? 'spin 1s linear infinite' : 'none',
-            }}
+            className={isSyncing ? 'animate-spin' : ''}
           />
-          {isSyncing ? 'SINCRONIZANDO COM AVALIAÇÕES DO GOOGLE' : 'Sincronizar Avaliações Agora'}
+          {isSyncing ? 'Sincronizando com Google...' : 'Sincronizar Avaliações Agora'}
         </button>
       </div>
 
       {syncResult && (
         <div
-          style={{
-            padding: '10px 14px',
-            borderRadius: '8px',
-            fontSize: '13px',
-            fontWeight: '600',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            background: syncResult.success ? '#dcfce7' : '#fee2e2',
-            color: syncResult.success ? '#166534' : '#991b1b',
-            border: `1px solid ${syncResult.success ? '#86efac' : '#fca5a5'}`,
-            marginTop: '4px',
-          }}
+          className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 border ${
+            syncResult.success
+              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+              : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+          }`}
         >
           {syncResult.success ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
           <span>{syncResult.message}</span>
         </div>
       )}
-
-      {/* Embedded CSS animation for spin */}
-      <style jsx>{`
-        @keyframes spin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-      `}</style>
     </div>
   );
 }

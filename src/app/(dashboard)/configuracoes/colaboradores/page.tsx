@@ -44,8 +44,8 @@ export default async function ColaboradoresConfigPage() {
           </Link>
         </div>
 
-          <form action={addColaborador} className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/80 space-y-4">
-            <h4 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+          <form action={addColaborador} className="mt-4 rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 sm:p-6 shadow-sm backdrop-blur-xl space-y-4">
+            <h4 className="flex items-center gap-2 text-sm font-bold text-white">
               <UserPlus className="h-4 w-4 text-amber-300" />
               <span>Cadastrar Novo Colaborador</span>
             </h4>
@@ -60,7 +60,7 @@ export default async function ColaboradoresConfigPage() {
                   name="name"
                   required
                   placeholder="Ex: Carlos Eduardo ou Maria Silva"
-                  className="border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 dark:border-white/12 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/30 focus:border-amber-400/50"
+                  className="border-white/15 bg-white/[0.05] text-white placeholder:text-white/30 focus:border-amber-400/50"
                 />
               </div>
 
@@ -72,7 +72,7 @@ export default async function ColaboradoresConfigPage() {
                   type="text"
                   name="aliases"
                   placeholder="Ex: Carlinhos, Cadu"
-                  className="border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 dark:border-white/12 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/30 focus:border-amber-400/50"
+                  className="border-white/15 bg-white/[0.05] text-white placeholder:text-white/30 focus:border-amber-400/50"
                 />
               </div>
 
@@ -87,10 +87,10 @@ export default async function ColaboradoresConfigPage() {
             </div>
           </form>
 
-        <div className="rounded-[28px] border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl space-y-4">
+        <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-4">
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-cyan-300" />
-            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">
+            <h2 className="text-lg font-extrabold text-white">
               Colaboradores Cadastrados ({colaboradores.length})
             </h2>
           </div>

@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 
 function Pulse({ className = '' }: { className?: string }) {
   return <div className={`animate-pulse rounded-2xl bg-slate-200 dark:bg-white/[0.04] ${className}`} />;
@@ -12,12 +12,12 @@ export default function Loading() {
         <Pulse className="h-7 w-56 rounded-xl" />
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Pulse className="h-[100px] rounded-[28px]" />
-        <Pulse className="h-[100px] rounded-[28px]" />
-        <Pulse className="h-[100px] rounded-[28px]" />
-        <Pulse className="h-[100px] rounded-[28px]" />
+        <Pulse className="h-[100px] rounded-[24px]" />
+        <Pulse className="h-[100px] rounded-[24px]" />
+        <Pulse className="h-[100px] rounded-[24px]" />
+        <Pulse className="h-[100px] rounded-[24px]" />
       </div>
-      <Pulse className="h-[400px] rounded-[28px]" />
+      <Pulse className="h-[400px] rounded-[24px]" />
     </div>
   );
 }

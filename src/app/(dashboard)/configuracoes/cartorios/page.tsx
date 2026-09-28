@@ -50,8 +50,8 @@ export default async function CartoriosConfigPage() {
           </Link>
         </div>
 
-        <form action={createTenant} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/80 space-y-4">
-          <h4 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+        <form action={createTenant} className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 sm:p-6 shadow-sm backdrop-blur-xl space-y-4">
+          <h4 className="flex items-center gap-2 text-sm font-bold text-white">
             <Building2 className="h-4 w-4 text-amber-300" />
             <span>Cadastrar Novo Cartório</span>
           </h4>
@@ -107,10 +107,10 @@ export default async function CartoriosConfigPage() {
           </div>
         </form>
 
-        <div className="rounded-[28px] border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl space-y-4">
+        <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-4">
           <div className="flex items-center gap-2">
             <Building2 className="h-5 w-5 text-cyan-300" />
-            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">
+            <h2 className="text-lg font-extrabold text-white">
               Cartórios Cadastrados ({cartorios.length})
             </h2>
           </div>

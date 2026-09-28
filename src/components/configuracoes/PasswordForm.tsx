@@ -43,8 +43,8 @@ export function PasswordForm() {
         <div
           className={`md:col-span-3 rounded-xl border px-4 py-3 text-sm font-medium ${
             message.type === 'error'
-              ? 'border-red-500/25 bg-red-500/10 text-red-200'
-              : 'border-emerald-500/25 bg-emerald-500/10 text-[#10d9a0]'
+              ? 'border-rose-500/30 bg-rose-500/10 text-rose-300'
+              : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
           }`}
         >
           {message.text}
@@ -52,33 +52,33 @@ export function PasswordForm() {
       )}
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-white/70">Senha Atual *</label>
+        <label className="mb-2 block text-sm font-medium text-white/80">Senha Atual *</label>
         <input
           type="password"
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
           required
           placeholder="••••••••"
-          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/35"
+          className="w-full rounded-xl border border-white/15 bg-white/[0.05] px-3.5 py-2.5 text-sm text-white outline-none placeholder:text-white/30 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
         />
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-white/70">Nova Senha *</label>
+        <label className="mb-2 block text-sm font-medium text-white/80">Nova Senha *</label>
         <input
           type="password"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           required
           placeholder="No mínimo 6 caracteres"
-          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/35"
+          className="w-full rounded-xl border border-white/15 bg-white/[0.05] px-3.5 py-2.5 text-sm text-white outline-none placeholder:text-white/30 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
         />
       </div>
 
       <button
         type="submit"
         disabled={loading}
-        className="rounded-xl bg-[#3b82f6] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#2563eb] disabled:cursor-not-allowed disabled:opacity-70"
+        className="rounded-xl bg-blue-600 hover:bg-blue-500 px-5 py-2.5 text-sm font-semibold text-white transition-all shadow-md shadow-blue-600/20 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? 'Salvando...' : 'Salvar Nova Senha'}
       </button>

@@ -70,9 +70,9 @@ export default async function UsuariosConfigPage() {
         </div>
 
         {/* Formulário Cadastrar Novo Usuário */}
-        <form action={createUser} className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/80 space-y-4">
+        <form action={createUser} className="mt-4 rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 sm:p-6 shadow-sm backdrop-blur-xl space-y-4">
           <div className="flex items-center justify-between">
-            <h4 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+            <h4 className="flex items-center gap-2 text-sm font-bold text-white">
               <UserPlus className="h-4 w-4 text-amber-300" />
               <span>Cadastrar Novo Usuário do Cartório</span>
             </h4>
@@ -249,11 +249,11 @@ export default async function UsuariosConfigPage() {
         </form>
 
         {/* Tabela de Usuários Cadastrados */}
-        <div className="rounded-[28px] border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl space-y-4">
+        <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Users className="h-5 w-5 text-cyan-300" />
-              <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">
+              <h2 className="text-lg font-extrabold text-white">
                 Quadro Oficial de Colaboradores & Usuários ({usuarios.length})
               </h2>
             </div>

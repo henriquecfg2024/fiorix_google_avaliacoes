@@ -209,37 +209,37 @@ export function DepartamentosClient({ initialData }: DepartamentosClientProps) {
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/8 dark:bg-white/[0.02] flex items-center gap-4">
+          <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
               <Building2 className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">{totalAtivos}</p>
-              <p className="text-[11px] text-slate-400">Departamentos Ativos</p>
+              <p className="text-2xl font-bold text-white">{totalAtivos}</p>
+              <p className="text-[11px] text-white/50">Departamentos Ativos</p>
             </div>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/8 dark:bg-white/[0.02] flex items-center gap-4">
+          <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
               <Users className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">{totalColabs}</p>
-              <p className="text-[11px] text-slate-400">Colaboradores Distribuídos</p>
+              <p className="text-2xl font-bold text-white">{totalColabs}</p>
+              <p className="text-[11px] text-white/50">Colaboradores Distribuídos</p>
             </div>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/8 dark:bg-white/[0.02] flex items-center gap-4">
+          <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
               <FileText className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">{deptos.reduce((s, d) => s + d.totalIts, 0)}</p>
-              <p className="text-[11px] text-slate-400">ITs Vinculadas</p>
+              <p className="text-2xl font-bold text-white">{deptos.reduce((s, d) => s + d.totalIts, 0)}</p>
+              <p className="text-[11px] text-white/50">ITs Vinculadas</p>
             </div>
           </div>
         </div>
 
         {/* Tabela */}
-        <div className="rounded-[28px] border border-slate-200 bg-white/90 p-6 shadow-sm dark:border-white/12 dark:bg-[#0B1020]/72 backdrop-blur-xl space-y-4">
+        <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-4">
           <div className="flex items-center gap-2">
             <Building2 className="h-5 w-5 text-indigo-300" />
             <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">

@@ -7,17 +7,18 @@ export function GoogleAuthButton({ label, className }: { label: string; classNam
     window.location.href = '/api/auth/google';
   };
 
+  const isReconnect = label.includes('Reconectar');
+
   return (
-    <button onClick={handleClick} className={className} style={{
-      background: label.includes('Reconectar') ? '#f1f5f9' : '#3b82f6',
-      color: label.includes('Reconectar') ? '#475569' : 'white',
-      padding: '8px 16px',
-      borderRadius: '8px',
-      fontSize: '14px',
-      fontWeight: '600',
-      border: label.includes('Reconectar') ? '1px solid #cbd5e1' : 'none',
-      cursor: 'pointer'
-    }}>
+    <button
+      type="button"
+      onClick={handleClick}
+      className={className || `rounded-xl px-4 py-2 text-sm font-semibold transition-all inline-flex items-center gap-2 ${
+        isReconnect
+          ? 'border border-white/15 bg-white/[0.06] hover:bg-white/[0.12] text-white'
+          : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-600/20'
+      }`}
+    >
       {label}
     </button>
   );
