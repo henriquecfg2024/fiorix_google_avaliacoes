@@ -23,6 +23,10 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Clock,
+  CheckCircle2,
+  ShieldCheck,
+  Layers,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
@@ -279,13 +283,13 @@ export function AuditoriaDashboardClient() {
   return (
     <div className="space-y-6 font-[Inter,system-ui,sans-serif] text-slate-900 dark:text-white">
       {/* Upper info / Header Meta */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-[22px] border border-white/20 bg-[#0B1020]/90 px-4 py-4 shadow-sm dark:shadow-[0_18px_50px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-        <div className="text-slate-500 dark:text-white/60 text-xs flex flex-wrap items-center gap-3">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-[24px] border border-white/20 bg-[#0B1020]/90 px-5 py-3.5 shadow-sm backdrop-blur-xl">
+        <div className="text-slate-400 dark:text-white/60 text-xs flex flex-wrap items-center gap-3">
           <span>Última auditoria: {lastAuditAt ? `hoje ${lastAuditAt}` : "carregando..."}</span>
-          <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-white/22"></span>
+          <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-white/20"></span>
           <span>{protocolos.length.toLocaleString("pt-BR")} títulos auditados</span>
-          <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-white/22"></span>
-          <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 font-bold text-emerald-600 dark:text-emerald-300">
+          <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-white/20"></span>
+          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
             Dados reais
           </span>
         </div>
@@ -293,150 +297,231 @@ export function AuditoriaDashboardClient() {
           <button
             onClick={() => loadData(false)}
             disabled={loading}
-            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-amber-400/20 bg-gradient-to-r from-amber-500 to-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950 transition hover:brightness-105 disabled:opacity-55"
+            className="flex cursor-pointer items-center gap-2 rounded-xl border border-amber-400/20 bg-gradient-to-r from-amber-500 to-amber-400 px-4 py-2 text-xs font-bold text-slate-950 shadow-md transition hover:brightness-105 disabled:opacity-50"
           >
-            {loading ? "🔄 Rodando..." : "🔄 Nova Auditoria"}
+            <RotateCcw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            <span>{loading ? "Rodando..." : "Nova Auditoria"}</span>
           </button>
         </div>
       </div>
 
-      {/* Top Cards Grid */}
+      {/* Top Cards Grid — Padrão FIORIX */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1 */}
-        <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm dark:shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-slate-300 dark:hover:border-white/12">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-white/48">Antes FIORIX</span>
-            <span className="rounded-full border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/6 px-2 py-0.5 text-[10px] font-bold text-slate-700 dark:text-white/80">
-              gargalo: {metrics.avgDays}d
+        {/* Card 1: Antes FIORIX */}
+        <div className="group relative flex min-h-[140px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-blue-400/50">
+          <div className="flex items-start justify-between w-full">
+            <span className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/80">
+              Antes FIORIX
             </span>
+            <div className="flex items-center gap-1.5">
+              <span className="rounded-full border border-blue-500/30 bg-blue-500/15 px-2.5 py-0.5 text-[11px] font-bold text-blue-300">
+                gargalo: {metrics.avgDays}d
+              </span>
+              <div className="rounded-xl border border-blue-500/30 bg-blue-500/15 p-1.5 text-blue-400 transition-all group-hover:brightness-110">
+                <Clock className="w-3.5 h-3.5" />
+              </div>
+            </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{protocolos.length.toLocaleString("pt-BR")}</span>
-            <span className="text-xs text-slate-500 dark:text-white/40">títulos</span>
+          <div className="mt-auto space-y-1">
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+                {protocolos.length.toLocaleString("pt-BR")}
+              </span>
+              <span className="text-xs font-medium text-slate-400 dark:text-white/50">títulos</span>
+            </div>
+            <p className="text-xs sm:text-[13px] font-medium text-slate-500 dark:text-gray-300">
+              {protocolos.length > 0 ? `${protocolos.length} pendentes` : "0 pendentes"}
+            </p>
           </div>
-          <p className="text-xs text-slate-500 dark:text-white/60 mt-1">
-            {protocolos.length > 0 ? `${protocolos.length} pendentes` : "0 pendentes"}
-          </p>
         </div>
 
-        {/* Card 2 */}
-        <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm dark:shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-slate-300 dark:hover:border-white/12">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-white/48">Meta FIORIX</span>
-            <span className="rounded-full border border-indigo-400/25 bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-200">SLA: 48h</span>
+        {/* Card 2: Meta FIORIX */}
+        <div className="group relative flex min-h-[140px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-amber-400/50">
+          <div className="flex items-start justify-between w-full">
+            <span className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/80">
+              Meta FIORIX
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-300">
+                SLA: 48h
+              </span>
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/15 p-1.5 text-amber-400 transition-all group-hover:brightness-110">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              </div>
+            </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-amber-600 dark:text-amber-300">Zerar {protocolos.length}</span>
+          <div className="mt-auto space-y-1">
+            <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-amber-400">
+              Zerar {protocolos.length}
+            </div>
+            <p className="text-xs sm:text-[13px] font-medium text-slate-500 dark:text-gray-300">
+              Regularização contínua • Compliance
+            </p>
           </div>
-          <p className="text-xs text-slate-500 dark:text-white/58 mt-1">Regularização contínua • Compliance</p>
         </div>
 
-        {/* Card 3 */}
-        <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm dark:shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-slate-300 dark:hover:border-white/12">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-white/48">Realizado FIORIX</span>
-            <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-200">HOJE</span>
+        {/* Card 3: Realizado FIORIX */}
+        <div className="group relative flex min-h-[140px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-emerald-400/50">
+          <div className="flex items-start justify-between w-full">
+            <span className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/80">
+              Realizado FIORIX
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300">
+                HOJE
+              </span>
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/15 p-1.5 text-emerald-400 transition-all group-hover:brightness-110">
+                <RotateCcw className="w-3.5 h-3.5" />
+              </div>
+            </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-300">{protocolos.length.toLocaleString("pt-BR")}</span>
-            <span className="text-xs text-slate-500 dark:text-white/40">pendências ativas</span>
+          <div className="mt-auto space-y-1">
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#10B981]">
+                {protocolos.length.toLocaleString("pt-BR")}
+              </span>
+              <span className="text-xs font-medium text-slate-400 dark:text-white/50">pendências ativas</span>
+            </div>
+            <p className="text-xs sm:text-[13px] font-medium text-slate-500 dark:text-gray-300">
+              Média de {metrics.avgDays}d por pendência
+            </p>
           </div>
-          <p className="text-xs text-slate-500 dark:text-white/58 mt-1">Média de {metrics.avgDays}d por pendência</p>
         </div>
 
-        {/* Card 4 */}
-        <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm dark:shadow-[0_16px_50px_rgba(0,0,0,0.18)] transition hover:border-slate-300 dark:hover:border-white/12">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-white/48">Risco Atual</span>
-            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
-              metrics.riskColor === "red" ? "border-red-500/25 bg-red-500/10 text-red-600 dark:text-red-200" :
-              metrics.riskColor === "amber" ? "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-200" :
-              "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
-            }`}>{metrics.riskLevel} RISCO</span>
+        {/* Card 4: Risco Atual */}
+        <div className="group relative flex min-h-[140px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-rose-400/50">
+          <div className="flex items-start justify-between w-full">
+            <span className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/80">
+              Risco Atual
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${
+                metrics.riskColor === "red" ? "border-rose-500/30 bg-rose-500/15 text-rose-300" :
+                metrics.riskColor === "amber" ? "border-amber-500/30 bg-amber-500/15 text-amber-300" :
+                "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
+              }`}>
+                {metrics.riskLevel} RISCO
+              </span>
+              <div className="rounded-xl border border-rose-500/30 bg-rose-500/15 p-1.5 text-rose-400 transition-all group-hover:brightness-110">
+                <AlertTriangle className="w-3.5 h-3.5" />
+              </div>
+            </div>
           </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-900 dark:text-white">{protocolos.length}</span>
-            <span className="text-xs text-slate-500 dark:text-white/40">pendências</span>
+          <div className="mt-auto space-y-1">
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+                {protocolos.length.toLocaleString("pt-BR")}
+              </span>
+              <span className="text-xs font-medium text-slate-400 dark:text-white/50">pendências</span>
+            </div>
+            <p className="mt-1 flex items-center gap-1.5 text-xs sm:text-[13px] font-medium text-rose-300/90">
+              <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              <span>{protocolos.length > 0 ? `${protocolos.filter(p => p.dias > 30).length} com mais de 30 dias` : "Nenhum risco detectado"}</span>
+            </p>
           </div>
-          <p className="mt-1 flex items-center gap-1 text-xs text-amber-700 dark:text-amber-200/85">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            {protocolos.length > 0 ? `${protocolos.filter(p => p.dias > 30).length} com mais de 30 dias` : "Nenhum risco detectado"}
-          </p>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex w-fit rounded-2xl border border-slate-200 dark:border-white/8 bg-slate-100/90 dark:bg-[#0B1020]/72 p-1 shadow-sm dark:shadow-[0_14px_36px_rgba(0,0,0,0.14)] backdrop-blur-xl">
+      {/* Tabs Selector — Padrão FIORIX */}
+      <div className="flex flex-wrap items-center gap-1.5 rounded-[20px] border border-white/20 bg-[#0B1020]/90 p-1.5 shadow-sm backdrop-blur-xl">
         <button
           onClick={() => setActiveTab("dashboard")}
-          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-            activeTab === "dashboard" ? "bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-lg shadow-amber-500/10" : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            activeTab === "dashboard"
+              ? "bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 shadow-md shadow-amber-500/10"
+              : "text-slate-400 dark:text-white/60 hover:text-white hover:bg-white/[0.04]"
           }`}
         >
           Dashboard Diário
         </button>
         <button
           onClick={() => setActiveTab("pendencias")}
-          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
-            activeTab === "pendencias" ? "bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-lg shadow-amber-500/10" : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            activeTab === "pendencias"
+              ? "bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 shadow-md shadow-amber-500/10"
+              : "text-slate-400 dark:text-white/60 hover:text-white hover:bg-white/[0.04]"
           }`}
         >
-          Pendências Inteligentes de Fluxo
-          <span className="rounded-full border border-slate-300 dark:border-white/10 bg-slate-200 dark:bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-700 dark:text-white">{protocolos.length}</span>
+          <span>Pendências Inteligentes de Fluxo</span>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+            activeTab === "pendencias" ? "bg-slate-950/20 text-slate-950" : "bg-white/10 text-white"
+          }`}>
+            {protocolos.length}
+          </span>
         </button>
         <button
           onClick={() => setActiveTab("historico")}
-          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
-            activeTab === "historico" ? "bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-lg shadow-amber-500/10" : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            activeTab === "historico"
+              ? "bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 shadow-md shadow-amber-500/10"
+              : "text-slate-400 dark:text-white/60 hover:text-white hover:bg-white/[0.04]"
           }`}
         >
-          Histórico de Auditorias
-          <span className="rounded-full border border-slate-300 dark:border-white/10 bg-slate-200 dark:bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-700 dark:text-white">{historicoAuditorias.length}</span>
+          <span>Histórico de Auditorias</span>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+            activeTab === "historico" ? "bg-slate-950/20 text-slate-950" : "bg-white/10 text-white"
+          }`}>
+            {historicoAuditorias.length}
+          </span>
         </button>
         <button
           onClick={() => setActiveTab("importacoes")}
-          className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
-            activeTab === "importacoes" ? "bg-gradient-to-r from-indigo-500 to-amber-400 text-white shadow-lg shadow-amber-500/10" : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            activeTab === "importacoes"
+              ? "bg-gradient-to-r from-amber-500 to-amber-400 text-slate-950 shadow-md shadow-amber-500/10"
+              : "text-slate-400 dark:text-white/60 hover:text-white hover:bg-white/[0.04]"
           }`}
         >
-          Auditoria Importações
-          <span className="rounded-full border border-slate-300 dark:border-white/10 bg-slate-200 dark:bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-700 dark:text-white">{protocolos.length}</span>
+          <span>Auditoria Importações</span>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+            activeTab === "importacoes" ? "bg-slate-950/20 text-slate-950" : "bg-white/10 text-white"
+          }`}>
+            {protocolos.length}
+          </span>
         </button>
       </div>
 
       {/* Tab Contents */}
       {activeTab === "dashboard" && (
         <div className="space-y-6">
-          {/* Card de Fluxo Recomendado */}
-          <Card className="space-y-3 rounded-2xl border border-slate-200 dark:border-white/8 bg-white dark:bg-gradient-to-br dark:from-[#0B1020]/90 dark:via-[#0B1020]/72 dark:to-[#11172A]/72 p-5 shadow-sm shadow-sm">
-            <h4 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+          {/* Card de Plano de Regularização — Padrão FIORIX */}
+          <div className="space-y-4 rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl">
+            <h4 className="flex items-center gap-2 text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/90">
               📋 Plano de Regularização
             </h4>
-            <div className="grid gap-3 md:grid-cols-3 text-xs text-slate-600 dark:text-white/70">
-              <div className="rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.03] p-3">
-                <p className="font-bold text-slate-900 dark:text-white">1. Priorizar</p>
-                <p className="mt-1">Atuar primeiro nos protocolos com maior tempo de permanência e impacto no prazo.</p>
+            <div className="grid gap-3 md:grid-cols-3 text-xs">
+              <div className="rounded-2xl border border-white/10 bg-[#080D1A] p-4 transition-all hover:border-white/20">
+                <p className="font-bold text-white text-xs sm:text-[13px]">1. Priorizar</p>
+                <p className="mt-1.5 text-slate-400 dark:text-white/70 leading-relaxed">
+                  Atuar primeiro nos protocolos com maior tempo de permanência e impacto no prazo.
+                </p>
               </div>
-              <div className="rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.03] p-3">
-                <p className="font-bold text-slate-900 dark:text-white">2. Regularizar</p>
-                <p className="mt-1">Confirmar os andamentos pendentes junto às equipes responsáveis.</p>
+              <div className="rounded-2xl border border-white/10 bg-[#080D1A] p-4 transition-all hover:border-white/20">
+                <p className="font-bold text-white text-xs sm:text-[13px]">2. Regularizar</p>
+                <p className="mt-1.5 text-slate-400 dark:text-white/70 leading-relaxed">
+                  Confirmar os andamentos pendentes junto às equipes responsáveis.
+                </p>
               </div>
-              <div className="rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.03] p-3">
-                <p className="font-bold text-slate-900 dark:text-white">3. Validar</p>
-                <p className="mt-1">Acompanhar a próxima auditoria até a redução dos itens pendentes.</p>
+              <div className="rounded-2xl border border-white/10 bg-[#080D1A] p-4 transition-all hover:border-white/20">
+                <p className="font-bold text-white text-xs sm:text-[13px]">3. Validar</p>
+                <p className="mt-1.5 text-slate-400 dark:text-white/70 leading-relaxed">
+                  Acompanhar a próxima auditoria até a redução dos itens pendentes.
+                </p>
               </div>
             </div>
-          </Card>
+          </div>
 
-          {/* Evolução Diária */}
+          {/* Evolução Diária & Cards de Balcão — Padrão FIORIX */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 rounded-2xl border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm flex flex-col justify-between">
+            <div className="lg:col-span-2 rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl flex flex-col justify-between">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/90 flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_0_6px_rgba(16,185,129,0.08)]"></span>
                   Evolução diária das correções FIORIX
                 </h3>
-                <p className="mt-1 text-xs text-slate-500 dark:text-white/42">Metas de andamento validadas pelo motor de compliance</p>
+                <p className="mt-1 text-xs text-slate-400 dark:text-white/50">
+                  Metas de andamento validadas pelo motor de compliance
+                </p>
               </div>
 
               <div className="h-[220px] mt-4">
@@ -448,10 +533,10 @@ export function AuditoriaDashboardClient() {
                         <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
-                    <XAxis dataKey="name" stroke="currentColor" className="text-slate-400 dark:text-white/30" fontSize={10} />
-                    <YAxis stroke="currentColor" className="text-slate-400 dark:text-white/30" fontSize={10} />
-                    <Tooltip contentStyle={{ backgroundColor: "var(--card-bg, #0B1020)", borderColor: "rgba(148,163,184,0.2)", borderRadius: "10px", color: "inherit" }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.15)" />
+                    <XAxis dataKey="name" stroke="currentColor" className="text-slate-400 dark:text-white/40" fontSize={10} />
+                    <YAxis stroke="currentColor" className="text-slate-400 dark:text-white/40" fontSize={10} />
+                    <Tooltip contentStyle={{ backgroundColor: "#0B1020", borderColor: "rgba(255,255,255,0.15)", borderRadius: "14px", color: "#fff" }} />
                     <Area type="monotone" dataKey="Correcoes" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorCorrecoes)" name="Auto-correções" />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -460,28 +545,36 @@ export function AuditoriaDashboardClient() {
 
             {/* Resumo cards no dashboard */}
             <div className="space-y-4">
-              <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm">
+              <div className="group relative flex flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-amber-400/50">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-black uppercase tracking-wider text-amber-600 dark:text-amber-300">Sem Balcão Registrado</h4>
-                  <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-200">
+                  <h4 className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-amber-400">
+                    Sem Balcão Registrado
+                  </h4>
+                  <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-300">
                     {protocolos.filter((p) => p.falta === 76).length} Protocolos
                   </span>
                 </div>
                 <div className="mt-4">
-                  <span className="text-[32px] font-black text-slate-900 dark:text-white">{metrics.avgRegistrado}d</span>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-white/52">Média parado • Setor Competência</p>
+                  <span className="text-3xl sm:text-4xl font-extrabold text-white">{metrics.avgRegistrado}d</span>
+                  <p className="mt-1 text-xs sm:text-[13px] font-medium text-slate-400 dark:text-gray-300">
+                    Média parado • Setor Competência
+                  </p>
                 </div>
               </div>
-              <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm">
+              <div className="group relative flex flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-emerald-400/50">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-300">Sem Balcão Devolvido</h4>
-                  <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-200">
+                  <h4 className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-[#10B981]">
+                    Sem Balcão Devolvido
+                  </h4>
+                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300">
                     {protocolos.filter((p) => p.falta === 75).length} Protocolos
                   </span>
                 </div>
                 <div className="mt-4">
-                  <span className="text-[32px] font-black text-slate-900 dark:text-white">{metrics.avgDevolvido}d</span>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-white/52">{metrics.avgDevolvido === 0 ? "Status: Fluxo normalizado" : `Média parado • ${protocolos.filter(p => p.falta === 75).length} pendências`}</p>
+                  <span className="text-3xl sm:text-4xl font-extrabold text-white">{metrics.avgDevolvido}d</span>
+                  <p className="mt-1 text-xs sm:text-[13px] font-medium text-slate-400 dark:text-gray-300">
+                    {metrics.avgDevolvido === 0 ? "Status: Fluxo normalizado" : `Média parado • ${protocolos.filter(p => p.falta === 75).length} pendências`}
+                  </p>
                 </div>
               </div>
             </div>
@@ -490,17 +583,17 @@ export function AuditoriaDashboardClient() {
       )}
 
       {activeTab === "pendencias" && (
-        <div className="space-y-4 overflow-hidden rounded-2xl border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm shadow-sm">
+        <div className="space-y-4 overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl">
           
           {/* A. FILTROS AVANÇADOS */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.03] p-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-2xl border border-white/10 bg-[#080D1A] p-4">
             {/* Filtro Falta ID */}
             <div className="space-y-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/42">Inconformidade</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/50">Inconformidade</span>
               <select
                 value={filtroFalta}
                 onChange={(e) => setFiltroFalta(e.target.value as typeof filtroFalta)}
-                className="w-full rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0C1323] px-2.5 py-1.5 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-amber-400"
+                className="w-full rounded-xl border border-white/10 bg-[#0B1020] px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
               >
                 <option value="todos">Todos</option>
                 <option value="76">Balcão registrado pendente</option>
@@ -512,11 +605,11 @@ export function AuditoriaDashboardClient() {
 
             {/* Filtro Setor */}
             <div className="space-y-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/42">Setor</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/50">Setor</span>
               <select
                 value={filtroSetor}
                 onChange={(e) => setFiltroSetor(e.target.value as typeof filtroSetor)}
-                className="w-full rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0C1323] px-2.5 py-1.5 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-amber-400"
+                className="w-full rounded-xl border border-white/10 bg-[#0B1020] px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
               >
                 <option value="todos">Todos</option>
                 <option value="Balcão">Balcão</option>
@@ -528,11 +621,11 @@ export function AuditoriaDashboardClient() {
 
             {/* Filtro Responsável */}
             <div className="space-y-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/42">Responsável</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/50">Responsável</span>
               <select
                 value={filtroResponsavel}
                 onChange={(e) => setFiltroResponsavel(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0C1323] px-2.5 py-1.5 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-amber-400"
+                className="w-full rounded-xl border border-white/10 bg-[#0B1020] px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
               >
                 <option value="todos">Todos</option>
                 {responsaveisList.map((resp) => (
@@ -545,15 +638,15 @@ export function AuditoriaDashboardClient() {
 
             {/* Busca Protocolo */}
             <div className="space-y-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/42">Buscar por Texto</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/50">Buscar por Texto</span>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 dark:text-white/38" />
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 dark:text-white/40" />
                 <input
                   type="text"
                   placeholder="Buscar protocolo..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-[#0C1323] py-1.5 pl-9 pr-3 text-xs text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-white/28 focus:outline-none focus:border-amber-400"
+                  className="w-full rounded-xl border border-white/10 bg-[#0B1020] py-2 pl-9 pr-3 text-xs text-white placeholder-slate-400 dark:placeholder-white/30 focus:outline-none focus:border-amber-400"
                 />
               </div>
             </div>
@@ -561,33 +654,35 @@ export function AuditoriaDashboardClient() {
 
           {/* B. AÇÕES EM MASSA E TOP CONTROLS */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white/96">Pendências Inteligentes de Fluxo</h3>
+            <h3 className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/90">
+              Pendências Inteligentes de Fluxo
+            </h3>
 
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={handleOpenPrintPreview}
-                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-white transition hover:bg-slate-200 dark:hover:bg-white/[0.08]"
+                className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/[0.08]"
               >
                 <Printer className="w-3.5 h-3.5" />
                 🖨️ Imprimir Relatório
               </button>
               <button
                 onClick={handleOpenPrintPreview}
-                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-white transition hover:bg-slate-200 dark:hover:bg-white/[0.08]"
+                className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/[0.08]"
               >
-                <FileText className="w-3.5 h-3.5 text-red-500 dark:text-red-400" />
+                <FileText className="w-3.5 h-3.5 text-red-400" />
                 📄 Exportar PDF por Setor
               </button>
               <button
                 onClick={handleExportCSV}
-                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-white transition hover:bg-slate-200 dark:hover:bg-white/[0.08]"
+                className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/[0.08]"
               >
-                <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
                 📊 Exportar Lista
               </button>
               <button
                 onClick={handleCopyList}
-                className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-white transition hover:bg-slate-200 dark:hover:bg-white/[0.08]"
+                className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/[0.08]"
               >
                 <Copy className="w-3.5 h-3.5" />
                 📋 Copiar Lista
@@ -596,10 +691,10 @@ export function AuditoriaDashboardClient() {
           </div>
 
           {/* C. TABELA DE AUDITORIA */}
-          <div className="flex flex-col overflow-hidden rounded-2xl border border-white/20 bg-[#0B1020]/90 text-slate-900 dark:text-white shadow-sm shadow-sm backdrop-blur-xl">
+          <div className="flex flex-col overflow-hidden rounded-2xl border border-white/15 bg-[#080D1A] text-slate-900 dark:text-white shadow-sm backdrop-blur-xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="select-none bg-slate-50 dark:bg-[#0B1020] text-xs uppercase tracking-wider text-slate-600 dark:text-white/58 border-b border-white/8">
+                <thead className="select-none bg-slate-50 dark:bg-[#0B1020] text-xs uppercase tracking-wider text-slate-600 dark:text-white/60 border-b border-white/10">
                   <tr>
                     <th className="p-4 w-12 text-center">
                       <input
@@ -627,7 +722,7 @@ export function AuditoriaDashboardClient() {
                             <div className="flex items-center gap-1.5 font-semibold">
                               {label}
                               {isActive ? (
-                                <span className="text-[9px] font-bold text-amber-600 dark:text-amber-300">{sortDirection === "asc" ? "▲" : "▼"}</span>
+                                <span className="text-[9px] font-bold text-amber-400">{sortDirection === "asc" ? "▲" : "▼"}</span>
                               ) : (
                                 <span className="opacity-20 text-[9px]">↕</span>
                               )}
@@ -680,16 +775,16 @@ export function AuditoriaDashboardClient() {
                           <td className="p-4 text-slate-600 dark:text-white/60">{p.fase}</td>
                           <td className="p-4">
                             {p.falta === 76 ? (
-                              <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-200">
+                              <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-300">
                                 Balcão registrado pendente
                               </span>
                             ) : (
-                              <span className="rounded-full border border-red-500/25 bg-red-500/10 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:text-red-200">
+                              <span className="rounded-full border border-rose-500/30 bg-rose-500/15 px-2.5 py-0.5 text-[11px] font-bold text-rose-300">
                                 Balcão devolvido pendente
                               </span>
                             )}
                           </td>
-                          <td className="p-4 font-semibold text-amber-600 dark:text-amber-200">{p.dias}d</td>
+                          <td className="p-4 font-semibold text-amber-400">{p.dias}d</td>
                           <td className="p-4 text-slate-700 dark:text-white/70">
                             {p.setor}
                           </td>
@@ -703,12 +798,12 @@ export function AuditoriaDashboardClient() {
                                     description: "Use este número para localizar o protocolo na rotina interna."
                                   });
                                 }}
-                                className="flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 dark:border-white/8 bg-slate-100 dark:bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-slate-700 dark:text-white transition hover:bg-slate-200 dark:hover:bg-white/[0.08]"
+                                className="flex cursor-pointer items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-white transition hover:bg-white/[0.08]"
                                 title="Copiar número do protocolo"
                               >
                                 📋 Copiar Protocolo
                               </button>
-                              <span className="text-[9px] text-slate-400 dark:text-white/42">
+                              <span className="text-[9px] text-slate-400 dark:text-white/40">
                                 Encaminhar para regularização do andamento pendente
                               </span>
                             </div>
@@ -722,7 +817,7 @@ export function AuditoriaDashboardClient() {
             </div>
 
             {/* Rodapé com Barra de Paginação Completa */}
-            <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-200 dark:border-white/8 bg-slate-50/70 dark:bg-white/[0.03] px-6 py-3.5 sm:flex-row">
+            <div className="flex flex-col items-center justify-between gap-4 border-t border-white/10 bg-slate-50/70 dark:bg-white/[0.02] px-6 py-3.5 sm:flex-row">
               {/* Informação de intervalo */}
               <div className="text-xs text-slate-600 dark:text-white/60 text-center sm:text-left">
                 Exibindo <strong className="text-slate-900 dark:text-white">{sortedAndFilteredProtocolos.length > 0 ? (Math.min(sortedAndFilteredProtocolos.length, (currentPage - 1) * itemsPerPage + 1)).toLocaleString("pt-BR") : "0"}</strong> a{" "}
@@ -735,15 +830,15 @@ export function AuditoriaDashboardClient() {
                 {/* Seletor de Tamanho de Página */}
                 <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-white/60">
                   <span>Exibir:</span>
-                  <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] p-0.5">
+                  <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] p-0.5">
                     {[10, 20, 50, 100].map((size) => (
                       <button
                         key={size}
                         onClick={() => { setItemsPerPage(size); setCurrentPage(1); }}
                         className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all ${
                           itemsPerPage === size
-                            ? "bg-gradient-to-r from-indigo-500 to-amber-400 font-semibold text-white shadow-xs"
-                            : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
+                            ? "bg-gradient-to-r from-amber-500 to-amber-400 font-bold text-slate-950 shadow-xs"
+                            : "text-slate-400 dark:text-white/60 hover:text-white"
                         }`}
                       >
                         {size}
@@ -759,7 +854,7 @@ export function AuditoriaDashboardClient() {
                     onClick={() => setCurrentPage(1)}
                     disabled={currentPage <= 1}
                     title="Primeira Página"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white transition-all hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     <ChevronsLeft size={15} />
                   </button>
@@ -769,7 +864,7 @@ export function AuditoriaDashboardClient() {
                     onClick={() => setCurrentPage((c) => Math.max(1, c - 1))}
                     disabled={currentPage <= 1}
                     title="Página Anterior"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white transition-all hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     <ChevronLeft size={15} />
                   </button>
@@ -783,7 +878,7 @@ export function AuditoriaDashboardClient() {
                     onClick={() => setCurrentPage((c) => Math.min(totalPages, c + 1))}
                     disabled={currentPage >= totalPages}
                     title="Próxima Página"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white transition-all hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     <ChevronRight size={15} />
                   </button>
@@ -793,7 +888,7 @@ export function AuditoriaDashboardClient() {
                     onClick={() => setCurrentPage(totalPages)}
                     disabled={currentPage >= totalPages}
                     title="Última Página"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-white/8 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-white transition-all hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white transition-all hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     <ChevronsRight size={15} />
                   </button>
@@ -806,18 +901,20 @@ export function AuditoriaDashboardClient() {
 
       {/* 3. ABA HISTÓRICO DE AUDITORIAS */}
       {activeTab === "historico" && (
-        <div className="bg-white dark:bg-[#0F172A]/50 border border-slate-200 dark:border-white/10 rounded-2xl p-5 space-y-4 shadow-sm">
+        <div className="space-y-4 overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Histórico de Auditorias</h3>
-            <p className="text-xs text-slate-500 dark:text-white/40 mt-1">
+            <h3 className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/90">
+              Histórico de Auditorias
+            </h3>
+            <p className="text-xs text-slate-400 dark:text-white/50 mt-1">
               Histórico consolidado para acompanhamento da evolução das pendências
             </p>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-2xl border border-white/15 bg-[#080D1A]">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-white/5 text-slate-600 dark:text-white/50 font-bold bg-slate-50 dark:bg-white/[0.01]">
+                <tr className="border-b border-white/10 text-slate-400 dark:text-white/60 font-bold bg-[#0B1020]">
                   <th className="p-4">Data/Hora Auditoria</th>
                   <th className="p-4">Total Auditado</th>
                   <th className="p-4">Pendências Encontradas</th>
@@ -827,19 +924,19 @@ export function AuditoriaDashboardClient() {
               </thead>
               <tbody className="divide-y divide-white/8">
                 {historicoAuditorias.map((i) => (
-                  <tr key={i.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition">
-                    <td className="p-4 text-slate-500 dark:text-white/50">{i.data}</td>
-                    <td className="p-4 text-slate-900 dark:text-white font-bold">{i.totalAuditado} títulos</td>
-                    <td className="p-4 font-semibold text-amber-600 dark:text-amber-400">{i.pendencias}</td>
-                    <td className="p-4 text-slate-600 dark:text-white/60 font-mono">{i.arquivo}</td>
+                  <tr key={i.id} className="hover:bg-white/[0.02] transition">
+                    <td className="p-4 text-slate-400 dark:text-white/50">{i.data}</td>
+                    <td className="p-4 text-white font-bold">{i.totalAuditado} títulos</td>
+                    <td className="p-4 font-semibold text-amber-400">{i.pendencias}</td>
+                    <td className="p-4 text-slate-300 dark:text-white/70 font-mono">{i.arquivo}</td>
                     <td className="p-4 text-right">
                       <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                           i.status === "Validado"
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                            ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
                             : i.status === "Regularizado"
-                            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
-                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                            ? "bg-blue-500/15 text-blue-300 border border-blue-500/30"
+                            : "bg-amber-500/15 text-amber-300 border border-amber-500/30"
                         }`}
                       >
                         {i.status}
@@ -855,18 +952,20 @@ export function AuditoriaDashboardClient() {
 
       {/* 4. IMPORTAÇÕES TAB */}
       {activeTab === "importacoes" && (
-        <div className="bg-white dark:bg-[#0F172A]/50 border border-slate-200 dark:border-white/10 rounded-2xl p-5 space-y-4 shadow-sm">
+        <div className="space-y-4 overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Histórico de Auditoria de Cargas</h3>
-            <p className="text-xs text-slate-500 dark:text-white/40 mt-1">
+            <h3 className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/90">
+              Histórico de Auditoria de Cargas
+            </h3>
+            <p className="text-xs text-slate-400 dark:text-white/50 mt-1">
               Conformidade e status das cargas de dados importadas para o módulo BI
             </p>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-2xl border border-white/15 bg-[#080D1A]">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-white/5 text-slate-600 dark:text-white/50 font-bold bg-slate-50 dark:bg-white/[0.01]">
+                <tr className="border-b border-white/10 text-slate-400 dark:text-white/60 font-bold bg-[#0B1020]">
                   <th className="p-4">Data</th>
                   <th className="p-4">Arquivo</th>
                   <th className="p-4">Total Linhas</th>
@@ -878,16 +977,16 @@ export function AuditoriaDashboardClient() {
               </thead>
               <tbody className="divide-y divide-white/8">
                 {importacoesMock.map((i) => (
-                  <tr key={i.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition">
-                    <td className="p-4 text-slate-500 dark:text-white/50">{i.data}</td>
-                    <td className="p-4 font-semibold text-slate-900 dark:text-white">{i.arquivo}</td>
-                    <td className="p-4 text-slate-700 dark:text-white/80">{i.linhas.toLocaleString("pt-BR")}</td>
+                  <tr key={i.id} className="hover:bg-white/[0.02] transition">
+                    <td className="p-4 text-slate-400 dark:text-white/50">{i.data}</td>
+                    <td className="p-4 font-semibold text-white">{i.arquivo}</td>
+                    <td className="p-4 text-slate-300 dark:text-white/80">{i.linhas.toLocaleString("pt-BR")}</td>
                     <td className="p-4">
                       <span
-                        className={`px-2 py-0.5 text-[9px] rounded font-bold ${
+                        className={`px-2 py-0.5 text-[9px] rounded-full font-bold ${
                           i.origem === "Inferido"
-                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                            : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
+                            ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                            : "bg-blue-500/15 text-blue-300 border border-blue-500/30"
                         }`}
                       >
                         {i.origem}
@@ -897,21 +996,21 @@ export function AuditoriaDashboardClient() {
                       <span
                         className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
                           i.status === "SUCCESS"
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/15"
-                            : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/15"
+                            ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                            : "bg-rose-500/15 text-rose-300 border border-rose-500/30"
                         }`}
                       >
                         {i.status}
                       </span>
                     </td>
-                    <td className="p-4 text-rose-600 dark:text-rose-300/80 max-w-[200px] truncate" title={i.erro}>
+                    <td className="p-4 text-rose-300 max-w-[200px] truncate" title={i.erro}>
                       {i.erro || "Sem inconsistências"}
                     </td>
                     <td className="p-4 text-right">
                       {i.status === "FAILED" && (
                         <button
                           onClick={() => toast.info(`Reprocessando importação ${i.id}...`)}
-                          className="px-2 py-1 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-600 dark:text-rose-400 rounded-md text-[10px] font-bold transition flex items-center gap-1.5 ml-auto"
+                          className="px-2.5 py-1 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 rounded-lg text-[10px] font-bold transition flex items-center gap-1.5 ml-auto"
                         >
                           <RotateCcw className="w-3 h-3" />
                           Reprocessar
