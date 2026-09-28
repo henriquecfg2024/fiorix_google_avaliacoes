@@ -1460,7 +1460,7 @@ export function RetornosDashboardClient() {
                         {item.observacao ? (
                           <div className="space-y-1.5">
                             <p
-                              className={`text-sm sm:text-[15px] font-medium text-slate-800 dark:text-gray-100 leading-relaxed print:text-slate-800 ${
+                              className={`text-base sm:text-[16.5px] font-medium text-slate-800 dark:text-gray-100 leading-relaxed print:text-slate-800 ${
                                 expandedObsIds.has(item.idAndamento)
                                   ? "whitespace-pre-wrap break-words"
                                   : "line-clamp-2"
@@ -1507,7 +1507,7 @@ export function RetornosDashboardClient() {
                             )}
                           </div>
                         ) : (
-                          <span className="text-sm text-slate-400 dark:text-[#6B7280] italic print:text-slate-400">
+                          <span className="text-sm sm:text-base text-slate-400 dark:text-[#6B7280] italic print:text-slate-400">
                             Sem observação
                           </span>
                         )}
@@ -1601,7 +1601,7 @@ export function RetornosDashboardClient() {
               <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-white/45">
                 Conteúdo da Observação
               </span>
-              <div className="bg-[#080D1A] border border-white/20 rounded-xl p-4 text-xs text-slate-900 dark:text-white/95 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto font-sans selection:bg-cyan-500/30">
+              <div className="bg-[#080D1A] border border-white/20 rounded-xl p-4 text-sm sm:text-base text-slate-900 dark:text-white/95 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto font-sans selection:bg-cyan-500/30">
                 {selectedObsModal.observacao || "Sem observação informada."}
               </div>
             </div>
@@ -1718,7 +1718,7 @@ export function RetornosDashboardClient() {
             {/* Observação Completa */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-500 dark:text-white/50">Observação do Andamento:</label>
-              <div className="bg-[#080D1A] border border-white/20 rounded-xl p-4 text-xs text-slate-800 dark:text-white/90 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
+              <div className="bg-[#080D1A] border border-white/20 rounded-xl p-4 text-sm sm:text-base text-slate-800 dark:text-white/90 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
                 {selectedEvento.observacao || "Sem observação informada."}
               </div>
             </div>
