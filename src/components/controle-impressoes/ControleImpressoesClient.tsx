@@ -5,7 +5,7 @@ import {
   Printer, BookOpen, Calendar, Filter, Download, MoreVertical,
   RotateCw, Search, CheckCircle2, AlertCircle, MinusCircle,
   SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight,
-  ChevronDown, Loader2, Info, FileSpreadsheet, User, Users, Award
+  ChevronsLeft, ChevronsRight, ChevronDown, Loader2, Info, FileSpreadsheet, User, Users, Award
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { MOCK_CONTROLE_IMPRESSOES } from '@/lib/controle-impressoes/mock-data';
@@ -1775,13 +1775,13 @@ export function ControleImpressoesClient() {
 
         {/* Tabela Responsiva com Distribuição Equilibrada */}
         <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/8 print:overflow-visible print:border print:border-slate-300 print:rounded-none">
-          <table className="w-full table-fixed text-left border-collapse min-w-[960px] print:min-w-0 print:w-full print:border-collapse">
+          <table className="w-full text-left border-collapse min-w-[1180px] print:min-w-0 print:w-full print:border-collapse">
             <thead>
               <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-xs font-semibold text-slate-700 dark:text-slate-300 print:bg-slate-100 print:border-b-2 print:border-slate-400">
                 {/* Protocolo */}
                 <th
                   onClick={() => handleSort('protocolo')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[8%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                  className={`py-3.5 px-4 whitespace-nowrap min-w-[100px] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
                     sortBy === 'protocolo' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
                   }`}
                   title="Clique para ordenar por Protocolo"
@@ -1795,7 +1795,7 @@ export function ControleImpressoesClient() {
                 {/* Nº Livro */}
                 <th
                   onClick={() => handleSort('numeroLivro')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[9%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                  className={`py-3.5 px-4 whitespace-nowrap min-w-[105px] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
                     sortBy === 'numeroLivro' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
                   }`}
                   title="Clique para ordenar por Nº Livro / Matrícula"
@@ -1809,7 +1809,7 @@ export function ControleImpressoesClient() {
                 {/* Tipo / Natureza */}
                 <th
                   onClick={() => handleSort('tipoNatureza')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[14%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                  className={`py-3.5 px-4 whitespace-nowrap min-w-[170px] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
                     sortBy === 'tipoNatureza' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
                   }`}
                   title="Clique para ordenar por Natureza"
@@ -1823,7 +1823,7 @@ export function ControleImpressoesClient() {
                 {/* Data Entrada */}
                 <th
                   onClick={() => handleSort('dataEntrada')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[8%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                  className={`py-3.5 px-4 whitespace-nowrap min-w-[115px] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
                     sortBy === 'dataEntrada' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
                   }`}
                   title="Clique para ordenar por Data de Entrada"
@@ -1837,7 +1837,7 @@ export function ControleImpressoesClient() {
                 {/* Etapa Atual */}
                 <th
                   onClick={() => handleSort('etapaAtual')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[13%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                  className={`py-3.5 px-4 whitespace-nowrap min-w-[130px] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
                     sortBy === 'etapaAtual' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
                   }`}
                   title="Clique para ordenar por Etapa Atual"
@@ -1851,7 +1851,7 @@ export function ControleImpressoesClient() {
                 {/* Último Registro */}
                 <th
                   onClick={() => handleSort('ultimoRegistro')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[11%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                  className={`py-3.5 px-4 whitespace-nowrap min-w-[140px] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
                     sortBy === 'ultimoRegistro' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
                   }`}
                   title="Clique para ordenar por Data do Último Registro"
@@ -1865,7 +1865,7 @@ export function ControleImpressoesClient() {
                 {/* Impressão no Livro */}
                 <th
                   onClick={() => handleSort('livroStatus')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[11%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                  className={`py-3.5 px-4 whitespace-nowrap min-w-[150px] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
                     sortBy === 'livroStatus' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
                   } ${tipoImpressaoFiltro === 'livro' ? 'border-b-2 border-amber-500 dark:border-amber-400 font-bold' : ''}`}
                   title="Clique para ordenar por Status de Impressão do Livro"
@@ -1879,7 +1879,7 @@ export function ControleImpressoesClient() {
                 {/* Certidão Registro */}
                 <th
                   onClick={() => handleSort('certidaoStatus')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[10%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                  className={`py-3.5 px-4 whitespace-nowrap min-w-[150px] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
                     sortBy === 'certidaoStatus' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
                   } ${tipoImpressaoFiltro === 'certidao' ? 'border-b-2 border-cyan-500 dark:border-cyan-400 font-bold' : ''}`}
                   title="Clique para ordenar por Status da Certidão"
@@ -1893,7 +1893,7 @@ export function ControleImpressoesClient() {
                 {/* Impresso por */}
                 <th
                   onClick={() => handleSort('impressoPor')}
-                  className={`py-3 px-3.5 whitespace-nowrap w-[10%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                  className={`py-3.5 px-4 whitespace-nowrap min-w-[160px] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
                     sortBy === 'impressoPor' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
                   }`}
                   title="Clique para ordenar por Operador Responsável"
@@ -1908,7 +1908,7 @@ export function ControleImpressoesClient() {
                 {/* Dias */}
                 <th
                   onClick={() => handleSort('diasPendente')}
-                  className={`py-3 px-3.5 text-center whitespace-nowrap w-[6%] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold ${
+                  className={`py-3.5 px-4 text-center whitespace-nowrap min-w-[70px] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold ${
                     sortBy === 'diasPendente' ? 'text-purple-700 dark:text-purple-300 font-bold bg-purple-50 dark:bg-purple-500/10' : 'text-slate-700 dark:text-slate-300'
                   }`}
                   title="Clique para ordenar por Dias de Pendência"
@@ -1931,29 +1931,29 @@ export function ControleImpressoesClient() {
                 rowsParaExibir.map((row) => (
                   <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors print:even:bg-slate-50">
                     {/* Protocolo */}
-                    <td className="py-3.5 px-3.5 font-mono font-bold text-slate-900 dark:text-white whitespace-nowrap text-sm print:text-slate-950 print:py-1.5 print:px-2 print:text-[11px] print:border-b print:border-slate-200">
+                    <td className="py-3.5 px-4 font-mono font-bold text-amber-500 dark:text-amber-300 whitespace-nowrap text-sm print:text-slate-950 print:py-1.5 print:px-2 print:text-[11px] print:border-b print:border-slate-200">
                       {row.protocolo}
                     </td>
 
                     {/* Nº Livro */}
-                    <td className="py-3.5 px-3.5 font-mono font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap text-xs sm:text-sm print:text-slate-850 print:py-1.5 print:px-2 print:text-[10px] print:border-b print:border-slate-200">
+                    <td className="py-3.5 px-4 font-mono font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap text-xs sm:text-sm print:text-slate-850 print:py-1.5 print:px-2 print:text-[10px] print:border-b print:border-slate-200">
                       {row.numeroLivro}
                     </td>
 
                     {/* Tipo / Natureza Badge */}
-                    <td className="py-3.5 px-3.5 print:py-1.5 print:px-2 print:border-b print:border-slate-200">
+                    <td className="py-3.5 px-4 print:py-1.5 print:px-2 print:border-b print:border-slate-200">
                       <span className="inline-block px-2.5 py-1 rounded-md bg-purple-50 dark:bg-[#221544] border border-purple-200 dark:border-purple-500/35 text-xs font-semibold text-purple-700 dark:text-purple-200 shadow-sm whitespace-nowrap print:bg-slate-100 print:border print:border-slate-300 print:text-slate-900 print:shadow-none print:py-0.5 print:px-1.5 print:text-[9.5px]">
                         {row.tipoNatureza}
                       </span>
                     </td>
 
                     {/* Data Entrada */}
-                    <td className="py-3.5 px-3.5 font-mono text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap print:text-slate-700 print:py-1.5 print:px-2 print:text-[10px] print:border-b print:border-slate-200">
+                    <td className="py-3.5 px-4 font-mono text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap print:text-slate-700 print:py-1.5 print:px-2 print:text-[10px] print:border-b print:border-slate-200">
                       {row.dataEntrada || '-'}
                     </td>
 
                     {/* Etapa Atual Badge */}
-                    <td className="py-3.5 px-3.5 print:py-1.5 print:px-2 print:border-b print:border-slate-200">
+                    <td className="py-3.5 px-4 print:py-1.5 print:px-2 print:border-b print:border-slate-200">
                       {row.etapaAtual?.toLowerCase().includes('devolvido') ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-300 shadow-sm whitespace-nowrap print:bg-transparent print:border-none print:text-amber-800 print:shadow-none print:p-0 print:text-[9.5px] print:font-semibold">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0 print:hidden" />
@@ -1968,12 +1968,12 @@ export function ControleImpressoesClient() {
                     </td>
 
                     {/* Último Registro */}
-                    <td className="py-3.5 px-3.5 font-mono text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap print:text-slate-700 print:py-1.5 print:px-2 print:text-[10px] print:border-b print:border-slate-200">
+                    <td className="py-3.5 px-4 font-mono text-xs text-slate-600 dark:text-slate-300 whitespace-nowrap print:text-slate-700 print:py-1.5 print:px-2 print:text-[10px] print:border-b print:border-slate-200">
                       {row.ultimoRegistro}
                     </td>
 
                     {/* Impressão no Livro Status */}
-                    <td className={`py-3.5 px-3.5 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200 ${tipoImpressaoFiltro === 'livro' ? 'bg-amber-50/50 dark:bg-amber-500/[0.06] print:bg-transparent' : ''}`}>
+                    <td className={`py-3.5 px-4 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200 ${tipoImpressaoFiltro === 'livro' ? 'bg-amber-50/50 dark:bg-amber-500/[0.06] print:bg-transparent' : ''}`}>
                       {row.livroStatus === 'REALIZADO' && (
                         <div className="flex items-start gap-2">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0 print:hidden" />
@@ -2000,7 +2000,7 @@ export function ControleImpressoesClient() {
                     </td>
 
                     {/* Certidão Registro Status */}
-                    <td className={`py-3.5 px-3.5 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200 ${tipoImpressaoFiltro === 'certidao' ? 'bg-cyan-50/50 dark:bg-cyan-500/[0.06] print:bg-transparent' : ''}`}>
+                    <td className={`py-3.5 px-4 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200 ${tipoImpressaoFiltro === 'certidao' ? 'bg-cyan-50/50 dark:bg-cyan-500/[0.06] print:bg-transparent' : ''}`}>
                       {row.certidaoStatus === 'REALIZADO' && (
                         <div className="flex items-start gap-2">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0 print:hidden" />
@@ -2027,7 +2027,7 @@ export function ControleImpressoesClient() {
                     </td>
 
                     {/* Impresso por */}
-                    <td className="py-3.5 px-3.5 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200">
+                    <td className="py-3.5 px-4 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200">
                       {(() => {
                         const resp = tipoImpressaoFiltro === 'certidao'
                           ? (row.certidaoResponsavel || row.livroResponsavel)
@@ -2054,7 +2054,7 @@ export function ControleImpressoesClient() {
                               }`}>
                                 <User className={`w-2.5 h-2.5 ${operadorFiltro === resp ? 'text-white' : 'text-violet-600 dark:text-violet-400'}`} />
                               </div>
-                              <span className={`text-xs truncate max-w-[120px] font-medium transition-colors print:text-slate-900 print:max-w-none print:text-[10px] ${
+                              <span className={`text-xs truncate max-w-[140px] font-medium transition-colors print:text-slate-900 print:max-w-none print:text-[10px] ${
                                 operadorFiltro === resp
                                   ? 'text-purple-700 dark:text-purple-300 font-bold underline'
                                   : 'text-slate-800 dark:text-slate-200 group-hover/op:text-purple-600 dark:group-hover/op:text-purple-300 group-hover/op:underline'
@@ -2071,7 +2071,7 @@ export function ControleImpressoesClient() {
                                 role="button"
                                 tabIndex={0}
                                 title={`Clique para filtrar pelo operador de certidão ${row.certidaoResponsavel}`}
-                                className="text-[10px] text-slate-500 dark:text-slate-400 pl-6 truncate max-w-[130px] cursor-pointer hover:underline hover:text-cyan-600 dark:hover:text-cyan-300 print:text-slate-600 print:pl-0 print:text-[9px]"
+                                className="text-[10px] text-slate-500 dark:text-slate-400 pl-6 truncate max-w-[140px] cursor-pointer hover:underline hover:text-cyan-600 dark:hover:text-cyan-300 print:text-slate-600 print:pl-0 print:text-[9px]"
                               >
                                 Cert: {row.certidaoResponsavel}
                               </span>
@@ -2082,7 +2082,7 @@ export function ControleImpressoesClient() {
                     </td>
 
                     {/* Dias Pendente */}
-                    <td className="py-3.5 px-3.5 text-center font-mono whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200">
+                    <td className="py-3.5 px-4 text-center font-mono whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200">
                       {row.diasPendente > 0 ? (
                         <span className="inline-block px-2.5 py-0.5 rounded-md bg-rose-50 dark:bg-rose-500/15 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 font-bold text-xs sm:text-[13px] print:bg-transparent print:border-none print:text-rose-700 print:font-extrabold print:text-[11px]">
                           {row.diasPendente}
@@ -2099,52 +2099,88 @@ export function ControleImpressoesClient() {
           </table>
         </div>
 
-        {/* Paginação */}
-        <div className="flex items-center justify-between pt-4 mt-4 border-t border-slate-200 dark:border-white/10 text-xs sm:text-sm text-slate-600 dark:text-slate-300 flex-wrap gap-3 print:hidden">
-          <div className="flex items-center gap-2.5">
-            <span className="text-slate-500 dark:text-slate-400 font-medium">Linhas por página:</span>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="bg-slate-50 dark:bg-[#141B2D] border border-slate-200 dark:border-white/15 rounded-md px-2.5 py-1 text-xs text-slate-800 dark:text-white focus:outline-none focus:border-indigo-500"
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
+        {/* Rodapé com Barra de Paginação Completa padrão Fiorix */}
+        <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#080D1A] px-6 py-4 sm:flex-row text-slate-700 dark:text-white rounded-b-2xl mt-4 print:hidden">
+          {/* Informação de intervalo */}
+          <div className="text-xs text-slate-500 dark:text-white/60 text-center sm:text-left">
+            Exibindo <strong className="text-slate-900 dark:text-white">{data.totalRegistros === 0 ? 0 : (currentPage - 1) * pageSize + 1}</strong> a{" "}
+            <strong className="text-slate-900 dark:text-white">{Math.min(currentPage * pageSize, data.totalRegistros)}</strong> de{" "}
+            <strong className="text-slate-900 dark:text-white">{data.totalRegistros}</strong> registros
+            {activeCardLabel && (
+              <span> · Filtro: <strong className="text-purple-600 dark:text-purple-400">{activeCardLabel}</strong></span>
+            )}
           </div>
 
-          <div className="font-mono text-slate-500 dark:text-slate-400">
-            {data.totalRegistros === 0
-              ? '0 de 0'
-              : `${(currentPage - 1) * pageSize + 1}-${Math.min(currentPage * pageSize, data.totalRegistros)} de ${data.totalRegistros}`}
-          </div>
+          {/* Controles de Paginação & Itens Por Página */}
+          <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
+            {/* Seletor de Tamanho de Página */}
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-white/60">
+              <span>Exibir:</span>
+              <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-white/20 bg-white dark:bg-[#0B1020] p-0.5">
+                {[10, 20, 50, 100].map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => {
+                      setPageSize(size);
+                      setCurrentPage(1);
+                    }}
+                    className={`px-2.5 py-0.5 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
+                      pageSize === size
+                        ? "bg-gradient-to-r from-indigo-500 to-amber-500 text-white font-semibold shadow-xs"
+                        : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-          <div className="flex items-center gap-1.5">
-            <button
-              disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              className="p-1.5 rounded-md bg-slate-100 dark:bg-[#141B2D] border border-slate-200 dark:border-white/15 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#1A233A] disabled:opacity-40 disabled:hover:bg-slate-100 dark:disabled:hover:bg-[#141B2D] transition-colors"
-              title="Página anterior"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="px-3 py-1 rounded-md bg-[#6366f1] text-white font-bold text-xs font-mono shadow-sm">
-              {currentPage}
-            </span>
-            <button
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              className="p-1.5 rounded-md bg-slate-100 dark:bg-[#141B2D] border border-slate-200 dark:border-white/15 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-[#1A233A] disabled:opacity-40 disabled:hover:bg-slate-100 dark:disabled:hover:bg-[#141B2D] transition-colors"
-              title="Próxima página"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            {/* Navegação de Páginas */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage(1)}
+                className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/20 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
+                title="Primeira Página"
+              >
+                <ChevronsLeft className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/20 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
+                title="Página Anterior"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+
+              <span className="text-xs px-2.5 font-medium text-slate-800 dark:text-white min-w-[90px] text-center">
+                Página {currentPage.toLocaleString("pt-BR")} de {Math.max(1, totalPages).toLocaleString("pt-BR")}
+              </span>
+
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/20 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
+                title="Próxima Página"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+                className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/20 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
+                title="Última Página"
+              >
+                <ChevronsRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
