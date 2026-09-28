@@ -45,6 +45,7 @@ next-env.d.ts
 
 .vercel
 .env*
+!.env.example
 
 # Build artifacts que não devem ser versionados
 chunk_*.js
