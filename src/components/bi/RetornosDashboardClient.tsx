@@ -281,7 +281,7 @@ export function RetornosDashboardClient() {
       doc.text("Relatório Oficial de Retornos e Notas Devolutivas", 14, 21);
 
       doc.setFontSize(8);
-      doc.text(`Emissão: ${dateFormatted} às ${timeFormatted} • Eventos: ${exportItems.length} • Retrabalho: ${(kpis.taxaRetrabalho || 0).toFixed(1)}% • Tempo Médio: ${kpis.tempoMedioDias || 0}d`, 14, 27);
+      doc.text(`Emissão: ${dateFormatted} às ${timeFormatted} • Eventos: ${exportItems.length} • Resolução: ${(kpis.taxaResolucao || 0).toFixed(1)}% • Tempo Médio: ${kpis.tempoMedioDias || 0}d`, 14, 27);
       if (lastSyncAt) {
         const syncDate = new Date(lastSyncAt).toLocaleString("pt-BR");
         doc.text(`Última sincronização com WebRI: ${syncDate}`, 14, 31);
@@ -737,22 +737,22 @@ export function RetornosDashboardClient() {
           </div>
         </div>
 
-        {/* KPI 4: Taxa de Retrabalho (Reingressos) */}
+        {/* KPI 4: Taxa de Resolução */}
         <div className="group relative flex min-h-[135px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-purple-400/50">
           <div className="flex justify-between items-start w-full">
             <span className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/80">
-              Taxa retrabalho
+              Taxa resolução
             </span>
             <div className="rounded-xl border border-purple-500/30 bg-purple-500/15 p-2 transition-all group-hover:brightness-110">
-              <History className="w-4 h-4 text-purple-400" />
+              <CheckCircle2 className="w-4 h-4 text-purple-400" />
             </div>
           </div>
           <div className="mt-auto space-y-1">
             <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#A855F7]">
-              {isLoading ? "..." : `${(kpis.taxaRetrabalho || 0).toFixed(1)}%`}
+              {isLoading ? "..." : `${(kpis.taxaResolucao || (kpis.total > 0 ? (kpis.corrigidos / kpis.total) * 100 : 0)).toFixed(1)}%`}
             </div>
             <div className="text-xs sm:text-[13px] font-medium text-slate-600 dark:text-gray-300">
-              {(kpis.reingressos || 0).toLocaleString("pt-BR")} reingressos na base
+              {(kpis.corrigidos || 0).toLocaleString("pt-BR")} títulos ajustados
             </div>
           </div>
         </div>
