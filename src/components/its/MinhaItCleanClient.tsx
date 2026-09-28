@@ -379,6 +379,9 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
   // Modal de Cadastro de IT pelo Colaborador
   const [isCadastroOpen, setIsCadastroOpen] = useState(false);
   const [cadastroTitulo, setCadastroTitulo] = useState('');
+  const [cadastroDepartamento, setCadastroDepartamento] = useState(
+    currentUser.departamento || (initialData.departamentosDisponiveis && initialData.departamentosDisponiveis[0]) || 'Indisponibilidade'
+  );
   const [cadastroObjetivo, setCadastroObjetivo] = useState('');
   const [cadastroFile, setCadastroFile] = useState<File | null>(null);
   const [cadastroError, setCadastroError] = useState('');
@@ -648,6 +651,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
         objetivo: cadastroObjetivo.trim(),
         pdfPath: uploadRes.storagePath,
         pdfUrl: uploadRes.publicUrl,
+        departamento: cadastroDepartamento,
       });
       if (!result.success) throw new Error(result.error || 'Erro ao submeter a IT.');
       setCadastroSuccess(true);
@@ -664,6 +668,102 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
       setCadastroSubmitting(false);
     }
   }
+
+  const renderCadastroModal = () => {
+    if (!isCadastroOpen) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !cadastroSubmitting && setIsCadastroOpen(false)} />
+        <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden">
+          <div className="flex items-center justify-between p-6 border-b border-white/8">
+            <div>
+              <h3 className="font-bold text-white text-base">Cadastrar Instrução de Trabalho</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Preencha os dados e envie o PDF para análise e aprovação.</p>
+            </div>
+            <button onClick={() => !cadastroSubmitting && setIsCadastroOpen(false)}
+              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Título da IT *</label>
+              <input type="text" placeholder="Ex.: OFÍCIOS — RECEBIMENTO, PROTOCOLO E CUMPRIMENTO"
+                value={cadastroTitulo} onChange={(e) => setCadastroTitulo(e.target.value)} disabled={cadastroSubmitting}
+                className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-all disabled:opacity-50" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Departamento / Setor *</label>
+              <div className="relative">
+                <select
+                  value={cadastroDepartamento}
+                  onChange={(e) => setCadastroDepartamento(e.target.value)}
+                  disabled={cadastroSubmitting}
+                  className="w-full appearance-none px-4 py-2.5 rounded-xl border border-white/10 bg-[#141C2E] text-sm text-white focus:outline-none focus:border-indigo-500/60 transition-all pr-10 cursor-pointer disabled:opacity-50"
+                >
+                  {(initialData.departamentosDisponiveis && initialData.departamentosDisponiveis.length > 0
+                    ? initialData.departamentosDisponiveis
+                    : ['Indisponibilidade', 'Ofício', 'Atendimento', 'Registro', 'Financeiro', 'RH', 'TI', 'Administração', 'Intimação', 'Preparação']
+                  ).map((dept) => (
+                    <option key={dept} value={dept} className="bg-[#0D1424] text-white">
+                      {dept}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Descrição breve / Objetivo</label>
+              <textarea placeholder="Descreva brevemente o objetivo desta instrução..."
+                value={cadastroObjetivo} onChange={(e) => setCadastroObjetivo(e.target.value)}
+                disabled={cadastroSubmitting} rows={3}
+                className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-all resize-none disabled:opacity-50" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Arquivo PDF *</label>
+              <label className={`flex items-center gap-3 px-4 py-3 rounded-xl border border-dashed transition-all cursor-pointer ${cadastroFile ? 'border-emerald-500/40 bg-emerald-500/8' : 'border-white/15 bg-white/3 hover:border-indigo-500/40 hover:bg-white/5'}`}>
+                <Upload className={`w-5 h-5 shrink-0 ${cadastroFile ? 'text-emerald-400' : 'text-slate-500'}`} />
+                <div className="flex-1 min-w-0">
+                  {cadastroFile ? (
+                    <><p className="text-sm text-emerald-300 font-medium truncate">{cadastroFile.name}</p>
+                    <p className="text-xs text-slate-400">{(cadastroFile.size / 1024).toFixed(0)} KB</p></>
+                  ) : <p className="text-sm text-slate-400">Clique para selecionar o PDF</p>}
+                </div>
+                <input type="file" accept="application/pdf,.pdf" onChange={handleCadastroFileSelect} disabled={cadastroSubmitting} className="hidden" />
+              </label>
+            </div>
+            {cadastroError && (
+              <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+                <AlertCircle className="w-4 h-4 shrink-0" />{cadastroError}
+              </div>
+            )}
+            {cadastroSuccess && (
+              <div className="flex flex-col gap-1.5 text-sm text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+                <div className="flex items-center gap-2 font-bold text-amber-200">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  IT cadastrada com sucesso!
+                </div>
+                <p className="text-xs text-amber-100/90 leading-relaxed font-medium">
+                  Esta IT está pendente de <strong>APROVAÇÃO</strong> do <strong>Oficial Substituto</strong>, favor comunicá-lo.
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-3 p-6 border-t border-white/8">
+            <button onClick={() => !cadastroSubmitting && setIsCadastroOpen(false)} disabled={cadastroSubmitting || cadastroSuccess}
+              className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/8 text-white text-sm font-semibold transition-colors disabled:opacity-50">
+              Cancelar
+            </button>
+            <button onClick={handleCadastroSubmit} disabled={cadastroSubmitting || cadastroSuccess || !cadastroTitulo.trim() || !cadastroFile}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+              {cadastroSubmitting ? <><Clock className="w-4 h-4 animate-spin" /> Enviando...</> : <><ArrowUpRight className="w-4 h-4" /> Enviar para análise</>}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const colaboradorItEnviada = initialData.colaboradorItEnviada ?? null;
   const isColaborador = currentUser.role !== 'MASTER';
@@ -984,84 +1084,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
           onSuccess={() => router.refresh()}
         />
 
-        {isCadastroOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !cadastroSubmitting && setIsCadastroOpen(false)} />
-            <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[#0D1424] shadow-2xl overflow-hidden">
-              <div className="flex items-center justify-between p-6 border-b border-white/8">
-                <div>
-                  <h3 className="font-bold text-white">Cadastrar minha IT</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Preencha os dados e envie o PDF para análise.</p>
-                </div>
-                <button onClick={() => !cadastroSubmitting && setIsCadastroOpen(false)}
-                  className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="p-6 space-y-4">
-                <div>
-                  <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Título da IT *</label>
-                  <input type="text" placeholder="Ex.: Abertura de Protocolo Digital"
-                    value={cadastroTitulo} onChange={(e) => setCadastroTitulo(e.target.value)} disabled={cadastroSubmitting}
-                    className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-all disabled:opacity-50" />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Setor</label>
-                  <div className="px-4 py-2.5 rounded-xl border border-white/6 bg-white/3 text-sm text-slate-400">
-                    {currentUser.departamento || 'Geral'}
-                    <span className="ml-2 text-xs text-slate-600">(preenchido automaticamente)</span>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Descrição breve / Objetivo</label>
-                  <textarea placeholder="Descreva brevemente o objetivo desta instrução..."
-                    value={cadastroObjetivo} onChange={(e) => setCadastroObjetivo(e.target.value)}
-                    disabled={cadastroSubmitting} rows={3}
-                    className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-all resize-none disabled:opacity-50" />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Arquivo PDF *</label>
-                  <label className={`flex items-center gap-3 px-4 py-3 rounded-xl border border-dashed transition-all cursor-pointer ${cadastroFile ? 'border-emerald-500/40 bg-emerald-500/8' : 'border-white/15 bg-white/3 hover:border-indigo-500/40 hover:bg-white/5'}`}>
-                    <Upload className={`w-5 h-5 shrink-0 ${cadastroFile ? 'text-emerald-400' : 'text-slate-500'}`} />
-                    <div className="flex-1 min-w-0">
-                      {cadastroFile ? (
-                        <><p className="text-sm text-emerald-300 font-medium truncate">{cadastroFile.name}</p>
-                        <p className="text-xs text-slate-400">{(cadastroFile.size / 1024).toFixed(0)} KB</p></>
-                      ) : <p className="text-sm text-slate-400">Clique para selecionar o PDF</p>}
-                    </div>
-                    <input type="file" accept="application/pdf,.pdf" onChange={handleCadastroFileSelect} disabled={cadastroSubmitting} className="hidden" />
-                  </label>
-                </div>
-                {cadastroError && (
-                  <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-                    <AlertCircle className="w-4 h-4 shrink-0" />{cadastroError}
-                  </div>
-                )}
-                {cadastroSuccess && (
-                  <div className="flex flex-col gap-1.5 text-sm text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
-                    <div className="flex items-center gap-2 font-bold text-amber-200">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                      IT cadastrada com sucesso!
-                    </div>
-                    <p className="text-xs text-amber-100/90 leading-relaxed font-medium">
-                      Esta IT está pendente de <strong>APROVAÇÃO</strong> do <strong>Oficial Substituto</strong>, favor comunicá-lo.
-                    </p>
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-3 p-6 border-t border-white/8">
-                <button onClick={() => !cadastroSubmitting && setIsCadastroOpen(false)} disabled={cadastroSubmitting || cadastroSuccess}
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/8 text-white text-sm font-semibold transition-colors disabled:opacity-50">
-                  Cancelar
-                </button>
-                <button onClick={handleCadastroSubmit} disabled={cadastroSubmitting || cadastroSuccess || !cadastroTitulo.trim() || !cadastroFile}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                  {cadastroSubmitting ? <><Clock className="w-4 h-4 animate-spin" /> Enviando...</> : <><ArrowUpRight className="w-4 h-4" /> Enviar para análise</>}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {renderCadastroModal()}
       </div>
     );
   }
@@ -1115,68 +1138,85 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
 
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-200 dark:border-white/6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-200 dark:border-white/6">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+                <span>Dashboard</span>
+                <span className="text-slate-600">/</span>
+                <span>Meu Espaço</span>
+                <span className="text-slate-600">/</span>
+                <span className="text-emerald-600 dark:text-emerald-400">{isSupervisao ? 'Supervisão ITs' : 'Minha IT'}</span>
+              </div>
 
-          <div>
+              <div className="flex items-center gap-3 mt-1.5">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-sans">
+                  {isSupervisao ? 'Supervisão de Instruções de Trabalho' : 'Minha Instrução de Trabalho'}
+                </h1>
 
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+                {!isSupervisao && (() => {
+                  const cfg = papelItemCustodia === 'RESPONSAVEL_PRINCIPAL'
+                    ? { label: 'RESPONSÁVEL TÉCNICO', dot: 'bg-emerald-400', cls: 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300 shadow-xs' }
+                    : papelItemCustodia === 'CORRESPONSAVEL'
+                    ? { label: 'CORRESPONSÁVEL', dot: 'bg-violet-400', cls: 'border-violet-500/30 bg-violet-500/15 text-violet-300 shadow-xs' }
+                    : papelItemCustodia === 'LEITOR'
+                    ? { label: 'COLABORADOR', dot: 'bg-slate-400', cls: 'border-slate-500/30 bg-slate-500/15 text-slate-300 shadow-xs' }
+                    : hasCustodia
+                    ? { label: 'RESPONSÁVEL TÉCNICO', dot: 'bg-emerald-400', cls: 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300 shadow-xs' }
+                    : null;
+                  return cfg ? (
+                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-semibold ${cfg.cls}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                      {cfg.label}
+                    </span>
+                  ) : null;
+                })()}
 
-              <span>Dashboard</span>
-
-              <span className="text-slate-600">/</span>
-
-              <span>Meu Espaço</span>
-
-              <span className="text-slate-600">/</span>
-
-              <span className="text-emerald-600 dark:text-emerald-400">{isSupervisao ? 'Supervisão ITs' : 'Minha IT'}</span>
-
-            </div>
-
-            <div className="flex items-center gap-3 mt-1.5">
-
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-sans">
-
-                {isSupervisao ? 'Supervisão de Instruções de Trabalho' : 'Minha Instrução de Trabalho'}
-
-              </h1>
-
-              {!isSupervisao && (() => {
-                const cfg = papelItemCustodia === 'RESPONSAVEL_PRINCIPAL'
-                  ? { label: 'RESPONSÁVEL TÉCNICO', dot: 'bg-emerald-400', cls: 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300 shadow-xs' }
-                  : papelItemCustodia === 'CORRESPONSAVEL'
-                  ? { label: 'CORRESPONSÁVEL', dot: 'bg-violet-400', cls: 'border-violet-500/30 bg-violet-500/15 text-violet-300 shadow-xs' }
-                  : papelItemCustodia === 'LEITOR'
-                  ? { label: 'COLABORADOR', dot: 'bg-slate-400', cls: 'border-slate-500/30 bg-slate-500/15 text-slate-300 shadow-xs' }
-                  : hasCustodia
-                  ? { label: 'RESPONSÁVEL TÉCNICO', dot: 'bg-emerald-400', cls: 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300 shadow-xs' }
-                  : null;
-                return cfg ? (
-                  <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-semibold ${cfg.cls}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-                    {cfg.label}
+                {isSupervisao && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/15 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-sky-300 shadow-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                    SOMENTE LEITURA
                   </span>
-                ) : null;
-              })()}
+                )}
+              </div>
 
-              {isSupervisao && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/15 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-sky-300 shadow-xs">
-                  <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
-                  SOMENTE LEITURA
-                </span>
-              )}
-
+              <p className="text-xs text-slate-400 mt-1">
+                {isSupervisao
+                  ? `${cartorioNome} • ${cartorioUnidade} • Visão de supervisão`
+                  : `${cartorioNome} • ${currentIt.departamento}`}
+              </p>
             </div>
 
-            <p className="text-xs text-slate-400 mt-1">
-              {isSupervisao
-                ? `${cartorioNome} • ${cartorioUnidade} • Visão de supervisão`
-                : `${cartorioNome} • ${currentIt.departamento}`}
-            </p>
-
+            <div className="flex items-center gap-3 self-end sm:self-auto">
+              {isColaborador && !isSupervisao && (
+                <button
+                  onClick={() => {
+                    setCadastroTitulo('');
+                    setCadastroObjetivo('');
+                    setCadastroFile(null);
+                    setCadastroError('');
+                    setCadastroSuccess(false);
+                    setIsCadastroOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-950/40 border border-emerald-400/30"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Cadastrar Nova IT
+                </button>
+              )}
+              {/* Sino de notificações */}
+              <button
+                onClick={() => { setNotifOpen(true); carregarNotificacoes(); }}
+                className="relative p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/8 transition-colors"
+                title="Notificações"
+              >
+                <Bell className="w-5 h-5" />
+                {naoLidas > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-indigo-500 text-white text-[9px] font-bold flex items-center justify-center">
+                    {naoLidas > 9 ? '9+' : naoLidas}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
-
-        </div>
 
 
 
@@ -1241,9 +1281,9 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
 
 
-            {/* Seletor de custódia (apenas quando há múltiplas ITs) */}
-            {itsCustodia.length > 1 && (
-              <div className="mb-5 flex items-center gap-3 bg-[#EFECE6] border border-[#DDD7CD] rounded-2xl px-4 py-3">
+            {/* Seletor de custódia */}
+            {itsCustodia.length > 1 ? (
+              <div className="mb-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#EFECE6] border border-[#DDD7CD] rounded-2xl px-4 py-3">
                 <div className="flex items-center gap-2 shrink-0">
                   <FileText className="w-4 h-4 text-emerald-700" />
                   <span className="text-xs font-bold text-[#756E63] uppercase tracking-wide">Suas ITs</span>
@@ -1264,8 +1304,45 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                   </select>
                   <ChevronDown className="w-4 h-4 text-[#756E63] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
+                {isColaborador && !isSupervisao && (
+                  <button
+                    onClick={() => {
+                      setCadastroTitulo('');
+                      setCadastroObjetivo('');
+                      setCadastroFile(null);
+                      setCadastroError('');
+                      setCadastroSuccess(false);
+                      setIsCadastroOpen(true);
+                    }}
+                    className="shrink-0 flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> + Cadastrar Outra IT
+                  </button>
+                )}
               </div>
-            )}
+            ) : isColaborador && !isSupervisao ? (
+              <div className="mb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-[#EFECE6]/80 border border-[#DDD7CD] rounded-2xl px-4 py-2.5">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span className="text-xs font-medium text-[#756E63]">
+                    Responsável por mais de um setor (ex.: Indisponibilidade e Ofícios)? Cadastre instruções adicionais.
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    setCadastroTitulo('');
+                    setCadastroObjetivo('');
+                    setCadastroFile(null);
+                    setCadastroError('');
+                    setCadastroSuccess(false);
+                    setIsCadastroOpen(true);
+                  }}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" /> + Cadastrar Outra IT
+                </button>
+              </div>
+            ) : null}
 
             {/* Cabeçalho: Título + Selo de versão oficial */}
             <div className="mb-6 pb-5 border-b border-[#E8E2D8]">
@@ -1727,6 +1804,9 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
         onClose={() => setGerenciarItId(null)}
         onSuccess={() => router.refresh()}
       />
+
+      {/* Modal de Cadastro de IT */}
+      {renderCadastroModal()}
 
     </div>
 

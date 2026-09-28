@@ -93,6 +93,8 @@ export interface MinhaItPageData {
   currentIt: MinhaItDocumento | null;
   /** IT submetida pelo colaborador (fora do fluxo de custódia tradicional) */
   colaboradorItEnviada: ItEnviadaColaborador | null;
+  /** Lista de departamentos ativos disponíveis para cadastro de IT */
+  departamentosDisponiveis: string[];
 }
 
 /**
@@ -102,6 +104,7 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
   const currentUser = await requireAuth();
   const userId = currentUser.id;
   const isMaster = currentUser.role === 'MASTER';
+  const tenantId = currentUser.tenantId;
 
   // 1. Busca os dados do tenant
   let cartorioNome = '7º Cartório de Registro de Imóveis de São Paulo';
@@ -116,12 +119,45 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
     if (tenant?.cidade) cartorioUnidade = `${tenant.cidade}${tenant.estado ? ` - ${tenant.estado}` : ''}`;
   }
 
+  // 1b. Busca lista de departamentos ativos
+  let departamentosDisponiveis: string[] = [];
+  try {
+    const deptRows: any[] = await prisma.$queryRawUnsafe(`
+      SELECT nome FROM public.fiorix_departamentos
+      WHERE (tenant_id = $1 OR $1 IS NULL)
+        AND ativo = true
+      ORDER BY ordem ASC, nome ASC
+    `, tenantId || null);
+    departamentosDisponiveis = deptRows.map((d: any) => String(d.nome));
+  } catch (err) {
+    console.warn('Aviso ao buscar departamentos disponíveis:', err);
+  }
+  if (departamentosDisponiveis.length === 0) {
+    departamentosDisponiveis = [
+      'Indisponibilidade',
+      'Ofício',
+      'Atendimento',
+      'Registro',
+      'Financeiro',
+      'RH',
+      'Administração',
+      'TI',
+      'Intimação',
+      'Impressão/Arquivo',
+      'Retificação',
+      'Real/Pessoal',
+      'Limpeza',
+      'Qualificação',
+      'Substituto',
+      'Preparação'
+    ];
+  }
+
   // 2. Busca as ITs para exibição
   // Inclui: ITs onde é responsável técnico OU onde é autor (IT submetida pelo próprio colaborador)
   // ADMIN/MASTER veem todas (supervisão administrativa).
   let itsCustodiaRows: any[];
   let isSupervisao = false;
-  const tenantId = currentUser.tenantId;
 
   if (isMaster && !tenantId) {
     // Apenas Superadmin MASTER sem tenant: carregar TODAS as ITs em modo supervisão
@@ -274,6 +310,7 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
       itsByParticipation,
       currentIt: null,
       colaboradorItEnviada,
+      departamentosDisponiveis,
     };
   }
 
@@ -485,6 +522,7 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
     itsByParticipation,
     currentIt,
     colaboradorItEnviada: null,
+    departamentosDisponiveis,
   };
 }
 
@@ -704,20 +742,21 @@ export async function submeterItColaborador(params: {
   objetivo: string;
   pdfPath: string;
   pdfUrl: string;
+  departamento?: string;
 }): Promise<{ success: boolean; itId?: string; error?: string }> {
   try {
     const currentUser = await requireAuth();
     const tenantId = currentUser.tenantId || 'global';
 
     if (!params.titulo?.trim()) {
-      return { success: false, error: 'O titulo da Instrucao de Trabalho e obrigatorio.' };
+      return { success: false, error: 'O título da Instrução de Trabalho é obrigatório.' };
     }
     if (!params.pdfPath?.trim()) {
-      return { success: false, error: 'O arquivo PDF e obrigatorio.' };
+      return { success: false, error: 'O arquivo PDF é obrigatório.' };
     }
 
-    // Busca departamento atualizado do colaborador
-    let departamento = currentUser.departamento || '';
+    // Determina o departamento informado ou padrão do usuário
+    let departamento = params.departamento?.trim() || currentUser.departamento || '';
     if (!departamento) {
       try {
         const uRows: any[] = await prisma.$queryRawUnsafe(
@@ -728,21 +767,23 @@ export async function submeterItColaborador(params: {
       } catch { departamento = 'Geral'; }
     }
 
-    // Evitar duplicatas acidentais (no mesmo tenant)
+    // Evitar duplicatas acidentais para o mesmo departamento (no mesmo tenant)
     const existentes: any[] = await prisma.$queryRawUnsafe(
       `SELECT id FROM public.fiorix_its
        WHERE autor_id = $1
          AND (tenant_id = $2 OR $2 = 'global')
+         AND departamento ILIKE $3
          AND status IN ('enviada_para_analise', 'rascunho', 'correcao_solicitada')
          AND deleted_at IS NULL
        LIMIT 1`,
       currentUser.id,
-      tenantId
+      tenantId,
+      departamento
     );
     if (existentes.length > 0) {
       return {
         success: false,
-        error: 'Voce ja possui uma IT em analise. Aguarde a conclusao antes de enviar outra.',
+        error: `Você já possui uma IT em análise para o departamento "${departamento}". Aguarde a conclusão antes de enviar outra para este setor.`,
       };
     }
 
