@@ -720,7 +720,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Instrução de Trabalho</p>
                   <h2 className="text-lg font-bold text-slate-900 dark:text-white">{colaboradorItEnviada.titulo}</h2>
                   {colaboradorItEnviada.codigo && (
-                    <p className="text-xs text-slate-400 mt-0.5 font-mono">{colaboradorItEnviada.codigo} • versão {colaboradorItEnviada.versao}</p>
+                    <p className="text-xs text-slate-400 mt-0.5 font-mono">{colaboradorItEnviada.codigo}</p>
                   )}
                 </div>
                 {(() => {
@@ -848,7 +848,7 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                     <div key={it.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-white/[0.02] transition-colors first:rounded-t-2xl last:rounded-b-2xl">
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-white text-sm truncate">{it.titulo}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{it.codigo} • versão {it.versao}</p>
+                        <p className="text-xs text-slate-400 mt-0.5 font-mono">{it.codigo}</p>
                       </div>
                       <span className={`shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full border ${papelConfig.bg} ${papelConfig.color}`}>
                         {papelConfig.label}

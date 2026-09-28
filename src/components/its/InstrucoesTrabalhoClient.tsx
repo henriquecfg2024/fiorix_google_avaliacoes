@@ -847,8 +847,8 @@ export function InstrucoesTrabalhoClient({
                         <p className="font-bold text-white text-sm sm:text-base group-hover:text-purple-300 transition-colors truncate">
                           {it.titulo}
                         </p>
-                        <p className="text-xs text-slate-400 dark:text-white/40 mt-1">
-                          {it.codigo} • versão {it.versao}
+                        <p className="text-xs text-slate-400 dark:text-white/40 mt-1 font-mono">
+                          {it.codigo}
                         </p>
                       </div>
 
