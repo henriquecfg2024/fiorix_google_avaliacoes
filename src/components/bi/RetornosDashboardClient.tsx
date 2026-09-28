@@ -1252,31 +1252,31 @@ export function RetornosDashboardClient() {
       {/* 5. TABELA DE EVENTOS DE RETORNO — PADRÃO FIORIX */}
       <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 shadow-sm backdrop-blur-xl overflow-hidden space-y-0 print:border-0 print:shadow-none print:bg-white print:rounded-none">
         {/* Cabeçalho na tela */}
-        <div className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/8 print:hidden">
+        <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/8 print:hidden">
           <div>
-            <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Eventos de retorno</h2>
-            <span className="text-xs sm:text-sm text-slate-500 dark:text-white/60 font-medium">
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Eventos de retorno</h2>
+            <span className="text-sm sm:text-base text-slate-500 dark:text-white/70 font-medium mt-0.5 block">
               {selectedResponsavelId
                 ? `Filtrado por responsável`
                 : `Todos os responsáveis`}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={handlePrint}
               disabled={isLoadingPrintAll}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] text-xs sm:text-sm font-semibold text-slate-700 dark:text-white hover:bg-slate-200 dark:hover:bg-white/[0.08] transition-all shadow-sm focus:outline-none disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] text-xs sm:text-sm font-semibold text-slate-700 dark:text-white hover:bg-slate-200 dark:hover:bg-white/[0.08] transition-all shadow-sm focus:outline-none disabled:opacity-50"
               title="Imprimir lista completa de protocolos"
             >
-              <Printer className="w-3.5 h-3.5 text-slate-600 dark:text-white/70" />
+              <Printer className="w-4 h-4 text-slate-600 dark:text-white/70" />
               <span>{isLoadingPrintAll ? "Preparando..." : "Imprimir Lista"}</span>
             </button>
             <button
               onClick={() => setIsPdfModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/15 text-xs sm:text-sm font-bold text-cyan-700 dark:text-cyan-200 hover:bg-cyan-500/25 transition-all shadow-sm focus:outline-none"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-cyan-500/30 bg-cyan-500/15 text-xs sm:text-sm font-bold text-cyan-700 dark:text-cyan-200 hover:bg-cyan-500/25 transition-all shadow-sm focus:outline-none"
               title="Gerar relatório PDF dos protocolos"
             >
-              <FileDown className="w-3.5 h-3.5" />
+              <FileDown className="w-4 h-4" />
               <span>Gerar PDF</span>
             </button>
           </div>
@@ -1327,71 +1327,71 @@ export function RetornosDashboardClient() {
         </div>
 
         <div className="overflow-x-auto print:overflow-visible">
-          <table className="w-full text-left text-xs sm:text-sm text-slate-900 dark:text-white print:text-slate-900 print:text-[10px]">
-            <thead className="bg-slate-50 dark:bg-[#0B1020]/95 text-slate-700 dark:text-gray-200 uppercase text-xs tracking-wider border-b border-white/8 print:bg-slate-100 print:text-slate-900 print:border-slate-400 font-bold">
+          <table className="w-full text-left text-sm sm:text-base text-slate-900 dark:text-white print:text-slate-900 print:text-[10px]">
+            <thead className="bg-slate-100 dark:bg-[#080D1A] text-slate-800 dark:text-gray-100 uppercase text-xs sm:text-sm tracking-wider border-b border-white/10 print:bg-slate-100 print:text-slate-900 print:border-slate-400 font-bold">
               <tr>
                 <th
                   onClick={() => handleHeaderSort("numeroPrenotacao")}
-                  className="px-4 py-3.5 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors"
+                  className="px-5 py-4 cursor-pointer hover:text-slate-900 dark:hover:text-cyan-300 transition-colors"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>Prenotação</span>
                     {sortBy === "numeroPrenotacao" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
+                      sortOrder === "asc" ? <ArrowUp className="w-4 h-4 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
                     ) : (
-                      <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
+                      <ArrowUpDown className="w-4 h-4 opacity-40" />
                     )}
                   </div>
                 </th>
                 <th
                   onClick={() => handleHeaderSort("tipoRetorno")}
-                  className="px-4 py-3.5 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors"
+                  className="px-5 py-4 cursor-pointer hover:text-slate-900 dark:hover:text-cyan-300 transition-colors"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>Tipo de retorno</span>
                     {sortBy === "tipoRetorno" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
+                      sortOrder === "asc" ? <ArrowUp className="w-4 h-4 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
                     ) : (
-                      <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
+                      <ArrowUpDown className="w-4 h-4 opacity-40" />
                     )}
                   </div>
                 </th>
                 <th
                   onClick={() => handleHeaderSort("dataRetorno")}
-                  className="px-4 py-3.5 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors"
+                  className="px-5 py-4 cursor-pointer hover:text-slate-900 dark:hover:text-cyan-300 transition-colors"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>Data do retorno</span>
                     {sortBy === "dataRetorno" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
+                      sortOrder === "asc" ? <ArrowUp className="w-4 h-4 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
                     ) : (
-                      <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
+                      <ArrowUpDown className="w-4 h-4 opacity-40" />
                     )}
                   </div>
                 </th>
                 <th
                   onClick={() => handleHeaderSort("usuarioDestino")}
-                  className="px-4 py-3.5 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors"
+                  className="px-5 py-4 cursor-pointer hover:text-slate-900 dark:hover:text-cyan-300 transition-colors"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>Destinatário</span>
                     {sortBy === "usuarioDestino" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
+                      sortOrder === "asc" ? <ArrowUp className="w-4 h-4 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
                     ) : (
-                      <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
+                      <ArrowUpDown className="w-4 h-4 opacity-40" />
                     )}
                   </div>
                 </th>
                 <th
                   onClick={() => handleHeaderSort("observacao")}
-                  className="px-4 py-3.5 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors min-w-[260px]"
+                  className="px-5 py-4 cursor-pointer hover:text-slate-900 dark:hover:text-cyan-300 transition-colors min-w-[280px]"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>Observação</span>
                     {sortBy === "observacao" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
+                      sortOrder === "asc" ? <ArrowUp className="w-4 h-4 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
                     ) : (
-                      <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
+                      <ArrowUpDown className="w-4 h-4 opacity-40" />
                     )}
                   </div>
                 </th>
@@ -1400,16 +1400,16 @@ export function RetornosDashboardClient() {
             <tbody className="divide-y divide-white/8 print:divide-slate-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-sm text-slate-500 dark:text-white/50 font-medium">
-                    <div className="flex items-center justify-center gap-2">
-                      <RefreshCw className="w-4 h-4 animate-spin text-cyan-500 dark:text-cyan-400" />
+                  <td colSpan={5} className="py-14 text-center text-base text-slate-500 dark:text-white/50 font-medium">
+                    <div className="flex items-center justify-center gap-2.5">
+                      <RefreshCw className="w-5 h-5 animate-spin text-cyan-500 dark:text-cyan-400" />
                       <span>Carregando eventos de retorno...</span>
                     </div>
                   </td>
                 </tr>
               ) : displayedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-sm text-slate-400 dark:text-white/40 font-medium">
+                  <td colSpan={5} className="py-14 text-center text-base text-slate-400 dark:text-white/40 font-medium">
                     Nenhum evento encontrado com os filtros selecionados.
                   </td>
                 </tr>
@@ -1423,44 +1423,44 @@ export function RetornosDashboardClient() {
                       className="hover:bg-slate-50/80 dark:hover:bg-white/[0.03] transition-colors group print:border-b print:border-slate-300"
                     >
                       {/* Prenotação / Título */}
-                      <td className="px-4 py-3.5">
+                      <td className="px-5 py-4">
                         <button
                           onClick={() => setSelectedEvento(item)}
-                          className="font-bold text-sm sm:text-base text-cyan-600 dark:text-[#22D3EE] hover:text-cyan-700 dark:hover:text-cyan-300 underline decoration-cyan-500/40 hover:decoration-cyan-400 text-left block print:text-slate-900 print:no-underline"
+                          className="font-extrabold text-base sm:text-lg text-cyan-600 dark:text-[#22D3EE] hover:text-cyan-700 dark:hover:text-cyan-300 underline decoration-cyan-500/40 hover:decoration-cyan-400 text-left block print:text-slate-900 print:no-underline"
                         >
                           {item.numeroPrenotacao}
                         </button>
-                        <span className="text-xs sm:text-[13px] font-medium text-slate-500 dark:text-gray-300 print:text-slate-600 block truncate max-w-[200px]" title={item.formaTitulo}>
+                        <span className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-300 print:text-slate-600 block truncate max-w-[220px] mt-0.5" title={item.formaTitulo}>
                           {item.formaTitulo || "Instrumento Geral"}
                         </span>
                       </td>
 
                       {/* Tipo de retorno */}
-                      <td className="px-4 py-3.5">
-                        <div className="text-sm font-semibold text-slate-900 dark:text-white print:text-slate-900">{item.familiaRetorno}</div>
-                        <div className="text-xs sm:text-[13px] font-medium text-slate-500 dark:text-gray-300 print:text-slate-600">
+                      <td className="px-5 py-4">
+                        <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white print:text-slate-900">{item.familiaRetorno}</div>
+                        <div className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-300 print:text-slate-600 mt-0.5">
                           {item.siglaRetorno} • Título {item.seqTitulo || 1}
                         </div>
                       </td>
 
                       {/* Data do retorno */}
-                      <td className="px-4 py-3.5">
-                        <div className="text-sm font-semibold text-slate-800 dark:text-white print:text-slate-900">{dt.datePart}</div>
-                        <div className="text-xs sm:text-[13px] font-medium text-slate-500 dark:text-gray-300 print:text-slate-600">{dt.timePart}</div>
+                      <td className="px-5 py-4">
+                        <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white print:text-slate-900">{dt.datePart}</div>
+                        <div className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-300 print:text-slate-600 mt-0.5">{dt.timePart}</div>
                       </td>
 
                       {/* Destinatário */}
-                      <td className="px-4 py-3.5">
-                        <div className="text-sm font-semibold text-slate-900 dark:text-white print:text-slate-900">{item.usuarioDestinoRetorno}</div>
-                        <div className="text-xs sm:text-[13px] font-medium text-slate-500 dark:text-gray-300 print:text-slate-600">De: {item.usuarioOrigem}</div>
+                      <td className="px-5 py-4">
+                        <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white print:text-slate-900">{item.usuarioDestinoRetorno}</div>
+                        <div className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-300 print:text-slate-600 mt-0.5">De: {item.usuarioOrigem}</div>
                       </td>
 
                       {/* Observação com Prévia (2 linhas) + Expansão inline e Pop-up */}
-                      <td className="px-4 py-3.5 min-w-[260px]">
+                      <td className="px-5 py-4 min-w-[280px]">
                         {item.observacao ? (
-                          <div className="space-y-1">
+                          <div className="space-y-1.5">
                             <p
-                              className={`text-xs sm:text-sm text-slate-700 dark:text-gray-200 leading-relaxed print:text-slate-800 ${
+                              className={`text-sm sm:text-[15px] font-medium text-slate-800 dark:text-gray-100 leading-relaxed print:text-slate-800 ${
                                 expandedObsIds.has(item.idAndamento)
                                   ? "whitespace-pre-wrap break-words"
                                   : "line-clamp-2"
@@ -1470,23 +1470,23 @@ export function RetornosDashboardClient() {
                               {item.observacao}
                             </p>
                             {item.observacao.length > 65 && (
-                              <div className="flex items-center gap-2 print:hidden pt-0.5">
+                              <div className="flex items-center gap-2.5 print:hidden pt-0.5">
                                 <button
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     toggleExpandObs(item.idAndamento);
                                   }}
-                                  className="inline-flex items-center gap-1 text-xs sm:text-[13px] font-bold text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors"
+                                  className="inline-flex items-center gap-1 text-xs sm:text-sm font-bold text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors"
                                 >
                                   {expandedObsIds.has(item.idAndamento) ? (
                                     <>
-                                      <ChevronUp className="w-3.5 h-3.5" />
+                                      <ChevronUp className="w-4 h-4" />
                                       <span>Recolher</span>
                                     </>
                                   ) : (
                                     <>
-                                      <ChevronDown className="w-3.5 h-3.5" />
+                                      <ChevronDown className="w-4 h-4" />
                                       <span>Ver mais</span>
                                     </>
                                   )}
@@ -1498,16 +1498,16 @@ export function RetornosDashboardClient() {
                                     setSelectedObsModal(item);
                                   }}
                                   title="Abrir observação completa em pop-up"
-                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-slate-400 dark:text-white/60 hover:text-cyan-600 dark:hover:text-cyan-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all text-xs font-semibold"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-slate-400 dark:text-white/60 hover:text-cyan-600 dark:hover:text-cyan-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all text-xs sm:text-sm font-semibold"
                                 >
-                                  <Maximize2 className="w-3 h-3" />
+                                  <Maximize2 className="w-3.5 h-3.5" />
                                   <span>Pop-up</span>
                                 </button>
                               </div>
                             )}
                           </div>
                         ) : (
-                          <span className="text-xs sm:text-[13px] text-slate-400 dark:text-[#6B7280] italic print:text-slate-400">
+                          <span className="text-sm text-slate-400 dark:text-[#6B7280] italic print:text-slate-400">
                             Sem observação
                           </span>
                         )}
@@ -1521,22 +1521,22 @@ export function RetornosDashboardClient() {
         </div>
 
         {/* Paginação */}
-        <div className="p-4 border-t border-slate-200 dark:border-white/8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs sm:text-sm font-medium text-slate-600 dark:text-white/70 print:hidden">
+        <div className="p-5 border-t border-slate-200 dark:border-white/8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-sm sm:text-base font-medium text-slate-700 dark:text-gray-200 print:hidden">
           <div>
             Exibindo {displayedItems.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}–
             {Math.min(currentPage * pageSize, selectedCausaId ? displayedItems.length : kpis.total)} de {selectedCausaId ? displayedItems.length : kpis.total} eventos
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <span className="text-slate-500 dark:text-white/50 text-xs sm:text-sm">Exibir:</span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 dark:text-white/60 text-sm font-medium">Exibir:</span>
               <select
                 value={pageSize}
                 onChange={(e) => {
                   setPageSize(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/8 rounded-xl px-2.5 py-1 text-xs sm:text-sm font-semibold text-slate-800 dark:text-white focus:outline-none"
+                className="bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/8 rounded-xl px-3 py-1.5 text-sm font-bold text-slate-800 dark:text-white focus:outline-none"
               >
                 <option value={10}>10 / pág</option>
                 <option value={20}>20 / pág</option>
@@ -1548,17 +1548,17 @@ export function RetornosDashboardClient() {
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage <= 1 || isLoading}
-                className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.04] disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-700 dark:text-white transition-colors"
+                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.04] disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-700 dark:text-white transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="px-2 font-mono font-bold text-slate-800 dark:text-white/90 text-xs sm:text-sm">
+              <span className="px-2 font-mono font-bold text-slate-900 dark:text-white text-sm sm:text-base">
                 {currentPage} / {Math.ceil(kpis.total / pageSize) || 1}
               </span>
               <button
                 onClick={() => setCurrentPage((p) => p + 1)}
                 disabled={currentPage >= Math.ceil(kpis.total / pageSize) || isLoading}
-                className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.04] disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-700 dark:text-white transition-colors"
+                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.04] disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-700 dark:text-white transition-colors"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
