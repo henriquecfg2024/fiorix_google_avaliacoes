@@ -132,6 +132,22 @@ export default async function ConfiguracoesPage({
             </section>
 
             <section className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-sm text-white space-y-4">
+              <h2 className="text-lg font-semibold text-white flex items-center gap-2">⚙️ Parâmetros</h2>
+              <p className="mt-1 text-sm text-white/60">
+                Gerencie integrações, credenciais e parâmetros operacionais da sua organização.
+              </p>
+
+              <div>
+                <Link
+                  href="/configuracoes/parametros"
+                  className="mt-2 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.05] hover:bg-white/[0.1] hover:border-white/25 px-4 py-2.5 text-sm font-semibold text-white transition-all"
+                >
+                  Gerenciar Parâmetros →
+                </Link>
+              </div>
+            </section>
+
+            <section className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-sm text-white space-y-4">
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">👥 Gestão de Colaboradores</h2>
               <p className="mt-1 text-sm text-white/60">
                 Cadastre os colaboradores do cartório e seus respectivos apelidos/variações de nome para monitoramento e análise de menções em resenhas.

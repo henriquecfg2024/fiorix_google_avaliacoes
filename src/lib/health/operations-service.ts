@@ -754,8 +754,8 @@ async function resolveExternalIntegrationsHealth(
           },
         ],
       },
-      moduleUrl: '/atendimento/espera',
-      configUrl: '/sistema/configuracoes?tab=integracoes',
+      moduleUrl: '/espera',
+      configUrl: '/configuracoes/parametros?tab=integracoes',
     });
   } catch (err) {
     console.warn('[Operations Health] Erro ao consultar saúde do NextQS:', err);
@@ -889,7 +889,7 @@ async function resolveExternalIntegrationsHealth(
           ],
         },
         moduleUrl: '/avaliacoes',
-        configUrl: '/sistema/configuracoes?tab=integracoes',
+        configUrl: '/configuracoes/parametros?tab=integracoes',
       });
     } else {
       // Estado seguro: não configurada
@@ -914,7 +914,7 @@ async function resolveExternalIntegrationsHealth(
           history: [],
         },
         moduleUrl: '/avaliacoes',
-        configUrl: '/sistema/configuracoes?tab=integracoes',
+        configUrl: '/configuracoes/parametros?tab=integracoes',
       });
     }
   } catch (err) {

@@ -22,6 +22,7 @@ import {
   Printer,
   FileCheck2,
   RotateCcw,
+  Clock3,
 } from "lucide-react";
 
 export const navigationGroups = {
@@ -67,6 +68,12 @@ export const navigationGroups = {
         href: "/bi/produtividade",
         icon: Users,
         description: "5.192 Digital, 1.866 Presencial",
+      },
+      {
+        label: "Espera",
+        href: "/espera",
+        icon: Clock3,
+        description: "Tempo de espera e atendimento",
       },
       {
         label: "Retornos",
