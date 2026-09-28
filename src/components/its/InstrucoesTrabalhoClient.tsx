@@ -121,13 +121,13 @@ function getStatusRevisao(diasSemRevisao: number): {
   urgente: boolean;
 } {
   if (diasSemRevisao >= 120) {
-    return { label: 'Revisão vencida', color: 'text-red-300', bg: 'bg-red-500/20 border-red-500/30', urgente: true };
+    return { label: 'Revisão vencida', color: 'text-rose-300', bg: 'bg-rose-500/15 border-rose-500/30', urgente: true };
   }
   if (diasSemRevisao >= 90) {
     const diasRestantes = 120 - diasSemRevisao;
-    return { label: `Revisar em ${diasRestantes}d`, color: 'text-amber-300', bg: 'bg-amber-500/20 border-amber-500/30', urgente: true };
+    return { label: `Revisar em ${diasRestantes}d`, color: 'text-amber-300', bg: 'bg-amber-500/15 border-amber-500/30', urgente: true };
   }
-  return { label: 'Atualizada', color: 'text-emerald-300', bg: 'bg-emerald-500/15 border-emerald-500/25', urgente: false };
+  return { label: 'Atualizada', color: 'text-emerald-300', bg: 'bg-emerald-500/15 border-emerald-500/30', urgente: false };
 }
 
 // ═══════════════════════════════════════════════
@@ -666,52 +666,57 @@ export function InstrucoesTrabalhoClient({
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#070A12] dark:text-white pb-16 font-sans relative overflow-hidden transition-colors">
       {/* Background glows */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 left-1/2 h-72 w-[52rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/10 via-purple-500/8 to-cyan-500/6 blur-3xl" />
+        <div className="absolute -top-32 left-1/2 h-72 w-[52rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-purple-500/10 via-indigo-500/8 to-cyan-500/6 blur-3xl" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-white/8" />
       </div>
 
-      <div className="relative mx-auto max-w-[1100px] px-4 sm:px-6 pt-6">
+      <div className="relative mx-auto max-w-[1500px] px-4 sm:px-6 pt-6">
 
         {/* ── Header ─────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 pb-4 border-b border-white/8">
           <div>
-            <p className="text-xs font-bold tracking-widest text-teal-400 uppercase mb-1">
-              Gestão de ITs
-            </p>
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
-              Gestão de Instruções de Trabalho
-            </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 dark:text-white/50">
+              <span>INSTRUÇÕES DE TRABALHO</span>
+              <span className="text-slate-400 dark:text-white/30">/</span>
+              <span className="text-purple-400 font-semibold">Gestão de ITs</span>
+            </div>
+            <div className="flex items-center gap-3 mt-1.5">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white uppercase">
+                Gestão de Instruções de Trabalho
+              </h1>
+              <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-0.5 text-xs font-medium text-purple-300">
+                Governança & POPs
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-white/50 mt-1">
               Acompanhe, revise e aprove novas Instruções de Trabalho.
             </p>
           </div>
 
-          {/* Tab switcher */}
-          <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1 self-start sm:self-auto dark:border-white/10 dark:bg-white/4">
+          {/* Tab switcher — Padrão FIORIX */}
+          <div className="flex items-center gap-1.5 rounded-[20px] border border-white/20 bg-[#0B1020]/90 p-1.5 shadow-sm backdrop-blur-xl self-start sm:self-auto">
             <button
               onClick={() => setActiveTab('catalogo')}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                 activeTab === 'catalogo'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/40'
-                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/20'
+                  : 'text-slate-400 dark:text-white/60 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
               Catálogo
             </button>
             <button
               onClick={() => setActiveTab('fiscalizacao')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                 activeTab === 'fiscalizacao'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/40'
-                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/20'
+                  : 'text-slate-400 dark:text-white/60 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              Aprovações
+              <span>Aprovações</span>
               {pendencias.length > 0 && (
-                <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-bold ${
-                  activeTab === 'fiscalizacao'
-                    ? 'bg-white/20 text-white'
-                    : 'bg-rose-500/80 text-white'
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                  activeTab === 'fiscalizacao' ? 'bg-white/20 text-white' : 'bg-rose-500 text-white'
                 }`}>
                   {pendencias.length}
                 </span>
@@ -722,17 +727,17 @@ export function InstrucoesTrabalhoClient({
 
         {/* ── Banner de alerta para SUBSTITUTOS ─────────────────── */}
         {currentUser.role === 'SUBSTITUTO' && itsPendentesAprovacao.filter(p => p.status === 'enviada_para_analise').length > 0 && (
-          <div className="mb-6 relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-orange-500/8 to-amber-500/10 backdrop-blur-sm">
+          <div className="mb-6 relative overflow-hidden rounded-[24px] border border-amber-500/30 bg-[#0B1020]/90 p-5 shadow-lg backdrop-blur-xl">
             {/* Glow de fundo */}
             <div className="pointer-events-none absolute inset-0">
-              <div className="absolute inset-y-0 left-0 w-1 rounded-l-2xl bg-gradient-to-b from-amber-400 via-orange-400 to-amber-500" />
-              <div className="absolute -top-8 left-1/2 h-24 w-96 -translate-x-1/2 rounded-full bg-amber-500/8 blur-2xl" />
+              <div className="absolute inset-y-0 left-0 w-1.5 rounded-l-[24px] bg-gradient-to-b from-amber-400 via-orange-400 to-amber-500" />
+              <div className="absolute -top-8 left-1/2 h-24 w-96 -translate-x-1/2 rounded-full bg-amber-500/10 blur-2xl" />
             </div>
 
-            <div className="relative flex flex-col sm:flex-row sm:items-center gap-4 px-5 py-4">
+            <div className="relative flex flex-col sm:flex-row sm:items-center gap-4">
               {/* Ícone + texto */}
               <div className="flex items-start gap-3 flex-1 min-w-0">
-                <div className="shrink-0 mt-0.5 flex items-center justify-center w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30">
+                <div className="shrink-0 mt-0.5 flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30">
                   <ShieldAlert className="w-5 h-5 text-amber-400" />
                 </div>
                 <div className="min-w-0">
@@ -741,7 +746,7 @@ export function InstrucoesTrabalhoClient({
                       ? '1 Instrução de Trabalho aguarda sua aprovação'
                       : `${itsPendentesAprovacao.filter(p => p.status === 'enviada_para_analise').length} Instruções de Trabalho aguardam sua aprovação`}
                   </p>
-                  <p className="text-xs text-amber-200/60 mt-0.5 leading-snug">
+                  <p className="text-xs text-slate-400 dark:text-white/60 mt-0.5 leading-snug">
                     Como Oficial Substituto, você é responsável por revisar e aprovar as novas ITs submetidas.
                   </p>
                   {/* Lista das ITs pendentes */}
@@ -750,13 +755,13 @@ export function InstrucoesTrabalhoClient({
                       .filter(p => p.status === 'enviada_para_analise')
                       .slice(0, 3)
                       .map((p) => (
-                        <li key={p.id} className="flex items-center gap-1.5 text-xs text-amber-100/70">
-                          <span className="w-1 h-1 rounded-full bg-amber-400 shrink-0" />
+                        <li key={p.id} className="flex items-center gap-1.5 text-xs text-amber-100/80">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
                           <span className="truncate">{p.titulo}</span>
                         </li>
                       ))}
                     {itsPendentesAprovacao.filter(p => p.status === 'enviada_para_analise').length > 3 && (
-                      <li className="text-xs text-amber-200/40 pl-2.5">
+                      <li className="text-xs text-amber-200/50 pl-3">
                         + {itsPendentesAprovacao.filter(p => p.status === 'enviada_para_analise').length - 3} mais...
                       </li>
                     )}
@@ -767,7 +772,7 @@ export function InstrucoesTrabalhoClient({
               {/* Botão de ação */}
               <button
                 onClick={() => setActiveTab('fiscalizacao')}
-                className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-[#1a0a00] text-xs font-bold transition-all duration-150 shadow-lg shadow-amber-900/30 sm:self-auto self-start"
+                className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:brightness-105 active:scale-95 text-slate-950 text-xs font-bold transition-all shadow-md shadow-amber-900/20 sm:self-auto self-start"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Revisar agora
@@ -781,16 +786,16 @@ export function InstrucoesTrabalhoClient({
         ════════════════════════════════════════════════ */}
         {activeTab === 'catalogo' && (
           <div className="space-y-4">
-            {/* Filtros */}
+            {/* Filtros — Padrão FIORIX */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-white/40 pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Buscar IT por nome ou código"
+                  placeholder="Buscar IT por nome ou código..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-white/10 bg-white/4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 focus:bg-white/6 transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/20 bg-[#0B1020]/90 text-sm text-white placeholder-slate-400 dark:placeholder-white/30 backdrop-blur-xl focus:outline-none focus:border-purple-400 transition-all"
                 />
               </div>
 
@@ -798,112 +803,114 @@ export function InstrucoesTrabalhoClient({
                 <select
                   value={filterSetor}
                   onChange={(e) => setFilterSetor(e.target.value)}
-                  className="appearance-none w-full sm:w-48 pl-4 pr-8 py-2.5 rounded-xl border border-white/10 bg-white/4 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:border-indigo-500/60 transition-all cursor-pointer"
+                  className="appearance-none w-full sm:w-52 pl-4 pr-9 py-2.5 rounded-xl border border-white/20 bg-[#0B1020]/90 text-sm text-white backdrop-blur-xl focus:outline-none focus:border-purple-400 transition-all cursor-pointer"
                 >
                   {setores.map((s) => (
-                    <option key={s} value={s} className="bg-[#0D1424]">
+                    <option key={s} value={s} className="bg-[#0B1020] text-white">
                       {s === 'TODOS' ? 'Todos os setores' : s}
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
 
               {isGestao && (
-                <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors shadow-lg shadow-indigo-900/30 shrink-0">
+                <button className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-bold transition-all shadow-lg shadow-purple-900/30 shrink-0">
                   <Plus className="w-4 h-4" />
-                  Nova IT
+                  <span>Nova IT</span>
                 </button>
               )}
             </div>
 
             {/* Contador */}
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <p className="text-xs font-bold text-slate-400 dark:text-white/50 uppercase tracking-wider px-1">
               {itsFiltradas.length} {itsFiltradas.length === 1 ? 'instrução de trabalho' : 'instruções de trabalho'}
             </p>
 
-            {/* Lista — apenas ITs publicadas */}
+            {/* Lista — Card no Padrão FIORIX */}
             {itsFiltradas.length === 0 ? (
-              <div className="rounded-2xl border border-white/8 bg-white/[0.02] py-16 text-center">
-                <FileText className="mx-auto w-10 h-10 text-slate-600 mb-3" />
-                <p className="text-base font-semibold text-slate-700 dark:text-slate-300">Nenhuma IT encontrada</p>
-                <p className="text-sm text-slate-500 mt-1">Tente outro termo ou setor.</p>
+              <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 py-16 text-center shadow-sm backdrop-blur-xl">
+                <FileText className="mx-auto w-10 h-10 text-slate-500 mb-3" />
+                <p className="text-base font-semibold text-white">Nenhuma IT encontrada</p>
+                <p className="text-xs text-slate-400 dark:text-white/40 mt-1">Tente outro termo ou setor.</p>
               </div>
             ) : (
-              <div className="rounded-2xl border border-white/8 bg-[#0B1020]/60 divide-y divide-white/6">
+              <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 divide-y divide-white/8 shadow-sm backdrop-blur-xl overflow-hidden">
                 {itsFiltradas.map((it) => {
                   const revisao = getStatusRevisao(it.diasSemRevisao);
                   return (
                     <div
                       key={it.id}
-                      className="relative flex items-center gap-4 px-5 py-4 hover:bg-white/[0.025] transition-colors group first:rounded-t-2xl last:rounded-b-2xl"
+                      className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4.5 hover:bg-white/[0.03] transition-all group first:rounded-t-[24px] last:rounded-b-[24px]"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-white text-sm group-hover:text-indigo-300 transition-colors truncate">
+                        <p className="font-bold text-white text-sm sm:text-base group-hover:text-purple-300 transition-colors truncate">
                           {it.titulo}
                         </p>
-                        <p className="text-xs text-slate-400 mt-0.5">
+                        <p className="text-xs text-slate-400 dark:text-white/40 mt-1">
                           {it.codigo} • versão {it.versao}
                         </p>
                       </div>
 
-                      <span className="hidden sm:inline-flex shrink-0 text-xs text-slate-400 bg-white/5 border border-white/8 px-2.5 py-1 rounded-lg">
-                        {it.departamento}
-                      </span>
+                      <div className="flex items-center gap-3 shrink-0 flex-wrap sm:flex-nowrap">
+                        <span className="shrink-0 text-xs font-semibold text-slate-300 dark:text-white/80 bg-white/[0.05] border border-white/15 px-3 py-1 rounded-full">
+                          {it.departamento}
+                        </span>
 
-                      {/* Badge de revisão — só aparece para ITs publicadas */}
-                      <span className={`shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full border ${revisao.bg} ${revisao.color}`}>
-                        {revisao.label}
-                      </span>
+                        {/* Badge de revisão — Padrão FIORIX */}
+                        <span className={`shrink-0 text-xs font-bold px-3 py-1 rounded-full border ${revisao.bg} ${revisao.color}`}>
+                          {revisao.label}
+                        </span>
 
-                      <button
-                        onClick={() => setViewItModal(it)}
-                        className="shrink-0 px-4 py-1.5 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors"
-                      >
-                        Abrir
-                      </button>
+                        <button
+                          onClick={() => setViewItModal(it)}
+                          className="shrink-0 px-4 py-1.5 rounded-xl border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] text-white text-xs font-semibold transition-all shadow-xs"
+                        >
+                          Abrir
+                        </button>
 
-                      {/* Menu de ações (apenas gestão) */}
-                      {isGestao && (
-                        <div className="relative shrink-0">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setMenuAberto(menuAberto === it.id ? null : it.id); }}
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/8 transition-colors"
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
-                          {menuAberto === it.id && (
-                            <div
-                              className="absolute right-0 top-8 z-20 w-48 rounded-xl border border-white/10 bg-[#0D1424] shadow-xl py-1 overflow-hidden"
-                              onMouseLeave={() => setMenuAberto(null)}
+                        {/* Menu de ações (apenas gestão) */}
+                        {isGestao && (
+                          <div className="relative shrink-0">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setMenuAberto(menuAberto === it.id ? null : it.id); }}
+                              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-all"
                             >
-                              <button
-                                onClick={() => { setMenuAberto(null); setHistoricoModal(it); }}
-                                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-white/6 hover:text-white transition-colors"
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+                            {menuAberto === it.id && (
+                              <div
+                                className="absolute right-0 top-10 z-20 w-52 rounded-2xl border border-white/15 bg-[#0D1424]/95 shadow-2xl p-1.5 backdrop-blur-xl overflow-hidden"
+                                onMouseLeave={() => setMenuAberto(null)}
                               >
-                                <History className="w-3.5 h-3.5" /> Ver histórico
-                              </button>
-                              <button
-                                onClick={() => { setMenuAberto(null); setArquivarModal(it); }}
-                                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-white/6 hover:text-white transition-colors"
-                              >
-                                <Archive className="w-3.5 h-3.5" /> Arquivar IT
-                              </button>
-                              {currentUser.role === 'MASTER' && (
-                                <>
-                                  <div className="h-px bg-white/6 mx-3 my-1" />
-                                  <button
-                                    onClick={() => { setMenuAberto(null); setExcluirPermanenteModal(it); }}
-                                    className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
-                                  >
-                                    <ShieldAlert className="w-3.5 h-3.5" /> Excluir permanentemente
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                                <button
+                                  onClick={() => { setMenuAberto(null); setHistoricoModal(it); }}
+                                  className="flex items-center gap-2.5 w-full px-3.5 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-white/[0.08] hover:text-white transition-all"
+                                >
+                                  <History className="w-4 h-4 text-slate-400" /> Ver histórico
+                                </button>
+                                <button
+                                  onClick={() => { setMenuAberto(null); setArquivarModal(it); }}
+                                  className="flex items-center gap-2.5 w-full px-3.5 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-white/[0.08] hover:text-white transition-all"
+                                >
+                                  <Archive className="w-4 h-4 text-amber-400" /> Arquivar IT
+                                </button>
+                                {currentUser.role === 'MASTER' && (
+                                  <>
+                                    <div className="h-px bg-white/8 my-1" />
+                                    <button
+                                      onClick={() => { setMenuAberto(null); setExcluirPermanenteModal(it); }}
+                                      className="flex items-center gap-2.5 w-full px-3.5 py-2 rounded-xl text-xs font-medium text-rose-400 hover:bg-rose-500/15 hover:text-rose-300 transition-all"
+                                    >
+                                      <ShieldAlert className="w-4 h-4" /> Excluir permanentemente
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -913,33 +920,77 @@ export function InstrucoesTrabalhoClient({
         )}
 
         {/* ════════════════════════════════════════════════
-            ABA FISCALIZAÇÃO
+            ABA FISCALIZAÇÃO — Padrão FIORIX
         ════════════════════════════════════════════════ */}
         {activeTab === 'fiscalizacao' && (
-          <div className="space-y-5">
-            {/* 3 Indicadores */}
+          <div className="space-y-6">
+            {/* 3 Indicadores — Padrão FIORIX */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="rounded-2xl border border-white/8 bg-[#0B1020]/60 p-5">
-                <p className={`text-3xl font-bold ${pendencias.length > 0 ? 'text-rose-400' : 'text-white'}`}>
-                  {pendencias.length}
-                </p>
-                <p className="text-sm text-slate-400 mt-1">itens precisam de atenção</p>
+              {/* KPI 1 */}
+              <div className="group relative flex min-h-[135px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-rose-400/50">
+                <div className="flex justify-between items-start w-full">
+                  <span className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/80">
+                    Atenção necessária
+                  </span>
+                  <div className="rounded-xl border border-rose-500/30 bg-rose-500/15 p-2 transition-all group-hover:brightness-110">
+                    <AlertTriangle className="w-4 h-4 text-rose-400" />
+                  </div>
+                </div>
+                <div className="mt-auto space-y-1">
+                  <div className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${pendencias.length > 0 ? 'text-rose-400' : 'text-white'}`}>
+                    {pendencias.length}
+                  </div>
+                  <div className="text-xs sm:text-[13px] font-medium text-slate-400 dark:text-gray-300">
+                    Itens precisam de atenção
+                  </div>
+                </div>
               </div>
-              <div className="rounded-2xl border border-white/8 bg-[#0B1020]/60 p-5">
-                <p className="text-3xl font-bold text-emerald-400">{kpis.taxaConformidade}%</p>
-                <p className="text-sm text-slate-400 mt-1">leituras concluídas</p>
+
+              {/* KPI 2 */}
+              <div className="group relative flex min-h-[135px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-emerald-400/50">
+                <div className="flex justify-between items-start w-full">
+                  <span className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/80">
+                    Taxa de Leituras
+                  </span>
+                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/15 p-2 transition-all group-hover:brightness-110">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  </div>
+                </div>
+                <div className="mt-auto space-y-1">
+                  <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#10B981]">
+                    {kpis.taxaConformidade}%
+                  </div>
+                  <div className="text-xs sm:text-[13px] font-medium text-slate-400 dark:text-gray-300">
+                    Leituras concluídas
+                  </div>
+                </div>
               </div>
-              <div className="rounded-2xl border border-white/8 bg-[#0B1020]/60 p-5">
-                {/* totalIts agora só conta ITs publicadas */}
-                <p className="text-3xl font-bold text-white">{kpis.totalIts}</p>
-                <p className="text-sm text-slate-400 mt-1">ITs publicadas</p>
+
+              {/* KPI 3 */}
+              <div className="group relative flex min-h-[135px] flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-purple-400/50">
+                <div className="flex justify-between items-start w-full">
+                  <span className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-slate-700 dark:text-white/80">
+                    ITs Publicadas
+                  </span>
+                  <div className="rounded-xl border border-purple-500/30 bg-purple-500/15 p-2 transition-all group-hover:brightness-110">
+                    <BookOpen className="w-4 h-4 text-purple-400" />
+                  </div>
+                </div>
+                <div className="mt-auto space-y-1">
+                  <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+                    {kpis.totalIts}
+                  </div>
+                  <div className="text-xs sm:text-[13px] font-medium text-slate-400 dark:text-gray-300">
+                    Instruções vigentes
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Pendências */}
-            <div className="rounded-2xl border border-white/8 bg-[#0B1020]/60 overflow-hidden">
-              <div className="px-5 py-4 border-b border-white/6">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            {/* Pendências Card — Padrão FIORIX */}
+            <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 overflow-hidden shadow-sm backdrop-blur-xl divide-y divide-white/8">
+              <div className="px-6 py-4.5 border-b border-white/10">
+                <p className="text-xs font-bold text-slate-400 dark:text-white/80 uppercase tracking-wider">
                   Pendências — resolva uma de cada vez
                 </p>
               </div>
@@ -947,12 +998,12 @@ export function InstrucoesTrabalhoClient({
               {pendencias.length === 0 ? (
                 <div className="py-16 text-center">
                   <CheckCircle2 className="mx-auto w-10 h-10 text-emerald-500/50 mb-3" />
-                  <p className="text-base font-semibold text-slate-700 dark:text-slate-300">Tudo em dia</p>
-                  <p className="text-sm text-slate-500 mt-1">Nenhuma pendência no momento.</p>
+                  <p className="text-base font-semibold text-white">Tudo em dia</p>
+                  <p className="text-xs text-slate-400 dark:text-white/40 mt-1">Nenhuma pendência no momento.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-white/6">
-                  {pendencias.map((pendencia, idx) => {
+                <div className="divide-y divide-white/8">
+                  {pendencias.map((pendencia) => {
                     // ── Pendências de aprovação ──
                     if (
                       pendencia.tipo === 'aguardando_analise' ||
@@ -962,7 +1013,6 @@ export function InstrucoesTrabalhoClient({
                       const p = pendencia.itPendente;
                       const isAnalise = pendencia.tipo === 'aguardando_analise';
                       const isCorrecao = pendencia.tipo === 'correcao_solicitada';
-                      const isPublicacao = pendencia.tipo === 'aguardando_publicacao';
 
                       let motivo = '';
                       let badgeText = '';
@@ -973,19 +1023,19 @@ export function InstrucoesTrabalhoClient({
                       if (isAnalise) {
                         motivo = 'Nova IT aguardando análise';
                         badgeText = 'Aguardando análise';
-                        badgeColor = 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30';
-                        iconColor = 'bg-indigo-500/15';
+                        badgeColor = 'bg-purple-500/15 text-purple-300 border-purple-500/30';
+                        iconColor = 'bg-purple-500/15';
                         acaoLabel = 'Analisar';
                       } else if (isCorrecao) {
                         motivo = 'Correção solicitada — aguardando reenvio';
                         badgeText = 'Correção solicitada';
-                        badgeColor = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+                        badgeColor = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
                         iconColor = 'bg-amber-500/15';
                         acaoLabel = 'Ver IT';
                       } else {
                         motivo = 'IT aprovada — aguardando publicação';
                         badgeText = 'Aguardando publicação';
-                        badgeColor = 'bg-teal-500/20 text-teal-300 border-teal-500/30';
+                        badgeColor = 'bg-teal-500/15 text-teal-300 border-teal-500/30';
                         iconColor = 'bg-teal-500/15';
                         acaoLabel = 'Publicar';
                       }
@@ -993,31 +1043,35 @@ export function InstrucoesTrabalhoClient({
                       return (
                         <div
                           key={`${p.id}-${pendencia.tipo}`}
-                          className="flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition-colors"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4.5 hover:bg-white/[0.03] transition-all"
                         >
-                          <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center ${iconColor}`}>
-                            <FileText className={`w-4 h-4 ${isAnalise ? 'text-indigo-400' : isCorrecao ? 'text-amber-400' : 'text-teal-400'}`} />
+                          <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                            <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${iconColor}`}>
+                              <FileText className={`w-4 h-4 ${isAnalise ? 'text-purple-400' : isCorrecao ? 'text-amber-400' : 'text-teal-400'}`} />
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-white text-sm sm:text-base truncate">{p.titulo}</p>
+                              <p className="text-xs text-slate-400 dark:text-white/40 mt-0.5">{p.codigo} • {motivo}</p>
+                            </div>
                           </div>
 
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-white text-sm truncate">{p.titulo}</p>
-                            <p className="text-xs text-slate-400 mt-0.5">{p.codigo} • {motivo}</p>
+                          <div className="flex items-center gap-3 shrink-0 flex-wrap sm:flex-nowrap">
+                            <span className="shrink-0 text-xs font-semibold text-slate-300 dark:text-white/80 bg-white/[0.05] border border-white/15 px-3 py-1 rounded-full">
+                              {p.departamento}
+                            </span>
+
+                            <span className={`shrink-0 text-xs font-bold px-3 py-1 rounded-full border ${badgeColor}`}>
+                              {badgeText}
+                            </span>
+
+                            <button
+                              onClick={() => setAnalisarModal(p)}
+                              className="shrink-0 px-4 py-1.5 rounded-xl border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] text-white text-xs font-semibold transition-all"
+                            >
+                              {acaoLabel}
+                            </button>
                           </div>
-
-                          <span className="hidden sm:inline-flex shrink-0 text-xs text-slate-400 bg-white/5 border border-white/8 px-2.5 py-1 rounded-lg">
-                            {p.departamento}
-                          </span>
-
-                          <span className={`shrink-0 text-xs font-bold px-2.5 py-1 rounded-full border ${badgeColor}`}>
-                            {badgeText}
-                          </span>
-
-                          <button
-                            onClick={() => setAnalisarModal(p)}
-                            className="shrink-0 px-4 py-1.5 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors"
-                          >
-                            {acaoLabel}
-                          </button>
                         </div>
                       );
                     }
@@ -1036,54 +1090,58 @@ export function InstrucoesTrabalhoClient({
                     if (isVencida) {
                       motivo2 = 'Revisão vencida';
                       badgeText2 = `${item.diasSemRevisao - 120}d em atraso`;
-                      badgeColor2 = 'bg-red-500/20 text-red-300 border-red-500/30';
+                      badgeColor2 = 'bg-rose-500/15 text-rose-300 border-rose-500/30';
                       acaoLabel2 = 'Revisar';
                     } else if (isProxima) {
                       const diasRestantes = 120 - item.diasSemRevisao;
                       motivo2 = 'Revisão próxima do vencimento';
                       badgeText2 = `${diasRestantes}d`;
-                      badgeColor2 = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+                      badgeColor2 = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
                       acaoLabel2 = 'Revisar';
                     } else {
                       motivo2 = `${item.pendentesCount} colaborador${item.pendentesCount !== 1 ? 'es' : ''} ainda não confirmaram a leitura`;
                       badgeText2 = `${item.pendentesCount} pendente${item.pendentesCount !== 1 ? 's' : ''}`;
-                      badgeColor2 = 'bg-rose-500/20 text-rose-300 border-rose-500/30';
+                      badgeColor2 = 'bg-rose-500/15 text-rose-300 border-rose-500/30';
                       acaoLabel2 = 'Ver pessoas';
                     }
 
                     return (
                       <div
                         key={`${item.id}-${pendencia.tipo}`}
-                        className="flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition-colors"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4.5 hover:bg-white/[0.03] transition-all"
                       >
-                        <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center ${
-                          isVencida ? 'bg-red-500/15' : isProxima ? 'bg-amber-500/15' : 'bg-rose-500/15'
-                        }`}>
-                          {(isVencida || isProxima)
-                            ? <RotateCcw className={`w-4 h-4 ${isVencida ? 'text-red-400' : 'text-amber-400'}`} />
-                            : <Users className="w-4 h-4 text-rose-400" />
-                          }
+                        <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                          <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${
+                            isVencida ? 'bg-rose-500/15' : isProxima ? 'bg-amber-500/15' : 'bg-rose-500/15'
+                          }`}>
+                            {(isVencida || isProxima)
+                              ? <RotateCcw className={`w-4 h-4 ${isVencida ? 'text-rose-400' : 'text-amber-400'}`} />
+                              : <Users className="w-4 h-4 text-rose-400" />
+                            }
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-white text-sm sm:text-base truncate">{item.titulo}</p>
+                            <p className="text-xs text-slate-400 dark:text-white/40 mt-0.5">{motivo2}</p>
+                          </div>
                         </div>
 
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-white text-sm truncate">{item.titulo}</p>
-                          <p className="text-xs text-slate-400 mt-0.5">{motivo2}</p>
+                        <div className="flex items-center gap-3 shrink-0 flex-wrap sm:flex-nowrap">
+                          <span className="shrink-0 text-xs font-semibold text-slate-300 dark:text-white/80 bg-white/[0.05] border border-white/15 px-3 py-1 rounded-full">
+                            {item.departamento}
+                          </span>
+
+                          <span className={`shrink-0 text-xs font-bold px-3 py-1 rounded-full border ${badgeColor2}`}>
+                            {badgeText2}
+                          </span>
+
+                          <button
+                            onClick={() => { if (isCiencia) setPessoasModal(item); }}
+                            className="shrink-0 px-4 py-1.5 rounded-xl border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] text-white text-xs font-semibold transition-all"
+                          >
+                            {acaoLabel2}
+                          </button>
                         </div>
-
-                        <span className="hidden sm:inline-flex shrink-0 text-xs text-slate-400 bg-white/5 border border-white/8 px-2.5 py-1 rounded-lg">
-                          {item.departamento}
-                        </span>
-
-                        <span className={`shrink-0 text-xs font-bold px-2.5 py-1 rounded-full border ${badgeColor2}`}>
-                          {badgeText2}
-                        </span>
-
-                        <button
-                          onClick={() => { if (isCiencia) setPessoasModal(item); }}
-                          className="shrink-0 px-4 py-1.5 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-white text-xs font-semibold transition-colors"
-                        >
-                          {acaoLabel2}
-                        </button>
                       </div>
                     );
                   })}
