@@ -62,6 +62,7 @@ export function AuditoriaDashboardClient() {
   const [filtroResponsavel, setFiltroResponsavel] = useState<string>("todos");
   const [loading, setLoading] = useState(false);
   const [lastAuditAt, setLastAuditAt] = useState<string | null>(null);
+  const [totalAuditados, setTotalAuditados] = useState<number>(0);
 
   // Calculated metrics from real data
   const metrics = useMemo(() => {
@@ -91,6 +92,7 @@ export function AuditoriaDashboardClient() {
       const json = await res.json();
       if (json.success && Array.isArray(json.protocolos)) {
         setProtocolos(json.protocolos);
+        setTotalAuditados(Number(json.totalAuditados) || json.protocolos.length);
         setLastAuditAt(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
         if (!silent) {
           toast.success("Auditoria recalculada!", {
@@ -99,10 +101,12 @@ export function AuditoriaDashboardClient() {
         }
       } else {
         setProtocolos([]);
+        setTotalAuditados(0);
       }
     } catch {
       if (!silent) toast.error("Falha ao carregar auditoria.");
       setProtocolos([]);
+      setTotalAuditados(0);
     } finally {
       if (!silent) setLoading(false);
     }
@@ -287,7 +291,7 @@ export function AuditoriaDashboardClient() {
         <div className="text-slate-400 dark:text-white/60 text-xs flex flex-wrap items-center gap-3">
           <span>Última auditoria: {lastAuditAt ? `hoje ${lastAuditAt}` : "carregando..."}</span>
           <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-white/20"></span>
-          <span>{protocolos.length.toLocaleString("pt-BR")} títulos auditados</span>
+          <span>{(totalAuditados || protocolos.length).toLocaleString("pt-BR")} títulos auditados</span>
           <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-white/20"></span>
           <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
             Dados reais

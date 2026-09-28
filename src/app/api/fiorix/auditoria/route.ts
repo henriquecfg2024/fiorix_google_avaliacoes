@@ -44,6 +44,15 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Usuário não encontrado" }, { status: 404 });
     }
 
+    const countTotalRaw = await prisma.$queryRaw<{ total: number }[]>(
+      Prisma.sql`
+        SELECT COUNT(*)::int AS total
+        FROM public.fiorix_metas_dados
+        WHERE tenant_id = ${user.tenantId}
+      `
+    ).catch(() => [{ total: 0 }]);
+    const totalAuditados = countTotalRaw[0]?.total || 0;
+
     const rawDados = await prisma.$queryRaw<AuditoriaRow[]>(
       Prisma.sql`
         WITH eventos_bi AS (
@@ -114,7 +123,7 @@ export async function GET() {
             OR (e.has_devolucao = true AND m.d_balcao_devolvido IS NULL)
           )
         ORDER BY m.protocolo ASC
-        LIMIT 500
+        LIMIT 10000
       `
     );
 
@@ -178,6 +187,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
+      totalAuditados,
       protocolos: mapped,
     });
   } catch (error: unknown) {
