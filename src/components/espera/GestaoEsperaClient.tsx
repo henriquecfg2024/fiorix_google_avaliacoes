@@ -19,6 +19,8 @@ import {
   Radio,
   Activity,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   Loader2,
   XCircle,
   Coffee,
@@ -46,6 +48,18 @@ type Aba =
   | 'agentes'
   | 'suspensoes'
   | 'agendamentos';
+
+type SortField =
+  | 'emissao'
+  | 'chamada'
+  | 'tempoEsperaMin'
+  | 'tempoAtendimentoMin'
+  | 'senha'
+  | 'atendente'
+  | 'servico'
+  | 'fila'
+  | 'guiche'
+  | 'situacao';
 
 interface SenhaRecord {
   id: string;
@@ -185,6 +199,115 @@ function CircularSlaGauge({ percentage }: { percentage: number }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// FUNÇÃO DE ORDENAÇÃO DINÂMICA
+// ─────────────────────────────────────────────────────────────────────────────
+function sortRecordsList(records: SenhaRecord[], field: SortField, dir: 'asc' | 'desc'): SenhaRecord[] {
+  return [...records].sort((a, b) => {
+    let comparison = 0;
+    switch (field) {
+      case 'emissao': {
+        const valA = a.emissao !== '—' ? a.emissao : '';
+        const valB = b.emissao !== '—' ? b.emissao : '';
+        comparison = valA.localeCompare(valB);
+        break;
+      }
+      case 'chamada': {
+        const valA = a.chamada !== '—' ? a.chamada : '';
+        const valB = b.chamada !== '—' ? b.chamada : '';
+        comparison = valA.localeCompare(valB);
+        break;
+      }
+      case 'tempoEsperaMin': {
+        const valA = a.tempoEsperaMin ?? -1;
+        const valB = b.tempoEsperaMin ?? -1;
+        comparison = valA - valB;
+        break;
+      }
+      case 'tempoAtendimentoMin': {
+        const valA = a.tempoAtendimentoMin ?? -1;
+        const valB = b.tempoAtendimentoMin ?? -1;
+        comparison = valA - valB;
+        break;
+      }
+      case 'senha': {
+        comparison = a.senha.localeCompare(b.senha, undefined, { numeric: true, sensitivity: 'base' });
+        break;
+      }
+      case 'atendente': {
+        const valA = a.atendente !== '—' ? a.atendente : '';
+        const valB = b.atendente !== '—' ? b.atendente : '';
+        comparison = valA.localeCompare(valB);
+        break;
+      }
+      case 'servico': {
+        comparison = a.servico.localeCompare(b.servico);
+        break;
+      }
+      case 'fila': {
+        comparison = a.fila.localeCompare(b.fila);
+        break;
+      }
+      case 'guiche': {
+        comparison = a.guiche.localeCompare(b.guiche, undefined, { numeric: true, sensitivity: 'base' });
+        break;
+      }
+      case 'situacao': {
+        comparison = a.situacao.localeCompare(b.situacao);
+        break;
+      }
+      default:
+        comparison = 0;
+    }
+    return dir === 'desc' ? -comparison : comparison;
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CABEÇALHO CLICÁVEL DE ORDENAÇÃO
+// ─────────────────────────────────────────────────────────────────────────────
+function SortHeader({
+  label,
+  field,
+  currentField,
+  currentDir,
+  onSort,
+  align = 'left',
+  className = '',
+}: {
+  label: string;
+  field: SortField;
+  currentField: SortField;
+  currentDir: 'asc' | 'desc';
+  onSort: (field: SortField) => void;
+  align?: 'left' | 'right' | 'center';
+  className?: string;
+}) {
+  const isActive = currentField === field;
+  return (
+    <th
+      onClick={() => onSort(field)}
+      className={`py-3 px-3 cursor-pointer select-none transition-colors group hover:text-white ${
+        isActive ? 'text-indigo-300 font-bold bg-white/[0.04]' : 'text-slate-400'
+      } ${align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'} ${className}`}
+      title={`Clique para ordenar por ${label} (${isActive && currentDir === 'asc' ? 'Decrescente' : 'Crescente'})`}
+    >
+      <div className={`inline-flex items-center gap-1.5 ${align === 'right' ? 'justify-end' : ''}`}>
+        <span>{label}</span>
+        {isActive ? (
+          currentDir === 'asc' ? (
+            <ArrowUp className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+          ) : (
+            <ArrowDown className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+          )
+        ) : (
+          <ArrowUpDown className="w-3.5 h-3.5 opacity-25 group-hover:opacity-100 transition-opacity shrink-0" />
+        )}
+      </div>
+    </th>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────────────────────────────────────
 export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Props) {
@@ -198,7 +321,17 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
   const [filtroAtendente, setFiltroAtendente] = useState('');
   const [filtroSituacao, setFiltroSituacao] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState<SortField>('emissao');
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
+
+  const handleHeaderSort = useCallback((field: SortField) => {
+    if (sortField === field) {
+      setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDir(field === 'tempoEsperaMin' || field === 'emissao' || field === 'chamada' ? 'desc' : 'asc');
+    }
+  }, [sortField]);
 
   // Sincronizar com prop do servidor
   useEffect(() => {
@@ -305,7 +438,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
       .sort((a, b) => b.total - a.total);
   }, [allRecords, slaMinutes]);
 
-  // Filtros aplicados na tabela de atendimentos
+  // Filtros e ordenação aplicados na tabela de atendimentos
   const filteredRecords = useMemo(() => {
     let result = allRecords;
     if (filtroServico) result = result.filter((r) => r.servico === filtroServico);
@@ -322,8 +455,24 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
           (r.cliente && r.cliente.toLowerCase().includes(q))
       );
     }
-    return result;
-  }, [allRecords, filtroServico, filtroFila, filtroAtendente, filtroSituacao, searchQuery]);
+    return sortRecordsList(result, sortField, sortDir);
+  }, [allRecords, filtroServico, filtroFila, filtroAtendente, filtroSituacao, searchQuery, sortField, sortDir]);
+
+  // Registros ordenados e filtrados para prévia na Visão Geral
+  const previewRecords = useMemo(() => {
+    let list = allRecords;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (r) =>
+          r.senha.toLowerCase().includes(q) ||
+          r.atendente.toLowerCase().includes(q) ||
+          r.servico.toLowerCase().includes(q) ||
+          (r.cliente && r.cliente.toLowerCase().includes(q))
+      );
+    }
+    return sortRecordsList(list, sortField, sortDir);
+  }, [allRecords, searchQuery, sortField, sortDir]);
 
   // Exportar dados para CSV
   const handleExportCSV = useCallback(() => {
@@ -876,40 +1025,87 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
                   </div>
                 </div>
 
-                {/* Prévia de Atendimentos Recentes */}
+                {/* Prévia de Atendimentos Recentes com Busca e Ordenação */}
                 {allRecords.length > 0 && (
                   <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-xl space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
                         <Activity className="w-4 h-4 text-indigo-400" />
                         <h3 className="text-sm font-bold text-white">Últimas Senhas Processadas</h3>
+                        <span className="text-[10px] text-slate-500 font-mono">({allRecords.length} registros reais)</span>
                       </div>
                       <button
                         type="button"
                         onClick={() => setActiveAba('atendimentos')}
-                        className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
+                        className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer inline-flex items-center gap-1"
                       >
-                        Ver todas ({allRecords.length}) →
+                        <span>Ver todas ({allRecords.length})</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
                       </button>
+                    </div>
+
+                    {/* Barra de Busca e Menu de Ordenação */}
+                    <div className="flex flex-col sm:flex-row gap-3 pt-1">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Buscar por senha, atendente ou serviço..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full pl-9 pr-4 py-2 rounded-xl border border-white/15 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-all"
+                        />
+                      </div>
+
+                      {/* Dropdown Menu de Ordenação */}
+                      <div className="flex items-center gap-2">
+                        <div className="relative inline-flex items-center bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs hover:bg-white/10 transition-all">
+                          <ArrowUpDown className="w-3.5 h-3.5 text-indigo-400 mr-2 shrink-0" />
+                          <select
+                            value={`${sortField}-${sortDir}`}
+                            onChange={(e) => {
+                              const [f, d] = e.target.value.split('-') as [SortField, 'asc' | 'desc'];
+                              setSortField(f);
+                              setSortDir(d);
+                            }}
+                            className="bg-transparent text-white font-medium text-xs focus:outline-none cursor-pointer pr-2"
+                            title="Menu de ordenação"
+                          >
+                            <option value="emissao-desc" className="bg-[#0B1020] text-white">Mais recentes (Emissão)</option>
+                            <option value="emissao-asc" className="bg-[#0B1020] text-white">Mais antigas (Emissão)</option>
+                            <option value="tempoEsperaMin-desc" className="bg-[#0B1020] text-white">Maior tempo de espera</option>
+                            <option value="tempoEsperaMin-asc" className="bg-[#0B1020] text-white">Menor tempo de espera</option>
+                            <option value="chamada-desc" className="bg-[#0B1020] text-white">Chamada mais recente</option>
+                            <option value="senha-asc" className="bg-[#0B1020] text-white">Senha (A → Z)</option>
+                            <option value="senha-desc" className="bg-[#0B1020] text-white">Senha (Z → A)</option>
+                            <option value="atendente-asc" className="bg-[#0B1020] text-white">Atendente (A → Z)</option>
+                            <option value="atendente-desc" className="bg-[#0B1020] text-white">Atendente (Z → A)</option>
+                            <option value="servico-asc" className="bg-[#0B1020] text-white">Serviço (A → Z)</option>
+                            <option value="fila-asc" className="bg-[#0B1020] text-white">Fila (A → Z)</option>
+                            <option value="guiche-asc" className="bg-[#0B1020] text-white">Guichê / Mesa</option>
+                            <option value="situacao-asc" className="bg-[#0B1020] text-white">Situação</option>
+                          </select>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
                       <table className="w-full text-left text-xs">
                         <thead className="bg-[#080811] text-[11px] font-mono uppercase text-slate-400 border-b border-white/8">
                           <tr>
-                            <th className="py-3 px-4">Senha</th>
-                            <th className="py-3 px-3">Serviço</th>
-                            <th className="py-3 px-3">Fila</th>
-                            <th className="py-3 px-3">Emissão</th>
-                            <th className="py-3 px-3">Chamada</th>
-                            <th className="py-3 px-3 text-right">Espera</th>
-                            <th className="py-3 px-3">Guichê</th>
-                            <th className="py-3 px-3">Atendente</th>
-                            <th className="py-3 px-4">Situação</th>
+                            <SortHeader label="Senha" field="senha" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} className="px-4" />
+                            <SortHeader label="Serviço" field="servico" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} />
+                            <SortHeader label="Fila" field="fila" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} />
+                            <SortHeader label="Emissão" field="emissao" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} />
+                            <SortHeader label="Chamada" field="chamada" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} />
+                            <SortHeader label="Espera" field="tempoEsperaMin" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} align="right" />
+                            <SortHeader label="Guichê" field="guiche" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} />
+                            <SortHeader label="Atendente" field="atendente" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} />
+                            <SortHeader label="Situação" field="situacao" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} className="px-4" />
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/6 text-slate-300">
-                          {allRecords.slice(0, 10).map((r) => (
+                          {previewRecords.slice(0, 50).map((r) => (
                             <tr key={r.id} className="hover:bg-white/[0.02] transition-colors">
                               <td className="py-3 px-4 font-bold text-white font-mono">{r.senha}</td>
                               <td className="py-3 px-3">{r.servico}</td>
@@ -952,6 +1148,13 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
                           ))}
                         </tbody>
                       </table>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2 pt-1">
+                      <span>Exibindo {Math.min(50, previewRecords.length)} de {previewRecords.length} registros</span>
+                      <span className="text-[11px] font-mono text-slate-400">
+                        Clique em qualquer cabeçalho ou selecione no menu para ordenar
+                      </span>
                     </div>
                   </div>
                 )}
@@ -1128,14 +1331,33 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
                       />
                     </div>
                     <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setSortDir(sortDir === 'desc' ? 'asc' : 'desc')}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer whitespace-nowrap"
-                      >
-                        <ArrowUpDown className="w-3.5 h-3.5" />
-                        <span>{sortDir === 'desc' ? 'Maior espera' : 'Menor espera'}</span>
-                      </button>
+                      <div className="relative inline-flex items-center bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs hover:bg-white/10 transition-all">
+                        <ArrowUpDown className="w-3.5 h-3.5 text-indigo-400 mr-2 shrink-0" />
+                        <select
+                          value={`${sortField}-${sortDir}`}
+                          onChange={(e) => {
+                            const [f, d] = e.target.value.split('-') as [SortField, 'asc' | 'desc'];
+                            setSortField(f);
+                            setSortDir(d);
+                          }}
+                          className="bg-transparent text-white font-medium text-xs focus:outline-none cursor-pointer pr-2"
+                        >
+                          <option value="emissao-desc" className="bg-[#0B1020] text-white">Mais recentes (Emissão)</option>
+                          <option value="emissao-asc" className="bg-[#0B1020] text-white">Mais antigas (Emissão)</option>
+                          <option value="tempoEsperaMin-desc" className="bg-[#0B1020] text-white">Maior tempo de espera</option>
+                          <option value="tempoEsperaMin-asc" className="bg-[#0B1020] text-white">Menor tempo de espera</option>
+                          <option value="tempoAtendimentoMin-desc" className="bg-[#0B1020] text-white">Maior tempo atendimento</option>
+                          <option value="chamada-desc" className="bg-[#0B1020] text-white">Chamada mais recente</option>
+                          <option value="senha-asc" className="bg-[#0B1020] text-white">Senha (A → Z)</option>
+                          <option value="senha-desc" className="bg-[#0B1020] text-white">Senha (Z → A)</option>
+                          <option value="atendente-asc" className="bg-[#0B1020] text-white">Atendente (A → Z)</option>
+                          <option value="atendente-desc" className="bg-[#0B1020] text-white">Atendente (Z → A)</option>
+                          <option value="servico-asc" className="bg-[#0B1020] text-white">Serviço (A → Z)</option>
+                          <option value="fila-asc" className="bg-[#0B1020] text-white">Fila (A → Z)</option>
+                          <option value="guiche-asc" className="bg-[#0B1020] text-white">Guichê / Mesa</option>
+                          <option value="situacao-asc" className="bg-[#0B1020] text-white">Situação</option>
+                        </select>
+                      </div>
                       <button
                         type="button"
                         onClick={handleExportCSV}
@@ -1239,17 +1461,17 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
                       <table className="w-full text-left text-xs">
                         <thead className="bg-[#080811] text-[11px] font-mono uppercase text-slate-400 border-b border-white/8">
                           <tr>
-                            <th className="py-3.5 px-4">Senha</th>
+                            <SortHeader label="Senha" field="senha" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} className="px-4" />
                             <th className="py-3.5 px-3">Cliente</th>
-                            <th className="py-3.5 px-3">Serviço & Fila</th>
-                            <th className="py-3.5 px-3">Emissão</th>
-                            <th className="py-3.5 px-3">Chamada</th>
-                            <th className="py-3.5 px-3 text-right">Espera</th>
-                            <th className="py-3.5 px-3 text-right">Atendimento</th>
-                            <th className="py-3.5 px-3">Mesa / Guichê</th>
-                            <th className="py-3.5 px-3">Atendente</th>
+                            <SortHeader label="Serviço & Fila" field="servico" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} />
+                            <SortHeader label="Emissão" field="emissao" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} />
+                            <SortHeader label="Chamada" field="chamada" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} />
+                            <SortHeader label="Espera" field="tempoEsperaMin" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} align="right" />
+                            <SortHeader label="Atendimento" field="tempoAtendimentoMin" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} align="right" />
+                            <SortHeader label="Guichê" field="guiche" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} />
+                            <SortHeader label="Atendente" field="atendente" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} />
                             <th className="py-3.5 px-3">Avaliação</th>
-                            <th className="py-3.5 px-4">Situação</th>
+                            <SortHeader label="Situação" field="situacao" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} className="px-4" />
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/6 text-slate-300">
