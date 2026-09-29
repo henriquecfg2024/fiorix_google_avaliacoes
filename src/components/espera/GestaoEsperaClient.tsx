@@ -1152,28 +1152,55 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
                     </div>
 
                     {/* CSAT / Avaliação */}
-                    <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                          Satisfação do Usuário (CSAT)
-                        </span>
-                        <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                          <ThumbsUp className="w-4 h-4 text-amber-400" />
+                    {(() => {
+                      const csatVal = kpis?.csatMediaPerc ?? 96;
+                      const isGreen = csatVal >= 80;
+                      const isAmber = csatVal >= 65 && csatVal < 80;
+                      const textColor = isGreen
+                        ? 'text-emerald-400'
+                        : isAmber
+                        ? 'text-amber-400'
+                        : 'text-rose-400';
+                      const badgeBg = isGreen
+                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                        : isAmber
+                        ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                        : 'bg-rose-500/10 border-rose-500/20 text-rose-400';
+                      const iconBg = isGreen
+                        ? 'bg-emerald-500/10 border-emerald-500/20'
+                        : isAmber
+                        ? 'bg-amber-500/10 border-amber-500/20'
+                        : 'bg-rose-500/10 border-rose-500/20';
+                      const label = isGreen ? 'Excelente' : isAmber ? 'Atenção' : 'Crítico';
+
+                      return (
+                        <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                              Satisfação do Usuário (CSAT)
+                            </span>
+                            <div className={`p-1.5 rounded-lg border ${iconBg}`}>
+                              <ThumbsUp className={`w-4 h-4 ${textColor}`} />
+                            </div>
+                          </div>
+                          <div className="my-2 flex items-baseline gap-2">
+                            <span className={`text-3xl font-black font-mono ${textColor}`}>
+                              {csatVal}%
+                            </span>
+                            <span className="text-xs text-slate-400">aprovação</span>
+                            <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeBg}`}>
+                              {label}
+                            </span>
+                          </div>
+                          <div className="pt-3 border-t border-white/6 flex items-center justify-between text-xs text-slate-400">
+                            <span>Agendamentos integrados:</span>
+                            <span className="font-bold text-white font-mono">
+                              {kpis?.totalAgendamentos ?? agendamentos.length}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="my-2 flex items-baseline gap-2">
-                        <span className="text-3xl font-black text-amber-400 font-mono">
-                          {kpis?.csatMediaPerc ? `${kpis.csatMediaPerc}%` : '96%'}
-                        </span>
-                        <span className="text-xs text-slate-400">aprovação</span>
-                      </div>
-                      <div className="pt-3 border-t border-white/6 flex items-center justify-between text-xs text-slate-400">
-                        <span>Agendamentos integrados:</span>
-                        <span className="font-bold text-white font-mono">
-                          {kpis?.totalAgendamentos ?? agendamentos.length}
-                        </span>
-                      </div>
-                    </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -1994,7 +2021,15 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
                               </td>
                               <td className="py-3 px-4 text-right">
                                 {agente.csatScore ? (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                                  <span
+                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                      agente.csatScore >= 80
+                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                        : agente.csatScore >= 65
+                                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                        : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                                    }`}
+                                  >
                                     ★ {agente.csatScore}%
                                   </span>
                                 ) : (
