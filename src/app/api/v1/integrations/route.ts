@@ -166,6 +166,7 @@ export async function POST(req: NextRequest) {
     const upsertData: any = {
       displayName,
       status: 'CONNECTED' as const,
+      isActive: true,
       configuredAt: now,
       configuredBy: user.name || user.email || user.id,
       updatedAt: now,
@@ -302,6 +303,7 @@ export async function POST(req: NextRequest) {
           lastTestOk: testOk,
           lastTestLatency: latencyMs,
           status: testOk ? 'CONNECTED' : 'ATTENTION',
+          isActive: true,
           lastSyncAt: testOk ? now : undefined,
         },
       });
@@ -387,6 +389,7 @@ export async function PATCH(req: NextRequest) {
           lastTestOk: true,
           lastTestLatency: latencyMs,
           status: 'CONNECTED',
+          isActive: true,
           lastSyncAt: new Date(),
         },
       });

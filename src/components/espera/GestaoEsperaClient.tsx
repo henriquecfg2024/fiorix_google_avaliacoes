@@ -51,6 +51,7 @@ interface Props {
 // COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────────────────────────────────────
 export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Props) {
+  const [configured, setConfigured] = useState(isConfigured);
   const [periodo, setPeriodo] = useState<Periodo>('hoje');
   const [activeAba, setActiveAba] = useState<Aba>('visao_geral');
   const [filtroServico, setFiltroServico] = useState('');
@@ -58,6 +59,11 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
   const [filtroAtendente, setFiltroAtendente] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  // Sincronizar com prop do servidor quando alterar
+  useEffect(() => {
+    setConfigured(isConfigured);
+  }, [isConfigured]);
 
   // Estado de dados reais
   const [allRecords, setAllRecords] = useState<SenhaRecord[]>([]);
@@ -76,6 +82,12 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
     try {
       const res = await fetch(`/api/v1/espera/senhas?periodo=${periodo}`);
       const data = await res.json();
+
+      if (data.configured === false) {
+        setConfigured(false);
+      } else if (data.configured === true || (data.records && res.ok)) {
+        setConfigured(true);
+      }
 
       if (!res.ok) {
         setApiError(data.error || 'Erro ao carregar dados.');
@@ -100,8 +112,8 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
   }, [periodo]);
 
   useEffect(() => {
-    if (isConfigured) fetchData();
-  }, [fetchData, isConfigured]);
+    fetchData();
+  }, [fetchData]);
 
   // Cálculos derivados dos dados reais
   const recordsWithWait = useMemo(() => allRecords.filter((r) => r.tempoEsperaMin !== null), [allRecords]);
@@ -152,7 +164,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
   // ─────────────────────────────────────────────────────────────────────────
   // ESTADO VAZIO: NextQS não configurado
   // ─────────────────────────────────────────────────────────────────────────
-  if (!isConfigured) {
+  if (!configured) {
     return (
       <div className="min-h-screen bg-[#070A12] text-white relative overflow-hidden pb-12">
         <div className="pointer-events-none absolute inset-0">
@@ -179,12 +191,23 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
                   Conecte o NextQS para visualizar os indicadores e relatórios de espera da sua organização.
                 </p>
               </div>
-              {isAdmin && (
-                <a href="/configuracoes/parametros?tab=integracoes"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-lg shadow-indigo-600/20 transition-all active:scale-95">
-                  <Settings className="w-4 h-4" /><span>Configurar integração</span>
-                </a>
-              )}
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => fetchData()}
+                  disabled={isLoading}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-white text-sm font-semibold transition-all active:scale-95 disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  <span>{isLoading ? 'Verificando...' : 'Verificar conexão'}</span>
+                </button>
+                {isAdmin && (
+                  <a href="/configuracoes/parametros?tab=integracoes"
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold shadow-lg shadow-indigo-600/20 transition-all active:scale-95">
+                    <Settings className="w-4 h-4" /><span>Configurar integração</span>
+                  </a>
+                )}
+              </div>
             </div>
           </div>
         </main>

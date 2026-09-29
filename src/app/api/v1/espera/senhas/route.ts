@@ -139,10 +139,10 @@ export async function GET(req: NextRequest) {
 
     // 1. Buscar configuração NextQS do tenant
     const config = await prisma.integrationConfig.findFirst({
-      where: { tenantId, integrationId: 'nextqs', isActive: true },
+      where: { tenantId, integrationId: 'nextqs' },
     });
 
-    if (!config || !config.encryptedConfig || !config.configIv) {
+    if (!config || !config.encryptedConfig || !config.configIv || config.status === 'DISCONNECTED') {
       return NextResponse.json({
         configured: false,
         records: [],
@@ -150,6 +150,14 @@ export async function GET(req: NextRequest) {
         lastSyncAt: null,
         error: 'Integração NextQS não configurada para esta organização.',
       });
+    }
+
+    // Auto-heal: se possuir credenciais válidas e não estiver desconectado, garantir isActive: true
+    if (!config.isActive && config.status !== 'DISCONNECTED') {
+      await prisma.integrationConfig.update({
+        where: { id: config.id },
+        data: { isActive: true },
+      }).catch(() => null);
     }
 
     // 2. Decriptografar credenciais (server-side only)

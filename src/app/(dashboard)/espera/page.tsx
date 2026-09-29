@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { GestaoEsperaClient } from '@/components/espera/GestaoEsperaClient';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function EsperaPage() {
   let user;
@@ -21,17 +22,25 @@ export default async function EsperaPage() {
 
   const isAdmin = user.role === 'MASTER' || user.role === 'ADMIN';
 
-  // Verificar se a integração NextQS está configurada e ativa no tenant
+  // Verificar se a integração NextQS está configurada no tenant
   const nextqsConfig = await prisma.integrationConfig.findFirst({
     where: {
       tenantId: user.tenantId,
       integrationId: 'nextqs',
-      isActive: true,
     },
-    select: { id: true, status: true, encryptedConfig: true },
+    select: { id: true, status: true, encryptedConfig: true, configIv: true, isActive: true },
   });
 
-  const isConfigured = !!(nextqsConfig && nextqsConfig.encryptedConfig);
+  const hasCredentials = !!(nextqsConfig && nextqsConfig.encryptedConfig && nextqsConfig.configIv);
+  const isConfigured = hasCredentials && nextqsConfig.status !== 'DISCONNECTED';
+
+  // Auto-heal: se possui credenciais salvas e não está desconectado, garantir isActive: true
+  if (hasCredentials && !nextqsConfig.isActive && nextqsConfig.status !== 'DISCONNECTED') {
+    await prisma.integrationConfig.update({
+      where: { id: nextqsConfig.id },
+      data: { isActive: true },
+    }).catch(() => null);
+  }
 
   return (
     <GestaoEsperaClient
