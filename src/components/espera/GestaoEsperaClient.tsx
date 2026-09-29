@@ -33,6 +33,8 @@ import {
   ChevronRight,
   Clock,
   ExternalLink,
+  Info,
+  X,
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -142,12 +144,49 @@ interface Props {
 // ─────────────────────────────────────────────────────────────────────────────
 // GAUGE CIRCULAR SVG
 // ─────────────────────────────────────────────────────────────────────────────
-function CircularSlaGauge({ percentage }: { percentage: number }) {
+function CircularSlaGauge({
+  percentage,
+  slaMinutes = 15,
+  isOpen = false,
+  onToggleOpen,
+  onClose,
+}: {
+  percentage: number;
+  slaMinutes?: number;
+  isOpen?: boolean;
+  onToggleOpen?: () => void;
+  onClose?: () => void;
+}) {
   const radius = 64;
   const strokeWidth = 10;
   const circumference = 2 * Math.PI * radius;
   const safePercentage = Math.min(100, Math.max(0, percentage));
   const strokeDashoffset = circumference - (safePercentage / 100) * circumference;
+
+  const [isHovered, setIsHovered] = useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const showPopover = isOpen || isHovered;
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsHovered(false);
+        if (onClose) onClose();
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsHovered(false);
+        if (onClose) onClose();
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
 
   let color = '#10B981'; // emerald-500
   let label = 'Meta Atingida';
@@ -172,8 +211,15 @@ function CircularSlaGauge({ percentage }: { percentage: number }) {
   }
 
   return (
-    <div className="relative flex flex-col items-center justify-center p-2">
-      <svg className="w-40 h-40 transform -rotate-90">
+    <div
+      ref={containerRef}
+      className="relative flex flex-col items-center justify-center p-2 cursor-pointer group"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={() => onToggleOpen?.()}
+      title="Clique ou passe o cursor sobre o SLA Geral para ver os critérios explicativos"
+    >
+      <svg className="w-40 h-40 transform -rotate-90 group-hover:scale-[1.03] transition-transform duration-300">
         <circle
           cx="80"
           cy="80"
@@ -195,13 +241,218 @@ function CircularSlaGauge({ percentage }: { percentage: number }) {
           fill="transparent"
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <span className="text-3xl font-black font-mono tracking-tight text-white">{safePercentage}%</span>
-        <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400">SLA Geral</span>
-        <span className={`mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeBg}`}>
+
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none pointer-events-none">
+        <span className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-emerald-300 transition-colors">
+          {safePercentage}%
+        </span>
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400 group-hover:text-indigo-300 transition-colors">
+            SLA Geral
+          </span>
+          <Info className="w-3 h-3 text-slate-500 group-hover:text-indigo-400 transition-colors" />
+        </div>
+        <span className={`mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-sm ${badgeBg}`}>
           {label}
         </span>
+        <span className="text-[9px] text-slate-500 group-hover:text-slate-400 transition-colors mt-0.5 font-medium">
+          Ver critérios
+        </span>
       </div>
+
+      {/* POPUP FLUTUANTE COM QUADRO EXPLICATIVO */}
+      {showPopover && (
+        <div
+          className="absolute z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[460px] max-w-[calc(100vw-2.5rem)] bg-[#0B1020]/95 backdrop-blur-2xl border border-indigo-500/30 rounded-2xl p-4 shadow-2xl shadow-black/95 animate-in fade-in zoom-in-95 duration-200 text-left cursor-default pointer-events-auto"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Cabeçalho do Popover */}
+          <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <div className="p-1 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                <ShieldCheck className="w-4 h-4 text-indigo-400" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white tracking-wide">
+                  Critérios de Classificação do SLA Geral
+                </h4>
+                <p className="text-[10px] text-slate-400">
+                  Índice Atual:{' '}
+                  <span className="font-mono font-bold text-emerald-400">
+                    {safePercentage}% ({label})
+                  </span>
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsHovered(false);
+                if (onClose) onClose();
+              }}
+              className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+              title="Fechar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Tabela de Classificação */}
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-white/10 bg-white/[0.03] text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                  <th className="py-2 px-2.5">Faixa de SLA</th>
+                  <th className="py-2 px-2 text-center">Cor</th>
+                  <th className="py-2 px-2">Status / Selo</th>
+                  <th className="py-2 px-2.5">Descrição</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {/* Linha >= 90% */}
+                <tr
+                  className={`transition-colors ${
+                    safePercentage >= 90
+                      ? 'bg-emerald-500/15 border-l-2 border-emerald-400 font-medium'
+                      : 'hover:bg-white/[0.02]'
+                  }`}
+                >
+                  <td className="py-2 px-2.5 font-mono font-bold text-white whitespace-nowrap">
+                    ≥ 90%
+                  </td>
+                  <td className="py-2 px-2 text-center">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
+                      <span className="text-[10px] text-slate-300 hidden sm:inline">Verde</span>
+                    </div>
+                  </td>
+                  <td className="py-2 px-2">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
+                      Excelente
+                    </span>
+                  </td>
+                  <td className="py-2 px-2.5 text-slate-300 text-[11px]">
+                    Desempenho acima da média
+                    {safePercentage >= 90 && (
+                      <span className="ml-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded">
+                        ★ Atual
+                      </span>
+                    )}
+                  </td>
+                </tr>
+
+                {/* Linha 80% a 89% */}
+                <tr
+                  className={`transition-colors ${
+                    safePercentage >= 80 && safePercentage < 90
+                      ? 'bg-emerald-500/15 border-l-2 border-emerald-400 font-medium'
+                      : 'hover:bg-white/[0.02]'
+                  }`}
+                >
+                  <td className="py-2 px-2.5 font-mono font-bold text-white whitespace-nowrap">
+                    80% a 89%
+                  </td>
+                  <td className="py-2 px-2 text-center">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
+                      <span className="text-[10px] text-slate-300 hidden sm:inline">Verde</span>
+                    </div>
+                  </td>
+                  <td className="py-2 px-2">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
+                      Meta Atingida
+                    </span>
+                  </td>
+                  <td className="py-2 px-2.5 text-slate-200 text-[11px]">
+                    Cumprimento pleno do SLA
+                    {safePercentage >= 80 && safePercentage < 90 && (
+                      <span className="ml-1.5 text-[9px] font-bold text-emerald-400 bg-emerald-500/25 px-1.5 py-0.5 rounded border border-emerald-500/40 inline-block">
+                        ✓ Seu SLA ({safePercentage}%)
+                      </span>
+                    )}
+                  </td>
+                </tr>
+
+                {/* Linha 65% a 79% */}
+                <tr
+                  className={`transition-colors ${
+                    safePercentage >= 65 && safePercentage < 80
+                      ? 'bg-amber-500/15 border-l-2 border-amber-400 font-medium'
+                      : 'hover:bg-white/[0.02]'
+                  }`}
+                >
+                  <td className="py-2 px-2.5 font-mono font-bold text-white whitespace-nowrap">
+                    65% a 79%
+                  </td>
+                  <td className="py-2 px-2 text-center">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-sm shadow-amber-400/50" />
+                      <span className="text-[10px] text-slate-300 hidden sm:inline">Âmbar</span>
+                    </div>
+                  </td>
+                  <td className="py-2 px-2">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 whitespace-nowrap">
+                      Atenção
+                    </span>
+                  </td>
+                  <td className="py-2 px-2.5 text-slate-300 text-[11px]">
+                    Ponto de observação operacional
+                    {safePercentage >= 65 && safePercentage < 80 && (
+                      <span className="ml-1 text-[9px] font-bold text-amber-400 bg-amber-500/20 px-1.5 py-0.5 rounded">
+                        ★ Atual
+                      </span>
+                    )}
+                  </td>
+                </tr>
+
+                {/* Linha < 65% */}
+                <tr
+                  className={`transition-colors ${
+                    safePercentage < 65
+                      ? 'bg-rose-500/15 border-l-2 border-rose-400 font-medium'
+                      : 'hover:bg-white/[0.02]'
+                  }`}
+                >
+                  <td className="py-2 px-2.5 font-mono font-bold text-white whitespace-nowrap">
+                    &lt; 65%
+                  </td>
+                  <td className="py-2 px-2 text-center">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-400 shadow-sm shadow-rose-400/50" />
+                      <span className="text-[10px] text-slate-300 hidden sm:inline">Vermelho</span>
+                    </div>
+                  </td>
+                  <td className="py-2 px-2">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 whitespace-nowrap">
+                      Crítico
+                    </span>
+                  </td>
+                  <td className="py-2 px-2.5 text-slate-300 text-[11px]">
+                    Necessita intervenção imediata
+                    {safePercentage < 65 && (
+                      <span className="ml-1 text-[9px] font-bold text-rose-400 bg-rose-500/20 px-1.5 py-0.5 rounded">
+                        ★ Atual
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Nota do Cálculo Ponderado */}
+          <div className="mt-2.5 pt-2 border-t border-white/10 flex items-start gap-1.5 text-[10px] text-slate-400 leading-relaxed">
+            <span className="text-amber-400 shrink-0">💡</span>
+            <span>
+              <strong className="text-slate-200">Cálculo Ponderado do SLA Geral:</strong>{' '}
+              60% do SLA da Fila de Espera (Meta ≤ {slaMinutes} min) + 40% do SLA do Tempo no Guichê (Meta ≤ 15 min).
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -360,6 +611,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [showSlaInfo, setShowSlaInfo] = useState(false);
 
   // Buscar dados reais da API
   const fetchData = useCallback(async (showRefresh = false) => {
@@ -767,16 +1019,35 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
                 {/* Seção Superior: SLA Geral Gauge + Cards Indicadores */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                   {/* Gauge Circular SLA Geral (Estilo NextQS Manager 92%) */}
-                  <div className="lg:col-span-4 rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-2xl flex flex-col items-center justify-center relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full pointer-events-none -mr-8 -mt-8" />
-                    <div className="w-full flex items-center justify-between mb-2">
+                  <div className="lg:col-span-4 rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-2xl flex flex-col items-center justify-center relative">
+                    <div className="absolute inset-0 rounded-[24px] overflow-hidden pointer-events-none">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -mr-8 -mt-8" />
+                    </div>
+                    <div className="w-full flex items-center justify-between mb-2 relative z-10">
                       <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400">
                         Índice Geral de Atendimento
                       </span>
-                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowSlaInfo((v) => !v)}
+                          className="flex items-center gap-1 text-[10px] font-semibold text-indigo-300 hover:text-white bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 px-2.5 py-0.5 rounded-full transition-all"
+                          title="Ver critérios explicativos do SLA Geral"
+                        >
+                          <Info className="w-3 h-3" />
+                          <span>Critérios</span>
+                        </button>
+                        <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      </div>
                     </div>
 
-                    <CircularSlaGauge percentage={kpis?.slaGeralPerc ?? 92} />
+                    <CircularSlaGauge
+                      percentage={kpis?.slaGeralPerc ?? 92}
+                      slaMinutes={slaMinutes}
+                      isOpen={showSlaInfo}
+                      onToggleOpen={() => setShowSlaInfo((v) => !v)}
+                      onClose={() => setShowSlaInfo(false)}
+                    />
 
                     <div className="w-full grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-white/8 text-center text-xs">
                       <div className="p-2 rounded-xl bg-white/[0.02] border border-white/6">
