@@ -111,7 +111,19 @@ export async function POST(req: NextRequest) {
         }
       }
       if (Object.keys(cleanConfig).length > 0) {
-        encryptedData = encryptConfig(cleanConfig);
+        try {
+          encryptedData = encryptConfig(cleanConfig);
+        } catch (cryptoErr: any) {
+          const msg = cryptoErr.message || '';
+          if (msg.includes('FIORIX_INTEGRATION_ENCRYPTION_KEY')) {
+            console.error('[Integrations API] Chave de criptografia não configurada no ambiente.');
+            return NextResponse.json(
+              { error: 'Chave de criptografia não configurada no servidor. Contate o administrador do sistema.' },
+              { status: 503 }
+            );
+          }
+          throw cryptoErr;
+        }
       }
     }
 
