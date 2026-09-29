@@ -127,6 +127,39 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Verificar se há config existente para mesclar credenciais sensíveis
+    // (evita sobrescrever o apiKey quando o form envia save sem o campo preenchido)
+    const SENSITIVE_FIELDS = ['apiKey', 'token', 'webhookSecret', 'secret', 'password', 'clientSecret'];
+    const newConfigHasSensitiveField = config && typeof config === 'object'
+      && SENSITIVE_FIELDS.some((f) => config[f] && config[f] !== '');
+
+    // Se não há campo sensível novo, buscar o encryptedConfig existente para preservar
+    if (!newConfigHasSensitiveField && config && typeof config === 'object') {
+      const existing = await prisma.integrationConfig.findFirst({
+        where: { tenantId, integrationId },
+        select: { encryptedConfig: true, configIv: true },
+      });
+
+      if (existing?.encryptedConfig && existing?.configIv) {
+        try {
+          const existingDecrypted = decryptConfig(existing.encryptedConfig, existing.configIv);
+          // Mesclar: campos novos (não sensíveis) sobrescrevem, sensíveis são preservados
+          const mergedConfig: Record<string, unknown> = { ...existingDecrypted };
+          for (const [k, v] of Object.entries(config)) {
+            if (v !== '' && v !== null && v !== undefined) {
+              mergedConfig[k] = v;
+            }
+          }
+          // Re-criptografar com a config mesclada
+          encryptedData = encryptConfig(mergedConfig);
+          console.log(`[Integrations API] Config mesclada com credenciais existentes (campos preservados: ${SENSITIVE_FIELDS.filter(f => existingDecrypted[f]).join(', ')})`);
+        } catch {
+          // Se não conseguir decriptar o existente, usar apenas o novo config
+          console.warn('[Integrations API] Não foi possível mesclar config existente — usando config enviada.');
+        }
+      }
+    }
+
     const now = new Date();
 
     // Upsert: cria ou atualiza
