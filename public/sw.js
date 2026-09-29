@@ -1,5 +1,5 @@
 // FIORIX PWA — Service Worker com Web Push & Deep Linking Seguro
-const SW_VERSION = 'fiorix-sw-v1.0.0';
+const SW_VERSION = 'fiorix-sw-v1.0.2';
 
 self.addEventListener('install', (event) => {
   // Ativação imediata do novo Service Worker
@@ -34,18 +34,31 @@ self.addEventListener('push', (event) => {
     badge: data.badge || '/icon-192.svg',
     tag: data.tag || (data.data?.conversationId ? `chat_${data.data.conversationId}` : 'fiorix_msg'),
     renotify: true,
+    silent: false, // Força reprodução de som nativo do sistema operacional
     data: {
       url: data.data?.url || (data.data?.conversationId ? `/mensagens?c=${data.data.conversationId}` : '/mensagens'),
       conversationId: data.data?.conversationId,
       timestamp: Date.now(),
     },
-    vibrate: [100, 50, 100],
+    vibrate: [200, 100, 200],
     requireInteraction: false,
   };
 
-  event.waitUntil(
-    self.registration.showNotification(title, options)
-  );
+  // Envia mensagem para todas as abas abertas do FIORIX para tocarem o som corporativo diretamente
+  const notifyWindows = self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+    for (const client of windowClients) {
+      client.postMessage({
+        type: 'PLAY_NOTIFICATION_SOUND',
+        title,
+        body: options.body,
+        conversationId: options.data?.conversationId,
+      });
+    }
+  });
+
+  const showNotification = self.registration.showNotification(title, options);
+
+  event.waitUntil(Promise.allSettled([showNotification, notifyWindows]));
 });
 
 // Clique na notificação — Deep Linking Seguro
@@ -58,7 +71,7 @@ self.addEventListener('notificationclick', (event) => {
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       // 1. Procura se o FIORIX já está aberto em alguma aba
       for (const client of windowClients) {
-        if (client.url.includes('/mensagens') || client.url.includes('/dashboard')) {
+        if (client.url.includes('/mensagens') || client.url.includes('/minha-it') || client.url.includes('/dashboard')) {
           // Foca na aba existente e navega para a conversa solicitada
           return client.focus().then(() => {
             if (client.navigate) {

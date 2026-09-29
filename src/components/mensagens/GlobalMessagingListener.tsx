@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { loadCurrentUserOnce } from '@/lib/navigation/client-data';
 import { notifyNewMessage } from '@/lib/notifications/desktop';
+import { playNotificationChime } from '@/lib/notifications/sound';
 import { toast } from 'sonner';
 import { MessageSquare } from 'lucide-react';
 
@@ -14,6 +15,18 @@ export function GlobalMessagingListener() {
   useEffect(() => {
     let channel: any = null;
 
+    // 1. Ouve mensagens enviadas pelo Service Worker quando um Web Push chega
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'PLAY_NOTIFICATION_SOUND') {
+        playNotificationChime();
+      }
+    };
+
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleSwMessage);
+    }
+
+    // 2. Ouve eventos Realtime do Supabase no canal privativo do usuário
     loadCurrentUserOnce()
       .then((user) => {
         if (!user?.id || !user?.tenantId) return;
@@ -35,7 +48,7 @@ export function GlobalMessagingListener() {
               ? `${data.conversationTitle || 'Grupo'} (${data.senderName})`
               : data.senderName;
 
-            // 1. Notificação nativa no Desktop (Windows/OS) + Som Corporativo
+            // Notificação nativa no Desktop (Windows/OS) + Som Corporativo
             notifyNewMessage({
               title: senderTitle,
               body: data.conteudo,
@@ -45,7 +58,7 @@ export function GlobalMessagingListener() {
               },
             });
 
-            // 2. Toast interativo na tela
+            // Toast interativo na tela
             toast(senderTitle, {
               description:
                 data.conteudo.length > 70 ? `${data.conteudo.substring(0, 70)}...` : data.conteudo,
@@ -66,6 +79,9 @@ export function GlobalMessagingListener() {
     return () => {
       if (channel) {
         supabase.removeChannel(channel);
+      }
+      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleSwMessage);
       }
     };
   }, [router]);
