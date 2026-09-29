@@ -45,12 +45,37 @@ export async function getExistingPushSubscription(): Promise<PushSubscription | 
   }
 }
 
+export function isIosDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+}
+
+export function isStandalonePwa(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as any).standalone === true
+  );
+}
+
 export async function subscribeToPushNotifications(): Promise<{
   success: boolean;
   error?: string;
   subscription?: PushSubscription;
 }> {
-  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+  if (typeof window === 'undefined') {
+    return { success: false, error: 'Ambiente não suportado.' };
+  }
+
+  // No iPhone/iPad, a Apple exige estritamente adicionar à Tela de Início (PWA)
+  if (isIosDevice() && !isStandalonePwa()) {
+    return {
+      success: false,
+      error: 'No iPhone, a Apple exige adicionar o FIORIX à Tela de Início antes de ativar notificações. Toque no ícone Compartilhar (⬆️) no Safari e selecione "Adicionar à Tela de Início".',
+    };
+  }
+
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     return { success: false, error: 'Notificações Web Push não suportadas neste navegador.' };
   }
 

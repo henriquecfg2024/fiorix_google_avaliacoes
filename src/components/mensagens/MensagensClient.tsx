@@ -22,7 +22,7 @@ import { MessageSquare, MessagesSquare, BellRing, Volume2, X } from 'lucide-reac
 import { toast } from 'sonner';
 import { notifyNewMessage } from '@/lib/notifications/desktop';
 import { playNotificationChime } from '@/lib/notifications/sound';
-import { subscribeToPushNotifications } from '@/lib/pwa/push-client';
+import { subscribeToPushNotifications, isIosDevice, isStandalonePwa } from '@/lib/pwa/push-client';
 
 interface MensagensClientProps {
   initialConversations: SerializedConversation[];
@@ -66,9 +66,18 @@ export function MensagensClient({
   }, []);
 
   const handleEnableNotifications = async () => {
+    // No iOS (iPhone/iPad), a Apple exige instalar na Tela de Início (PWA) para habilitar Push
+    if (isIosDevice() && !isStandalonePwa()) {
+      toast.info(
+        'No iPhone (iOS), a Apple exige que o FIORIX seja adicionado à Tela de Início: toque no botão Compartilhar (⬆️) no rodapé do Safari e selecione "Adicionar à Tela de Início". Depois, abra pelo ícone criado na tela.',
+        { duration: 12000 }
+      );
+      return;
+    }
+
     if (notificationPermission === 'denied') {
       toast.info(
-        'As notificações estão bloqueadas no seu navegador. Clique no ícone de cadeado na barra de endereços (à esquerda da URL) e altere "Notificações" para "Permitir".',
+        'As notificações estão bloqueadas no seu navegador. Clique no ícone de cadeado/configurações na barra de endereços (à esquerda da URL) e altere "Notificações" para "Permitir".',
         { duration: 9000 }
       );
       return;
@@ -84,11 +93,11 @@ export function MensagensClient({
         playNotificationChime();
         notifyNewMessage({
           title: 'FIORIX • Alertas Ativados',
-          body: 'Seu computador agora emitirá som e alerta na tela quando você receber novas mensagens!',
+          body: 'Seu dispositivo agora emitirá som e alerta na tela quando você receber novas mensagens!',
         });
         toast.success('Alertas ativados com sucesso! Você será avisado de novas mensagens.');
       } else if (res.error) {
-        toast.error(res.error);
+        toast.error(res.error, { duration: 9000 });
       }
     } catch (err: any) {
       toast.error('Erro ao ativar notificações no navegador.');
