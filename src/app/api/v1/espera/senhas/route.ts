@@ -73,25 +73,28 @@ function normalizeTicket(raw: NextQSTicket, index: number) {
     ? (raw.service_desk_number ? `${raw.service_desk_label} ${raw.service_desk_number}` : raw.service_desk_label)
     : '—';
   const atendente = raw.user_label || '—';
-  const statusCode = raw.status || '';
+  const statusCode = raw.status !== undefined && raw.status !== null ? String(raw.status) : '';
   const situacao = STATUS_MAP[statusCode] || statusCode || '—';
 
-  // Horários
-  const emissao = formatTime(raw.ticket_generated_at);
-  const chamada = formatTime(raw.ticket_first_call_at);
+  // Horários (suporta ticket_generated_at ou created_at)
+  const rawEmissao = raw.ticket_generated_at || (raw as any).created_at;
+  const rawChamada = raw.ticket_first_call_at || (raw as any).service_started_at;
+
+  const emissao = formatTime(rawEmissao);
+  const chamada = formatTime(rawChamada);
 
   // Tempo de espera = chamada - emissão (calculado, não mockado)
   let tempoEsperaMin: number | null = null;
-  if (raw.ticket_generated_at && raw.ticket_first_call_at) {
-    const emissaoMs = safeParseDate(raw.ticket_generated_at);
-    const chamadaMs = safeParseDate(raw.ticket_first_call_at);
+  if (rawEmissao && rawChamada) {
+    const emissaoMs = safeParseDate(rawEmissao);
+    const chamadaMs = safeParseDate(rawChamada);
     if (emissaoMs && chamadaMs && chamadaMs > emissaoMs) {
       tempoEsperaMin = Math.round((chamadaMs - emissaoMs) / 60000);
     }
   }
 
   return {
-    id: raw.service_origin_id || `nqs-${index}`,
+    id: raw.service_origin_id || (raw as any)._id || (raw as any).origin_id || `nqs-${index}`,
     senha,
     servico,
     fila,
@@ -132,10 +135,39 @@ function formatTime(value: string | null | undefined): string {
   }
 }
 
+/**
+ * Constrói o intervalo de datas no padrão ISO 8601 exigido pela API NextQS:
+ * YYYY-MM-DDThh:mm:ssTZD (ex: 2026-09-29T00:00:00-03:00)
+ */
+function getDateRange(periodo: string) {
+  const now = new Date();
+  const tzOffset = '-03:00';
+  const spDateStr = now.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }); // "YYYY-MM-DD"
+  const endIso = `${spDateStr}T23:59:59${tzOffset}`;
+
+  let startIso: string;
+
+  if (periodo === 'mes') {
+    const [year, month] = spDateStr.split('-');
+    startIso = `${year}-${month}-01T00:00:00${tzOffset}`;
+  } else if (periodo === '7d') {
+    const past = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const pastStr = past.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+    startIso = `${pastStr}T00:00:00${tzOffset}`;
+  } else {
+    // 'hoje'
+    startIso = `${spDateStr}T00:00:00${tzOffset}`;
+  }
+
+  return { startIso, endIso };
+}
+
 export async function GET(req: NextRequest) {
   try {
     const user = await requireRole('MASTER', 'ADMIN', 'SUBSTITUTO');
     const tenantId = user.tenantId;
+
+    const periodo = req.nextUrl.searchParams.get('periodo') || 'hoje';
 
     // 1. Buscar configuração NextQS do tenant
     const config = await prisma.integrationConfig.findFirst({
@@ -175,7 +207,7 @@ export async function GET(req: NextRequest) {
 
     const apiUrl = (decryptedConfig.apiUrl as string)?.replace(/\/$/, '') || '';
     const apiKey = (decryptedConfig.apiKey as string) || '';
-    const orgId = (decryptedConfig.orgId as string) || ''; // orgId = site_id no NextQS
+    const orgId = (decryptedConfig.orgId as string) || ''; // Identificador fornecido pelo usuário
 
     if (!apiUrl || !apiKey) {
       return NextResponse.json({
@@ -186,8 +218,6 @@ export async function GET(req: NextRequest) {
     }
 
     // 3. Montar base URL (normalizar: aceitar api.nextqs.com.br ou api.nextqs.com)
-    // A URL base da API NextQS pode ser: https://api.nextqs.com/v1 ou https://api.nextqs.com
-    // Removemos /v1 do final para construir os endpoints
     const baseUrl = apiUrl.replace(/\/v1\/?$/, '');
 
     // 4. Headers de autenticação (nunca expostos ao frontend)
@@ -197,29 +227,84 @@ export async function GET(req: NextRequest) {
       'Accept': 'application/json',
     };
 
-    // 5. Endpoint: fila atual (queue) + serviços abertos (opened)
-    //    GET /v1/organization/reports/service/queue/:site_id     — tickets na fila
-    //    GET /v1/organization/reports/service/opened/:site_id    — serviços em andamento
+    // 5. Resolver o site_id real da organização no NextQS
+    //    Geralmente o usuário preenche um código ou sigla interna (ex: EJ387N),
+    //    enquanto o NextQS trabalha com ObjectIDs MongoDB (24 caracteres hexadecimais).
+    //    Consultamos /v1/organization/sites para mapear o site_id real da conta.
+    let resolvedSiteId = orgId;
+    let siteLabel = '';
+
+    try {
+      const sitesRes = await fetch(`${baseUrl}/v1/organization/sites`, {
+        method: 'GET',
+        headers,
+      });
+
+      if (sitesRes.ok) {
+        const sitesData = await sitesRes.json();
+        if (Array.isArray(sitesData) && sitesData.length > 0) {
+          console.log(`[Espera API] Sites encontrados no NextQS (${sitesData.length}):`, sitesData.map((s: any) => `${s.label} (${s._id})`).join(', '));
+          
+          const matched = sitesData.find((s: any) => 
+            s._id === orgId || 
+            (s.label && s.label.toLowerCase() === orgId.toLowerCase()) ||
+            (s.label && s.label.toLowerCase().includes(orgId.toLowerCase()))
+          );
+
+          if (matched) {
+            resolvedSiteId = matched._id;
+            siteLabel = matched.label;
+          } else if (sitesData.length === 1 || !/^[0-9a-fA-F]{24}$/.test(orgId)) {
+            // Se orgId não é um ObjectId de 24 hex ou existe apenas 1 unidade, usa a primeira
+            resolvedSiteId = sitesData[0]._id;
+            siteLabel = sitesData[0].label;
+            console.log(`[Espera API] Mapeado identificador "${orgId}" para o site_id real: "${resolvedSiteId}" (${siteLabel})`);
+          }
+        }
+      } else {
+        const errText = await sitesRes.text().catch(() => '');
+        console.warn(`[Espera API] /v1/organization/sites status ${sitesRes.status}: ${errText.slice(0, 100)}`);
+      }
+    } catch (err: any) {
+      console.warn('[Espera API] Não foi possível consultar /v1/organization/sites:', err.message);
+    }
+
+    // 6. Montar endpoints para buscar os dados:
+    //    A) Fila atual (tickets aguardando atendimento)
+    //    B) Atendimentos em andamento / chamados
+    //    C) Histórico de senhas emitidas e finalizadas no período selecionado
     let allTickets: NextQSTicket[] = [];
     let fetchError: string | null = null;
 
-    const endpoints: string[] = [];
-    if (orgId) {
-      endpoints.push(`${baseUrl}/v1/organization/reports/service/queue/${orgId}`);
-      endpoints.push(`${baseUrl}/v1/organization/reports/service/opened/${orgId}?limit=200&page=1`);
-    } else {
-      // Se não tem orgId/site_id, tentar o check para validar e informar
-      endpoints.push(`${baseUrl}/v1/organization/check`);
+    const { startIso, endIso } = getDateRange(periodo);
+    const endpointsToFetch: Array<{ name: string; url: string }> = [];
+
+    // Se temos um site_id válido de 24 caracteres hexadecimais
+    if (resolvedSiteId && /^[0-9a-fA-F]{24}$/.test(resolvedSiteId)) {
+      endpointsToFetch.push({
+        name: 'queue',
+        url: `${baseUrl}/v1/organization/reports/service/queue/${resolvedSiteId}`,
+      });
+      endpointsToFetch.push({
+        name: 'opened',
+        url: `${baseUrl}/v1/organization/reports/service/opened/${resolvedSiteId}?limit=200&page=1`,
+      });
     }
 
-    console.log(`[Espera API] Consultando NextQS: baseUrl=${baseUrl}, orgId=${orgId || '(vazio)'}, endpoints=${endpoints.length}`);
+    // Histórico de senhas do período (concluídas, emitidas, chamadas)
+    endpointsToFetch.push({
+      name: 'reports',
+      url: `${baseUrl}/v1/organization/reports?start_datetime=${encodeURIComponent(startIso)}&end_datetime=${encodeURIComponent(endIso)}&limit=500&page=1`,
+    });
 
-    for (const endpoint of endpoints) {
+    console.log(`[Espera API] Consultando NextQS: baseUrl=${baseUrl}, resolvedSiteId=${resolvedSiteId || '(vazio)'}, periodo=${periodo}, endpoints=${endpointsToFetch.map(e => e.name).join(', ')}`);
+
+    for (const ep of endpointsToFetch) {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 15000);
 
-        const response = await fetch(endpoint, {
+        const response = await fetch(ep.url, {
           method: 'GET',
           headers,
           signal: controller.signal,
@@ -229,65 +314,67 @@ export async function GET(req: NextRequest) {
 
         if (!response.ok) {
           const statusCode = response.status;
+          const errText = await response.text().catch(() => '');
+          console.warn(`[Espera API] NextQS [${ep.name}] ${statusCode}: ${errText.slice(0, 150)}`);
+
           if (statusCode === 401 || statusCode === 403) {
             fetchError = 'Token de API NextQS inválido ou expirado.';
             break;
           }
-          console.warn(`[Espera API] NextQS ${endpoint} → ${statusCode}`);
           continue;
         }
 
         const body = await response.json();
+        let list: NextQSTicket[] = [];
 
         if (Array.isArray(body)) {
-          allTickets = allTickets.concat(body);
-        } else if (body && body.check === true) {
-          // Resposta do /check — credenciais OK mas sem site_id
-          if (!orgId) {
-            fetchError = 'Credenciais válidas, mas o Identificador da Unidade (site_id) não está configurado. Configure-o em Parâmetros > Integrações.';
-          }
+          list = body;
+        } else if (body && Array.isArray(body.data)) {
+          list = body.data;
+        } else if (body && Array.isArray(body.reports)) {
+          list = body.reports;
+        } else if (body && Array.isArray(body.services)) {
+          list = body.services;
+        }
+
+        console.log(`[Espera API] NextQS [${ep.name}] retornou ${list.length} itens`);
+        if (list.length > 0) {
+          allTickets = allTickets.concat(list);
         }
       } catch (err: any) {
         if (err.name === 'AbortError') {
-          fetchError = 'Timeout ao conectar à API NextQS (>15s).';
+          console.warn(`[Espera API] Timeout no endpoint [${ep.name}]`);
         } else {
-          const causeCode = err.cause?.code || err.code || '';
-          const errDetail = causeCode ? ` (${causeCode})` : '';
-          console.error(`[Espera API] Erro ao consultar NextQS [${endpoint}]:`, err.message, causeCode);
-          
-          if (causeCode === 'ENOTFOUND' || err.message?.includes('ENOTFOUND')) {
-            fetchError = `Servidor NextQS não encontrado${errDetail}. Verifique a URL configurada.`;
-          } else if (causeCode === 'ECONNREFUSED') {
-            fetchError = `Conexão recusada pela API NextQS${errDetail}.`;
-          } else if (causeCode === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' || err.message?.includes('certificate')) {
-            fetchError = `Erro de certificado SSL ao conectar à API NextQS${errDetail}.`;
-          } else {
-            fetchError = `Não foi possível conectar à API NextQS${errDetail}. Verifique a URL e as credenciais.`;
-          }
+          console.error(`[Espera API] Erro ao consultar NextQS [${ep.name}]:`, err.message);
         }
-        break;
       }
     }
 
-    // 6. Normalizar tickets
-    const normalized = allTickets.map((t, i) => normalizeTicket(t, i));
+    // 7. Deduplicar tickets
+    const seenKeys = new Set<string>();
+    const uniqueTickets: NextQSTicket[] = [];
 
-    // Log server-side para diagnóstico de campos ausentes
-    if (normalized.length > 0) {
-      const sample = normalized[0];
-      const missingFields: string[] = [];
-      if (sample.servico === '—') missingFields.push('servico (ticket_label/queue_label)');
-      if (sample.fila === '—') missingFields.push('fila (queue_label)');
-      if (sample.guiche === '—') missingFields.push('guiche (service_desk_label)');
-      if (sample.atendente === '—') missingFields.push('atendente (user_label)');
-      if (sample.emissao === '—') missingFields.push('emissao (ticket_generated_at)');
-      if (sample.chamada === '—') missingFields.push('chamada (ticket_first_call_at)');
-      if (missingFields.length > 0) {
-        console.warn(`[Espera API] Campos ausentes no payload NextQS: ${missingFields.join(', ')}`);
+    for (const t of allTickets) {
+      const rawDate = t.ticket_generated_at || (t as any).created_at || '';
+      const uniqueId = t.service_origin_id || (t as any)._id || (t as any).origin_id || (t.ticket ? `${t.ticket}-${rawDate}` : null);
+      if (uniqueId) {
+        if (seenKeys.has(uniqueId)) continue;
+        seenKeys.add(uniqueId);
       }
+      uniqueTickets.push(t);
     }
 
-    // 7. Atualizar lastSyncAt
+    // 8. Normalizar tickets
+    const normalized = uniqueTickets.map((t, i) => normalizeTicket(t, i));
+
+    // Ordenar tickets por horário de emissão decrescente (mais recentes primeiro)
+    normalized.sort((a, b) => {
+      const timeA = a.emissao !== '—' ? a.emissao : '';
+      const timeB = b.emissao !== '—' ? b.emissao : '';
+      return timeB.localeCompare(timeA);
+    });
+
+    // 9. Atualizar lastSyncAt se houver tickets
     if (!fetchError && normalized.length > 0) {
       await prisma.integrationConfig.update({
         where: { id: config.id },
@@ -301,6 +388,7 @@ export async function GET(req: NextRequest) {
       slaMinutes: config.slaMinutes,
       lastSyncAt: new Date().toISOString(),
       total: normalized.length,
+      siteLabel: siteLabel || undefined,
       error: fetchError,
     });
   } catch (err: any) {

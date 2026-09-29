@@ -69,6 +69,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
   const [allRecords, setAllRecords] = useState<SenhaRecord[]>([]);
   const [slaMinutes, setSlaMinutes] = useState(15);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const [siteLabel, setSiteLabel] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -102,6 +103,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
       setAllRecords(data.records || []);
       setSlaMinutes(data.slaMinutes || 15);
       setLastSyncAt(data.lastSyncAt || null);
+      setSiteLabel(data.siteLabel || null);
     } catch {
       setApiError('Erro de rede ao conectar com o servidor.');
       setAllRecords([]);
@@ -322,7 +324,9 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
               <span>GESTÃO DE PRAZOS · NEXTQS</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">Gestão de Espera</h1>
-            <p className="text-xs text-white/50 mt-1">Dados reais da integração NextQS — isolados por organização.</p>
+            <p className="text-xs text-white/50 mt-1">
+              Dados reais da integração NextQS{siteLabel ? ` · Unidade: ${siteLabel}` : ''} — isolados por organização.
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
