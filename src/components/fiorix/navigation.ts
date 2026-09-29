@@ -137,7 +137,7 @@ export const navigationGroups = {
         description: "Instrução oficial • Responsável Técnico",
       },
       {
-        label: "Rastreio do Título",
+        label: "Rastreio",
         href: "/trajetoria-titulo",
         icon: MapPin,
         description: "Última localização e situação do protocolo",

@@ -37,8 +37,8 @@ export function filterNavigationByRole(role: Role = "USER") {
         return isSubstituto || role === "ADMIN" || role === "MASTER" || role === "GESTOR";
       }
 
-      // Rastreio do Título oculto para RH
-      if (isRH && (item.href === "/trajetoria-titulo" || item.label === "Rastreio do Título")) {
+      // Rastreio oculto para RH
+      if (isRH && (item.href === "/trajetoria-titulo" || item.label === "Rastreio" || item.label === "Rastreio do Título")) {
         return false;
       }
 

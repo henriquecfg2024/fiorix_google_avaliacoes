@@ -6,7 +6,7 @@ import { isRedirectError } from 'next/dist/client/components/redirect';
 import { TrajetoriaClient } from '@/components/trajetoria/TrajetoriaClient';
 
 export const metadata: Metadata = {
-  title: 'Rastreio do Título • FIORIX',
+  title: 'Rastreio • FIORIX',
   description:
     'Consulte a situação e a última localização conhecida de um protocolo no Cartório.',
 };
@@ -65,7 +65,7 @@ export default async function LocalizacaoTitulosPage({
             <>
               <span>Trabalho</span>
               <span>/</span>
-              <span className="text-blue-600 dark:text-blue-400 font-semibold">Rastreio do Título</span>
+              <span className="text-blue-600 dark:text-blue-400 font-semibold">Rastreio</span>
             </>
           ) : (
             <>
@@ -90,7 +90,7 @@ export default async function LocalizacaoTitulosPage({
             {/* Title */}
             <div>
               <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                Rastreio do Título
+                Rastreio
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Consulte a situação e a última localização conhecida de um
