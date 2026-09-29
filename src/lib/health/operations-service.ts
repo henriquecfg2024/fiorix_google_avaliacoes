@@ -783,10 +783,8 @@ async function resolveExternalIntegrationsHealth(
     }).catch(() => 0);
 
     if (googleConn) {
-      const expiresAt = new Date(googleConn.expiresAt);
-      const isExpired = expiresAt.getTime() <= now.getTime();
-      const diffDays = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      const isExpiringSoon = !isExpired && diffDays <= 7;
+      const hasRefreshToken = Boolean(googleConn.refreshToken);
+      const isAccessTokenExpired = new Date(googleConn.expiresAt).getTime() <= now.getTime();
 
       const latestSync = recentSyncLogs[0];
       const recentFailures24h = recentSyncLogs.filter((l) => {
@@ -794,14 +792,43 @@ async function resolveExternalIntegrationsHealth(
         return is24h && l.status === 'FAILED';
       }).length;
 
+      const isAuthRevoked = latestSync?.status === 'FAILED' && (
+        latestSync.errorMessage?.toLowerCase().includes('invalid_grant') ||
+        latestSync.errorMessage?.toLowerCase().includes('invalid_token') ||
+        latestSync.errorMessage?.toLowerCase().includes('revoked')
+      );
+
+      // O token do Google só está verdadeiramente expirado se NÃO houver refresh token
+      const isActuallyExpired = !hasRefreshToken && isAccessTokenExpired;
+
       let status: IntegrationStatus = 'OPERACIONAL';
       let authStatus: 'VALID' | 'EXPIRING_SOON' | 'EXPIRED' | 'REVOKED' | 'NOT_CONFIGURED' = 'VALID';
-      let diagSummary = 'Conexão ativa com Google Meu Negócio e OAuth válido.';
+      let diagSummary = 'Conexão ativa com Google Meu Negócio e renovação contínua via OAuth.';
 
-      if (isExpired) {
+      if (isAuthRevoked) {
+        status = 'INDISPONIVEL';
+        authStatus = 'REVOKED';
+        diagSummary = 'Autorização Google revogada na conta do Google. Necessário reconectar.';
+        incidents.push({
+          id: `inc-google-auth-${googleConn.id}`,
+          severity: 'CRITICAL',
+          time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }),
+          service: 'Google Avaliações',
+          description: 'Autorização Google revogada. Coleta automática interrompida.',
+          duration: 'Requer reconexão',
+          status: 'ACTIVE',
+        });
+        alerts.push({
+          id: `alt-google-revoked-${googleConn.id}`,
+          severity: 'CRITICAL',
+          title: 'Google OAuth Revogado',
+          detail: 'Acesse Configurações para renovar o acesso ao Google Meu Negócio.',
+          timeAgo: 'ativo',
+        });
+      } else if (isActuallyExpired) {
         status = 'INDISPONIVEL';
         authStatus = 'EXPIRED';
-        diagSummary = 'Autorização Google OAuth expirada ou revogada. Necessário reconectar a conta.';
+        diagSummary = 'Autorização Google OAuth expirada e sem token de renovação. Necessário reconectar a conta.';
         incidents.push({
           id: `inc-google-auth-${googleConn.id}`,
           severity: 'CRITICAL',
@@ -817,17 +844,6 @@ async function resolveExternalIntegrationsHealth(
           title: 'Google OAuth Expirado',
           detail: 'Acesse Configurações para renovar o acesso ao Google Meu Negócio.',
           timeAgo: 'ativo',
-        });
-      } else if (isExpiringSoon) {
-        status = 'ATENCAO';
-        authStatus = 'EXPIRING_SOON';
-        diagSummary = `Token OAuth do Google expira em ${diffDays} dia(s). Renove preventivamente.`;
-        alerts.push({
-          id: `alt-google-expiring-${googleConn.id}`,
-          severity: 'WARNING',
-          title: 'Token Google Expirando em Breve',
-          detail: `Faltam ${diffDays} dias para o término da autorização do Google Meu Negócio.`,
-          timeAgo: 'atenção',
         });
       } else if (recentFailures24h >= 3) {
         status = 'ATENCAO';
@@ -855,7 +871,11 @@ async function resolveExternalIntegrationsHealth(
       }));
 
       const lastSyncDate = latestSync ? new Date(latestSync.createdAt) : null;
-      const nextSyncExpectedDate = lastSyncDate ? new Date(lastSyncDate.getTime() + 60 * 60 * 1000) : new Date(now.getTime() + 15 * 60 * 1000);
+      const nextSyncExpectedDate = lastSyncDate && lastSyncDate.getTime() + 60 * 60 * 1000 > now.getTime()
+        ? new Date(lastSyncDate.getTime() + 60 * 60 * 1000)
+        : new Date(now.getTime() + 15 * 60 * 1000);
+
+      const totalReviewsCount = await prisma.review.count({ where: { tenantId } }).catch(() => 0);
 
       integrations.push({
         id: 'google_avaliacoes',
@@ -866,13 +886,13 @@ async function resolveExternalIntegrationsHealth(
         lastSyncAt: lastSyncDate ? lastSyncDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : 'Nunca',
         nextSyncExpectedAt: nextSyncExpectedDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }),
         latencyMs: 380,
-        processedVolume: latestSync?.reviewsFetched ?? 0,
+        processedVolume: totalReviewsCount > 0 ? totalReviewsCount : (latestSync?.reviewsFetched ?? 0),
         volumeLabel: 'avaliações',
         recentFailures24h,
         lastErrorSanitized: latestSync?.errorMessage ? sanitizeDatabaseError(latestSync.errorMessage).message : null,
         details: {
           authStatus,
-          tokenDaysRemaining: isExpired ? 0 : diffDays,
+          tokenDaysRemaining: hasRefreshToken ? null : (isAccessTokenExpired ? 0 : 1),
           unansweredReviewsCount: pendingReviewsCount,
           diagnosticSummary: diagSummary,
           history: history.length > 0 ? history : [

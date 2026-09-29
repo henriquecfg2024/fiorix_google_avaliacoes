@@ -53,11 +53,13 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const isExpired = new Date(googleConn.expiresAt).getTime() <= now;
-      if (isExpired) {
+      const hasRefreshToken = Boolean(googleConn.refreshToken);
+      const isAccessTokenExpired = new Date(googleConn.expiresAt).getTime() <= now;
+
+      if (!hasRefreshToken && isAccessTokenExpired) {
         return NextResponse.json({
           success: false,
-          error: 'Autorização Google OAuth expirada. Por favor, reconecte sua conta em Configurações.',
+          error: 'Autorização Google OAuth expirada e sem token de renovação. Por favor, reconecte sua conta em Configurações.',
         });
       }
 
