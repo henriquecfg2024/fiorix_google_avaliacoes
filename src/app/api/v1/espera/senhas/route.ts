@@ -82,8 +82,10 @@ function normalizeTicket(raw: NextQSTicket, index: number) {
 
   const emissao = formatTime(rawEmissao);
   const chamada = formatTime(rawChamada);
+  const inicioAtendimento = formatTime(raw.service_started_at);
+  const fimAtendimento = formatTime(raw.service_ended_at);
 
-  // Tempo de espera = chamada - emissão (calculado, não mockado)
+  // Tempo de espera = chamada - emissão
   let tempoEsperaMin: number | null = null;
   if (rawEmissao && rawChamada) {
     const emissaoMs = safeParseDate(rawEmissao);
@@ -93,6 +95,19 @@ function normalizeTicket(raw: NextQSTicket, index: number) {
     }
   }
 
+  // Tempo de atendimento = fim - início
+  let tempoAtendimentoMin: number | null = null;
+  if (raw.service_started_at && raw.service_ended_at) {
+    const inicioMs = safeParseDate(raw.service_started_at);
+    const fimMs = safeParseDate(raw.service_ended_at);
+    if (inicioMs && fimMs && fimMs >= inicioMs) {
+      tempoAtendimentoMin = Math.round((fimMs - inicioMs) / 60000);
+    }
+  }
+
+  const cliente = raw.ticket_customer_name || '—';
+  const avaliacao = (raw as any).service_rating_label || ((raw as any).service_rating_id ? `Nota ${(raw as any).service_rating_id}` : '—');
+
   return {
     id: raw.service_origin_id || (raw as any)._id || (raw as any).origin_id || `nqs-${index}`,
     senha,
@@ -100,9 +115,14 @@ function normalizeTicket(raw: NextQSTicket, index: number) {
     fila,
     emissao,
     chamada,
+    inicioAtendimento,
+    fimAtendimento,
     tempoEsperaMin,
+    tempoAtendimentoMin,
     guiche,
     atendente,
+    cliente,
+    avaliacao,
     situacao,
   };
 }
@@ -217,7 +237,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // 3. Montar base URL (normalizar: aceitar api.nextqs.com.br ou api.nextqs.com)
+    // 3. Montar base URL
     const baseUrl = apiUrl.replace(/\/v1\/?$/, '');
 
     // 4. Headers de autenticação (nunca expostos ao frontend)
@@ -227,10 +247,7 @@ export async function GET(req: NextRequest) {
       'Accept': 'application/json',
     };
 
-    // 5. Resolver o site_id real da organização no NextQS
-    //    Geralmente o usuário preenche um código ou sigla interna (ex: EJ387N),
-    //    enquanto o NextQS trabalha com ObjectIDs MongoDB (24 caracteres hexadecimais).
-    //    Consultamos /v1/organization/sites para mapear o site_id real da conta.
+    // 5. Resolver o site_id real da organização no NextQS via /v1/organization/sites
     let resolvedSiteId = orgId;
     let siteLabel = '';
 
@@ -255,7 +272,6 @@ export async function GET(req: NextRequest) {
             resolvedSiteId = matched._id;
             siteLabel = matched.label;
           } else if (sitesData.length === 1 || !/^[0-9a-fA-F]{24}$/.test(orgId)) {
-            // Se orgId não é um ObjectId de 24 hex ou existe apenas 1 unidade, usa a primeira
             resolvedSiteId = sitesData[0]._id;
             siteLabel = sitesData[0].label;
             console.log(`[Espera API] Mapeado identificador "${orgId}" para o site_id real: "${resolvedSiteId}" (${siteLabel})`);
@@ -269,112 +285,245 @@ export async function GET(req: NextRequest) {
       console.warn('[Espera API] Não foi possível consultar /v1/organization/sites:', err.message);
     }
 
-    // 6. Montar endpoints para buscar os dados:
-    //    A) Fila atual (tickets aguardando atendimento)
-    //    B) Atendimentos em andamento / chamados
-    //    C) Histórico de senhas emitidas e finalizadas no período selecionado
-    let allTickets: NextQSTicket[] = [];
+    // 6. Consultas paralelas: Fila ao vivo, Serviços abertos, Histórico de relatórios, Suspensões e Agendamentos
+    const { startIso, endIso } = getDateRange(periodo);
     let fetchError: string | null = null;
 
-    const { startIso, endIso } = getDateRange(periodo);
-    const endpointsToFetch: Array<{ name: string; url: string }> = [];
+    let rawQueueTickets: NextQSTicket[] = [];
+    let rawOpenedTickets: NextQSTicket[] = [];
+    let rawReportTickets: NextQSTicket[] = [];
+    let rawSuspensions: any[] = [];
+    let rawBookings: any[] = [];
 
-    // Se temos um site_id válido de 24 caracteres hexadecimais
-    if (resolvedSiteId && /^[0-9a-fA-F]{24}$/.test(resolvedSiteId)) {
-      endpointsToFetch.push({
-        name: 'queue',
-        url: `${baseUrl}/v1/organization/reports/service/queue/${resolvedSiteId}`,
-      });
-      endpointsToFetch.push({
-        name: 'opened',
-        url: `${baseUrl}/v1/organization/reports/service/opened/${resolvedSiteId}?limit=200&page=1`,
-      });
-    }
-
-    // Histórico de senhas do período (concluídas, emitidas, chamadas)
-    endpointsToFetch.push({
-      name: 'reports',
-      url: `${baseUrl}/v1/organization/reports?start_datetime=${encodeURIComponent(startIso)}&end_datetime=${encodeURIComponent(endIso)}&limit=500&page=1`,
-    });
-
-    console.log(`[Espera API] Consultando NextQS: baseUrl=${baseUrl}, resolvedSiteId=${resolvedSiteId || '(vazio)'}, periodo=${periodo}, endpoints=${endpointsToFetch.map(e => e.name).join(', ')}`);
-
-    for (const ep of endpointsToFetch) {
+    // Helper para fetch seguro com timeout
+    const fetchSafe = async (url: string, logName: string) => {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
-
-        const response = await fetch(ep.url, {
-          method: 'GET',
-          headers,
-          signal: controller.signal,
-        });
-
+        const timeout = setTimeout(() => controller.abort(), 12000);
+        const res = await fetch(url, { method: 'GET', headers, signal: controller.signal });
         clearTimeout(timeout);
 
-        if (!response.ok) {
-          const statusCode = response.status;
-          const errText = await response.text().catch(() => '');
-          console.warn(`[Espera API] NextQS [${ep.name}] ${statusCode}: ${errText.slice(0, 150)}`);
-
-          if (statusCode === 401 || statusCode === 403) {
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403) {
             fetchError = 'Token de API NextQS inválido ou expirado.';
-            break;
           }
-          continue;
+          return null;
         }
-
-        const body = await response.json();
-        let list: NextQSTicket[] = [];
-
-        if (Array.isArray(body)) {
-          list = body;
-        } else if (body && Array.isArray(body.data)) {
-          list = body.data;
-        } else if (body && Array.isArray(body.reports)) {
-          list = body.reports;
-        } else if (body && Array.isArray(body.services)) {
-          list = body.services;
-        }
-
-        console.log(`[Espera API] NextQS [${ep.name}] retornou ${list.length} itens`);
-        if (list.length > 0) {
-          allTickets = allTickets.concat(list);
-        }
+        return await res.json();
       } catch (err: any) {
-        if (err.name === 'AbortError') {
-          console.warn(`[Espera API] Timeout no endpoint [${ep.name}]`);
-        } else {
-          console.error(`[Espera API] Erro ao consultar NextQS [${ep.name}]:`, err.message);
-        }
+        console.warn(`[Espera API] Falha no endpoint [${logName}]:`, err.message);
+        return null;
       }
-    }
+    };
 
-    // 7. Deduplicar tickets
+    const hasValidSite = resolvedSiteId && /^[0-9a-fA-F]{24}$/.test(resolvedSiteId);
+
+    // Executar chamadas em paralelo
+    const [queueData, openedData, reportsData, suspensionsData, bookingsData] = await Promise.all([
+      hasValidSite ? fetchSafe(`${baseUrl}/v1/organization/reports/service/queue/${resolvedSiteId}`, 'queue') : Promise.resolve(null),
+      hasValidSite ? fetchSafe(`${baseUrl}/v1/organization/reports/service/opened/${resolvedSiteId}?limit=200&page=1`, 'opened') : Promise.resolve(null),
+      fetchSafe(`${baseUrl}/v1/organization/reports?start_datetime=${encodeURIComponent(startIso)}&end_datetime=${encodeURIComponent(endIso)}&limit=500&page=1`, 'reports'),
+      fetchSafe(`${baseUrl}/v1/organization/reports/suspension?start_datetime=${encodeURIComponent(startIso)}&end_datetime=${encodeURIComponent(endIso)}&limit=200&page=1`, 'suspension'),
+      fetchSafe(`${baseUrl}/v1/organization/schedules/bookings?limit=100&page=1`, 'schedules'),
+    ]);
+
+    const extractArray = (data: any): any[] => {
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.data)) return data.data;
+      if (data && Array.isArray(data.reports)) return data.reports;
+      if (data && Array.isArray(data.services)) return data.services;
+      return [];
+    };
+
+    rawQueueTickets = extractArray(queueData);
+    rawOpenedTickets = extractArray(openedData);
+    rawReportTickets = extractArray(reportsData);
+    rawSuspensions = extractArray(suspensionsData);
+    rawBookings = extractArray(bookingsData);
+
+    console.log(`[Espera API] Retornos NextQS: Fila=${rawQueueTickets.length}, Abertos=${rawOpenedTickets.length}, Relatório=${rawReportTickets.length}, Pausas=${rawSuspensions.length}, Agendamentos=${rawBookings.length}`);
+
+    // 7. Unificar e deduplicar todos os tickets
     const seenKeys = new Set<string>();
-    const uniqueTickets: NextQSTicket[] = [];
+    const allCombinedTickets: NextQSTicket[] = [];
 
-    for (const t of allTickets) {
+    // Prioridade de inclusão: abertos / fila atual > relatórios
+    for (const t of [...rawOpenedTickets, ...rawQueueTickets, ...rawReportTickets]) {
       const rawDate = t.ticket_generated_at || (t as any).created_at || '';
       const uniqueId = t.service_origin_id || (t as any)._id || (t as any).origin_id || (t.ticket ? `${t.ticket}-${rawDate}` : null);
       if (uniqueId) {
         if (seenKeys.has(uniqueId)) continue;
         seenKeys.add(uniqueId);
       }
-      uniqueTickets.push(t);
+      allCombinedTickets.push(t);
     }
 
-    // 8. Normalizar tickets
-    const normalized = uniqueTickets.map((t, i) => normalizeTicket(t, i));
-
-    // Ordenar tickets por horário de emissão decrescente (mais recentes primeiro)
+    // 8. Normalizar registros principais
+    const normalized = allCombinedTickets.map((t, i) => normalizeTicket(t, i));
     normalized.sort((a, b) => {
       const timeA = a.emissao !== '—' ? a.emissao : '';
       const timeB = b.emissao !== '—' ? b.emissao : '';
       return timeB.localeCompare(timeA);
     });
 
-    // 9. Atualizar lastSyncAt se houver tickets
+    const realtimeQueueNormalized = rawQueueTickets.map((t, i) => normalizeTicket(t, i));
+    const realtimeOpenedNormalized = rawOpenedTickets.map((t, i) => normalizeTicket(t, i));
+
+    // 9. Computar Métricas Executivas (KPIs idênticos ao NextQS Manager)
+    const totalSenhas = normalized.length;
+    const atendidos = normalized.filter(r => r.situacao !== 'Desistência' && r.situacao !== 'Cancelado');
+    const desistencias = normalized.filter(r => r.situacao === 'Desistência' || r.situacao === 'Cancelado');
+    const comEspera = normalized.filter(r => r.tempoEsperaMin !== null);
+    const dentroSlaEspera = comEspera.filter(r => (r.tempoEsperaMin ?? 0) <= config.slaMinutes);
+    const comAtendimento = normalized.filter(r => r.tempoAtendimentoMin !== null);
+    const dentroSlaAtendimento = comAtendimento.filter(r => (r.tempoAtendimentoMin ?? 0) <= 15);
+
+    const mediaEsperaMin = comEspera.length > 0 ? Math.round(comEspera.reduce((acc, r) => acc + (r.tempoEsperaMin ?? 0), 0) / comEspera.length) : 0;
+    const mediaAtendimentoMin = comAtendimento.length > 0 ? Math.round(comAtendimento.reduce((acc, r) => acc + (r.tempoAtendimentoMin ?? 0), 0) / comAtendimento.length) : 0;
+    const slaEsperaPerc = comEspera.length > 0 ? Math.round((dentroSlaEspera.length / comEspera.length) * 100) : 100;
+    const slaAtendimentoPerc = comAtendimento.length > 0 ? Math.round((dentroSlaAtendimento.length / comAtendimento.length) * 100) : 100;
+    
+    // SLA Geral = média ponderada de Espera (60%) e Atendimento (40%)
+    const slaGeralPerc = Math.round((slaEsperaPerc * 0.6) + (slaAtendimentoPerc * 0.4));
+
+    // CSAT
+    const avaliacoes = normalized.map(r => {
+      if (!r.avaliacao || r.avaliacao === '—') return null;
+      const num = parseFloat(r.avaliacao.replace(/[^0-9.]/g, ''));
+      return isNaN(num) ? null : num;
+    }).filter((n): n is number => n !== null);
+    const csatMediaPerc = avaliacoes.length > 0 ? Math.round((avaliacoes.reduce((a, b) => a + b, 0) / avaliacoes.length) * 20) : null;
+
+    // 10. Computar Relatório de Horários de Pico (faixas horárias das 07h às 19h)
+    const horasMap: Record<string, { total: number; dentroSla: number; foraSla: number; totalEspera: number; countEspera: number }> = {};
+    const horasLista = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
+    for (const h of horasLista) {
+      horasMap[h] = { total: 0, dentroSla: 0, foraSla: 0, totalEspera: 0, countEspera: 0 };
+    }
+
+    for (const r of normalized) {
+      if (r.emissao !== '—') {
+        const horaKey = r.emissao.split(':')[0] + ':00';
+        if (!horasMap[horaKey]) {
+          horasMap[horaKey] = { total: 0, dentroSla: 0, foraSla: 0, totalEspera: 0, countEspera: 0 };
+        }
+        horasMap[horaKey].total += 1;
+        if (r.tempoEsperaMin !== null) {
+          horasMap[horaKey].totalEspera += r.tempoEsperaMin;
+          horasMap[horaKey].countEspera += 1;
+          if (r.tempoEsperaMin <= config.slaMinutes) {
+            horasMap[horaKey].dentroSla += 1;
+          } else {
+            horasMap[horaKey].foraSla += 1;
+          }
+        }
+      }
+    }
+
+    const horariosPico = Object.entries(horasMap).map(([hora, val]) => ({
+      hora,
+      total: val.total,
+      dentroSla: val.dentroSla,
+      foraSla: val.foraSla,
+      mediaEsperaMin: val.countEspera > 0 ? Math.round(val.totalEspera / val.countEspera) : 0,
+    })).sort((a, b) => a.hora.localeCompare(b.hora));
+
+    // 11. Computar Relatório de Performance dos Agentes
+    const agentesMap: Record<string, {
+      totalAtendimentos: number;
+      totalEspera: number;
+      countEspera: number;
+      totalAtendimento: number;
+      countAtendimento: number;
+      dentroSla: number;
+      desistencias: number;
+      notas: number[];
+    }> = {};
+
+    for (const r of normalized) {
+      const nome = r.atendente !== '—' ? r.atendente : 'Recepção / Triagem';
+      if (!agentesMap[nome]) {
+        agentesMap[nome] = {
+          totalAtendimentos: 0,
+          totalEspera: 0,
+          countEspera: 0,
+          totalAtendimento: 0,
+          countAtendimento: 0,
+          dentroSla: 0,
+          desistencias: 0,
+          notas: [],
+        };
+      }
+
+      if (r.situacao === 'Desistência' || r.situacao === 'Cancelado') {
+        agentesMap[nome].desistencias += 1;
+      } else {
+        agentesMap[nome].totalAtendimentos += 1;
+      }
+
+      if (r.tempoEsperaMin !== null) {
+        agentesMap[nome].totalEspera += r.tempoEsperaMin;
+        agentesMap[nome].countEspera += 1;
+        if (r.tempoEsperaMin <= config.slaMinutes) {
+          agentesMap[nome].dentroSla += 1;
+        }
+      }
+
+      if (r.tempoAtendimentoMin !== null) {
+        agentesMap[nome].totalAtendimento += r.tempoAtendimentoMin;
+        agentesMap[nome].countAtendimento += 1;
+      }
+
+      if (r.avaliacao && r.avaliacao !== '—') {
+        const num = parseFloat(r.avaliacao.replace(/[^0-9.]/g, ''));
+        if (!isNaN(num)) agentesMap[nome].notas.push(num);
+      }
+    }
+
+    const performanceAgentes = Object.entries(agentesMap).map(([atendente, val]) => ({
+      atendente,
+      totalAtendimentos: val.totalAtendimentos,
+      mediaEsperaMin: val.countEspera > 0 ? Math.round(val.totalEspera / val.countEspera) : 0,
+      mediaAtendimentoMin: val.countAtendimento > 0 ? Math.round(val.totalAtendimento / val.countAtendimento) : 0,
+      dentroSlaPerc: val.countEspera > 0 ? Math.round((val.dentroSla / val.countEspera) * 1000) / 10 : 100,
+      desistencias: val.desistencias,
+      csatScore: val.notas.length > 0 ? Math.round((val.notas.reduce((a, b) => a + b, 0) / val.notas.length) * 20) : null,
+    })).sort((a, b) => b.totalAtendimentos - a.totalAtendimentos);
+
+    // 12. Normalizar Relatório de Suspensão (Pausas)
+    const suspensoes = rawSuspensions.map((s: any) => {
+      const inicio = formatTime(s.started_at || s.created_at);
+      const fim = formatTime(s.ended_at);
+      let duracaoMin: number | null = null;
+      if (s.started_at && s.ended_at) {
+        const iMs = safeParseDate(s.started_at);
+        const fMs = safeParseDate(s.ended_at);
+        if (iMs && fMs && fMs >= iMs) {
+          duracaoMin = Math.round((fMs - iMs) / 60000);
+        }
+      }
+      return {
+        id: s._id || Math.random().toString(),
+        atendente: s.user_label || 'Colaborador',
+        motivo: s.reason_label || 'Intervalo / Pausa',
+        inicio,
+        fim,
+        duracaoMin,
+        emAndamento: !s.ended_at,
+      };
+    });
+
+    // 13. Normalizar Relatório de Agendamentos
+    const agendamentos = rawBookings.map((b: any) => ({
+      id: b._id || Math.random().toString(),
+      cliente: b.user_label || b.ticket_customer_name || 'Cliente',
+      servico: b.schedule_label || 'Atendimento agendado',
+      horario: formatTime(b.checkin_at || b.created_at),
+      status: b.is_noshow_at ? 'Não compareceu' : (b.checkin_at ? 'Compareceu' : 'Agendado'),
+      senha: b.ticket || '—',
+    }));
+
+    // 14. Atualizar lastSyncAt se houver tickets
     if (!fetchError && normalized.length > 0) {
       await prisma.integrationConfig.update({
         where: { id: config.id },
@@ -389,6 +538,26 @@ export async function GET(req: NextRequest) {
       lastSyncAt: new Date().toISOString(),
       total: normalized.length,
       siteLabel: siteLabel || undefined,
+      kpis: {
+        slaGeralPerc,
+        slaEsperaPerc,
+        mediaEsperaMin,
+        slaAtendimentoPerc,
+        mediaAtendimentoMin,
+        totalSenhas,
+        totalAtendidas: atendidos.length,
+        totalDesistencias: desistencias.length,
+        csatMediaPerc,
+        totalAgendamentos: agendamentos.length,
+      },
+      realtime: {
+        fila: realtimeQueueNormalized,
+        emAtendimento: realtimeOpenedNormalized,
+      },
+      horariosPico,
+      performanceAgentes,
+      suspensoes,
+      agendamentos,
       error: fetchError,
     });
   } catch (err: any) {
