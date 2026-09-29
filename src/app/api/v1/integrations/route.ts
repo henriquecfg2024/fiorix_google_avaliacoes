@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
-import { encryptConfig, maskSensitiveValue } from '@/lib/integration-crypto';
+import { encryptConfig, decryptConfig, maskSensitiveValue } from '@/lib/integration-crypto';
 
 export const dynamic = 'force-dynamic';
 
@@ -192,18 +192,74 @@ export async function POST(req: NextRequest) {
     let testResult: { ok: boolean; message: string; latencyMs?: number } | null = null;
     if (andTest) {
       const start = Date.now();
-      // Simular handshake (em produção faria fetch real ao endpoint NextQS)
-      await new Promise((r) => setTimeout(r, 800));
-      const latencyMs = Date.now() - start;
 
-      const testOk = !!encryptedData; // Sucesso se credenciais foram fornecidas
-      testResult = {
-        ok: testOk,
-        message: testOk
-          ? `Conexão validada com sucesso (latência: ${latencyMs}ms).`
-          : 'Parâmetros salvos, mas nenhuma credencial foi informada para testar.',
-        latencyMs,
-      };
+      // Teste REAL ao endpoint /v1/organization/check da NextQS
+      let testOk = false;
+      let testMessage = '';
+
+      if (encryptedData) {
+        try {
+          // Decriptografar para obter apiUrl e apiKey
+          const testConfig = decryptConfig(encryptedData.encrypted, encryptedData.iv);
+          const testApiUrl = (testConfig.apiUrl as string)?.replace(/\/$/, '') || '';
+          const testApiKey = (testConfig.apiKey as string) || '';
+
+          if (testApiUrl && testApiKey) {
+            // Normalizar base URL (remover /v1 do final se presente)
+            const baseUrl = testApiUrl.replace(/\/v1\/?$/, '');
+            const checkUrl = `${baseUrl}/v1/organization/check`;
+
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000);
+
+            const checkResponse = await fetch(checkUrl, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${testApiKey}`,
+                'Accept': 'application/json',
+              },
+              signal: controller.signal,
+            });
+
+            clearTimeout(timeout);
+            const latencyMs = Date.now() - start;
+
+            if (checkResponse.ok) {
+              const checkBody = await checkResponse.json().catch(() => ({}));
+              if (checkBody.check === true) {
+                testOk = true;
+                testMessage = `Conexão validada com sucesso (latência: ${latencyMs}ms).`;
+              } else {
+                testMessage = `API respondeu, mas credenciais podem estar incorretas (latência: ${latencyMs}ms).`;
+              }
+            } else {
+              const status = checkResponse.status;
+              if (status === 401 || status === 403) {
+                testMessage = `Token de API inválido ou expirado (status ${status}, latência: ${latencyMs}ms).`;
+              } else {
+                testMessage = `API NextQS retornou status ${status} (latência: ${latencyMs}ms).`;
+              }
+            }
+          } else {
+            testMessage = 'URL ou token da API não configurados.';
+          }
+        } catch (testErr: any) {
+          const latencyMs = Date.now() - start;
+          if (testErr.name === 'AbortError') {
+            testMessage = `Timeout ao conectar à API NextQS (>10s, latência: ${latencyMs}ms).`;
+          } else if (testErr.message?.includes('FIORIX_INTEGRATION_ENCRYPTION_KEY')) {
+            testMessage = 'Chave de criptografia não configurada no servidor.';
+          } else {
+            console.error('[Integrations API] Erro no teste de conexão:', testErr.message);
+            testMessage = `Erro ao conectar: ${testErr.cause?.code || 'verifique a URL'} (latência: ${latencyMs}ms).`;
+          }
+        }
+      } else {
+        testMessage = 'Parâmetros salvos, mas nenhuma credencial foi informada para testar.';
+      }
+
+      const latencyMs = Date.now() - start;
+      testResult = { ok: testOk, message: testMessage, latencyMs };
 
       // Atualizar registro com resultado do teste
       await prisma.integrationConfig.update({
