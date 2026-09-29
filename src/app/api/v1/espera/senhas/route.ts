@@ -72,7 +72,8 @@ function normalizeTicket(raw: NextQSTicket, index: number) {
   const guiche = raw.service_desk_label
     ? (raw.service_desk_number ? `${raw.service_desk_label} ${raw.service_desk_number}` : raw.service_desk_label)
     : '—';
-  const atendente = raw.user_label || '—';
+  const rawAtendente = raw.user_label ? String(raw.user_label).trim() : '';
+  const atendente = rawAtendente && rawAtendente !== '—' ? rawAtendente.toUpperCase() : '—';
   const statusCode = raw.status !== undefined && raw.status !== null ? String(raw.status) : '';
   const situacao = STATUS_MAP[statusCode] || statusCode || '—';
 
@@ -441,7 +442,8 @@ export async function GET(req: NextRequest) {
     }> = {};
 
     for (const r of normalized) {
-      const nome = r.atendente !== '—' ? r.atendente : 'Recepção / Triagem';
+      const rawNome = r.atendente !== '—' ? r.atendente.trim() : 'RECEPÇÃO / TRIAGEM';
+      const nome = rawNome.toUpperCase();
       if (!agentesMap[nome]) {
         agentesMap[nome] = {
           totalAtendimentos: 0,
@@ -502,9 +504,11 @@ export async function GET(req: NextRequest) {
           duracaoMin = Math.round((fMs - iMs) / 60000);
         }
       }
+      const rawUserLabel = s.user_label ? String(s.user_label).trim() : '';
+      const atendente = rawUserLabel && rawUserLabel !== '—' ? rawUserLabel.toUpperCase() : 'COLABORADOR';
       return {
         id: s._id || Math.random().toString(),
-        atendente: s.user_label || 'Colaborador',
+        atendente,
         motivo: s.reason_label || 'Intervalo / Pausa',
         inicio,
         fim,

@@ -276,7 +276,10 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
 
   const servicosUnicos = useMemo(() => [...new Set(allRecords.map((r) => r.servico).filter((s) => s !== '—'))].sort(), [allRecords]);
   const filasUnicas = useMemo(() => [...new Set(allRecords.map((r) => r.fila).filter((f) => f !== '—'))].sort(), [allRecords]);
-  const atendentesUnicos = useMemo(() => [...new Set(allRecords.map((r) => r.atendente).filter((a) => a !== '—'))].sort(), [allRecords]);
+  const atendentesUnicos = useMemo(
+    () => [...new Set(allRecords.map((r) => r.atendente?.toUpperCase()).filter((a) => a && a !== '—'))].sort(),
+    [allRecords]
+  );
   const situacoesUnicas = useMemo(() => [...new Set(allRecords.map((r) => r.situacao).filter((s) => s !== '—'))].sort(), [allRecords]);
 
   // Distribuição por serviço para Visão Geral
@@ -307,7 +310,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
     let result = allRecords;
     if (filtroServico) result = result.filter((r) => r.servico === filtroServico);
     if (filtroFila) result = result.filter((r) => r.fila === filtroFila);
-    if (filtroAtendente) result = result.filter((r) => r.atendente === filtroAtendente);
+    if (filtroAtendente) result = result.filter((r) => r.atendente?.toUpperCase() === filtroAtendente.toUpperCase());
     if (filtroSituacao) result = result.filter((r) => r.situacao.toLowerCase() === filtroSituacao.toLowerCase());
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -354,7 +357,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
       r.tempoEsperaMin !== null ? r.tempoEsperaMin : '',
       r.tempoAtendimentoMin !== null ? r.tempoAtendimentoMin : '',
       `"${r.guiche}"`,
-      `"${r.atendente}"`,
+      `"${r.atendente && r.atendente !== '—' ? r.atendente.toUpperCase() : '—'}"`,
       `"${r.avaliacao || '—'}"`,
       `"${r.situacao}"`,
     ]);
@@ -935,7 +938,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
                                 )}
                               </td>
                               <td className="py-3 px-3 font-mono">{r.guiche}</td>
-                              <td className="py-3 px-3 text-white">{r.atendente}</td>
+                              <td className="py-3 px-3 text-white uppercase font-medium">{r.atendente}</td>
                               <td className="py-3 px-4">
                                 {r.situacao !== '—' ? (
                                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-white/5 border-white/10 text-slate-300">
@@ -1020,7 +1023,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
                           <div className="pt-3 border-t border-white/8 space-y-1 text-xs">
                             <div className="flex items-center justify-between text-slate-400">
                               <span>Atendente:</span>
-                              <span className="font-semibold text-white">{mesa.atendente}</span>
+                              <span className="font-semibold text-white uppercase">{mesa.atendente}</span>
                             </div>
                             {mesa.cliente && mesa.cliente !== '—' && (
                               <div className="flex items-center justify-between text-slate-400">
@@ -1185,7 +1188,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
                       >
                         <option value="">Todos os Atendentes ({atendentesUnicos.length})</option>
                         {atendentesUnicos.map((a) => (
-                          <option key={a} value={a}>{a}</option>
+                          <option key={a} value={a}>{a.toUpperCase()}</option>
                         ))}
                       </select>
                     )}
@@ -1281,7 +1284,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
                                 {r.tempoAtendimentoMin !== null ? `${r.tempoAtendimentoMin}m` : '—'}
                               </td>
                               <td className="py-3 px-3 font-mono">{r.guiche}</td>
-                              <td className="py-3 px-3 text-white font-medium">{r.atendente}</td>
+                              <td className="py-3 px-3 text-white font-medium uppercase">{r.atendente}</td>
                               <td className="py-3 px-3">
                                 {r.avaliacao && r.avaliacao !== '—' ? (
                                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
@@ -1456,10 +1459,10 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
                                 )}
                               </td>
                               <td className="py-3 px-3 font-bold text-white text-sm flex items-center gap-2">
-                                <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-xs text-indigo-300">
+                                <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-xs text-indigo-300 font-mono">
                                   {agente.atendente.slice(0, 2).toUpperCase()}
                                 </div>
-                                <span>{agente.atendente}</span>
+                                <span className="uppercase">{agente.atendente}</span>
                               </td>
                               <td className="py-3 px-3 text-right font-mono font-bold text-indigo-300">
                                 {agente.totalAtendimentos}
@@ -1537,7 +1540,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
                         <tbody className="divide-y divide-white/6 text-slate-300">
                           {suspensoes.map((s) => (
                             <tr key={s.id} className="hover:bg-white/[0.02]">
-                              <td className="py-3 px-4 font-bold text-white text-sm">{s.atendente}</td>
+                              <td className="py-3 px-4 font-bold text-white text-sm uppercase">{s.atendente}</td>
                               <td className="py-3 px-3">
                                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
                                   {s.motivo}
