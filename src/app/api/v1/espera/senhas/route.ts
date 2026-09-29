@@ -204,6 +204,8 @@ export async function GET(req: NextRequest) {
       endpoints.push(`${baseUrl}/v1/organization/check`);
     }
 
+    console.log(`[Espera API] Consultando NextQS: baseUrl=${baseUrl}, orgId=${orgId || '(vazio)'}, endpoints=${endpoints.length}`);
+
     for (const endpoint of endpoints) {
       try {
         const controller = new AbortController();
@@ -241,8 +243,19 @@ export async function GET(req: NextRequest) {
         if (err.name === 'AbortError') {
           fetchError = 'Timeout ao conectar à API NextQS (>15s).';
         } else {
-          console.error('[Espera API] Erro ao consultar NextQS:', err.message);
-          fetchError = 'Não foi possível conectar à API NextQS. Verifique a URL e as credenciais.';
+          const causeCode = err.cause?.code || err.code || '';
+          const errDetail = causeCode ? ` (${causeCode})` : '';
+          console.error(`[Espera API] Erro ao consultar NextQS [${endpoint}]:`, err.message, causeCode);
+          
+          if (causeCode === 'ENOTFOUND' || err.message?.includes('ENOTFOUND')) {
+            fetchError = `Servidor NextQS não encontrado${errDetail}. Verifique a URL configurada.`;
+          } else if (causeCode === 'ECONNREFUSED') {
+            fetchError = `Conexão recusada pela API NextQS${errDetail}.`;
+          } else if (causeCode === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' || err.message?.includes('certificate')) {
+            fetchError = `Erro de certificado SSL ao conectar à API NextQS${errDetail}.`;
+          } else {
+            fetchError = `Não foi possível conectar à API NextQS${errDetail}. Verifique a URL e as credenciais.`;
+          }
         }
         break;
       }
