@@ -150,17 +150,25 @@ function CircularSlaGauge({ percentage }: { percentage: number }) {
   const strokeDashoffset = circumference - (safePercentage / 100) * circumference;
 
   let color = '#10B981'; // emerald-500
-  let label = 'Excelente';
+  let label = 'Meta Atingida';
   let badgeBg = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
 
-  if (safePercentage < 75) {
-    color = '#F43F5E'; // rose-500
-    label = 'Crítico';
-    badgeBg = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
-  } else if (safePercentage < 90) {
+  if (safePercentage >= 90) {
+    color = '#10B981'; // emerald-500
+    label = 'Excelente';
+    badgeBg = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+  } else if (safePercentage >= 80) {
+    color = '#10B981'; // emerald-500
+    label = 'Meta Atingida';
+    badgeBg = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+  } else if (safePercentage >= 65) {
     color = '#F59E0B'; // amber-500
     label = 'Atenção';
     badgeBg = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+  } else {
+    color = '#F43F5E'; // rose-500
+    label = 'Crítico';
+    badgeBg = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
   }
 
   return (
@@ -1610,9 +1618,11 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
                               <td className="py-3 px-3">
                                 <span
                                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                                    perc >= 90
+                                    perc >= 80
                                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                      : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                      : perc >= 65
+                                      ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                      : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
                                   }`}
                                 >
                                   {perc}%
@@ -1698,9 +1708,11 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
                               <td className="py-3 px-3 text-right">
                                 <span
                                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                                    agente.dentroSlaPerc >= 90
+                                    agente.dentroSlaPerc >= 80
                                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                      : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                      : agente.dentroSlaPerc >= 65
+                                      ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                      : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
                                   }`}
                                 >
                                   {agente.dentroSlaPerc}%
