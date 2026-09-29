@@ -76,6 +76,7 @@ export async function dispatchRealtimeAndPush(params: DispatchMessageEventParams
 
   // Filtra apenas destinatários (exclui o próprio remetente)
   const targetUserIds = recipientUserIds.filter((id) => id !== senderId);
+  console.log(`[Dispatch] 📨 Nova mensagem de ${senderName} (${senderId}) na conversa ${conversationId}. Destinatários: ${targetUserIds.join(', ')}`);
   if (targetUserIds.length === 0) return;
 
   // 1. Notificação em Tempo Real via Supabase Channel Privado (em paralelo para todos os membros)
@@ -138,7 +139,11 @@ export async function dispatchRealtimeAndPush(params: DispatchMessageEventParams
         if (!isGroup && settings && !settings.directMessages) continue;
 
         const userSubs = subsByUser.get(userId);
-        if (!userSubs || userSubs.length === 0) continue;
+        if (!userSubs || userSubs.length === 0) {
+          console.log(`[WebPush] ⚠️ Usuário ${userId} não tem subscriptions ativas. Pulando push.`);
+          continue;
+        }
+        console.log(`[WebPush] 📱 Usuário ${userId}: ${userSubs.length} dispositivo(s) para enviar push.`);
 
         const allowPreview = settings ? settings.previewContent !== false : true;
         const pushTitle = isGroup ? (conversationTitle || 'Grupo') : senderName;
@@ -152,6 +157,7 @@ export async function dispatchRealtimeAndPush(params: DispatchMessageEventParams
         for (const sub of userSubs) {
           pushPromises.push(
             sendWebPushNotification(sub, {
+              // Log: Enviando para ${sub.deviceName} (${sub.id})
               title: pushTitle,
               body: pushBody,
               icon: '/icon-192.svg',

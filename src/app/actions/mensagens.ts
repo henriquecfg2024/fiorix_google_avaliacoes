@@ -403,7 +403,9 @@ export async function sendMessage(params: {
         hasAttachments: !!created.anexo,
       },
       recipientUserIds: recipientIds,
-    }).catch(() => {});
+    }).catch((err) => {
+      console.error('[SendMessage] Erro no dispatchRealtimeAndPush:', err);
+    });
 
     const serialized: SerializedMessage = {
       id: created.msg.id,
