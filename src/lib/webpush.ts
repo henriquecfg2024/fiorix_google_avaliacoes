@@ -121,11 +121,15 @@ export async function sendWebPushNotification(
     const stringifiedPayload = JSON.stringify(payload);
     await webpush.sendNotification(pushSubscription, stringifiedPayload, sendOptions);
 
-    // Atualiza lastUsedAt
-    prisma.pushSubscription.update({
-      where: { id: subscription.id },
-      data: { lastUsedAt: new Date() },
-    }).catch(() => {});
+    // Atualiza lastUsedAt garantindo conclusão antes do encerramento da função serverless
+    try {
+      await prisma.pushSubscription.update({
+        where: { id: subscription.id },
+        data: { lastUsedAt: new Date() },
+      });
+    } catch (updateErr) {
+      console.warn(`[WebPush] Falha ao atualizar lastUsedAt da subscription ${subscription.id}:`, updateErr);
+    }
 
     return { success: true };
   } catch (err: any) {

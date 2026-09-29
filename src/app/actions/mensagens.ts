@@ -387,25 +387,27 @@ export async function sendMessage(params: {
       return { msg, anexo: anexoResult };
     });
 
-    // Dispara eventos em tempo real e Web Push para os membros
+    // Dispara eventos em tempo real e Web Push para os membros (AWAIT obrigatório no ambiente serverless)
     const recipientIds = membership.conversa.membros.map((m) => m.usuarioId);
-    dispatchRealtimeAndPush({
-      tenantId: user.tenantId,
-      conversationId,
-      isGroup: membership.conversa.tipo === 'GROUP',
-      conversationTitle: membership.conversa.titulo || undefined,
-      senderId: user.id,
-      senderName: user.name || 'Colega',
-      message: {
-        id: created.msg.id,
-        conteudo: sanitized,
-        createdAt: now.toISOString(),
-        hasAttachments: !!created.anexo,
-      },
-      recipientUserIds: recipientIds,
-    }).catch((err) => {
+    try {
+      await dispatchRealtimeAndPush({
+        tenantId: user.tenantId,
+        conversationId,
+        isGroup: membership.conversa.tipo === 'GROUP',
+        conversationTitle: membership.conversa.titulo || undefined,
+        senderId: user.id,
+        senderName: user.name || 'Colega',
+        message: {
+          id: created.msg.id,
+          conteudo: sanitized,
+          createdAt: now.toISOString(),
+          hasAttachments: !!created.anexo,
+        },
+        recipientUserIds: recipientIds,
+      });
+    } catch (err) {
       console.error('[SendMessage] Erro no dispatchRealtimeAndPush:', err);
-    });
+    }
 
     const serialized: SerializedMessage = {
       id: created.msg.id,
@@ -685,13 +687,13 @@ export async function deleteMessage(messageId: string): Promise<{ success: boole
     });
 
     // Broadcast Realtime para outros membros
-    broadcastToConversation({
+    await broadcastToConversation({
       tenantId: user.tenantId,
       conversationId: msg.conversaId,
       senderId: user.id,
       event: 'message_deleted',
       payload: { messageId },
-    });
+    }).catch(() => {});
 
     return { success: true };
   } catch (error: any) {
@@ -754,13 +756,13 @@ export async function toggleReaction(messageId: string, emoji: string): Promise<
     }
 
     // Broadcast Realtime para outros membros
-    broadcastToConversation({
+    await broadcastToConversation({
       tenantId: user.tenantId,
       conversationId: msg.conversaId,
       senderId: user.id,
       event: 'reaction',
       payload: { messageId, emoji, userId: user.id, action },
-    });
+    }).catch(() => {});
 
     return { success: true };
   } catch (error: any) {
@@ -1250,13 +1252,13 @@ export async function editMessage(
     });
 
     // Broadcast Realtime para outros membros
-    broadcastToConversation({
+    await broadcastToConversation({
       tenantId: user.tenantId,
       conversationId: msg.conversaId,
       senderId: user.id,
       event: 'message_edited',
       payload: { messageId, newConteudo: sanitized, editedAt: new Date().toISOString() },
-    });
+    }).catch(() => {});
 
     return { success: true };
   } catch (error: any) {

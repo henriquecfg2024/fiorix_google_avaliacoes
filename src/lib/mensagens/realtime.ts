@@ -116,7 +116,6 @@ export async function dispatchRealtimeAndPush(params: DispatchMessageEventParams
         prisma.pushSubscription.findMany({
           where: {
             usuarioId: { in: targetUserIds },
-            tenantId,
             isActive: true,
           },
         }),
@@ -157,7 +156,6 @@ export async function dispatchRealtimeAndPush(params: DispatchMessageEventParams
         for (const sub of userSubs) {
           pushPromises.push(
             sendWebPushNotification(sub, {
-              // Log: Enviando para ${sub.deviceName} (${sub.id})
               title: pushTitle,
               body: pushBody,
               icon: '/icon-192.svg',
@@ -170,14 +168,18 @@ export async function dispatchRealtimeAndPush(params: DispatchMessageEventParams
                 tenantId,
                 timestamp: Date.now(),
               },
-            }).catch((err) => console.warn(`[WebPush] Falha envio:`, err))
+            })
+              .then((res) => {
+                console.log(`[WebPush] Resultado para ${sub.deviceName || 'Dispositivo'} (${sub.id}): sucesso=${res.success} erro=${res.error || 'nenhum'}`);
+              })
+              .catch((err) => console.warn(`[WebPush] Falha envio para ${sub.deviceName}:`, err))
           );
         }
       }
 
       await Promise.allSettled(pushPromises);
-    } catch (pushErr) {
-      console.warn('[WebPush] Erro ao processar push:', pushErr);
+    } catch (pushErr: any) {
+      console.error('[WebPush] ❌ Erro ao processar push:', pushErr?.message || pushErr, pushErr?.stack);
     }
   })();
 
