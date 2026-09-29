@@ -1104,7 +1104,7 @@ export function FiorixAgent() {
                   className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all ${
                     isVoiceMuted ? 'text-white/40 hover:text-white/80' : 'text-amber-300 hover:bg-white/15'
                   }`}
-                  title={isVoiceMuted ? 'Ativar fala com voz do FIORIX' : 'Silenciar voz do FIORIX'}
+                  title={isVoiceMuted ? 'Ativar voz JARVIS do FIORIX' : 'Silenciar voz JARVIS do FIORIX'}
                   aria-label={isVoiceMuted ? 'Ativar voz' : 'Silenciar'}
                 >
                   {isVoiceMuted ? (

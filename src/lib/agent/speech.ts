@@ -61,28 +61,86 @@ if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
 }
 
 /**
- * Seleciona a melhor voz em português disponível no sistema (Windows, Mac, Android, iOS)
+ * Nomes de vozes masculinas brasileiras e em português
+ * com preferência para tons maduros, elegantes e articulados (estilo JARVIS).
  */
-function getBestPortugueseVoice(): SpeechSynthesisVoice | undefined {
+const JARVIS_MALE_NAMES = [
+  'antonio', // Microsoft Antonio (Natural / Neural) - o tom ideal em pt-BR estilo JARVIS
+  'fabio',   // Microsoft Fabio (Natural / Neural) - pt-BR
+  'felipe',  // Apple Felipe (Siri pt-BR)
+  'daniel',  // Microsoft / Apple Daniel (estilo britânico/mordomo)
+  'cristiano',
+  'helio',
+  'hélio',
+  'jorge',
+  'julio',
+  'júlio',
+  'thiago',
+  'ricardo',
+  'gabriel',
+  'carlos',
+];
+
+const FEMALE_VOICE_REGEX =
+  /(luciana|francisca|leticia|letícia|yelda|maria|helena|brenda|thalita|fernanda|camila|vitoria|vitória|raquel|joana|ines|inês|catarina|female|mulher|feminina|zira|elza|victoria|alice)/i;
+
+/**
+ * Seleciona a melhor voz masculina em português disponível no sistema,
+ * priorizando o tom refinado e inteligente do JARVIS (Homem de Ferro).
+ */
+export function getJarvisMaleVoice(): SpeechSynthesisVoice | undefined {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return undefined;
   const voices = window.speechSynthesis.getVoices();
   if (!voices || voices.length === 0) return undefined;
 
-  // 1. Vozes brasileiras de destaque (Apple: Luciana, Felipe / Google / Microsoft: Francisca, Antonio / Natural)
-  const premiumVoice = voices.find(
+  // 1. Vozes masculinas neurais/online em pt-BR (ex: Microsoft Antonio Neural, Microsoft Fabio Neural, Apple Felipe)
+  const premiumMalePtBr = voices.find(
     (v) =>
       /pt[-_]br/i.test(v.lang) &&
-      /(Luciana|Felipe|Leticia|Yelda|Google|Natural|Premium|Siri|Francisca|Antonio)/i.test(v.name)
+      !FEMALE_VOICE_REGEX.test(v.name) &&
+      JARVIS_MALE_NAMES.some((name) => v.name.toLowerCase().includes(name)) &&
+      /(natural|neural|premium|online)/i.test(v.name)
   );
-  if (premiumVoice) return premiumVoice;
+  if (premiumMalePtBr) return premiumMalePtBr;
 
-  // 2. Qualquer voz pt-BR
-  const anyPtBr = voices.find((v) => /pt[-_]br/i.test(v.lang));
-  if (anyPtBr) return anyPtBr;
+  // 2. Qualquer voz masculina brasileira conhecida (Antonio, Fabio, Felipe, Daniel, etc.)
+  const anyMalePtBr = voices.find(
+    (v) =>
+      /pt[-_]br/i.test(v.lang) &&
+      !FEMALE_VOICE_REGEX.test(v.name) &&
+      JARVIS_MALE_NAMES.some((name) => v.name.toLowerCase().includes(name))
+  );
+  if (anyMalePtBr) return anyMalePtBr;
 
-  // 3. Fallback para qualquer variação de português
-  return voices.find((v) => /^pt/i.test(v.lang));
+  // 3. Voz com tag explícita de "male" ou "masculin" em pt-BR
+  const explicitMalePtBr = voices.find(
+    (v) =>
+      /pt[-_]br/i.test(v.lang) &&
+      !FEMALE_VOICE_REGEX.test(v.name) &&
+      /(male|masculin|homem)/i.test(v.name)
+  );
+  if (explicitMalePtBr) return explicitMalePtBr;
+
+  // 4. Qualquer voz pt-BR que comprovadamente NÃO seja feminina
+  const nonFemalePtBr = voices.find(
+    (v) => /pt[-_]br/i.test(v.lang) && !FEMALE_VOICE_REGEX.test(v.name)
+  );
+  if (nonFemalePtBr) return nonFemalePtBr;
+
+  // 5. Voz masculina em outra variante de português (ex: pt-PT Duarte, Cristiano)
+  const anyMalePt = voices.find(
+    (v) =>
+      /^pt/i.test(v.lang) &&
+      !FEMALE_VOICE_REGEX.test(v.name) &&
+      JARVIS_MALE_NAMES.some((name) => v.name.toLowerCase().includes(name))
+  );
+  if (anyMalePt) return anyMalePt;
+
+  // 6. Fallback seguro em pt-BR
+  return voices.find((v) => /pt[-_]br/i.test(v.lang)) || voices.find((v) => /^pt/i.test(v.lang));
 }
+
+export const getBestPortugueseVoice = getJarvisMaleVoice;
 
 /**
  * Desbloqueia o subsistema de áudio no iOS (Safari / iPhone).
@@ -121,16 +179,22 @@ export function unlockAudioForIOS(): void {
   }
 }
 
+export interface SpeakOptions {
+  onStart?: () => void;
+  onEnd?: () => void;
+  onError?: (err: any) => void;
+  pitch?: number;
+  rate?: number;
+  volume?: number;
+}
+
 /**
- * Fala um texto utilizando SpeechSynthesis do navegador com compatibilidade multiplataforma (Windows e iOS/iPhone)
+ * Fala um texto utilizando SpeechSynthesis do navegador com voz masculina estilo JARVIS
+ * e compatibilidade multiplataforma (Windows, macOS e iOS/iPhone).
  */
 export function speakText(
   text: string,
-  options?: {
-    onStart?: () => void;
-    onEnd?: () => void;
-    onError?: (err: any) => void;
-  }
+  options?: SpeakOptions
 ): SpeechSynthesisUtterance | null {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
     options?.onError?.(new Error('SpeechSynthesis não suportado'));
@@ -154,13 +218,27 @@ export function speakText(
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'pt-BR';
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
 
-    const ptVoice = getBestPortugueseVoice();
-    if (ptVoice) {
-      utterance.voice = ptVoice;
+    // ─── Modulação acústica estilo J.A.R.V.I.S. ─────────────────────────
+    // pitch 0.88: timbre masculino mais grave, encorpado e sereno
+    // rate 0.98: dicção calma, precisa e pausada
+    let targetPitch = options?.pitch ?? 0.88;
+    const targetRate = options?.rate ?? 0.98;
+    const targetVolume = options?.volume ?? 1.0;
+
+    const jarvisVoice = getJarvisMaleVoice();
+    if (jarvisVoice) {
+      utterance.voice = jarvisVoice;
+      // Se a única voz disponível no sistema for feminina (sem pacote de voz masculina),
+      // baixamos o pitch para 0.78 para simular o registro barítono masculino
+      if (FEMALE_VOICE_REGEX.test(jarvisVoice.name)) {
+        targetPitch = Math.min(targetPitch, 0.78);
+      }
     }
+
+    utterance.pitch = targetPitch;
+    utterance.rate = targetRate;
+    utterance.volume = targetVolume;
 
     utterance.onstart = () => {
       options?.onStart?.();
