@@ -641,9 +641,9 @@ export function ParametrosClient({ initialTab, userName }: Props) {
             <div className="p-6 space-y-5">
               {/* Info de máscara para configurações existentes */}
               {nextqsIsConfigured && nextqsRecord?.configMask && (
-                <div className="rounded-xl border border-indigo-500/15 bg-indigo-500/5 p-3 text-xs text-indigo-300 flex items-center gap-2">
-                  <Shield className="w-3.5 h-3.5" />
-                  <span>Credencial atual: <span className="font-mono font-bold">{nextqsRecord.configMask}</span> — preencha novamente para substituir.</span>
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-300 flex items-center gap-2">
+                  <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Credencial salva e ativa: <span className="font-mono font-bold text-white">{nextqsRecord.configMask}</span> — preencha o campo abaixo apenas se desejar alterá-la.</span>
                 </div>
               )}
 
