@@ -31,11 +31,15 @@ export default async function EsperaPage() {
     select: { id: true, status: true, encryptedConfig: true, configIv: true, isActive: true },
   });
 
-  const hasCredentials = !!(nextqsConfig && nextqsConfig.encryptedConfig && nextqsConfig.configIv);
-  const isConfigured = hasCredentials && nextqsConfig.status !== 'DISCONNECTED';
+  const isConfigured = !!(
+    nextqsConfig &&
+    nextqsConfig.encryptedConfig &&
+    nextqsConfig.configIv &&
+    nextqsConfig.status !== 'DISCONNECTED'
+  );
 
-  // Auto-heal: se possui credenciais salvas e não está desconectado, garantir isActive: true
-  if (hasCredentials && !nextqsConfig.isActive && nextqsConfig.status !== 'DISCONNECTED') {
+  // Auto-heal: se possui credenciais salvas e não está ativo, garantir isActive: true
+  if (isConfigured && nextqsConfig && !nextqsConfig.isActive) {
     await prisma.integrationConfig.update({
       where: { id: nextqsConfig.id },
       data: { isActive: true },

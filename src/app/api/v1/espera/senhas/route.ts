@@ -152,8 +152,8 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Auto-heal: se possuir credenciais válidas e não estiver desconectado, garantir isActive: true
-    if (!config.isActive && config.status !== 'DISCONNECTED') {
+    // Auto-heal: se possuir credenciais válidas e não estiver ativo, garantir isActive: true
+    if (!config.isActive) {
       await prisma.integrationConfig.update({
         where: { id: config.id },
         data: { isActive: true },
