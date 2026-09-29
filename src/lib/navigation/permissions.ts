@@ -17,8 +17,8 @@ export function filterNavigationByRole(role: Role = "USER") {
     if (key === "master" && role !== "MASTER") continue;
 
     // COLABORADOR: vê 'pessoas' (Férias+Holerites) e 'trabalho' (Comunicados+MinhaIT+Trajetória)
-    // Opção A: 'trabalho' é visível a todos os perfis que tinham acesso a Comunicados/Minha IT
-    if (isColaborador && key !== "pessoas" && key !== "trabalho") continue;
+    // Colaborador vê 'pessoas', 'trabalho' e 'operacional' (filtrado para Rastreio e Impressões)
+    if (isColaborador && key !== "pessoas" && key !== "trabalho" && key !== "operacional") continue;
 
     // RH: 'rhGestao', 'pessoas' e 'trabalho' (Opção A — Comunicados e Minha IT migrados)
     if (isRH && key !== "rhGestao" && key !== "pessoas" && key !== "trabalho") continue;
@@ -42,12 +42,17 @@ export function filterNavigationByRole(role: Role = "USER") {
         return false;
       }
 
-      // COLABORADOR: 'pessoas' mostra só Férias e Holerites (Comunicados/MinhaIT estão em 'trabalho')
-      if (isColaborador && key === "pessoas") {
-        return (
-          item.href.startsWith("/pessoas/ferias") ||
-          item.href.startsWith("/pessoas/holerites")
-        );
+      // COLABORADOR: em 'operacional' vê apenas Rastreio e Impressões; em 'pessoas' só Férias e Holerites
+      if (isColaborador) {
+        if (key === "operacional") {
+          return item.href === "/trajetoria-titulo" || item.href === "/controle-impressoes";
+        }
+        if (key === "pessoas") {
+          return (
+            item.href.startsWith("/pessoas/ferias") ||
+            item.href.startsWith("/pessoas/holerites")
+          );
+        }
       }
 
       if (isRH) {

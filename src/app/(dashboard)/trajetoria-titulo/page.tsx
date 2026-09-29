@@ -59,21 +59,11 @@ export default async function LocalizacaoTitulosPage({
       </div>
 
       <div className="relative mx-auto max-w-[1600px] p-4 md:p-6 lg:p-8 space-y-6">
-        {/* ── Breadcrumb — condicional por perfil ── */}
+        {/* ── Breadcrumb ── */}
         <nav className="flex items-center gap-2 text-xs text-slate-500 dark:text-white/35 font-medium">
-          {isColaborador ? (
-            <>
-              <span>Trabalho</span>
-              <span>/</span>
-              <span className="text-blue-600 dark:text-blue-400 font-semibold">Rastreio</span>
-            </>
-          ) : (
-            <>
-              <span>Operacional &amp; BI</span>
-              <span>/</span>
-              <span className="text-blue-600 dark:text-blue-400 font-semibold">Localização de Títulos</span>
-            </>
-          )}
+          <span>Gestão de Prazos</span>
+          <span>/</span>
+          <span className="text-blue-600 dark:text-blue-400 font-semibold">Rastreio</span>
         </nav>
 
         {/* ── Page header ── */}

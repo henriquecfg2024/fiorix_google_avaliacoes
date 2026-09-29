@@ -87,6 +87,12 @@ export const navigationGroups = {
         icon: ShieldAlert,
         description: "280 SEM BALCÃO REG ID 76",
       },
+      {
+        label: "Rastreio",
+        href: "/trajetoria-titulo",
+        icon: MapPin,
+        description: "Última localização e situação do protocolo",
+      },
     ],
   },
   rhGestao: {
@@ -135,12 +141,6 @@ export const navigationGroups = {
         href: "/minha-it",
         icon: BookOpen,
         description: "Instrução oficial • Responsável Técnico",
-      },
-      {
-        label: "Rastreio",
-        href: "/trajetoria-titulo",
-        icon: MapPin,
-        description: "Última localização e situação do protocolo",
       },
     ],
   },
