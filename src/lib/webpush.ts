@@ -65,7 +65,16 @@ export interface PushNotificationPayload {
 }
 
 /**
+ * Detecta se o endpoint pertence ao Apple Push Service (Safari / iOS PWA).
+ * Endpoints Apple usam o domínio web.push.apple.com.
+ */
+function isAppleEndpoint(endpoint: string): boolean {
+  return endpoint.includes('web.push.apple.com');
+}
+
+/**
  * Dispara uma notificação Web Push segura para uma subscription registrada.
+ * Compatível com Google FCM (Chrome/Edge/Android) e Apple Push Service (Safari/iOS PWA).
  * Se a subscription foi revogada pelo navegador (410 Gone ou 404 Not Found),
  * desativa automaticamente o registro no banco de dados.
  */
@@ -83,7 +92,6 @@ export async function sendWebPushNotification(
     return { success: false, error: 'Web Push não disponível: VAPID keys não configuradas.' };
   }
 
-
   const pushSubscription = {
     endpoint: subscription.endpoint,
     keys: {
@@ -92,12 +100,26 @@ export async function sendWebPushNotification(
     },
   };
 
+  // Opções de envio compatíveis com Apple Push Service e Google FCM
+  const sendOptions: webpush.RequestOptions = {
+    TTL: 86400, // 24 horas max no buffer do push service
+    urgency: 'high' as const,
+  };
+
+  // Apple Push Service (web.push.apple.com) exige o header "Topic"
+  // para identificar a origem da notificação. O Topic deve ser a URL do site
+  // ou o bundle identifier. Usando o domínio do VAPID subject.
+  if (isAppleEndpoint(subscription.endpoint)) {
+    const topic = payload.tag || 'fiorix-mensagens';
+    sendOptions.headers = {
+      ...sendOptions.headers,
+      'Topic': topic,
+    };
+  }
+
   try {
     const stringifiedPayload = JSON.stringify(payload);
-    await webpush.sendNotification(pushSubscription, stringifiedPayload, {
-      TTL: 86400, // 24 horas max no buffer
-      urgency: 'high',
-    });
+    await webpush.sendNotification(pushSubscription, stringifiedPayload, sendOptions);
 
     // Atualiza lastUsedAt
     prisma.pushSubscription.update({
@@ -108,7 +130,14 @@ export async function sendWebPushNotification(
     return { success: true };
   } catch (err: any) {
     const statusCode = err?.statusCode;
-    console.warn(`[WebPush] Falha ao enviar push para subscription ${subscription.id} (status: ${statusCode}):`, err?.message);
+    const responseBody = err?.body || err?.message;
+    const isApple = isAppleEndpoint(subscription.endpoint);
+
+    console.warn(
+      `[WebPush] Falha ao enviar push para subscription ${subscription.id}` +
+      ` (status: ${statusCode}, apple: ${isApple}):`,
+      responseBody
+    );
 
     // 410 Gone ou 404 Not Found significa que a subscription expirou ou foi cancelada no navegador
     if (statusCode === 410 || statusCode === 404) {
@@ -126,6 +155,14 @@ export async function sendWebPushNotification(
       return { success: false, error: 'Subscription expirada/revogada', expired: true };
     }
 
-    return { success: false, error: err?.message || 'Falha no disparo Web Push' };
+    // 403 Forbidden — comum no Apple Push Service quando VAPID está incorreto
+    if (statusCode === 403) {
+      console.error(
+        `[WebPush] ⛔ 403 Forbidden (${isApple ? 'Apple' : 'FCM'}). ` +
+        `Possível problema com VAPID subject ou chaves. Body: ${responseBody}`
+      );
+    }
+
+    return { success: false, error: `[${statusCode || 'ERR'}] ${err?.message || 'Falha no disparo Web Push'}` };
   }
 }
