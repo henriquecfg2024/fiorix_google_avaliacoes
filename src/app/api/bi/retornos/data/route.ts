@@ -195,7 +195,7 @@ export async function GET(request: Request) {
     const classificacao = (searchParams.get("classificacao") || "ALL").toUpperCase();
     const idResponsavel = searchParams.get("idResponsavel")?.trim() || "";
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-    const pageSize = Math.max(1, Math.min(100, parseInt(searchParams.get("pageSize") || "20", 10)));
+    const pageSize = Math.max(1, Math.min(2500, parseInt(searchParams.get("pageSize") || "20", 10)));
     const sortByParam = searchParams.get("sortBy") || "dataRetorno";
     const sortOrderParam = (searchParams.get("sortOrder") || "desc").toLowerCase() === "asc" ? "asc" : "desc";
 

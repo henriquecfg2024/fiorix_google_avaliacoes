@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Search,
   Printer,
@@ -8,6 +8,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -26,6 +28,7 @@ import {
   History,
   Filter,
   Layers,
+  User,
   UserCheck,
   Building2,
   Monitor,
@@ -81,9 +84,13 @@ export function RetornosDashboardClient() {
 
   // Paginação e Ordenação da Tabela
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [sortBy, setSortBy] = useState<string>("dataRetorno");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [menuImprimirTabelaAberto, setMenuImprimirTabelaAberto] = useState(false);
+  const printTableMenuRef = useRef<HTMLDivElement>(null);
 
   // Modais
   const [selectedEvento, setSelectedEvento] = useState<RetornoItem | null>(null);
@@ -142,6 +149,8 @@ export function RetornosDashboardClient() {
       if (!data.success) throw new Error("Falha ao obter dados");
 
       setItems(data.items || []);
+      setTotalRecords(data.total || 0);
+      setTotalPages(data.totalPages || 1);
       setKpis(data.kpis || { total: 0, corrigidos: 0, semMarcador: 0, reingressos: 0, taxaRetrabalho: 0, tempoMedioDias: 0, taxaResolucao: 0 });
       setResponsaveis(data.responsaveis || []);
       setResponsaveisCompleto(data.responsaveisCompleto || []);
@@ -194,6 +203,11 @@ export function RetornosDashboardClient() {
     });
   }, [allFilteredItemsForPrint, items, selectedCausaId, CAUSAS_KEYWORDS]);
 
+  const totalItems = selectedCausaId ? displayedItems.length : (totalRecords || kpis.total);
+  const effectiveTotalPages = selectedCausaId
+    ? Math.max(1, Math.ceil(displayedItems.length / pageSize))
+    : Math.max(1, totalPages);
+
   // Alternar ordenação
   const handleHeaderSort = (field: string) => {
     if (sortBy === field) {
@@ -203,6 +217,54 @@ export function RetornosDashboardClient() {
       setSortOrder("desc");
     }
     setCurrentPage(1);
+  };
+
+  const getColumnLabel = (col: string) => {
+    switch (col) {
+      case "numeroPrenotacao":
+        return "Prenotação";
+      case "tipoRetorno":
+        return "Tipo de Retorno";
+      case "dataRetorno":
+        return "Data do Retorno";
+      case "usuarioDestino":
+        return "Destinatário";
+      case "observacao":
+        return "Observação";
+      default:
+        return "Data do Retorno";
+    }
+  };
+
+  const renderSortIcon = (column: string) => {
+    if (sortBy === column) {
+      return sortOrder === "asc" ? (
+        <ArrowUp className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0 inline ml-1 print:hidden" />
+      ) : (
+        <ArrowDown className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0 inline ml-1 print:hidden" />
+      );
+    }
+    return (
+      <ArrowUpDown className="w-3 h-3 text-slate-500/50 group-hover:text-slate-300 shrink-0 inline ml-1 opacity-0 group-hover:opacity-100 transition-all print:hidden" />
+    );
+  };
+
+  useEffect(() => {
+    const handleClickFora = (e: MouseEvent) => {
+      if (printTableMenuRef.current && !printTableMenuRef.current.contains(e.target as Node)) {
+        setMenuImprimirTabelaAberto(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickFora);
+    return () => document.removeEventListener("mousedown", handleClickFora);
+  }, []);
+
+  const handleImprimirPaginaAtual = () => {
+    setMenuImprimirTabelaAberto(false);
+    toast.info("Preparando impressão da listagem...", { duration: 1800 });
+    setTimeout(() => {
+      window.print();
+    }, 150);
   };
 
   // Lista de responsáveis ordenada
@@ -1363,35 +1425,156 @@ export function RetornosDashboardClient() {
       </div>
 
       {/* 5. TABELA DE EVENTOS DE RETORNO — PADRÃO FIORIX */}
-      <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 shadow-sm backdrop-blur-xl overflow-hidden space-y-0 print:border-0 print:shadow-none print:bg-white print:rounded-none">
-        {/* Cabeçalho na tela */}
-        <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/8 print:hidden">
+      <div className="w-full rounded-2xl bg-white dark:bg-[#0c1222]/90 border border-slate-200 dark:border-white/10 p-6 shadow-sm dark:shadow-xl overflow-hidden print:p-0 print:border-none print:shadow-none print:bg-white">
+        {/* Cabeçalho da listagem na tela */}
+        <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-200 dark:border-white/10 flex-wrap gap-3 print:hidden">
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Eventos de retorno</h2>
-            <span className="text-sm sm:text-base text-slate-500 dark:text-white/70 font-medium mt-0.5 block">
-              {selectedResponsavelId
-                ? `Filtrado por responsável`
-                : `Todos os responsáveis`}
-            </span>
+            <h3 className="text-sm sm:text-base font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+              Eventos de Retorno
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              {selectedResponsavelId ? "Filtrado por responsável" : "Retornos, responsáveis e observações dos títulos"}
+            </p>
           </div>
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={handlePrint}
-              disabled={isLoadingPrintAll}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/[0.04] text-xs sm:text-sm font-semibold text-slate-700 dark:text-white hover:bg-slate-200 dark:hover:bg-white/[0.08] transition-all shadow-sm focus:outline-none disabled:opacity-50"
-              title="Imprimir lista completa de protocolos"
+
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-white/15 text-xs text-slate-700 dark:text-slate-200 font-mono font-semibold">
+              {totalItems.toLocaleString("pt-BR")} {totalItems === 1 ? "registro" : "registros"}
+            </span>
+
+            {selectedResponsavelId && (
+              <div className="flex items-center gap-1.5">
+                <span className="px-2.5 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-500/20 border border-cyan-200 dark:border-cyan-500/40 text-cyan-700 dark:text-cyan-300 text-xs font-semibold uppercase">
+                  Responsável: {responsaveis.find((r) => r.id === selectedResponsavelId)?.nome || selectedResponsavelId}
+                </span>
+                <button
+                  onClick={() => setSelectedResponsavelId(null)}
+                  className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-2 py-0.5 rounded border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  title="Limpar filtro de responsável"
+                >
+                  × Limpar
+                </button>
+              </div>
+            )}
+
+            {selectedCausaId && (
+              <div className="flex items-center gap-1.5">
+                <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/40 text-indigo-700 dark:text-indigo-300 text-xs font-semibold">
+                  Causa: {selectedCausaId}
+                </span>
+                <button
+                  onClick={() => setSelectedCausaId(null)}
+                  className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-2 py-0.5 rounded border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  title="Limpar filtro de causa"
+                >
+                  × Limpar
+                </button>
+              </div>
+            )}
+
+            {/* Indicador de Ordenação Ativa */}
+            <div
+              onClick={() => handleHeaderSort(sortBy)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-[#141B2D] hover:bg-slate-100 dark:hover:bg-[#1A233A] border border-slate-200 dark:border-white/15 text-xs text-slate-700 dark:text-slate-300 shadow-sm cursor-pointer select-none transition-colors"
+              title="Clique para alternar a direção da ordenação"
             >
-              <Printer className="w-4 h-4 text-slate-600 dark:text-white/70" />
-              <span>{isLoadingPrintAll ? "Preparando..." : "Imprimir Lista"}</span>
-            </button>
-            <button
-              onClick={() => setIsPdfModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-cyan-500/30 bg-cyan-500/15 text-xs sm:text-sm font-bold text-cyan-700 dark:text-cyan-200 hover:bg-cyan-500/25 transition-all shadow-sm focus:outline-none"
-              title="Gerar relatório PDF dos protocolos"
-            >
-              <FileDown className="w-4 h-4" />
-              <span>Gerar PDF</span>
-            </button>
+              <ArrowUpDown className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
+              <span>Ordem:</span>
+              <strong className="text-slate-900 dark:text-white">{getColumnLabel(sortBy)}</strong>
+              <span className="text-[11px] text-cyan-600 dark:text-cyan-400 font-semibold">
+                ({sortOrder === "asc" ? "Crescente" : "Decrescente"})
+              </span>
+            </div>
+
+            {/* Botão Imprimir Listagem (Padrão Controle de Impressões) */}
+            <div className="relative" ref={printTableMenuRef}>
+              <div className="inline-flex rounded-lg shadow-sm border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-600/20 p-0.5">
+                <button
+                  type="button"
+                  onClick={handleImprimirPaginaAtual}
+                  disabled={isLoadingPrintAll}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                  title={`Imprimir a listagem de registros exibidos (${displayedItems.length} itens)`}
+                >
+                  {isLoadingPrintAll ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-200" />
+                  ) : (
+                    <Printer className="w-3.5 h-3.5 text-white" />
+                  )}
+                  <span>{isLoadingPrintAll ? "Carregando..." : "Imprimir Listagem"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMenuImprimirTabelaAberto((prev) => !prev)}
+                  disabled={isLoadingPrintAll}
+                  className="px-1.5 py-1.5 rounded-md hover:bg-emerald-500/30 text-emerald-700 dark:text-emerald-200 transition-colors disabled:opacity-50 cursor-pointer"
+                  title="Mais opções de impressão desta listagem"
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Dropdown com opções de impressão */}
+              {menuImprimirTabelaAberto && (
+                <div className="absolute right-0 mt-1.5 w-64 rounded-xl bg-white dark:bg-[#10172A] border border-slate-200 dark:border-white/15 shadow-xl dark:shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-white/10 mb-1">
+                    Opções de Impressão da Listagem
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleImprimirPaginaAtual}
+                    className="flex items-start gap-2.5 w-full px-3 py-2 text-left rounded-lg text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-semibold text-slate-900 dark:text-white">Imprimir página atual</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {displayedItems.length} {displayedItems.length === 1 ? "registro visível" : "registros visíveis"} na página
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuImprimirTabelaAberto(false);
+                      handlePrint();
+                    }}
+                    className="flex items-start gap-2.5 w-full px-3 py-2 text-left rounded-lg text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-semibold text-slate-900 dark:text-white">Imprimir todos os registros</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Carrega todos os {totalItems.toLocaleString("pt-BR")} eventos filtrados
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuImprimirTabelaAberto(false);
+                      setIsPdfModalOpen(true);
+                    }}
+                    className="flex items-start gap-2.5 w-full px-3 py-2 text-left rounded-lg text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                  >
+                    <FileDown className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-semibold text-slate-900 dark:text-white">Gerar Relatório PDF</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Exportar com cabeçalho e resumo
+                      </div>
+                    </div>
+                  </button>
+
+                  <div className="mt-1 pt-1.5 border-t border-slate-200 dark:border-white/10 px-3 py-1 text-[10px] text-slate-500 dark:text-slate-400">
+                    💡 <em>Você também pode escolher ver até 100 linhas por página no rodapé da tabela.</em>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1439,81 +1622,86 @@ export function RetornosDashboardClient() {
           </div>
         </div>
 
-        <div className="overflow-x-auto print:overflow-visible">
-          <table className="w-full text-left text-sm sm:text-base text-slate-900 dark:text-white print:text-slate-900 print:text-[10px]">
-            <thead className="bg-slate-100 dark:bg-[#080D1A] text-slate-800 dark:text-gray-100 uppercase text-xs sm:text-sm tracking-wider border-b border-white/10 print:bg-slate-100 print:text-slate-900 print:border-slate-400 font-bold">
-              <tr>
+        {/* Tabela Responsiva com Distribuição Equilibrada padrão FIORIX */}
+        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/8 print:overflow-visible print:border print:border-slate-300 print:rounded-none">
+          <table className="w-full text-left border-collapse min-w-[1100px] print:min-w-0 print:w-full print:border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.02] text-xs font-semibold text-slate-700 dark:text-slate-300 print:bg-slate-100 print:border-b-2 print:border-slate-400">
+                {/* Prenotação */}
                 <th
                   onClick={() => handleHeaderSort("numeroPrenotacao")}
-                  className="px-5 py-4 cursor-pointer hover:text-slate-900 dark:hover:text-cyan-300 transition-colors"
+                  className={`py-3.5 px-4 whitespace-nowrap min-w-[120px] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] text-xs font-bold uppercase tracking-wider print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                    sortBy === "numeroPrenotacao" ? "text-cyan-600 dark:text-cyan-400 font-bold bg-cyan-50 dark:bg-cyan-500/10" : "text-slate-700 dark:text-slate-300"
+                  }`}
+                  title="Clique para ordenar por Prenotação"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>Prenotação</span>
-                    {sortBy === "numeroPrenotacao" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-4 h-4 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
-                    ) : (
-                      <ArrowUpDown className="w-4 h-4 opacity-40" />
-                    )}
+                    {renderSortIcon("numeroPrenotacao")}
                   </div>
                 </th>
+
+                {/* Tipo de retorno */}
                 <th
                   onClick={() => handleHeaderSort("tipoRetorno")}
-                  className="px-5 py-4 cursor-pointer hover:text-slate-900 dark:hover:text-cyan-300 transition-colors"
+                  className={`py-3.5 px-4 whitespace-nowrap min-w-[160px] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] text-xs font-bold uppercase tracking-wider print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                    sortBy === "tipoRetorno" ? "text-cyan-600 dark:text-cyan-400 font-bold bg-cyan-50 dark:bg-cyan-500/10" : "text-slate-700 dark:text-slate-300"
+                  }`}
+                  title="Clique para ordenar por Tipo de Retorno"
                 >
                   <div className="flex items-center gap-1.5">
-                    <span>Tipo de retorno</span>
-                    {sortBy === "tipoRetorno" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-4 h-4 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
-                    ) : (
-                      <ArrowUpDown className="w-4 h-4 opacity-40" />
-                    )}
+                    <span>Tipo de Retorno</span>
+                    {renderSortIcon("tipoRetorno")}
                   </div>
                 </th>
+
+                {/* Data do retorno */}
                 <th
                   onClick={() => handleHeaderSort("dataRetorno")}
-                  className="px-5 py-4 cursor-pointer hover:text-slate-900 dark:hover:text-cyan-300 transition-colors"
+                  className={`py-3.5 px-4 whitespace-nowrap min-w-[140px] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] text-xs font-bold uppercase tracking-wider print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                    sortBy === "dataRetorno" ? "text-cyan-600 dark:text-cyan-400 font-bold bg-cyan-50 dark:bg-cyan-500/10" : "text-slate-700 dark:text-slate-300"
+                  }`}
+                  title="Clique para ordenar por Data do Retorno"
                 >
                   <div className="flex items-center gap-1.5">
-                    <span>Data do retorno</span>
-                    {sortBy === "dataRetorno" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-4 h-4 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
-                    ) : (
-                      <ArrowUpDown className="w-4 h-4 opacity-40" />
-                    )}
+                    <span>Data do Retorno</span>
+                    {renderSortIcon("dataRetorno")}
                   </div>
                 </th>
+
+                {/* Destinatário */}
                 <th
                   onClick={() => handleHeaderSort("usuarioDestino")}
-                  className="px-5 py-4 cursor-pointer hover:text-slate-900 dark:hover:text-cyan-300 transition-colors"
+                  className={`py-3.5 px-4 whitespace-nowrap min-w-[190px] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] text-xs font-bold uppercase tracking-wider print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold print:border-r print:border-slate-300 ${
+                    sortBy === "usuarioDestino" ? "text-cyan-600 dark:text-cyan-400 font-bold bg-cyan-50 dark:bg-cyan-500/10" : "text-slate-700 dark:text-slate-300"
+                  }`}
+                  title="Clique para ordenar por Destinatário"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>Destinatário</span>
-                    {sortBy === "usuarioDestino" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-4 h-4 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
-                    ) : (
-                      <ArrowUpDown className="w-4 h-4 opacity-40" />
-                    )}
+                    {renderSortIcon("usuarioDestino")}
                   </div>
                 </th>
+
+                {/* Observação */}
                 <th
                   onClick={() => handleHeaderSort("observacao")}
-                  className="px-5 py-4 cursor-pointer hover:text-slate-900 dark:hover:text-cyan-300 transition-colors min-w-[280px]"
+                  className={`py-3.5 px-4 min-w-[280px] cursor-pointer select-none group transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.06] text-xs font-bold uppercase tracking-wider print:text-slate-900 print:bg-slate-100 print:py-2 print:px-2 print:text-[10px] print:font-bold ${
+                    sortBy === "observacao" ? "text-cyan-600 dark:text-cyan-400 font-bold bg-cyan-50 dark:bg-cyan-500/10" : "text-slate-700 dark:text-slate-300"
+                  }`}
+                  title="Clique para ordenar por Observação"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>Observação</span>
-                    {sortBy === "observacao" ? (
-                      sortOrder === "asc" ? <ArrowUp className="w-4 h-4 text-cyan-500 dark:text-cyan-400" /> : <ArrowDown className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
-                    ) : (
-                      <ArrowUpDown className="w-4 h-4 opacity-40" />
-                    )}
+                    {renderSortIcon("observacao")}
                   </div>
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/8 print:divide-slate-200">
+            <tbody className="divide-y divide-slate-100 dark:divide-white/[0.06] print:divide-slate-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="py-14 text-center text-base text-slate-500 dark:text-white/50 font-medium">
+                  <td colSpan={5} className="py-14 text-center text-sm text-slate-500 dark:text-white/50 font-medium">
                     <div className="flex items-center justify-center gap-2.5">
                       <RefreshCw className="w-5 h-5 animate-spin text-cyan-500 dark:text-cyan-400" />
                       <span>Carregando eventos de retorno...</span>
@@ -1522,7 +1710,7 @@ export function RetornosDashboardClient() {
                 </tr>
               ) : displayedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-14 text-center text-base text-slate-400 dark:text-white/40 font-medium">
+                  <td colSpan={5} className="py-14 text-center text-sm text-slate-400 dark:text-white/40 font-medium">
                     Nenhum evento encontrado com os filtros selecionados.
                   </td>
                 </tr>
@@ -1533,47 +1721,91 @@ export function RetornosDashboardClient() {
                   return (
                     <tr
                       key={item.idAndamento}
-                      className="hover:bg-slate-50/80 dark:hover:bg-white/[0.03] transition-colors group print:border-b print:border-slate-300"
+                      className="hover:bg-slate-50/80 dark:hover:bg-white/[0.03] transition-colors group print:border-b print:border-slate-200"
                     >
                       {/* Prenotação / Título */}
-                      <td className="px-5 py-4">
-                        <button
-                          onClick={() => setSelectedEvento(item)}
-                          className="font-extrabold text-base sm:text-lg text-cyan-600 dark:text-[#22D3EE] hover:text-cyan-700 dark:hover:text-cyan-300 underline decoration-cyan-500/40 hover:decoration-cyan-400 text-left block print:text-slate-900 print:no-underline"
-                        >
-                          {item.numeroPrenotacao}
-                        </button>
-                        <span className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-300 print:text-slate-600 block truncate max-w-[220px] mt-0.5" title={item.formaTitulo}>
+                      <td className="py-3.5 px-4 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setSelectedEvento(item)}
+                            className="font-bold font-mono text-sm sm:text-base text-cyan-600 dark:text-[#22D3EE] hover:text-cyan-700 dark:hover:text-cyan-300 hover:underline cursor-pointer text-left block print:text-slate-900 print:no-underline"
+                            title="Ver ficha completa do protocolo"
+                          >
+                            {item.numeroPrenotacao}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(String(item.numeroPrenotacao));
+                              toast.success(`Protocolo ${item.numeroPrenotacao} copiado!`);
+                            }}
+                            className="text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 print:hidden cursor-pointer"
+                            title="Copiar protocolo"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 block truncate max-w-[200px] mt-0.5" title={item.formaTitulo}>
                           {item.formaTitulo || "Instrumento Geral"}
                         </span>
                       </td>
 
                       {/* Tipo de retorno */}
-                      <td className="px-5 py-4">
-                        <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white print:text-slate-900">{item.familiaRetorno}</div>
-                        <div className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-300 print:text-slate-600 mt-0.5">
+                      <td className="py-3.5 px-4 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200">
+                        <div>
+                          {item.familiaRetorno === "Pessoal" ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 dark:bg-purple-500/15 border border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-300">
+                              Pessoal
+                            </span>
+                          ) : item.familiaRetorno === "Real" ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-500/15 border border-blue-200 dark:border-blue-500/30 text-blue-700 dark:text-blue-300">
+                              Real
+                            </span>
+                          ) : item.familiaRetorno === "Tela de recepção" ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-50 dark:bg-cyan-500/15 border border-cyan-200 dark:border-cyan-500/30 text-cyan-700 dark:text-cyan-300">
+                              Tela de recepção
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-500/15 border border-slate-200 dark:border-slate-500/30 text-slate-700 dark:text-slate-300">
+                              {item.familiaRetorno}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-1">
                           {item.siglaRetorno} • Título {item.seqTitulo || 1}
                         </div>
                       </td>
 
                       {/* Data do retorno */}
-                      <td className="px-5 py-4">
-                        <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white print:text-slate-900">{dt.datePart}</div>
-                        <div className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-300 print:text-slate-600 mt-0.5">{dt.timePart}</div>
+                      <td className="py-3.5 px-4 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200">
+                        <div className="text-xs font-bold font-mono text-slate-900 dark:text-white print:text-slate-900">{dt.datePart}</div>
+                        <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-0.5">{dt.timePart}</div>
                       </td>
 
                       {/* Destinatário */}
-                      <td className="px-5 py-4">
-                        <div className="text-sm sm:text-base font-bold text-slate-900 dark:text-white print:text-slate-900">{item.usuarioDestinoRetorno}</div>
-                        <div className="text-xs sm:text-sm font-medium text-slate-600 dark:text-gray-300 print:text-slate-600 mt-0.5">De: {item.usuarioOrigem}</div>
+                      <td className="py-3.5 px-4 whitespace-nowrap print:py-1.5 print:px-2 print:border-b print:border-slate-200">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-6 h-6 rounded-full border border-cyan-200 dark:border-cyan-500/30 bg-cyan-50 dark:bg-cyan-500/15 flex items-center justify-center shrink-0">
+                            <User className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white uppercase truncate block max-w-[180px]" title={item.usuarioDestinoRetorno}>
+                              {item.usuarioDestinoRetorno}
+                            </span>
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate block mt-0.5 max-w-[180px]" title={item.usuarioOrigem}>
+                              De: {item.usuarioOrigem}
+                            </span>
+                          </div>
+                        </div>
                       </td>
 
                       {/* Observação com Prévia (2 linhas) + Expansão inline e Pop-up */}
-                      <td className="px-5 py-4 min-w-[280px]">
+                      <td className="py-3.5 px-4 min-w-[280px] print:py-1.5 print:px-2 print:border-b print:border-slate-200">
                         {item.observacao ? (
-                          <div className="space-y-1.5">
+                          <div className="space-y-1">
                             <p
-                              className={`text-base sm:text-[16.5px] font-medium text-slate-800 dark:text-gray-100 leading-relaxed print:text-slate-800 ${
+                              className={`text-xs leading-relaxed text-slate-700 dark:text-slate-200 print:text-slate-800 ${
                                 expandedObsIds.has(item.idAndamento)
                                   ? "whitespace-pre-wrap break-words"
                                   : "line-clamp-2"
@@ -1590,16 +1822,16 @@ export function RetornosDashboardClient() {
                                     e.stopPropagation();
                                     toggleExpandObs(item.idAndamento);
                                   }}
-                                  className="inline-flex items-center gap-1 text-xs sm:text-sm font-bold text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors"
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 transition-colors cursor-pointer"
                                 >
                                   {expandedObsIds.has(item.idAndamento) ? (
                                     <>
-                                      <ChevronUp className="w-4 h-4" />
+                                      <ChevronUp className="w-3.5 h-3.5" />
                                       <span>Recolher</span>
                                     </>
                                   ) : (
                                     <>
-                                      <ChevronDown className="w-4 h-4" />
+                                      <ChevronDown className="w-3.5 h-3.5" />
                                       <span>Ver mais</span>
                                     </>
                                   )}
@@ -1611,16 +1843,16 @@ export function RetornosDashboardClient() {
                                     setSelectedObsModal(item);
                                   }}
                                   title="Abrir observação completa em pop-up"
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-slate-400 dark:text-white/60 hover:text-cyan-600 dark:hover:text-cyan-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all text-xs sm:text-sm font-semibold"
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-slate-400 dark:text-white/60 hover:text-cyan-600 dark:hover:text-cyan-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all text-[11px] font-semibold cursor-pointer"
                                 >
-                                  <Maximize2 className="w-3.5 h-3.5" />
+                                  <Maximize2 className="w-3 h-3" />
                                   <span>Pop-up</span>
                                 </button>
                               </div>
                             )}
                           </div>
                         ) : (
-                          <span className="text-sm sm:text-base text-slate-400 dark:text-[#6B7280] italic print:text-slate-400">
+                          <span className="text-xs text-slate-400 dark:text-slate-500 italic print:text-slate-400">
                             Sem observação
                           </span>
                         )}
@@ -1633,47 +1865,89 @@ export function RetornosDashboardClient() {
           </table>
         </div>
 
-        {/* Paginação */}
-        <div className="p-5 border-t border-slate-200 dark:border-white/8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-sm sm:text-base font-medium text-slate-700 dark:text-gray-200 print:hidden">
-          <div>
-            Exibindo {displayedItems.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}–
-            {Math.min(currentPage * pageSize, selectedCausaId ? displayedItems.length : kpis.total)} de {selectedCausaId ? displayedItems.length : kpis.total} eventos
+        {/* Rodapé com Barra de Paginação Completa padrão Fiorix */}
+        <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-[#080D1A] px-6 py-4 sm:flex-row text-slate-700 dark:text-white rounded-b-2xl mt-4 print:hidden">
+          {/* Informação de intervalo */}
+          <div className="text-xs text-slate-500 dark:text-white/60 text-center sm:text-left">
+            Exibindo <strong className="text-slate-900 dark:text-white">{totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1}</strong> a{" "}
+            <strong className="text-slate-900 dark:text-white">{Math.min(currentPage * pageSize, totalItems)}</strong> de{" "}
+            <strong className="text-slate-900 dark:text-white">{totalItems.toLocaleString("pt-BR")}</strong> registros
+            {selectedResponsavelId && (
+              <span> · Responsável: <strong className="text-cyan-600 dark:text-cyan-400 uppercase">{responsaveis.find((r) => r.id === selectedResponsavelId)?.nome || selectedResponsavelId}</strong></span>
+            )}
+            {selectedCausaId && (
+              <span> · Causa: <strong className="text-cyan-600 dark:text-cyan-400">{selectedCausaId}</strong></span>
+            )}
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-slate-500 dark:text-white/60 text-sm font-medium">Exibir:</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="bg-white dark:bg-[#0C1323] border border-slate-200 dark:border-white/8 rounded-xl px-3 py-1.5 text-sm font-bold text-slate-800 dark:text-white focus:outline-none"
-              >
-                <option value={10}>10 / pág</option>
-                <option value={20}>20 / pág</option>
-                <option value={50}>50 / pág</option>
-              </select>
+          {/* Controles de Paginação & Itens Por Página */}
+          <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
+            {/* Seletor de Tamanho de Página */}
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-white/60">
+              <span>Exibir:</span>
+              <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-white/20 bg-white dark:bg-[#0B1020] p-0.5">
+                {[10, 20, 50, 100].map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => {
+                      setPageSize(size);
+                      setCurrentPage(1);
+                    }}
+                    className={`px-2.5 py-0.5 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
+                      pageSize === size
+                        ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-semibold shadow-xs"
+                        : "text-slate-600 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            {/* Navegação de Páginas */}
+            <div className="flex items-center gap-1">
               <button
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                type="button"
                 disabled={currentPage <= 1 || isLoading}
-                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.04] disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-700 dark:text-white transition-colors"
+                onClick={() => setCurrentPage(1)}
+                className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/20 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
+                title="Primeira Página"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronsLeft className="w-3.5 h-3.5" />
               </button>
-              <span className="px-2 font-mono font-bold text-slate-900 dark:text-white text-sm sm:text-base">
-                {currentPage} / {Math.ceil(kpis.total / pageSize) || 1}
-              </span>
               <button
-                onClick={() => setCurrentPage((p) => p + 1)}
-                disabled={currentPage >= Math.ceil(kpis.total / pageSize) || isLoading}
-                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.04] disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-700 dark:text-white transition-colors"
+                type="button"
+                disabled={currentPage <= 1 || isLoading}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/20 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
+                title="Página Anterior"
               >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+
+              <span className="text-xs px-2.5 font-medium text-slate-800 dark:text-white min-w-[90px] text-center">
+                Página {currentPage.toLocaleString("pt-BR")} de {Math.max(1, effectiveTotalPages).toLocaleString("pt-BR")}
+              </span>
+
+              <button
+                type="button"
+                disabled={currentPage >= effectiveTotalPages || isLoading}
+                onClick={() => setCurrentPage((p) => Math.min(effectiveTotalPages, p + 1))}
+                className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/20 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
+                title="Próxima Página"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                disabled={currentPage >= effectiveTotalPages || isLoading}
+                onClick={() => setCurrentPage(effectiveTotalPages)}
+                className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/20 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer"
+                title="Última Página"
+              >
+                <ChevronsRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
