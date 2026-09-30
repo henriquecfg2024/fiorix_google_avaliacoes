@@ -170,9 +170,15 @@ export function NotificationChannelsSummaryCard() {
               <span className="text-xs font-bold text-slate-700 dark:text-white/80">WhatsApp</span>
             </div>
             {data.whatsappEnabled ? (
-              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25">
+                <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Ativo</span>
+              </span>
             ) : (
-              <XCircle className="h-4 w-4 text-white/20" />
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.03] border border-white/[0.06]">
+                <XCircle className="h-3 w-3 text-white/25" />
+                <span className="text-[10px] font-bold text-white/25 uppercase tracking-wider">Inativo</span>
+              </span>
             )}
           </div>
           {data.whatsappEnabled ? (
@@ -208,9 +214,15 @@ export function NotificationChannelsSummaryCard() {
               <span className="text-xs font-bold text-slate-700 dark:text-white/80">E-mail</span>
             </div>
             {data.emailEnabled ? (
-              <CheckCircle2 className="h-4 w-4 text-blue-400" />
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/25">
+                <CheckCircle2 className="h-3 w-3 text-blue-400" />
+                <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Ativo</span>
+              </span>
             ) : (
-              <XCircle className="h-4 w-4 text-white/20" />
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.03] border border-white/[0.06]">
+                <XCircle className="h-3 w-3 text-white/25" />
+                <span className="text-[10px] font-bold text-white/25 uppercase tracking-wider">Inativo</span>
+              </span>
             )}
           </div>
           {data.emailEnabled ? (
@@ -243,9 +255,15 @@ export function NotificationChannelsSummaryCard() {
               <span className="text-xs font-bold text-slate-700 dark:text-white/80">Webhook</span>
             </div>
             {data.webhookEnabled ? (
-              <CheckCircle2 className="h-4 w-4 text-amber-400" />
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/25">
+                <CheckCircle2 className="h-3 w-3 text-amber-400" />
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Ativo</span>
+              </span>
             ) : (
-              <XCircle className="h-4 w-4 text-white/20" />
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/[0.03] border border-white/[0.06]">
+                <XCircle className="h-3 w-3 text-white/25" />
+                <span className="text-[10px] font-bold text-white/25 uppercase tracking-wider">Inativo</span>
+              </span>
             )}
           </div>
           {data.webhookEnabled ? (
