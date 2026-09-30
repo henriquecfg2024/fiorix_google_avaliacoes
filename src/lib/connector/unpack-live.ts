@@ -163,7 +163,32 @@ export async function unpackLiveRecords({
           d4_qualificacao, d5_calculo, d8_impressao, d9_preparacao,
           d9_conferencia, d10_entrega, qtd_retrabalho
         )
-        SELECT * FROM batch_records;
+        SELECT * FROM batch_records
+        ON CONFLICT (protocolo) DO UPDATE SET
+          tenant_id = EXCLUDED.tenant_id,
+          data_apresentado = EXCLUDED.data_apresentado,
+          dt_previsao = EXCLUDED.dt_previsao,
+          dt_entrega_real = EXCLUDED.dt_entrega_real,
+          status = EXCLUDED.status,
+          status_meta = EXCLUDED.status_meta,
+          natureza = EXCLUDED.natureza,
+          tipo = EXCLUDED.tipo,
+          id_natureza = EXCLUDED.id_natureza,
+          magnetico = EXCLUDED.magnetico,
+          atraso_dias = EXCLUDED.atraso_dias,
+          dias_atraso = EXCLUDED.dias_atraso,
+          dias_corridos = EXCLUDED.dias_corridos,
+          d1_protocolo = EXCLUDED.d1_protocolo,
+          d1_escaneamento = EXCLUDED.d1_escaneamento,
+          d2_contraditorio = EXCLUDED.d2_contraditorio,
+          d3_extrato = EXCLUDED.d3_extrato,
+          d4_qualificacao = EXCLUDED.d4_qualificacao,
+          d5_calculo = EXCLUDED.d5_calculo,
+          d8_impressao = EXCLUDED.d8_impressao,
+          d9_preparacao = EXCLUDED.d9_preparacao,
+          d9_conferencia = EXCLUDED.d9_conferencia,
+          d10_entrega = EXCLUDED.d10_entrega,
+          qtd_retrabalho = EXCLUDED.qtd_retrabalho;
       `,
         tenantId,
         recordsJson
