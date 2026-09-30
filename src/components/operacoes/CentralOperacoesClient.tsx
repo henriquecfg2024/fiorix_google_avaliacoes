@@ -199,9 +199,6 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
             {/* 4. Incidentes Recentes e Alertas Ativos */}
             <IncidentesAlertasSection incidents={health.incidents} alerts={health.alerts} />
 
-            {/* 4.1 Resumo dos Canais de Notificação Cadastrados */}
-            <NotificationChannelsSummaryCard />
-
             {/* 5. Novo Gráfico Temporal de Ingestão e Performance */}
             <OperationsChartsSection />
 
@@ -217,7 +214,10 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
 
         {activeTab === 'alerts' && (
           /* Aba de Configuração de Notificações e Webhooks */
-          <AlertSettingsSection />
+          <>
+            <NotificationChannelsSummaryCard />
+            <AlertSettingsSection />
+          </>
         )}
 
         {/* Rodapé de Deploys e Versões */}
