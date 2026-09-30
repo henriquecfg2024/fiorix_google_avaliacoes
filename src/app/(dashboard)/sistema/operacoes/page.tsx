@@ -29,6 +29,9 @@ const FALLBACK_SNAPSHOT: OperationsHealthSnapshot = {
     { module: 'Produtividade', key: 'produtividade', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 3600, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
     { module: 'Metas', key: 'metas', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 3600, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
     { module: 'Tarefas', key: 'tarefas', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 3600, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
+    { module: 'Retornos', key: 'retornos', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 3600, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
+    { module: 'Impressões', key: 'impressoes', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 3600, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
+    { module: 'Andamentos', key: 'andamentos', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 3600, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
   ],
   connector: {
     status: 'UNKNOWN',
@@ -57,7 +60,7 @@ const FALLBACK_SNAPSHOT: OperationsHealthSnapshot = {
     provenance: 'calculated',
     note: 'Métricas agregadas em contingência temporária',
   },
-  recentBatches: { bi: [], produtividade: [], metas: [], tarefas: [] },
+  recentBatches: { bi: [], produtividade: [], metas: [], tarefas: [], retornos: [], impressoes: [], andamentos: [] },
   incidents: [],
   alerts: [
     { id: 'err-1', severity: 'WARNING', title: 'Carregamento com dados de contingência', detail: 'O serviço de saúde encontrou uma oscilação na consulta inicial.', timeAgo: 'agora' },

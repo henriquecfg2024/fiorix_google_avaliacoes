@@ -282,7 +282,7 @@ export function OperationsChartsSection() {
                 Curva de volume de sincronização por intervalo
               </span>
             </div>
-            <div className="flex items-center gap-3 text-[10px] font-sans">
+            <div className="flex flex-wrap items-center gap-3 text-[10px] font-sans">
               <span className="flex items-center gap-1 text-slate-500 dark:text-white/60">
                 <span className="h-2 w-2 rounded-full bg-cyan-400" /> BI
               </span>
@@ -294,6 +294,15 @@ export function OperationsChartsSection() {
               </span>
               <span className="flex items-center gap-1 text-slate-500 dark:text-white/60">
                 <span className="h-2 w-2 rounded-full bg-purple-400" /> Tarefas
+              </span>
+              <span className="flex items-center gap-1 text-slate-500 dark:text-white/60">
+                <span className="h-2 w-2 rounded-full bg-blue-500" /> Retornos
+              </span>
+              <span className="flex items-center gap-1 text-slate-500 dark:text-white/60">
+                <span className="h-2 w-2 rounded-full bg-orange-500" /> Impressões
+              </span>
+              <span className="flex items-center gap-1 text-slate-500 dark:text-white/60">
+                <span className="h-2 w-2 rounded-full bg-rose-500" /> Andamentos
               </span>
             </div>
           </div>
@@ -322,6 +331,18 @@ export function OperationsChartsSection() {
                     <linearGradient id="gradTarefas" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#a855f7" stopOpacity={0.4} />
                       <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradRetornos" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradImpressoes" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f97316" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradAndamentos" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} vertical={false} />
@@ -367,6 +388,36 @@ export function OperationsChartsSection() {
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#gradMetas)"
+                    stackId="1"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="retornos"
+                    name="Retornos"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#gradRetornos)"
+                    stackId="1"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="impressoes"
+                    name="Impressões"
+                    stroke="#f97316"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#gradImpressoes)"
+                    stackId="1"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="andamentos"
+                    name="Andamentos"
+                    stroke="#f43f5e"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#gradAndamentos)"
                     stackId="1"
                   />
                   <Area

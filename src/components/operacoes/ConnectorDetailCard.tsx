@@ -137,7 +137,7 @@ export function ConnectorDetailCard({ connector }: Props) {
                 </div>
                 <div className="flex items-center justify-between text-slate-500 dark:text-white/60">
                   <span>Rotinas Integradas</span>
-                  <span className="font-semibold text-white/90">4 fontes ativas</span>
+                  <span className="font-semibold text-emerald-400">7 rotinas ativas</span>
                 </div>
               </div>
               <div className="mt-3 pt-2 border-t border-slate-200 dark:border-white/6 text-[10px] text-slate-400 dark:text-white/40 flex items-center justify-between">

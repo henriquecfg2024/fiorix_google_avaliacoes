@@ -12,6 +12,9 @@ export interface TelemetryPoint {
   produtividade: number;
   metas: number;
   tarefas: number;
+  retornos: number;
+  impressoes: number;
+  andamentos: number;
   totalRecords: number;
   batchCount: number;
   avgDurationMs: number;
@@ -138,6 +141,9 @@ export async function GET(req: Request) {
           produtividade: 0,
           metas: 0,
           tarefas: 0,
+          retornos: 0,
+          impressoes: 0,
+          andamentos: 0,
           totalRecords: 0,
           batchCount: 0,
           avgDurationMs: 0,
@@ -157,6 +163,9 @@ export async function GET(req: Request) {
           produtividade: 0,
           metas: 0,
           tarefas: 0,
+          retornos: 0,
+          impressoes: 0,
+          andamentos: 0,
           totalRecords: 0,
           batchCount: 0,
           avgDurationMs: 0,
@@ -170,6 +179,9 @@ export async function GET(req: Request) {
       produtividade: { records: 0, batches: 0 },
       metas: { records: 0, batches: 0 },
       tarefas: { records: 0, batches: 0 },
+      retornos: { records: 0, batches: 0 },
+      impressoes: { records: 0, batches: 0 },
+      andamentos: { records: 0, batches: 0 },
     };
 
     for (const row of rawAggregates) {
@@ -197,6 +209,9 @@ export async function GET(req: Request) {
           produtividade: 0,
           metas: 0,
           tarefas: 0,
+          retornos: 0,
+          impressoes: 0,
+          andamentos: 0,
           totalRecords: 0,
           batchCount: 0,
           avgDurationMs: 0,
@@ -208,6 +223,9 @@ export async function GET(req: Request) {
       else if (src === 'produtividade') point.produtividade += records;
       else if (src === 'metas') point.metas += records;
       else if (src === 'tarefas') point.tarefas += records;
+      else if (src === 'retornos') point.retornos += records;
+      else if (src === 'impressoes') point.impressoes += records;
+      else if (src === 'andamentos') point.andamentos += records;
 
       point.totalRecords += records;
       point.batchCount += batches;

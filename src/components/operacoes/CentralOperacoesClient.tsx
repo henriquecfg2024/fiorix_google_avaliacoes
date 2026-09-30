@@ -24,6 +24,7 @@ import { DeploysVersionsFooter } from './DeploysVersionsFooter';
 import { OperationsChartsSection } from './OperationsChartsSection';
 import { BatchAuditSection } from './BatchAuditSection';
 import { AlertSettingsSection } from './AlertSettingsSection';
+import { ProceduresOverviewSection } from './ProceduresOverviewSection';
 import { BarChart3, Database } from 'lucide-react';
 
 interface Props {
@@ -187,6 +188,12 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
                 <ConnectorDetailCard connector={health.connector} />
               </div>
             </div>
+
+            {/* 3.1 Cards e Ações das Stored Procedures do Ecossistema WebRI -> FIORIX */}
+            <ProceduresOverviewSection 
+              modules={health.incrementalModules}
+              recentBatches={health.recentBatches}
+            />
 
             {/* 4. Incidentes Recentes e Alertas Ativos */}
             <IncidentesAlertasSection incidents={health.incidents} alerts={health.alerts} />
