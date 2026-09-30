@@ -78,108 +78,63 @@ export async function GET(request: NextRequest) {
         FROM base_impressoes_raw
         GROUP BY protocolo
       ),
-      tarefas_livro AS (
-        -- Reconhecimento de impressão de livro/matrícula finalizada via tarefas (IMPRESSÃO FICHA MATRÍCULA)
-        SELECT 
-          t.protocolo,
-          MAX(COALESCE(t.data_finalizacao, t.data_abertura, t.data_cadastro_tarefa)) AS livro_tarefa_data,
-          (ARRAY_AGG(NULLIF(t.responsavel, '') ORDER BY COALESCE(t.data_finalizacao, t.data_abertura, t.data_cadastro_tarefa) DESC) 
-           FILTER (WHERE NULLIF(t.responsavel, '') IS NOT NULL))[1] AS livro_tarefa_responsavel
-        FROM public.fiorix_tarefas_dados t
-        WHERE t.tenant_id = $1
-          AND t.tarefa ILIKE '%IMPRESS%'
-          AND t.situacao_tarefa = 'FINALIZADA'
-        GROUP BY t.protocolo
-      ),
-      status_protocolos AS (
-        -- Identificação precisa de títulos devolvidos (não aptos para registro) vs registrados
-        SELECT 
-          COALESCE(t.protocolo, m.protocolo) AS protocolo,
-          BOOL_OR(
-            t.dt_devolucao IS NOT NULL 
-            OR t.tarefa ILIKE '%DEVOL%' 
-            OR m.d_balcao_devolvido IS NOT NULL
-          ) AS is_devolvido,
-          BOOL_OR(
-            m.d_balcao_registrado IS NOT NULL 
-            OR m.d8_impressao IS NOT NULL
-            OR m.d9_preparacao IS NOT NULL
-            OR (t.tarefa ILIKE '%REGISTR%' AND t.situacao_tarefa = 'FINALIZADA')
-            OR (t.tarefa ILIKE '%PREPAR%' AND t.situacao_tarefa = 'FINALIZADA')
-            OR (t.tarefa ILIKE '%IMPRESS%' AND t.situacao_tarefa = 'FINALIZADA')
-          ) AS is_registrado
-        FROM public.fiorix_tarefas_dados t
-        FULL OUTER JOIN public.fiorix_metas_dados m 
-          ON m.protocolo = t.protocolo AND m.tenant_id = t.tenant_id
-        WHERE COALESCE(t.tenant_id, m.tenant_id) = $1
-        GROUP BY COALESCE(t.protocolo, m.protocolo)
-      ),
       protocolos_demanda AS (
-        -- Protocolos registrados ou com movimentação para compor a demanda e backlog
+        -- Protocolos registrados para compor a demanda e pendências oficiais (alimentado exclusivamente por andamentos reais)
         SELECT 
-          t.protocolo,
-          MAX(t.natureza) AS natureza,
-          MAX(t.tipo) AS tipo,
-          COALESCE(MIN(t.data_entrada), MIN(m.data_apresentado)) AS data_entrada,
-          MAX(NULLIF(t.numero_livro, '')) AS numero_livro,
-          COALESCE(MAX(m.d_balcao_registrado), MIN(t.data_cadastro_tarefa), MIN(t.data_servico)) AS ultimo_registro,
-          MAX(t.seq_titulo) AS seq_titulo
-        FROM public.fiorix_tarefas_dados t
-        LEFT JOIN public.fiorix_metas_dados m 
-          ON m.protocolo = t.protocolo AND m.tenant_id = t.tenant_id
-        WHERE t.tenant_id = $1
-          AND (
-            m.d_balcao_registrado IS NOT NULL 
-            OR (t.tarefa ILIKE '%IMPRESS%' AND t.situacao_tarefa = 'FINALIZADA')
-            OR (t.tarefa ILIKE '%PREPAR%' AND t.situacao_tarefa = 'FINALIZADA')
-            OR (t.tarefa ILIKE '%REGISTR%' AND t.situacao_tarefa = 'FINALIZADA')
-          )
-          AND NOT (
-            COALESCE(t.dt_devolucao, m.d_balcao_devolvido) IS NOT NULL 
-            AND m.d_balcao_registrado IS NULL
-          )
-        GROUP BY t.protocolo
+          m.protocolo,
+          MAX(m.natureza) AS natureza,
+          MIN(m.data_apresentado) AS data_entrada,
+          MAX(m.d_balcao_registrado) AS ultimo_registro,
+          BOOL_OR(m.d_balcao_devolvido IS NOT NULL) AS is_devolvido,
+          BOOL_OR(m.d_balcao_registrado IS NOT NULL) AS is_registrado
+        FROM public.fiorix_metas_dados m
+        WHERE m.tenant_id = $1
+          AND m.d_balcao_registrado IS NOT NULL
+          AND m.d_balcao_devolvido IS NULL
+        GROUP BY m.protocolo
       ),
       unificado AS (
         SELECT 
           COALESCE(i.protocolo, d.protocolo) AS protocolo,
-          COALESCE(i.numero_livro, d.numero_livro) AS numero_livro,
-          COALESCE(NULLIF(i.natureza, ''), NULLIF(d.natureza, ''), NULLIF(i.tipo, ''), NULLIF(d.tipo, ''), 'Escritura') AS tipo_natureza,
+          i.numero_livro,
+          COALESCE(NULLIF(i.natureza, ''), NULLIF(d.natureza, ''), 'Escritura') AS tipo_natureza,
           COALESCE(i.data_entrada, d.data_entrada) AS data_entrada,
-          COALESCE(d.ultimo_registro, i.data_entrada, i.livro_data, tl.livro_tarefa_data, i.certidao_data) AS ultimo_registro,
-          COALESCE(i.seq_titulo, d.seq_titulo, 1) AS seq_titulo,
+          COALESCE(d.ultimo_registro, i.data_entrada, i.livro_data, i.certidao_data) AS ultimo_registro,
+          COALESCE(i.seq_titulo, 1) AS seq_titulo,
           
-          -- LIVRO: Realizado se impresso no livro; Pendente SE E SOMENTE SE registrado e não devolvido; Senão Não Aplicável
-          COALESCE(i.livro_data, tl.livro_tarefa_data) AS livro_data,
-          COALESCE(i.livro_responsavel, tl.livro_tarefa_responsavel) AS livro_responsavel,
+          -- LIVRO: 100% EXCLUSIVO dos andamentos da tabela tblWRIAndamentos (fiorix_impressoes_dados)
+          i.livro_data,
+          i.livro_responsavel,
           CASE 
-            WHEN COALESCE(i.livro_data, tl.livro_tarefa_data) IS NOT NULL THEN 'REALIZADO'
-            WHEN COALESCE(s.is_registrado, false) AND NOT COALESCE(s.is_devolvido, false) THEN 'PENDENTE'
+            WHEN i.livro_data IS NOT NULL THEN 'REALIZADO'
+            WHEN COALESCE(d.is_registrado, false) AND NOT COALESCE(d.is_devolvido, false) THEN 'PENDENTE'
             ELSE 'NAO_APLICAVEL'
           END AS livro_status,
 
-          -- CERTIDÃO: Realizado se tem certidão emitida; Pendente SE E SOMENTE SE registrado e não devolvido; Senão Não Aplicável
+          -- CERTIDÃO: 100% EXCLUSIVO dos andamentos da tabela tblWRIAndamentos (fiorix_impressoes_dados)
+          i.certidao_data,
+          i.certidao_responsavel,
           CASE 
             WHEN i.certidao_data IS NOT NULL THEN 'REALIZADO'
-            WHEN COALESCE(s.is_registrado, false) AND NOT COALESCE(s.is_devolvido, false) THEN 'PENDENTE'
+            WHEN COALESCE(d.is_registrado, false) AND NOT COALESCE(d.is_devolvido, false) THEN 'PENDENTE'
             ELSE 'NAO_APLICAVEL'
           END AS certidao_status,
           i.certidao_data,
           i.certidao_responsavel,
 
-          -- Link ONR extraído da certidão ou portal oficial
+          -- Link ONR extraído da certidão de tblWRIAndamentos ou portal oficial
           COALESCE(i.link_onr_especifico, 'https://registradores.onr.org.br') AS link_onr,
 
-          -- Etapa Atual descritiva
+          -- Etapa Atual descritiva baseada nos andamentos oficiais
           CASE 
-            WHEN COALESCE(i.livro_data, tl.livro_tarefa_data) IS NOT NULL AND i.certidao_data IS NOT NULL THEN 'Concluído'
-            WHEN COALESCE(i.livro_data, tl.livro_tarefa_data) IS NOT NULL THEN 'Certidão Pendente'
-            WHEN COALESCE(s.is_devolvido, false) THEN
+            WHEN i.livro_data IS NOT NULL AND i.certidao_data IS NOT NULL THEN 'Concluído'
+            WHEN i.livro_data IS NOT NULL THEN 'Certidão Pendente'
+            WHEN COALESCE(d.is_devolvido, false) THEN
               CASE 
                 WHEN i.certidao_data IS NOT NULL THEN 'Devolvido (Certidão Emitida)'
                 ELSE 'Devolvido'
               END
-            WHEN NOT COALESCE(s.is_registrado, false) THEN
+            WHEN NOT COALESCE(d.is_registrado, false) AND i.livro_data IS NULL THEN
               CASE 
                 WHEN i.certidao_data IS NOT NULL THEN 'Em Qualificação (Certidão Emitida)'
                 ELSE 'Em Qualificação'
@@ -191,17 +146,15 @@ export async function GET(request: NextRequest) {
           -- Dias Pendente (apenas se alguma das impressões aplicáveis estiver de fato pendente)
           CASE 
             WHEN (
-              (COALESCE(i.livro_data, tl.livro_tarefa_data) IS NULL AND COALESCE(s.is_registrado, false) AND NOT COALESCE(s.is_devolvido, false))
+              (i.livro_data IS NULL AND COALESCE(d.is_registrado, false) AND NOT COALESCE(d.is_devolvido, false))
               OR 
-              (i.certidao_data IS NULL AND COALESCE(s.is_registrado, false) AND NOT COALESCE(s.is_devolvido, false))
+              (i.certidao_data IS NULL AND COALESCE(d.is_registrado, false) AND NOT COALESCE(d.is_devolvido, false))
             ) AND COALESCE(d.ultimo_registro, i.data_entrada) IS NOT NULL
             THEN GREATEST(0, EXTRACT(DAY FROM (NOW() - COALESCE(d.ultimo_registro, i.data_entrada)))::int)
             ELSE 0
           END AS dias_pendente
         FROM base_impressoes i
         FULL OUTER JOIN protocolos_demanda d ON d.protocolo = i.protocolo
-        LEFT JOIN status_protocolos s ON s.protocolo = COALESCE(i.protocolo, d.protocolo)
-        LEFT JOIN tarefas_livro tl ON tl.protocolo = COALESCE(i.protocolo, d.protocolo)
         WHERE COALESCE(i.protocolo, d.protocolo) IS NOT NULL
       )
       SELECT * FROM unificado
