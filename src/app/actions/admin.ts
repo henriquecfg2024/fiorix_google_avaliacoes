@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { requireAuth, requireRole } from '@/lib/auth-helpers';
 import bcrypt from 'bcryptjs';
+import { isValidCPF } from '@/lib/cpf-validator';
 import { revalidatePath } from 'next/cache';
 import { recordAuditLog } from '@/lib/audit';
 
@@ -86,6 +87,9 @@ export async function createUser(formData: FormData) {
   }
 
   if (cpf) {
+    if (!isValidCPF(cpf)) {
+      throw new Error('CPF inválido. Verifique os dígitos e tente novamente.');
+    }
     const existingCpf = await prisma.$queryRawUnsafe<any[]>(
       `SELECT id FROM public."User" WHERE cpf = $1 LIMIT 1`,
       cpf
@@ -427,6 +431,9 @@ export async function updateUserProfile(
   // Validar CPF único
   const cleanCpf = data.cpf?.trim() || '';
   if (cleanCpf) {
+    if (!isValidCPF(cleanCpf)) {
+      return { error: 'CPF inválido. Verifique os dígitos e tente novamente.' };
+    }
     const existingCpf = await prisma.$queryRawUnsafe<any[]>(
       `SELECT id FROM public."User" WHERE cpf = $1 AND id != $2 LIMIT 1`,
       cleanCpf,

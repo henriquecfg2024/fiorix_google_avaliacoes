@@ -10,6 +10,7 @@ import {
   updateUserProfile,
   deleteInactiveUser,
 } from '@/app/actions/admin';
+import { isValidCPF } from '@/lib/cpf-validator';
 import {
   ShieldCheck,
   ShieldAlert,
@@ -196,6 +197,18 @@ export function UserListTable({
   const handleSaveEditUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editUser) return;
+
+    // Validar CPF no frontend antes de enviar
+    const cpfDigits = editCpf.replace(/\D/g, '');
+    if (cpfDigits.length > 0 && cpfDigits.length !== 11) {
+      setModalMessage({ type: 'error', text: 'CPF deve ter exatamente 11 dígitos.' });
+      return;
+    }
+    if (cpfDigits.length === 11 && !isValidCPF(cpfDigits)) {
+      setModalMessage({ type: 'error', text: 'CPF inválido. Verifique os dígitos verificadores.' });
+      return;
+    }
+
     setLoading(true);
     setModalMessage(null);
 
@@ -594,13 +607,31 @@ export function UserListTable({
                 <label className="block text-[11px] font-semibold uppercase text-white/60 mb-1">
                   CPF (Validação 1-para-1 do RH)
                 </label>
-                <input
-                  type="text"
-                  placeholder="000.000.000-00"
-                  value={editCpf}
-                  onChange={(e) => setEditCpf(formatCpfMask(e.target.value))}
-                  className="w-full bg-[#070A12] border border-white/12 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-hidden focus:border-amber-400/50 font-mono"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="000.000.000-00"
+                    value={editCpf}
+                    onChange={(e) => setEditCpf(formatCpfMask(e.target.value))}
+                    className={`w-full bg-[#070A12] border rounded-xl px-3.5 py-2 text-sm text-white focus:outline-hidden font-mono pr-10 ${
+                      editCpf.replace(/\D/g, '').length === 11
+                        ? isValidCPF(editCpf)
+                          ? 'border-emerald-500/40 focus:border-emerald-400'
+                          : 'border-red-500/40 focus:border-red-400'
+                        : 'border-white/12 focus:border-amber-400/50'
+                    }`}
+                  />
+                  {editCpf.replace(/\D/g, '').length === 11 && (
+                    <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold ${
+                      isValidCPF(editCpf) ? 'text-emerald-400' : 'text-red-400'
+                    }`}>
+                      {isValidCPF(editCpf) ? '✓ Válido' : '✗ Inválido'}
+                    </span>
+                  )}
+                </div>
+                {editCpf.replace(/\D/g, '').length === 11 && !isValidCPF(editCpf) && (
+                  <p className="text-[10px] text-red-400/80 mt-1">Dígitos verificadores não conferem. Verifique o número.</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

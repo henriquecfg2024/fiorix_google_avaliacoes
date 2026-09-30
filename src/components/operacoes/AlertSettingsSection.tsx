@@ -605,17 +605,76 @@ export function AlertSettingsSection() {
                 </label>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                  Destinatários de Alerta (Separe por vírgula se houver mais de um)
-                </label>
-                <input
-                  type="text"
-                  placeholder="ti@7ri.com.br, gerente@7ri.com.br"
-                  value={config.emailRecipients || ''}
-                  onChange={(e) => setConfig({ ...config, emailRecipients: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 placeholder-slate-600"
-                />
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Destinatários de Alerta
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const current = (config.emailRecipients || '').trim();
+                      const updated = current ? current + ', ' : '';
+                      setConfig({ ...config, emailRecipients: updated });
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 text-[11px] font-bold transition-all border border-blue-500/20"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Adicionar E-mail
+                  </button>
+                </div>
+
+                {(() => {
+                  const emails = (config.emailRecipients || '')
+                    .split(',')
+                    .map((e: string) => e.trim())
+                    .filter((e: string) => e.length > 0);
+
+                  if (emails.length === 0) {
+                    return (
+                      <p className="text-[11px] text-slate-500 italic">
+                        Nenhum destinatário cadastrado. Clique em &quot;Adicionar E-mail&quot; para incluir caixas postais.
+                      </p>
+                    );
+                  }
+
+                  const updateEmail = (idx: number, value: string) => {
+                    const arr = [...emails];
+                    arr[idx] = value;
+                    setConfig({ ...config, emailRecipients: arr.join(', ') });
+                  };
+
+                  const removeEmail = (idx: number) => {
+                    const arr = [...emails];
+                    arr.splice(idx, 1);
+                    setConfig({ ...config, emailRecipients: arr.join(', ') });
+                  };
+
+                  return (
+                    <div className="space-y-2">
+                      {emails.map((email: string, idx: number) => (
+                        <div key={idx} className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/50 border border-slate-800/40">
+                          <Mail className="w-3.5 h-3.5 text-blue-400/60 shrink-0" />
+                          <input
+                            type="email"
+                            placeholder="nome@dominio.com.br"
+                            value={email}
+                            onChange={(e) => updateEmail(idx, e.target.value)}
+                            className="flex-1 bg-slate-950 border border-slate-700/60 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 placeholder-slate-600"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeEmail(idx)}
+                            className="p-1.5 rounded-lg hover:bg-red-500/15 text-red-400/60 hover:text-red-400 transition-all"
+                            title="Remover e-mail"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
