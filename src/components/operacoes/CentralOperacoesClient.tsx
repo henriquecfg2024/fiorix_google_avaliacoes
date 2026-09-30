@@ -24,6 +24,7 @@ import { DeploysVersionsFooter } from './DeploysVersionsFooter';
 import { OperationsChartsSection } from './OperationsChartsSection';
 import { BatchAuditSection } from './BatchAuditSection';
 import { AlertSettingsSection } from './AlertSettingsSection';
+import { NotificationChannelsSummaryCard } from './NotificationChannelsSummaryCard';
 import { ProceduresOverviewSection } from './ProceduresOverviewSection';
 import { BarChart3, Database } from 'lucide-react';
 
@@ -197,6 +198,9 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
 
             {/* 4. Incidentes Recentes e Alertas Ativos */}
             <IncidentesAlertasSection incidents={health.incidents} alerts={health.alerts} />
+
+            {/* 4.1 Resumo dos Canais de Notificação Cadastrados */}
+            <NotificationChannelsSummaryCard />
 
             {/* 5. Novo Gráfico Temporal de Ingestão e Performance */}
             <OperationsChartsSection />
