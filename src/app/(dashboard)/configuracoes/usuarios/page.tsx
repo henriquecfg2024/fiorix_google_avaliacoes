@@ -8,6 +8,7 @@ import { ArrowLeft, UserPlus, Users, ShieldCheck, CheckCircle2, Info } from 'luc
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { CpfInputWithValidation } from '@/components/configuracoes/CpfInputWithValidation';
 
 export default async function UsuariosConfigPage() {
   const session = await auth();
@@ -110,13 +111,7 @@ export default async function UsuariosConfigPage() {
               <label className="text-[11px] font-semibold uppercase tracking-wider text-white/55">
                 CPF (Validação RH) *
               </label>
-              <Input
-                type="text"
-                name="cpf"
-                required
-                placeholder="000.000.000-00"
-                className="border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 dark:border-white/12 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/30 focus:border-amber-400/50 font-mono"
-              />
+              <CpfInputWithValidation name="cpf" required />
             </div>
 
             <div className="md:col-span-2 space-y-1.5">

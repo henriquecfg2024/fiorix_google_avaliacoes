@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Smartphone,
   Mail,
@@ -10,6 +10,7 @@ import {
   Bell,
   ShieldCheck,
   Loader2,
+  Trash2,
 } from 'lucide-react';
 
 interface PhoneEntry {
@@ -36,52 +37,184 @@ interface ChannelSummary {
 
 export function NotificationChannelsSummaryCard() {
   const [data, setData] = useState<ChannelSummary | null>(null);
+  const [rawConfig, setRawConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [deletingKey, setDeletingKey] = useState<string | null>(null);
+
+  const loadConfig = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/operacoes/alerts', { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.config) {
+          setRawConfig(json.config);
+          const primaryPhone = json.config.whatsappPhone || '';
+          const additionalPhones: PhoneEntry[] = Array.isArray(json.config.whatsappConfig?.phones)
+            ? json.config.whatsappConfig.phones
+                .filter((p: any) => p.phone && p.phone.length >= 8)
+                .map((p: any) => ({ phone: p.phone, label: p.label || '' }))
+            : [];
+          const allPhones: PhoneEntry[] = [];
+          if (primaryPhone && primaryPhone.length >= 8) {
+            allPhones.push({ phone: primaryPhone, label: 'Principal' });
+          }
+          allPhones.push(...additionalPhones);
+
+          setData({
+            whatsappEnabled: Boolean(json.config.whatsappEnabled),
+            whatsappPhone: primaryPhone,
+            whatsappProvider: json.config.whatsappProvider || 'callmebot',
+            whatsappPhones: allPhones,
+            emailEnabled: Boolean(json.config.emailEnabled),
+            emailRecipients: json.config.emailRecipients || '',
+            webhookEnabled: Boolean(json.config.enabled) && Boolean(json.config.webhookUrl),
+            webhookUrl: json.config.webhookUrl || '',
+            cooldownMinutes: Number(json.config.cooldownMinutes || 15),
+            notifyConnectorOffline: Boolean(json.config.notifyConnectorOffline),
+            notifySyncFailed: Boolean(json.config.notifySyncFailed),
+            notifyModuleDelayed: Boolean(json.config.notifyModuleDelayed),
+            notifyNextQsFailure: Boolean(json.config.notifyNextQsFailure),
+            notifyGoogleTokenExpiring: Boolean(json.config.notifyGoogleTokenExpiring),
+          });
+        }
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch('/api/v1/operacoes/alerts', { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.config) {
-            const primaryPhone = json.config.whatsappPhone || '';
-            const additionalPhones: PhoneEntry[] = Array.isArray(json.config.whatsappConfig?.phones)
-              ? json.config.whatsappConfig.phones
-                  .filter((p: any) => p.phone && p.phone.length >= 8)
-                  .map((p: any) => ({ phone: p.phone, label: p.label || '' }))
-              : [];
-            const allPhones: PhoneEntry[] = [];
-            if (primaryPhone && primaryPhone.length >= 8) {
-              allPhones.push({ phone: primaryPhone, label: 'Principal' });
-            }
-            allPhones.push(...additionalPhones);
+    loadConfig();
 
-            setData({
-              whatsappEnabled: Boolean(json.config.whatsappEnabled),
-              whatsappPhone: primaryPhone,
-              whatsappProvider: json.config.whatsappProvider || 'callmebot',
-              whatsappPhones: allPhones,
-              emailEnabled: Boolean(json.config.emailEnabled),
-              emailRecipients: json.config.emailRecipients || '',
-              webhookEnabled: Boolean(json.config.enabled) && Boolean(json.config.webhookUrl),
-              webhookUrl: json.config.webhookUrl || '',
-              cooldownMinutes: Number(json.config.cooldownMinutes || 15),
-              notifyConnectorOffline: Boolean(json.config.notifyConnectorOffline),
-              notifySyncFailed: Boolean(json.config.notifySyncFailed),
-              notifyModuleDelayed: Boolean(json.config.notifyModuleDelayed),
-              notifyNextQsFailure: Boolean(json.config.notifyNextQsFailure),
-              notifyGoogleTokenExpiring: Boolean(json.config.notifyGoogleTokenExpiring),
-            });
-          }
+    const handleUpdate = () => {
+      loadConfig();
+    };
+    window.addEventListener('alerts-config-updated', handleUpdate);
+    return () => window.removeEventListener('alerts-config-updated', handleUpdate);
+  }, [loadConfig]);
+
+  const handleDeletePhone = async (phoneToDelete: string) => {
+    if (!rawConfig) return;
+    if (!window.confirm(`Deseja realmente excluir o telefone ${phoneToDelete} das notificações de alerta?`)) {
+      return;
+    }
+
+    setDeletingKey(`phone-${phoneToDelete}`);
+    try {
+      const isPrimary = rawConfig.whatsappPhone === phoneToDelete;
+      const additionalPhones: any[] = Array.isArray(rawConfig.whatsappConfig?.phones)
+        ? [...rawConfig.whatsappConfig.phones]
+        : [];
+
+      let newPrimaryPhone = rawConfig.whatsappPhone;
+      let newApikey = rawConfig.whatsappConfig?.apikey;
+      let newAdditionalPhones = additionalPhones;
+
+      if (isPrimary) {
+        if (additionalPhones.length > 0) {
+          const promoted = additionalPhones.shift();
+          newPrimaryPhone = promoted.phone;
+          newApikey = promoted.apikey || newApikey;
+          newAdditionalPhones = additionalPhones;
+        } else {
+          newPrimaryPhone = '';
         }
-      } catch {
-        // silently fail
-      } finally {
-        setLoading(false);
+      } else {
+        newAdditionalPhones = additionalPhones.filter((p: any) => p.phone !== phoneToDelete);
       }
-    })();
-  }, []);
+
+      const payload = {
+        ...rawConfig,
+        whatsappPhone: newPrimaryPhone,
+        whatsappEnabled: Boolean(newPrimaryPhone),
+        whatsappConfig: {
+          ...rawConfig.whatsappConfig,
+          apikey: newApikey,
+          phones: newAdditionalPhones,
+        },
+      };
+
+      const res = await fetch('/api/v1/operacoes/alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        await loadConfig();
+        window.dispatchEvent(new CustomEvent('alerts-config-updated'));
+      } else {
+        alert('Erro ao excluir telefone. Tente novamente.');
+      }
+    } catch (err) {
+      console.error('Erro ao excluir telefone:', err);
+      alert('Erro de conexão ao excluir telefone.');
+    } finally {
+      setDeletingKey(null);
+    }
+  };
+
+  const handleDeleteEmail = async (emailToDelete: string) => {
+    if (!rawConfig) return;
+    if (!window.confirm(`Deseja realmente excluir o e-mail ${emailToDelete} das notificações de alerta?`)) {
+      return;
+    }
+
+    setDeletingKey(`email-${emailToDelete}`);
+    try {
+      const currentEmails = (rawConfig.emailRecipients || '')
+        .split(',')
+        .map((e: string) => e.trim())
+        .filter((e: string) => e.length > 0);
+
+      const remainingEmails = currentEmails.filter(
+        (e: string) => e.toLowerCase() !== emailToDelete.toLowerCase()
+      );
+
+      const payload = {
+        ...rawConfig,
+        emailRecipients: remainingEmails.join(', '),
+        emailEnabled: remainingEmails.length > 0 ? Boolean(rawConfig.emailEnabled) : false,
+      };
+
+      const res = await fetch('/api/v1/operacoes/alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        await loadConfig();
+        window.dispatchEvent(new CustomEvent('alerts-config-updated'));
+      } else {
+        alert('Erro ao excluir e-mail. Tente novamente.');
+      }
+    } catch (err) {
+      console.error('Erro ao excluir e-mail:', err);
+      alert('Erro de conexão ao excluir e-mail.');
+    } finally {
+      setDeletingKey(null);
+    }
+  };
+
+  const maskPhone = (phone: string) => {
+    if (!phone) return '—';
+    if (phone.length > 9) {
+      return phone.slice(0, 5) + '•••' + phone.slice(-4);
+    }
+    return phone;
+  };
+
+  const maskSingleEmail = (email: string) => {
+    const trimmed = email.trim();
+    const atIdx = trimmed.indexOf('@');
+    if (atIdx > 2) {
+      return trimmed.slice(0, 2) + '•••' + trimmed.slice(atIdx);
+    }
+    return trimmed;
+  };
 
   if (loading) {
     return (
@@ -126,27 +259,6 @@ export function NotificationChannelsSummaryCard() {
     data.notifyNextQsFailure,
     data.notifyGoogleTokenExpiring,
   ].filter(Boolean).length;
-
-  const maskPhone = (phone: string) => {
-    if (!phone) return '—';
-    // Show first 5 and last 4 chars
-    if (phone.length > 9) {
-      return phone.slice(0, 5) + '•••' + phone.slice(-4);
-    }
-    return phone;
-  };
-
-  const maskEmail = (emails: string) => {
-    if (!emails) return '—';
-    return emails.split(',').map(e => {
-      const trimmed = e.trim();
-      const atIdx = trimmed.indexOf('@');
-      if (atIdx > 2) {
-        return trimmed.slice(0, 2) + '•••' + trimmed.slice(atIdx);
-      }
-      return trimmed;
-    }).join(', ');
-  };
 
   return (
     <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] dark:bg-white/[0.015] p-6 backdrop-blur-sm">
@@ -204,19 +316,36 @@ export function NotificationChannelsSummaryCard() {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-white/40 uppercase tracking-wider">
-                  {data.whatsappPhones.length === 1 ? 'Telefone' : `${data.whatsappPhones.length} Telefones`}
+                  {data.whatsappPhones.length === 1 ? '1 Telefone' : `${data.whatsappPhones.length} Telefones`}
                 </span>
               </div>
-              {data.whatsappPhones.map((entry, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <p className="text-xs font-mono text-emerald-300/90 bg-emerald-500/[0.08] px-2 py-1 rounded-md flex-1">
-                    {maskPhone(entry.phone)}
-                  </p>
-                  {entry.label && (
-                    <span className="text-[10px] text-white/30 shrink-0">{entry.label}</span>
-                  )}
-                </div>
-              ))}
+              {data.whatsappPhones.length === 0 ? (
+                <p className="text-[10px] text-white/30 italic">Nenhum telefone ativo</p>
+              ) : (
+                data.whatsappPhones.map((entry, idx) => (
+                  <div key={idx} className="flex items-center gap-1.5 group/phone">
+                    <p className="text-xs font-mono text-emerald-300/90 bg-emerald-500/[0.08] px-2 py-1 rounded-md flex-1">
+                      {maskPhone(entry.phone)}
+                    </p>
+                    {entry.label && (
+                      <span className="text-[10px] text-white/30 shrink-0">{entry.label}</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePhone(entry.phone)}
+                      disabled={deletingKey !== null}
+                      className="p-1 rounded-md text-white/30 hover:text-rose-400 hover:bg-rose-500/15 transition-all shrink-0"
+                      title={`Excluir telefone ${entry.phone}`}
+                    >
+                      {deletingKey === `phone-${entry.phone}` ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-400" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+                ))
+              )}
               <p className="text-[10px] text-white/30 mt-1">
                 via {data.whatsappProvider === 'callmebot' ? 'CallMeBot' : data.whatsappProvider}
               </p>
@@ -253,18 +382,50 @@ export function NotificationChannelsSummaryCard() {
               </span>
             )}
           </div>
-          {data.emailEnabled ? (
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-white/40 uppercase tracking-wider">Destinatários</span>
+          {(() => {
+            const emailList = (data.emailRecipients || '')
+              .split(',')
+              .map((e: string) => e.trim())
+              .filter((e: string) => e.length > 0);
+
+            if (!data.emailEnabled) {
+              return <p className="text-[10px] text-white/30">Não configurado</p>;
+            }
+
+            if (emailList.length === 0) {
+              return <p className="text-[10px] text-white/30 italic">Nenhum e-mail ativo</p>;
+            }
+
+            return (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-white/40 uppercase tracking-wider">
+                    {emailList.length === 1 ? '1 Destinatário' : `${emailList.length} Destinatários`}
+                  </span>
+                </div>
+                {emailList.map((email: string, idx: number) => (
+                  <div key={idx} className="flex items-center gap-1.5 group/email">
+                    <p className="text-xs font-mono text-blue-300/90 bg-blue-500/[0.08] px-2 py-1 rounded-md flex-1 truncate" title={email}>
+                      {maskSingleEmail(email)}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteEmail(email)}
+                      disabled={deletingKey !== null}
+                      className="p-1 rounded-md text-white/30 hover:text-rose-400 hover:bg-rose-500/15 transition-all shrink-0"
+                      title={`Excluir e-mail ${email}`}
+                    >
+                      {deletingKey === `email-${email}` ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-400" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+                ))}
               </div>
-              <p className="text-xs font-mono text-blue-300/90 bg-blue-500/[0.08] px-2 py-1 rounded-md truncate" title={data.emailRecipients}>
-                {maskEmail(data.emailRecipients)}
-              </p>
-            </div>
-          ) : (
-            <p className="text-[10px] text-white/30">Não configurado</p>
-          )}
+            );
+          })()}
         </div>
 
         {/* Webhook */}

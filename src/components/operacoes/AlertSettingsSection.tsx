@@ -56,6 +56,7 @@ export function AlertSettingsSection() {
     },
   });
 
+  const [emailList, setEmailList] = useState<string[]>([]);
   const [activeSubTab, setActiveSubTab] = useState<'whatsapp' | 'email' | 'webhook'>('whatsapp');
   const [logs, setLogs] = useState<AlertLogItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,6 +71,12 @@ export function AlertSettingsSection() {
       if (res.ok) {
         const data = await res.json();
         if (data.config) {
+          const rawEmails = data.config.emailRecipients || '';
+          setEmailList(
+            rawEmails
+              ? rawEmails.split(',').map((e: string) => e.trim()).filter((e: string) => e.length > 0)
+              : []
+          );
           setConfig((prev) => ({
             ...prev,
             ...data.config,
@@ -98,6 +105,12 @@ export function AlertSettingsSection() {
 
   useEffect(() => {
     fetchSettings();
+
+    const handleUpdate = () => {
+      fetchSettings();
+    };
+    window.addEventListener('alerts-config-updated', handleUpdate);
+    return () => window.removeEventListener('alerts-config-updated', handleUpdate);
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -105,15 +118,22 @@ export function AlertSettingsSection() {
     setSaving(true);
     setFeedback(null);
     try {
+      const finalEmailRecipients = emailList.map((e) => e.trim()).filter(Boolean).join(', ');
+      const payloadToSave = {
+        ...config,
+        emailRecipients: finalEmailRecipients,
+      };
+
       const res = await fetch('/api/v1/operacoes/alerts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
+        body: JSON.stringify(payloadToSave),
       });
 
       if (res.ok) {
         setFeedback({ type: 'success', message: 'Configurações de alerta salvas com sucesso!' });
         fetchSettings();
+        window.dispatchEvent(new CustomEvent('alerts-config-updated'));
       } else {
         const errData = await res.json();
         setFeedback({ type: 'error', message: errData.error || 'Falha ao salvar configurações.' });
@@ -392,9 +412,46 @@ export function AlertSettingsSection() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                    Seu Número de WhatsApp (com DDD)
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      Seu Número de WhatsApp (com DDD)
+                    </label>
+                    {config.whatsappPhone && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!window.confirm(`Deseja realmente excluir o telefone ${config.whatsappPhone}?`)) return;
+                          const additionalPhones = [...(config.whatsappConfig?.phones || [])];
+                          if (additionalPhones.length > 0) {
+                            const promoted = additionalPhones.shift();
+                            setConfig({
+                              ...config,
+                              whatsappPhone: promoted?.phone || '',
+                              whatsappConfig: {
+                                ...config.whatsappConfig,
+                                apikey: promoted?.apikey || config.whatsappConfig?.apikey || '',
+                                phones: additionalPhones,
+                              },
+                            });
+                          } else {
+                            setConfig({
+                              ...config,
+                              whatsappPhone: '',
+                              whatsappConfig: {
+                                ...config.whatsappConfig,
+                                apikey: '',
+                              },
+                            });
+                          }
+                        }}
+                        className="flex items-center gap-1 text-[11px] font-semibold text-rose-400 hover:text-rose-300 transition-colors"
+                        title="Excluir este telefone principal"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Excluir Telefone
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="text"
                     placeholder="+55 11 99999-9999"
@@ -613,9 +670,7 @@ export function AlertSettingsSection() {
                   <button
                     type="button"
                     onClick={() => {
-                      const current = (config.emailRecipients || '').trim();
-                      const updated = current ? current + ', ' : '';
-                      setConfig({ ...config, emailRecipients: updated });
+                      setEmailList((prev) => [...prev, '']);
                     }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 text-[11px] font-bold transition-all border border-blue-500/20"
                   >
@@ -624,57 +679,49 @@ export function AlertSettingsSection() {
                   </button>
                 </div>
 
-                {(() => {
-                  const emails = (config.emailRecipients || '')
-                    .split(',')
-                    .map((e: string) => e.trim())
-                    .filter((e: string) => e.length > 0);
-
-                  if (emails.length === 0) {
-                    return (
-                      <p className="text-[11px] text-slate-500 italic">
-                        Nenhum destinatário cadastrado. Clique em &quot;Adicionar E-mail&quot; para incluir caixas postais.
-                      </p>
-                    );
-                  }
-
-                  const updateEmail = (idx: number, value: string) => {
-                    const arr = [...emails];
-                    arr[idx] = value;
-                    setConfig({ ...config, emailRecipients: arr.join(', ') });
-                  };
-
-                  const removeEmail = (idx: number) => {
-                    const arr = [...emails];
-                    arr.splice(idx, 1);
-                    setConfig({ ...config, emailRecipients: arr.join(', ') });
-                  };
-
-                  return (
-                    <div className="space-y-2">
-                      {emails.map((email: string, idx: number) => (
-                        <div key={idx} className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/50 border border-slate-800/40">
-                          <Mail className="w-3.5 h-3.5 text-blue-400/60 shrink-0" />
-                          <input
-                            type="email"
-                            placeholder="nome@dominio.com.br"
-                            value={email}
-                            onChange={(e) => updateEmail(idx, e.target.value)}
-                            className="flex-1 bg-slate-950 border border-slate-700/60 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 placeholder-slate-600"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeEmail(idx)}
-                            className="p-1.5 rounded-lg hover:bg-red-500/15 text-red-400/60 hover:text-red-400 transition-all"
-                            title="Remover e-mail"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
+                {emailList.length === 0 ? (
+                  <p className="text-[11px] text-slate-500 italic">
+                    Nenhum destinatário cadastrado. Clique em &quot;Adicionar E-mail&quot; para incluir caixas postais.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {emailList.map((email: string, idx: number) => (
+                      <div key={idx} className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/50 border border-slate-800/40">
+                        <Mail className="w-3.5 h-3.5 text-blue-400/60 shrink-0" />
+                        <input
+                          type="email"
+                          placeholder="nome@dominio.com.br"
+                          value={email}
+                          onChange={(e) => {
+                            const updated = [...emailList];
+                            updated[idx] = e.target.value;
+                            setEmailList(updated);
+                            setConfig((prev) => ({
+                              ...prev,
+                              emailRecipients: updated.map((s) => s.trim()).filter(Boolean).join(', '),
+                            }));
+                          }}
+                          className="flex-1 bg-slate-950 border border-slate-700/60 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 placeholder-slate-600"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = emailList.filter((_, i) => i !== idx);
+                            setEmailList(updated);
+                            setConfig((prev) => ({
+                              ...prev,
+                              emailRecipients: updated.map((s) => s.trim()).filter(Boolean).join(', '),
+                            }));
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-rose-500/15 text-rose-400/60 hover:text-rose-400 transition-all"
+                          title="Excluir e-mail"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
