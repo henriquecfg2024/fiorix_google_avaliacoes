@@ -79,35 +79,90 @@ export async function GET(request: NextRequest) {
         GROUP BY protocolo
       ),
       protocolos_demanda AS (
-        -- Protocolos registrados para compor a demanda e pendências oficiais (alimentado exclusivamente por andamentos reais)
+        -- Protocolos com demanda de registro/impressão gerada
         SELECT 
-          m.protocolo,
-          MAX(m.natureza) AS natureza,
-          MIN(m.data_apresentado) AS data_entrada,
-          MAX(m.d_balcao_registrado) AS ultimo_registro,
-          BOOL_OR(m.d_balcao_devolvido IS NOT NULL) AS is_devolvido,
-          BOOL_OR(m.d_balcao_registrado IS NOT NULL) AS is_registrado
-        FROM public.fiorix_metas_dados m
-        WHERE m.tenant_id = $1
-          AND m.d_balcao_registrado IS NOT NULL
-          AND m.d_balcao_devolvido IS NULL
-        GROUP BY m.protocolo
+          protocolo,
+          MAX(natureza) AS natureza,
+          MAX(tipo) AS tipo,
+          MIN(data_entrada) AS data_entrada,
+          MAX(NULLIF(numero_livro, '')) AS numero_livro,
+          MAX(dt_registro) AS ultimo_registro,
+          ARRAY_AGG(DISTINCT dt_registro) AS todas_datas_registro,
+          MAX(seq_titulo) AS seq_titulo
+        FROM (
+          -- Fonte 1: Tarefas do conector geradas pelo registro do título (IMPRESSÃO FICHA MATRÍCULA ou REGISTRO finalizado)
+          SELECT 
+            t.protocolo,
+            t.natureza,
+            t.tipo,
+            t.data_entrada,
+            t.numero_livro,
+            COALESCE(
+              CASE WHEN t.tarefa ILIKE '%IMPRESS%' THEN t.data_cadastro_tarefa END,
+              CASE WHEN t.tarefa ILIKE '%REGISTR%' AND t.situacao_tarefa = 'FINALIZADA' THEN t.data_finalizacao END
+            ) AS dt_registro,
+            t.seq_titulo
+          FROM public.fiorix_tarefas_dados t
+          WHERE t.tenant_id = $1
+            AND (
+              t.tarefa ILIKE '%IMPRESS%'
+              OR (t.tarefa ILIKE '%REGISTR%' AND t.situacao_tarefa = 'FINALIZADA')
+            )
+
+          UNION ALL
+
+          -- Fonte 2: Data de registro explícita extraída do andamento de impressão de tblWRIAndamentos "MAT xxx Ato: y (DD/MM/YYYY)"
+          SELECT 
+            i.numero_prenotacao AS protocolo,
+            i.natureza,
+            i.tipo_prenotacao AS tipo,
+            i.data_entrada,
+            i.numero_livro,
+            TO_DATE(SUBSTRING(i.observacao FROM '\\(([0-9]{2}/[0-9]{2}/[0-9]{4})\\)'), 'DD/MM/YYYY')::timestamp AS dt_registro,
+            i.seq_titulo
+          FROM public.fiorix_impressoes_dados i
+          WHERE i.tenant_id = $1
+            AND i.observacao ~ '\\([0-9]{2}/[0-9]{2}/[0-9]{4}\\)'
+
+          UNION ALL
+
+          -- Fonte 3: Metas com registro concluído
+          SELECT 
+            m.protocolo,
+            m.natureza,
+            m.tipo,
+            m.data_apresentado AS data_entrada,
+            NULL AS numero_livro,
+            m.d_balcao_registrado AS dt_registro,
+            1 AS seq_titulo
+          FROM public.fiorix_metas_dados m
+          WHERE m.tenant_id = $1
+            AND m.d_balcao_registrado IS NOT NULL
+        ) sub_demanda
+        WHERE dt_registro IS NOT NULL
+        GROUP BY protocolo
       ),
       unificado AS (
         SELECT 
           COALESCE(i.protocolo, d.protocolo) AS protocolo,
-          i.numero_livro,
+          COALESCE(i.numero_livro, d.numero_livro) AS numero_livro,
           COALESCE(NULLIF(i.natureza, ''), NULLIF(d.natureza, ''), 'Escritura') AS tipo_natureza,
           COALESCE(i.data_entrada, d.data_entrada) AS data_entrada,
-          COALESCE(d.ultimo_registro, i.data_entrada, i.livro_data, i.certidao_data) AS ultimo_registro,
-          COALESCE(i.seq_titulo, 1) AS seq_titulo,
+          COALESCE(
+            (SELECT MAX(dt) FROM unnest(d.todas_datas_registro) dt WHERE dt >= $2::date AND dt <= ($3::date + INTERVAL '1 day')),
+            d.ultimo_registro, 
+            i.livro_data, 
+            i.certidao_data, 
+            i.data_entrada
+          ) AS ultimo_registro,
+          COALESCE(i.seq_titulo, d.seq_titulo, 1) AS seq_titulo,
           
           -- LIVRO: 100% EXCLUSIVO dos andamentos da tabela tblWRIAndamentos (fiorix_impressoes_dados)
           i.livro_data,
           i.livro_responsavel,
           CASE 
             WHEN i.livro_data IS NOT NULL THEN 'REALIZADO'
-            WHEN COALESCE(d.is_registrado, false) AND NOT COALESCE(d.is_devolvido, false) THEN 'PENDENTE'
+            WHEN d.protocolo IS NOT NULL THEN 'PENDENTE'
             ELSE 'NAO_APLICAVEL'
           END AS livro_status,
 
@@ -116,11 +171,9 @@ export async function GET(request: NextRequest) {
           i.certidao_responsavel,
           CASE 
             WHEN i.certidao_data IS NOT NULL THEN 'REALIZADO'
-            WHEN COALESCE(d.is_registrado, false) AND NOT COALESCE(d.is_devolvido, false) THEN 'PENDENTE'
+            WHEN d.protocolo IS NOT NULL THEN 'PENDENTE'
             ELSE 'NAO_APLICAVEL'
           END AS certidao_status,
-          i.certidao_data,
-          i.certidao_responsavel,
 
           -- Link ONR extraído da certidão de tblWRIAndamentos ou portal oficial
           COALESCE(i.link_onr_especifico, 'https://registradores.onr.org.br') AS link_onr,
@@ -129,16 +182,6 @@ export async function GET(request: NextRequest) {
           CASE 
             WHEN i.livro_data IS NOT NULL AND i.certidao_data IS NOT NULL THEN 'Concluído'
             WHEN i.livro_data IS NOT NULL THEN 'Certidão Pendente'
-            WHEN COALESCE(d.is_devolvido, false) THEN
-              CASE 
-                WHEN i.certidao_data IS NOT NULL THEN 'Devolvido (Certidão Emitida)'
-                ELSE 'Devolvido'
-              END
-            WHEN NOT COALESCE(d.is_registrado, false) AND i.livro_data IS NULL THEN
-              CASE 
-                WHEN i.certidao_data IS NOT NULL THEN 'Em Qualificação (Certidão Emitida)'
-                ELSE 'Em Qualificação'
-              END
             WHEN i.certidao_data IS NOT NULL THEN 'Livro Pendente'
             ELSE 'Aguardando Impressão'
           END AS etapa_atual,
@@ -146,9 +189,9 @@ export async function GET(request: NextRequest) {
           -- Dias Pendente (apenas se alguma das impressões aplicáveis estiver de fato pendente)
           CASE 
             WHEN (
-              (i.livro_data IS NULL AND COALESCE(d.is_registrado, false) AND NOT COALESCE(d.is_devolvido, false))
+              (i.livro_data IS NULL AND d.protocolo IS NOT NULL)
               OR 
-              (i.certidao_data IS NULL AND COALESCE(d.is_registrado, false) AND NOT COALESCE(d.is_devolvido, false))
+              (i.certidao_data IS NULL AND d.protocolo IS NOT NULL)
             ) AND COALESCE(d.ultimo_registro, i.data_entrada) IS NOT NULL
             THEN GREATEST(0, EXTRACT(DAY FROM (NOW() - COALESCE(d.ultimo_registro, i.data_entrada)))::int)
             ELSE 0
@@ -280,8 +323,8 @@ export async function GET(request: NextRequest) {
           valB = String(b.livro_status || '');
           break;
         case 'impressoPor':
-          valA = String(a.responsavel_livro || a.responsavel_certidao || '').toLowerCase();
-          valB = String(b.responsavel_livro || b.responsavel_certidao || '').toLowerCase();
+          valA = String(a.livro_responsavel || a.certidao_responsavel || '').toLowerCase();
+          valB = String(b.livro_responsavel || b.certidao_responsavel || '').toLowerCase();
           break;
         case 'diasPendente':
           valA = Number(a.dias_pendente) || 0;
