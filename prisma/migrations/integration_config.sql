@@ -65,3 +65,27 @@ ALTER TABLE "fiorix_integration_audit_logs" ADD CONSTRAINT "fiorix_integration_a
 
 ALTER TABLE "fiorix_integration_audit_logs" DROP CONSTRAINT IF EXISTS "fiorix_integration_audit_logs_integration_id_fkey";
 ALTER TABLE "fiorix_integration_audit_logs" ADD CONSTRAINT "fiorix_integration_audit_logs_integration_id_fkey" FOREIGN KEY ("integration_id") REFERENCES "fiorix_integration_configs"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- RLS & MULTI-TENANT ISOLATION
+ALTER TABLE "fiorix_integration_configs" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "tenant_isolation_integration_configs" ON "fiorix_integration_configs";
+CREATE POLICY "tenant_isolation_integration_configs" ON "fiorix_integration_configs"
+  FOR ALL USING (tenant_id = current_setting('app.current_tenant_id', true))
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true));
+
+ALTER TABLE "fiorix_integration_audit_logs" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "tenant_isolation_integration_audit_logs" ON "fiorix_integration_audit_logs";
+CREATE POLICY "tenant_isolation_integration_audit_logs" ON "fiorix_integration_audit_logs"
+  FOR ALL USING (tenant_id = current_setting('app.current_tenant_id', true))
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true));
+
+-- GRANTS EXPLICITOS DATA API (SUPABASE COMPLIANCE - 30 DE OUTUBRO)
+GRANT SELECT ON "fiorix_integration_configs" TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON "fiorix_integration_configs" TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON "fiorix_integration_configs" TO service_role;
+
+GRANT SELECT ON "fiorix_integration_audit_logs" TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON "fiorix_integration_audit_logs" TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON "fiorix_integration_audit_logs" TO service_role;
+
+

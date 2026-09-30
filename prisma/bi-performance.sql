@@ -167,3 +167,15 @@ BEGIN
 END;
 $$;
 
+-- GRANTS EXPLICITOS DATA API (SUPABASE COMPLIANCE - 30 DE OUTUBRO)
+GRANT SELECT ON fiorix_bi_daily_agg TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON fiorix_bi_daily_agg TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON fiorix_bi_daily_agg TO service_role;
+
+GRANT SELECT ON fiorix_bi_return_note_agg TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON fiorix_bi_return_note_agg TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON fiorix_bi_return_note_agg TO service_role;
+
+GRANT EXECUTE ON FUNCTION refresh_fiorix_bi_aggregates(text, text) TO authenticated, service_role;
+
+

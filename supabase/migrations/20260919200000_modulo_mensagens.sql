@@ -219,4 +219,42 @@ DO $$ BEGIN
     FOR ALL USING (tenant_id = current_setting('app.current_tenant_id', true))
     WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true));
 
+  -- GRANTS EXPLICITOS DATA API (SUPABASE COMPLIANCE - 30 DE OUTUBRO)
+  GRANT SELECT ON public.fiorix_conversas TO anon;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_conversas TO authenticated;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_conversas TO service_role;
+
+  GRANT SELECT ON public.fiorix_conversa_membros TO anon;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_conversa_membros TO authenticated;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_conversa_membros TO service_role;
+
+  GRANT SELECT ON public.fiorix_mensagens TO anon;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_mensagens TO authenticated;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_mensagens TO service_role;
+
+  GRANT SELECT ON public.fiorix_mensagem_anexos TO anon;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_mensagem_anexos TO authenticated;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_mensagem_anexos TO service_role;
+
+  GRANT SELECT ON public.fiorix_mensagem_reacoes TO anon;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_mensagem_reacoes TO authenticated;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_mensagem_reacoes TO service_role;
+
+  GRANT SELECT ON public.fiorix_push_subscriptions TO anon;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_push_subscriptions TO authenticated;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_push_subscriptions TO service_role;
+
+  GRANT SELECT ON public.fiorix_messaging_notification_settings TO anon;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_messaging_notification_settings TO authenticated;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_messaging_notification_settings TO service_role;
+
+  GRANT SELECT ON public.fiorix_messaging_policies TO anon;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_messaging_policies TO authenticated;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_messaging_policies TO service_role;
+
+  GRANT SELECT ON public.fiorix_messaging_audit_logs TO anon;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_messaging_audit_logs TO authenticated;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_messaging_audit_logs TO service_role;
+
 END $$;
+

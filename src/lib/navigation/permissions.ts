@@ -63,8 +63,14 @@ export function filterNavigationByRole(role: Role = "USER") {
         // Substituto tem acesso pleno a governancaIts, pessoas, operacional, gestao e trabalho
         return true;
       }
+      // Espera oculto para perfis USER e COLABORADOR (exclusivo para liderança: MASTER, ADMIN, SUBSTITUTO)
+      if ((isUser || isColaborador) && item.href === "/espera") {
+        return false;
+      }
+
       if (isUser) {
         if (
+          item.href === "/espera" ||
           item.href === "/bi/auditoria" ||
           item.href === "/bi/importacoes" ||
           item.href === "/configuracoes" ||

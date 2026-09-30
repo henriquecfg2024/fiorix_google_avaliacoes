@@ -116,6 +116,7 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
 
     const operHrefs = groups.operacional.items.map((i) => i.href);
     expect(operHrefs).not.toContain('/bi/auditoria');
+    expect(operHrefs).not.toContain('/espera');
   });
 
   it('valida o menu para o perfil RH', () => {

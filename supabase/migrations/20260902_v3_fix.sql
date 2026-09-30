@@ -44,3 +44,13 @@ FROM fiorix_ferias_planejamento_2027
 WHERE deleted_at IS NULL 
 GROUP BY setor, EXTRACT(MONTH FROM periodo_1_inicio) 
 HAVING COUNT(*) > 3;
+
+-- GRANTS EXPLICITOS DATA API (SUPABASE COMPLIANCE - 30 DE OUTUBRO)
+GRANT SELECT ON public.fiorix_ferias_planejamento_2027 TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_ferias_planejamento_2027 TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_ferias_planejamento_2027 TO service_role;
+
+GRANT SELECT ON public.vw_conflitos_ferias_2027 TO anon;
+GRANT SELECT ON public.vw_conflitos_ferias_2027 TO authenticated;
+GRANT SELECT ON public.vw_conflitos_ferias_2027 TO service_role;
+

@@ -24,4 +24,10 @@ ALTER TABLE "ConnectorSyncRecord"
   ADD CONSTRAINT "ConnectorSyncRecord_connectorId_fkey"
   FOREIGN KEY ("connectorId") REFERENCES "Connector"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
+-- GRANTS EXPLICITOS DATA API (SUPABASE COMPLIANCE - 30 DE OUTUBRO)
+GRANT SELECT ON "ConnectorSyncRecord" TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON "ConnectorSyncRecord" TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON "ConnectorSyncRecord" TO service_role;
+
 COMMIT;
+

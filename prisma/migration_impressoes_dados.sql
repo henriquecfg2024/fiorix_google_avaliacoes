@@ -38,3 +38,18 @@ CREATE INDEX IF NOT EXISTS idx_fiorix_impressoes_tenant_prenotacao
 
 CREATE INDEX IF NOT EXISTS idx_fiorix_impressoes_tenant_operador 
     ON public.fiorix_impressoes_dados (tenant_id, operador);
+
+-- RLS & MULTI-TENANT ISOLATION
+ALTER TABLE public.fiorix_impressoes_dados ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "tenant_isolation_impressoes_dados" ON public.fiorix_impressoes_dados;
+CREATE POLICY "tenant_isolation_impressoes_dados" ON public.fiorix_impressoes_dados
+    FOR ALL USING (tenant_id = current_setting('app.current_tenant_id', true))
+    WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true));
+
+-- GRANTS EXPLICITOS DATA API (SUPABASE COMPLIANCE - 30 DE OUTUBRO)
+GRANT SELECT ON public.fiorix_impressoes_dados TO anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_impressoes_dados TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.fiorix_impressoes_dados TO service_role;
+
+
