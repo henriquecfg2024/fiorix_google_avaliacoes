@@ -610,16 +610,16 @@ export function AuditoriaDashboardClient() {
               <div className="group relative flex flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-purple-400/50">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-purple-400">
-                    Retirada Balcão &gt; 30d
+                    Sem Balcão Devolvido
                   </h4>
                   <span className="rounded-full border border-purple-500/30 bg-purple-500/15 px-2.5 py-0.5 text-[11px] font-bold text-purple-300">
-                    {metrics.total48} Protocolos
+                    {metrics.total75} Protocolos
                   </span>
                 </div>
                 <div className="mt-4">
-                  <span className="text-3xl sm:text-4xl font-extrabold text-white">{metrics.avg48}d</span>
+                  <span className="text-3xl sm:text-4xl font-extrabold text-white">{metrics.avgDevolvido}d</span>
                   <p className="mt-1 text-xs sm:text-[13px] font-medium text-slate-400 dark:text-gray-300">
-                    {metrics.total48 === 0 ? "Nenhum protocolo estagnado" : `Média parado • Cód. 48 pendente`}
+                    {metrics.total75 === 0 ? "Nenhum protocolo estagnado" : `Média parado • Cód. 75 pendente`}
                   </p>
                 </div>
               </div>

@@ -261,7 +261,7 @@ export async function GET(request: Request) {
               (m.d_balcao_devolvido IS NOT NULL) AS has_balcao_devolvido,
               (m.d10_entrega IS NOT NULL) AS has_d10_entrega,
               COALESCE(
-                m.d10_entrega, m.d_balcao_registrado, m.d_balcao_devolvido,
+                m.d10_entrega, m.d_balcao_registrado, m.d9_conferencia, m.d_balcao_devolvido,
                 m.d9_preparacao, m.d8_impressao, m.d5_calculo,
                 m.d4_qualificacao, m.d3_extrato, m.d2_contraditorio,
                 m.d1_escaneamento, m.d1_protocolo, m.data_apresentado
@@ -305,71 +305,51 @@ export async function GET(request: Request) {
             data_ult_andamento AS "dataUltAndamento",
             ultimo_operador AS "ultimoOperador",
             CASE
+              -- 1. Impresso ou Preparado, mas não foi encaminhado para Balcão Registrado
               WHEN (has_d8_impressao = true OR has_d9_preparacao = true) AND has_d9_conferencia_balcao = false
                 THEN 76
-              WHEN has_d2_contraditorio = true AND has_d8_impressao = false AND has_balcao_devolvido = false
+              -- 2. Teve Contraditório/Nota Devolutiva, mas não foi para Balcão Devolvido e não foi registrado
+              WHEN has_d2_contraditorio = true AND has_d8_impressao = false AND has_balcao_devolvido = false AND has_d9_conferencia_balcao = false
                 THEN 75
+              -- 3. Impresso ou Preparado, mas pulou etapa de Qualificação
               WHEN (has_d8_impressao = true OR has_d9_preparacao = true) AND has_d4_qualificacao = false
                 THEN 131
+              -- 4. Qualificado, mas pulou etapa de Escaneamento
               WHEN has_d4_qualificacao = true AND has_d1_escaneamento = false
                 THEN 86
-              WHEN has_d9_conferencia_balcao = true AND has_d8_impressao = false
-                THEN 63
-              WHEN (has_d9_conferencia_balcao = true OR has_balcao_devolvido = true) 
-                AND has_d10_entrega = false 
-                AND data_ult_andamento < NOW() - INTERVAL '30 days'
-                THEN 48
               ELSE 76
             END AS falta_codigo,
             CASE
               WHEN (has_d8_impressao = true OR has_d9_preparacao = true) AND has_d9_conferencia_balcao = false
                 THEN 'Balcão registrado pendente (Cód. 76)'
-              WHEN has_d2_contraditorio = true AND has_d8_impressao = false AND has_balcao_devolvido = false
+              WHEN has_d2_contraditorio = true AND has_d8_impressao = false AND has_balcao_devolvido = false AND has_d9_conferencia_balcao = false
                 THEN 'Balcão devolvido pendente (Cód. 75)'
               WHEN (has_d8_impressao = true OR has_d9_preparacao = true) AND has_d4_qualificacao = false
                 THEN 'Qualificação ausente no fluxo (Cód. 131)'
               WHEN has_d4_qualificacao = true AND has_d1_escaneamento = false
                 THEN 'Escaneamento ausente no fluxo (Cód. 86)'
-              WHEN has_d9_conferencia_balcao = true AND has_d8_impressao = false
-                THEN 'Impressão no Livro ausente (Cód. 63)'
-              WHEN (has_d9_conferencia_balcao = true OR has_balcao_devolvido = true) 
-                AND has_d10_entrega = false 
-                AND data_ult_andamento < NOW() - INTERVAL '30 days'
-                THEN 'Retirada no balcão pendente > 30d (Cód. 48)'
               ELSE 'Andamento pendente'
             END AS falta_descricao,
             CASE
               WHEN (has_d8_impressao = true OR has_d9_preparacao = true) AND has_d9_conferencia_balcao = false
                 THEN 'Balcão'
-              WHEN has_d2_contraditorio = true AND has_d8_impressao = false AND has_balcao_devolvido = false
+              WHEN has_d2_contraditorio = true AND has_d8_impressao = false AND has_balcao_devolvido = false AND has_d9_conferencia_balcao = false
                 THEN 'Balcão'
               WHEN (has_d8_impressao = true OR has_d9_preparacao = true) AND has_d4_qualificacao = false
                 THEN 'Qualificação'
               WHEN has_d4_qualificacao = true AND has_d1_escaneamento = false
                 THEN 'Scanner'
-              WHEN has_d9_conferencia_balcao = true AND has_d8_impressao = false
-                THEN 'Impressão'
-              WHEN (has_d9_conferencia_balcao = true OR has_balcao_devolvido = true) 
-                AND has_d10_entrega = false 
-                AND data_ult_andamento < NOW() - INTERVAL '30 days'
-                THEN 'Entrega'
               ELSE 'Geral'
             END AS setor,
             CASE
               WHEN (has_d8_impressao = true OR has_d9_preparacao = true) AND has_d9_conferencia_balcao = false
                 THEN 'Apresentação'
-              WHEN has_d2_contraditorio = true AND has_d8_impressao = false AND has_balcao_devolvido = false
+              WHEN has_d2_contraditorio = true AND has_d8_impressao = false AND has_balcao_devolvido = false AND has_d9_conferencia_balcao = false
                 THEN 'Apresentação'
               WHEN (has_d8_impressao = true OR has_d9_preparacao = true) AND has_d4_qualificacao = false
                 THEN 'Exame Formal'
               WHEN has_d4_qualificacao = true AND has_d1_escaneamento = false
                 THEN 'Apresentação'
-              WHEN has_d9_conferencia_balcao = true AND has_d8_impressao = false
-                THEN 'Impressão'
-              WHEN (has_d9_conferencia_balcao = true OR has_balcao_devolvido = true) 
-                AND has_d10_entrega = false 
-                AND data_ult_andamento < NOW() - INTERVAL '30 days'
-                THEN 'Entrega'
               ELSE 'Apresentação'
             END AS fase
           FROM consolidados
