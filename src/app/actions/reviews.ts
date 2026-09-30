@@ -78,8 +78,13 @@ export async function sendReviewResponse(reviewId: string, content: string) {
   });
   if (!review?.googleId) throw new Error('Avaliação sem identificação do Google.');
 
-  // Only mark it locally after Google accepts the reply.
-  await replyToGoogleReview(user.tenantId, review.googleId, content);
+  try {
+    // Only mark it locally after Google accepts the reply.
+    await replyToGoogleReview(user.tenantId, review.googleId, content);
+  } catch (err: any) {
+    console.error(`[sendReviewResponse] Falha ao enviar resposta para review ${reviewId}:`, err.message);
+    throw err; // Propagar o erro detalhado para o cliente
+  }
 
   await prisma.$transaction(async (tx) => {
     // 1. Create or update Response record

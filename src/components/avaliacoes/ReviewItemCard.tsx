@@ -156,8 +156,9 @@ export function ReviewItemCard({ review, staffNames }: ReviewItemProps) {
       await sendReviewResponse(review.id, responseText);
       toast.success('Resposta enviada com sucesso ao Google!');
       setIsOpen(false);
-    } catch {
-      toast.error('Erro ao enviar resposta ao Google.');
+    } catch (err: any) {
+      const msg = err?.message || 'Erro ao enviar resposta ao Google.';
+      toast.error(msg);
     } finally {
       setIsSending(false);
     }

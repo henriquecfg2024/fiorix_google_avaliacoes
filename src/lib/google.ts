@@ -395,8 +395,30 @@ export async function replyToGoogleReview(tenantId: string, reviewId: string, co
 
   const oauth2Client = await getAuthenticatedGoogleClient(tenantId);
   const url = `https://mybusiness.googleapis.com/v4/${connection.accountId}/${connection.locationId}/reviews/${encodeURIComponent(reviewId)}/reply`;
-  await withTimeout(
-    oauth2Client.request({ url, method: 'PUT', data: { comment: content } }),
-    'O Google demorou para publicar a resposta. Tente novamente.'
-  );
+
+  try {
+    await withTimeout(
+      oauth2Client.request({ url, method: 'PUT', data: { comment: content } }),
+      'O Google demorou para publicar a resposta. Tente novamente.'
+    );
+  } catch (error: any) {
+    const status = error?.response?.status || error?.code || 'unknown';
+    const detail = error?.response?.data?.error?.message || error?.message || 'Erro desconhecido';
+    console.error(`[ReplyToGoogle] ERRO ao responder review ${reviewId}: status=${status}, detail=${detail}`, {
+      url,
+      responseData: error?.response?.data,
+      errorMessage: error?.message,
+    });
+
+    if (error?.response?.status === 404) {
+      throw new Error('Avaliação não encontrada no Google. Ela pode ter sido removida pelo autor.');
+    }
+    if (error?.response?.status === 403) {
+      throw new Error('Sem permissão para responder. Verifique se a conta Google tem acesso de proprietário/administrador no Google Meu Negócio.');
+    }
+    if (error?.response?.status === 401 || error?.message?.includes('invalid_grant')) {
+      throw new Error('Credencial do Google expirada. Reconecte a conta em Configurações > Google Meu Negócio.');
+    }
+    throw new Error(`Falha ao publicar resposta no Google (${status}): ${detail}`);
+  }
 }
