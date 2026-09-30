@@ -76,6 +76,7 @@ model Tenant {
   metasDados        FiorixMetasDados[]
   retornosDados     FiorixRetornosDados[]
   impressoesDados   FiorixImpressoesDados[]
+  andamentosDados   FiorixAndamentosDados[]
   intervencoes      FiorixIntervencao[]
   relatorios        FiorixRelatorio[]
 
@@ -471,6 +472,33 @@ model FiorixImpressoesDados {
   @@index([tenantId, numeroPrenotacao], name: "idx_fiorix_impressoes_tenant_prenotacao")
   @@index([tenantId, operador], name: "idx_fiorix_impressoes_tenant_operador")
   @@map("fiorix_impressoes_dados")
+}
+
+model FiorixAndamentosDados {
+  tenantId         String    @map("tenant_id")
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  idAndamento      BigInt    @map("id_andamento")
+  protocolo        Int       @map("protocolo")
+  seqTitulo        Int?      @default(1) @map("seq_titulo")
+  dataAndamento    DateTime  @map("data_andamento")
+  idTipoAndamento  Int       @map("id_tipo_andamento")
+  siglaAndamento   String?   @map("sigla_andamento") @db.VarChar(50)
+  tipoAndamento    String?   @map("tipo_andamento") @db.VarChar(255)
+  natureza         String?   @map("natureza") @db.VarChar(255)
+  tipoPrenotacao   String?   @map("tipo_prenotacao") @db.VarChar(50)
+  idUsuarioOrigem  String?   @map("id_usuario_origem") @db.VarChar(50)
+  usuarioOrigem    String?   @map("usuario_origem") @db.VarChar(255)
+  idUsuarioDestino String?   @map("id_usuario_destino") @db.VarChar(50)
+  usuarioDestino   String?   @map("usuario_destino") @db.VarChar(255)
+  observacao       String?   @map("observacao") @db.Text
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@id([tenantId, idAndamento])
+  @@index([tenantId, protocolo], name: "idx_fiorix_andamentos_tenant_protocolo")
+  @@index([tenantId, dataAndamento(sort: Desc)], name: "idx_fiorix_andamentos_tenant_data")
+  @@index([tenantId, idTipoAndamento], name: "idx_fiorix_andamentos_tenant_tipo")
+  @@map("fiorix_andamentos_dados")
 }
 
 model RateLimit {

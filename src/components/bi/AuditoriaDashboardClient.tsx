@@ -57,8 +57,8 @@ export function AuditoriaDashboardClient() {
   const [searchTerm, setSearchTerm] = useState("");
 
   // Filter states
-  const [filtroFalta, setFiltroFalta] = useState<"todos" | "76" | "75" | "tarefa" | "semRetirada">("todos");
-  const [filtroSetor, setFiltroSetor] = useState<"todos" | "Balcão" | "Conferência" | "Qualificação" | "Registro">("todos");
+  const [filtroFalta, setFiltroFalta] = useState<string>("todos");
+  const [filtroSetor, setFiltroSetor] = useState<string>("todos");
   const [filtroResponsavel, setFiltroResponsavel] = useState<string>("todos");
   const [loading, setLoading] = useState(false);
   const [lastAuditAt, setLastAuditAt] = useState<string | null>(null);
@@ -66,23 +66,50 @@ export function AuditoriaDashboardClient() {
 
   // Calculated metrics from real data
   const metrics = useMemo(() => {
-    if (protocolos.length === 0) return { avgDays: 0, avgRegistrado: 0, avgDevolvido: 0, riskLevel: "NENHUM", riskColor: "emerald" };
+    if (protocolos.length === 0) {
+      return { 
+        avgDays: 0, 
+        total76: 0,
+        avgRegistrado: 0, 
+        total75: 0,
+        avgDevolvido: 0, 
+        total48: 0,
+        avg48: 0,
+        totalPulos: 0,
+        riskLevel: "NENHUM", 
+        riskColor: "emerald" 
+      };
+    }
 
     const registrado = protocolos.filter((p) => p.falta === 76);
     const devolvido = protocolos.filter((p) => p.falta === 75);
+    const retirada30d = protocolos.filter((p) => p.falta === 48);
+    const pulos = protocolos.filter((p) => [131, 86, 63].includes(p.falta));
 
     const avg = (arr: any[]) => arr.length > 0 ? Math.round((arr.reduce((s, p) => s + p.dias, 0) / arr.length) * 10) / 10 : 0;
 
     const avgDays = avg(protocolos);
     const avgRegistrado = avg(registrado);
     const avgDevolvido = avg(devolvido);
+    const avg48 = avg(retirada30d);
 
     let riskLevel = "BAIXO";
     let riskColor = "emerald";
     if (protocolos.length > 200 || avgDays > 30) { riskLevel = "ALTO"; riskColor = "red"; }
     else if (protocolos.length > 100 || avgDays > 15) { riskLevel = "MODERADO"; riskColor = "amber"; }
 
-    return { avgDays, avgRegistrado, avgDevolvido, riskLevel, riskColor };
+    return { 
+      avgDays, 
+      total76: registrado.length,
+      avgRegistrado, 
+      total75: devolvido.length,
+      avgDevolvido, 
+      total48: retirada30d.length,
+      avg48,
+      totalPulos: pulos.length,
+      riskLevel, 
+      riskColor 
+    };
   }, [protocolos]);
 
   const loadData = async (silent = false) => {
@@ -125,6 +152,26 @@ export function AuditoriaDashboardClient() {
     setCurrentPage(1);
   }, [filtroFalta, filtroSetor, filtroResponsavel, searchTerm]);
 
+  // Dynamic falta list
+  const faltaList = useMemo(() => {
+    const map = new Map<number, string>();
+    protocolos.forEach((p) => {
+      if (p.falta && p.faltaDescricao) {
+        map.set(p.falta, p.faltaDescricao);
+      }
+    });
+    return Array.from(map.entries()).map(([codigo, descricao]) => ({ codigo: String(codigo), descricao }));
+  }, [protocolos]);
+
+  // Dynamic sectors list
+  const setoresList = useMemo(() => {
+    const list = new Set<string>();
+    protocolos.forEach((p) => {
+      if (p.setor) list.add(p.setor);
+    });
+    return Array.from(list).sort();
+  }, [protocolos]);
+
   // Dynamic responsibles list
   const responsaveisList = useMemo(() => {
     const list = new Set(protocolos.map((p) => p.responsavel));
@@ -152,12 +199,7 @@ export function AuditoriaDashboardClient() {
     return protocolos.filter((p) => {
       const matchesSearch = p.id.includes(searchTerm) || p.cliente.toLowerCase().includes(searchTerm.toLowerCase());
       
-      let matchesFalta = true;
-      if (filtroFalta === "76") matchesFalta = p.falta === 76;
-      else if (filtroFalta === "75") matchesFalta = p.falta === 75;
-      else if (filtroFalta === "tarefa") matchesFalta = false; // Mock filter behavior
-      else if (filtroFalta === "semRetirada") matchesFalta = false; // Mock filter behavior
-
+      const matchesFalta = filtroFalta === "todos" ? true : String(p.falta) === filtroFalta;
       const matchesSetor = filtroSetor === "todos" ? true : p.setor === filtroSetor;
       const matchesResp = filtroResponsavel === "todos" ? true : p.responsavel === filtroResponsavel;
 
@@ -227,11 +269,11 @@ export function AuditoriaDashboardClient() {
       p.cliente,
       p.fase,
       p.falta,
-      p.falta === 76 ? "BALCÃO REGISTRADO" : "BALCÃO DEVOLVIDO",
+      p.faltaDescricao || (p.falta === 76 ? "BALCÃO REGISTRADO" : "BALCÃO DEVOLVIDO"),
       `${p.dias}d`,
       p.setor,
       p.responsavel,
-      "18/08/2026",
+      p.dataUltAndamento || "",
       "Regularizar andamento pendente",
     ]);
 
@@ -262,7 +304,7 @@ export function AuditoriaDashboardClient() {
     }
 
     const text = targetList
-      .map((p) => `Protocolo: ${p.id} | Natureza: ${p.cliente} | Falta ID: ${p.falta} | Setor: ${p.setor}`)
+      .map((p) => `Protocolo: ${p.id} | Natureza: ${p.cliente} | Inconformidade: ${p.faltaDescricao || p.falta} | Setor: ${p.setor}`)
       .join("\n");
 
     navigator.clipboard.writeText(text);
@@ -555,29 +597,45 @@ export function AuditoriaDashboardClient() {
                     Sem Balcão Registrado
                   </h4>
                   <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-300">
-                    {protocolos.filter((p) => p.falta === 76).length} Protocolos
+                    {metrics.total76} Protocolos
                   </span>
                 </div>
                 <div className="mt-4">
                   <span className="text-3xl sm:text-4xl font-extrabold text-white">{metrics.avgRegistrado}d</span>
                   <p className="mt-1 text-xs sm:text-[13px] font-medium text-slate-400 dark:text-gray-300">
-                    Média parado • Setor Competência
+                    Média parado • Cód. 76 pendente
                   </p>
                 </div>
               </div>
-              <div className="group relative flex flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-emerald-400/50">
+              <div className="group relative flex flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-purple-400/50">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-[#10B981]">
-                    Sem Balcão Devolvido
+                  <h4 className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-purple-400">
+                    Retirada Balcão &gt; 30d
                   </h4>
-                  <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300">
-                    {protocolos.filter((p) => p.falta === 75).length} Protocolos
+                  <span className="rounded-full border border-purple-500/30 bg-purple-500/15 px-2.5 py-0.5 text-[11px] font-bold text-purple-300">
+                    {metrics.total48} Protocolos
                   </span>
                 </div>
                 <div className="mt-4">
-                  <span className="text-3xl sm:text-4xl font-extrabold text-white">{metrics.avgDevolvido}d</span>
+                  <span className="text-3xl sm:text-4xl font-extrabold text-white">{metrics.avg48}d</span>
                   <p className="mt-1 text-xs sm:text-[13px] font-medium text-slate-400 dark:text-gray-300">
-                    {metrics.avgDevolvido === 0 ? "Status: Fluxo normalizado" : `Média parado • ${protocolos.filter(p => p.falta === 75).length} pendências`}
+                    {metrics.total48 === 0 ? "Nenhum protocolo estagnado" : `Média parado • Cód. 48 pendente`}
+                  </p>
+                </div>
+              </div>
+              <div className="group relative flex flex-col justify-between overflow-hidden rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 shadow-sm backdrop-blur-xl transition-all hover:border-blue-400/50">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs sm:text-[13px] font-bold uppercase tracking-wider text-blue-400">
+                    Pulos de Fluxo
+                  </h4>
+                  <span className="rounded-full border border-blue-500/30 bg-blue-500/15 px-2.5 py-0.5 text-[11px] font-bold text-blue-300">
+                    {metrics.totalPulos} Protocolos
+                  </span>
+                </div>
+                <div className="mt-4">
+                  <span className="text-3xl sm:text-4xl font-extrabold text-white">{metrics.totalPulos}</span>
+                  <p className="mt-1 text-xs sm:text-[13px] font-medium text-slate-400 dark:text-gray-300">
+                    Qualificação / Scanner / Impressão
                   </p>
                 </div>
               </div>
@@ -591,19 +649,23 @@ export function AuditoriaDashboardClient() {
           
           {/* A. FILTROS AVANÇADOS */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-2xl border border-white/10 bg-[#080D1A] p-4">
-            {/* Filtro Falta ID */}
+            {/* Filtro Inconformidade */}
             <div className="space-y-1.5">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/50">Inconformidade</span>
               <select
                 value={filtroFalta}
-                onChange={(e) => setFiltroFalta(e.target.value as typeof filtroFalta)}
+                onChange={(e) => setFiltroFalta(e.target.value)}
                 className="w-full rounded-xl border border-white/10 bg-[#0B1020] px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
               >
-                <option value="todos">Todos</option>
-                <option value="76">Balcão registrado pendente</option>
-                <option value="75">Balcão devolvido pendente</option>
-                <option value="tarefa">Falta TAREFA</option>
-                <option value="semRetirada">Sem DtRetirada</option>
+                <option value="todos">Todos ({protocolos.length})</option>
+                {faltaList.map((f) => {
+                  const count = protocolos.filter((p) => String(p.falta) === f.codigo).length;
+                  return (
+                    <option key={f.codigo} value={f.codigo}>
+                      {f.descricao} ({count})
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -612,14 +674,18 @@ export function AuditoriaDashboardClient() {
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-white/50">Setor</span>
               <select
                 value={filtroSetor}
-                onChange={(e) => setFiltroSetor(e.target.value as typeof filtroSetor)}
+                onChange={(e) => setFiltroSetor(e.target.value)}
                 className="w-full rounded-xl border border-white/10 bg-[#0B1020] px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
               >
                 <option value="todos">Todos</option>
-                <option value="Balcão">Balcão</option>
-                <option value="Conferência">Conferência</option>
-                <option value="Qualificação">Qualificação</option>
-                <option value="Registro">Registro</option>
+                {setoresList.map((s) => {
+                  const count = protocolos.filter((p) => p.setor === s).length;
+                  return (
+                    <option key={s} value={s}>
+                      {s} ({count})
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -778,15 +844,14 @@ export function AuditoriaDashboardClient() {
                           <td className="p-4 text-slate-800 dark:text-white/80">{p.cliente}</td>
                           <td className="p-4 text-slate-600 dark:text-white/60">{p.fase}</td>
                           <td className="p-4">
-                            {p.falta === 76 ? (
-                              <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-300">
-                                Balcão registrado pendente
-                              </span>
-                            ) : (
-                              <span className="rounded-full border border-rose-500/30 bg-rose-500/15 px-2.5 py-0.5 text-[11px] font-bold text-rose-300">
-                                Balcão devolvido pendente
-                              </span>
-                            )}
+                            <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${
+                              p.falta === 76 ? "border-amber-500/30 bg-amber-500/15 text-amber-300" :
+                              p.falta === 75 ? "border-rose-500/30 bg-rose-500/15 text-rose-300" :
+                              p.falta === 48 ? "border-purple-500/30 bg-purple-500/15 text-purple-300" :
+                              "border-blue-500/30 bg-blue-500/15 text-blue-300"
+                            }`}>
+                              {p.faltaDescricao || (p.falta === 76 ? "Balcão registrado pendente" : "Balcão devolvido pendente")}
+                            </span>
                           </td>
                           <td className="p-4 font-semibold text-amber-400">{p.dias}d</td>
                           <td className="p-4 text-slate-700 dark:text-white/70">

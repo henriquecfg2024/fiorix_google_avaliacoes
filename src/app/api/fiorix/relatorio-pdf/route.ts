@@ -6,21 +6,22 @@ export const dynamic = "force-dynamic";
 
 type RelatorioRow = {
   protocolo: number;
-  dataApresentado: Date | null;
   natureza: string | null;
-  d4Qualificacao: Date | null;
-  d8Impressao: Date | null;
-  d9Preparacao: Date | null;
-  d9Conferencia: Date | null;
-  dBalcaoDevolvido: Date | null;
-  hasDevolucao: boolean;
+  dataEntrada: Date | null;
+  dataUltAndamento: Date | null;
+  ultimoOperador: string | null;
+  falta_codigo: number;
+  falta_descricao: string;
+  setor: string;
+  fase: string;
 };
 
 type RelatorioProtocolo = {
   id: string;
   cliente: string;
   fase: string;
-  falta: 75 | 76;
+  falta: number;
+  faltaDescricao: string;
   dias: number;
   setor: string;
   responsavel: string;
@@ -218,109 +219,184 @@ export async function GET(request: Request) {
     const rawProtocolos = protocolIds.length > 0
       ? await prisma.$queryRaw<RelatorioRow[]>(
         Prisma.sql`
-          WITH eventos_bi AS (
-            SELECT
-              b.tenant_id,
-              b."Protocolo" AS protocolo,
-              BOOL_OR(COALESCE(b."IsRegistrado", false)) AS has_registro,
-              BOOL_OR(COALESCE(b."IsDevolucao", false)) AS has_devolucao
-            FROM public.fiorix_bi_data b
-            WHERE b.tenant_id = ${user.tenantId}
-            GROUP BY b.tenant_id, b."Protocolo"
-          ),
-          eventos_prod AS (
-            SELECT
-              p.tenant_id,
-              p.pedido::text AS protocolo,
-              BOOL_OR(p.tipo_detalhado ILIKE '%Registrado%') AS has_registro,
-              BOOL_OR(
-                p.tipo_detalhado ILIKE '%Devolver%'
-                OR p.tipo_detalhado ILIKE '%Devolu%'
-              ) AS has_devolucao
-            FROM public.fiorix_produtividade_dados p
-            WHERE p.tenant_id = ${user.tenantId}
-            GROUP BY p.tenant_id, p.pedido
-          ),
-          eventos AS (
-            SELECT
-              tenant_id,
+          WITH base_andamentos AS (
+            SELECT 
               protocolo,
-              BOOL_OR(has_registro) AS has_registro,
-              BOOL_OR(has_devolucao) AS has_devolucao
-            FROM (
-              SELECT * FROM eventos_bi
-              UNION ALL
-              SELECT * FROM eventos_prod
-            ) fontes
-            GROUP BY tenant_id, protocolo
+              MAX(natureza) AS natureza,
+              MAX(tipo_prenotacao) AS tipo,
+              MIN(data_andamento) AS data_entrada,
+              BOOL_OR(id_tipo_andamento = 14) AS has_d1_protocolo,
+              BOOL_OR(id_tipo_andamento = 86) AS has_d1_escaneamento,
+              BOOL_OR(id_tipo_andamento = 106) AS has_d2_contraditorio,
+              BOOL_OR(id_tipo_andamento = 265) AS has_d3_extrato,
+              BOOL_OR(id_tipo_andamento = 131) AS has_d4_qualificacao,
+              BOOL_OR(id_tipo_andamento IN (281, 282)) AS has_d5_calculo,
+              BOOL_OR(id_tipo_andamento IN (63, 264)) AS has_d8_impressao,
+              BOOL_OR(id_tipo_andamento = 113) AS has_d9_preparacao,
+              BOOL_OR(id_tipo_andamento = 76) AS has_d9_conferencia_balcao,
+              BOOL_OR(id_tipo_andamento = 75) AS has_balcao_devolvido,
+              BOOL_OR(id_tipo_andamento IN (48, 83, 10, 11, 12, 72, 99)) AS has_d10_entrega,
+              MAX(data_andamento) AS data_ult_andamento,
+              (ARRAY_AGG(COALESCE(usuario_origem, usuario_destino) ORDER BY data_andamento DESC) FILTER (WHERE usuario_origem IS NOT NULL OR usuario_destino IS NOT NULL))[1] AS ultimo_operador
+            FROM public.fiorix_andamentos_dados
+            WHERE tenant_id = ${user.tenantId} AND protocolo IN (${Prisma.join(protocolIds)})
+            GROUP BY protocolo
+
+            UNION ALL
+
+            SELECT 
+              m.protocolo,
+              m.natureza,
+              m.tipo,
+              COALESCE(m.data_apresentado, m.d1_protocolo) AS data_entrada,
+              (m.d1_protocolo IS NOT NULL) AS has_d1_protocolo,
+              (m.d1_escaneamento IS NOT NULL) AS has_d1_escaneamento,
+              (m.d2_contraditorio IS NOT NULL) AS has_d2_contraditorio,
+              (m.d3_extrato IS NOT NULL) AS has_d3_extrato,
+              (m.d4_qualificacao IS NOT NULL) AS has_d4_qualificacao,
+              (m.d5_calculo IS NOT NULL) AS has_d5_calculo,
+              (m.d8_impressao IS NOT NULL OR imp.has_impressao = true) AS has_d8_impressao,
+              (m.d9_preparacao IS NOT NULL) AS has_d9_preparacao,
+              (m.d_balcao_registrado IS NOT NULL OR m.d9_conferencia IS NOT NULL) AS has_d9_conferencia_balcao,
+              (m.d_balcao_devolvido IS NOT NULL) AS has_balcao_devolvido,
+              (m.d10_entrega IS NOT NULL) AS has_d10_entrega,
+              COALESCE(
+                m.d10_entrega, m.d_balcao_registrado, m.d_balcao_devolvido,
+                m.d9_preparacao, m.d8_impressao, m.d5_calculo,
+                m.d4_qualificacao, m.d3_extrato, m.d2_contraditorio,
+                m.d1_escaneamento, m.d1_protocolo, m.data_apresentado
+              ) AS data_ult_andamento,
+              NULL::text AS ultimo_operador
+            FROM public.fiorix_metas_dados m
+            LEFT JOIN (
+              SELECT numero_prenotacao AS protocolo, true AS has_impressao
+              FROM public.fiorix_impressoes_dados
+              WHERE tenant_id = ${user.tenantId} AND tipo_impressao = 'LIVRO' AND numero_prenotacao IN (${Prisma.join(protocolIds)})
+              GROUP BY numero_prenotacao
+            ) imp ON imp.protocolo = m.protocolo
+            WHERE m.tenant_id = ${user.tenantId} AND m.protocolo IN (${Prisma.join(protocolIds)})
+          ),
+          consolidados AS (
+            SELECT 
+              protocolo,
+              MAX(natureza) AS natureza,
+              MAX(tipo) AS tipo,
+              MIN(data_entrada) AS data_entrada,
+              BOOL_OR(has_d1_protocolo) AS has_d1_protocolo,
+              BOOL_OR(has_d1_escaneamento) AS has_d1_escaneamento,
+              BOOL_OR(has_d2_contraditorio) AS has_d2_contraditorio,
+              BOOL_OR(has_d3_extrato) AS has_d3_extrato,
+              BOOL_OR(has_d4_qualificacao) AS has_d4_qualificacao,
+              BOOL_OR(has_d5_calculo) AS has_d5_calculo,
+              BOOL_OR(has_d8_impressao) AS has_d8_impressao,
+              BOOL_OR(has_d9_preparacao) AS has_d9_preparacao,
+              BOOL_OR(has_d9_conferencia_balcao) AS has_d9_conferencia_balcao,
+              BOOL_OR(has_balcao_devolvido) AS has_balcao_devolvido,
+              BOOL_OR(has_d10_entrega) AS has_d10_entrega,
+              MAX(data_ult_andamento) AS data_ult_andamento,
+              MAX(ultimo_operador) AS ultimo_operador
+            FROM base_andamentos
+            GROUP BY protocolo
           )
-          SELECT
-            m.protocolo,
-            m.data_apresentado AS "dataApresentado",
-            m.natureza,
-            m.d4_qualificacao AS "d4Qualificacao",
-            m.d8_impressao AS "d8Impressao",
-            m.d9_preparacao AS "d9Preparacao",
-            m.d9_conferencia AS "d9Conferencia",
-            m.d_balcao_devolvido AS "dBalcaoDevolvido",
-            e.has_devolucao AS "hasDevolucao"
-          FROM public.fiorix_metas_dados m
-          JOIN eventos e
-            ON e.tenant_id = m.tenant_id
-            AND e.protocolo = m.protocolo::text
-          WHERE m.tenant_id = ${user.tenantId}
-            AND m.protocolo IN (${Prisma.join(protocolIds)})
-            AND (
-              (e.has_registro = true AND m.d_balcao_registrado IS NULL)
-              OR (e.has_devolucao = true AND m.d_balcao_devolvido IS NULL)
-            )
-          ORDER BY m.protocolo ASC
+          SELECT 
+            protocolo,
+            natureza,
+            data_entrada AS "dataEntrada",
+            data_ult_andamento AS "dataUltAndamento",
+            ultimo_operador AS "ultimoOperador",
+            CASE
+              WHEN (has_d8_impressao = true OR has_d9_preparacao = true) AND has_d9_conferencia_balcao = false
+                THEN 76
+              WHEN has_d2_contraditorio = true AND has_d8_impressao = false AND has_balcao_devolvido = false
+                THEN 75
+              WHEN (has_d8_impressao = true OR has_d9_preparacao = true) AND has_d4_qualificacao = false
+                THEN 131
+              WHEN has_d4_qualificacao = true AND has_d1_escaneamento = false
+                THEN 86
+              WHEN has_d9_conferencia_balcao = true AND has_d8_impressao = false
+                THEN 63
+              WHEN (has_d9_conferencia_balcao = true OR has_balcao_devolvido = true) 
+                AND has_d10_entrega = false 
+                AND data_ult_andamento < NOW() - INTERVAL '30 days'
+                THEN 48
+              ELSE 76
+            END AS falta_codigo,
+            CASE
+              WHEN (has_d8_impressao = true OR has_d9_preparacao = true) AND has_d9_conferencia_balcao = false
+                THEN 'Balcão registrado pendente (Cód. 76)'
+              WHEN has_d2_contraditorio = true AND has_d8_impressao = false AND has_balcao_devolvido = false
+                THEN 'Balcão devolvido pendente (Cód. 75)'
+              WHEN (has_d8_impressao = true OR has_d9_preparacao = true) AND has_d4_qualificacao = false
+                THEN 'Qualificação ausente no fluxo (Cód. 131)'
+              WHEN has_d4_qualificacao = true AND has_d1_escaneamento = false
+                THEN 'Escaneamento ausente no fluxo (Cód. 86)'
+              WHEN has_d9_conferencia_balcao = true AND has_d8_impressao = false
+                THEN 'Impressão no Livro ausente (Cód. 63)'
+              WHEN (has_d9_conferencia_balcao = true OR has_balcao_devolvido = true) 
+                AND has_d10_entrega = false 
+                AND data_ult_andamento < NOW() - INTERVAL '30 days'
+                THEN 'Retirada no balcão pendente > 30d (Cód. 48)'
+              ELSE 'Andamento pendente'
+            END AS falta_descricao,
+            CASE
+              WHEN (has_d8_impressao = true OR has_d9_preparacao = true) AND has_d9_conferencia_balcao = false
+                THEN 'Balcão'
+              WHEN has_d2_contraditorio = true AND has_d8_impressao = false AND has_balcao_devolvido = false
+                THEN 'Balcão'
+              WHEN (has_d8_impressao = true OR has_d9_preparacao = true) AND has_d4_qualificacao = false
+                THEN 'Qualificação'
+              WHEN has_d4_qualificacao = true AND has_d1_escaneamento = false
+                THEN 'Scanner'
+              WHEN has_d9_conferencia_balcao = true AND has_d8_impressao = false
+                THEN 'Impressão'
+              WHEN (has_d9_conferencia_balcao = true OR has_balcao_devolvido = true) 
+                AND has_d10_entrega = false 
+                AND data_ult_andamento < NOW() - INTERVAL '30 days'
+                THEN 'Entrega'
+              ELSE 'Geral'
+            END AS setor,
+            CASE
+              WHEN (has_d8_impressao = true OR has_d9_preparacao = true) AND has_d9_conferencia_balcao = false
+                THEN 'Apresentação'
+              WHEN has_d2_contraditorio = true AND has_d8_impressao = false AND has_balcao_devolvido = false
+                THEN 'Apresentação'
+              WHEN (has_d8_impressao = true OR has_d9_preparacao = true) AND has_d4_qualificacao = false
+                THEN 'Exame Formal'
+              WHEN has_d4_qualificacao = true AND has_d1_escaneamento = false
+                THEN 'Apresentação'
+              WHEN has_d9_conferencia_balcao = true AND has_d8_impressao = false
+                THEN 'Impressão'
+              WHEN (has_d9_conferencia_balcao = true OR has_balcao_devolvido = true) 
+                AND has_d10_entrega = false 
+                AND data_ult_andamento < NOW() - INTERVAL '30 days'
+                THEN 'Entrega'
+              ELSE 'Apresentação'
+            END AS fase
+          FROM consolidados
+          ORDER BY protocolo ASC
         `
       )
       : [];
 
     const selectedProtocolos: RelatorioProtocolo[] = rawProtocolos.map((p) => {
-      let fase = "Apresentação";
-      let setor = "Qualificação";
+      const diffTime = p.dataUltAndamento
+        ? Math.abs(new Date().getTime() - new Date(p.dataUltAndamento).getTime())
+        : (p.dataEntrada ? Math.abs(new Date().getTime() - new Date(p.dataEntrada).getTime()) : 0);
+      const dias = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
 
-      if (p.d9Conferencia) {
-        fase = "Conferência";
-        setor = "Conferência";
-      } else if (p.d9Preparacao) {
-        fase = "Preparação";
-        setor = "Preparação";
-      } else if (p.d8Impressao) {
-        fase = "Impressão";
-        setor = "Impressão";
-      } else if (p.d4Qualificacao) {
-        fase = "Exame Formal";
-        setor = "Qualificação";
-      }
-
-      const start = p.dataApresentado ? new Date(p.dataApresentado) : new Date();
-      const diffTime = Math.abs(new Date().getTime() - start.getTime());
-      const dias = Math.min(60, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1);
-
-      const lastDate = p.d9Conferencia || p.d9Preparacao || p.d8Impressao || p.d4Qualificacao || p.dataApresentado;
-      let dataUltAndamento = "-";
-      if (lastDate) {
-        const d = new Date(lastDate);
-        if (!isNaN(d.getTime())) {
-          const day = String(d.getDate()).padStart(2, "0");
-          const month = String(d.getMonth() + 1).padStart(2, "0");
-          const year = d.getFullYear();
-          dataUltAndamento = `${day}/${month}/${year}`;
-        }
-      }
+      const dataUltAndamento = p.dataUltAndamento
+        ? new Date(p.dataUltAndamento).toLocaleDateString("pt-BR")
+        : (p.dataEntrada ? new Date(p.dataEntrada).toLocaleDateString("pt-BR") : "—");
 
       return {
         id: String(p.protocolo),
         cliente: p.natureza || "Instrumento Particular",
-        fase,
-        falta: p.hasDevolucao && !p.dBalcaoDevolvido ? 75 : 76,
+        fase: p.fase,
+        falta: p.falta_codigo,
+        faltaDescricao: p.falta_descricao,
         dias,
-        setor,
-        responsavel: setor,
+        setor: p.setor,
+        responsavel: p.ultimoOperador || p.setor,
         dataUltAndamento,
       };
     });
@@ -487,6 +563,14 @@ export async function GET(request: Request) {
       background: rgba(239, 68, 68, 0.15);
       color: #f87171;
     }
+    .badge-48 {
+      background: rgba(168, 85, 247, 0.15);
+      color: #c084fc;
+    }
+    .badge-131, .badge-86, .badge-63 {
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+    }
     .sign-section {
       margin-top: 40px;
       display: flex;
@@ -647,8 +731,8 @@ export async function GET(request: Request) {
                 <td>${p.cliente}</td>
                 <td>${p.fase}</td>
                 <td>
-                  <span class="badge-falta ${p.falta === 76 ? "badge-76" : "badge-75"}">
-                    ${p.falta === 76 ? "Balcão registrado pendente" : "Balcão devolvido pendente"}
+                  <span class="badge-falta badge-${p.falta}">
+                    ${p.faltaDescricao}
                   </span>
                 </td>
                 <td style="font-weight: 600;">${p.dias}d</td>
