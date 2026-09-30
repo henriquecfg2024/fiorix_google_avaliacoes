@@ -6,7 +6,10 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { recordAuditLog } from "@/lib/audit";
 
-export async function deleteImportRecord(id: string, source: "BI" | "PRODUTIVIDADE" | "METAS" | "TAREFAS") {
+export async function deleteImportRecord(
+  id: string,
+  source: "BI" | "PRODUTIVIDADE" | "METAS" | "TAREFAS" | "RETORNOS" | "IMPRESSOES" | "ANDAMENTOS"
+) {
   try {
     const user = await requireRole("ADMIN", "MASTER");
 
@@ -49,6 +52,57 @@ export async function deleteImportRecord(id: string, source: "BI" | "PRODUTIVIDA
           Prisma.sql`DELETE FROM public.fiorix_produtividade_imports WHERE id = ${id} AND tenant_id = ${user.tenantId}`
         );
       }
+    } else if (source === "RETORNOS") {
+      if (id.startsWith("inferred-")) {
+        const ym = id.replace("inferred-retornos-", "");
+        await prisma.$executeRaw(
+          Prisma.sql`
+            DELETE FROM public.fiorix_retornos_dados 
+            WHERE tenant_id = ${user.tenantId} 
+              AND to_char(data_retorno, 'YYYY-MM') = ${ym}
+          `
+        );
+      } else {
+        const numericId = parseInt(id, 10);
+        if (isNaN(numericId)) throw new Error("ID inválido para RETORNOS");
+        await prisma.$executeRaw(
+          Prisma.sql`DELETE FROM public.fiorix_retornos_imports WHERE id = ${numericId} AND tenant_id = ${user.tenantId}`
+        );
+      }
+    } else if (source === "IMPRESSOES") {
+      if (id.startsWith("inferred-")) {
+        const ym = id.replace("inferred-impressoes-", "");
+        await prisma.$executeRaw(
+          Prisma.sql`
+            DELETE FROM public.fiorix_impressoes_dados 
+            WHERE tenant_id = ${user.tenantId} 
+              AND to_char(data_impressao, 'YYYY-MM') = ${ym}
+          `
+        );
+      } else {
+        const numericId = parseInt(id, 10);
+        if (isNaN(numericId)) throw new Error("ID inválido para IMPRESSOES");
+        await prisma.$executeRaw(
+          Prisma.sql`DELETE FROM public.fiorix_impressoes_imports WHERE id = ${numericId} AND tenant_id = ${user.tenantId}`
+        );
+      }
+    } else if (source === "ANDAMENTOS") {
+      if (id.startsWith("inferred-")) {
+        const ym = id.replace("inferred-andamentos-", "");
+        await prisma.$executeRaw(
+          Prisma.sql`
+            DELETE FROM public.fiorix_andamentos_dados 
+            WHERE tenant_id = ${user.tenantId} 
+              AND to_char(data_andamento, 'YYYY-MM') = ${ym}
+          `
+        );
+      } else {
+        const numericId = parseInt(id, 10);
+        if (isNaN(numericId)) throw new Error("ID inválido para ANDAMENTOS");
+        await prisma.$executeRaw(
+          Prisma.sql`DELETE FROM public.fiorix_andamentos_imports WHERE id = ${numericId} AND tenant_id = ${user.tenantId}`
+        );
+      }
     } else if (source === "BI") {
       await prisma.fiorixBiImport.deleteMany({
         where: { id, tenantId: user.tenantId },
@@ -70,6 +124,9 @@ export async function deleteImportRecord(id: string, source: "BI" | "PRODUTIVIDA
     revalidatePath("/bi/produtividade");
     revalidatePath("/bi/metas");
     revalidatePath("/bi/tarefas");
+    revalidatePath("/bi/retornos");
+    revalidatePath("/bi/controle-impressoes");
+    revalidatePath("/bi/auditoria");
     revalidatePath("/bi");
     return { success: true };
   } catch (error: any) {
@@ -156,3 +213,81 @@ export async function clearAllTarefasData() {
   }
 }
 
+export async function clearAllRetornosData() {
+  try {
+    const user = await requireRole("ADMIN", "MASTER");
+    await prisma.$executeRaw(
+      Prisma.sql`DELETE FROM public.fiorix_retornos_dados WHERE tenant_id = ${user.tenantId}`
+    );
+    await prisma.$executeRaw(
+      Prisma.sql`DELETE FROM public.fiorix_retornos_imports WHERE tenant_id = ${user.tenantId}`
+    );
+
+    await recordAuditLog({
+      modulo: "BI_IMPORTACOES",
+      acao: "EXCLUSAO",
+      registroDescricao: "Limpeza total da base de Retornos",
+      userOverride: user,
+    });
+
+    revalidatePath("/bi/importacoes");
+    revalidatePath("/bi/retornos");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to clear retornos data:", error);
+    return { error: "Erro ao limpar dados de retornos" };
+  }
+}
+
+export async function clearAllImpressoesData() {
+  try {
+    const user = await requireRole("ADMIN", "MASTER");
+    await prisma.$executeRaw(
+      Prisma.sql`DELETE FROM public.fiorix_impressoes_dados WHERE tenant_id = ${user.tenantId}`
+    );
+    await prisma.$executeRaw(
+      Prisma.sql`DELETE FROM public.fiorix_impressoes_imports WHERE tenant_id = ${user.tenantId}`
+    );
+
+    await recordAuditLog({
+      modulo: "BI_IMPORTACOES",
+      acao: "EXCLUSAO",
+      registroDescricao: "Limpeza total da base de Impressões",
+      userOverride: user,
+    });
+
+    revalidatePath("/bi/importacoes");
+    revalidatePath("/bi/controle-impressoes");
+    revalidatePath("/bi/auditoria");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to clear impressoes data:", error);
+    return { error: "Erro ao limpar dados de impressões" };
+  }
+}
+
+export async function clearAllAndamentosData() {
+  try {
+    const user = await requireRole("ADMIN", "MASTER");
+    await prisma.$executeRaw(
+      Prisma.sql`DELETE FROM public.fiorix_andamentos_dados WHERE tenant_id = ${user.tenantId}`
+    );
+    await prisma.$executeRaw(
+      Prisma.sql`DELETE FROM public.fiorix_andamentos_imports WHERE tenant_id = ${user.tenantId}`
+    );
+
+    await recordAuditLog({
+      modulo: "BI_IMPORTACOES",
+      acao: "EXCLUSAO",
+      registroDescricao: "Limpeza total da base de Andamentos",
+      userOverride: user,
+    });
+
+    revalidatePath("/bi/importacoes");
+    revalidatePath("/bi/auditoria");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to clear andamentos data:", error);
+    return { error: "Erro ao limpar dados de andamentos" };
+  }
+}

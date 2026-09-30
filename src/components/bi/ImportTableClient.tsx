@@ -90,6 +90,12 @@ function sourceBadge(source: UnifiedImportRecord["source"]) {
     return <Badge className="bg-violet-500/10 text-violet-300 border border-violet-500/20 font-semibold">Metas</Badge>;
   } else if (source === "TAREFAS") {
     return <Badge className="bg-purple-500/10 text-purple-300 border border-purple-500/20 font-semibold">Tarefas</Badge>;
+  } else if (source === "RETORNOS") {
+    return <Badge className="bg-blue-500/10 text-blue-300 border border-blue-500/20 font-semibold">Retornos</Badge>;
+  } else if (source === "IMPRESSOES") {
+    return <Badge className="bg-amber-500/10 text-amber-300 border border-amber-500/20 font-semibold">Impressões</Badge>;
+  } else if (source === "ANDAMENTOS") {
+    return <Badge className="bg-rose-500/10 text-rose-300 border border-rose-500/20 font-semibold">Andamentos</Badge>;
   }
   return <Badge className="bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-semibold">Produtividade</Badge>;
 }
@@ -100,6 +106,11 @@ function displayReference(row: UnifiedImportRecord) {
   const monthLabel = formatMonthLabel(row.periodStart, row.periodEnd);
   if (!monthLabel) return row.fileName;
 
+  if (row.source === "RETORNOS") return `Retornos ${monthLabel}`;
+  if (row.source === "IMPRESSOES") return `Impressões ${monthLabel}`;
+  if (row.source === "ANDAMENTOS") return `Andamentos ${monthLabel}`;
+  if (row.source === "METAS") return `Metas ${monthLabel}`;
+  if (row.source === "TAREFAS") return `Tarefas ${monthLabel}`;
   return `Produtividade ${monthLabel}`;
 }
 
@@ -178,9 +189,8 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
               </tr>
             ) : (
               paginatedRows.map((row) => {
-                const isMetasCompleted =
-                  row.source === "METAS" &&
-                  (row.status === "Concluído" || row.status === "SUCCESS" || row.status === "COMPLETED");
+                const isCompleted =
+                  row.status === "Concluído" || row.status === "SUCCESS" || row.status === "COMPLETED";
                 return (
                   <tr key={`${row.source}-${row.id}`} className="transition hover:bg-slate-50 dark:hover:bg-white/[0.03] text-slate-700 dark:text-white/80 align-top">
                     <td className="px-4 py-3">
@@ -202,16 +212,16 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
                     </td>
                     <td className="px-4 py-3 text-slate-600 dark:text-white/70">{formatPeriod(row.periodStart, row.periodEnd)}</td>
                     <td className="px-4 py-3 text-slate-600 dark:text-white/70">{formatDateTime(row.importedAt)}</td>
-                    <td className={`px-4 py-3 font-semibold ${isMetasCompleted ? "text-emerald-600 dark:text-emerald-300" : "text-slate-900 dark:text-white"}`}>
+                    <td className={`px-4 py-3 font-semibold ${isCompleted ? "text-emerald-600 dark:text-emerald-300" : "text-slate-900 dark:text-white"}`}>
                       {Number(row.rowsCount || 0).toLocaleString("pt-BR")}
                     </td>
-                    <td className={`px-4 py-3 font-semibold ${isMetasCompleted ? "text-emerald-600 dark:text-emerald-300" : "text-emerald-600 dark:text-emerald-400"}`}>
+                    <td className={`px-4 py-3 font-semibold ${isCompleted ? "text-emerald-600 dark:text-emerald-300" : "text-emerald-600 dark:text-emerald-400"}`}>
                       {row.insertedCount !== null ? Number(row.insertedCount || 0).toLocaleString("pt-BR") : "-"}
                     </td>
                     <td className="px-4 py-3 text-slate-600 dark:text-white/65">{row.importedBy || "-"}</td>
                     <td className="px-4 py-3">{statusBadge(row)}</td>
                     <td className="px-4 py-3 text-right">
-                      <DeleteImportButton id={row.id} source={row.source as any} />
+                      <DeleteImportButton id={row.id} source={row.source} />
                     </td>
                   </tr>
                 );

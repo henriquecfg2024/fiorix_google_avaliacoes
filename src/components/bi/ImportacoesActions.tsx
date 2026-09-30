@@ -6,7 +6,14 @@ import { useRouter } from "next/navigation";
 import { Loader2, Trash2, Upload, UploadCloud } from "lucide-react";
 import Papa from "papaparse";
 import { toast } from "sonner";
-import { clearAllMetasData, clearAllProdutividadeData, clearAllTarefasData } from "@/app/(dashboard)/bi/importacoes/actions";
+import {
+  clearAllMetasData,
+  clearAllProdutividadeData,
+  clearAllTarefasData,
+  clearAllRetornosData,
+  clearAllImpressoesData,
+  clearAllAndamentosData,
+} from "@/app/(dashboard)/bi/importacoes/actions";
 
 import { Button } from "@/components/ui/button";
 
@@ -27,6 +34,8 @@ const aliases: Record<string, string[]> = {
     "nr_protocolo",
     "n_protocolo",
     "protocolo_do_titulo",
+    "numeroprenotacao",
+    "numero_prenotacao",
   ],
   DATA_APRESENTADO: [
     "data_apresentado",
@@ -35,6 +44,8 @@ const aliases: Record<string, string[]> = {
     "data_protocolo",
     "dt_protocolo",
     "DataDoTituloApresentado",
+    "datarecepcao",
+    "data_recepcao",
   ],
   DT_PREVISAO: ["dt_previsao", "dt_previsao_entrega", "data_previsao", "data_previsao_entrega", "DATA_PREVISTAFINAL", "data_previstafinal", "DtPrevisaoEntrega"],
   DT_ENTREGA_REAL: ["dt_entrega_real", "dt_entrega", "data_entrega", "data_entrega_real", "DtRetirada", "D10_ENTREGA", "d10_entrega"],
@@ -63,12 +74,44 @@ const stripExcelSeparatorDirective = (chunk: string) =>
 
 export function ImportacoesActions() {
   const router = useRouter();
+
+  // Produtividade
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
-  const [isImportingMetas, setIsImportingMetas] = useState(false);
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
-  const [metasProgress, setMetasProgress] = useState({ current: 0, total: 0 });
+  const [isClearingProd, setIsClearingProd] = useState(false);
 
+  // Metas
+  const metasInputRef = useRef<HTMLInputElement>(null);
+  const [isImportingMetas, setIsImportingMetas] = useState(false);
+  const [metasProgress, setMetasProgress] = useState({ current: 0, total: 0 });
+  const [isClearingMetas, setIsClearingMetas] = useState(false);
+
+  // Tarefas
+  const tarefasInputRef = useRef<HTMLInputElement>(null);
+  const [isImportingTarefas, setIsImportingTarefas] = useState(false);
+  const [tarefasProgress, setTarefasProgress] = useState({ current: 0, total: 0 });
+  const [isClearingTarefas, setIsClearingTarefas] = useState(false);
+
+  // Retornos
+  const retornosInputRef = useRef<HTMLInputElement>(null);
+  const [isImportingRetornos, setIsImportingRetornos] = useState(false);
+  const [retornosProgress, setRetornosProgress] = useState({ current: 0, total: 0 });
+  const [isClearingRetornos, setIsClearingRetornos] = useState(false);
+
+  // Impressões
+  const impressoesInputRef = useRef<HTMLInputElement>(null);
+  const [isImportingImpressoes, setIsImportingImpressoes] = useState(false);
+  const [impressoesProgress, setImpressoesProgress] = useState({ current: 0, total: 0 });
+  const [isClearingImpressoes, setIsClearingImpressoes] = useState(false);
+
+  // Andamentos
+  const andamentosInputRef = useRef<HTMLInputElement>(null);
+  const [isImportingAndamentos, setIsImportingAndamentos] = useState(false);
+  const [andamentosProgress, setAndamentosProgress] = useState({ current: 0, total: 0 });
+  const [isClearingAndamentos, setIsClearingAndamentos] = useState(false);
+
+  // 1. Produtividade
   const handleImport = async (file: File) => {
     if (!file.name.endsWith(".csv")) {
       toast.error("Por favor, selecione um arquivo CSV válido.");
@@ -152,38 +195,36 @@ export function ImportacoesActions() {
         }
 
         setImportProgress({ current: 0, total: totalRows });
-        const importKey = crypto.randomUUID();
-        const sortedDates = dbRows
-          .map((row: any) => row.DATA)
-          .filter(Boolean)
-          .sort();
-        const importMetaBase = {
-          importKey,
-          fileName: file.name,
-          totalRows,
-          importedBy: "Manual CSV",
-          periodStart: sortedDates[0] || null,
-          periodEnd: sortedDates[sortedDates.length - 1] || null,
-        };
 
         try {
-          const batchSize = 1000;
+          const importKey = crypto.randomUUID();
+          const batchSize = 500;
           let importedTotal = 0;
 
-          for (let start = 0; start < totalRows; start += batchSize) {
-            const batch = dbRows.slice(start, start + batchSize);
-            const batchNumber = Math.floor(start / batchSize) + 1;
+          const dates = dbRows
+            .map((r: any) => r.DATA)
+            .filter(Boolean)
+            .sort();
+          const periodStart = dates[0] || null;
+          const periodEnd = dates[dates.length - 1] || null;
+
+          for (let i = 0; i < totalRows; i += batchSize) {
+            const batch = dbRows.slice(i, i + batchSize);
+            const batchNumber = Math.floor(i / batchSize) + 1;
             const totalBatches = Math.ceil(totalRows / batchSize);
 
             const res = await fetch("/api/bi/produtividade/import", {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 rows: batch,
                 importMeta: {
-                  ...importMetaBase,
+                  importKey,
+                  fileName: file.name,
+                  totalRows,
+                  importedBy: "Manual CSV",
+                  periodStart,
+                  periodEnd,
                   batchNumber,
                   totalBatches,
                 },
@@ -191,28 +232,15 @@ export function ImportacoesActions() {
             });
 
             if (!res.ok) {
-              const responseType = res.headers.get("content-type") || "";
-
-              if (responseType.includes("application/json")) {
-                const errData = await res.json().catch(() => ({ error: "Erro desconhecido" }));
-                throw new Error(
-                  errData.error || `Falha no lote ${batchNumber}/${totalBatches}: HTTP ${res.status}`
-                );
-              }
-
-              const rawText = await res.text().catch(() => "");
-              const compactText = rawText.replace(/\s+/g, " ").trim();
-              throw new Error(
-                compactText
-                  ? `Falha no lote ${batchNumber}/${totalBatches}: ${compactText.slice(0, 180)}`
-                  : `Falha no lote ${batchNumber}/${totalBatches}: HTTP ${res.status}`
-              );
+              const errData = await res.json().catch(() => ({ error: "Erro desconhecido" }));
+              throw new Error(errData.error || `Falha no lote ${batchNumber}/${totalBatches}`);
             }
 
-            const result = await res.json().catch(() => ({ success: true, count: batch.length }));
-            importedTotal += Number(result.count ?? batch.length);
+            const data = await res.json().catch(() => ({ count: batch.length }));
+            importedTotal += Number(data.count ?? batch.length);
+
             setImportProgress({
-              current: Math.min(start + batch.length, totalRows),
+              current: Math.min(i + batch.length, totalRows),
               total: totalRows,
             });
           }
@@ -220,18 +248,6 @@ export function ImportacoesActions() {
           toast.success(`Importação de ${importedTotal.toLocaleString("pt-BR")} registros concluída!`);
           router.refresh();
         } catch (err: any) {
-          console.error("Erro na importação de produtividade:", err);
-          await fetch("/api/bi/produtividade/import", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              action: "mark_failed",
-              errorMessage: err.message || "Falha durante a importação",
-              importMeta: importMetaBase,
-            }),
-          }).catch(() => null);
           toast.error(`Erro ao salvar no banco: ${err.message}`);
         } finally {
           setIsImporting(false);
@@ -244,8 +260,26 @@ export function ImportacoesActions() {
     });
   };
 
-  const metasInputRef = useRef<HTMLInputElement>(null);
+  const handleClearProdutividade = async () => {
+    if (!confirm("Tem certeza que deseja apagar TODO o histórico de produtividade? Essa ação não pode ser desfeita.")) {
+      return;
+    }
+    setIsClearingProd(true);
+    try {
+      const res = await clearAllProdutividadeData();
+      if (res.error) toast.error(res.error);
+      else {
+        toast.success("Base de Produtividade limpa com sucesso.");
+        router.refresh();
+      }
+    } catch (err: any) {
+      toast.error(`Erro ao limpar produtividade: ${err.message}`);
+    } finally {
+      setIsClearingProd(false);
+    }
+  };
 
+  // 2. Metas
   const handleImportMetas = async (file: File) => {
     if (!file.name.endsWith(".csv")) {
       toast.error("Por favor, selecione um arquivo CSV válido para Metas.");
@@ -261,7 +295,6 @@ export function ImportacoesActions() {
       header: true,
       skipEmptyLines: true,
       encoding: "UTF-8",
-      beforeFirstChunk: stripExcelSeparatorDirective,
       transformHeader: (header) => header.replace(/^\uFEFF/, "").trim(),
       complete: async (results) => {
         try {
@@ -285,52 +318,12 @@ export function ImportacoesActions() {
             return;
           }
 
-          const fileHeaders = results.meta.fields || [];
-          const protocolHeader =
-            fileHeaders.find((header) =>
-              aliases.PROTOCOLO.some((name) => normalizeHeader(name) === normalizeHeader(header))
-            ) ||
-            fileHeaders.find((header) => {
-              const normalized = normalizeHeader(header);
-              return normalized.includes("protocolo") &&
-                !normalized.includes("data") &&
-                !normalized.includes("status") &&
-                !normalized.startsWith("d1");
-            });
-          const protocolDateHeader =
-            fileHeaders.find((header) =>
-              [...aliases.DATA_APRESENTADO, "d1_protocolo"].some(
-                (name) => normalizeHeader(name) === normalizeHeader(header)
-              )
-            ) ||
-            fileHeaders.find((header) => {
-              const normalized = normalizeHeader(header);
-              return normalized === "d1protocolo" ||
-                (normalized.includes("data") &&
-                  (normalized.includes("apresent") ||
-                    normalized.includes("entrada") ||
-                    normalized.includes("protocolo")));
-            });
-
-          if (!protocolHeader || !protocolDateHeader) {
-            toast.error("CSV inválido. Colunas de PROTOCOLO e/ou DATA indisponíveis.");
-            return;
-          }
-
-          rawRows.forEach((row) => {
-            if (row.PROTOCOLO === undefined) row.PROTOCOLO = row[protocolHeader];
-            if (row.DATA_APRESENTADO === undefined && row.D1_PROTOCOLO === undefined) {
-              row.DATA_APRESENTADO = row[protocolDateHeader];
-            }
-          });
-
           const totalRows = rawRows.length;
           setMetasProgress({ current: 0, total: totalRows });
           const importKey = crypto.randomUUID();
 
-          // Extraindo datas para o periodo
           const dates = rawRows
-            .map((r: any) => r.DATA_APRESENTADO || r.D1_PROTOCOLO)
+            .map((r: any) => r.DATA_APRESENTADO || r.DT_PREVISAO)
             .filter(Boolean)
             .sort();
           const periodStart = dates[0] || null;
@@ -356,9 +349,7 @@ export function ImportacoesActions() {
 
             const res = await fetch("/api/bi/metas/import", {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 rows: batch,
                 importMeta: {
@@ -389,13 +380,8 @@ export function ImportacoesActions() {
           if (importMetaForFailure) {
             await fetch("/api/bi/metas/import", {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                action: "mark_failed",
-                importMeta: importMetaForFailure,
-              }),
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "mark_failed", importMeta: importMetaForFailure }),
             }).catch(() => null);
           }
           toast.error(`Erro ao salvar metas: ${err.message || "Erro desconhecido"}`);
@@ -408,28 +394,6 @@ export function ImportacoesActions() {
         setIsImportingMetas(false);
       },
     });
-  };
-
-  const [isClearingProd, setIsClearingProd] = useState(false);
-  const [isClearingMetas, setIsClearingMetas] = useState(false);
-
-  const handleClearProdutividade = async () => {
-    if (!confirm("Tem certeza que deseja apagar TODO o histórico de produtividade (incluindo períodos inferidos)? Essa ação não pode ser desfeita.")) {
-      return;
-    }
-    setIsClearingProd(true);
-    try {
-      const res = await clearAllProdutividadeData();
-      if (res.error) toast.error(res.error);
-      else {
-        toast.success("Base de Produtividade limpa com sucesso.");
-        router.refresh();
-      }
-    } catch (err: any) {
-      toast.error(`Erro ao limpar produtividade: ${err.message}`);
-    } finally {
-      setIsClearingProd(false);
-    }
   };
 
   const handleClearMetas = async () => {
@@ -451,11 +415,7 @@ export function ImportacoesActions() {
     }
   };
 
-  const [isImportingTarefas, setIsImportingTarefas] = useState(false);
-  const [tarefasProgress, setTarefasProgress] = useState({ current: 0, total: 0 });
-  const [isClearingTarefas, setIsClearingTarefas] = useState(false);
-  const tarefasInputRef = useRef<HTMLInputElement>(null);
-
+  // 3. Tarefas
   const handleImportTarefas = async (file: File) => {
     if (!file.name.endsWith(".csv")) {
       toast.error("Por favor, selecione um arquivo CSV válido para Tarefas.");
@@ -525,9 +485,7 @@ export function ImportacoesActions() {
 
             const res = await fetch("/api/bi/tarefas/import", {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 rows: batch,
                 importMeta: {
@@ -558,13 +516,8 @@ export function ImportacoesActions() {
           if (importMetaForFailure) {
             await fetch("/api/bi/tarefas/import", {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                action: "mark_failed",
-                importMeta: importMetaForFailure,
-              }),
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "mark_failed", importMeta: importMetaForFailure }),
             }).catch(() => null);
           }
           toast.error(`Erro ao salvar tarefas: ${err.message || "Erro desconhecido"}`);
@@ -598,8 +551,375 @@ export function ImportacoesActions() {
     }
   };
 
+  // 4. Retornos (dbo.pr_Fiorix_BI_Retornos)
+  const handleImportRetornos = async (file: File) => {
+    if (!file.name.endsWith(".csv")) {
+      toast.error("Por favor, selecione um arquivo CSV válido para Retornos.");
+      return;
+    }
+
+    setIsImportingRetornos(true);
+    setRetornosProgress({ current: 0, total: 0 });
+
+    let importMetaForFailure: Record<string, unknown> | null = null;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      encoding: "UTF-8",
+      transformHeader: (header) => header.replace(/^\uFEFF/, "").trim(),
+      complete: async (results) => {
+        try {
+          const rawRows = results.data as Record<string, any>[];
+          if (rawRows.length === 0) {
+            toast.error("O arquivo CSV de Retornos está vazio.");
+            return;
+          }
+
+          const totalRows = rawRows.length;
+          setRetornosProgress({ current: 0, total: totalRows });
+          const importKey = crypto.randomUUID();
+
+          const dates = rawRows
+            .map((r: any) => r.DataRetorno || r.data_retorno || r.DataRecepcao || r.data_recepcao)
+            .filter(Boolean)
+            .sort();
+          const periodStart = dates[0] ? String(dates[0]).split("T")[0] : null;
+          const periodEnd = dates[dates.length - 1] ? String(dates[dates.length - 1]).split("T")[0] : null;
+
+          const importMetaBase = {
+            importKey,
+            fileName: file.name,
+            totalRows,
+            importedBy: "Manual CSV (Retornos)",
+            periodStart,
+            periodEnd,
+          };
+          importMetaForFailure = importMetaBase;
+
+          const batchSize = 500;
+          let importedTotal = 0;
+
+          for (let start = 0; start < totalRows; start += batchSize) {
+            const batch = rawRows.slice(start, start + batchSize);
+            const batchNumber = Math.floor(start / batchSize) + 1;
+            const totalBatches = Math.ceil(totalRows / batchSize);
+
+            const res = await fetch("/api/bi/retornos/import", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                rows: batch,
+                importMeta: {
+                  ...importMetaBase,
+                  batchNumber,
+                  totalBatches,
+                },
+              }),
+            });
+
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({ error: "Erro desconhecido" }));
+              throw new Error(errData.error || `Falha no lote ${batchNumber}/${totalBatches}`);
+            }
+
+            const result = await res.json().catch(() => ({ success: true, count: batch.length }));
+            importedTotal += Number(result.count ?? batch.length);
+            setRetornosProgress({
+              current: Math.min(start + batch.length, totalRows),
+              total: totalRows,
+            });
+          }
+
+          toast.success(`Importação de ${importedTotal.toLocaleString("pt-BR")} retornos concluída!`);
+          router.refresh();
+        } catch (err: any) {
+          console.error("Erro na importação de retornos:", err);
+          if (importMetaForFailure) {
+            await fetch("/api/bi/retornos/import", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "mark_failed", importMeta: importMetaForFailure }),
+            }).catch(() => null);
+          }
+          toast.error(`Erro ao salvar retornos: ${err.message || "Erro desconhecido"}`);
+        } finally {
+          setIsImportingRetornos(false);
+        }
+      },
+      error: (error) => {
+        toast.error(`Erro ao ler CSV de Retornos: ${error.message}`);
+        setIsImportingRetornos(false);
+      },
+    });
+  };
+
+  const handleClearRetornos = async () => {
+    if (!confirm("Tem certeza que deseja apagar TODO o histórico de retornos? Essa ação não pode ser desfeita.")) {
+      return;
+    }
+    setIsClearingRetornos(true);
+    try {
+      const res = await clearAllRetornosData();
+      if (res.error) toast.error(res.error);
+      else {
+        toast.success("Base de Retornos limpa com sucesso.");
+        router.refresh();
+      }
+    } catch (err: any) {
+      toast.error(`Erro ao limpar retornos: ${err.message}`);
+    } finally {
+      setIsClearingRetornos(false);
+    }
+  };
+
+  // 5. Impressões (dbo.pr_Fiorix_BI_Impressoes)
+  const handleImportImpressoes = async (file: File) => {
+    if (!file.name.endsWith(".csv")) {
+      toast.error("Por favor, selecione um arquivo CSV válido para Impressões.");
+      return;
+    }
+
+    setIsImportingImpressoes(true);
+    setImpressoesProgress({ current: 0, total: 0 });
+
+    let importMetaForFailure: Record<string, unknown> | null = null;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      encoding: "UTF-8",
+      transformHeader: (header) => header.replace(/^\uFEFF/, "").trim(),
+      complete: async (results) => {
+        try {
+          const rawRows = results.data as Record<string, any>[];
+          if (rawRows.length === 0) {
+            toast.error("O arquivo CSV de Impressões está vazio.");
+            return;
+          }
+
+          const totalRows = rawRows.length;
+          setImpressoesProgress({ current: 0, total: totalRows });
+          const importKey = crypto.randomUUID();
+
+          const dates = rawRows
+            .map((r: any) => r.DataImpressao || r.data_impressao || r.DataEntrada || r.data_entrada)
+            .filter(Boolean)
+            .sort();
+          const periodStart = dates[0] ? String(dates[0]).split("T")[0] : null;
+          const periodEnd = dates[dates.length - 1] ? String(dates[dates.length - 1]).split("T")[0] : null;
+
+          const importMetaBase = {
+            importKey,
+            fileName: file.name,
+            totalRows,
+            importedBy: "Manual CSV (Impressões)",
+            periodStart,
+            periodEnd,
+          };
+          importMetaForFailure = importMetaBase;
+
+          const batchSize = 500;
+          let importedTotal = 0;
+
+          for (let start = 0; start < totalRows; start += batchSize) {
+            const batch = rawRows.slice(start, start + batchSize);
+            const batchNumber = Math.floor(start / batchSize) + 1;
+            const totalBatches = Math.ceil(totalRows / batchSize);
+
+            const res = await fetch("/api/bi/impressoes/import", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                rows: batch,
+                importMeta: {
+                  ...importMetaBase,
+                  batchNumber,
+                  totalBatches,
+                },
+              }),
+            });
+
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({ error: "Erro desconhecido" }));
+              throw new Error(errData.error || `Falha no lote ${batchNumber}/${totalBatches}`);
+            }
+
+            const result = await res.json().catch(() => ({ success: true, count: batch.length }));
+            importedTotal += Number(result.count ?? batch.length);
+            setImpressoesProgress({
+              current: Math.min(start + batch.length, totalRows),
+              total: totalRows,
+            });
+          }
+
+          toast.success(`Importação de ${importedTotal.toLocaleString("pt-BR")} impressões concluída!`);
+          router.refresh();
+        } catch (err: any) {
+          console.error("Erro na importação de impressões:", err);
+          if (importMetaForFailure) {
+            await fetch("/api/bi/impressoes/import", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "mark_failed", importMeta: importMetaForFailure }),
+            }).catch(() => null);
+          }
+          toast.error(`Erro ao salvar impressões: ${err.message || "Erro desconhecido"}`);
+        } finally {
+          setIsImportingImpressoes(false);
+        }
+      },
+      error: (error) => {
+        toast.error(`Erro ao ler CSV de Impressões: ${error.message}`);
+        setIsImportingImpressoes(false);
+      },
+    });
+  };
+
+  const handleClearImpressoes = async () => {
+    if (!confirm("Tem certeza que deseja apagar TODO o histórico de impressões? Essa ação não pode ser desfeita.")) {
+      return;
+    }
+    setIsClearingImpressoes(true);
+    try {
+      const res = await clearAllImpressoesData();
+      if (res.error) toast.error(res.error);
+      else {
+        toast.success("Base de Impressões limpa com sucesso.");
+        router.refresh();
+      }
+    } catch (err: any) {
+      toast.error(`Erro ao limpar impressões: ${err.message}`);
+    } finally {
+      setIsClearingImpressoes(false);
+    }
+  };
+
+  // 6. Andamentos (dbo.pr_Fiorix_BI_Andamentos)
+  const handleImportAndamentos = async (file: File) => {
+    if (!file.name.endsWith(".csv")) {
+      toast.error("Por favor, selecione um arquivo CSV válido para Andamentos.");
+      return;
+    }
+
+    setIsImportingAndamentos(true);
+    setAndamentosProgress({ current: 0, total: 0 });
+
+    let importMetaForFailure: Record<string, unknown> | null = null;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      encoding: "UTF-8",
+      transformHeader: (header) => header.replace(/^\uFEFF/, "").trim(),
+      complete: async (results) => {
+        try {
+          const rawRows = results.data as Record<string, any>[];
+          if (rawRows.length === 0) {
+            toast.error("O arquivo CSV de Andamentos está vazio.");
+            return;
+          }
+
+          const totalRows = rawRows.length;
+          setAndamentosProgress({ current: 0, total: totalRows });
+          const importKey = crypto.randomUUID();
+
+          const dates = rawRows
+            .map((r: any) => r.DataAndamento || r.data_andamento || r.Data || r.data)
+            .filter(Boolean)
+            .sort();
+          const periodStart = dates[0] ? String(dates[0]).split("T")[0] : null;
+          const periodEnd = dates[dates.length - 1] ? String(dates[dates.length - 1]).split("T")[0] : null;
+
+          const importMetaBase = {
+            importKey,
+            fileName: file.name,
+            totalRows,
+            importedBy: "Manual CSV (Andamentos)",
+            periodStart,
+            periodEnd,
+          };
+          importMetaForFailure = importMetaBase;
+
+          const batchSize = 500;
+          let importedTotal = 0;
+
+          for (let start = 0; start < totalRows; start += batchSize) {
+            const batch = rawRows.slice(start, start + batchSize);
+            const batchNumber = Math.floor(start / batchSize) + 1;
+            const totalBatches = Math.ceil(totalRows / batchSize);
+
+            const res = await fetch("/api/bi/andamentos/import", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                rows: batch,
+                importMeta: {
+                  ...importMetaBase,
+                  batchNumber,
+                  totalBatches,
+                },
+              }),
+            });
+
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({ error: "Erro desconhecido" }));
+              throw new Error(errData.error || `Falha no lote ${batchNumber}/${totalBatches}`);
+            }
+
+            const result = await res.json().catch(() => ({ success: true, count: batch.length }));
+            importedTotal += Number(result.count ?? batch.length);
+            setAndamentosProgress({
+              current: Math.min(start + batch.length, totalRows),
+              total: totalRows,
+            });
+          }
+
+          toast.success(`Importação de ${importedTotal.toLocaleString("pt-BR")} andamentos concluída!`);
+          router.refresh();
+        } catch (err: any) {
+          console.error("Erro na importação de andamentos:", err);
+          if (importMetaForFailure) {
+            await fetch("/api/bi/andamentos/import", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "mark_failed", importMeta: importMetaForFailure }),
+            }).catch(() => null);
+          }
+          toast.error(`Erro ao salvar andamentos: ${err.message || "Erro desconhecido"}`);
+        } finally {
+          setIsImportingAndamentos(false);
+        }
+      },
+      error: (error) => {
+        toast.error(`Erro ao ler CSV de Andamentos: ${error.message}`);
+        setIsImportingAndamentos(false);
+      },
+    });
+  };
+
+  const handleClearAndamentos = async () => {
+    if (!confirm("Tem certeza que deseja apagar TODO o histórico de andamentos? Essa ação não pode ser desfeita.")) {
+      return;
+    }
+    setIsClearingAndamentos(true);
+    try {
+      const res = await clearAllAndamentosData();
+      if (res.error) toast.error(res.error);
+      else {
+        toast.success("Base de Andamentos limpa com sucesso.");
+        router.refresh();
+      }
+    } catch (err: any) {
+      toast.error(`Erro ao limpar andamentos: ${err.message}`);
+    } finally {
+      setIsClearingAndamentos(false);
+    }
+  };
+
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="flex flex-wrap items-center gap-2.5">
+      {/* Inputs Ocultos */}
       <input
         type="file"
         ref={fileInputRef}
@@ -612,8 +932,69 @@ export function ImportacoesActions() {
         className="hidden"
       />
 
+      <input
+        type="file"
+        ref={metasInputRef}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleImportMetas(file);
+          e.currentTarget.value = "";
+        }}
+        accept=".csv"
+        className="hidden"
+      />
+
+      <input
+        type="file"
+        ref={tarefasInputRef}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleImportTarefas(file);
+          e.currentTarget.value = "";
+        }}
+        accept=".csv"
+        className="hidden"
+      />
+
+      <input
+        type="file"
+        ref={retornosInputRef}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleImportRetornos(file);
+          e.currentTarget.value = "";
+        }}
+        accept=".csv"
+        className="hidden"
+      />
+
+      <input
+        type="file"
+        ref={impressoesInputRef}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleImportImpressoes(file);
+          e.currentTarget.value = "";
+        }}
+        accept=".csv"
+        className="hidden"
+      />
+
+      <input
+        type="file"
+        ref={andamentosInputRef}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleImportAndamentos(file);
+          e.currentTarget.value = "";
+        }}
+        accept=".csv"
+        className="hidden"
+      />
+
+      {/* Botões de Importação (Verdes) */}
       <Link href="/bi/importar">
-        <Button className="bg-[#00C950] hover:bg-[#00A844] text-white gap-2">
+        <Button className="bg-[#00C950] hover:bg-[#00A844] text-white gap-2 font-medium">
           <UploadCloud className="h-4 w-4" />
           Importar Módulo BI
         </Button>
@@ -622,7 +1003,7 @@ export function ImportacoesActions() {
       <Button
         onClick={() => fileInputRef.current?.click()}
         disabled={isImporting}
-        className="bg-[#00C950] hover:bg-[#00A844] text-white gap-2"
+        className="bg-[#00C950] hover:bg-[#00A844] text-white gap-2 font-medium"
       >
         {isImporting ? (
           <>
@@ -637,22 +1018,10 @@ export function ImportacoesActions() {
         )}
       </Button>
 
-      <input
-        type="file"
-        ref={metasInputRef}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handleImportMetas(file);
-          e.currentTarget.value = "";
-        }}
-        accept=".csv"
-        className="hidden"
-      />
-
       <Button
         onClick={() => metasInputRef.current?.click()}
         disabled={isImportingMetas}
-        className="bg-[#00C950] hover:bg-[#00A844] text-white gap-2"
+        className="bg-[#00C950] hover:bg-[#00A844] text-white gap-2 font-medium"
       >
         {isImportingMetas ? (
           <>
@@ -667,22 +1036,10 @@ export function ImportacoesActions() {
         )}
       </Button>
 
-      <input
-        type="file"
-        ref={tarefasInputRef}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handleImportTarefas(file);
-          e.currentTarget.value = "";
-        }}
-        accept=".csv"
-        className="hidden"
-      />
-
       <Button
         onClick={() => tarefasInputRef.current?.click()}
         disabled={isImportingTarefas}
-        className="bg-[#00C950] hover:bg-[#00A844] text-white gap-2"
+        className="bg-[#00C950] hover:bg-[#00A844] text-white gap-2 font-medium"
       >
         {isImportingTarefas ? (
           <>
@@ -697,6 +1054,61 @@ export function ImportacoesActions() {
         )}
       </Button>
 
+      <Button
+        onClick={() => retornosInputRef.current?.click()}
+        disabled={isImportingRetornos}
+        className="bg-[#00C950] hover:bg-[#00A844] text-white gap-2 font-medium"
+      >
+        {isImportingRetornos ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Importando Retornos ({Math.round((retornosProgress.current / (retornosProgress.total || 1)) * 100)}%)
+          </>
+        ) : (
+          <>
+            <Upload className="h-4 w-4" />
+            Importar Retornos
+          </>
+        )}
+      </Button>
+
+      <Button
+        onClick={() => impressoesInputRef.current?.click()}
+        disabled={isImportingImpressoes}
+        className="bg-[#00C950] hover:bg-[#00A844] text-white gap-2 font-medium"
+      >
+        {isImportingImpressoes ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Importando Impressões ({Math.round((impressoesProgress.current / (impressoesProgress.total || 1)) * 100)}%)
+          </>
+        ) : (
+          <>
+            <Upload className="h-4 w-4" />
+            Importar Impressões
+          </>
+        )}
+      </Button>
+
+      <Button
+        onClick={() => andamentosInputRef.current?.click()}
+        disabled={isImportingAndamentos}
+        className="bg-[#00C950] hover:bg-[#00A844] text-white gap-2 font-medium"
+      >
+        {isImportingAndamentos ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Importando Andamentos ({Math.round((andamentosProgress.current / (andamentosProgress.total || 1)) * 100)}%)
+          </>
+        ) : (
+          <>
+            <Upload className="h-4 w-4" />
+            Importar Andamentos
+          </>
+        )}
+      </Button>
+
+      {/* Botões de Limpeza (Red Outline) */}
       <Button
         variant="outline"
         onClick={handleClearProdutividade}
@@ -728,6 +1140,39 @@ export function ImportacoesActions() {
       >
         {isClearingTarefas ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
         Limpar Tarefas
+      </Button>
+
+      <Button
+        variant="outline"
+        onClick={handleClearRetornos}
+        disabled={isClearingRetornos}
+        className="border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 hover:text-red-200 gap-2"
+        title="Apagar todo o histórico de retornos da base"
+      >
+        {isClearingRetornos ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+        Limpar Retornos
+      </Button>
+
+      <Button
+        variant="outline"
+        onClick={handleClearImpressoes}
+        disabled={isClearingImpressoes}
+        className="border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 hover:text-red-200 gap-2"
+        title="Apagar todo o histórico de impressões da base"
+      >
+        {isClearingImpressoes ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+        Limpar Impressões
+      </Button>
+
+      <Button
+        variant="outline"
+        onClick={handleClearAndamentos}
+        disabled={isClearingAndamentos}
+        className="border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 hover:text-red-200 gap-2"
+        title="Apagar todo o histórico de andamentos da base"
+      >
+        {isClearingAndamentos ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+        Limpar Andamentos
       </Button>
     </div>
   );

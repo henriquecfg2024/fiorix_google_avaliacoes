@@ -16,7 +16,7 @@ export interface ProdutividadeImportLogInput {
 
 export interface UnifiedImportRecord {
   id: string;
-  source: "BI" | "PRODUTIVIDADE" | "METAS" | "TAREFAS";
+  source: "BI" | "PRODUTIVIDADE" | "METAS" | "TAREFAS" | "RETORNOS" | "IMPRESSOES" | "ANDAMENTOS";
   origin: "logged" | "inferred";
   fileName: string;
   importedAt: string | null;
@@ -421,4 +421,298 @@ export async function listTarefasImportLogs(tenantId: string): Promise<UnifiedIm
     rowsCount: Number(row.rowsCount || 0),
     insertedCount: row.insertedCount !== null ? Number(row.insertedCount || 0) : null,
   }));
+}
+
+export async function ensureRetornosImportsTable() {
+  await prisma.$executeRaw`
+    CREATE TABLE IF NOT EXISTS public.fiorix_retornos_imports (
+      id SERIAL PRIMARY KEY,
+      tenant_id VARCHAR(100) NOT NULL DEFAULT '',
+      import_key VARCHAR(100),
+      arquivo VARCHAR(255), 
+      periodo VARCHAR(100), 
+      data_hora TIMESTAMP DEFAULT NOW(), 
+      linhas INT, 
+      inseridas INT, 
+      importado_por VARCHAR(100), 
+      status VARCHAR(20)
+    );
+  `;
+  await prisma.$executeRaw`
+    CREATE UNIQUE INDEX IF NOT EXISTS fiorix_retornos_imports_tenant_import_key
+    ON public.fiorix_retornos_imports (tenant_id, import_key);
+  `;
+}
+
+export async function listRetornosImportLogs(tenantId: string): Promise<UnifiedImportRecord[]> {
+  try {
+    const rows: any[] = await prisma.$queryRaw(
+      Prisma.sql`
+        SELECT
+          id::text as id,
+          'RETORNOS' as source,
+          'logged' as origin,
+          arquivo as "fileName",
+          to_char(data_hora, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "importedAt",
+          linhas as "rowsCount",
+          inseridas as "insertedCount",
+          importado_por as "importedBy",
+          status,
+          NULL as "errorMessage",
+          SPLIT_PART(periodo, '|', 1) as "periodStart",
+          SPLIT_PART(periodo, '|', 2) as "periodEnd"
+        FROM public.fiorix_retornos_imports
+        WHERE tenant_id = ${tenantId}
+        ORDER BY data_hora DESC;
+      `
+    );
+
+    return rows.map((row) => ({
+      ...row,
+      source: "RETORNOS",
+      origin: "logged",
+      rowsCount: Number(row.rowsCount || 0),
+      insertedCount: row.insertedCount !== null ? Number(row.insertedCount || 0) : null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function listRetornosInferredPeriods(tenantId: string): Promise<UnifiedImportRecord[]> {
+  try {
+    const rows: any[] = await prisma.$queryRaw(
+      Prisma.sql`
+        SELECT
+          CONCAT('inferred-retornos-', to_char(date_trunc('month', data_retorno), 'YYYY-MM')) as id,
+          'RETORNOS' as source,
+          'inferred' as origin,
+          CONCAT(
+            'retornos_',
+            to_char(MIN(data_retorno), 'YYYY-MM-DD'),
+            '_a_',
+            to_char(MAX(data_retorno), 'YYYY-MM-DD'),
+            '.csv'
+          ) as "fileName",
+          to_char(MAX(data_retorno)::timestamp, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "importedAt",
+          COUNT(*)::int as "rowsCount",
+          COUNT(*)::int as "insertedCount",
+          'Histórico inferido' as "importedBy",
+          'INFERRED' as status,
+          NULL::text as "errorMessage",
+          to_char(MIN(data_retorno), 'YYYY-MM-DD') as "periodStart",
+          to_char(MAX(data_retorno), 'YYYY-MM-DD') as "periodEnd"
+        FROM public.fiorix_retornos_dados
+        WHERE tenant_id = ${tenantId} AND data_retorno IS NOT NULL
+        GROUP BY date_trunc('month', data_retorno)
+        ORDER BY date_trunc('month', data_retorno) DESC;
+      `
+    );
+
+    return rows.map((row) => ({
+      ...row,
+      source: "RETORNOS",
+      origin: "inferred",
+      rowsCount: Number(row.rowsCount || 0),
+      insertedCount: row.insertedCount !== null ? Number(row.insertedCount || 0) : null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function ensureImpressoesImportsTable() {
+  await prisma.$executeRaw`
+    CREATE TABLE IF NOT EXISTS public.fiorix_impressoes_imports (
+      id SERIAL PRIMARY KEY,
+      tenant_id VARCHAR(100) NOT NULL DEFAULT '',
+      import_key VARCHAR(100),
+      arquivo VARCHAR(255), 
+      periodo VARCHAR(100), 
+      data_hora TIMESTAMP DEFAULT NOW(), 
+      linhas INT, 
+      inseridas INT, 
+      importado_por VARCHAR(100), 
+      status VARCHAR(20)
+    );
+  `;
+  await prisma.$executeRaw`
+    CREATE UNIQUE INDEX IF NOT EXISTS fiorix_impressoes_imports_tenant_import_key
+    ON public.fiorix_impressoes_imports (tenant_id, import_key);
+  `;
+}
+
+export async function listImpressoesImportLogs(tenantId: string): Promise<UnifiedImportRecord[]> {
+  try {
+    const rows: any[] = await prisma.$queryRaw(
+      Prisma.sql`
+        SELECT
+          id::text as id,
+          'IMPRESSOES' as source,
+          'logged' as origin,
+          arquivo as "fileName",
+          to_char(data_hora, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "importedAt",
+          linhas as "rowsCount",
+          inseridas as "insertedCount",
+          importado_por as "importedBy",
+          status,
+          NULL as "errorMessage",
+          SPLIT_PART(periodo, '|', 1) as "periodStart",
+          SPLIT_PART(periodo, '|', 2) as "periodEnd"
+        FROM public.fiorix_impressoes_imports
+        WHERE tenant_id = ${tenantId}
+        ORDER BY data_hora DESC;
+      `
+    );
+
+    return rows.map((row) => ({
+      ...row,
+      source: "IMPRESSOES",
+      origin: "logged",
+      rowsCount: Number(row.rowsCount || 0),
+      insertedCount: row.insertedCount !== null ? Number(row.insertedCount || 0) : null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function listImpressoesInferredPeriods(tenantId: string): Promise<UnifiedImportRecord[]> {
+  try {
+    const rows: any[] = await prisma.$queryRaw(
+      Prisma.sql`
+        SELECT
+          CONCAT('inferred-impressoes-', to_char(date_trunc('month', data_impressao), 'YYYY-MM')) as id,
+          'IMPRESSOES' as source,
+          'inferred' as origin,
+          CONCAT(
+            'impressoes_',
+            to_char(MIN(data_impressao), 'YYYY-MM-DD'),
+            '_a_',
+            to_char(MAX(data_impressao), 'YYYY-MM-DD'),
+            '.csv'
+          ) as "fileName",
+          to_char(MAX(data_impressao)::timestamp, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "importedAt",
+          COUNT(*)::int as "rowsCount",
+          COUNT(*)::int as "insertedCount",
+          'Histórico inferido' as "importedBy",
+          'INFERRED' as status,
+          NULL::text as "errorMessage",
+          to_char(MIN(data_impressao), 'YYYY-MM-DD') as "periodStart",
+          to_char(MAX(data_impressao), 'YYYY-MM-DD') as "periodEnd"
+        FROM public.fiorix_impressoes_dados
+        WHERE tenant_id = ${tenantId} AND data_impressao IS NOT NULL
+        GROUP BY date_trunc('month', data_impressao)
+        ORDER BY date_trunc('month', data_impressao) DESC;
+      `
+    );
+
+    return rows.map((row) => ({
+      ...row,
+      source: "IMPRESSOES",
+      origin: "inferred",
+      rowsCount: Number(row.rowsCount || 0),
+      insertedCount: row.insertedCount !== null ? Number(row.insertedCount || 0) : null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function ensureAndamentosImportsTable() {
+  await prisma.$executeRaw`
+    CREATE TABLE IF NOT EXISTS public.fiorix_andamentos_imports (
+      id SERIAL PRIMARY KEY,
+      tenant_id VARCHAR(100) NOT NULL DEFAULT '',
+      import_key VARCHAR(100),
+      arquivo VARCHAR(255), 
+      periodo VARCHAR(100), 
+      data_hora TIMESTAMP DEFAULT NOW(), 
+      linhas INT, 
+      inseridas INT, 
+      importado_por VARCHAR(100), 
+      status VARCHAR(20)
+    );
+  `;
+  await prisma.$executeRaw`
+    CREATE UNIQUE INDEX IF NOT EXISTS fiorix_andamentos_imports_tenant_import_key
+    ON public.fiorix_andamentos_imports (tenant_id, import_key);
+  `;
+}
+
+export async function listAndamentosImportLogs(tenantId: string): Promise<UnifiedImportRecord[]> {
+  try {
+    const rows: any[] = await prisma.$queryRaw(
+      Prisma.sql`
+        SELECT
+          id::text as id,
+          'ANDAMENTOS' as source,
+          'logged' as origin,
+          arquivo as "fileName",
+          to_char(data_hora, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "importedAt",
+          linhas as "rowsCount",
+          inseridas as "insertedCount",
+          importado_por as "importedBy",
+          status,
+          NULL as "errorMessage",
+          SPLIT_PART(periodo, '|', 1) as "periodStart",
+          SPLIT_PART(periodo, '|', 2) as "periodEnd"
+        FROM public.fiorix_andamentos_imports
+        WHERE tenant_id = ${tenantId}
+        ORDER BY data_hora DESC;
+      `
+    );
+
+    return rows.map((row) => ({
+      ...row,
+      source: "ANDAMENTOS",
+      origin: "logged",
+      rowsCount: Number(row.rowsCount || 0),
+      insertedCount: row.insertedCount !== null ? Number(row.insertedCount || 0) : null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function listAndamentosInferredPeriods(tenantId: string): Promise<UnifiedImportRecord[]> {
+  try {
+    const rows: any[] = await prisma.$queryRaw(
+      Prisma.sql`
+        SELECT
+          CONCAT('inferred-andamentos-', to_char(date_trunc('month', data_andamento), 'YYYY-MM')) as id,
+          'ANDAMENTOS' as source,
+          'inferred' as origin,
+          CONCAT(
+            'andamentos_',
+            to_char(MIN(data_andamento), 'YYYY-MM-DD'),
+            '_a_',
+            to_char(MAX(data_andamento), 'YYYY-MM-DD'),
+            '.csv'
+          ) as "fileName",
+          to_char(MAX(data_andamento)::timestamp, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as "importedAt",
+          COUNT(*)::int as "rowsCount",
+          COUNT(*)::int as "insertedCount",
+          'Histórico inferido' as "importedBy",
+          'INFERRED' as status,
+          NULL::text as "errorMessage",
+          to_char(MIN(data_andamento), 'YYYY-MM-DD') as "periodStart",
+          to_char(MAX(data_andamento), 'YYYY-MM-DD') as "periodEnd"
+        FROM public.fiorix_andamentos_dados
+        WHERE tenant_id = ${tenantId} AND data_andamento IS NOT NULL
+        GROUP BY date_trunc('month', data_andamento)
+        ORDER BY date_trunc('month', data_andamento) DESC;
+      `
+    );
+
+    return rows.map((row) => ({
+      ...row,
+      source: "ANDAMENTOS",
+      origin: "inferred",
+      rowsCount: Number(row.rowsCount || 0),
+      insertedCount: row.insertedCount !== null ? Number(row.insertedCount || 0) : null,
+    }));
+  } catch {
+    return [];
+  }
 }

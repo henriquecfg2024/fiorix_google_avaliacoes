@@ -5,8 +5,9 @@ import { Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { deleteImportRecord } from "@/app/(dashboard)/bi/importacoes/actions";
 import { Button } from "@/components/ui/button";
+import type { UnifiedImportRecord } from "@/lib/import-history";
 
-export function DeleteImportButton({ id, source }: { id: string; source: "BI" | "PRODUTIVIDADE" | "METAS" }) {
+export function DeleteImportButton({ id, source }: { id: string; source: UnifiedImportRecord["source"] }) {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = async () => {
