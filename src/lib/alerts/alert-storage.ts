@@ -16,6 +16,8 @@ export interface WhatsAppConfig {
   instanceUrl?: string;
   token?: string;
   chatId?: string;
+  /** Lista de telefones adicionais com suas API Keys (CallMeBot) */
+  phones?: Array<{ phone: string; apikey: string; label?: string }>;
 }
 
 export interface AlertChannelConfig {

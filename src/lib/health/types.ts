@@ -162,6 +162,7 @@ export interface WhatsAppConfig {
   instanceUrl?: string;
   token?: string;
   chatId?: string;
+  phones?: Array<{ phone: string; apikey: string; label?: string }>;
 }
 
 export interface AlertChannelConfig {

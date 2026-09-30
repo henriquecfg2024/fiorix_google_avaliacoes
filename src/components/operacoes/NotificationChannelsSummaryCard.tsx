@@ -12,10 +12,16 @@ import {
   Loader2,
 } from 'lucide-react';
 
+interface PhoneEntry {
+  phone: string;
+  label?: string;
+}
+
 interface ChannelSummary {
   whatsappEnabled: boolean;
   whatsappPhone: string;
   whatsappProvider: string;
+  whatsappPhones: PhoneEntry[]; // all phones (primary + additional)
   emailEnabled: boolean;
   emailRecipients: string;
   webhookEnabled: boolean;
@@ -39,10 +45,23 @@ export function NotificationChannelsSummaryCard() {
         if (res.ok) {
           const json = await res.json();
           if (json.config) {
+            const primaryPhone = json.config.whatsappPhone || '';
+            const additionalPhones: PhoneEntry[] = Array.isArray(json.config.whatsappConfig?.phones)
+              ? json.config.whatsappConfig.phones
+                  .filter((p: any) => p.phone && p.phone.length >= 8)
+                  .map((p: any) => ({ phone: p.phone, label: p.label || '' }))
+              : [];
+            const allPhones: PhoneEntry[] = [];
+            if (primaryPhone && primaryPhone.length >= 8) {
+              allPhones.push({ phone: primaryPhone, label: 'Principal' });
+            }
+            allPhones.push(...additionalPhones);
+
             setData({
               whatsappEnabled: Boolean(json.config.whatsappEnabled),
-              whatsappPhone: json.config.whatsappPhone || '',
+              whatsappPhone: primaryPhone,
               whatsappProvider: json.config.whatsappProvider || 'callmebot',
+              whatsappPhones: allPhones,
               emailEnabled: Boolean(json.config.emailEnabled),
               emailRecipients: json.config.emailRecipients || '',
               webhookEnabled: Boolean(json.config.enabled) && Boolean(json.config.webhookUrl),
@@ -182,13 +201,22 @@ export function NotificationChannelsSummaryCard() {
             )}
           </div>
           {data.whatsappEnabled ? (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-white/40 uppercase tracking-wider">Telefone</span>
+                <span className="text-[10px] text-white/40 uppercase tracking-wider">
+                  {data.whatsappPhones.length === 1 ? 'Telefone' : `${data.whatsappPhones.length} Telefones`}
+                </span>
               </div>
-              <p className="text-xs font-mono text-emerald-300/90 bg-emerald-500/[0.08] px-2 py-1 rounded-md">
-                {maskPhone(data.whatsappPhone)}
-              </p>
+              {data.whatsappPhones.map((entry, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <p className="text-xs font-mono text-emerald-300/90 bg-emerald-500/[0.08] px-2 py-1 rounded-md flex-1">
+                    {maskPhone(entry.phone)}
+                  </p>
+                  {entry.label && (
+                    <span className="text-[10px] text-white/30 shrink-0">{entry.label}</span>
+                  )}
+                </div>
+              ))}
               <p className="text-[10px] text-white/30 mt-1">
                 via {data.whatsappProvider === 'callmebot' ? 'CallMeBot' : data.whatsappProvider}
               </p>

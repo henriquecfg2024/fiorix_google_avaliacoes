@@ -20,6 +20,8 @@ import {
   ExternalLink,
   HelpCircle,
   Lock,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import type { AlertChannelConfig, AlertLogItem } from '@/lib/health/types';
 
@@ -404,22 +406,117 @@ export function AlertSettingsSection() {
               </div>
 
               {config.whatsappProvider === 'callmebot' ? (
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                    Chave API do CallMeBot
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="Cole a chave recebida no WhatsApp (ex: 837291)"
-                    value={config.whatsappConfig?.apikey || ''}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        whatsappConfig: { ...config.whatsappConfig, apikey: e.target.value },
-                      })
-                    }
-                    className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 placeholder-slate-600"
-                  />
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                      Chave API do CallMeBot
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Cole a chave recebida no WhatsApp (ex: 837291)"
+                      value={config.whatsappConfig?.apikey || ''}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          whatsappConfig: { ...config.whatsappConfig, apikey: e.target.value },
+                        })
+                      }
+                      className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 placeholder-slate-600"
+                    />
+                  </div>
+
+                  {/* Telefones Adicionais */}
+                  <div className="pt-3 border-t border-slate-800/60">
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                        Telefones Adicionais
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const phones = [...(config.whatsappConfig?.phones || [])];
+                          phones.push({ phone: '', apikey: '', label: '' });
+                          setConfig({
+                            ...config,
+                            whatsappConfig: { ...config.whatsappConfig, phones },
+                          });
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 text-[11px] font-bold transition-all border border-emerald-500/20"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Adicionar Telefone
+                      </button>
+                    </div>
+
+                    {(config.whatsappConfig?.phones || []).length === 0 && (
+                      <p className="text-[11px] text-slate-500 italic">
+                        Nenhum telefone adicional cadastrado. Clique em &quot;Adicionar Telefone&quot; para enviar alertas para mais pessoas.
+                      </p>
+                    )}
+
+                    <div className="space-y-3">
+                      {(config.whatsappConfig?.phones || []).map((entry, idx) => (
+                        <div key={idx} className="grid grid-cols-12 gap-2 items-end p-3 rounded-xl bg-slate-900/50 border border-slate-800/40">
+                          <div className="col-span-3">
+                            <label className="block text-[10px] text-slate-500 mb-1">Nome (opcional)</label>
+                            <input
+                              type="text"
+                              placeholder="Ex: Henrique"
+                              value={entry.label || ''}
+                              onChange={(e) => {
+                                const phones = [...(config.whatsappConfig?.phones || [])];
+                                phones[idx] = { ...phones[idx], label: e.target.value };
+                                setConfig({ ...config, whatsappConfig: { ...config.whatsappConfig, phones } });
+                              }}
+                              className="w-full bg-slate-950 border border-slate-700/60 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 placeholder-slate-600"
+                            />
+                          </div>
+                          <div className="col-span-4">
+                            <label className="block text-[10px] text-slate-500 mb-1">Telefone (com DDD)</label>
+                            <input
+                              type="text"
+                              placeholder="+5511999999999"
+                              value={entry.phone || ''}
+                              onChange={(e) => {
+                                const phones = [...(config.whatsappConfig?.phones || [])];
+                                phones[idx] = { ...phones[idx], phone: e.target.value };
+                                setConfig({ ...config, whatsappConfig: { ...config.whatsappConfig, phones } });
+                              }}
+                              className="w-full bg-slate-950 border border-slate-700/60 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 placeholder-slate-600"
+                            />
+                          </div>
+                          <div className="col-span-4">
+                            <label className="block text-[10px] text-slate-500 mb-1">API Key CallMeBot</label>
+                            <input
+                              type="password"
+                              placeholder="Chave API"
+                              value={entry.apikey || ''}
+                              onChange={(e) => {
+                                const phones = [...(config.whatsappConfig?.phones || [])];
+                                phones[idx] = { ...phones[idx], apikey: e.target.value };
+                                setConfig({ ...config, whatsappConfig: { ...config.whatsappConfig, phones } });
+                              }}
+                              className="w-full bg-slate-950 border border-slate-700/60 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 placeholder-slate-600"
+                            />
+                          </div>
+                          <div className="col-span-1 flex justify-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const phones = [...(config.whatsappConfig?.phones || [])];
+                                phones.splice(idx, 1);
+                                setConfig({ ...config, whatsappConfig: { ...config.whatsappConfig, phones } });
+                              }}
+                              className="p-2 rounded-lg hover:bg-red-500/15 text-red-400/60 hover:text-red-400 transition-all"
+                              title="Remover telefone"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -70,44 +70,83 @@ export async function sendAlertWhatsApp(params: {
 
   // Provedor 1: CallMeBot (Gratuito / Sem Servidor)
   if (provider === 'callmebot') {
-    const apikey = whatsappCfg.apikey;
-    if (!apikey) {
-      return {
-        success: false,
-        errorMessage: 'Chave API do CallMeBot não configurada. Veja as instruções para obter gratuitamente.',
-      };
+    // Build list of all phones to notify: primary + additional
+    const allPhones: Array<{ phone: string; apikey: string; label?: string }> = [];
+
+    // Primary phone (campo principal)
+    const primaryApikey = whatsappCfg.apikey;
+    if (phone && phone.length >= 8 && primaryApikey) {
+      allPhones.push({ phone, apikey: primaryApikey, label: 'Principal' });
     }
 
-    // CallMeBot requer o número no formato internacional com '+' ou código do país
-    let cleanPhone = phone;
-    if (!cleanPhone.startsWith('+')) {
-      if (cleanPhone.startsWith('55')) {
-        cleanPhone = '+' + cleanPhone;
-      } else {
-        cleanPhone = '+55' + cleanPhone;
+    // Additional phones from whatsappConfig.phones array
+    if (Array.isArray(whatsappCfg.phones)) {
+      for (const p of whatsappCfg.phones) {
+        const cleanP = (p.phone || '').replace(/\s+/g, '').replace(/-/g, '');
+        if (cleanP && cleanP.length >= 8 && p.apikey) {
+          allPhones.push({ phone: cleanP, apikey: p.apikey, label: p.label });
+        }
       }
     }
 
-    try {
-      const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(cleanPhone)}&text=${encodeURIComponent(textMsg)}&apikey=${encodeURIComponent(apikey)}`;
-      const res = await fetch(url, { method: 'GET' });
-      const bodyText = await res.text();
-
-      if (!res.ok || bodyText.toLowerCase().includes('error') || bodyText.toLowerCase().includes('not allowed')) {
-        return {
-          success: false,
-          statusCode: res.status,
-          errorMessage: `CallMeBot: ${bodyText.slice(0, 120)}`,
-        };
-      }
-
-      return { success: true, statusCode: res.status };
-    } catch (err: any) {
+    if (allPhones.length === 0) {
       return {
         success: false,
-        errorMessage: err?.message || 'Falha ao conectar com serviço CallMeBot',
+        errorMessage: 'Nenhum telefone com chave API do CallMeBot configurado.',
       };
     }
+
+    const results: Array<{ phone: string; success: boolean; error?: string }> = [];
+
+    for (const entry of allPhones) {
+      let cleanPhone = entry.phone;
+      if (!cleanPhone.startsWith('+')) {
+        if (cleanPhone.startsWith('55')) {
+          cleanPhone = '+' + cleanPhone;
+        } else {
+          cleanPhone = '+55' + cleanPhone;
+        }
+      }
+
+      try {
+        const url = `https://api.callmebot.com/whatsapp.php?phone=${encodeURIComponent(cleanPhone)}&text=${encodeURIComponent(textMsg)}&apikey=${encodeURIComponent(entry.apikey)}`;
+        const res = await fetch(url, { method: 'GET' });
+        const bodyText = await res.text();
+
+        if (!res.ok || bodyText.toLowerCase().includes('error') || bodyText.toLowerCase().includes('not allowed')) {
+          results.push({ phone: cleanPhone, success: false, error: bodyText.slice(0, 80) });
+        } else {
+          results.push({ phone: cleanPhone, success: true });
+        }
+      } catch (err: any) {
+        results.push({ phone: cleanPhone, success: false, error: err?.message || 'Falha de conexão' });
+      }
+
+      // CallMeBot rate limit: small delay between calls
+      if (allPhones.length > 1) {
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
+
+    const successCount = results.filter((r) => r.success).length;
+    const failedResults = results.filter((r) => !r.success);
+
+    if (successCount === 0) {
+      return {
+        success: false,
+        errorMessage: `CallMeBot: Falha em todos os ${results.length} telefones. ${failedResults[0]?.error || ''}`,
+      };
+    }
+
+    if (failedResults.length > 0) {
+      return {
+        success: true,
+        statusCode: 200,
+        errorMessage: `Enviado para ${successCount}/${results.length} telefones. Falha: ${failedResults.map((f) => f.phone).join(', ')}`,
+      };
+    }
+
+    return { success: true, statusCode: 200 };
   }
 
   // Provedor 2: Evolution API
