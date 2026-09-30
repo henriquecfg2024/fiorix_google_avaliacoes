@@ -595,7 +595,7 @@ export function ControleImpressoesClient() {
           <div>
             Período: <strong>{dataInicio.split('-').reverse().join('/')}</strong> até <strong>{dataFim.split('-').reverse().join('/')}</strong>
             {activeCardLabel && <span> | Filtro: <strong>{activeCardLabel}</strong></span>}
-            {operadorFiltro && <span> | Operador: <strong>{operadorFiltro}</strong></span>}
+            {operadorFiltro && <span> | Operador: <strong className="uppercase">{operadorFiltro}</strong></span>}
             {tipoImpressaoFiltro !== 'todos' && <span> | Tipo: <strong>{tipoImpressaoFiltro === 'certidao' ? 'Certidão de Registro' : 'Ato no Livro'}</strong></span>}
             {statusFiltro !== 'todos' && <span> | Status: <strong>{statusFiltro === 'realizado' ? 'Realizado' : 'Pendente'}</strong></span>}
             <span> | Ordem: <strong>{getColumnLabel(sortBy)} ({sortOrder === 'asc' ? 'Crescente' : 'Decrescente'})</strong></span>
@@ -1103,7 +1103,7 @@ export function ControleImpressoesClient() {
           {operadorFiltro && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-500/20 border border-purple-200 dark:border-purple-500/40 text-purple-800 dark:text-purple-200 text-xs font-medium animate-fadeIn">
               <User className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-              <span>Operador: <strong className="text-slate-900 dark:text-white">{operadorFiltro}</strong></span>
+              <span>Operador: <strong className="text-slate-900 dark:text-white uppercase">{operadorFiltro}</strong></span>
               <button
                 onClick={() => { setOperadorFiltro(null); setCurrentPage(1); }}
                 className="hover:text-red-500 dark:hover:text-red-300 font-bold ml-1 text-sm leading-none"
@@ -1358,7 +1358,7 @@ export function ControleImpressoesClient() {
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5">
-                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{op.nome}</p>
+                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate uppercase">{op.nome}</p>
                                 {isSelected && (
                                   <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500 text-white font-bold uppercase tracking-wider">
                                     Ativo
@@ -1623,7 +1623,7 @@ export function ControleImpressoesClient() {
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5">
-                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{op.nome}</p>
+                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate uppercase">{op.nome}</p>
                                 {isSelected && (
                                   <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-600 text-white font-bold uppercase tracking-wider">
                                     Ativo
@@ -2054,7 +2054,7 @@ export function ControleImpressoesClient() {
                               }`}>
                                 <User className={`w-2.5 h-2.5 ${operadorFiltro === resp ? 'text-white' : 'text-violet-600 dark:text-violet-400'}`} />
                               </div>
-                              <span className={`text-xs truncate max-w-[140px] font-medium transition-colors print:text-slate-900 print:max-w-none print:text-[10px] ${
+                              <span className={`text-xs truncate max-w-[140px] font-medium transition-colors uppercase print:text-slate-900 print:max-w-none print:text-[10px] ${
                                 operadorFiltro === resp
                                   ? 'text-purple-700 dark:text-purple-300 font-bold underline'
                                   : 'text-slate-800 dark:text-slate-200 group-hover/op:text-purple-600 dark:group-hover/op:text-purple-300 group-hover/op:underline'
@@ -2071,7 +2071,7 @@ export function ControleImpressoesClient() {
                                 role="button"
                                 tabIndex={0}
                                 title={`Clique para filtrar pelo operador de certidão ${row.certidaoResponsavel}`}
-                                className="text-[10px] text-slate-500 dark:text-slate-400 pl-6 truncate max-w-[140px] cursor-pointer hover:underline hover:text-cyan-600 dark:hover:text-cyan-300 print:text-slate-600 print:pl-0 print:text-[9px]"
+                                className="text-[10px] text-slate-500 dark:text-slate-400 pl-6 truncate max-w-[140px] cursor-pointer hover:underline hover:text-cyan-600 dark:hover:text-cyan-300 print:text-slate-600 print:pl-0 print:text-[9px] uppercase"
                               >
                                 Cert: {row.certidaoResponsavel}
                               </span>

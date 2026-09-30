@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
           i.numero_livro,
           i.tipo_impressao,
           i.data_impressao,
-          NULLIF(i.operador, '') AS operador,
+          NULLIF(UPPER(TRIM(i.operador)), '') AS operador,
           CASE WHEN i.tipo_impressao = 'CERTIDAO' AND i.observacao ILIKE '%http%' THEN 
             SUBSTRING(i.observacao FROM 'https?://[^ ]+') 
           END AS link_onr_especifico,
@@ -380,10 +380,10 @@ export async function GET(request: NextRequest) {
         ultimoRegistro: formatDate(r.ultimo_registro) || '-',
         certidaoStatus: r.certidao_status,
         certidaoData: formatDate(r.certidao_data),
-        certidaoResponsavel: r.certidao_responsavel || null,
+        certidaoResponsavel: r.certidao_responsavel ? String(r.certidao_responsavel).trim().toUpperCase() : null,
         livroStatus: r.livro_status,
         livroData: formatDate(r.livro_data),
-        livroResponsavel: r.livro_responsavel || null,
+        livroResponsavel: r.livro_responsavel ? String(r.livro_responsavel).trim().toUpperCase() : null,
         diasPendente: r.dias_pendente,
         linkOnr: r.link_onr || `https://registradores.onr.org.br`,
       };
@@ -513,7 +513,7 @@ export async function GET(request: NextRequest) {
           : true;
 
         if (livroValido) {
-          const nome = r.livro_responsavel.trim();
+          const nome = r.livro_responsavel.trim().toUpperCase();
           const curr = operadoresMap.get(nome) || { totalLivro: 0, totalCertidao: 0 };
           curr.totalLivro++;
           operadoresMap.set(nome, curr);
@@ -525,7 +525,7 @@ export async function GET(request: NextRequest) {
           : true;
 
         if (certidaoValida) {
-          const nome = r.certidao_responsavel.trim();
+          const nome = r.certidao_responsavel.trim().toUpperCase();
           const curr = operadoresMap.get(nome) || { totalLivro: 0, totalCertidao: 0 };
           curr.totalCertidao++;
           operadoresMap.set(nome, curr);
