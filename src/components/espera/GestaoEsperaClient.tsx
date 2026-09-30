@@ -29,8 +29,12 @@ import {
   ThumbsUp,
   UserCheck,
   UserX,
+  User,
   ShieldCheck,
   ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
   Clock,
   ExternalLink,
   Info,
@@ -545,26 +549,115 @@ function SortHeader({
   return (
     <th
       onClick={() => onSort(field)}
-      className={`py-3 px-3 cursor-pointer select-none transition-colors group hover:text-white ${
-        isActive ? 'text-indigo-300 font-bold bg-white/[0.04]' : 'text-slate-400'
+      className={`py-3.5 px-4 cursor-pointer select-none transition-colors group ${
+        isActive
+          ? 'text-indigo-600 dark:text-indigo-300 font-bold bg-indigo-50 dark:bg-indigo-500/10'
+          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/60 dark:hover:bg-white/[0.04]'
       } ${align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'} ${className}`}
       title={`Clique para ordenar por ${label} (${isActive && currentDir === 'asc' ? 'Decrescente' : 'Crescente'})`}
     >
-      <div className={`inline-flex items-center gap-1.5 ${align === 'right' ? 'justify-end' : ''}`}>
+      <div className={`inline-flex items-center gap-1.5 ${align === 'right' ? 'justify-end w-full' : ''}`}>
         <span>{label}</span>
         {isActive ? (
           currentDir === 'asc' ? (
-            <ArrowUp className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+            <ArrowUp className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
           ) : (
-            <ArrowDown className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+            <ArrowDown className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
           )
         ) : (
-          <ArrowUpDown className="w-3.5 h-3.5 opacity-25 group-hover:opacity-100 transition-opacity shrink-0" />
+          <ArrowUpDown className="w-3 h-3 text-slate-400 opacity-40 group-hover:opacity-100 transition-opacity shrink-0" />
         )}
       </div>
     </th>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BADGES PADRÃO FIORIX
+// ─────────────────────────────────────────────────────────────────────────────
+function getSituacaoBadge(situacao: string) {
+  if (!situacao || situacao === '—') {
+    return <span className="text-slate-400 dark:text-slate-600 font-mono">—</span>;
+  }
+  const s = situacao.toLowerCase();
+  if (s.includes('atendimento')) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-500/30 shadow-xs">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+        </span>
+        {situacao}
+      </span>
+    );
+  }
+  if (s.includes('chamado')) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30 shadow-xs">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+        {situacao}
+      </span>
+    );
+  }
+  if (s.includes('finalizado') || s.includes('conclu') || s.includes('realizado')) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 shadow-xs">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+        {situacao}
+      </span>
+    );
+  }
+  if (s.includes('desist') || s.includes('cancel')) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 shadow-xs">
+        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0"></span>
+        {situacao}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10">
+      {situacao}
+    </span>
+  );
+}
+
+function getServicoBadge(servico: string) {
+  if (!servico || servico === '—') return <span className="text-slate-400 dark:text-slate-600 font-mono">—</span>;
+  const s = servico.toUpperCase();
+  let badgeStyle = 'bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-white/10';
+  if (s.includes('PRIORIDADE')) {
+    badgeStyle = 'bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-500/30';
+  } else if (s.includes('CERTID')) {
+    badgeStyle = 'bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30';
+  } else if (s.includes('RETIRADA')) {
+    badgeStyle = 'bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30';
+  } else if (s.includes('AGENDADO')) {
+    badgeStyle = 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/25';
+  }
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold border ${badgeStyle} whitespace-nowrap shadow-xs`}>
+      {servico}
+    </span>
+  );
+}
+
+function getFilaBadge(fila: string) {
+  if (!fila || fila === '—') return <span className="text-slate-400 dark:text-slate-600 font-mono">—</span>;
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/10 whitespace-nowrap">
+      {fila}
+    </span>
+  );
+}
+
+function getAtendenteAvatar(name: string) {
+  if (!name || name === '—') return null;
+  const parts = name.trim().split(/\s+/);
+  const initials = (parts[0]?.[0] || '') + (parts[1]?.[0] || parts[0]?.[1] || '');
+  return initials.toUpperCase();
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPONENTE PRINCIPAL
@@ -582,6 +675,12 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('emissao');
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
+
+  // Estados para o Card "Últimas Senhas Processadas"
+  const [previewPage, setPreviewPage] = useState(1);
+  const [previewPageSize, setPreviewPageSize] = useState(10);
+  const [previewFiltroSituacao, setPreviewFiltroSituacao] = useState('ALL');
+  const [previewFiltroServico, setPreviewFiltroServico] = useState('ALL');
 
   const handleHeaderSort = useCallback((field: SortField) => {
     if (sortField === field) {
@@ -718,9 +817,23 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
     return sortRecordsList(result, sortField, sortDir);
   }, [allRecords, filtroServico, filtroFila, filtroAtendente, filtroSituacao, searchQuery, sortField, sortDir]);
 
-  // Registros ordenados e filtrados para prévia na Visão Geral
-  const previewRecords = useMemo(() => {
+  // Filtros e ordenação para o card "Últimas Senhas Processadas" (Visão Geral)
+  const previewServicosUnicos = useMemo(() => {
+    return [...new Set(allRecords.map((r) => r.servico).filter((s) => s && s !== '—'))].sort();
+  }, [allRecords]);
+
+  const previewSituacoesUnicas = useMemo(() => {
+    return [...new Set(allRecords.map((r) => r.situacao).filter((s) => s && s !== '—' && s !== '0'))].sort();
+  }, [allRecords]);
+
+  const filteredPreviewList = useMemo(() => {
     let list = allRecords;
+    if (previewFiltroSituacao !== 'ALL') {
+      list = list.filter((r) => r.situacao.toLowerCase() === previewFiltroSituacao.toLowerCase());
+    }
+    if (previewFiltroServico !== 'ALL') {
+      list = list.filter((r) => r.servico === previewFiltroServico);
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       list = list.filter(
@@ -732,7 +845,14 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
       );
     }
     return sortRecordsList(list, sortField, sortDir);
-  }, [allRecords, searchQuery, sortField, sortDir]);
+  }, [allRecords, previewFiltroSituacao, previewFiltroServico, searchQuery, sortField, sortDir]);
+
+  const previewTotalPages = Math.ceil(filteredPreviewList.length / previewPageSize) || 1;
+  const previewStartIndex = (previewPage - 1) * previewPageSize;
+  const previewEndIndex = previewStartIndex + previewPageSize;
+  const paginatedPreviewRows = useMemo(() => {
+    return filteredPreviewList.slice(previewStartIndex, previewEndIndex);
+  }, [filteredPreviewList, previewStartIndex, previewEndIndex]);
 
   // Exportar dados para CSV
   const handleExportCSV = useCallback(() => {
@@ -1331,73 +1451,159 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
                   </div>
                 </div>
 
-                {/* Prévia de Atendimentos Recentes com Busca e Ordenação */}
+                {/* Card Padrão FIORIX: Últimas Senhas Processadas */}
                 {allRecords.length > 0 && (
-                  <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-xl space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-indigo-400" />
-                        <h3 className="text-sm font-bold text-white">Últimas Senhas Processadas</h3>
-                        <span className="text-[10px] text-slate-500 font-mono">({allRecords.length} registros reais)</span>
+                  <div className="rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#0B1020]/95 backdrop-blur-xl p-5 sm:p-6 shadow-sm dark:shadow-2xl space-y-4">
+                    {/* Cabeçalho do Card */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-white/5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-xs">
+                          <Activity className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                              Últimas Senhas Processadas
+                            </h3>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/25">
+                              {allRecords.length} registros
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            Monitoramento das senhas emitidas, tempo de espera e atendimento nos guichês
+                          </p>
+                        </div>
                       </div>
                       <button
                         type="button"
                         onClick={() => setActiveAba('atendimentos')}
-                        className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer inline-flex items-center gap-1"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 hover:border-indigo-300 dark:hover:border-indigo-500/40 bg-slate-50 dark:bg-white/5 hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all cursor-pointer self-start sm:self-auto shadow-2xs"
                       >
-                        <span>Ver todas ({allRecords.length})</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
+                        <span>Ver tabela completa ({allRecords.length})</span>
+                        <ChevronRight className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
                       </button>
                     </div>
 
-                    {/* Barra de Busca e Menu de Ordenação */}
-                    <div className="flex flex-col sm:flex-row gap-3 pt-1">
+                    {/* Barra de Filtros, Busca e Ordenação */}
+                    <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-1">
+                      {/* Campo de Busca com Botão Limpar */}
                       <div className="relative flex-1">
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                           type="text"
                           placeholder="Buscar por senha, atendente ou serviço..."
                           value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full pl-9 pr-4 py-2 rounded-xl border border-white/15 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-all"
+                          onChange={(e) => {
+                            setSearchQuery(e.target.value);
+                            setPreviewPage(1);
+                          }}
+                          className="w-full pl-10 pr-9 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-[#080d1a] text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500/60 transition-all shadow-2xs"
                         />
+                        {searchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearchQuery('');
+                              setPreviewPage(1);
+                            }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                            title="Limpar busca"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
 
-                      {/* Dropdown Menu de Ordenação */}
-                      <div className="flex items-center gap-2">
-                        <div className="relative inline-flex items-center bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs hover:bg-white/10 transition-all">
-                          <ArrowUpDown className="w-3.5 h-3.5 text-indigo-400 mr-2 shrink-0" />
+                      {/* Controles de Filtro e Ordenação */}
+                      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                        {/* Filtro por Situação */}
+                        <select
+                          value={previewFiltroSituacao}
+                          onChange={(e) => {
+                            setPreviewFiltroSituacao(e.target.value);
+                            setPreviewPage(1);
+                          }}
+                          className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-[#080d1a] text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer shadow-2xs font-medium"
+                          title="Filtrar por Situação"
+                        >
+                          <option value="ALL">Todas Situações</option>
+                          {previewSituacoesUnicas.map((s) => (
+                            <option key={s} value={s} className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+
+                        {/* Filtro por Serviço */}
+                        <select
+                          value={previewFiltroServico}
+                          onChange={(e) => {
+                            setPreviewFiltroServico(e.target.value);
+                            setPreviewPage(1);
+                          }}
+                          className="px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-[#080d1a] text-xs text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 cursor-pointer shadow-2xs font-medium max-w-[170px] truncate"
+                          title="Filtrar por Serviço"
+                        >
+                          <option value="ALL">Todos Serviços</option>
+                          {previewServicosUnicos.map((s) => (
+                            <option key={s} value={s} className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+
+                        {/* Menu de Ordenação */}
+                        <div className="relative inline-flex items-center rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-[#080d1a] px-3 py-2 text-xs text-slate-700 dark:text-slate-200 shadow-2xs">
+                          <ArrowUpDown className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 mr-2 shrink-0" />
                           <select
                             value={`${sortField}-${sortDir}`}
                             onChange={(e) => {
                               const [f, d] = e.target.value.split('-') as [SortField, 'asc' | 'desc'];
                               setSortField(f);
                               setSortDir(d);
+                              setPreviewPage(1);
                             }}
-                            className="bg-transparent text-white font-medium text-xs focus:outline-none cursor-pointer pr-2"
+                            className="bg-transparent text-slate-800 dark:text-white font-medium text-xs focus:outline-none cursor-pointer pr-1"
                             title="Menu de ordenação"
                           >
-                            <option value="emissao-desc" className="bg-[#0B1020] text-white">Mais recentes (Emissão)</option>
-                            <option value="emissao-asc" className="bg-[#0B1020] text-white">Mais antigas (Emissão)</option>
-                            <option value="tempoEsperaMin-desc" className="bg-[#0B1020] text-white">Maior tempo de espera</option>
-                            <option value="tempoEsperaMin-asc" className="bg-[#0B1020] text-white">Menor tempo de espera</option>
-                            <option value="chamada-desc" className="bg-[#0B1020] text-white">Chamada mais recente</option>
-                            <option value="senha-asc" className="bg-[#0B1020] text-white">Senha (A → Z)</option>
-                            <option value="senha-desc" className="bg-[#0B1020] text-white">Senha (Z → A)</option>
-                            <option value="atendente-asc" className="bg-[#0B1020] text-white">Atendente (A → Z)</option>
-                            <option value="atendente-desc" className="bg-[#0B1020] text-white">Atendente (Z → A)</option>
-                            <option value="servico-asc" className="bg-[#0B1020] text-white">Serviço (A → Z)</option>
-                            <option value="fila-asc" className="bg-[#0B1020] text-white">Fila (A → Z)</option>
-                            <option value="guiche-asc" className="bg-[#0B1020] text-white">Guichê / Mesa</option>
-                            <option value="situacao-asc" className="bg-[#0B1020] text-white">Situação</option>
+                            <option value="emissao-desc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Mais recentes (Emissão)</option>
+                            <option value="emissao-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Mais antigas (Emissão)</option>
+                            <option value="tempoEsperaMin-desc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Maior tempo de espera</option>
+                            <option value="tempoEsperaMin-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Menor tempo de espera</option>
+                            <option value="chamada-desc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Chamada mais recente</option>
+                            <option value="senha-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Senha (A → Z)</option>
+                            <option value="senha-desc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Senha (Z → A)</option>
+                            <option value="atendente-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Atendente (A → Z)</option>
+                            <option value="atendente-desc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Atendente (Z → A)</option>
+                            <option value="servico-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Serviço (A → Z)</option>
+                            <option value="fila-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Fila (A → Z)</option>
+                            <option value="guiche-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Guichê / Mesa</option>
+                            <option value="situacao-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Situação</option>
                           </select>
                         </div>
+
+                        {/* Botão Limpar Filtros quando ativo */}
+                        {(searchQuery || previewFiltroSituacao !== 'ALL' || previewFiltroServico !== 'ALL') && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearchQuery('');
+                              setPreviewFiltroSituacao('ALL');
+                              setPreviewFiltroServico('ALL');
+                              setPreviewPage(1);
+                            }}
+                            className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer whitespace-nowrap px-1"
+                          >
+                            Limpar
+                          </button>
+                        )}
                       </div>
                     </div>
 
-                    <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
+                    {/* Tabela Formatada Padrão Fiorix */}
+                    <div className="overflow-x-auto rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-white/10 bg-slate-50/40 dark:bg-[#070b16]/70 shadow-inner">
                       <table className="w-full text-left text-xs">
-                        <thead className="bg-[#080811] text-[11px] font-mono uppercase text-slate-400 border-b border-white/8">
+                        <thead className="bg-slate-100/80 dark:bg-[#080811] text-[11px] font-mono uppercase text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-white/8">
                           <tr>
                             <SortHeader label="Senha" field="senha" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} className="px-4" />
                             <SortHeader label="Serviço" field="servico" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} />
@@ -1410,57 +1616,219 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
                             <SortHeader label="Situação" field="situacao" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} className="px-4" />
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/6 text-slate-300">
-                          {previewRecords.slice(0, 50).map((r) => (
-                            <tr key={r.id} className="hover:bg-white/[0.02] transition-colors">
-                              <td className="py-3 px-4 font-bold text-white font-mono">{r.senha}</td>
-                              <td className="py-3 px-3">{r.servico}</td>
-                              <td className="py-3 px-3">
-                                {r.fila !== '—' ? (
-                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
-                                    {r.fila}
-                                  </span>
-                                ) : (
-                                  '—'
-                                )}
-                              </td>
-                              <td className="py-3 px-3 font-mono text-slate-400">{r.emissao}</td>
-                              <td className="py-3 px-3 font-mono text-slate-400">{r.chamada}</td>
-                              <td className="py-3 px-3 text-right">
-                                {r.tempoEsperaMin !== null ? (
-                                  <span
-                                    className={`font-bold font-mono ${
-                                      r.tempoEsperaMin <= slaMinutes ? 'text-emerald-400' : 'text-rose-400'
-                                    }`}
-                                  >
-                                    {r.tempoEsperaMin} min
-                                  </span>
-                                ) : (
-                                  '—'
-                                )}
-                              </td>
-                              <td className="py-3 px-3 font-mono">{r.guiche}</td>
-                              <td className="py-3 px-3 text-white uppercase font-medium">{r.atendente}</td>
-                              <td className="py-3 px-4">
-                                {r.situacao !== '—' ? (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-white/5 border-white/10 text-slate-300">
-                                    {r.situacao}
-                                  </span>
-                                ) : (
-                                  '—'
-                                )}
+                        <tbody className="divide-y divide-slate-200/60 dark:divide-white/5 text-slate-700 dark:text-slate-300">
+                          {paginatedPreviewRows.length === 0 ? (
+                            <tr>
+                              <td colSpan={9} className="py-12 text-center text-slate-500 dark:text-slate-400 text-xs">
+                                <div className="flex flex-col items-center justify-center gap-2">
+                                  <Filter className="w-6 h-6 text-slate-400/50" />
+                                  <p className="font-medium">Nenhum registro encontrado para os filtros selecionados.</p>
+                                  {(searchQuery || previewFiltroSituacao !== 'ALL' || previewFiltroServico !== 'ALL') && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSearchQuery('');
+                                        setPreviewFiltroSituacao('ALL');
+                                        setPreviewFiltroServico('ALL');
+                                        setPreviewPage(1);
+                                      }}
+                                      className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-semibold cursor-pointer"
+                                    >
+                                      Restaurar lista completa
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             </tr>
-                          ))}
+                          ) : (
+                            paginatedPreviewRows.map((r) => {
+                              const initials = getAtendenteAvatar(r.atendente);
+                              return (
+                                <tr key={r.id} className="hover:bg-slate-100/60 dark:hover:bg-white/[0.03] transition-colors">
+                                  {/* Senha */}
+                                  <td className="py-3 px-4 font-mono whitespace-nowrap">
+                                    <span className="inline-flex items-center px-2.5 py-1 rounded-md font-mono font-bold text-xs bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 shadow-2xs">
+                                      {r.senha}
+                                    </span>
+                                  </td>
+
+                                  {/* Serviço */}
+                                  <td className="py-3 px-3 whitespace-nowrap">
+                                    {getServicoBadge(r.servico)}
+                                  </td>
+
+                                  {/* Fila */}
+                                  <td className="py-3 px-3 whitespace-nowrap">
+                                    {getFilaBadge(r.fila)}
+                                  </td>
+
+                                  {/* Emissão */}
+                                  <td className="py-3 px-3 font-mono text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                    {r.emissao || '—'}
+                                  </td>
+
+                                  {/* Chamada */}
+                                  <td className="py-3 px-3 font-mono text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                    {r.chamada || '—'}
+                                  </td>
+
+                                  {/* Tempo Espera Semafórico */}
+                                  <td className="py-3 px-3 text-right whitespace-nowrap">
+                                    {r.tempoEsperaMin !== null ? (
+                                      <span
+                                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-mono text-xs font-bold shadow-2xs ${
+                                          r.tempoEsperaMin <= slaMinutes
+                                            ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30'
+                                            : 'bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30'
+                                        }`}
+                                        title={r.tempoEsperaMin <= slaMinutes ? `Dentro do SLA (≤ ${slaMinutes} min)` : `Acima do SLA (> ${slaMinutes} min)`}
+                                      >
+                                        {r.tempoEsperaMin <= slaMinutes ? (
+                                          <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                        ) : (
+                                          <AlertTriangle className="w-3 h-3 text-rose-600 dark:text-rose-400 shrink-0" />
+                                        )}
+                                        <span>{r.tempoEsperaMin} min</span>
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400 dark:text-slate-600 font-mono">—</span>
+                                    )}
+                                  </td>
+
+                                  {/* Guichê */}
+                                  <td className="py-3 px-3 whitespace-nowrap">
+                                    {r.guiche && r.guiche !== '—' ? (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono font-medium bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10">
+                                        {r.guiche}
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400 dark:text-slate-600 font-mono">—</span>
+                                    )}
+                                  </td>
+
+                                  {/* Atendente com Avatar Initials */}
+                                  <td className="py-3 px-3 whitespace-nowrap">
+                                    {r.atendente && r.atendente !== '—' ? (
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 rounded-md bg-indigo-100 dark:bg-indigo-500/20 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-[10px] font-bold text-indigo-700 dark:text-indigo-300 shrink-0">
+                                          {initials}
+                                        </div>
+                                        <span className="text-xs font-medium text-slate-800 dark:text-slate-200 uppercase truncate max-w-[140px]">
+                                          {r.atendente}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-slate-400 dark:text-slate-600 font-mono">—</span>
+                                    )}
+                                  </td>
+
+                                  {/* Situação */}
+                                  <td className="py-3 px-4 whitespace-nowrap">
+                                    {getSituacaoBadge(r.situacao)}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
                         </tbody>
                       </table>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2 pt-1">
-                      <span>Exibindo {Math.min(50, previewRecords.length)} de {previewRecords.length} registros</span>
-                      <span className="text-[11px] font-mono text-slate-400">
-                        Clique em qualquer cabeçalho ou selecione no menu para ordenar
-                      </span>
+                    {/* Rodapé com Paginação Padrão Fiorix */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 border-t border-slate-100 dark:border-white/5 text-xs text-slate-600 dark:text-slate-400">
+                      {/* Intervalo Exibido */}
+                      <div className="text-center sm:text-left">
+                        Exibindo{' '}
+                        <strong className="text-slate-900 dark:text-white">
+                          {filteredPreviewList.length === 0 ? 0 : previewStartIndex + 1}
+                        </strong>{' '}
+                        a{' '}
+                        <strong className="text-slate-900 dark:text-white">
+                          {Math.min(previewEndIndex, filteredPreviewList.length)}
+                        </strong>{' '}
+                        de{' '}
+                        <strong className="text-slate-900 dark:text-white">
+                          {filteredPreviewList.length}
+                        </strong>{' '}
+                        registros
+                        {(previewFiltroSituacao !== 'ALL' || previewFiltroServico !== 'ALL' || searchQuery) && (
+                          <span className="ml-1 text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">
+                            (filtrado)
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Controles de Tamanho e Navegação */}
+                      <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
+                        {/* Seletor de Tamanho de Página */}
+                        <div className="flex items-center gap-1.5">
+                          <span>Exibir:</span>
+                          <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#0B1020] p-0.5">
+                            {[10, 25, 50].map((size) => (
+                              <button
+                                key={size}
+                                type="button"
+                                onClick={() => {
+                                  setPreviewPageSize(size);
+                                  setPreviewPage(1);
+                                }}
+                                className={`px-2.5 py-0.5 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
+                                  previewPageSize === size
+                                    ? 'bg-gradient-to-r from-indigo-500 to-amber-500 text-white font-semibold shadow-xs'
+                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                }`}
+                              >
+                                {size}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Botões de Navegação */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            disabled={previewPage <= 1}
+                            onClick={() => setPreviewPage(1)}
+                            className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer shadow-2xs"
+                            title="Primeira Página"
+                          >
+                            <ChevronsLeft className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={previewPage <= 1}
+                            onClick={() => setPreviewPage((p) => Math.max(1, p - 1))}
+                            className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer shadow-2xs"
+                            title="Página Anterior"
+                          >
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                          </button>
+
+                          <span className="px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-white/5 rounded-lg border border-slate-200/60 dark:border-white/10">
+                            {previewPage} / {Math.max(1, previewTotalPages)}
+                          </span>
+
+                          <button
+                            type="button"
+                            disabled={previewPage >= previewTotalPages}
+                            onClick={() => setPreviewPage((p) => Math.min(previewTotalPages, p + 1))}
+                            className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer shadow-2xs"
+                            title="Próxima Página"
+                          >
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={previewPage >= previewTotalPages}
+                            onClick={() => setPreviewPage(previewTotalPages)}
+                            className="h-8 w-8 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1020] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:pointer-events-none transition-all flex items-center justify-center cursor-pointer shadow-2xs"
+                            title="Última Página"
+                          >
+                            <ChevronsRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
