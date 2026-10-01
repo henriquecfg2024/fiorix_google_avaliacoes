@@ -167,10 +167,10 @@ export const navigationGroups = {
         description: "Saúde e monitoramento",
       },
       {
-        label: "Importações",
+        label: "Importação de Contingência",
         href: "/bi/importacoes",
         icon: Upload,
-        description: "4 falhas ontem",
+        description: "Carga manual de contingência",
       },
       { label: "Configurações", href: "/configuracoes", icon: Settings2 },
       {

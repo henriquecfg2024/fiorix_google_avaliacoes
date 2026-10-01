@@ -34,17 +34,17 @@ export function getHomeRouteForRole(userOrRole?: UserLike | string | null): stri
   const role = typeof userOrRole === 'string' ? userOrRole : userOrRole?.role;
   switch (role) {
     case 'COLABORADOR':
-    case 'USER':
       return '/minha-it';
     case 'RH':
       return '/sistema/pessoas';
     case 'SUBSTITUTO':
       return '/administracao/its';
+    case 'USER':
     case 'ADMIN':
     case 'MASTER':
       return '/dashboard';
     default:
-      return '/minha-it';
+      return '/dashboard';
   }
 }
 

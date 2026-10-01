@@ -8,7 +8,7 @@ import { recordAuditLog } from "@/lib/audit";
 
 export async function deleteImportRecord(
   id: string,
-  source: "BI" | "PRODUTIVIDADE" | "METAS" | "TAREFAS" | "RETORNOS" | "IMPRESSOES" | "ANDAMENTOS"
+  source: "BI" | "PRODUTIVIDADE" | "METAS" | "TAREFAS" | "RETORNOS" | "IMPRESSOES"
 ) {
   try {
     const user = await requireRole("ADMIN", "MASTER");
@@ -109,7 +109,6 @@ export async function deleteImportRecord(
     revalidatePath("/bi/tarefas");
     revalidatePath("/bi/retornos");
     revalidatePath("/bi/controle-impressoes");
-    revalidatePath("/bi/auditoria");
     revalidatePath("/bi");
     return { success: true };
   } catch (error: any) {

@@ -1,12 +1,41 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DeleteImportButton } from "@/components/bi/DeleteImportButton";
 import type { UnifiedImportRecord } from "@/lib/import-history";
+
+function getOrigin(row: UnifiedImportRecord) {
+  if (row.origin === "inferred") {
+    return {
+      type: "inferred" as const,
+      label: "Histórico inferido",
+      badgeClass: "bg-slate-500/15 text-slate-300 border-slate-500/30",
+    };
+  }
+
+  const isConnector =
+    row.importedBy?.toLowerCase().includes("connector") ||
+    row.fileName?.toLowerCase().includes("connector") ||
+    row.id?.startsWith("connector-");
+
+  if (isConnector) {
+    return {
+      type: "connector" as const,
+      label: "FIORIX Connector",
+      badgeClass: "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
+    };
+  }
+
+  return {
+    type: "manual" as const,
+    label: "Importação manual",
+    badgeClass: "bg-purple-500/15 text-purple-300 border-purple-500/30",
+  };
+}
 
 function formatMonthLabel(start: string | null, end: string | null) {
   if (!start) return null;
@@ -129,7 +158,14 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
       const ref = String(displayReference(r)).toLowerCase();
       const source = String(r.source || "").toLowerCase();
       const importedBy = String(r.importedBy || "").toLowerCase();
-      return fileName.includes(term) || ref.includes(term) || source.includes(term) || importedBy.includes(term);
+      const origin = getOrigin(r).label.toLowerCase();
+      return (
+        fileName.includes(term) ||
+        ref.includes(term) ||
+        source.includes(term) ||
+        importedBy.includes(term) ||
+        origin.includes(term)
+      );
     });
   }, [rows, searchTerm]);
 
@@ -150,7 +186,7 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
           <div className="relative w-full sm:w-80">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/40" />
             <Input
-              placeholder="Buscar por arquivo ou origem..."
+              placeholder="Buscar por origem, módulo ou arquivo..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -167,6 +203,7 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
           <thead className="select-none bg-slate-50 dark:bg-[#0B1020] text-xs uppercase tracking-wider text-slate-600 dark:text-white/58 border-b border-white/8">
             <tr>
               <th className="px-4 py-3.5 font-semibold">Origem</th>
+              <th className="px-4 py-3.5 font-semibold">Módulo</th>
               <th className="px-4 py-3.5 font-semibold">Arquivo / Referência</th>
               <th className="px-4 py-3.5 font-semibold">Período</th>
               <th className="px-4 py-3.5 font-semibold">Data/Hora</th>
@@ -180,23 +217,26 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
           <tbody className="divide-y divide-white/8 bg-transparent">
             {paginatedRows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="p-8 text-center text-xs text-slate-400 dark:text-white/30">
+                <td colSpan={10} className="p-8 text-center text-xs text-slate-400 dark:text-white/30">
                   Nenhuma importação encontrada.
                 </td>
               </tr>
             ) : (
               paginatedRows.map((row) => {
+                const originInfo = getOrigin(row);
                 const isCompleted =
                   row.status === "Concluído" || row.status === "SUCCESS" || row.status === "COMPLETED";
+                const isFailed = row.status === "FAILED" || row.status === "Falhou";
+
                 return (
                   <tr key={`${row.source}-${row.id}`} className="transition hover:bg-slate-50 dark:hover:bg-white/[0.03] text-slate-700 dark:text-white/80 align-top">
                     <td className="px-4 py-3">
-                      <div className="space-y-1.5">
-                        {sourceBadge(row.source)}
-                        {row.origin === "inferred" && (
-                          <div className="text-[10px] text-slate-500 dark:text-white/45">Histórico inferido pela base</div>
-                        )}
-                      </div>
+                      <Badge className={`font-semibold border ${originInfo.badgeClass}`}>
+                        {originInfo.label}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      {sourceBadge(row.source)}
                     </td>
                     <td className="px-4 py-3 text-slate-900 dark:text-white">
                       <div className="font-semibold break-all">{displayReference(row)}</div>
@@ -204,7 +244,10 @@ export function ImportTableClient({ rows, showSearch = false }: ImportTableClien
                         <div className="mt-0.5 text-xs text-slate-500 dark:text-white/45 break-all">{row.fileName}</div>
                       )}
                       {row.errorMessage && (
-                        <div className="mt-0.5 text-xs text-red-300">{row.errorMessage}</div>
+                        <div className="mt-1.5 flex items-start gap-1 rounded-md border border-red-500/25 bg-red-500/10 p-1.5 text-[11px] text-red-300">
+                          <AlertCircle className="h-3.5 w-3.5 shrink-0 text-red-400 mt-0.5" />
+                          <span>{row.errorMessage}</span>
+                        </div>
                       )}
                     </td>
                     <td className="px-4 py-3 text-slate-600 dark:text-white/70">{formatPeriod(row.periodStart, row.periodEnd)}</td>

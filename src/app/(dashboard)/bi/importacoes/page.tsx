@@ -2,15 +2,22 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   Activity,
-  ArrowLeft,
+  AlertCircle,
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  Clock,
   Database,
   FileSpreadsheet,
   Layers3,
   Printer,
   RotateCcw,
   Target,
+  UploadCloud,
+  Users,
 } from "lucide-react";
 
+import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-helpers";
 import { ImportacoesActions } from "@/components/bi/ImportacoesActions";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +37,19 @@ import {
 import { ImportTableClient } from "@/components/bi/ImportTableClient";
 import { AutoRefresh } from "@/components/bi/AutoRefresh";
 
+function formatDateTime(value: string | null | Date) {
+  if (!value) return "Nenhuma registrada";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Nenhuma registrada";
+  return date.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default async function BiImportacoesPage() {
   let user;
   try {
@@ -40,7 +60,9 @@ export default async function BiImportacoesPage() {
 
   const tenantId = user.tenantId;
 
+  // Carregar dados de histórico e status do conector em paralelo
   const [
+    connector,
     biImports,
     produtividadeLogs,
     produtividadeInferred,
@@ -51,6 +73,21 @@ export default async function BiImportacoesPage() {
     impressoesLogs,
     impressoesInferred,
   ] = await Promise.all([
+    prisma.connector
+      .findFirst({
+        where: {
+          tenantId,
+          enabled: true,
+          id: { not: "substituir_pelo_id_fornecido" },
+        },
+        select: {
+          id: true,
+          name: true,
+          lastSeenAt: true,
+          status: true,
+        },
+      })
+      .catch(() => null),
     listBiImports(tenantId).catch((err) => {
       console.error("listBiImports error:", err);
       return [];
@@ -88,6 +125,14 @@ export default async function BiImportacoesPage() {
       return [];
     }),
   ]);
+
+  // Avaliação da saúde do FIORIX Connector
+  const isConnectorOperational = Boolean(
+    connector &&
+      connector.lastSeenAt &&
+      Date.now() - new Date(connector.lastSeenAt).getTime() <= 300000 && // 5 minutos de tolerância
+      String(connector.status || "").toLowerCase() !== "offline"
+  );
 
   // Filtragem de períodos inferidos sobrepostos aos logs formais
   const loggedProdPeriods = new Set(
@@ -128,17 +173,30 @@ export default async function BiImportacoesPage() {
     return dateB - dateA;
   });
 
-  const biCount = biImports.length;
-  const produtividadeCount = produtividadeLogs.length;
-  const metasCount = metasImports.length;
-  const tarefasCount = tarefasImports.length;
-  const retornosCount = retornosAll.length;
-  const impressoesCount = impressoesAll.length;
-  const totalInferredCount =
-    produtividadeInferredFiltered.length +
-    retornosInferredFiltered.length +
-    impressoesInferredFiltered.length;
-  const totalRows = unifiedRows.reduce((sum, row) => sum + Number(row.rowsCount || 0), 0);
+  // Métricas de contingência
+  const isConnectorRow = (row: UnifiedImportRecord) =>
+    row.origin !== "inferred" &&
+    (row.importedBy?.toLowerCase().includes("connector") ||
+      row.fileName?.toLowerCase().includes("connector") ||
+      row.id?.startsWith("connector-"));
+
+  const manualRows = unifiedRows.filter(
+    (row) => row.origin !== "inferred" && !isConnectorRow(row)
+  );
+
+  const lastManual = manualRows[0] || null;
+  const manualFilesCount = manualRows.length;
+  const manualTotalLines = manualRows.reduce(
+    (sum, r) => sum + Number(r.rowsCount || 0),
+    0
+  );
+
+  const pendingCount = unifiedRows.filter((r) =>
+    ["PROCESSING", "PROCESSANDO", "FAILED", "FALHOU"].includes(
+      String(r.status || "").toUpperCase()
+    )
+  ).length;
+
   const hasActiveImports = unifiedRows.some((row) =>
     ["PROCESSING", "PROCESSANDO"].includes(String(row.status || "").toUpperCase())
   );
@@ -152,7 +210,7 @@ export default async function BiImportacoesPage() {
       </div>
 
       <main className="relative mx-auto max-w-[1700px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        {/* Header */}
+        {/* Header da Tela */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
           <div>
             <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
@@ -160,157 +218,292 @@ export default async function BiImportacoesPage() {
               <span className="text-slate-400 dark:text-slate-600">/</span>
               <span>Sistema</span>
               <span className="text-slate-400 dark:text-slate-600">/</span>
-              <span className="text-amber-600 dark:text-amber-300">Importações</span>
+              <span className="text-amber-600 dark:text-amber-300">
+                Importação de Contingência
+              </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mt-1">
-              Gestão de Importações
+              Importação de Contingência
             </h1>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-white/60 mt-1 max-w-4xl">
+              Envie arquivos manualmente somente quando o FIORIX Connector estiver indisponível.
+              Os dados enviados passam por validação antes da atualização dos indicadores.
+            </p>
           </div>
 
           <Badge className="rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 font-sans text-xs font-semibold text-amber-700 dark:text-amber-300 self-start sm:self-center">
-            HISTÓRICO DE CARGAS
+            RECURSO DE CONTINGÊNCIA
           </Badge>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-3">
-          <ImportacoesActions />
+        {/* Banner Contextual de Estado do Conector */}
+        {isConnectorOperational ? (
+          <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-4 shadow-sm backdrop-blur-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="rounded-xl bg-emerald-500/20 p-2 text-emerald-400 shrink-0">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-emerald-300">
+                  FIORIX Connector operacional
+                </div>
+                <div className="text-xs text-emerald-300/80 mt-0.5">
+                  A importação manual deve ser utilizada somente em caso de indisponibilidade ou
+                  orientação técnica.
+                </div>
+              </div>
+            </div>
+
+            <Link href="/sistema/operacoes">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-emerald-500/30 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25 text-xs font-semibold shrink-0 cursor-pointer"
+              >
+                <Activity className="h-3.5 w-3.5" />
+                Ver Central de Operações
+                <ArrowRight className="h-3 w-3" />
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-amber-500/35 bg-amber-500/10 p-4 shadow-sm backdrop-blur-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="rounded-xl bg-amber-500/20 p-2 text-amber-400 shrink-0">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-amber-200">
+                  Atenção: FIORIX Connector indisponível
+                </div>
+                <div className="text-xs text-amber-200/80 mt-0.5">
+                  Você pode utilizar a importação manual de contingência para manter os dados e
+                  indicadores atualizados.
+                </div>
+              </div>
+            </div>
+
+            <Link href="/sistema/operacoes">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-amber-500/40 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25 text-xs font-semibold shrink-0 cursor-pointer"
+              >
+                <Activity className="h-3.5 w-3.5" />
+                Ver Central de Operações
+                <ArrowRight className="h-3 w-3" />
+              </Button>
+            </Link>
+          </div>
+        )}
+
+        {/* 4 Cards Métricos de Contingência */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Última importação manual */}
+          <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-4 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20 flex items-start justify-between">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">
+                Última importação manual
+              </div>
+              <div className="mt-2 text-lg sm:text-xl font-bold text-purple-600 dark:text-purple-300">
+                {lastManual ? formatDateTime(lastManual.importedAt) : "Nenhuma registrada"}
+              </div>
+              <div className="mt-1 text-xs text-slate-500 dark:text-white/45 truncate max-w-[220px]">
+                {lastManual
+                  ? lastManual.importedBy
+                    ? `Por ${lastManual.importedBy}`
+                    : "Envio manual"
+                  : "Sem envios manuais recentes"}
+              </div>
+            </div>
+            <div className="rounded-xl bg-purple-500/10 p-2.5 text-purple-400">
+              <Clock className="h-5 w-5" />
+            </div>
+          </div>
+
+          {/* Card 2: Arquivos processados no período */}
+          <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-4 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20 flex items-start justify-between">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">
+                Arquivos processados no período
+              </div>
+              <div className="mt-2 text-2xl font-bold text-emerald-600 dark:text-emerald-300">
+                {manualFilesCount}
+              </div>
+              <div className="mt-1 text-xs text-slate-500 dark:text-white/45">
+                {manualFilesCount === 1
+                  ? "1 arquivo manual enviado"
+                  : `${manualFilesCount} arquivos manuais enviados`}
+              </div>
+            </div>
+            <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-400">
+              <FileSpreadsheet className="h-5 w-5" />
+            </div>
+          </div>
+
+          {/* Card 3: Linhas importadas no período */}
+          <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-4 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20 flex items-start justify-between">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">
+                Linhas importadas no período
+              </div>
+              <div className="mt-2 text-2xl font-bold text-cyan-600 dark:text-cyan-300">
+                {manualTotalLines.toLocaleString("pt-BR")}
+              </div>
+              <div className="mt-1 text-xs text-slate-500 dark:text-white/45">
+                registros manuais de contingência
+              </div>
+            </div>
+            <div className="rounded-xl bg-cyan-500/10 p-2.5 text-cyan-400">
+              <Layers3 className="h-5 w-5" />
+            </div>
+          </div>
+
+          {/* Card 4: Pendências de validação */}
+          <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-4 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20 flex items-start justify-between">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">
+                Pendências de validação
+              </div>
+              <div
+                className={`mt-2 text-2xl font-bold ${
+                  pendingCount > 0
+                    ? "text-amber-500 dark:text-amber-300"
+                    : "text-emerald-600 dark:text-emerald-300"
+                }`}
+              >
+                {pendingCount > 0
+                  ? `${pendingCount} pendência${pendingCount > 1 ? "s" : ""}`
+                  : "0 pendências"}
+              </div>
+              <div className="mt-1 text-xs text-slate-500 dark:text-white/45">
+                {pendingCount > 0
+                  ? "Cargas com falha ou em processamento"
+                  : "Todas as cargas validadas"}
+              </div>
+            </div>
+            <div
+              className={`rounded-xl p-2.5 ${
+                pendingCount > 0
+                  ? "bg-amber-500/10 text-amber-400"
+                  : "bg-emerald-500/10 text-emerald-400"
+              }`}
+            >
+              {pendingCount > 0 ? (
+                <AlertCircle className="h-5 w-5" />
+              ) : (
+                <CheckCircle2 className="h-5 w-5" />
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Metric Cards Grid */}
-        <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-3">
-          <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-3.5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Módulo BI</div>
-            <div className="mt-2 text-2xl font-bold text-cyan-600 dark:text-cyan-300">{biCount}</div>
-            <div className="mt-1 text-xs text-slate-500 dark:text-white/45">importações</div>
-          </div>
+        {/* Área de Ações de Envio e Avançadas */}
+        <ImportacoesActions />
 
-          <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-3.5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Produtividade</div>
-            <div className="mt-2 text-2xl font-bold text-emerald-600 dark:text-emerald-300">{produtividadeCount}</div>
-            <div className="mt-1 text-xs text-slate-500 dark:text-white/45">importações</div>
-          </div>
-
-          <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-3.5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Metas</div>
-            <div className="mt-2 text-2xl font-bold text-violet-600 dark:text-violet-300">{metasCount}</div>
-            <div className="mt-1 text-xs text-slate-500 dark:text-white/45">importações</div>
-          </div>
-
-          <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-3.5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Tarefas</div>
-            <div className="mt-2 text-2xl font-bold text-purple-600 dark:text-purple-300">{tarefasCount}</div>
-            <div className="mt-1 text-xs text-slate-500 dark:text-white/45">importações</div>
-          </div>
-
-          <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-3.5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Retornos</div>
-            <div className="mt-2 text-2xl font-bold text-blue-600 dark:text-blue-300">{retornosCount}</div>
-            <div className="mt-1 text-xs text-slate-500 dark:text-white/45">importações</div>
-          </div>
-
-          <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-3.5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Impressões</div>
-            <div className="mt-2 text-2xl font-bold text-amber-600 dark:text-amber-300">{impressoesCount}</div>
-            <div className="mt-1 text-xs text-slate-500 dark:text-white/45">importações</div>
-          </div>
-
-          <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-3.5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Inferidos</div>
-            <div className="mt-2 text-2xl font-bold text-indigo-600 dark:text-indigo-300">{totalInferredCount}</div>
-            <div className="mt-1 text-xs text-slate-500 dark:text-white/45">lotes inferidos</div>
-          </div>
-
-          <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-3.5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Total Linhas</div>
-            <div className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{totalRows.toLocaleString("pt-BR")}</div>
-            <div className="mt-1 text-xs text-slate-500 dark:text-white/45">em todas as fontes</div>
-          </div>
-        </div>
-
-        {/* Histórico Unificado */}
+        {/* Histórico de Importações (Tabela Principal) */}
         <div className="rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-4">
-          <div className="flex items-center gap-2">
-            <Database className="h-4 w-4 text-cyan-300" />
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Histórico Unificado</h2>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-white/8 pb-3">
+            <div className="flex items-center gap-2">
+              <Database className="h-4 w-4 text-cyan-300" />
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                Histórico de Importações
+              </h2>
+            </div>
+            <div className="text-xs text-slate-500 dark:text-white/45">
+              Exibindo histórico unificado com badges de origem (FIORIX Connector, Manual e Inferido).
+            </div>
           </div>
+
           <ImportTableClient rows={unifiedRows} showSearch />
         </div>
 
-        {/* Grid de Cards Individuais das Procedures */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
-          {/* Produtividade */}
-          <div className="rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-4">
+        {/* Detalhamento por Módulo (Preservação Retrocompatível de Vistas Especializadas) */}
+        <details className="group rounded-[28px] border border-white/10 bg-[#0B1020]/50 p-6 shadow-sm backdrop-blur-xl">
+          <summary className="flex cursor-pointer items-center justify-between text-base font-semibold text-slate-900 dark:text-white select-none">
             <div className="flex items-center gap-2">
-              <FileSpreadsheet className="h-4 w-4 text-emerald-300" />
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Produtividade</h2>
+              <Layers3 className="h-4 w-4 text-violet-400" />
+              <span>Detalhamento por Módulo (Visualização Especializada)</span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-white/55">
-              Entradas de produtividade (<span className="text-emerald-400">dbo.pr_Fiorix_BI_Produtividade</span>).
-            </p>
-            <ImportTableClient rows={produtividadeAll} />
-          </div>
+            <span className="text-xs font-normal text-white/50 group-open:hidden">
+              Clique para expandir tabelas individuais por módulo
+            </span>
+          </summary>
 
-          {/* Módulo BI */}
-          <div className="rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-4">
-            <div className="flex items-center gap-2">
-              <Database className="h-4 w-4 text-cyan-300" />
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Módulo BI</h2>
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {/* Produtividade */}
+            <div className="rounded-2xl border border-white/10 bg-[#0B1020]/90 p-5 shadow-sm space-y-3">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="h-4 w-4 text-emerald-300" />
+                <h3 className="text-sm font-semibold text-white">Produtividade</h3>
+              </div>
+              <p className="text-xs text-white/55">
+                Entradas de produtividade (dbo.pr_Fiorix_BI_Produtividade).
+              </p>
+              <ImportTableClient rows={produtividadeAll} />
             </div>
-            <p className="text-xs text-slate-500 dark:text-white/55">
-              Entradas da tabela <span className="text-cyan-400">fiorix_bi_imports</span> (dbo.pr_Fiorix_BI).
-            </p>
-            <ImportTableClient rows={biImports} />
-          </div>
 
-          {/* Metas */}
-          <div className="rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-4">
-            <div className="flex items-center gap-2">
-              <Target className="h-4 w-4 text-violet-300" />
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Metas</h2>
+            {/* Módulo BI */}
+            <div className="rounded-2xl border border-white/10 bg-[#0B1020]/90 p-5 shadow-sm space-y-3">
+              <div className="flex items-center gap-2">
+                <Database className="h-4 w-4 text-cyan-300" />
+                <h3 className="text-sm font-semibold text-white">Módulo BI</h3>
+              </div>
+              <p className="text-xs text-white/55">
+                Entradas da tabela fiorix_bi_imports (dbo.pr_Fiorix_BI).
+              </p>
+              <ImportTableClient rows={biImports} />
             </div>
-            <p className="text-xs text-slate-500 dark:text-white/55">
-              Entradas da tabela <span className="text-violet-400">fiorix_metas_imports</span> (dbo.pr_Fiorix_BI_METAS).
-            </p>
-            <ImportTableClient rows={metasImports} />
-          </div>
 
-          {/* Tarefas */}
-          <div className="rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-4">
-            <div className="flex items-center gap-2">
-              <Layers3 className="h-4 w-4 text-purple-300" />
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Tarefas</h2>
+            {/* Metas */}
+            <div className="rounded-2xl border border-white/10 bg-[#0B1020]/90 p-5 shadow-sm space-y-3">
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-violet-300" />
+                <h3 className="text-sm font-semibold text-white">Metas</h3>
+              </div>
+              <p className="text-xs text-white/55">
+                Entradas da tabela fiorix_metas_imports (dbo.pr_Fiorix_BI_METAS).
+              </p>
+              <ImportTableClient rows={metasImports} />
             </div>
-            <p className="text-xs text-slate-500 dark:text-white/55">
-              Entradas da tabela <span className="text-purple-400">fiorix_tarefas_imports</span> (dbo.pr_Fiorix_BI_TAREFAS).
-            </p>
-            <ImportTableClient rows={tarefasImports} />
-          </div>
 
-          {/* Retornos */}
-          <div className="rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-4">
-            <div className="flex items-center gap-2">
-              <RotateCcw className="h-4 w-4 text-blue-300" />
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Retornos</h2>
+            {/* Tarefas */}
+            <div className="rounded-2xl border border-white/10 bg-[#0B1020]/90 p-5 shadow-sm space-y-3">
+              <div className="flex items-center gap-2">
+                <Layers3 className="h-4 w-4 text-purple-300" />
+                <h3 className="text-sm font-semibold text-white">Tarefas</h3>
+              </div>
+              <p className="text-xs text-white/55">
+                Entradas da tabela fiorix_tarefas_imports (dbo.pr_Fiorix_BI_TAREFAS).
+              </p>
+              <ImportTableClient rows={tarefasImports} />
             </div>
-            <p className="text-xs text-slate-500 dark:text-white/55">
-              Entradas da procedure <span className="text-blue-400">dbo.pr_Fiorix_BI_Retornos</span> (Notas Devolutivas).
-            </p>
-            <ImportTableClient rows={retornosAll} />
-          </div>
 
-          {/* Impressões */}
-          <div className="rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-4">
-            <div className="flex items-center gap-2">
-              <Printer className="h-4 w-4 text-amber-300" />
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Impressões</h2>
+            {/* Retornos */}
+            <div className="rounded-2xl border border-white/10 bg-[#0B1020]/90 p-5 shadow-sm space-y-3">
+              <div className="flex items-center gap-2">
+                <RotateCcw className="h-4 w-4 text-blue-300" />
+                <h3 className="text-sm font-semibold text-white">Retornos</h3>
+              </div>
+              <p className="text-xs text-white/55">
+                Entradas da procedure dbo.pr_Fiorix_BI_Retornos (Notas Devolutivas).
+              </p>
+              <ImportTableClient rows={retornosAll} />
             </div>
-            <p className="text-xs text-slate-500 dark:text-white/55">
-              Entradas da procedure <span className="text-amber-400">dbo.pr_Fiorix_BI_Impressoes</span> (Livro e Certidão).
-            </p>
-            <ImportTableClient rows={impressoesAll} />
+
+            {/* Impressões */}
+            <div className="rounded-2xl border border-white/10 bg-[#0B1020]/90 p-5 shadow-sm space-y-3">
+              <div className="flex items-center gap-2">
+                <Printer className="h-4 w-4 text-amber-300" />
+                <h3 className="text-sm font-semibold text-white">Impressões</h3>
+              </div>
+              <p className="text-xs text-white/55">
+                Entradas da procedure dbo.pr_Fiorix_BI_Impressoes (Livro e Certidão).
+              </p>
+              <ImportTableClient rows={impressoesAll} />
+            </div>
           </div>
-        </div>
+        </details>
       </main>
     </div>
   );
