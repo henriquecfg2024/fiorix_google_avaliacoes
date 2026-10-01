@@ -31,7 +31,6 @@ const FALLBACK_SNAPSHOT: OperationsHealthSnapshot = {
     { module: 'Tarefas', key: 'tarefas', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 3600, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
     { module: 'Retornos', key: 'retornos', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 3600, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
     { module: 'Impressões', key: 'impressoes', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 3600, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
-    { module: 'Andamentos', key: 'andamentos', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 3600, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
   ],
   connector: {
     status: 'UNKNOWN',

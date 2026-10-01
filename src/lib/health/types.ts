@@ -16,7 +16,7 @@ export interface ServiceHealthItem {
 
 export interface IncrementalModuleStatus {
   module: string;
-  key: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes' | 'andamentos';
+  key: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes';
   status: 'OK' | 'WARNING' | 'ERROR' | 'UNKNOWN';
   lastSyncAt: string | null;
   nextExpectedAt: string | null;

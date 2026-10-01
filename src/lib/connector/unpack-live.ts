@@ -378,67 +378,6 @@ export async function unpackLiveRecords({
         tenantId,
         recordsJson
       );
-    } else if (source === 'andamentos') {
-      await prisma.$executeRawUnsafe(
-        `
-        WITH batch_records AS (
-          SELECT DISTINCT ON ((item->>'IdAndamento')::bigint)
-            $1::text AS tenant_id,
-            (item->>'IdAndamento')::bigint AS id_andamento,
-            COALESCE((item->>'Protocolo')::int, (item->>'protocolo')::int, (item->>'NumeroPrenotacao')::int, (item->>'numero_prenotacao')::int, 0) AS protocolo,
-            COALESCE((item->>'SeqTitulo')::int, (item->>'seq_titulo')::int, 1) AS seq_titulo,
-            CASE 
-              WHEN item->>'DataAndamento' IS NOT NULL AND item->>'DataAndamento' <> '' THEN (item->>'DataAndamento')::timestamptz 
-              WHEN item->>'data_andamento' IS NOT NULL AND item->>'data_andamento' <> '' THEN (item->>'data_andamento')::timestamptz 
-              WHEN item->>'Data' IS NOT NULL AND item->>'Data' <> '' THEN (item->>'Data')::timestamptz 
-              ELSE NOW() 
-            END AS data_andamento,
-            COALESCE((item->>'IdTipoAndamento')::int, (item->>'id_tipo_andamento')::int, 0) AS id_tipo_andamento,
-            COALESCE(item->>'SiglaAndamento', item->>'sigla_andamento', item->>'Sigla', '') AS sigla_andamento,
-            COALESCE(item->>'TipoAndamento', item->>'tipo_andamento', item->>'Descricao', '') AS tipo_andamento,
-            COALESCE(item->>'Natureza', item->>'natureza', '') AS natureza,
-            COALESCE(item->>'TipoPrenotacao', item->>'tipo_prenotacao', '') AS tipo_prenotacao,
-            COALESCE(item->>'IdUsuarioOrigem', item->>'id_usuario_origem', NULL) AS id_usuario_origem,
-            COALESCE(item->>'UsuarioOrigem', item->>'usuario_origem', '') AS usuario_origem,
-            COALESCE(item->>'IdUsuarioDestino', item->>'id_usuario_destino', NULL) AS id_usuario_destino,
-            COALESCE(item->>'UsuarioDestino', item->>'usuario_destino', '') AS usuario_destino,
-            COALESCE(item->>'Observacao', item->>'observacao', '') AS observacao
-          FROM jsonb_array_elements($2::jsonb) AS item
-          WHERE item->>'IdAndamento' IS NOT NULL
-        )
-        INSERT INTO public.fiorix_andamentos_dados (
-          tenant_id, id_andamento, protocolo, seq_titulo, data_andamento,
-          id_tipo_andamento, sigla_andamento, tipo_andamento, natureza,
-          tipo_prenotacao, id_usuario_origem, usuario_origem,
-          id_usuario_destino, usuario_destino, observacao,
-          created_at, updated_at
-        )
-        SELECT 
-          tenant_id, id_andamento, protocolo, seq_titulo, data_andamento,
-          id_tipo_andamento, sigla_andamento, tipo_andamento, natureza,
-          tipo_prenotacao, id_usuario_origem, usuario_origem,
-          id_usuario_destino, usuario_destino, observacao,
-          NOW(), NOW()
-        FROM batch_records
-        ON CONFLICT (tenant_id, id_andamento) DO UPDATE SET
-          protocolo = EXCLUDED.protocolo,
-          seq_titulo = EXCLUDED.seq_titulo,
-          data_andamento = EXCLUDED.data_andamento,
-          id_tipo_andamento = EXCLUDED.id_tipo_andamento,
-          sigla_andamento = EXCLUDED.sigla_andamento,
-          tipo_andamento = EXCLUDED.tipo_andamento,
-          natureza = EXCLUDED.natureza,
-          tipo_prenotacao = EXCLUDED.tipo_prenotacao,
-          id_usuario_origem = EXCLUDED.id_usuario_origem,
-          usuario_origem = EXCLUDED.usuario_origem,
-          id_usuario_destino = EXCLUDED.id_usuario_destino,
-          usuario_destino = EXCLUDED.usuario_destino,
-          observacao = EXCLUDED.observacao,
-          updated_at = NOW();
-      `,
-        tenantId,
-        recordsJson
-      );
     }
   } catch (err) {
     console.error(`UNPACK_LIVE_RECORDS_ERROR [${source}]:`, err);

@@ -46,12 +46,14 @@ describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
     ]);
 
     expect(navigationGroups.operacional.items.map((i) => i.href)).toEqual([
-      '/controle-impressoes',
-      '/bi',
-      '/bi/metas',
-      '/bi/tarefas',
+      '/espera',
       '/bi/produtividade',
-      '/bi/auditoria',
+      '/bi',
+      '/bi/tarefas',
+      '/bi/metas',
+      '/bi/retornos',
+      '/controle-impressoes',
+      '/trajetoria-titulo',
     ]);
 
     expect((navigationGroups.rhGestao as any).href).toBe('/sistema/pessoas');
@@ -66,7 +68,6 @@ describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
       '/pessoas/comunicados',
       '/sistema/pessoas?tab=comunicados',
       '/minha-it',
-      '/trajetoria-titulo',
     ]);
 
     expect(navigationGroups.pessoas.items.map((i) => i.href)).toEqual([
@@ -93,7 +94,7 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
     const groups = filterNavigationByRole('COLABORADOR');
     const groupKeys = Object.keys(groups);
 
-    expect(groupKeys).toEqual(['trabalho', 'pessoas']);
+    expect(groupKeys).toEqual(['operacional', 'trabalho', 'pessoas']);
     expect(groups.trabalho.label).toBe('ROTINA DE TRABALHO');
     expect(groups.pessoas.label).toBe('MEU ESPAÇO');
 

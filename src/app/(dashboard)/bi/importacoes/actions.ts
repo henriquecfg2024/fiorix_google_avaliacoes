@@ -86,23 +86,6 @@ export async function deleteImportRecord(
           Prisma.sql`DELETE FROM public.fiorix_impressoes_imports WHERE id = ${numericId} AND tenant_id = ${user.tenantId}`
         );
       }
-    } else if (source === "ANDAMENTOS") {
-      if (id.startsWith("inferred-")) {
-        const ym = id.replace("inferred-andamentos-", "");
-        await prisma.$executeRaw(
-          Prisma.sql`
-            DELETE FROM public.fiorix_andamentos_dados 
-            WHERE tenant_id = ${user.tenantId} 
-              AND to_char(data_andamento, 'YYYY-MM') = ${ym}
-          `
-        );
-      } else {
-        const numericId = parseInt(id, 10);
-        if (isNaN(numericId)) throw new Error("ID inválido para ANDAMENTOS");
-        await prisma.$executeRaw(
-          Prisma.sql`DELETE FROM public.fiorix_andamentos_imports WHERE id = ${numericId} AND tenant_id = ${user.tenantId}`
-        );
-      }
     } else if (source === "BI") {
       await prisma.fiorixBiImport.deleteMany({
         where: { id, tenantId: user.tenantId },
@@ -258,36 +241,9 @@ export async function clearAllImpressoesData() {
 
     revalidatePath("/bi/importacoes");
     revalidatePath("/bi/controle-impressoes");
-    revalidatePath("/bi/auditoria");
     return { success: true };
   } catch (error: any) {
     console.error("Failed to clear impressoes data:", error);
     return { error: "Erro ao limpar dados de impressões" };
-  }
-}
-
-export async function clearAllAndamentosData() {
-  try {
-    const user = await requireRole("ADMIN", "MASTER");
-    await prisma.$executeRaw(
-      Prisma.sql`DELETE FROM public.fiorix_andamentos_dados WHERE tenant_id = ${user.tenantId}`
-    );
-    await prisma.$executeRaw(
-      Prisma.sql`DELETE FROM public.fiorix_andamentos_imports WHERE tenant_id = ${user.tenantId}`
-    );
-
-    await recordAuditLog({
-      modulo: "BI_IMPORTACOES",
-      acao: "EXCLUSAO",
-      registroDescricao: "Limpeza total da base de Andamentos",
-      userOverride: user,
-    });
-
-    revalidatePath("/bi/importacoes");
-    revalidatePath("/bi/auditoria");
-    return { success: true };
-  } catch (error: any) {
-    console.error("Failed to clear andamentos data:", error);
-    return { error: "Erro ao limpar dados de andamentos" };
   }
 }

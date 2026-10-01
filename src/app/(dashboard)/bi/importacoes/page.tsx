@@ -25,8 +25,6 @@ import {
   listRetornosInferredPeriods,
   listImpressoesImportLogs,
   listImpressoesInferredPeriods,
-  listAndamentosImportLogs,
-  listAndamentosInferredPeriods,
   type UnifiedImportRecord,
 } from "@/lib/import-history";
 import { ImportTableClient } from "@/components/bi/ImportTableClient";
@@ -52,8 +50,6 @@ export default async function BiImportacoesPage() {
     retornosInferred,
     impressoesLogs,
     impressoesInferred,
-    andamentosLogs,
-    andamentosInferred,
   ] = await Promise.all([
     listBiImports(tenantId).catch((err) => {
       console.error("listBiImports error:", err);
@@ -91,14 +87,6 @@ export default async function BiImportacoesPage() {
       console.error("listImpressoesInferredPeriods error:", err);
       return [];
     }),
-    listAndamentosImportLogs(tenantId).catch((err) => {
-      console.error("listAndamentosImportLogs error:", err);
-      return [];
-    }),
-    listAndamentosInferredPeriods(tenantId).catch((err) => {
-      console.error("listAndamentosInferredPeriods error:", err);
-      return [];
-    }),
   ]);
 
   // Filtragem de períodos inferidos sobrepostos aos logs formais
@@ -123,16 +111,8 @@ export default async function BiImportacoesPage() {
     (row) => !loggedImpressoesPeriods.has(`${row.periodStart || ""}|${row.periodEnd || ""}`)
   );
 
-  const loggedAndamentosPeriods = new Set(
-    andamentosLogs.map((row) => `${row.periodStart || ""}|${row.periodEnd || ""}`)
-  );
-  const andamentosInferredFiltered = andamentosInferred.filter(
-    (row) => !loggedAndamentosPeriods.has(`${row.periodStart || ""}|${row.periodEnd || ""}`)
-  );
-
   const retornosAll = [...retornosLogs, ...retornosInferredFiltered];
   const impressoesAll = [...impressoesLogs, ...impressoesInferredFiltered];
-  const andamentosAll = [...andamentosLogs, ...andamentosInferredFiltered];
   const produtividadeAll = [...produtividadeLogs, ...produtividadeInferredFiltered];
 
   const unifiedRows = [
@@ -142,7 +122,6 @@ export default async function BiImportacoesPage() {
     ...tarefasImports,
     ...retornosAll,
     ...impressoesAll,
-    ...andamentosAll,
   ].sort((a, b) => {
     const dateA = a.importedAt ? new Date(a.importedAt).getTime() : 0;
     const dateB = b.importedAt ? new Date(b.importedAt).getTime() : 0;
@@ -155,12 +134,10 @@ export default async function BiImportacoesPage() {
   const tarefasCount = tarefasImports.length;
   const retornosCount = retornosAll.length;
   const impressoesCount = impressoesAll.length;
-  const andamentosCount = andamentosAll.length;
   const totalInferredCount =
     produtividadeInferredFiltered.length +
     retornosInferredFiltered.length +
-    impressoesInferredFiltered.length +
-    andamentosInferredFiltered.length;
+    impressoesInferredFiltered.length;
   const totalRows = unifiedRows.reduce((sum, row) => sum + Number(row.rowsCount || 0), 0);
   const hasActiveImports = unifiedRows.some((row) =>
     ["PROCESSING", "PROCESSANDO"].includes(String(row.status || "").toUpperCase())
@@ -201,7 +178,7 @@ export default async function BiImportacoesPage() {
         </div>
 
         {/* Metric Cards Grid */}
-        <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-3">
+        <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-3">
           <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-3.5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Módulo BI</div>
             <div className="mt-2 text-2xl font-bold text-cyan-600 dark:text-cyan-300">{biCount}</div>
@@ -235,12 +212,6 @@ export default async function BiImportacoesPage() {
           <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-3.5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Impressões</div>
             <div className="mt-2 text-2xl font-bold text-amber-600 dark:text-amber-300">{impressoesCount}</div>
-            <div className="mt-1 text-xs text-slate-500 dark:text-white/45">importações</div>
-          </div>
-
-          <div className="rounded-2xl border border-white/20 bg-[#0B1020]/90 p-3.5 shadow-sm backdrop-blur-xl transition-all hover:border-slate-300 dark:hover:border-white/20">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-white/55">Andamentos</div>
-            <div className="mt-2 text-2xl font-bold text-rose-600 dark:text-rose-300">{andamentosCount}</div>
             <div className="mt-1 text-xs text-slate-500 dark:text-white/45">importações</div>
           </div>
 
@@ -338,18 +309,6 @@ export default async function BiImportacoesPage() {
               Entradas da procedure <span className="text-amber-400">dbo.pr_Fiorix_BI_Impressoes</span> (Livro e Certidão).
             </p>
             <ImportTableClient rows={impressoesAll} />
-          </div>
-
-          {/* Andamentos */}
-          <div className="rounded-[28px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl space-y-4">
-            <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-rose-300" />
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Andamentos</h2>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-white/55">
-              Entradas da procedure <span className="text-rose-400">dbo.pr_Fiorix_BI_Andamentos</span> (Auditoria Geral).
-            </p>
-            <ImportTableClient rows={andamentosAll} />
           </div>
         </div>
       </main>

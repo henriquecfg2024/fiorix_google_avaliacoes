@@ -165,26 +165,6 @@ const PROCEDURES_CATALOG: ProcedureMeta[] = [
       accentColor: '#f97316',
     }
   },
-  {
-    key: 'andamentos',
-    name: 'Andamentos & Auditoria',
-    procedureSql: 'dbo.pr_Fiorix_BI_Andamentos',
-    description: 'Rastreabilidade integral dos andamentos da tabela tblWRIAndamentos e auditoria de atos.',
-    category: 'Auditoria Geral',
-    targetTable: 'fiorix_andamentos_imports',
-    dashboardUrl: '/bi/auditoria',
-    dashboardLabel: 'Painel Auditoria',
-    icon: Activity,
-    isNew: true,
-    colorScheme: {
-      bgLight: 'bg-rose-500/10',
-      borderLight: 'border-rose-500/20',
-      badgeBg: 'bg-rose-500/10',
-      badgeText: 'text-rose-400',
-      badgeBorder: 'border-rose-500/20',
-      accentColor: '#f43f5e',
-    }
-  },
 ];
 
 export function ProceduresOverviewSection({ modules, recentBatches }: Props) {
@@ -211,7 +191,7 @@ export function ProceduresOverviewSection({ modules, recentBatches }: Props) {
                 <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   Stored Procedures Integradas
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                    7 Rotinas Ativas
+                    6 Rotinas Ativas
                   </span>
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-white/50">

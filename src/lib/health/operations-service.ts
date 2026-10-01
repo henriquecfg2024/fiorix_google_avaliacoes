@@ -264,7 +264,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
 
     // Intervalos esperados: BI (600s / 10m), Produtividade (600s / 10m), Tarefas (600s / 10m), Metas (900s / 15m)
     const sourceConfigs: Array<{
-      key: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes' | 'andamentos';
+      key: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes';
       module: string;
       expectedIntervalSeconds: number;
     }> = [
@@ -274,7 +274,6 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       { key: 'tarefas', module: 'Tarefas', expectedIntervalSeconds: 3600 },
       { key: 'retornos', module: 'Retornos', expectedIntervalSeconds: 3600 },
       { key: 'impressoes', module: 'Impressões', expectedIntervalSeconds: 3600 },
-      { key: 'andamentos', module: 'Andamentos', expectedIntervalSeconds: 3600 },
     ];
 
   const incrementalModules: IncrementalModuleStatus[] = [];
@@ -550,7 +549,6 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     metas: [],
     retornos: [],
     impressoes: [],
-    andamentos: [],
   };
 
   try {

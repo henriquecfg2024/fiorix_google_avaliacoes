@@ -69,35 +69,35 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-white/8 text-[11px] uppercase tracking-wider text-slate-500 dark:text-white/40 font-semibold">
-                  <th className="pb-3 font-medium">Módulo</th>
-                  <th className="pb-3 font-medium">Status</th>
-                  <th className="pb-3 font-medium">Última Execução</th>
-                  <th className="pb-3 font-medium">Próxima Esperada</th>
-                  <th className="pb-3 font-medium">Atraso</th>
-                  <th className="pb-3 font-medium">Registros</th>
-                  <th className="pb-3 font-medium">Diagnóstico</th>
-                  <th className="pb-3 font-medium text-right">Ações</th>
+                  <th className="pb-3 pr-4 font-medium">Módulo</th>
+                  <th className="pb-3 px-3 font-medium">Status</th>
+                  <th className="pb-3 px-3 font-medium">Última Execução</th>
+                  <th className="pb-3 px-3 font-medium">Próxima Esperada</th>
+                  <th className="pb-3 px-3 font-medium">Atraso</th>
+                  <th className="pb-3 px-3 font-medium">Registros</th>
+                  <th className="pb-3 px-3 font-medium">Diagnóstico</th>
+                  <th className="pb-3 pl-3 font-medium text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-white/6 font-mono text-slate-700 dark:text-white/80">
                 {modules.map((item) => (
                   <tr key={item.key} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors" title={item.statusNote}>
-                    <td className="py-3 font-sans font-semibold text-slate-900 dark:text-white">
+                    <td className="py-3 pr-4 font-sans font-semibold text-slate-900 dark:text-white">
                       {item.module}
                       <span className="block text-[10px] font-normal text-slate-500 dark:text-white/40 font-mono">
                         Janela: {item.expectedIntervalSeconds}s ({Math.round(item.expectedIntervalSeconds / 60)} min)
                       </span>
                     </td>
-                    <td className="py-3">
+                    <td className="py-3 px-3">
                       {getStatusBadge(item.status)}
                     </td>
-                    <td className="py-3 text-slate-600 dark:text-white/70">
+                    <td className="py-3 px-3 text-slate-600 dark:text-white/70">
                       {item.lastSyncAt ?? 'Não disponível'}
                     </td>
-                    <td className="py-3 text-slate-500 dark:text-white/50">
+                    <td className="py-3 px-3 text-slate-500 dark:text-white/50">
                       {item.nextExpectedAt ?? '-'}
                     </td>
-                    <td className="py-3">
+                    <td className="py-3 px-3">
                       {item.delaySeconds !== null ? (
                         <span className={item.delaySeconds === 0 ? 'text-emerald-400 font-semibold' : 'text-amber-400'}>
                           {item.delaySeconds === 0 ? '0s' : `${Math.round(item.delaySeconds / 60)}m`}
@@ -106,7 +106,7 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
                         <span className="text-white/40">-</span>
                       )}
                     </td>
-                    <td className="py-3 text-white/90">
+                    <td className="py-3 px-3 text-white/90">
                       {item.recordsCount !== null ? (
                         item.recordsCount === 0 ? (
                           <span className="text-white/60">0 (sem alt.)</span>
@@ -117,12 +117,12 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
                         <span className="text-white/40">Pendente</span>
                       )}
                     </td>
-                    <td className="py-3">
+                    <td className="py-3 px-3">
                       <span className="inline-flex items-center gap-1 text-[11px] font-medium text-white/60 font-sans">
                         {item.statusNote ? item.statusNote : 'Ciclo pontual'}
                       </span>
                     </td>
-                    <td className="py-3 text-right">
+                    <td className="py-3 pl-3 text-right">
                       <button
                         type="button"
                         onClick={() => setSelectedModule({ name: item.module, key: item.key })}

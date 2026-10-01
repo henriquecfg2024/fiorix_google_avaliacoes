@@ -12,7 +12,6 @@ import {
   clearAllTarefasData,
   clearAllRetornosData,
   clearAllImpressoesData,
-  clearAllAndamentosData,
 } from "@/app/(dashboard)/bi/importacoes/actions";
 
 import { Button } from "@/components/ui/button";
@@ -104,12 +103,6 @@ export function ImportacoesActions() {
   const [isImportingImpressoes, setIsImportingImpressoes] = useState(false);
   const [impressoesProgress, setImpressoesProgress] = useState({ current: 0, total: 0 });
   const [isClearingImpressoes, setIsClearingImpressoes] = useState(false);
-
-  // Andamentos
-  const andamentosInputRef = useRef<HTMLInputElement>(null);
-  const [isImportingAndamentos, setIsImportingAndamentos] = useState(false);
-  const [andamentosProgress, setAndamentosProgress] = useState({ current: 0, total: 0 });
-  const [isClearingAndamentos, setIsClearingAndamentos] = useState(false);
 
   // 1. Produtividade
   const handleImport = async (file: File) => {
@@ -795,128 +788,6 @@ export function ImportacoesActions() {
     }
   };
 
-  // 6. Andamentos (dbo.pr_Fiorix_BI_Andamentos)
-  const handleImportAndamentos = async (file: File) => {
-    if (!file.name.endsWith(".csv")) {
-      toast.error("Por favor, selecione um arquivo CSV válido para Andamentos.");
-      return;
-    }
-
-    setIsImportingAndamentos(true);
-    setAndamentosProgress({ current: 0, total: 0 });
-
-    let importMetaForFailure: Record<string, unknown> | null = null;
-
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      encoding: "UTF-8",
-      transformHeader: (header) => header.replace(/^\uFEFF/, "").trim(),
-      complete: async (results) => {
-        try {
-          const rawRows = results.data as Record<string, any>[];
-          if (rawRows.length === 0) {
-            toast.error("O arquivo CSV de Andamentos está vazio.");
-            return;
-          }
-
-          const totalRows = rawRows.length;
-          setAndamentosProgress({ current: 0, total: totalRows });
-          const importKey = crypto.randomUUID();
-
-          const dates = rawRows
-            .map((r: any) => r.DataAndamento || r.data_andamento || r.Data || r.data)
-            .filter(Boolean)
-            .sort();
-          const periodStart = dates[0] ? String(dates[0]).split("T")[0] : null;
-          const periodEnd = dates[dates.length - 1] ? String(dates[dates.length - 1]).split("T")[0] : null;
-
-          const importMetaBase = {
-            importKey,
-            fileName: file.name,
-            totalRows,
-            importedBy: "Manual CSV (Andamentos)",
-            periodStart,
-            periodEnd,
-          };
-          importMetaForFailure = importMetaBase;
-
-          const batchSize = 500;
-          let importedTotal = 0;
-
-          for (let start = 0; start < totalRows; start += batchSize) {
-            const batch = rawRows.slice(start, start + batchSize);
-            const batchNumber = Math.floor(start / batchSize) + 1;
-            const totalBatches = Math.ceil(totalRows / batchSize);
-
-            const res = await fetch("/api/bi/andamentos/import", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                rows: batch,
-                importMeta: {
-                  ...importMetaBase,
-                  batchNumber,
-                  totalBatches,
-                },
-              }),
-            });
-
-            if (!res.ok) {
-              const errData = await res.json().catch(() => ({ error: "Erro desconhecido" }));
-              throw new Error(errData.error || `Falha no lote ${batchNumber}/${totalBatches}`);
-            }
-
-            const result = await res.json().catch(() => ({ success: true, count: batch.length }));
-            importedTotal += Number(result.count ?? batch.length);
-            setAndamentosProgress({
-              current: Math.min(start + batch.length, totalRows),
-              total: totalRows,
-            });
-          }
-
-          toast.success(`Importação de ${importedTotal.toLocaleString("pt-BR")} andamentos concluída!`);
-          router.refresh();
-        } catch (err: any) {
-          console.error("Erro na importação de andamentos:", err);
-          if (importMetaForFailure) {
-            await fetch("/api/bi/andamentos/import", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "mark_failed", importMeta: importMetaForFailure }),
-            }).catch(() => null);
-          }
-          toast.error(`Erro ao salvar andamentos: ${err.message || "Erro desconhecido"}`);
-        } finally {
-          setIsImportingAndamentos(false);
-        }
-      },
-      error: (error) => {
-        toast.error(`Erro ao ler CSV de Andamentos: ${error.message}`);
-        setIsImportingAndamentos(false);
-      },
-    });
-  };
-
-  const handleClearAndamentos = async () => {
-    if (!confirm("Tem certeza que deseja apagar TODO o histórico de andamentos? Essa ação não pode ser desfeita.")) {
-      return;
-    }
-    setIsClearingAndamentos(true);
-    try {
-      const res = await clearAllAndamentosData();
-      if (res.error) toast.error(res.error);
-      else {
-        toast.success("Base de Andamentos limpa com sucesso.");
-        router.refresh();
-      }
-    } catch (err: any) {
-      toast.error(`Erro ao limpar andamentos: ${err.message}`);
-    } finally {
-      setIsClearingAndamentos(false);
-    }
-  };
-
   return (
     <div className="flex flex-wrap items-center gap-2.5">
       {/* Inputs Ocultos */}
@@ -974,18 +845,6 @@ export function ImportacoesActions() {
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file) handleImportImpressoes(file);
-          e.currentTarget.value = "";
-        }}
-        accept=".csv"
-        className="hidden"
-      />
-
-      <input
-        type="file"
-        ref={andamentosInputRef}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) handleImportAndamentos(file);
           e.currentTarget.value = "";
         }}
         accept=".csv"
@@ -1090,24 +949,6 @@ export function ImportacoesActions() {
         )}
       </Button>
 
-      <Button
-        onClick={() => andamentosInputRef.current?.click()}
-        disabled={isImportingAndamentos}
-        className="bg-[#00C950] hover:bg-[#00A844] text-white gap-2 font-medium"
-      >
-        {isImportingAndamentos ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Importando Andamentos ({Math.round((andamentosProgress.current / (andamentosProgress.total || 1)) * 100)}%)
-          </>
-        ) : (
-          <>
-            <Upload className="h-4 w-4" />
-            Importar Andamentos
-          </>
-        )}
-      </Button>
-
       {/* Botões de Limpeza (Red Outline) */}
       <Button
         variant="outline"
@@ -1162,17 +1003,6 @@ export function ImportacoesActions() {
       >
         {isClearingImpressoes ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
         Limpar Impressões
-      </Button>
-
-      <Button
-        variant="outline"
-        onClick={handleClearAndamentos}
-        disabled={isClearingAndamentos}
-        className="border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 hover:text-red-200 gap-2"
-        title="Apagar todo o histórico de andamentos da base"
-      >
-        {isClearingAndamentos ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-        Limpar Andamentos
       </Button>
     </div>
   );

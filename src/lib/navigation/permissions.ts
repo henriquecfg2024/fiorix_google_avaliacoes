@@ -71,7 +71,6 @@ export function filterNavigationByRole(role: Role = "USER") {
       if (isUser) {
         if (
           item.href === "/espera" ||
-          item.href === "/bi/auditoria" ||
           item.href === "/bi/importacoes" ||
           item.href === "/configuracoes" ||
           item.href.startsWith("/administracao") ||
