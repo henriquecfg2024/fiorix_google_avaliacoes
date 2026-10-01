@@ -117,14 +117,6 @@ export async function unpackLiveRecords({
     } else if (source === 'metas') {
       await prisma.$executeRawUnsafe(
         `
-        DELETE FROM public.fiorix_metas_dados
-        WHERE tenant_id = $1
-          AND protocolo IN (
-            SELECT DISTINCT (item->>'PROTOCOLO')::int
-            FROM jsonb_array_elements($2::jsonb) AS item
-            WHERE item->>'PROTOCOLO' IS NOT NULL AND item->>'PROTOCOLO' <> ''
-          );
-
         WITH batch_records AS (
           SELECT DISTINCT ON ((item->>'PROTOCOLO')::int)
             $1::text AS tenant_id,
@@ -164,7 +156,7 @@ export async function unpackLiveRecords({
           d9_conferencia, d10_entrega, qtd_retrabalho
         )
         SELECT * FROM batch_records
-        ON CONFLICT (protocolo) DO UPDATE SET
+        ON CONFLICT (tenant_id, protocolo) DO UPDATE SET
           tenant_id = EXCLUDED.tenant_id,
           data_apresentado = EXCLUDED.data_apresentado,
           dt_previsao = EXCLUDED.dt_previsao,
