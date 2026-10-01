@@ -16,7 +16,7 @@ export interface ProdutividadeImportLogInput {
 
 export interface UnifiedImportRecord {
   id: string;
-  source: "BI" | "PRODUTIVIDADE" | "METAS" | "TAREFAS" | "RETORNOS" | "IMPRESSOES" | "ANDAMENTOS";
+  source: "BI" | "PRODUTIVIDADE" | "METAS" | "TAREFAS" | "RETORNOS" | "IMPRESSOES";
   origin: "logged" | "inferred";
   fileName: string;
   importedAt: string | null;

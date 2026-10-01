@@ -94,8 +94,6 @@ function sourceBadge(source: UnifiedImportRecord["source"]) {
     return <Badge className="bg-blue-500/10 text-blue-300 border border-blue-500/20 font-semibold">Retornos</Badge>;
   } else if (source === "IMPRESSOES") {
     return <Badge className="bg-amber-500/10 text-amber-300 border border-amber-500/20 font-semibold">Impressões</Badge>;
-  } else if (source === "ANDAMENTOS") {
-    return <Badge className="bg-rose-500/10 text-rose-300 border border-rose-500/20 font-semibold">Andamentos</Badge>;
   }
   return <Badge className="bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-semibold">Produtividade</Badge>;
 }
@@ -108,7 +106,6 @@ function displayReference(row: UnifiedImportRecord) {
 
   if (row.source === "RETORNOS") return `Retornos ${monthLabel}`;
   if (row.source === "IMPRESSOES") return `Impressões ${monthLabel}`;
-  if (row.source === "ANDAMENTOS") return `Andamentos ${monthLabel}`;
   if (row.source === "METAS") return `Metas ${monthLabel}`;
   if (row.source === "TAREFAS") return `Tarefas ${monthLabel}`;
   return `Produtividade ${monthLabel}`;

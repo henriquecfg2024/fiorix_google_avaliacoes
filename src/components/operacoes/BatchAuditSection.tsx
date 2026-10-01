@@ -115,8 +115,6 @@ export function BatchAuditSection() {
         return <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">Retornos</span>;
       case 'impressoes':
         return <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-orange-500/10 text-orange-400 border border-orange-500/20">Impressões</span>;
-      case 'andamentos':
-        return <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">Andamentos</span>;
       default:
         return <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-white/5 text-slate-600 dark:text-white/70 border border-white/10">{source}</span>;
     }
@@ -189,7 +187,6 @@ export function BatchAuditSection() {
               <option value="tarefas" className="bg-[#0B1020] text-white">Tarefas</option>
               <option value="retornos" className="bg-[#0B1020] text-white">Retornos</option>
               <option value="impressoes" className="bg-[#0B1020] text-white">Impressões</option>
-              <option value="andamentos" className="bg-[#0B1020] text-white">Andamentos</option>
             </select>
 
             {/* Filtro por Status */}

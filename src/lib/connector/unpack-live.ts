@@ -7,7 +7,7 @@ export async function unpackLiveRecords({
   records,
 }: {
   tenantId: string;
-  source: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes' | 'andamentos';
+  source: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes';
   records: any[];
 }): Promise<void> {
   if (!records || records.length === 0) return;

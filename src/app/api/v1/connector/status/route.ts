@@ -141,7 +141,7 @@ export async function POST(req: Request) {
 
     // Persistir estado das fontes (inclusive execuções vazias com 0 registros)
     if (sources && typeof sources === 'object') {
-      const allowedSources = ['bi', 'produtividade', 'metas', 'tarefas', 'retornos', 'impressoes', 'andamentos'];
+      const allowedSources = ['bi', 'produtividade', 'metas', 'tarefas', 'retornos', 'impressoes'];
       for (const [sourceKey, sourceData] of Object.entries(sources)) {
         if (!allowedSources.includes(sourceKey)) continue;
 

@@ -301,9 +301,6 @@ export function OperationsChartsSection() {
               <span className="flex items-center gap-1 text-slate-500 dark:text-white/60">
                 <span className="h-2 w-2 rounded-full bg-orange-500" /> Impressões
               </span>
-              <span className="flex items-center gap-1 text-slate-500 dark:text-white/60">
-                <span className="h-2 w-2 rounded-full bg-rose-500" /> Andamentos
-              </span>
             </div>
           </div>
 
@@ -339,10 +336,6 @@ export function OperationsChartsSection() {
                     <linearGradient id="gradImpressoes" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#f97316" stopOpacity={0.4} />
                       <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gradAndamentos" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke={ct.gridStroke} vertical={false} />
@@ -408,16 +401,6 @@ export function OperationsChartsSection() {
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#gradImpressoes)"
-                    stackId="1"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="andamentos"
-                    name="Andamentos"
-                    stroke="#f43f5e"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#gradAndamentos)"
                     stackId="1"
                   />
                   <Area
