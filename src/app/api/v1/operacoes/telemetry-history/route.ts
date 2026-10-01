@@ -59,56 +59,56 @@ export async function GET(req: Request) {
       truncLevel = 'day';
     }
 
-    // Consulta agregada de lotes agrupados por período e fonte
-    const rawAggregates = await prisma.$queryRawUnsafe<
-      Array<{
-        bucket: Date;
-        source: string;
-        batch_count: number | bigint;
-        total_records: number | bigint;
-        avg_duration_ms: number | bigint | null;
-      }>
-    >(
-      `
-      SELECT
-        date_trunc($1, "receivedAt") as bucket,
-        "source",
-        COUNT(*)::int as batch_count,
-        COALESCE(SUM("recordsReceived"), 0)::int as total_records,
-        ROUND(AVG(COALESCE("durationMs", 0)))::int as avg_duration_ms
-      FROM "ConnectorSyncBatch"
-      WHERE "tenantId" = $2
-        AND "receivedAt" >= $3
-      GROUP BY 1, 2
-      ORDER BY 1 ASC
-    `,
-      truncLevel,
-      tenantId,
-      startDate
-    );
-
-    // Consulta de estatísticas gerais do período
-    const rawSummary = await prisma.$queryRawUnsafe<
-      Array<{
-        total_batches: number | bigint;
-        total_records: number | bigint;
-        avg_duration_ms: number | bigint | null;
-        successful_batches: number | bigint;
-      }>
-    >(
-      `
-      SELECT
-        COUNT(*)::int as total_batches,
-        COALESCE(SUM("recordsReceived"), 0)::int as total_records,
-        ROUND(AVG(COALESCE("durationMs", 0)))::int as avg_duration_ms,
-        COUNT(CASE WHEN "status" = 'completed' THEN 1 END)::int as successful_batches
-      FROM "ConnectorSyncBatch"
-      WHERE "tenantId" = $1
-        AND "receivedAt" >= $2
-    `,
-      tenantId,
-      startDate
-    );
+    // Consulta agregada de lotes agrupados por período e estatísticas gerais (em paralelo)
+    const [rawAggregates, rawSummary] = await Promise.all([
+      prisma.$queryRawUnsafe<
+        Array<{
+          bucket: Date;
+          source: string;
+          batch_count: number | bigint;
+          total_records: number | bigint;
+          avg_duration_ms: number | bigint | null;
+        }>
+      >(
+        `
+        SELECT
+          date_trunc($1, "receivedAt") as bucket,
+          "source",
+          COUNT(*)::int as batch_count,
+          COALESCE(SUM("recordsReceived"), 0)::int as total_records,
+          ROUND(AVG(COALESCE("durationMs", 0)))::int as avg_duration_ms
+        FROM "ConnectorSyncBatch"
+        WHERE "tenantId" = $2
+          AND "receivedAt" >= $3
+        GROUP BY 1, 2
+        ORDER BY 1 ASC
+      `,
+        truncLevel,
+        tenantId,
+        startDate
+      ),
+      prisma.$queryRawUnsafe<
+        Array<{
+          total_batches: number | bigint;
+          total_records: number | bigint;
+          avg_duration_ms: number | bigint | null;
+          successful_batches: number | bigint;
+        }>
+      >(
+        `
+        SELECT
+          COUNT(*)::int as total_batches,
+          COALESCE(SUM("recordsReceived"), 0)::int as total_records,
+          ROUND(AVG(COALESCE("durationMs", 0)))::int as avg_duration_ms,
+          COUNT(CASE WHEN "status" = 'completed' THEN 1 END)::int as successful_batches
+        FROM "ConnectorSyncBatch"
+        WHERE "tenantId" = $1
+          AND "receivedAt" >= $2
+      `,
+        tenantId,
+        startDate
+      ),
+    ]);
 
     const summaryRow = rawSummary[0] || {
       total_batches: 0,

@@ -150,7 +150,8 @@ export async function getOperationsHealth(tenantId: string): Promise<OperationsH
   const nowMs = Date.now();
   const cached = snapshotCache.get(tenantId);
 
-  if (cached && nowMs - cached.cachedAt < 15000) {
+  // Cache interno de 30s para evitar roundtrips desnecessários em navegação rápida
+  if (cached && nowMs - cached.cachedAt < 30000) {
     return {
       ...cached.snapshot,
       delivery: 'cached',
@@ -185,60 +186,100 @@ export async function getOperationsHealth(tenantId: string): Promise<OperationsH
 async function computeOperationsHealth(tenantId: string): Promise<OperationsHealthSnapshot> {
   const now = new Date();
   const nowIso = now.toISOString();
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  // A. Medição do PostgreSQL com Resiliência (Timeout de 3.500 ms + Retry Imediato em 300 ms)
-  const dbStart = performance.now();
-  let dbLatencyMs: number | null = null;
+  const sourceConfigs: Array<{
+    key: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes';
+    module: string;
+    expectedIntervalSeconds: number;
+  }> = [
+    { key: 'bi', module: 'Módulo BI', expectedIntervalSeconds: 3600 },
+    { key: 'produtividade', module: 'Produtividade', expectedIntervalSeconds: 3600 },
+    { key: 'metas', module: 'Metas', expectedIntervalSeconds: 3600 },
+    { key: 'tarefas', module: 'Tarefas', expectedIntervalSeconds: 3600 },
+    { key: 'retornos', module: 'Retornos', expectedIntervalSeconds: 3600 },
+    { key: 'impressoes', module: 'Impressões', expectedIntervalSeconds: 3600 },
+  ];
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // FASE 1 (PARALELA): PostgreSQL ping, Conectores, Lotes Recentes 24h e Integrações
+  // ─────────────────────────────────────────────────────────────────────────────
+  const [dbProbeResult, allEnabledConnectors, recentBatchesRaw, externalData] = await Promise.all([
+    // A. Medição do PostgreSQL com Resiliência (Timeout de 3.500 ms)
+    (async (): Promise<{ latency: number | null; error: any }> => {
+      const start = performance.now();
+      try {
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('P2024: Connection timeout in health check')), 3500)
+        );
+        await Promise.race([prisma.$queryRaw`SELECT 1`, timeoutPromise]);
+        return { latency: Math.round(performance.now() - start), error: null };
+      } catch (err: any) {
+        return { latency: null, error: err };
+      }
+    })(),
+
+    // B. Detecção de Conectores
+    prisma.connector.findMany({
+      where: { tenantId, enabled: true },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        version: true,
+        enabled: true,
+        lastSeenAt: true,
+        createdAt: true,
+      },
+    }).catch(() => []),
+
+    // C. Consulta de Lotes Recentes (24h) para Métricas e Incidentes
+    prisma.connectorSyncBatch.findMany({
+      where: {
+        tenantId,
+        receivedAt: { gte: oneDayAgo },
+      },
+      select: {
+        id: true,
+        batchId: true,
+        source: true,
+        status: true,
+        recordsReceived: true,
+        durationMs: true,
+        errorMessage: true,
+        receivedAt: true,
+      },
+      orderBy: { receivedAt: 'desc' },
+      take: 100,
+    }).catch(() => []),
+
+    // D. Saúde das Integrações Externas
+    resolveExternalIntegrationsHealth(tenantId, now).catch(() => ({
+      integrations: [],
+      incidents: [],
+      alerts: [],
+    })),
+  ]);
+
+  // Avaliação do status do PostgreSQL
+  let dbLatencyMs: number | null = dbProbeResult.latency;
   let dbStatus: 'operational' | 'degraded' | 'offline' | 'unknown' = 'unknown';
   let dbReason = 'Aguardando verificação';
 
-  async function probePostgres(): Promise<number> {
-    const start = performance.now();
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('P2024: Connection timeout in health check')), 3500)
-    );
-    await Promise.race([prisma.$queryRaw`SELECT 1`, timeoutPromise]);
-    return Math.round(performance.now() - start);
-  }
-
-  try {
-    try {
-      dbLatencyMs = await probePostgres();
-    } catch {
-      // Pequeno alívio de 300ms se o PgBouncer do Supabase sofreu contenção temporária
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      dbLatencyMs = await probePostgres();
-    }
-
+  if (dbProbeResult.error) {
+    const sanitized = sanitizeDatabaseError(dbProbeResult.error);
+    dbStatus = sanitized.code === 'STATEMENT_TIMEOUT' || sanitized.code === 'POOL_TIMEOUT' ? 'degraded' : 'offline';
+    dbReason = sanitized.message;
+  } else if (dbLatencyMs !== null) {
     const evalResult = evaluatePostgresStatus(dbLatencyMs, tenantId);
     dbStatus = evalResult.status;
     dbReason = evalResult.reason;
-  } catch (err: any) {
-    const sanitized = sanitizeDatabaseError(err);
-    dbStatus = sanitized.code === 'STATEMENT_TIMEOUT' || sanitized.code === 'POOL_TIMEOUT' ? 'degraded' : 'offline';
-    dbReason = sanitized.message;
-    dbLatencyMs = null;
   }
-
-  // B. Detecção de Conectores (Detecção de Ambiguidade + NUNCA selecionar credentialIdentifier)
-  const allEnabledConnectors = await prisma.connector.findMany({
-    where: { tenantId, enabled: true },
-    select: {
-      id: true,
-      name: true,
-      status: true,
-      version: true,
-      enabled: true,
-      lastSeenAt: true,
-      createdAt: true,
-    },
-  });
 
   // Filtra placeholders provisórios legados de seed ('substituir_pelo_id_fornecido')
   const activeConnectors = allEnabledConnectors.filter(
     (c) => c.id !== 'substituir_pelo_id_fornecido'
   );
-
   const isAmbiguous = activeConnectors.length > 1;
   const targetConnector = activeConnectors.length === 1 ? activeConnectors[0] : null;
 
@@ -262,57 +303,60 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     connectorStatus = 'OFFLINE';
   }
 
-    // Intervalos esperados: BI (600s / 10m), Produtividade (600s / 10m), Tarefas (600s / 10m), Metas (900s / 15m)
-    const sourceConfigs: Array<{
-      key: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes';
-      module: string;
-      expectedIntervalSeconds: number;
-    }> = [
-      { key: 'bi', module: 'Módulo BI', expectedIntervalSeconds: 3600 },
-      { key: 'produtividade', module: 'Produtividade', expectedIntervalSeconds: 3600 },
-      { key: 'metas', module: 'Metas', expectedIntervalSeconds: 3600 },
-      { key: 'tarefas', module: 'Tarefas', expectedIntervalSeconds: 3600 },
-      { key: 'retornos', module: 'Retornos', expectedIntervalSeconds: 3600 },
-      { key: 'impressoes', module: 'Impressões', expectedIntervalSeconds: 3600 },
-    ];
+  // ─────────────────────────────────────────────────────────────────────────────
+  // FASE 2 (PARALELA): Status das Fontes, Último Lote de Cada Fonte e Telemetria
+  // ─────────────────────────────────────────────────────────────────────────────
+  const [sourceStatuses, latestTelemetry, ...batchesResults] = await Promise.all([
+    targetConnector
+      ? prisma.connectorSourceStatus.findMany({
+          where: { tenantId, connectorId: targetConnector.id },
+          select: {
+            source: true,
+            lastSuccessAt: true,
+            recordsLastSync: true,
+            lastError: true,
+          },
+        }).catch(() => [])
+      : Promise.resolve([]),
+    targetConnector
+      ? getLatestConnectorTelemetry(tenantId, targetConnector.id).catch(() => null)
+      : Promise.resolve(null),
+    ...sourceConfigs.map((cfg) =>
+      targetConnector
+        ? prisma.connectorSyncBatch.findFirst({
+            where: { tenantId, connectorId: targetConnector.id, source: cfg.key },
+            orderBy: { receivedAt: 'desc' },
+            select: {
+              source: true,
+              receivedAt: true,
+              recordsReceived: true,
+              recordsInserted: true,
+              recordsUpdated: true,
+              status: true,
+            },
+          }).catch(() => null)
+        : Promise.resolve(null)
+    ),
+  ]);
+
+  const statusEntriesMap = new Map<string, { lastSuccessAt: Date | null; recordsLastSync: number | null; lastError: string | null }>();
+  for (const s of sourceStatuses) {
+    statusEntriesMap.set(s.source.toLowerCase(), s);
+  }
+
+  const lastBatchesMap = new Map<string, { receivedAt: Date; recordsReceived: number | null; recordsInserted: number | null; recordsUpdated: number | null; status: string }>();
+  for (const b of batchesResults) {
+    if (b) {
+      lastBatchesMap.set(b.source.toLowerCase(), b);
+    }
+  }
 
   const incrementalModules: IncrementalModuleStatus[] = [];
 
   for (const cfg of sourceConfigs) {
-    let lastBatch = null;
-    let statusEntry = null;
+    const lastBatch = lastBatchesMap.get(cfg.key);
+    const statusEntry = statusEntriesMap.get(cfg.key);
 
-    if (targetConnector) {
-      // Consulta individual por fonte (último lote real do servidor)
-      lastBatch = await prisma.connectorSyncBatch.findFirst({
-        where: { tenantId, connectorId: targetConnector.id, source: cfg.key },
-        orderBy: { receivedAt: 'desc' },
-        select: {
-          receivedAt: true,
-          recordsReceived: true,
-          recordsInserted: true,
-          recordsUpdated: true,
-          status: true,
-        },
-      });
-
-      statusEntry = await prisma.connectorSourceStatus.findUnique({
-        where: {
-          tenantId_connectorId_source: {
-            tenantId,
-            connectorId: targetConnector.id,
-            source: cfg.key,
-          },
-        },
-        select: {
-          lastSuccessAt: true,
-          recordsLastSync: true,
-          lastError: true,
-        },
-      });
-    }
-
-    // Referência temporal: a data mais recente entre o último lote recebido e o último heartbeat/telemetria da fonte
     const batchDate = lastBatch?.receivedAt ? new Date(lastBatch.receivedAt) : null;
     const statusDate = statusEntry?.lastSuccessAt ? new Date(statusEntry.lastSuccessAt) : null;
 
@@ -341,11 +385,9 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     }
 
     const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - lastSyncDate.getTime()) / 1000));
-    // Limiares de atraso proporcionais ao ciclo da fonte
     const warningThreshold = cfg.expectedIntervalSeconds * 1.5;
     const errorThreshold = cfg.expectedIntervalSeconds * 3.0;
 
-    // Validação do expediente do cartório (Segunda a Sábado, das 07h às 19h)
     const { isBusinessHours: isWorkHours, isMorningGracePeriod } = checkBusinessHoursState(now);
 
     let status: 'OK' | 'WARNING' | 'ERROR' = 'OK';
@@ -361,8 +403,6 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       status = 'WARNING';
       statusNote = 'Conector pausado ou offline — aguardando ciclo do serviço local';
     } else if (statusEntry?.lastError && elapsedSeconds > warningThreshold) {
-      // Só mostra erro se o conector está atrasado E ainda temos lastError registrado
-      // Se o tempo elapsed está dentro da janela de warning, o erro foi transitório e o conector já se recuperou
       status = 'ERROR';
       statusNote = `Erro transitório no SQL Server do cartório: ${statusEntry.lastError}`;
     } else if (elapsedSeconds > errorThreshold) {
@@ -376,7 +416,6 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       statusNote = `Sincronização com atraso moderado (${mins} min)`;
     }
 
-    // Preservar zero real utilizando ?? em vez de ||
     const records = lastBatch?.recordsReceived ?? statusEntry?.recordsLastSync ?? null;
     const nextExpectedDate = new Date(lastSyncDate.getTime() + cfg.expectedIntervalSeconds * 1000);
 
@@ -478,15 +517,6 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     },
   ];
 
-  // F. Telemetria do Conector (Valores Reais Integrados)
-  let latestTelemetry = null;
-  if (targetConnector) {
-    try {
-      latestTelemetry = await getLatestConnectorTelemetry(tenantId, targetConnector.id);
-    } catch {
-      // Ignora falha transitória de telemetria
-    }
-  }
 
   // Formatar uptime humano
   let uptimeFormatted: string | null = null;
@@ -552,25 +582,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   };
 
   try {
-    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const recentBatches = await prisma.connectorSyncBatch.findMany({
-      where: {
-        tenantId,
-        receivedAt: { gte: oneDayAgo },
-      },
-      select: {
-        id: true,
-        batchId: true,
-        source: true,
-        status: true,
-        recordsReceived: true,
-        durationMs: true,
-        errorMessage: true,
-        receivedAt: true,
-      },
-      orderBy: { receivedAt: 'desc' },
-      take: 100,
-    });
+    const recentBatches = recentBatchesRaw;
 
     if (recentBatches.length > 0) {
       const processed = recentBatches.filter((b) => b.status === 'completed' || b.status === 'processed').length;
@@ -631,9 +643,8 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   const finalSuccessRate = calculatedSuccessRate ?? (realIncidents.length === 0 ? 100 : 98.5);
   const finalP95 = calculatedP95 ?? (dbLatencyMs ? Math.min(Math.max(dbLatencyMs * 2 + 60, 110), 280) : 185);
 
-  // G. Saúde das Integrações Externas (NextQS, Google Avaliações, etc.)
-  const { integrations: externalIntegrations, incidents: integrationIncidents, alerts: integrationAlerts } =
-    await resolveExternalIntegrationsHealth(tenantId, now);
+  // G. Saúde das Integrações Externas (obtidas na Fase 1 paralela)
+  const { integrations: externalIntegrations, incidents: integrationIncidents, alerts: integrationAlerts } = externalData;
 
   const combinedIncidents = [...realIncidents, ...integrationIncidents];
   const combinedAlerts = isAmbiguous
@@ -767,24 +778,24 @@ async function resolveExternalIntegrationsHealth(
 
   // 2. Google Avaliações / Google Meu Negócio
   try {
-    const googleConn = await prisma.googleConnection.findFirst({
-      where: { tenantId },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const recentSyncLogs = await prisma.syncLog.findMany({
-      where: { tenantId },
-      orderBy: { createdAt: 'desc' },
-      take: 10,
-    });
-
-    const pendingReviewsCount = await prisma.review.count({
-      where: {
-        tenantId,
-        status: 'PENDING',
-        deletedFromGoogle: false,
-      },
-    }).catch(() => 0);
+    const [googleConn, recentSyncLogs, pendingReviewsCount] = await Promise.all([
+      prisma.googleConnection.findFirst({
+        where: { tenantId },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.syncLog.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      }),
+      prisma.review.count({
+        where: {
+          tenantId,
+          status: 'PENDING',
+          deletedFromGoogle: false,
+        },
+      }).catch(() => 0),
+    ]);
 
     if (googleConn) {
       const hasRefreshToken = Boolean(googleConn.refreshToken);
