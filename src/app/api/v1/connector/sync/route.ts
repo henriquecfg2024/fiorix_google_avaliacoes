@@ -232,20 +232,14 @@ export async function POST(req: Request) {
         }
       });
 
-      const incrementedBatch = await tx.connectorSyncBatch.update({
+      const completed = (batch.chunksReceived + 1) >= chunk_count;
+      const status = completed ? 'completed' : 'partial';
+      const finalizedBatch = await tx.connectorSyncBatch.update({
         where: { id: batch.id },
         data: {
           chunksReceived: { increment: 1 },
           recordsReceived: { increment: records.length },
           recordsInserted: { increment: records.length },
-        }
-      });
-
-      const completed = incrementedBatch.chunksReceived === chunk_count;
-      const status = completed ? 'completed' : 'partial';
-      const finalizedBatch = await tx.connectorSyncBatch.update({
-        where: { id: batch.id },
-        data: {
           status,
           processedAt: completed ? new Date() : null,
           durationMs: completed ? Date.now() - startTime : null,

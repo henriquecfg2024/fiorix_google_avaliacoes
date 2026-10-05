@@ -324,7 +324,7 @@ export function BatchAuditSection() {
                       {/* Duração */}
                       <td className="py-3 px-4">
                         {batch.durationMs !== null ? (
-                          <span className={batch.durationMs > 3000 ? 'text-amber-400' : 'text-emerald-400 font-semibold'}>
+                          <span className={batch.durationMs > 5000 ? 'text-amber-400' : 'text-emerald-400 font-semibold'}>
                             {batch.durationMs >= 1000 ? `${(batch.durationMs / 1000).toFixed(1)}s` : `${batch.durationMs}ms`}
                           </span>
                         ) : (
