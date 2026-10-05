@@ -1,11 +1,10 @@
 import { redirect } from 'next/navigation';
 import { isRedirectError } from 'next/dist/client/components/redirect';
 import { requireRole } from '@/lib/auth-helpers';
-import { prisma } from '@/lib/prisma';
 import { GestaoEsperaClient } from '@/components/espera/GestaoEsperaClient';
+import { getEsperaData } from '@/lib/espera/espera-service';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 export default async function EsperaPage() {
   let user;
@@ -22,34 +21,14 @@ export default async function EsperaPage() {
 
   const isAdmin = user.role === 'MASTER' || user.role === 'ADMIN';
 
-  // Verificar se a integração NextQS está configurada no tenant
-  const nextqsConfig = await prisma.integrationConfig.findFirst({
-    where: {
-      tenantId: user.tenantId,
-      integrationId: 'nextqs',
-    },
-    select: { id: true, status: true, encryptedConfig: true, configIv: true, isActive: true },
-  });
-
-  const isConfigured = !!(
-    nextqsConfig &&
-    nextqsConfig.encryptedConfig &&
-    nextqsConfig.configIv &&
-    nextqsConfig.status !== 'DISCONNECTED'
-  );
-
-  // Auto-heal: se possui credenciais salvas e não está ativo, garantir isActive: true
-  if (isConfigured && nextqsConfig && !nextqsConfig.isActive) {
-    await prisma.integrationConfig.update({
-      where: { id: nextqsConfig.id },
-      data: { isActive: true },
-    }).catch(() => null);
-  }
+  // Buscar dados iniciais no servidor (Server-Side Rendering instantâneo)
+  const initialData = await getEsperaData(user.tenantId, 'hoje').catch(() => null);
 
   return (
     <GestaoEsperaClient
       isAdmin={isAdmin}
-      isConfigured={isConfigured}
+      isConfigured={initialData?.configured ?? true}
+      initialData={initialData}
     />
   );
 }

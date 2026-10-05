@@ -143,6 +143,7 @@ interface RealtimeData {
 interface Props {
   isAdmin?: boolean;
   isConfigured?: boolean;
+  initialData?: any;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -662,7 +663,7 @@ function getAtendenteAvatar(name: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────────────────────────────────────
-export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Props) {
+export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initialData }: Props) {
   const [configured, setConfigured] = useState(isConfigured);
   const [periodo, setPeriodo] = useState<Periodo>('hoje');
   const [activeAba, setActiveAba] = useState<Aba>('visao_geral');
@@ -696,23 +697,26 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
     setConfigured(isConfigured);
   }, [isConfigured]);
 
-  // Estados de dados da API
-  const [allRecords, setAllRecords] = useState<SenhaRecord[]>([]);
-  const [kpis, setKpis] = useState<KPIs | null>(null);
-  const [realtime, setRealtime] = useState<RealtimeData>({ fila: [], emAtendimento: [] });
-  const [horariosPico, setHorariosPico] = useState<HorarioPico[]>([]);
-  const [performanceAgentes, setPerformanceAgentes] = useState<PerformanceAgente[]>([]);
-  const [suspensoes, setSuspensoes] = useState<Suspensao[]>([]);
-  const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
-  const [slaMinutes, setSlaMinutes] = useState(15);
-  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
-  const [siteLabel, setSiteLabel] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Estados de dados da API inicializados diretamente com dados do servidor (0ms de latência percebida)
+  const [allRecords, setAllRecords] = useState<SenhaRecord[]>(initialData?.records || []);
+  const [kpis, setKpis] = useState<KPIs | null>(initialData?.kpis || null);
+  const [realtime, setRealtime] = useState<RealtimeData>(initialData?.realtime || { fila: [], emAtendimento: [] });
+  const [horariosPico, setHorariosPico] = useState<HorarioPico[]>(initialData?.horariosPico || []);
+  const [performanceAgentes, setPerformanceAgentes] = useState<PerformanceAgente[]>(initialData?.performanceAgentes || []);
+  const [suspensoes, setSuspensoes] = useState<Suspensao[]>(initialData?.suspensoes || []);
+  const [agendamentos, setAgendamentos] = useState<Agendamento[]>(initialData?.agendamentos || []);
+  const [slaMinutes, setSlaMinutes] = useState(initialData?.slaMinutes || 15);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(initialData?.lastSyncAt || null);
+  const [siteLabel, setSiteLabel] = useState<string | null>(initialData?.siteLabel || null);
+  const [isLoading, setIsLoading] = useState(!initialData?.records || initialData.records.length === 0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [showSlaInfo, setShowSlaInfo] = useState(false);
 
-  // Hidratação instantânea a partir do cache local de sessão (0ms de carregamento)
+  // Evita refetch imediato na montagem se já recebemos dados SSR do servidor
+  const hasMountedInitial = React.useRef(!!(initialData?.records && initialData.records.length > 0));
+
+  // Hidratação instantânea a partir do cache local de sessão (0ms de carregamento ao trocar de abas)
   useEffect(() => {
     try {
       const cached = sessionStorage.getItem(`fiorix_espera_${periodo}`);
@@ -735,8 +739,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
 
   // Buscar dados reais da API com suporte a cache e refresh forçado
   const fetchData = useCallback(async (showRefresh = false) => {
-    if (showRefresh || allRecords.length > 0) setIsRefreshing(true);
-    else setIsLoading(true);
+    setIsRefreshing(true);
     setApiError(null);
 
     try {
@@ -752,7 +755,6 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
 
       if (!res.ok) {
         setApiError(data.error || 'Erro ao carregar dados.');
-        if (allRecords.length === 0) setAllRecords([]);
         return;
       }
 
@@ -762,7 +764,6 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
 
       if (Array.isArray(data.records)) {
         setAllRecords(data.records);
-        // Persiste no cache de sessão para visitas subsequentes instantâneas
         try {
           sessionStorage.setItem(`fiorix_espera_${periodo}`, JSON.stringify(data));
         } catch {}
@@ -778,16 +779,19 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
       setSiteLabel(data.siteLabel || null);
     } catch {
       setApiError('Erro de rede ao conectar com o servidor.');
-      if (allRecords.length === 0) setAllRecords([]);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [periodo, allRecords.length]);
+  }, [periodo]);
 
   useEffect(() => {
+    if (hasMountedInitial.current && periodo === 'hoje') {
+      hasMountedInitial.current = false;
+      return;
+    }
     fetchData();
-  }, [fetchData]);
+  }, [periodo, fetchData]);
 
   // Cálculos derivados
   const recordsWithWait = useMemo(() => allRecords.filter((r) => r.tempoEsperaMin !== null), [allRecords]);
