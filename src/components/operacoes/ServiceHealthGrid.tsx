@@ -100,7 +100,7 @@ export function ServiceHealthGrid({ services }: Props) {
 
               <div className="flex items-center justify-between text-[11px] text-white/50 pt-2 border-t border-white/6 font-mono">
                 {service.latencyMs !== null ? (
-                  <span className={service.latencyMs > 1200 ? 'text-amber-400 font-semibold' : 'text-emerald-400'}>
+                  <span className={service.latencyMs > 2000 ? 'text-amber-400 font-semibold' : 'text-emerald-400 font-semibold'}>
                     {service.latencyMs} ms
                   </span>
                 ) : (
