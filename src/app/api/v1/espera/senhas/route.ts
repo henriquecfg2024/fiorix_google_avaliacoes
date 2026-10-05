@@ -183,12 +183,41 @@ function getDateRange(periodo: string) {
   return { startIso, endIso };
 }
 
+// Cache em memória para evitar sobrecarregar a API NextQS e acelerar o carregamento
+interface EsperaCacheEntry {
+  data: any;
+  timestamp: number;
+}
+const esperaDataCache = new Map<string, EsperaCacheEntry>();
+const inFlightEsperaRequests = new Map<string, Promise<any>>();
+const siteIdCache = new Map<string, { siteId: string; label: string; timestamp: number }>();
+
+const CACHE_TTL_MS = 30_000; // 30 segundos de cache para respostas
+const SITE_CACHE_TTL_MS = 3_600_000; // 1 hora de cache para resolução do siteId
+
 export async function GET(req: NextRequest) {
   try {
     const user = await requireRole('MASTER', 'ADMIN', 'SUBSTITUTO');
     const tenantId = user.tenantId;
 
     const periodo = req.nextUrl.searchParams.get('periodo') || 'hoje';
+    const forceRefresh = req.nextUrl.searchParams.get('refresh') === 'true';
+    const cacheKey = `${tenantId}:${periodo}`;
+
+    // 1. Retorno instantâneo do cache em memória se válido e não for refresh forçado
+    if (!forceRefresh) {
+      const cached = esperaDataCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp < CACHE_TTL_MS)) {
+        return NextResponse.json(cached.data);
+      }
+
+      // 2. Coalescência de requisições concorrentes (single-flight)
+      const existingPromise = inFlightEsperaRequests.get(cacheKey);
+      if (existingPromise) {
+        const data = await existingPromise;
+        return NextResponse.json(data);
+      }
+    }
 
     // 1. Buscar configuração NextQS do tenant
     const config = await prisma.integrationConfig.findFirst({
@@ -248,42 +277,54 @@ export async function GET(req: NextRequest) {
       'Accept': 'application/json',
     };
 
-    // 5. Resolver o site_id real da organização no NextQS via /v1/organization/sites
+    // 5. Resolver o site_id real da organização no NextQS com cache e timeout seguro
     let resolvedSiteId = orgId;
     let siteLabel = '';
 
-    try {
-      const sitesRes = await fetch(`${baseUrl}/v1/organization/sites`, {
-        method: 'GET',
-        headers,
-      });
+    const cachedSite = siteIdCache.get(tenantId);
+    if (cachedSite && (Date.now() - cachedSite.timestamp < SITE_CACHE_TTL_MS)) {
+      resolvedSiteId = cachedSite.siteId;
+      siteLabel = cachedSite.label;
+    } else {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3500); // 3.5s timeout rígido para não travar a requisição
+        const sitesRes = await fetch(`${baseUrl}/v1/organization/sites`, {
+          method: 'GET',
+          headers,
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
 
-      if (sitesRes.ok) {
-        const sitesData = await sitesRes.json();
-        if (Array.isArray(sitesData) && sitesData.length > 0) {
-          console.log(`[Espera API] Sites encontrados no NextQS (${sitesData.length}):`, sitesData.map((s: any) => `${s.label} (${s._id})`).join(', '));
-          
-          const matched = sitesData.find((s: any) => 
-            s._id === orgId || 
-            (s.label && s.label.toLowerCase() === orgId.toLowerCase()) ||
-            (s.label && s.label.toLowerCase().includes(orgId.toLowerCase()))
-          );
+        if (sitesRes.ok) {
+          const sitesData = await sitesRes.json();
+          if (Array.isArray(sitesData) && sitesData.length > 0) {
+            console.log(`[Espera API] Sites encontrados no NextQS (${sitesData.length}):`, sitesData.map((s: any) => `${s.label} (${s._id})`).join(', '));
+            
+            const matched = sitesData.find((s: any) => 
+              s._id === orgId || 
+              (s.label && s.label.toLowerCase() === orgId.toLowerCase()) ||
+              (s.label && s.label.toLowerCase().includes(orgId.toLowerCase()))
+            );
 
-          if (matched) {
-            resolvedSiteId = matched._id;
-            siteLabel = matched.label;
-          } else if (sitesData.length === 1 || !/^[0-9a-fA-F]{24}$/.test(orgId)) {
-            resolvedSiteId = sitesData[0]._id;
-            siteLabel = sitesData[0].label;
-            console.log(`[Espera API] Mapeado identificador "${orgId}" para o site_id real: "${resolvedSiteId}" (${siteLabel})`);
+            if (matched) {
+              resolvedSiteId = matched._id;
+              siteLabel = matched.label;
+            } else if (sitesData.length === 1 || !/^[0-9a-fA-F]{24}$/.test(orgId)) {
+              resolvedSiteId = sitesData[0]._id;
+              siteLabel = sitesData[0].label;
+              console.log(`[Espera API] Mapeado identificador "${orgId}" para o site_id real: "${resolvedSiteId}" (${siteLabel})`);
+            }
+
+            siteIdCache.set(tenantId, { siteId: resolvedSiteId, label: siteLabel, timestamp: Date.now() });
           }
+        } else {
+          const errText = await sitesRes.text().catch(() => '');
+          console.warn(`[Espera API] /v1/organization/sites status ${sitesRes.status}: ${errText.slice(0, 100)}`);
         }
-      } else {
-        const errText = await sitesRes.text().catch(() => '');
-        console.warn(`[Espera API] /v1/organization/sites status ${sitesRes.status}: ${errText.slice(0, 100)}`);
+      } catch (err: any) {
+        console.warn('[Espera API] Não foi possível consultar /v1/organization/sites:', err.message);
       }
-    } catch (err: any) {
-      console.warn('[Espera API] Não foi possível consultar /v1/organization/sites:', err.message);
     }
 
     // 6. Consultas paralelas: Fila ao vivo, Serviços abertos, Histórico de relatórios, Suspensões e Agendamentos
@@ -296,11 +337,11 @@ export async function GET(req: NextRequest) {
     let rawSuspensions: any[] = [];
     let rawBookings: any[] = [];
 
-    // Helper para fetch seguro com timeout
+    // Helper para fetch seguro com timeout de 7s (em vez de 12s para evitar segurar a UI)
     const fetchSafe = async (url: string, logName: string) => {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 12000);
+        const timeout = setTimeout(() => controller.abort(), 7000);
         const res = await fetch(url, { method: 'GET', headers, signal: controller.signal });
         clearTimeout(timeout);
 
@@ -535,7 +576,7 @@ export async function GET(req: NextRequest) {
       }).catch(() => {});
     }
 
-    return NextResponse.json({
+    const responsePayload = {
       configured: true,
       records: normalized,
       slaMinutes: config.slaMinutes,
@@ -563,7 +604,11 @@ export async function GET(req: NextRequest) {
       suspensoes,
       agendamentos,
       error: fetchError,
-    });
+    };
+
+    esperaDataCache.set(cacheKey, { data: responsePayload, timestamp: Date.now() });
+
+    return NextResponse.json(responsePayload);
   } catch (err: any) {
     if (err.message?.includes('Acesso negado') || err.message?.includes('Não autorizado')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });

@@ -712,14 +712,36 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
   const [apiError, setApiError] = useState<string | null>(null);
   const [showSlaInfo, setShowSlaInfo] = useState(false);
 
-  // Buscar dados reais da API
+  // Hidratação instantânea a partir do cache local de sessão (0ms de carregamento)
+  useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem(`fiorix_espera_${periodo}`);
+      if (cached) {
+        const data = JSON.parse(cached);
+        if (data.records && Array.isArray(data.records) && data.records.length > 0) {
+          setAllRecords(data.records);
+          if (data.kpis) setKpis(data.kpis);
+          if (data.realtime) setRealtime(data.realtime);
+          if (data.horariosPico) setHorariosPico(data.horariosPico);
+          if (data.performanceAgentes) setPerformanceAgentes(data.performanceAgentes);
+          if (data.suspensoes) setSuspensoes(data.suspensoes);
+          if (data.agendamentos) setAgendamentos(data.agendamentos);
+          if (data.siteLabel) setSiteLabel(data.siteLabel);
+          setIsLoading(false);
+        }
+      }
+    } catch {}
+  }, [periodo]);
+
+  // Buscar dados reais da API com suporte a cache e refresh forçado
   const fetchData = useCallback(async (showRefresh = false) => {
-    if (showRefresh) setIsRefreshing(true);
+    if (showRefresh || allRecords.length > 0) setIsRefreshing(true);
     else setIsLoading(true);
     setApiError(null);
 
     try {
-      const res = await fetch(`/api/v1/espera/senhas?periodo=${periodo}`);
+      const refreshParam = showRefresh ? '&refresh=true' : '';
+      const res = await fetch(`/api/v1/espera/senhas?periodo=${periodo}${refreshParam}`);
       const data = await res.json();
 
       if (data.configured === false) {
@@ -730,7 +752,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
 
       if (!res.ok) {
         setApiError(data.error || 'Erro ao carregar dados.');
-        setAllRecords([]);
+        if (allRecords.length === 0) setAllRecords([]);
         return;
       }
 
@@ -738,7 +760,13 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
         setApiError(data.error);
       }
 
-      setAllRecords(data.records || []);
+      if (Array.isArray(data.records)) {
+        setAllRecords(data.records);
+        // Persiste no cache de sessão para visitas subsequentes instantâneas
+        try {
+          sessionStorage.setItem(`fiorix_espera_${periodo}`, JSON.stringify(data));
+        } catch {}
+      }
       setKpis(data.kpis || null);
       setRealtime(data.realtime || { fila: [], emAtendimento: [] });
       setHorariosPico(data.horariosPico || []);
@@ -750,12 +778,12 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
       setSiteLabel(data.siteLabel || null);
     } catch {
       setApiError('Erro de rede ao conectar com o servidor.');
-      setAllRecords([]);
+      if (allRecords.length === 0) setAllRecords([]);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [periodo]);
+  }, [periodo, allRecords.length]);
 
   useEffect(() => {
     fetchData();
@@ -1067,8 +1095,8 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
           </div>
         </div>
 
-        {/* Loading */}
-        {isLoading && (
+        {/* Loading inicial (somente quando não há dados em cache/tela) */}
+        {isLoading && allRecords.length === 0 && (
           <div className="flex items-center justify-center py-20">
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
@@ -1097,8 +1125,8 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true }: Pro
           </div>
         )}
 
-        {/* Conteúdo Principal */}
-        {!isLoading && (
+        {/* Conteúdo Principal (visível se carregado ou se já houver registros em cache) */}
+        {(!isLoading || allRecords.length > 0) && (
           <>
             {/* Navegação em Abas (Tabs) */}
             <div className="flex items-center gap-1.5 border-b border-white/8 pb-2 overflow-x-auto scrollbar-none">
