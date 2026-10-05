@@ -8,10 +8,10 @@ function getDatabaseUrl() {
 
   try {
     const url = new URL(value);
-    // 5 conexões permitem que Promise.all execute queries em paralelo real,
-    // evitando gargalo quando sidebar/dashboard disparam múltiplas queries.
-    url.searchParams.set('connection_limit', process.env.PRISMA_CONNECTION_LIMIT || '5');
-    url.searchParams.set('pool_timeout', process.env.PRISMA_POOL_TIMEOUT || '10');
+    // 15 conexões permitem que Promise.all execute múltiplas queries paralelas no dashboard/saúde
+    // sem saturar o pool local do Prisma nem causar timeouts transitórios P2024.
+    url.searchParams.set('connection_limit', process.env.PRISMA_CONNECTION_LIMIT || '15');
+    url.searchParams.set('pool_timeout', process.env.PRISMA_POOL_TIMEOUT || '20');
     return url.toString();
   } catch {
     return value;
