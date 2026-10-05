@@ -1,13 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-helpers';
 import { getOperationsHealth, sanitizeDatabaseError } from '@/lib/health/operations-service';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const user = await requireRole('MASTER', 'ADMIN');
-    const health = await getOperationsHealth(user.tenantId);
+    const forceFresh = req.nextUrl.searchParams.get('refresh') === 'true';
+    const health = await getOperationsHealth(user.tenantId, forceFresh);
 
     return NextResponse.json(health, {
       headers: {

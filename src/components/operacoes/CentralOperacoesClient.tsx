@@ -40,9 +40,10 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
   const [lastUpdated, setLastUpdated] = useState<string>(initialHealth.timestamp);
 
   // Função para buscar dados atualizados via backend API
-  const refreshHealth = async () => {
+  const refreshHealth = async (force = false) => {
     try {
-      const res = await fetch('/api/v1/operacoes/health', { cache: 'no-store' });
+      const url = force ? '/api/v1/operacoes/health?refresh=true' : '/api/v1/operacoes/health';
+      const res = await fetch(url, { cache: 'no-store' });
       if (res.ok) {
         const data: OperationsHealthSnapshot = await res.json();
         setHealth(data);
@@ -56,14 +57,14 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
   // Polling seguro de 60 segundos
   useEffect(() => {
     const interval = setInterval(() => {
-      refreshHealth();
+      refreshHealth(false);
     }, 60000);
     return () => clearInterval(interval);
   }, []);
 
   const handleManualRefresh = () => {
     startTransition(async () => {
-      await refreshHealth();
+      await refreshHealth(true);
     });
   };
 

@@ -70,10 +70,11 @@ export interface ConnectorTelemetryData {
   queueFailed?: number | null;
 }
 
-let tablesInitialized = false;
+// As tabelas já existem no PostgreSQL em produção. Evita rodar 13 comandos DDL pesados em cada invocação serverless.
+let tablesInitialized = true;
 
-export async function ensureAlertTablesExist(): Promise<void> {
-  if (tablesInitialized) return;
+export async function ensureAlertTablesExist(force = false): Promise<void> {
+  if (tablesInitialized && !force) return;
 
   try {
     await prisma.$executeRawUnsafe(`

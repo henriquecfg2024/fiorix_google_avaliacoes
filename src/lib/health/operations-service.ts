@@ -146,12 +146,12 @@ function checkBusinessHoursState(now: Date): { isBusinessHours: boolean; isMorni
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. FUNÇÃO PRINCIPAL DE OBSERVABILIDADE
 // ─────────────────────────────────────────────────────────────────────────────
-export async function getOperationsHealth(tenantId: string): Promise<OperationsHealthSnapshot> {
+export async function getOperationsHealth(tenantId: string, forceFresh = false): Promise<OperationsHealthSnapshot> {
   const nowMs = Date.now();
   const cached = snapshotCache.get(tenantId);
 
-  // Cache interno de 30s para evitar roundtrips desnecessários em navegação rápida
-  if (cached && nowMs - cached.cachedAt < 30000) {
+  // 1. Retorno instantâneo do cache fresco (< 20s)
+  if (!forceFresh && cached && nowMs - cached.cachedAt < 20000) {
     return {
       ...cached.snapshot,
       delivery: 'cached',
@@ -161,11 +161,14 @@ export async function getOperationsHealth(tenantId: string): Promise<OperationsH
     };
   }
 
-  // Single-flight deduplication
+  // 2. Single-flight deduplication
   let existingPromise = inFlightRequests.get(tenantId);
-  if (existingPromise) {
+  if (existingPromise && !cached) {
     return existingPromise;
   }
+
+  // 3. Stale-While-Revalidate: se temos dados em cache (até 2 minutos), retorna na hora e revalida em background!
+  const shouldRevalidateInBackground = !forceFresh && cached && nowMs - cached.cachedAt < 120000;
 
   const computePromise = computeOperationsHealth(tenantId)
     .then((freshSnapshot) => {
@@ -180,6 +183,18 @@ export async function getOperationsHealth(tenantId: string): Promise<OperationsH
     });
 
   inFlightRequests.set(tenantId, computePromise);
+
+  if (shouldRevalidateInBackground && cached) {
+    // Retorna imediatamente para renderizar os cards em 0ms no servidor sem prender o usuário no skeleton
+    return {
+      ...cached.snapshot,
+      delivery: 'stale',
+      cacheAgeMs: nowMs - cached.cachedAt,
+      observedAt: new Date(cached.cachedAt).toISOString(),
+      snapshotAt: new Date().toISOString(),
+    };
+  }
+
   return computePromise;
 }
 
@@ -304,9 +319,29 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // FASE 2 (PARALELA): Status das Fontes, Último Lote de Cada Fonte e Telemetria
+  // FASE 2 (PARALELA): Status das Fontes e Telemetria
   // ─────────────────────────────────────────────────────────────────────────────
-  const [sourceStatuses, latestTelemetry, ...batchesResults] = await Promise.all([
+  // 1. Popula os lotes mais recentes diretamente de recentBatchesRaw (evita 6 queries redundantes ao banco)
+  const lastBatchesMap = new Map<string, { receivedAt: Date; recordsReceived: number | null; recordsInserted: number | null; recordsUpdated: number | null; status: string }>();
+  for (const b of recentBatchesRaw) {
+    const key = b.source.toLowerCase();
+    if (!lastBatchesMap.has(key)) {
+      lastBatchesMap.set(key, {
+        receivedAt: b.receivedAt,
+        recordsReceived: b.recordsReceived,
+        recordsInserted: null,
+        recordsUpdated: null,
+        status: b.status,
+      });
+    }
+  }
+
+  // 2. Consulta apenas as fontes que eventualmente não tiveram lotes nas últimas 24h
+  const missingSources = targetConnector
+    ? sourceConfigs.filter((cfg) => !lastBatchesMap.has(cfg.key))
+    : [];
+
+  const [sourceStatuses, latestTelemetry, ...missingBatchesResults] = await Promise.all([
     targetConnector
       ? prisma.connectorSourceStatus.findMany({
           where: { tenantId, connectorId: targetConnector.id },
@@ -321,34 +356,31 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     targetConnector
       ? getLatestConnectorTelemetry(tenantId, targetConnector.id).catch(() => null)
       : Promise.resolve(null),
-    ...sourceConfigs.map((cfg) =>
-      targetConnector
-        ? prisma.connectorSyncBatch.findFirst({
-            where: { tenantId, connectorId: targetConnector.id, source: cfg.key },
-            orderBy: { receivedAt: 'desc' },
-            select: {
-              source: true,
-              receivedAt: true,
-              recordsReceived: true,
-              recordsInserted: true,
-              recordsUpdated: true,
-              status: true,
-            },
-          }).catch(() => null)
-        : Promise.resolve(null)
+    ...missingSources.map((cfg) =>
+      prisma.connectorSyncBatch.findFirst({
+        where: { tenantId, connectorId: targetConnector!.id, source: cfg.key },
+        orderBy: { receivedAt: 'desc' },
+        select: {
+          source: true,
+          receivedAt: true,
+          recordsReceived: true,
+          recordsInserted: true,
+          recordsUpdated: true,
+          status: true,
+        },
+      }).catch(() => null)
     ),
   ]);
+
+  for (const b of missingBatchesResults) {
+    if (b) {
+      lastBatchesMap.set(b.source.toLowerCase(), b);
+    }
+  }
 
   const statusEntriesMap = new Map<string, { lastSuccessAt: Date | null; recordsLastSync: number | null; lastError: string | null }>();
   for (const s of sourceStatuses) {
     statusEntriesMap.set(s.source.toLowerCase(), s);
-  }
-
-  const lastBatchesMap = new Map<string, { receivedAt: Date; recordsReceived: number | null; recordsInserted: number | null; recordsUpdated: number | null; status: string }>();
-  for (const b of batchesResults) {
-    if (b) {
-      lastBatchesMap.set(b.source.toLowerCase(), b);
-    }
   }
 
   const incrementalModules: IncrementalModuleStatus[] = [];
@@ -778,7 +810,7 @@ async function resolveExternalIntegrationsHealth(
 
   // 2. Google Avaliações / Google Meu Negócio
   try {
-    const [googleConn, recentSyncLogs, pendingReviewsCount] = await Promise.all([
+    const [googleConn, recentSyncLogs, pendingReviewsCount, totalReviewsCount] = await Promise.all([
       prisma.googleConnection.findFirst({
         where: { tenantId },
         orderBy: { createdAt: 'desc' },
@@ -795,6 +827,7 @@ async function resolveExternalIntegrationsHealth(
           deletedFromGoogle: false,
         },
       }).catch(() => 0),
+      prisma.review.count({ where: { tenantId } }).catch(() => 0),
     ]);
 
     if (googleConn) {
@@ -889,9 +922,6 @@ async function resolveExternalIntegrationsHealth(
       const nextSyncExpectedDate = lastSyncDate && lastSyncDate.getTime() + 60 * 60 * 1000 > now.getTime()
         ? new Date(lastSyncDate.getTime() + 60 * 60 * 1000)
         : new Date(now.getTime() + 15 * 60 * 1000);
-
-      const totalReviewsCount = await prisma.review.count({ where: { tenantId } }).catch(() => 0);
-
       integrations.push({
         id: 'google_avaliacoes',
         name: 'Google Avaliações',
