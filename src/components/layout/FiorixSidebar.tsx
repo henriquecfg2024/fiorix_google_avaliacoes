@@ -14,10 +14,12 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { getUserNavPermissionsAction } from "@/app/actions/nav-permissions";
 
 export function FiorixSidebar() {
   const pathname = usePathname();
   const [role, setRole] = useState<Role>("USER");
+  const [allowedItemIds, setAllowedItemIds] = useState<string[] | undefined>(undefined);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
@@ -35,6 +37,14 @@ export function FiorixSidebar() {
     loadCurrentUserOnce()
       .then((user) => {
         if (user && user.role) setRole(user.role);
+      })
+      .catch(() => {});
+
+    getUserNavPermissionsAction()
+      .then((res) => {
+        if (res && res.enabled) {
+          setAllowedItemIds(res.allowedItemIds);
+        }
       })
       .catch(() => {});
 
@@ -99,7 +109,7 @@ export function FiorixSidebar() {
   if (!mounted) return <div className="hidden lg:flex w-64 h-full bg-white dark:bg-[#080A12] border-r border-slate-200 dark:border-white/5" />;
 
   const homeRoute = getHomeRouteForRole(role);
-  const visibleGroups = filterNavigationByRole(role);
+  const visibleGroups = filterNavigationByRole(role, allowedItemIds);
 
   return (
     <TooltipProvider delay={0}>

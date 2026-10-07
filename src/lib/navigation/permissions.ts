@@ -4,7 +4,39 @@ export type Role = string;
 
 type NavGroup = (typeof navigationGroups)[keyof typeof navigationGroups];
 
-export function filterNavigationByRole(role: Role = "USER") {
+export function filterNavigationByRole(
+  role: Role = "USER",
+  allowedItemIds?: string[]
+) {
+  // Se allowedItemIds foi fornecido dinamicamente (Feature Flag ativa no servidor)
+  if (Array.isArray(allowedItemIds)) {
+    const isMaster = role === "MASTER";
+    const allowedSet = new Set(allowedItemIds);
+    const filteredGroups: Record<string, NavGroup> = {};
+
+    for (const [key, group] of Object.entries(navigationGroups)) {
+      if (key === "master" && !isMaster) continue;
+
+      const visibleItems = group.items.filter((item: any) => {
+        if (!item.id) return false;
+        return allowedSet.has(item.id);
+      });
+
+      const isGroupHrefAllowed = (group as any).href
+        ? allowedSet.has(key) || visibleItems.length > 0
+        : false;
+
+      if (visibleItems.length > 0 || isGroupHrefAllowed) {
+        filteredGroups[key] = {
+          ...group,
+          items: visibleItems,
+        };
+      }
+    }
+
+    return filteredGroups;
+  }
+
   const isColaborador = role === "COLABORADOR";
   const isRH = role === "RH";
   const isSubstituto = role === "SUBSTITUTO";

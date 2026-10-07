@@ -14,12 +14,13 @@ import {
   loadNavigationStatsOnce,
   type NavigationStats,
 } from "@/lib/navigation/client-data";
-
+import { getUserNavPermissionsAction } from "@/app/actions/nav-permissions";
 
 export function FiorixTopbar() {
   const router = useRouter();
   const pathname = usePathname();
   const [pendingCount, setPendingCount] = useState<number>(0);
+  const [allowedItemIds, setAllowedItemIds] = useState<string[] | undefined>(undefined);
   const [currentUser, setCurrentUser] = useState<{
     name: string;
     email: string;
@@ -34,6 +35,14 @@ export function FiorixTopbar() {
     loadCurrentUserOnce()
       .then((user) => {
         if (user) setCurrentUser(user);
+      })
+      .catch(() => {});
+
+    getUserNavPermissionsAction()
+      .then((res) => {
+        if (res && res.enabled) {
+          setAllowedItemIds(res.allowedItemIds);
+        }
       })
       .catch(() => {});
 
@@ -80,7 +89,7 @@ export function FiorixTopbar() {
 
   const role = (currentUser?.role as Role) || "USER";
   const homeRoute = getHomeRouteForRole(role);
-  const visibleGroups = filterNavigationByRole(role);
+  const visibleGroups = filterNavigationByRole(role, allowedItemIds);
   const canViewReviews = ["MASTER", "ADMIN", "SUBSTITUTO"].includes(role.toUpperCase());
 
   return (

@@ -202,6 +202,48 @@ describe('FIORIX — Exclusividade MASTER e Validações no Servidor', () => {
     // Deve ter atualizado 2 itens (gestao_comunicados e gestao_pessoas sincronizado)
     expect(result.updatedCount).toBe(2);
   });
+
+  it('quando SUBSTITUTO tem PRESENCA NO GOOGLE desativado, o grupo some da navegacao e a rota e bloqueada', async () => {
+    const { prisma } = await import('@/lib/prisma');
+    const { getAllowedNavItemsForUser, isRouteAllowedForUser } = await import('@/lib/nav-permissions/service');
+    const { filterNavigationByRole } = await import('@/lib/navigation/permissions');
+
+    // Liga a flag para o teste
+    process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED = 'true';
+
+    // Mock das regras de perfil do banco retornando avaliacoes, estatisticas e relatorios como false
+    vi.mocked(prisma.$queryRawUnsafe).mockResolvedValueOnce([
+      { item_id: 'avaliacoes', visible: false },
+      { item_id: 'estatisticas', visible: false },
+      { item_id: 'relatorios', visible: false },
+    ] as any);
+    // Mock das regras individuais vazias
+    vi.mocked(prisma.$queryRawUnsafe).mockResolvedValueOnce([]);
+
+    const user = { id: 'user-sonia', role: 'SUBSTITUTO', tenantId: 'tenant-123' };
+    const navPermissions = await getAllowedNavItemsForUser(user);
+
+    expect(navPermissions.enabled).toBe(true);
+    expect(navPermissions.allowedItemIds).not.toContain('avaliacoes');
+    expect(navPermissions.allowedItemIds).not.toContain('estatisticas');
+    expect(navPermissions.allowedItemIds).not.toContain('relatorios');
+
+    // Filtra os grupos da Sidebar usando os IDs permitidos
+    const filteredSidebar = filterNavigationByRole(user.role, navPermissions.allowedItemIds);
+    expect(filteredSidebar.gestao).toBeUndefined(); // PRESENÇA NO GOOGLE totalmente removido!
+
+    // Mock de verificação de rota direta
+    vi.mocked(prisma.$queryRawUnsafe).mockResolvedValueOnce([]); // user rules
+    vi.mocked(prisma.$queryRawUnsafe).mockResolvedValueOnce([
+      { item_id: 'avaliacoes', visible: false },
+    ] as any); // role rules
+
+    const isAllowed = await isRouteAllowedForUser('/avaliacoes', user);
+    expect(isAllowed).toBe(false); // Acesso direto a /avaliacoes bloqueado!
+
+    // Restaura flag
+    delete process.env.FEATURE_NAV_PERMISSIONS_V1_ENABLED;
+  });
 });
 
 describe('FIORIX — Integridade das Migrations Preparadas V2', () => {

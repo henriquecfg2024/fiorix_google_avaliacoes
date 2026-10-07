@@ -293,3 +293,180 @@ export async function saveNavPermissionsBatch(params: {
     message: `Permissões salvas com sucesso (${updatedCount} itens atualizados).`,
   };
 }
+
+/**
+ * Obtém a navegação dinâmica efetiva para o usuário logado no tenant atual.
+ * Se a feature flag estiver desativada, retorna exatamente o comportamento legado.
+ */
+export async function getEffectiveUserNavigation(user: {
+  id: string;
+  role: string;
+  tenantId: string;
+}): Promise<Record<string, any>> {
+  if (!isNavPermissionsFeatureEnabled()) {
+    return filterNavigationByRole(user.role);
+  }
+
+  // Se MASTER, mantém navegação completa de MASTER
+  if (user.role === 'MASTER') {
+    return filterNavigationByRole('MASTER');
+  }
+
+  const roleRules = await getRoleRulesFromDb(user.tenantId, user.role);
+  const userRules = await getUserRulesFromDb(user.tenantId, user.id);
+
+  const filteredGroups: Record<string, any> = {};
+
+  for (const group of NAV_CATALOG_GROUPS) {
+    if (group.isMasterOnly) continue;
+
+    // Avalia os itens do grupo
+    const visibleItems = group.items.filter((item) => {
+      // 1. Guarda estrutural
+      const structural = checkStructuralRestriction(item, user.role);
+      if (structural.isBlocked) return false;
+
+      // 2. Exceção individual de usuário
+      if (userRules.has(item.id)) {
+        return userRules.get(item.id) === 'ALLOW';
+      }
+
+      // 3. Regra de perfil
+      if (roleRules.has(item.id)) {
+        return roleRules.get(item.id) === true;
+      }
+
+      // 4. Fallback legado
+      return isItemVisibleInLegacy(item, user.role);
+    });
+
+    const isGroupHrefVisible = group.href
+      ? visibleItems.some((i) => i.href === group.href) ||
+        (group.items.length === 0 &&
+          (userRules.has(group.id)
+            ? userRules.get(group.id) === 'ALLOW'
+            : roleRules.has(group.id)
+            ? roleRules.get(group.id) === true
+            : isItemVisibleInLegacy({ id: group.id, href: group.href } as any, user.role)))
+      : false;
+
+    if (visibleItems.length > 0 || isGroupHrefVisible) {
+      filteredGroups[group.id] = {
+        label: group.label,
+        href: group.href,
+        items: visibleItems.map((vi) => ({
+          id: vi.id,
+          label: vi.label,
+          href: vi.href,
+          description: vi.description,
+        })),
+      };
+    }
+  }
+
+  return filteredGroups;
+}
+
+/**
+ * Avalia se o usuário tem permissão para acessar a rota dada.
+ * Se a flag estiver desligada, permite o acesso (preserva legado).
+ */
+export async function isRouteAllowedForUser(
+  pathname: string,
+  user: { id: string; role: string; tenantId: string }
+): Promise<boolean> {
+  if (!isNavPermissionsFeatureEnabled()) return true;
+  if (user.role === 'MASTER') return true;
+
+  if (pathname === '/dashboard' || pathname === '/') return true;
+
+  const matchingItem = ALL_NAV_CATALOG_ITEMS.find((item) => {
+    if (item.href === pathname) return true;
+    if (item.href.includes('?') && item.href.split('?')[0] === pathname) return true;
+    return false;
+  });
+
+  if (!matchingItem) {
+    return true;
+  }
+
+  // 1. Guarda estrutural
+  const structural = checkStructuralRestriction(matchingItem, user.role);
+  if (structural.isBlocked) return false;
+
+  // 2. Exceção do usuário
+  const userRules = await getUserRulesFromDb(user.tenantId, user.id);
+  if (userRules.has(matchingItem.id)) {
+    return userRules.get(matchingItem.id) === 'ALLOW';
+  }
+
+  // 3. Regra de perfil
+  const roleRules = await getRoleRulesFromDb(user.tenantId, user.role);
+  if (roleRules.has(matchingItem.id)) {
+    return roleRules.get(matchingItem.id) === true;
+  }
+
+  // 4. Fallback legado
+  return isItemVisibleInLegacy(matchingItem, user.role);
+}
+
+/**
+ * Retorna os IDs dos itens permitidos para o usuário.
+ * Se a flag estiver desligada, retorna enabled: false (usar legado).
+ */
+export async function getAllowedNavItemsForUser(user: {
+  id: string;
+  role: string;
+  tenantId: string;
+}): Promise<{ enabled: boolean; allowedItemIds: string[] }> {
+  if (!isNavPermissionsFeatureEnabled()) {
+    return { enabled: false, allowedItemIds: [] };
+  }
+
+  // Se for MASTER, tem acesso a tudo
+  if (user.role === 'MASTER') {
+    return {
+      enabled: true,
+      allowedItemIds: ALL_NAV_CATALOG_ITEMS.map((i) => i.id),
+    };
+  }
+
+  const roleRules = await getRoleRulesFromDb(user.tenantId, user.role);
+  const userRules = await getUserRulesFromDb(user.tenantId, user.id);
+
+  const allowedItemIds: string[] = [];
+
+  for (const item of ALL_NAV_CATALOG_ITEMS) {
+    if (item.isMasterOnly) continue;
+
+    // 1. Guarda estrutural
+    const structural = checkStructuralRestriction(item, user.role);
+    if (structural.isBlocked) continue;
+
+    // 2. Exceção do usuário
+    if (userRules.has(item.id)) {
+      if (userRules.get(item.id) === 'ALLOW') {
+        allowedItemIds.push(item.id);
+      }
+      continue;
+    }
+
+    // 3. Regra de perfil
+    if (roleRules.has(item.id)) {
+      if (roleRules.get(item.id) === true) {
+        allowedItemIds.push(item.id);
+      }
+      continue;
+    }
+
+    // 4. Fallback legado
+    if (isItemVisibleInLegacy(item, user.role)) {
+      allowedItemIds.push(item.id);
+    }
+  }
+
+  return {
+    enabled: true,
+    allowedItemIds,
+  };
+}

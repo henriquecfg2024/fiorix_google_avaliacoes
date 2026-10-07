@@ -2,8 +2,12 @@
 
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/auth-helpers';
+import { auth } from '@/auth';
 import {
   computeNavPermissionsState,
+  getEffectiveUserNavigation,
+  getAllowedNavItemsForUser,
+  isRouteAllowedForUser,
   saveNavPermissionsBatch,
 } from '@/lib/nav-permissions/service';
 import {
@@ -107,5 +111,52 @@ export async function savePermissionsBatchAction(params: {
   return saveNavPermissionsBatch({
     ...params,
     masterUser: master,
+  });
+}
+
+/**
+ * Retorna os IDs dos itens permitidos para a navegação do usuário da sessão.
+ */
+export async function getUserNavPermissionsAction(): Promise<{
+  enabled: boolean;
+  allowedItemIds: string[];
+}> {
+  const session = await auth();
+  if (!session?.user) {
+    return { enabled: false, allowedItemIds: [] };
+  }
+
+  return getAllowedNavItemsForUser({
+    id: session.user.id || '',
+    role: session.user.role || 'USER',
+    tenantId: (session.user as any).tenantId || '',
+  });
+}
+
+/**
+ * Retorna a navegação dinâmica efetiva para o usuário autenticado na sessão.
+ */
+export async function getCurrentUserNavigationAction(): Promise<Record<string, any> | null> {
+  const session = await auth();
+  if (!session?.user) return null;
+
+  return getEffectiveUserNavigation({
+    id: session.user.id || '',
+    role: session.user.role || 'USER',
+    tenantId: (session.user as any).tenantId || '',
+  });
+}
+
+/**
+ * Valida no servidor se a rota acessada é permitida para o usuário da sessão.
+ */
+export async function checkRouteAccessAction(pathname: string): Promise<boolean> {
+  const session = await auth();
+  if (!session?.user) return true;
+
+  return isRouteAllowedForUser(pathname, {
+    id: session.user.id || '',
+    role: session.user.role || 'USER',
+    tenantId: (session.user as any).tenantId || '',
   });
 }

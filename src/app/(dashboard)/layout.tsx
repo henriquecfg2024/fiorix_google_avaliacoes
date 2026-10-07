@@ -10,6 +10,8 @@ import { NavigationProgress } from '@/components/layout/NavigationProgress';
 import { FiorixAgent } from '@/components/agent/FiorixAgent';
 import { GlobalMessagingListener } from '@/components/mensagens/GlobalMessagingListener';
 
+import { RouteAccessGuard } from '@/components/layout/RouteAccessGuard';
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
@@ -36,7 +38,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         <main className="flex-1 overflow-y-auto overflow-x-hidden relative print:h-auto print:overflow-visible print:block print:p-0">
-          {children}
+          <RouteAccessGuard>
+            {children}
+          </RouteAccessGuard>
         </main>
       </div>
 
