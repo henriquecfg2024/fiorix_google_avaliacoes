@@ -29,9 +29,9 @@ export const navigationGroups = {
     label: "PRESENÇA NO GOOGLE",
     icon: PieChart,
     items: [
-      { label: "Avaliações", href: "/avaliacoes", icon: Star },
-      { label: "Estatísticas", href: "/estatisticas", icon: TrendingUp },
-      { label: "Relatórios", href: "/relatorios", icon: FileText },
+      { id: "avaliacoes", label: "Avaliações", href: "/avaliacoes", icon: Star },
+      { id: "estatisticas", label: "Estatísticas", href: "/estatisticas", icon: TrendingUp },
+      { id: "relatorios", label: "Relatórios", href: "/relatorios", icon: FileText },
     ],
   },
   operacional: {
@@ -39,48 +39,56 @@ export const navigationGroups = {
     icon: Briefcase,
     items: [
       {
+        id: "espera",
         label: "Espera",
         href: "/espera",
         icon: Clock3,
         description: "Tempo de espera e atendimento",
       },
       {
+        id: "recepcao",
         label: "Recepção",
         href: "/bi/produtividade",
         icon: Users,
         description: "5.192 Digital, 1.866 Presencial",
       },
       {
+        id: "prazos",
         label: "Prazos",
         href: "/bi",
         icon: BarChart3,
         description: "15.591 títulos, 30,7% atraso",
       },
       {
+        id: "tarefas",
         label: "Tarefas",
         href: "/bi/tarefas",
         icon: FileText,
         description: "Previsão de Carga Operacional",
       },
       {
+        id: "metas",
         label: "Metas",
         href: "/bi/metas",
         icon: Target,
         description: "733 protocolos, gargalo 27,1d",
       },
       {
+        id: "retornos",
         label: "Retornos",
         href: "/bi/retornos",
         icon: RotateCcw,
         description: "Consulte os retornos, responsáveis e observações de cada título.",
       },
       {
+        id: "impressoes",
         label: "Impressões",
         href: "/controle-impressoes",
         icon: Printer,
         description: "Certidões e atos nos livros",
       },
       {
+        id: "rastreio",
         label: "Rastreio",
         href: "/trajetoria-titulo",
         icon: MapPin,
@@ -99,6 +107,7 @@ export const navigationGroups = {
     icon: BookOpen,
     items: [
       {
+        id: "gestao_its",
         label: "Gestão de ITs",
         href: "/administracao/its",
         icon: BookOpen,
@@ -112,24 +121,28 @@ export const navigationGroups = {
     icon: Briefcase,
     items: [
       {
+        id: "mensagens",
         label: "Mensagens",
         href: "/mensagens",
         icon: MessageSquare,
         description: "Comunicação corporativa em tempo real",
       },
       {
+        id: "comunicados",
         label: "Comunicados",
         href: "/pessoas/comunicados",
         icon: FileText,
         description: "Mural interno e minhas ciências",
       },
       {
+        id: "gestao_comunicados",
         label: "Gestão de Comunicados",
         href: "/sistema/pessoas?tab=comunicados",
         icon: FileCheck2,
         description: "Criar comunicados e gerenciar ciências",
       },
       {
+        id: "minha_it",
         label: "Minha IT",
         href: "/minha-it",
         icon: BookOpen,
@@ -143,12 +156,14 @@ export const navigationGroups = {
     icon: Target,
     items: [
       {
+        id: "ferias",
         label: "Férias",
         href: "/pessoas/ferias",
         icon: Briefcase,
         description: "Meu saldo e solicitações individuais",
       },
       {
+        id: "holerites",
         label: "Holerites",
         href: "/pessoas/holerites",
         icon: FileText,
@@ -161,19 +176,22 @@ export const navigationGroups = {
     icon: Settings,
     items: [
       {
+        id: "central_operacoes",
         label: "Central de Operações",
         href: "/sistema/operacoes",
         icon: Activity,
         description: "Saúde e monitoramento",
       },
       {
+        id: "importacao_contingencia",
         label: "Importação de Contingência",
         href: "/bi/importacoes",
         icon: Upload,
         description: "Carga manual de contingência",
       },
-      { label: "Configurações", href: "/configuracoes", icon: Settings2 },
+      { id: "configuracoes", label: "Configurações", href: "/configuracoes", icon: Settings2 },
       {
+        id: "gestao_mensagens",
         label: "Gestão de Mensagens",
         href: "/administracao/mensagens",
         icon: MessageCircle,
@@ -186,12 +204,14 @@ export const navigationGroups = {
     icon: Crown,
     items: [
       {
+        id: "cartorios_tenants",
         label: "Cartórios (Tenants)",
         href: "/master/tenants",
         icon: Building2,
         description: "Gestão multi-tenant da plataforma",
       },
       {
+        id: "mensagens_saas",
         label: "Mensagens SaaS",
         href: "/master/mensagens",
         icon: MessageSquare,

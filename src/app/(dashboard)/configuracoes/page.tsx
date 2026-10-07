@@ -196,23 +196,43 @@ export default async function ConfiguracoesPage({
             </section>
 
             {userRole === 'MASTER' && (
-              <section className="rounded-[24px] border border-emerald-500/30 bg-emerald-950/20 backdrop-blur-xl p-6 shadow-sm text-white space-y-4">
-                <h2 className="text-lg font-semibold text-[#10d9a0] flex items-center gap-2">
-                  🏢 Gestão de Cartórios Clientes (Exclusivo Master)
-                </h2>
-                <p className="mt-1 text-sm text-emerald-100/80">
-                  Cadastre novos cartórios (tenants) no sistema SaaS e defina a conta de usuário administrador de cada um.
-                </p>
+              <>
+                <section className="rounded-[24px] border border-amber-500/30 bg-amber-950/20 backdrop-blur-xl p-6 shadow-sm text-white space-y-4">
+                  <h2 className="text-lg font-semibold text-amber-300 flex items-center gap-2">
+                    🛡️ Permissões de Menu
+                  </h2>
+                  <p className="mt-1 text-sm text-amber-100/80">
+                    Gerencie o acesso aos menus e submenus por colaborador ou perfil.
+                  </p>
 
-                <div>
-                  <Link
-                    href="/configuracoes/cartorios"
-                    className="mt-2 inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white transition-all shadow-md shadow-emerald-600/20"
-                  >
-                    Cadastrar Novos Cartórios →
-                  </Link>
-                </div>
-              </section>
+                  <div>
+                    <Link
+                      href="/configuracoes/permissoes-menu"
+                      className="mt-2 inline-flex items-center gap-2 rounded-xl bg-amber-600 hover:bg-amber-500 px-4 py-2.5 text-sm font-semibold text-white transition-all shadow-md shadow-amber-600/20"
+                    >
+                      Gerenciar Permissões →
+                    </Link>
+                  </div>
+                </section>
+
+                <section className="rounded-[24px] border border-emerald-500/30 bg-emerald-950/20 backdrop-blur-xl p-6 shadow-sm text-white space-y-4">
+                  <h2 className="text-lg font-semibold text-[#10d9a0] flex items-center gap-2">
+                    🏢 Gestão de Cartórios Clientes (Exclusivo Master)
+                  </h2>
+                  <p className="mt-1 text-sm text-emerald-100/80">
+                    Cadastre novos cartórios (tenants) no sistema SaaS e defina a conta de usuário administrador de cada um.
+                  </p>
+
+                  <div>
+                    <Link
+                      href="/configuracoes/cartorios"
+                      className="mt-2 inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white transition-all shadow-md shadow-emerald-600/20"
+                    >
+                      Cadastrar Novos Cartórios →
+                    </Link>
+                  </div>
+                </section>
+              </>
             )}
 
             <section className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-sm text-white space-y-4">

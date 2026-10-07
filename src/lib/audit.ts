@@ -9,7 +9,8 @@ export type AuditModulo =
   | 'COLABORADORES'
   | 'FERIAS'
   | 'HOLERITES'
-  | 'BI_IMPORTACOES';
+  | 'BI_IMPORTACOES'
+  | 'PERMISSOES_MENU';
 
 export type AuditAcao =
   | 'INCLUSAO'
