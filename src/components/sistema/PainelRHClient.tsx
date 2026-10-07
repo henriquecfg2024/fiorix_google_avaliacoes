@@ -176,8 +176,22 @@ export function PainelRHClient({
   const [novoPrioridade, setNovoPrioridade] = useState("NORMAL");
   const [novoConteudo, setNovoConteudo] = useState("");
   const [selectedPdf, setSelectedPdf] = useState<File | null>(null);
+  const [isDraggingPdf, setIsDraggingPdf] = useState(false);
   const [publicando, setPublicando] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
+
+  const handleValidateAndSelectPdf = (file: File) => {
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      toast.error("Apenas arquivos PDF são permitidos.");
+      return;
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error("O arquivo excede o limite máximo de 25MB.");
+      return;
+    }
+    setSelectedPdf(file);
+    toast.success(`PDF "${file.name}" anexado.`);
+  };
 
   // Lista de Comunicados com persistência total no PostgreSQL e no cliente
   const [comunicadosList, setComunicadosList] = useState<ComunicadoItem[]>(
@@ -968,7 +982,14 @@ export function PainelRHClient({
               <h3 className="text-sm font-bold text-white uppercase tracking-wider">
                 Publicar Novo Comunicado com Integridade SHA-256
               </h3>
-              <button onClick={() => setNovoModalOpen(false)} className="text-slate-400 hover:text-white">
+              <button
+                onClick={() => {
+                  setNovoModalOpen(false);
+                  setSelectedPdf(null);
+                  setIsDraggingPdf(false);
+                }}
+                className="text-slate-400 hover:text-white"
+              >
                 ✕
               </button>
             </div>
@@ -1013,34 +1034,72 @@ export function PainelRHClient({
                   Anexo em PDF (Opcional)
                 </label>
                 {!selectedPdf ? (
-                  <label className="border border-dashed border-white/20 hover:border-indigo-500/50 bg-white/[0.02] hover:bg-indigo-500/5 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-colors group">
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      e.dataTransfer.dropEffect = "copy";
+                      if (!isDraggingPdf) setIsDraggingPdf(true);
+                    }}
+                    onDragEnter={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDraggingPdf(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                      setIsDraggingPdf(false);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDraggingPdf(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) {
+                        handleValidateAndSelectPdf(file);
+                      }
+                    }}
+                    className={`border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center transition-all duration-200 relative group cursor-pointer ${
+                      isDraggingPdf
+                        ? "border-indigo-400 bg-indigo-500/20 scale-[1.01] shadow-lg shadow-indigo-500/25 ring-2 ring-indigo-500/30"
+                        : "border-white/20 hover:border-indigo-500/50 bg-white/[0.02] hover:bg-indigo-500/5"
+                    }`}
+                  >
                     <input
                       type="file"
+                      id="comunicado-pdf-input"
                       accept="application/pdf,.pdf"
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-                            toast.error("Apenas arquivos PDF são permitidos.");
-                            return;
-                          }
-                          if (file.size > 25 * 1024 * 1024) {
-                            toast.error("O arquivo excede o limite máximo de 25MB.");
-                            return;
-                          }
-                          setSelectedPdf(file);
+                          handleValidateAndSelectPdf(file);
                         }
                       }}
                     />
-                    <Upload className="w-6 h-6 text-slate-400 group-hover:text-indigo-400 mb-2 transition-colors" />
-                    <span className="text-xs font-semibold text-slate-200">
-                      Clique para selecionar ou arraste o PDF oficial
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-mono mt-1">
-                      Limite de 25MB • Cálculo automático de hash SHA-256 e custódia segura
-                    </span>
-                  </label>
+                    <label
+                      htmlFor="comunicado-pdf-input"
+                      className="w-full flex flex-col items-center justify-center cursor-pointer pointer-events-auto"
+                    >
+                      <Upload
+                        className={`w-7 h-7 mb-2 transition-transform duration-200 ${
+                          isDraggingPdf
+                            ? "text-indigo-400 scale-125 animate-bounce"
+                            : "text-slate-400 group-hover:text-indigo-400 group-hover:scale-110"
+                        }`}
+                      />
+                      <span className="text-xs font-semibold text-slate-200">
+                        {isDraggingPdf
+                          ? "Solte o arquivo PDF aqui para anexar"
+                          : "Clique para selecionar ou arraste o PDF oficial"}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono mt-1 text-center">
+                        Limite de 25MB • Cálculo automático de hash SHA-256 e custódia segura
+                      </span>
+                    </label>
+                  </div>
                 ) : (
                   <div className="p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-xl flex items-center justify-between">
                     <div className="flex items-center gap-2.5 overflow-hidden">
@@ -1068,7 +1127,15 @@ export function PainelRHClient({
             </div>
 
             <div className="flex justify-end gap-3 pt-2 border-t border-white/10">
-              <Button variant="ghost" onClick={() => setNovoModalOpen(false)} className="text-xs text-slate-400 hover:text-white">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setNovoModalOpen(false);
+                  setSelectedPdf(null);
+                  setIsDraggingPdf(false);
+                }}
+                className="text-xs text-slate-400 hover:text-white"
+              >
                 Cancelar
               </Button>
               <Button
