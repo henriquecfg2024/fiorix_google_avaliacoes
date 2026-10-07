@@ -22,11 +22,7 @@ export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['query'] : ['error'],
-    datasources: {
-      db: {
-        url: getDatabaseUrl(),
-      },
-    },
+    ...(getDatabaseUrl() ? { datasources: { db: { url: getDatabaseUrl() } } } : {}),
   });
 
 // Reutiliza o mesmo cliente também em produção para impedir que cada
