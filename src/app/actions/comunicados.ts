@@ -35,7 +35,7 @@ export async function getComunicadosRH(): Promise<ComunicadoItem[]> {
   const comunicados = await prisma.fiorixComunicado.findMany({
     where: {
       tenantId: user.tenantId,
-      status: { not: 'EXCLUIDO' },
+      status: { notIn: ['EXCLUIDO', 'excluido'] },
     },
     orderBy: {
       dataPublicacao: 'desc',
@@ -121,16 +121,35 @@ export async function deleteComunicadoRH(id: string, motivo?: string) {
     return { success: true };
   }
 
-  // Soft-delete persistente no PostgreSQL
-  await prisma.fiorixComunicado.updateMany({
-    where: { id, tenantId: user.tenantId },
-    data: {
-      status: 'EXCLUIDO',
-      motivoExclusao: motivo || 'Excluído via Painel RH',
-      dataUltimaAlteracao: new Date(),
-      ultimaAlteracaoPor: user.name || 'RH',
-    } as any,
-  });
+  // Soft-delete persistente no PostgreSQL com colunas reais
+  if (user.role === 'MASTER') {
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_comunicados 
+       SET status = 'EXCLUIDO', 
+           motivo_exclusao = $1, 
+           data_ultima_alteracao = NOW(), 
+           ultima_alteracao_por = $2, 
+           updated_at = NOW() 
+       WHERE id = $3`,
+      motivo || 'Excluído via Painel RH',
+      user.name || 'RH',
+      id
+    );
+  } else {
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_comunicados 
+       SET status = 'EXCLUIDO', 
+           motivo_exclusao = $1, 
+           data_ultima_alteracao = NOW(), 
+           ultima_alteracao_por = $2, 
+           updated_at = NOW() 
+       WHERE id = $3 AND tenant_id = $4`,
+      motivo || 'Excluído via Painel RH',
+      user.name || 'RH',
+      id,
+      user.tenantId
+    );
+  }
 
   await recordAuditLog({
     modulo: 'COMUNICADOS',
@@ -239,17 +258,44 @@ export async function editarComunicadoRH(
 
   const conteudoHash = generateHash(data.conteudo);
 
-  await prisma.fiorixComunicado.updateMany({
-    where: { id, tenantId: user.tenantId },
-    data: {
-      titulo: data.titulo,
-      conteudo: data.conteudo,
+  if (user.role === 'MASTER') {
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_comunicados 
+       SET titulo = $1, 
+           conteudo = $2, 
+           conteudo_hash = $3, 
+           prioridade = $4, 
+           data_ultima_alteracao = NOW(), 
+           ultima_alteracao_por = $5, 
+           updated_at = NOW() 
+       WHERE id = $6`,
+      data.titulo,
+      data.conteudo,
       conteudoHash,
-      prioridade: data.prioridade || 'NORMAL',
-      dataUltimaAlteracao: new Date(),
-      ultimaAlteracaoPor: user.name || 'RH',
-    } as any,
-  });
+      data.prioridade || 'NORMAL',
+      user.name || 'RH',
+      id
+    );
+  } else {
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_comunicados 
+       SET titulo = $1, 
+           conteudo = $2, 
+           conteudo_hash = $3, 
+           prioridade = $4, 
+           data_ultima_alteracao = NOW(), 
+           ultima_alteracao_por = $5, 
+           updated_at = NOW() 
+       WHERE id = $6 AND tenant_id = $7`,
+      data.titulo,
+      data.conteudo,
+      conteudoHash,
+      data.prioridade || 'NORMAL',
+      user.name || 'RH',
+      id,
+      user.tenantId
+    );
+  }
 
   await recordAuditLog({
     modulo: 'COMUNICADOS',

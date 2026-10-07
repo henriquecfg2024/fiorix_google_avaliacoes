@@ -342,9 +342,10 @@ export function PainelRHClient({
     try {
       await deleteComunicadoRH(targetId, motivo);
       toast.success(`Comunicado "${targetTitulo}" excluído e arquivado com sucesso!`);
-    } catch (err) {
+      router.refresh();
+    } catch (err: any) {
       console.error("Erro ao persistir exclusão no banco:", err);
-      toast.success(`Comunicado "${targetTitulo}" excluído e arquivado.`);
+      toast.error(err?.message || `Erro ao excluir comunicado "${targetTitulo}".`);
     }
   };
 

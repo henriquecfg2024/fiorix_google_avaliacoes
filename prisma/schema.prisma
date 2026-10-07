@@ -632,11 +632,14 @@ model FiorixComunicado {
   dataPublicacao DateTime  @default(now()) @map("data_publicacao")
   dataExpiracao  DateTime? @map("data_expiracao")
   exigeCiencia   Boolean   @default(true) @map("exige_ciencia")
-  notificar      Boolean   @default(true)
-  status         String    @default("PUBLICADO") // PUBLICADO, CANCELADO, RASCUNHO
-  imutavel       Boolean   @default(true)
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
+  notificar             Boolean   @default(true)
+  status                String    @default("PUBLICADO") // PUBLICADO, CANCELADO, RASCUNHO
+  imutavel              Boolean   @default(true)
+  motivoExclusao        String?   @map("motivo_exclusao")
+  dataUltimaAlteracao   DateTime? @map("data_ultima_alteracao")
+  ultimaAlteracaoPor    String?   @map("ultima_alteracao_por")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
 
   anexos   FiorixComunicadoAnexo[]
   ciencias FiorixComunicadoCiencia[]
