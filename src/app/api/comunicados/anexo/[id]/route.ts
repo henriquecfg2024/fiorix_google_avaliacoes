@@ -84,6 +84,8 @@ export async function GET(
         'Content-Type': anexo.mimeType || 'application/pdf',
         'Content-Disposition': `inline; filename="${encodeURIComponent(anexo.nomeOriginal)}"`,
         'Content-Length': buffer.length.toString(),
+        'X-Frame-Options': 'SAMEORIGIN',
+        'Content-Security-Policy': "frame-ancestors 'self'",
       },
     });
   } catch (err: any) {

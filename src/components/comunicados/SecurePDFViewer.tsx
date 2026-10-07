@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Download, Lock, FileText, X, ExternalLink, Printer } from "lucide-react";
+import { Download, Lock, FileText, X, ExternalLink, Printer, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SecurePDFViewerProps {
@@ -24,6 +24,9 @@ export function SecurePDFViewer({
   onClose,
 }: SecurePDFViewerProps) {
   const [timestamp, setTimestamp] = useState<string>("");
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     setTimestamp(new Date().toLocaleString("pt-BR"));
@@ -37,6 +40,53 @@ export function SecurePDFViewer({
       }),
     }).catch(() => {});
   }, [documentType, documentId]);
+
+  const loadDocumentBlob = React.useCallback(() => {
+    if (!fileUrl) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setLoadError(null);
+
+    fetch(fileUrl)
+      .then(async (res) => {
+        if (!res.ok) {
+          const raw = await res.text().catch(() => "");
+          let msg = `Erro ${res.status}: Não foi possível carregar o documento.`;
+          try {
+            const parsed = JSON.parse(raw);
+            msg = parsed.error || msg;
+          } catch {}
+          throw new Error(msg);
+        }
+        return res.blob();
+      })
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        setBlobUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return url;
+        });
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("[SecurePDFViewer] Erro ao carregar PDF:", err);
+        setLoadError(err.message || "Falha na conexão ao carregar o arquivo.");
+        setLoading(false);
+      });
+  }, [fileUrl]);
+
+  useEffect(() => {
+    loadDocumentBlob();
+    return () => {
+      setBlobUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    };
+  }, [loadDocumentBlob]);
 
   const handlePrint = () => {
     fetch("/api/lgpd/solicitacoes", {
@@ -61,7 +111,7 @@ export function SecurePDFViewer({
       }),
     }).catch(() => {});
     const a = document.createElement("a");
-    a.href = fileUrl;
+    a.href = blobUrl || fileUrl;
     a.download = `${documentTitle}.pdf`;
     a.click();
   };
@@ -148,14 +198,51 @@ export function SecurePDFViewer({
             ))}
           </div>
 
-          {/* PDF Frame or Simulated Document Canvas */}
           {fileUrl ? (
             <div className="w-full h-full min-h-[500px] flex-1 flex flex-col bg-[#101019] border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden shadow-inner relative z-0">
-              <iframe
-                src={fileUrl}
-                title={documentTitle}
-                className="w-full h-full min-h-[500px] flex-1 border-0 bg-white"
-              />
+              {loading ? (
+                <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-[#0a0c16] text-white">
+                  <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+                  <p className="text-sm font-semibold text-white/90">Carregando documento seguro...</p>
+                  <p className="text-xs text-white/50">Validando autenticidade e integridade criptográfica</p>
+                </div>
+              ) : loadError ? (
+                <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-[#0a0c16] p-6 text-center text-white">
+                  <div className="p-3 rounded-full bg-rose-500/10 text-rose-400">
+                    <AlertCircle className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-rose-200">{loadError}</p>
+                    <p className="text-xs text-white/50">Não foi possível exibir o PDF no visualizador integrado.</p>
+                  </div>
+                  <div className="flex items-center gap-3 pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadDocumentBlob}
+                      className="gap-2 border-white/20 text-white hover:bg-white/10"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Tentar Novamente</span>
+                    </Button>
+                    <a
+                      href={fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Abrir em Nova Aba</span>
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <iframe
+                  src={blobUrl || fileUrl}
+                  title={documentTitle}
+                  className="w-full h-full min-h-[500px] flex-1 border-0 bg-white"
+                />
+              )}
             </div>
           ) : (
             <div className="w-full max-w-2xl min-h-[500px] bg-[#101019] border border-slate-200 dark:border-white/10 rounded-xl p-8 shadow-inner flex flex-col justify-between text-white/90">

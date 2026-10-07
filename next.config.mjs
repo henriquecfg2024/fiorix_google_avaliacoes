@@ -34,7 +34,7 @@ const nextConfig = {
           },
           {
             key: 'X-Frame-Options',
-            value: 'DENY',
+            value: 'SAMEORIGIN',
           },
           {
             key: 'Referrer-Policy',
@@ -46,7 +46,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: `default-src 'self'; ${cspScriptSrc} style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleapis.com https://*.gstatic.com https://*.supabase.co https://uvieekfizuzujpwfbjww.supabase.co; font-src 'self' data:; connect-src 'self' https://*.googleapis.com https://api.openai.com https://*.supabase.co https://uvieekfizuzujpwfbjww.supabase.co wss://*.supabase.co; frame-src 'self' blob: data: https://*.supabase.co; frame-ancestors 'none'; object-src 'self' blob: data:; base-uri 'self';`,
+            value: `default-src 'self'; ${cspScriptSrc} style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleapis.com https://*.gstatic.com https://*.supabase.co https://uvieekfizuzujpwfbjww.supabase.co; font-src 'self' data:; connect-src 'self' https://*.googleapis.com https://api.openai.com https://*.supabase.co https://uvieekfizuzujpwfbjww.supabase.co wss://*.supabase.co; frame-src 'self' blob: data: https://*.supabase.co; frame-ancestors 'self'; object-src 'self' blob: data:; base-uri 'self';`,
           },
         ],
       },
