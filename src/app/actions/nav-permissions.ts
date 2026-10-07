@@ -106,12 +106,20 @@ export async function savePermissionsBatchAction(params: {
   }>;
   targetRoleForUser?: string;
 }) {
-  const master = await requireRole('MASTER');
+  try {
+    const master = await requireRole('MASTER');
 
-  return saveNavPermissionsBatch({
-    ...params,
-    masterUser: master,
-  });
+    return await saveNavPermissionsBatch({
+      ...params,
+      masterUser: master,
+    });
+  } catch (err: any) {
+    return {
+      success: false,
+      updatedCount: 0,
+      message: err?.message || 'Falha ao salvar permissões no servidor.',
+    };
+  }
 }
 
 /**
