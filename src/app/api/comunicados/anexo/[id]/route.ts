@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +22,7 @@ export async function GET(
     const anexo = await prisma.fiorixComunicadoAnexo.findFirst({
       where: {
         id: anexoId,
-        tenantId: user.tenantId,
+        ...(user.role === 'MASTER' ? {} : { tenantId: user.tenantId }),
       },
       include: {
         comunicado: {
@@ -43,33 +43,41 @@ export async function GET(
       );
     }
 
-    // Gera URL assinada com validade de 15 minutos (900 segundos)
-    const { data: signedData, error: signError } = await supabaseAdmin.storage
-      .from(BUCKET_NAME)
-      .createSignedUrl(anexo.storagePath, 900, {
-        download: anexo.nomeOriginal,
-      });
+    const accept = req.headers.get('accept') || '';
 
-    if (signError || !signedData?.signedUrl) {
-      console.error('[Download Comunicado PDF] Erro ao gerar URL assinada:', signError);
+    // Download do arquivo diretamente via cliente Supabase
+    const { data: blob, error: downloadError } = await supabase.storage
+      .from(BUCKET_NAME)
+      .download(anexo.storagePath);
+
+    if (downloadError || !blob) {
+      console.error('[Download Comunicado PDF] Erro Supabase:', downloadError);
       return NextResponse.json(
-        { error: 'Não foi possível gerar a URL de visualização segura.' },
+        { error: 'Não foi possível carregar o arquivo do storage.' },
         { status: 500 }
       );
     }
 
-    const accept = req.headers.get('accept') || '';
+    const arrayBuffer = await blob.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
     if (accept.includes('application/json')) {
       return NextResponse.json({
-        signedUrl: signedData.signedUrl,
         fileName: anexo.nomeOriginal,
-        mimeType: anexo.mimeType,
+        mimeType: anexo.mimeType || 'application/pdf',
         sizeBytes: anexo.tamanhoBytes,
         hashSha256: anexo.hashSha256,
       });
     }
 
-    return NextResponse.redirect(signedData.signedUrl);
+    return new NextResponse(buffer, {
+      status: 200,
+      headers: {
+        'Content-Type': anexo.mimeType || 'application/pdf',
+        'Content-Disposition': `inline; filename="${encodeURIComponent(anexo.nomeOriginal)}"`,
+        'Content-Length': buffer.length.toString(),
+      },
+    });
   } catch (err: any) {
     console.error('[Download Comunicado PDF] Erro:', err);
     return NextResponse.json(

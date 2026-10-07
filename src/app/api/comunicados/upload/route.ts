@@ -1,39 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-helpers';
-import { supabaseAdmin } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
 const BUCKET_NAME = 'fiorix-comunicados-anexos';
-let bucketVerified = false;
-
-function hasServiceRoleKey(): boolean {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  return !!(key && !key.includes('[SENSITIVE]') && key.length > 20);
-}
-
-async function ensureBucketExists() {
-  if (bucketVerified) return;
-  try {
-    const { data: buckets, error: listError } = await supabaseAdmin.storage.listBuckets();
-    if (!listError && buckets?.some((b) => b.name === BUCKET_NAME)) {
-      bucketVerified = true;
-      return;
-    }
-    if (!listError) {
-      const { error: createError } = await supabaseAdmin.storage.createBucket(BUCKET_NAME, {
-        public: false,
-        fileSizeLimit: 26214400, // 25 MB
-      });
-      if (!createError) {
-        bucketVerified = true;
-      }
-    }
-  } catch (err) {
-    console.warn('[Upload Comunicado PDF] Verificação do bucket:', err);
-  }
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -90,14 +62,12 @@ export async function POST(req: NextRequest) {
     // 4. Cálculo do Hash SHA-256 de Prova de Integridade WORM
     const hashSha256 = crypto.createHash('sha256').update(buffer).digest('hex');
 
-    // 5. Upload para o Supabase Storage
-    await ensureBucketExists();
-
+    // 5. Upload para o Supabase Storage via cliente padrão com chave canônica
     const randomSuffix = crypto.randomBytes(6).toString('hex');
     const safeBaseName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 50);
     const storagePath = `${user.tenantId}/${Date.now()}_${randomSuffix}_${safeBaseName}`;
 
-    const { error: uploadError } = await supabaseAdmin.storage
+    const { error: uploadError } = await supabase.storage
       .from(BUCKET_NAME)
       .upload(storagePath, buffer, {
         contentType: 'application/pdf',
@@ -107,7 +77,7 @@ export async function POST(req: NextRequest) {
     if (uploadError) {
       console.error('[Upload Comunicado PDF] Erro Supabase:', uploadError);
       return NextResponse.json(
-        { error: 'Falha ao armazenar arquivo no storage seguro.' },
+        { error: `Falha ao armazenar arquivo no storage seguro: ${uploadError.message}` },
         { status: 500 }
       );
     }
