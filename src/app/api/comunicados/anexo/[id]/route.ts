@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth-helpers';
 import { prisma } from '@/lib/prisma';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,10 +45,18 @@ export async function GET(
 
     const accept = req.headers.get('accept') || '';
 
-    // Download do arquivo diretamente via cliente Supabase
-    const { data: blob, error: downloadError } = await supabase.storage
-      .from(BUCKET_NAME)
-      .download(anexo.storagePath);
+    // Download do arquivo do storage (tenta admin primeiro, fallback para cliente anon)
+    let blob: Blob | null = null;
+    let downloadError: any = null;
+    try {
+      const res = await supabaseAdmin.storage.from(BUCKET_NAME).download(anexo.storagePath);
+      blob = res.data;
+      downloadError = res.error;
+    } catch {
+      const res = await supabase.storage.from(BUCKET_NAME).download(anexo.storagePath);
+      blob = res.data;
+      downloadError = res.error;
+    }
 
     if (downloadError || !blob) {
       console.error('[Download Comunicado PDF] Erro Supabase:', downloadError);

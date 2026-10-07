@@ -29,6 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 import { HoleriteUploader } from "@/components/rh/HoleriteUploader";
 import { CLT135Validator } from "@/components/rh/CLT135Validator";
 import { ComunicadoAuditModal, AuditEntry } from "@/components/rh/ComunicadoAuditModal";
@@ -257,20 +258,87 @@ export function PainelRHClient({
 
       if (selectedPdf) {
         setUploadingPdf(true);
-        const formData = new FormData();
-        formData.append("file", selectedPdf);
 
-        const uploadRes = await fetch("/api/comunicados/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!uploadRes.ok) {
-          const errData = await uploadRes.json().catch(() => ({}));
-          throw new Error(errData.error || "Falha no upload do arquivo PDF.");
+        // 1. Cálculo de hash SHA-256 no navegador para custódia e prova de integridade
+        let hashSha256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+        try {
+          const arrayBuffer = await selectedPdf.arrayBuffer();
+          const hashBuffer = await window.crypto.subtle.digest("SHA-256", arrayBuffer);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          hashSha256 = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+        } catch (hashErr) {
+          console.warn("Falha no cálculo do hash local, prosseguindo com fallback:", hashErr);
         }
 
-        pdfAnexoData = await uploadRes.json();
+        // 2. Normalização do caminho seguro no storage
+        const safeBaseName = selectedPdf.name
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-zA-Z0-9._-]/g, "_")
+          .substring(0, 50);
+        const randomSuffix = Math.random().toString(36).substring(2, 10);
+        const storagePath = `comunicados/${Date.now()}_${randomSuffix}_${safeBaseName}`;
+
+        let uploadSuccess = false;
+        let directErrorMessage = "";
+
+        // Tentativa 1: Upload direto da nuvem (elimina limites de payload da Vercel)
+        try {
+          const { error: directErr } = await supabase.storage
+            .from("fiorix-comunicados-anexos")
+            .upload(storagePath, selectedPdf, {
+              contentType: "application/pdf",
+              upsert: true,
+            });
+
+          if (!directErr) {
+            uploadSuccess = true;
+            pdfAnexoData = {
+              storagePath,
+              nomeOriginal: selectedPdf.name,
+              mimeType: "application/pdf",
+              tamanhoBytes: selectedPdf.size,
+              hashSha256,
+            };
+          } else {
+            directErrorMessage = directErr.message || JSON.stringify(directErr);
+            console.warn("Upload direto falhou, tentando fallback via API:", directErr);
+          }
+        } catch (directExc: any) {
+          directErrorMessage = directExc?.message || String(directExc);
+          console.warn("Exceção no upload direto, tentando fallback via API:", directExc);
+        }
+
+        // Tentativa 2: Fallback via endpoint de servidor
+        if (!uploadSuccess) {
+          const formData = new FormData();
+          formData.append("file", selectedPdf);
+
+          const uploadRes = await fetch("/api/comunicados/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!uploadRes.ok) {
+            const rawErrText = await uploadRes.text().catch(() => "");
+            let errorMessage = directErrorMessage
+              ? `Falha no upload: ${directErrorMessage}`
+              : "Falha no upload do arquivo PDF.";
+            try {
+              const parsed = JSON.parse(rawErrText);
+              errorMessage = parsed.error || errorMessage;
+            } catch {
+              if (uploadRes.status === 413) {
+                errorMessage = "O arquivo excede o limite de tamanho permitido pelo servidor (máx. 4.5 MB).";
+              } else if (rawErrText) {
+                errorMessage = rawErrText.substring(0, 150);
+              }
+            }
+            throw new Error(errorMessage);
+          }
+
+          pdfAnexoData = await uploadRes.json();
+        }
       }
 
       const res = await criarComunicadoRH({
