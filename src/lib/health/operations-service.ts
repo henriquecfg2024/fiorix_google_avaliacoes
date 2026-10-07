@@ -46,7 +46,7 @@ export function sanitizeDatabaseError(error: any): { code: string; message: stri
   if (str.includes('P1001') || str.includes("Can't reach database server")) {
     return { code: 'CONN_FAILED', message: 'Servidor do banco de dados inacessível' };
   }
-  if (str.includes('P2024') || str.includes('connection pool') || str.includes('timed out')) {
+  if (str.includes('P2024') || str.includes('connection pool') || str.toLowerCase().includes('timeout') || str.includes('timed out')) {
     return { code: 'POOL_TIMEOUT', message: 'Saturação ou tempo limite no pool de conexões' };
   }
   if (str.includes('P2028') || str.includes('Transaction API error')) {
@@ -173,13 +173,23 @@ export async function getOperationsHealth(tenantId: string, forceFresh = false):
   const computePromise = computeOperationsHealth(tenantId)
     .then((freshSnapshot) => {
       // Blindagem: se o snapshot recém-calculado estiver com conectores zerados por falha transitória de pool
-      // e tínhamos um snapshot anterior perfeitamente saudável no cache, preservamos o snapshot saudável!
+      // ou o banco degradou/caiu por timeout transitório e tínhamos um snapshot perfeitamente saudável no cache, preservamos o snapshot saudável!
       const prevCached = snapshotCache.get(tenantId);
-      const isNewDegraded = freshSnapshot.services.some(s => s.id === 'supabase' && s.status === 'degraded' && s.reason?.includes('pool'));
+      const isNewDegraded = freshSnapshot.services.some(
+        (s) => s.id === 'supabase' && (s.status === 'degraded' || s.status === 'offline') && (
+          s.reason?.includes('pool') ||
+          s.reason?.includes('tempo limite') ||
+          s.reason?.includes('timeout') ||
+          s.reason?.includes('temporariamente indisponível')
+        )
+      );
+      const hadHealthyDb = Boolean(
+        prevCached && prevCached.snapshot.services.some((s) => s.id === 'supabase' && s.status === 'operational')
+      );
       const hadHealthyConnector = Boolean(prevCached && prevCached.snapshot.connector.activeConnectorsCount > 0);
       const newLostConnector = freshSnapshot.connector.activeConnectorsCount === 0;
 
-      if (hadHealthyConnector && (isNewDegraded || newLostConnector)) {
+      if ((hadHealthyConnector && newLostConnector) || (hadHealthyDb && isNewDegraded)) {
         console.warn('[Operations Health] Preservando snapshot saudável anterior contra oscilação transitória de conexão.');
         inFlightRequests.delete(tenantId);
         return prevCached!.snapshot;
@@ -289,12 +299,28 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     })),
   ]);
 
+  // Filtra placeholders provisórios legados de seed ('substituir_pelo_id_fornecido')
+  let activeConnectors = allEnabledConnectors.filter(
+    (c) => c.id !== 'substituir_pelo_id_fornecido'
+  );
+
+  // Fallback de resiliência: se o findMany retornou vazio por erro transitório de pool, faz retry com findFirst
+  if (activeConnectors.length === 0) {
+    const fallbackConn = await prisma.connector.findFirst({
+      where: { tenantId, enabled: true, NOT: { id: 'substituir_pelo_id_fornecido' } },
+      select: { id: true, name: true, status: true, version: true, enabled: true, lastSeenAt: true, createdAt: true },
+    }).catch(() => null);
+    if (fallbackConn) {
+      activeConnectors = [fallbackConn];
+    }
+  }
+
   // Avaliação do status do PostgreSQL
   let dbLatencyMs: number | null = dbProbeResult.latency;
   let dbStatus: 'operational' | 'degraded' | 'offline' | 'unknown' = 'unknown';
   let dbReason = 'Aguardando verificação';
 
-  const isDbActiveByDataQueries = recentBatchesRaw.length > 0 || allEnabledConnectors.length > 0;
+  const isDbActiveByDataQueries = recentBatchesRaw.length > 0 || activeConnectors.length > 0;
 
   if (dbProbeResult.error) {
     if (isDbActiveByDataQueries) {
@@ -310,22 +336,6 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     const evalResult = evaluatePostgresStatus(dbLatencyMs, tenantId);
     dbStatus = evalResult.status;
     dbReason = evalResult.reason;
-  }
-
-  // Filtra placeholders provisórios legados de seed ('substituir_pelo_id_fornecido')
-  let activeConnectors = allEnabledConnectors.filter(
-    (c) => c.id !== 'substituir_pelo_id_fornecido'
-  );
-
-  // Fallback de resiliência: se o findMany retornou vazio por erro transitório de pool, faz retry com findFirst
-  if (activeConnectors.length === 0) {
-    const fallbackConn = await prisma.connector.findFirst({
-      where: { tenantId, enabled: true, NOT: { id: 'substituir_pelo_id_fornecido' } },
-      select: { id: true, name: true, status: true, version: true, enabled: true, lastSeenAt: true, createdAt: true },
-    }).catch(() => null);
-    if (fallbackConn) {
-      activeConnectors = [fallbackConn];
-    }
   }
 
   const isAmbiguous = activeConnectors.length > 1;
