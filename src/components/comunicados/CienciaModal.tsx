@@ -1,7 +1,16 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { ShieldCheck, CheckCircle2, AlertTriangle, FileText, Download, ExternalLink, X, Check } from "lucide-react";
+import {
+  CheckCircle2,
+  FileText,
+  Download,
+  ExternalLink,
+  X,
+  Check,
+  Info,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { QRComprovante } from "./QRComprovante";
@@ -36,11 +45,22 @@ export function CienciaModal({ comunicado, onClose, onSuccess }: CienciaModalPro
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Fecha com ESC quando não estiver enviando
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !submitting) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, submitting]);
+
   const checkScroll = () => {
     if (!scrollRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
     const totalScroll = scrollHeight - clientHeight;
-    if (totalScroll <= 15) {
+    if (totalScroll <= 20) {
       setScrollProgress(100);
       setHasScrolledToBottom(true);
       return;
@@ -127,173 +147,268 @@ Autenticidade garantida por integridade criptográfica SHA-256.
     URL.revokeObjectURL(url);
   };
 
+  const numAnexos = comunicado.anexos ? comunicado.anexos.length : 0;
+
+  const orientacaoTexto =
+    numAnexos === 0
+      ? "Leia o comunicado antes de confirmar sua ciência."
+      : numAnexos === 1
+      ? "Leia o comunicado e seu anexo antes de confirmar sua ciência."
+      : "Leia o comunicado e seus anexos antes de confirmar sua ciência.";
+
+  const declaracaoTexto =
+    numAnexos === 0
+      ? "Declaro que li e tomei ciência deste comunicado."
+      : numAnexos === 1
+      ? "Declaro que li e tomei ciência deste comunicado e de seu anexo."
+      : "Declaro que li e tomei ciência deste comunicado e de seus anexos.";
+
+  const formatTamanho = (bytes: number) => {
+    if (!bytes || bytes <= 0) return "0 KB";
+    if (bytes < 1024 * 1024) {
+      return `${Math.round(bytes / 1024)} KB`;
+    }
+    return `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`;
+  };
+
+  const getPrioridadeBadge = (prioridade: string) => {
+    const p = (prioridade || "").toUpperCase();
+    if (p === "URGENTE") {
+      return {
+        label: "Urgente",
+        classes: "bg-rose-500/15 text-rose-300 border-rose-500/30",
+      };
+    }
+    if (p === "IMPORTANTE") {
+      return {
+        label: "Importante",
+        classes: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+      };
+    }
+    return {
+      label: p === "NORMAL" ? "Normal" : p || "Geral",
+      classes: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
+    };
+  };
+
+  const badge = getPrioridadeBadge(comunicado.prioridade);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-      <div className="relative w-full max-w-2xl max-h-[90vh] bg-white dark:bg-[#0B1020] border border-white/12 rounded-[28px] flex flex-col shadow-[0_25px_70px_rgba(0,0,0,0.5)] overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/8 bg-[#070A12]/80">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${comunicado.prioridade === "URGENTE" ? "bg-red-500/20 text-red-400" : "bg-indigo-500/20 text-indigo-400"}`}>
-              <ShieldCheck className="w-5 h-5" />
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-ciencia-titulo"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !submitting) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+    >
+      <div className="relative w-full max-w-2xl max-h-[90vh] bg-[#0B1020] border border-white/10 rounded-2xl flex flex-col shadow-2xl overflow-hidden">
+        {/* Header Compacto */}
+        <div className="flex items-start justify-between p-5 sm:p-6 border-b border-white/10 bg-[#070A12]/90">
+          <div className="min-w-0 pr-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider border ${badge.classes}`}
+              >
+                {badge.label}
+              </span>
+              <span className="text-xs text-white/50">
+                Versão {comunicado.versao}
+                {comunicado.autorNome ? ` · ${comunicado.autorNome}` : ""}
+              </span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${comunicado.prioridade === "URGENTE" ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"}`}>
-                  {comunicado.prioridade}
-                </span>
-                <span className="text-xs text-white/50">Versão {comunicado.versao}</span>
-              </div>
-              <h2 className="text-base font-bold text-white mt-0.5 truncate max-w-lg">
-                {comunicado.titulo}
-              </h2>
-            </div>
+            <h2
+              id="modal-ciencia-titulo"
+              className="text-base sm:text-lg font-bold text-white mt-1.5 leading-snug"
+            >
+              {comunicado.titulo}
+            </h2>
           </div>
-          <button onClick={onClose} className="p-1.5 text-white/60 hover:text-white rounded-lg hover:bg-white/10">
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            aria-label="Fechar"
+            className="p-1.5 text-white/40 hover:text-white rounded-lg hover:bg-white/10 transition-colors shrink-0 -mr-1 -mt-1 disabled:opacity-40"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Scroll Progress Bar */}
-        {!resultadoCiencia && (
-          <div className="w-full bg-white/5 h-1 relative">
-            <div
-              className={`h-full transition-all duration-150 ${hasScrolledToBottom ? "bg-emerald-500" : "bg-gradient-to-r from-violet-500 to-cyan-400"}`}
-              style={{ width: `${hasScrolledToBottom ? 100 : scrollProgress}%` }}
-            />
-          </div>
-        )}
-
-        {/* Body */}
+        {/* Corpo do Modal */}
         {!resultadoCiencia ? (
           <div className="flex flex-col flex-1 overflow-hidden">
-            {/* Scrollable Content */}
+            {/* Conteúdo com rolagem suave */}
             <div
               ref={scrollRef}
               onScroll={handleScroll}
-              className="flex-1 p-6 overflow-y-auto space-y-4 text-white/80 leading-relaxed text-sm bg-[#080A12]/50"
+              className="flex-1 p-5 sm:p-6 overflow-y-auto space-y-5 text-white/85 text-sm leading-relaxed"
             >
-              <div className="p-4 bg-[#101019] rounded-xl border border-slate-200 dark:border-white/5 mb-4">
-                <h3 className="text-xs font-bold text-white/60 uppercase tracking-wide mb-1">
-                  Diretriz de Leitura Obrigatória
-                </h3>
-                <p className="text-xs text-white/50">
-                  Para habilitar a declaração de ciência com validade jurídica, role todo o conteúdo até o fim (ou visualize o conteúdo completo).
-                </p>
-                <div className="mt-2 flex items-center gap-2 text-xs font-mono text-cyan-400">
-                  <span>Progresso de leitura: {hasScrolledToBottom ? 100 : scrollProgress}%</span>
-                  {hasScrolledToBottom ? (
-                    <span className="text-emerald-400 font-bold flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" /> Leitura concluída
-                    </span>
-                  ) : (
-                    <span className="text-amber-400/80">Role para continuar</span>
-                  )}
-                </div>
+              {/* Orientação Direta */}
+              <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-xs text-white/70">
+                <Info className="w-4 h-4 text-indigo-400 shrink-0" />
+                <span>{orientacaoTexto}</span>
               </div>
 
               {/* Texto do Comunicado */}
-              <div className="prose prose-invert max-w-none text-white/90 whitespace-pre-wrap font-sans text-sm">
+              <div className="text-white/90 whitespace-pre-wrap font-sans text-sm sm:text-base leading-relaxed selection:bg-indigo-500/30">
                 {comunicado.conteudo}
               </div>
 
-              {/* Anexos */}
+              {/* Seção de Anexo(s) em Destaque */}
               {comunicado.anexos && comunicado.anexos.length > 0 && (
-                <div className="pt-4 border-t border-slate-200 dark:border-white/10 mt-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="pt-2 space-y-2.5">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-white/40">
+                    {comunicado.anexos.length === 1 ? "Documento Anexo" : "Documentos Anexos"}
+                  </h3>
+                  <div className="space-y-2">
                     {comunicado.anexos.map((anexo) => (
-                      <div key={anexo.id} className="p-3 bg-[#12141F] rounded-xl border border-rose-500/20 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2 overflow-hidden">
-                          <FileText className="w-4 h-4 text-rose-400 shrink-0" />
-                          <div className="truncate">
-                            <span className="text-xs font-medium text-white truncate block">{anexo.nomeOriginal}</span>
-                            <span className="text-[10px] text-white/40 font-mono">{(anexo.tamanhoBytes / 1024).toFixed(0)} KB</span>
+                      <div
+                        key={anexo.id}
+                        className="w-full p-3.5 bg-[#121626] rounded-xl border border-indigo-500/20 hover:border-indigo-500/30 flex items-center justify-between gap-4 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+                            <FileText className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <p
+                              className="text-xs sm:text-sm font-medium text-white truncate"
+                              title={anexo.nomeOriginal}
+                            >
+                              {anexo.nomeOriginal}
+                            </p>
+                            <p className="text-[11px] text-white/45 font-mono">
+                              {formatTamanho(anexo.tamanhoBytes)}
+                            </p>
                           </div>
                         </div>
                         <a
                           href={`/api/comunicados/anexo/${anexo.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-2.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 text-rose-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0"
-                          title="Visualizar documento PDF na íntegra"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 rounded-lg text-xs font-semibold transition-colors shrink-0"
+                          title="Abrir anexo em nova aba"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
-                          <span>Ler PDF</span>
+                          <span>Abrir PDF</span>
                         </a>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-
             </div>
 
-            {/* Footer with Checkbox and Action */}
-            <div className="p-6 border-t border-slate-200 dark:border-white/10 bg-[#0d0d16] space-y-4">
-              <div className={`p-4 rounded-xl border transition-all ${hasScrolledToBottom ? "bg-indigo-500/5 border-indigo-500/30" : "bg-white/[0.02] border-slate-200 dark:border-white/5 opacity-60"}`}>
+            {/* Rodapé com Declaração e Ações */}
+            <div className="p-5 sm:p-6 border-t border-white/10 bg-[#070A12]/90 space-y-4">
+              <div
+                className={`p-3.5 sm:p-4 rounded-xl border transition-all ${
+                  hasScrolledToBottom
+                    ? "bg-indigo-500/[0.04] border-indigo-500/25"
+                    : "bg-white/[0.02] border-white/5 opacity-60"
+                }`}
+              >
                 <div className="flex items-start gap-3">
                   <Checkbox
                     id="declaracao"
                     disabled={!hasScrolledToBottom}
                     checked={declaracaoChecked}
                     onCheckedChange={(v) => setDeclaracaoChecked(Boolean(v))}
-                    className="mt-0.5 border-white/30 data-[state=checked]:bg-indigo-500 data-[state=checked]:border-indigo-500"
+                    className="mt-0.5 border-white/30 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
                   />
-                  <label
-                    htmlFor="declaracao"
-                    className={`text-xs leading-relaxed cursor-pointer select-none ${hasScrolledToBottom ? "text-white font-medium" : "text-white/40"}`}
-                  >
-                    Declaro que li e tomei ciência integral deste comunicado, ciente de sua vigência e aplicação no âmbito do 7º Registro de Imóveis de São Paulo.
-                  </label>
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="declaracao"
+                      className={`text-xs sm:text-sm leading-snug select-none cursor-pointer block ${
+                        hasScrolledToBottom ? "text-white font-medium" : "text-white/40 cursor-not-allowed"
+                      }`}
+                    >
+                      {declaracaoTexto}
+                    </label>
+                    {!hasScrolledToBottom ? (
+                      <p className="text-[11px] text-amber-400/80">
+                        Role até o final do texto para habilitar a declaração.
+                      </p>
+                    ) : !declaracaoChecked ? (
+                      <p className="text-[11px] text-white/45">
+                        Marque a declaração para confirmar.
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
               <div className="flex items-center justify-between gap-4">
-                <Button variant="ghost" size="sm" onClick={onClose} className="text-white/60 hover:text-white text-xs">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onClose}
+                  disabled={submitting}
+                  className="text-white/60 hover:text-white hover:bg-white/5 text-xs px-3"
+                >
                   Cancelar
                 </Button>
                 <Button
                   disabled={!hasScrolledToBottom || !declaracaoChecked || submitting}
                   onClick={handleDarCiencia}
-                  className="bg-[#6366f1] hover:bg-[#5254db] text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-md disabled:opacity-40"
+                  className="bg-[#6366f1] hover:bg-[#5254db] text-white font-semibold text-xs px-5 py-2.5 rounded-xl shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  {submitting ? "Confirmando ciência..." : "Confirmar ciência"}
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Confirmando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Confirmar ciência</span>
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
           </div>
         ) : (
-          /* Tela de Sucesso com QR Code e Hash */
-          <div className="p-8 flex flex-col items-center justify-center space-y-6 bg-[#080A12]/80">
-            <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+          /* Tela de Sucesso com QR Code e Hash SHA-256 */
+          <div className="p-6 sm:p-8 flex flex-col items-center justify-center space-y-6 bg-[#0B1020]">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center justify-center border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.25)]">
               <CheckCircle2 className="w-6 h-6" />
             </div>
 
             <div className="text-center max-w-md">
-              <h3 className="text-lg font-black text-white">Ciência Registrada com Sucesso!</h3>
+              <h3 className="text-lg font-bold text-white">Ciência Registrada com Sucesso!</h3>
               <p className="text-xs text-white/60 mt-1">
                 A prova criptográfica foi gerada e gravada de forma imutável na trilha de auditoria.
               </p>
             </div>
 
-            <div className="w-full max-w-md p-4 bg-[#101019] rounded-2xl border border-slate-200 dark:border-white/10 space-y-3 text-xs">
-              <div className="flex justify-between py-1 border-b border-slate-200 dark:border-white/5">
+            <div className="w-full max-w-md p-4 bg-[#101424] rounded-xl border border-white/10 space-y-3 text-xs">
+              <div className="flex justify-between py-1 border-b border-white/5">
                 <span className="text-white/40">Data e Hora:</span>
-                <span className="text-white font-mono">{new Date(resultadoCiencia.timestamp).toLocaleString("pt-BR")}</span>
+                <span className="text-white font-mono">
+                  {new Date(resultadoCiencia.timestamp).toLocaleString("pt-BR")}
+                </span>
               </div>
-              <div className="flex justify-between py-1 border-b border-slate-200 dark:border-white/5">
+              <div className="flex justify-between py-1 border-b border-white/5">
                 <span className="text-white/40">IP Mascarado:</span>
                 <span className="text-white font-mono">{resultadoCiencia.ipMascarado}</span>
               </div>
-              <div className="flex flex-col py-1 border-b border-slate-200 dark:border-white/5">
+              <div className="flex flex-col py-1 border-b border-white/5">
                 <span className="text-white/40 mb-1">Hash do Comprovante (SHA-256):</span>
-                <span className="text-cyan-400 font-mono text-[10px] break-all bg-black/40 p-1.5 rounded border border-slate-200 dark:border-white/5">
+                <span className="text-cyan-400 font-mono text-[10px] break-all bg-black/40 p-2 rounded border border-white/5">
                   {resultadoCiencia.comprovanteHash}
                 </span>
               </div>
 
               {/* QR Code */}
               <div className="pt-2 flex justify-center">
-                <QRComprovante url={resultadoCiencia.qrCodeUrl} hash={resultadoCiencia.comprovanteHash} />
+                <QRComprovante
+                  url={resultadoCiencia.qrCodeUrl}
+                  hash={resultadoCiencia.comprovanteHash}
+                />
               </div>
             </div>
 
@@ -301,14 +416,14 @@ Autenticidade garantida por integridade criptográfica SHA-256.
               <Button
                 variant="outline"
                 onClick={handleDownloadComprovante}
-                className="flex-1 border-slate-200 dark:border-white/10 text-white/80 hover:bg-white/10 text-xs gap-1.5"
+                className="flex-1 border-white/10 text-white/80 hover:bg-white/10 hover:text-white text-xs gap-1.5"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Baixar Comprovante</span>
               </Button>
               <Button
                 onClick={onClose}
-                className="flex-1 bg-white/10 hover:bg-white/20 text-white font-bold text-xs"
+                className="flex-1 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs"
               >
                 Concluir
               </Button>
