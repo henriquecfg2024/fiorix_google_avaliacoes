@@ -45,32 +45,77 @@ export async function GET(
 
     const accept = req.headers.get('accept') || '';
 
-    // Download do arquivo do storage (tenta admin primeiro, fallback para cliente anon)
-    let blob: Blob | null = null;
-    let downloadError: any = null;
+    // Gera URL assinada temporária (15 minutos / 900s) diretamente pelo Supabase Storage CDN.
+    // Isso evita bufferizar arquivos pesados (ex.: PDFs de 8MB+) na memória da função serverless da Vercel,
+    // que causava estouro do limite de payload (4.5MB) e travamento com cursor girando indefinidamente.
+    let signedUrl: string | null = null;
+    let signError: any = null;
+
     try {
-      const res = await supabaseAdmin.storage.from(BUCKET_NAME).download(anexo.storagePath);
-      blob = res.data;
-      downloadError = res.error;
+      const res = await supabaseAdmin.storage
+        .from(BUCKET_NAME)
+        .createSignedUrl(anexo.storagePath, 900);
+      signedUrl = res.data?.signedUrl ?? null;
+      signError = res.error;
     } catch {
-      const res = await supabase.storage.from(BUCKET_NAME).download(anexo.storagePath);
-      blob = res.data;
-      downloadError = res.error;
+      const res = await supabase.storage
+        .from(BUCKET_NAME)
+        .createSignedUrl(anexo.storagePath, 900);
+      signedUrl = res.data?.signedUrl ?? null;
+      signError = res.error;
     }
 
-    if (downloadError || !blob) {
-      console.error('[Download Comunicado PDF] Erro Supabase:', downloadError);
+    // Se a geração da URL assinada falhar, tenta fallback seguro via stream/buffer
+    if (signError || !signedUrl) {
+      console.warn('[Download Comunicado PDF] Falha na URL assinada, tentando download direto:', signError);
+      try {
+        let blob: Blob | null = null;
+        try {
+          const res = await supabaseAdmin.storage.from(BUCKET_NAME).download(anexo.storagePath);
+          blob = res.data;
+        } catch {
+          const res = await supabase.storage.from(BUCKET_NAME).download(anexo.storagePath);
+          blob = res.data;
+        }
+
+        if (blob) {
+          const arrayBuffer = await blob.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+
+          if (accept.includes('application/json')) {
+            return NextResponse.json({
+              fileName: anexo.nomeOriginal,
+              mimeType: anexo.mimeType || 'application/pdf',
+              sizeBytes: anexo.tamanhoBytes,
+              hashSha256: anexo.hashSha256,
+            });
+          }
+
+          return new NextResponse(buffer, {
+            status: 200,
+            headers: {
+              'Content-Type': anexo.mimeType || 'application/pdf',
+              'Content-Disposition': `inline; filename="${encodeURIComponent(anexo.nomeOriginal)}"`,
+              'Content-Length': buffer.length.toString(),
+              'X-Frame-Options': 'SAMEORIGIN',
+              'Content-Security-Policy': "frame-ancestors 'self'",
+            },
+          });
+        }
+      } catch (fbErr) {
+        console.error('[Download Comunicado PDF] Fallback falhou:', fbErr);
+      }
+
       return NextResponse.json(
         { error: 'Não foi possível carregar o arquivo do storage.' },
         { status: 500 }
       );
     }
 
-    const arrayBuffer = await blob.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
+    // Se o chamador pedir JSON explicitamente (ex.: inspeção de metadados), retorna JSON com signedUrl
     if (accept.includes('application/json')) {
       return NextResponse.json({
+        signedUrl,
         fileName: anexo.nomeOriginal,
         mimeType: anexo.mimeType || 'application/pdf',
         sizeBytes: anexo.tamanhoBytes,
@@ -78,16 +123,8 @@ export async function GET(
       });
     }
 
-    return new NextResponse(buffer, {
-      status: 200,
-      headers: {
-        'Content-Type': anexo.mimeType || 'application/pdf',
-        'Content-Disposition': `inline; filename="${encodeURIComponent(anexo.nomeOriginal)}"`,
-        'Content-Length': buffer.length.toString(),
-        'X-Frame-Options': 'SAMEORIGIN',
-        'Content-Security-Policy': "frame-ancestors 'self'",
-      },
-    });
+    // Redireciona o navegador ou fetch diretamente para a URL assinada de alta performance do Supabase CDN
+    return NextResponse.redirect(signedUrl);
   } catch (err: any) {
     console.error('[Download Comunicado PDF] Erro:', err);
     return NextResponse.json(
