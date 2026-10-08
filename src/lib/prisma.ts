@@ -12,6 +12,7 @@ function getDatabaseUrl() {
     // sem saturar o pool local do Prisma nem causar timeouts transitórios P2024.
     url.searchParams.set('connection_limit', process.env.PRISMA_CONNECTION_LIMIT || '15');
     url.searchParams.set('pool_timeout', process.env.PRISMA_POOL_TIMEOUT || '20');
+    url.searchParams.set('connect_timeout', process.env.PRISMA_CONNECT_TIMEOUT || '15');
     return url.toString();
   } catch {
     return value;
