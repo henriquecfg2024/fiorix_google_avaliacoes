@@ -517,14 +517,6 @@ export function PainelRHClient({
                 {currentTab === "geral" && "Visão consolidada dos principais indicadores, pendências e controles da gestão de pessoas."}
               </p>
             </div>
-
-            {/* Ações contextuais de topo por tela */}
-            {currentTab === "holerites" && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-cyan-300 font-mono text-xs self-start sm:self-center">
-                <Lock className="w-3.5 h-3.5" />
-                <span>Criptografia SHA-256 Ativa</span>
-              </div>
-            )}
           </div>
         )}
 
