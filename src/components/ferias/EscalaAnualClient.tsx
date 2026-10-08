@@ -17,6 +17,7 @@ import {
   ChevronDown,
   Filter,
   Send,
+  ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,7 @@ interface EscalaAnualClientProps {
   userRole?: string;
   isInsideRHPanel?: boolean;
   readOnly?: boolean;
+  onVoltar?: () => void;
 }
 
 const MESES = [
@@ -63,6 +65,7 @@ export function EscalaAnualClient({
   userRole = "RH",
   isInsideRHPanel = false,
   readOnly = false,
+  onVoltar,
 }: EscalaAnualClientProps) {
   const [ano, setAno] = useState(initialAno);
   const [loading, setLoading] = useState(false);
@@ -306,11 +309,23 @@ export function EscalaAnualClient({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
         <div>
           <div className="flex items-center gap-2 text-xs font-medium text-slate-400 mb-2">
-            <Link href="/sistema/pessoas" className="hover:text-slate-900 dark:hover:text-white transition-colors">Dashboard</Link>
-            <span className="text-slate-600">&gt;</span>
-            <span className="text-slate-400">Gestão de RH</span>
-            <span className="text-slate-600">&gt;</span>
-            <span className="text-slate-300 font-semibold">Lançamento de Férias</span>
+            <Link href="/dashboard" className="hover:text-slate-900 dark:hover:text-white transition-colors">Dashboard</Link>
+            <span className="text-slate-600">/</span>
+            {onVoltar ? (
+              <button
+                type="button"
+                onClick={onVoltar}
+                className="hover:text-amber-300 transition-colors cursor-pointer text-slate-300"
+              >
+                Painel de RH
+              </button>
+            ) : (
+              <Link href="/sistema/pessoas" className="hover:text-amber-300 transition-colors text-slate-300">
+                Painel de RH
+              </Link>
+            )}
+            <span className="text-slate-600">/</span>
+            <span className="text-amber-400 font-semibold">Lançamento de Férias</span>
           </div>
 
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white uppercase">
@@ -321,8 +336,45 @@ export function EscalaAnualClient({
           </p>
         </div>
 
-        {/* Controles de Topo: Seletor de Ano + Badge Informativo */}
-        <div className="flex items-center gap-3">
+        {/* Controles de Topo: Card Voltar + Seletor de Ano + Badge Informativo */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Card Voltar para Painel de RH */}
+          {onVoltar ? (
+            <button
+              type="button"
+              onClick={onVoltar}
+              className="group flex items-center gap-3.5 px-4 py-2.5 rounded-2xl border border-white/12 bg-[#0B1020]/90 hover:bg-[#111628] hover:border-amber-500/40 text-left transition-all duration-200 shadow-md hover:shadow-[0_0_20px_rgba(245,158,11,0.15)] cursor-pointer shrink-0"
+            >
+              <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:bg-amber-500/25 group-hover:text-amber-300 transition-all shrink-0">
+                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              </div>
+              <div className="pr-1">
+                <div className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
+                  Voltar para o Painel de RH
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Visão geral dos módulos
+                </p>
+              </div>
+            </button>
+          ) : (
+            <Link
+              href="/sistema/pessoas"
+              className="group flex items-center gap-3.5 px-4 py-2.5 rounded-2xl border border-white/12 bg-[#0B1020]/90 hover:bg-[#111628] hover:border-amber-500/40 text-left transition-all duration-200 shadow-md hover:shadow-[0_0_20px_rgba(245,158,11,0.15)] cursor-pointer shrink-0"
+            >
+              <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:bg-amber-500/25 group-hover:text-amber-300 transition-all shrink-0">
+                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              </div>
+              <div className="pr-1">
+                <div className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
+                  Voltar para o Painel de RH
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Visão geral dos módulos
+                </p>
+              </div>
+            </Link>
+          )}
           {/* Badge Somente Leitura (para substitutos / modo consulta) */}
           {readOnly && (
             <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border border-sky-500/30 bg-sky-500/10 text-sky-300 text-xs font-semibold shadow-sm">

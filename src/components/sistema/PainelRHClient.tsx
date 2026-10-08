@@ -23,9 +23,11 @@ import {
   Download,
   Filter,
   ArrowRight,
+  ArrowLeft,
   ChevronRight,
   ShieldCheck,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -483,9 +485,19 @@ export function PainelRHClient({
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/5">
             <div>
               <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-                <span>Dashboard</span>
+                <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
                 <span className="text-slate-600">/</span>
-                <span>{currentTab === "geral" ? "Gestão de Pessoas" : "Gestão de RH"}</span>
+                {currentTab !== "geral" ? (
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange("geral")}
+                    className="hover:text-indigo-300 transition-colors cursor-pointer text-slate-300"
+                  >
+                    Painel de RH
+                  </button>
+                ) : (
+                  <span>Gestão de Pessoas</span>
+                )}
                 <span className="text-slate-600">/</span>
                 <span className="text-indigo-400">
                   {currentTab === "holerites" && "Lançamento de Holerites"}
@@ -517,6 +529,41 @@ export function PainelRHClient({
                 {currentTab === "geral" && "Visão consolidada dos principais indicadores, pendências e controles da gestão de pessoas."}
               </p>
             </div>
+
+            {/* Card Voltar para Painel de RH (quando estiver em Comunicados ou Holerites) */}
+            {currentTab !== "geral" && (
+              <button
+                type="button"
+                onClick={() => handleTabChange("geral")}
+                className={`group flex items-center gap-3.5 px-4 py-3 rounded-2xl border border-white/12 bg-[#0B1020]/90 hover:bg-[#111628] text-left transition-all duration-200 shadow-md cursor-pointer shrink-0 self-start sm:self-center ${
+                  currentTab === "holerites"
+                    ? "hover:border-cyan-500/40 hover:shadow-[0_0_20px_rgba(6,182,212,0.15)]"
+                    : "hover:border-indigo-500/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)]"
+                }`}
+              >
+                <div
+                  className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all shrink-0 ${
+                    currentTab === "holerites"
+                      ? "bg-cyan-500/15 border-cyan-500/30 text-cyan-400 group-hover:bg-cyan-500/25 group-hover:text-cyan-300"
+                      : "bg-indigo-500/15 border-indigo-500/30 text-indigo-400 group-hover:bg-indigo-500/25 group-hover:text-indigo-300"
+                  }`}
+                >
+                  <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                </div>
+                <div className="pr-1">
+                  <div
+                    className={`flex items-center gap-1.5 text-xs font-bold text-white transition-colors ${
+                      currentTab === "holerites" ? "group-hover:text-cyan-300" : "group-hover:text-indigo-300"
+                    }`}
+                  >
+                    <span>Voltar para o Painel de RH</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Visão geral dos módulos
+                  </p>
+                </div>
+              </button>
+            )}
           </div>
         )}
 
@@ -1025,8 +1072,9 @@ export function PainelRHClient({
             key={`rh-escala-${pubAno}-${pubStatus.status}`}
             initialAno={pubAno}
             initialPublicacao={pubStatus}
-            isInsideRHPanel={false}
+            isInsideRHPanel={true}
             userRole={userRole}
+            onVoltar={() => handleTabChange("geral")}
           />
         )}
       </div>
