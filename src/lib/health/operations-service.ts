@@ -532,7 +532,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       lastSignalAt: 'Ativo',
       version: 'v3.2.0',
       provenance: 'live',
-      details: 'Aplicação Web Next.js',
+      details: 'Interface web do usuário (SaaS)',
     },
     {
       id: 'fiorix-api',
@@ -541,7 +541,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       latencyMs: null,
       lastSignalAt: 'Ativo',
       provenance: 'live',
-      details: 'Rotas autenticadas REST',
+      details: 'Rotas de backend na nuvem',
     },
     {
       id: 'supabase',
@@ -550,7 +550,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       latencyMs: dbLatencyMs,
       lastSignalAt: dbLatencyMs ? `${dbLatencyMs} ms` : 'Verificado agora',
       provenance: 'live',
-      details: 'Amostra de conectividade (SELECT 1 via pool)',
+      details: 'Banco de dados principal (Supabase)',
       reason: dbReason,
       checkedAt: nowIso,
     },
@@ -561,7 +561,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       latencyMs: null,
       lastSignalAt: 'Ativo',
       provenance: 'live',
-      details: 'Infraestrutura de borda',
+      details: 'Hospedagem e computação em nuvem',
     },
     {
       id: 'connector',
@@ -570,7 +570,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       latencyMs: null,
       lastSignalAt: isAmbiguous ? 'Configuração ambígua' : (heartbeatAgoSeconds !== null ? `${heartbeatAgoSeconds}s atrás` : 'Sem sinal'),
       provenance: 'live',
-      details: isAmbiguous ? 'Múltiplos conectores detectados' : 'Windows Service local do cartório',
+      details: isAmbiguous ? 'Múltiplos conectores detectados' : 'Serviço Windows no servidor do cartório',
     },
     {
       id: 'webri-sql',
@@ -579,7 +579,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       latencyMs: null,
       lastSignalAt: isConnectorOnline ? 'Sinal via conector' : 'Não disponível',
       provenance: isConnectorOnline ? 'calculated' : 'unavailable',
-      details: 'Banco de dados do cartório local',
+      details: 'SQL Server corporativo do cartório',
     },
     {
       id: 'github',
@@ -588,7 +588,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       latencyMs: null,
       lastSignalAt: 'Sincronizado',
       provenance: 'live',
-      details: 'Pipeline de integração contínua',
+      details: 'Pipeline de compilação e deploy contínuo',
     },
   ];
 

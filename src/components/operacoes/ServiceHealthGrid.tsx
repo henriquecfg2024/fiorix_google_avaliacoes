@@ -92,13 +92,13 @@ export function ServiceHealthGrid({ services }: Props) {
                 {service.name}
               </h3>
               
-              {service.reason && (
-                <p className="text-[10px] text-slate-500 dark:text-white/40 truncate mb-1 font-sans">
-                  {service.reason}
-                </p>
-              )}
+              <p className="text-[10px] text-slate-500 dark:text-white/45 truncate mb-2 font-sans" title={service.details || service.reason || ''}>
+                {service.status !== 'operational' && service.reason
+                  ? service.reason
+                  : (service.details || service.reason || 'Componente do sistema')}
+              </p>
 
-              <div className="flex items-center justify-between text-[11px] text-white/50 pt-2 border-t border-white/6 font-mono">
+              <div className="flex items-center justify-between text-[11px] text-white/50 pt-2 border-t border-slate-100 dark:border-white/6 font-mono">
                 {service.latencyMs !== null ? (
                   <span className={service.latencyMs > 2000 ? 'text-amber-400 font-semibold' : 'text-emerald-400 font-semibold'}>
                     {service.latencyMs} ms
