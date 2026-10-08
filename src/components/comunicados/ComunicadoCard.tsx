@@ -2,18 +2,16 @@
 
 import React, { useState, useEffect } from "react";
 import {
-  AlertCircle,
   Clock,
   FileText,
   CheckCircle2,
   Bookmark,
-  Eye,
+  BookOpen,
+  Paperclip,
+  AlertCircle,
   ShieldCheck,
-  ChevronRight,
   QrCode,
-  Lock,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -49,11 +47,32 @@ export function ComunicadoCard({
 }: ComunicadoCardProps) {
   const [bookmarked, setBookmarked] = useState(false);
   const isCiente = Boolean(comunicado.ciencias && comunicado.ciencias.length > 0);
-  const isUrgente = comunicado.prioridade === "URGENTE";
-  const isImportante = comunicado.prioridade === "IMPORTANTE";
+  const prioridadeNormalizada = (comunicado.prioridade || "NORMAL").toUpperCase();
+  const isUrgente = prioridadeNormalizada === "URGENTE";
+  const isImportante = prioridadeNormalizada === "IMPORTANTE";
 
-  // Formatação segura de data
-  let dataFormatada = "30/08/2026 09:00";
+  // Carrega estado de favorito por usuário via localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`fiorix_saved_comunicado_${comunicado.id}`);
+      if (saved === "true") setBookmarked(true);
+    } catch {}
+  }, [comunicado.id]);
+
+  const toggleBookmark = () => {
+    const next = !bookmarked;
+    setBookmarked(next);
+    try {
+      if (next) {
+        localStorage.setItem(`fiorix_saved_comunicado_${comunicado.id}`, "true");
+      } else {
+        localStorage.removeItem(`fiorix_saved_comunicado_${comunicado.id}`);
+      }
+    } catch {}
+  };
+
+  // Formatação segura de data: "07 out 2026 · 19:46"
+  let dataPublicacaoFormatada = "07 out 2026 · 19:46";
   try {
     if (comunicado.dataPublicacao) {
       const d =
@@ -61,14 +80,14 @@ export function ComunicadoCard({
           ? new Date(comunicado.dataPublicacao)
           : comunicado.dataPublicacao;
       if (!isNaN(d.getTime())) {
-        dataFormatada = format(d, "dd/MM/yyyy HH:mm", { locale: ptBR });
+        dataPublicacaoFormatada = format(d, "dd MMM yyyy '·' HH:mm", { locale: ptBR });
       }
     }
-  } catch (e) {
-    dataFormatada = "30/08/2026 09:00";
+  } catch {
+    dataPublicacaoFormatada = "07 out 2026 · 19:46";
   }
 
-  // Data da ciência se houver
+  // Data da ciência se houver: "08/10/2026 às 13:40"
   let dataCienciaFormatada = "";
   if (isCiente && comunicado.ciencias?.[0]?.dataCiencia) {
     try {
@@ -80,246 +99,203 @@ export function ComunicadoCard({
         dataCienciaFormatada = format(cd, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
       }
     } catch {
-      dataCienciaFormatada = "01/09/2026 às 18:42";
+      dataCienciaFormatada = "08/10/2026 às 13:40";
     }
   }
 
-  // Cálculo dinâmico do prazo para ciência (dataExpiracao - agora)
-  const [prazoRestante, setPrazoRestante] = useState<string>("");
-  const [isExpirado, setIsExpirado] = useState(false);
+  // Avaliação de prazo
+  let statusTexto = "Ciência pendente";
+  let statusTipo: "pendente" | "vencido" | "confirmado" | "informativo" = "pendente";
 
-  useEffect(() => {
-    if (!isUrgente || isCiente) return;
+  if (isCiente) {
+    statusTipo = "confirmado";
+    statusTexto = dataCienciaFormatada
+      ? `Ciência confirmada em ${dataCienciaFormatada}`
+      : "Ciência confirmada";
+  } else if (!comunicado.exigeCiencia) {
+    statusTipo = "informativo";
+    statusTexto = "Leitura informativa · Sem exigência de ciência";
+  } else if (comunicado.dataExpiracao) {
+    try {
+      const expDate = new Date(comunicado.dataExpiracao);
+      const diffMs = expDate.getTime() - Date.now();
+      const expFmt = format(expDate, "dd/MM/yyyy", { locale: ptBR });
 
-    const calcPrazo = () => {
-      // Data de expiração padrão: 48h após publicação se não especificada
-      const expDate = comunicado.dataExpiracao
-        ? new Date(comunicado.dataExpiracao)
-        : new Date(new Date(comunicado.dataPublicacao).getTime() + 48 * 3600 * 1000);
-
-      const diff = expDate.getTime() - Date.now();
-      if (diff <= 0) {
-        setIsExpirado(true);
-        setPrazoRestante("PRAZO EXPIRADO");
+      if (diffMs <= 0) {
+        statusTipo = "vencido";
+        statusTexto = `Ciência pendente · Prazo vencido em ${expFmt}`;
       } else {
-        const dias = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const horas = Math.floor((diff / (1000 * 60 * 60)) % 24);
-        const mins = Math.floor((diff / (1000 * 60)) % 60);
-        setPrazoRestante(
-          `${String(dias).padStart(2, "0")}d ${String(horas).padStart(2, "0")}h ${String(
-            mins
-          ).padStart(2, "0")}min`
-        );
+        const dias = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        if (dias <= 1) {
+          statusTexto = `Ciência pendente · Prazo expira hoje (até ${expFmt})`;
+        } else {
+          statusTexto = `Ciência pendente · Prazo em ${dias} dias`;
+        }
       }
-    };
+    } catch {
+      statusTexto = "Ciência pendente";
+    }
+  }
 
-    calcPrazo();
-    const interval = setInterval(calcPrazo, 60000);
-    return () => clearInterval(interval);
-  }, [comunicado, isUrgente, isCiente]);
+  // Badge de prioridade estilo preview aprovado
+  const getBadgeStyle = () => {
+    if (isUrgente) {
+      return "bg-rose-500/20 text-rose-300 border border-rose-500/30";
+    }
+    if (isImportante) {
+      return "bg-amber-500/20 text-amber-300 border border-amber-500/30";
+    }
+    return "bg-slate-800 text-slate-300 border border-slate-700/80";
+  };
 
-  // Classes de estilo baseadas na prioridade
-  const borderClass = isCiente
-    ? "border-emerald-500/30 bg-white dark:bg-[#0B1020]/72 hover:border-emerald-500/50 shadow-sm dark:shadow-[0_20px_50px_rgba(0,0,0,0.25)]"
-    : isUrgente
-    ? "border-rose-500/35 bg-rose-50/40 dark:bg-[#140a12]/80 hover:border-rose-500/60 shadow-sm dark:shadow-[0_20px_50px_rgba(244,63,94,0.15)]"
-    : isImportante
-    ? "border-amber-500/30 bg-amber-50/40 dark:bg-[#14100c]/80 hover:border-amber-500/50 shadow-sm dark:shadow-[0_20px_50px_rgba(245,158,11,0.1)]"
-    : "border-slate-200 dark:border-cyan-500/20 bg-white dark:bg-[#0B1020]/72 hover:border-slate-300 dark:hover:border-cyan-500/40 shadow-sm dark:shadow-[0_20px_50px_rgba(0,0,0,0.25)]";
+  const getPriorityLabel = () => {
+    if (isUrgente) return "Urgente";
+    if (isImportante) return "Importante";
+    return "Normal";
+  };
 
-  const badgeClass = isUrgente
-    ? "bg-rose-500 text-white font-black shadow-[0_0_12px_rgba(244,63,94,0.4)]"
-    : isImportante
-    ? "bg-amber-500 text-black font-black"
-    : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold";
+  const anexosCount = comunicado.anexos ? comunicado.anexos.length : 0;
+  const autorLimpo = (comunicado.autorNome || "RH").replace(/\s*\/\s*Gestão/i, "").trim();
 
   return (
-    <div
-      className={`relative rounded-[28px] border p-6 transition-all duration-300 backdrop-blur-xl ${borderClass} flex flex-col justify-between`}
-    >
-      <div>
-        {/* Top bar: Badge, Data, Versão, Dot status */}
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2">
-            <span
-              className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-wide uppercase ${badgeClass}`}
-            >
-              {comunicado.prioridade}
-            </span>
-            <span className="text-xs text-slate-500 dark:text-white/50">{dataFormatada}</span>
-            <span className="text-[10px] font-mono text-slate-400 dark:text-white/40">v{comunicado.versao}</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {isCiente ? (
-              <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Ciente</span>
-              </span>
-            ) : isUrgente ? (
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
-                <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider">
-                  Pendente
-                </span>
-              </span>
-            ) : isImportante ? (
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
-                  Pendente
-                </span>
-              </span>
-            ) : (
-              <span className="w-2 h-2 rounded-full bg-cyan-400" />
-            )}
-          </div>
+    <div className="relative rounded-2xl border border-slate-800 bg-[#0B1020]/90 dark:bg-[#0B1020]/90 p-5 shadow-sm dark:shadow-md transition-all space-y-3.5 text-slate-100">
+      {/* A. Cabeçalho Compacto: Badge, Data e Versão */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <span className={`px-2.5 py-0.5 rounded-md text-xs font-semibold ${getBadgeStyle()}`}>
+            {getPriorityLabel()}
+          </span>
+          <span className="text-xs text-slate-400 font-sans">
+            {dataPublicacaoFormatada}
+          </span>
+          <span className="text-xs text-slate-400 font-sans">
+            v{comunicado.versao || 1}
+          </span>
         </div>
+      </div>
 
-        {/* Title */}
-        <h3
-          className="text-base font-bold text-slate-900 dark:text-white tracking-tight hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors cursor-pointer"
+      {/* B. Conteúdo: Título, Metadados e Resumo */}
+      <div className="space-y-1.5">
+        <h2
           onClick={() => onOpenCiencia(comunicado)}
+          className="text-base sm:text-lg font-bold text-white tracking-tight hover:text-indigo-400 transition-colors cursor-pointer"
         >
           {comunicado.titulo}
-        </h3>
+        </h2>
 
-        {/* Autor & Anexos metadata */}
-        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-white/50 mt-1 mb-3">
-          <span>{(comunicado.autorNome || "RH").replace(/\s*\/\s*Gestão/i, "").trim()}</span>
-          {comunicado.setor && (
+        <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
+          <span>{autorLimpo}</span>
+          {anexosCount > 0 && (
             <>
-              <span>•</span>
-              <span>{comunicado.setor}</span>
-            </>
-          )}
-          {comunicado.anexos && comunicado.anexos.length > 0 && (
-            <>
-              <span>•</span>
-              <span className="text-cyan-400 flex items-center gap-1 font-medium">
-                <FileText className="w-3.5 h-3.5" />
-                {comunicado.anexos.length} anexo{comunicado.anexos.length > 1 ? "s" : ""} PDF
+              <span>·</span>
+              <span className="flex items-center gap-1 text-slate-300">
+                <Paperclip className="w-3.5 h-3.5 text-slate-400" />
+                {anexosCount} {anexosCount === 1 ? "anexo PDF" : "anexos PDF"}
               </span>
             </>
           )}
         </div>
 
-        {/* Text snippet */}
-        <p className="text-xs text-slate-600 dark:text-white/70 line-clamp-2 leading-relaxed mb-4">
+        <p className="text-xs sm:text-sm text-slate-300/85 leading-relaxed pt-1 line-clamp-3">
           {comunicado.conteudo}
         </p>
       </div>
 
-      {/* Seção Arquivo de Ciências: Informações de Prova Criptográfica */}
+      {/* Seção Arquivo de Ciências: Informações de Prova Criptográfica quando visualizado em histórico */}
       {isArquivoView && isCiente && (
-        <div className="mb-4 p-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 space-y-2">
+        <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-emerald-400 font-bold flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              Hash verificado
+              Ciência Homologada
             </span>
             <span className="text-[11px] text-white/50 font-mono">
-              {dataCienciaFormatada || "Ciência Homologada"}
+              {dataCienciaFormatada}
             </span>
           </div>
-          <div className="text-[10px] font-mono text-cyan-300/80 truncate bg-slate-100 dark:bg-[#070A12]/80 p-1.5 rounded-lg border border-slate-200 dark:border-white/5 flex items-center justify-between">
+          <div className="text-[10px] font-mono text-cyan-300/80 truncate bg-[#070A12]/80 p-1.5 rounded-lg border border-white/5 flex items-center justify-between">
             <span>SHA-256: {comunicado.ciencias?.[0]?.comprovanteHash || comunicado.conteudoHash}</span>
             <QrCode className="w-3.5 h-3.5 text-cyan-400 shrink-0 ml-2" />
           </div>
         </div>
       )}
 
-      {/* Status da Ciência / Barra de aviso */}
-      <div className="space-y-3 pt-3 border-t border-white/8">
-        {comunicado.exigeCiencia && (
-          <div
-            onClick={() => onOpenCiencia(comunicado)}
-            className={`p-2.5 rounded-xl border flex items-center justify-between text-xs cursor-pointer transition-colors ${
-              isCiente
-                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                : isUrgente
-                ? "bg-rose-500/10 border-rose-500/30 text-rose-300 hover:bg-rose-500/20"
-                : "bg-amber-500/10 border-amber-500/20 text-amber-300 hover:bg-amber-500/20"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              {isCiente ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              ) : (
-                <AlertCircle className="w-4 h-4 text-current" />
-              )}
-              <div className="flex flex-col">
-                <span className="font-semibold">
-                  {isCiente
-                    ? "✓ Ciência registrada"
-                    : isUrgente
-                    ? isExpirado
-                      ? "PRAZO EXPIRADO"
-                      : `Pendente de Ciência • Prazo: ${prazoRestante || "Expira em breve"}`
-                    : "Pendente de Ciência • Expira em 5 dias"}
-                </span>
-                {isCiente && dataCienciaFormatada && (
-                  <span className="text-[10px] text-emerald-300/70 font-mono mt-0.5">
-                    {dataCienciaFormatada}
-                  </span>
-                )}
-              </div>
-            </div>
-            <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+      {/* Divisor sutil */}
+      <div className="border-t border-slate-800/80 pt-2 space-y-3">
+        {/* C. Status Único de Ciência */}
+        <div className="flex items-center gap-2 text-xs">
+          {statusTipo === "confirmado" && (
+            <>
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="text-emerald-400 font-medium">{statusTexto}</span>
+            </>
+          )}
+          {statusTipo === "vencido" && (
+            <>
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              <span className="text-rose-400 font-semibold">{statusTexto}</span>
+            </>
+          )}
+          {statusTipo === "pendente" && (
+            <>
+              <Clock className="w-4 h-4 text-amber-400/90 shrink-0" />
+              <span className="text-amber-400/90 font-medium">{statusTexto}</span>
+            </>
+          )}
+          {statusTipo === "informativo" && (
+            <>
+              <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="text-slate-400">{statusTexto}</span>
+            </>
+          )}
+        </div>
+
+        {/* D. Ações: Ler comunicado, Abrir PDF, Salvar */}
+        <div className="flex items-center justify-between gap-2 pt-0.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Botão Principal: Ler comunicado */}
+            <button
+              type="button"
+              onClick={() => onOpenCiencia(comunicado)}
+              className="bg-[#6366f1] hover:bg-[#5254db] text-white font-bold text-xs py-2 px-4 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>{isCiente ? "Ver comunicado" : "Ler comunicado"}</span>
+            </button>
+
+            {/* Botão Secundário: Abrir PDF (se houver) */}
+            {anexosCount > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onOpenAnexos) {
+                    onOpenAnexos(comunicado);
+                  } else if (comunicado.anexos?.[0]?.id) {
+                    window.open(`/api/comunicados/anexo/${comunicado.anexos[0].id}`, "_blank");
+                  }
+                }}
+                className="border border-slate-700 bg-slate-800/40 hover:bg-slate-800 text-slate-200 font-medium text-xs py-2 px-3.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                title={anexosCount === 1 ? `Abrir PDF: ${comunicado.anexos![0].nomeOriginal}` : "Abrir anexos PDF"}
+              >
+                <FileText className="w-3.5 h-3.5 text-slate-300" />
+                <span>Abrir PDF{anexosCount > 1 ? ` (${anexosCount})` : ""}</span>
+              </button>
+            )}
           </div>
-        )}
 
-        {/* Actions Button Row */}
-        <div className="flex items-center gap-2">
-          {!isCiente ? (
-            <Button
-              onClick={() => onOpenCiencia(comunicado)}
-              className="flex-1 bg-[#6366f1] hover:bg-[#4f46e5] text-white font-bold text-xs py-2 rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>Ler e Dar Ciência</span>
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              onClick={() => onOpenCiencia(comunicado)}
-              className="flex-1 border-slate-200 dark:border-white/10 text-slate-800 dark:text-white/90 hover:bg-slate-100 dark:hover:bg-white/5 text-xs py-2 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Ver Comprovante</span>
-            </Button>
-          )}
-
-          {comunicado.anexos && comunicado.anexos.length > 0 && (
-            <Button
-              variant="outline"
-              onClick={() => {
-                if (onOpenAnexos) {
-                  onOpenAnexos(comunicado);
-                } else if (comunicado.anexos?.[0]?.id) {
-                  window.open(`/api/comunicados/anexo/${comunicado.anexos[0].id}`, "_blank");
-                }
-              }}
-              className="border-rose-500/30 bg-rose-500/10 text-rose-300 hover:text-white hover:bg-rose-500/20 text-xs py-2 px-3 rounded-xl flex items-center gap-1.5 cursor-pointer font-semibold shadow-sm"
-              title={`Visualizar documento PDF: ${comunicado.anexos[0].nomeOriginal}`}
-            >
-              <FileText className="w-3.5 h-3.5 text-rose-400" />
-              <span>
-                Visualizar PDF {comunicado.anexos.length > 1 ? `(${comunicado.anexos.length})` : "Oficial"}
-              </span>
-            </Button>
-          )}
-
+          {/* Botão Salvar / Favoritar */}
           <button
-            onClick={() => setBookmarked(!bookmarked)}
-            className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+            type="button"
+            onClick={toggleBookmark}
+            aria-label={bookmarked ? "Remover dos salvos" : "Salvar comunicado"}
+            title={bookmarked ? "Remover dos salvos" : "Salvar comunicado"}
+            className={`p-2.5 rounded-xl border transition-colors cursor-pointer flex items-center justify-center shrink-0 ${
               bookmarked
-                ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-400"
-                : "border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-[#12141F] text-slate-400 hover:text-slate-900 hover:bg-slate-200 dark:text-white/40 dark:hover:text-white dark:hover:bg-white/10"
+                ? "bg-violet-600/20 border-violet-500/40 text-violet-400"
+                : "border-slate-700 bg-slate-800/40 hover:bg-slate-800 text-slate-400 hover:text-white"
             }`}
-            title="Favoritar Comunicado"
           >
-            <Bookmark className="w-4 h-4" />
+            <Bookmark className={`w-4 h-4 ${bookmarked ? "fill-violet-400 text-violet-400" : ""}`} />
           </button>
         </div>
       </div>

@@ -26,7 +26,7 @@ export function ComunicadosClient({
   userName = "Colaborador",
   initialComunicados = [],
 }: ComunicadosClientProps) {
-  const [activeTab, setActiveTab] = useState<"nao_lidos" | "todos">("nao_lidos");
+  const [activeTab, setActiveTab] = useState<"pendentes" | "todos">("pendentes");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -41,16 +41,19 @@ export function ComunicadosClient({
     setComunicados(initialComunicados ?? []);
   }, [initialComunicados]);
 
-  const naoLidosCount = comunicados.filter((c) => !c.visualizado).length;
+  const isPendente = (c: ComunicadoItem) =>
+    Boolean(c.exigeCiencia && (!c.ciencias || c.ciencias.length === 0));
+
+  const pendentesCount = comunicados.filter(isPendente).length;
   const urgentesPendentes = comunicados.filter(
-    (c) => c.prioridade === "URGENTE" && (!c.ciencias || c.ciencias.length === 0)
+    (c) => c.prioridade === "URGENTE" && isPendente(c)
   );
 
   const hasActiveFilters =
     filterPrioridade !== "TODAS" || filterStatusCiencia !== "TODOS" || filterComAnexo;
 
   const filteredComunicados = comunicados.filter((c) => {
-    const matchTab = activeTab === "nao_lidos" ? !c.visualizado : true;
+    const matchTab = activeTab === "pendentes" ? isPendente(c) : true;
     if (!matchTab) return false;
 
     if (filterPrioridade !== "TODAS" && c.prioridade !== filterPrioridade) {
@@ -92,9 +95,6 @@ export function ComunicadosClient({
   };
 
   const handleOpenCienciaModal = (comunicado: ComunicadoItem) => {
-    setComunicados((prev) =>
-      prev.map((item) => (item.id === comunicado.id ? { ...item, visualizado: true } : item))
-    );
     setSelectedComunicado(comunicado);
   };
 
@@ -106,20 +106,23 @@ export function ComunicadosClient({
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-white/8 to-transparent" />
       </div>
 
-      <div className="relative mx-auto w-full max-w-lg px-4 py-5 space-y-4">
+      <div className="relative mx-auto w-full max-w-3xl px-4 py-6 space-y-5">
 
         {/* Breadcrumb + Título */}
-        <div className="space-y-1 pb-3 border-b border-white/8">
+        <div className="space-y-1.5 pb-3 border-b border-slate-200 dark:border-white/8">
           <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
             <Link href="/dashboard" className="hover:text-slate-300 transition-colors">Dashboard</Link>
             <span>/</span>
             <Link href="/pessoas" className="hover:text-slate-300 transition-colors">Pessoas</Link>
             <span>/</span>
-            <span className="text-rose-400 font-semibold">Comunicados</span>
+            <span className="text-violet-400 font-semibold">Comunicados</span>
           </div>
-          <h1 className="text-xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-            COMUNICADOS INTERNOS
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Comunicados internos
           </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Informações da equipe e suas confirmações de ciência.
+          </p>
         </div>
 
         {/* Alerta urgentes */}
@@ -144,20 +147,20 @@ export function ComunicadosClient({
           {/* Controle segmentado */}
           <div className="flex-1 flex items-center bg-slate-100 dark:bg-white/[0.05] border border-slate-200 dark:border-white/10 rounded-2xl p-1 gap-1">
             <button
-              onClick={() => setActiveTab("nao_lidos")}
+              onClick={() => setActiveTab("pendentes")}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-                activeTab === "nao_lidos"
+                activeTab === "pendentes"
                   ? "bg-violet-600 text-white shadow-[0_0_14px_rgba(139,92,246,0.45)]"
                   : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
               }`}
             >
-              Não lidos
+              Pendentes
               <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full transition-all ${
-                activeTab === "nao_lidos"
+                activeTab === "pendentes"
                   ? "bg-white/20 text-white"
                   : "bg-slate-200 text-slate-700 dark:bg-white/8 dark:text-slate-400"
               }`}>
-                {naoLidosCount}
+                {pendentesCount}
               </span>
             </button>
             <button
@@ -334,10 +337,14 @@ export function ComunicadosClient({
               <div className="space-y-1.5">
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Tudo em dia</h2>
                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                  Você não tem comunicados pendentes.
+                  {activeTab === "pendentes"
+                    ? "Você não tem comunicados pendentes de ciência."
+                    : "Nenhum comunicado encontrado com os filtros selecionados."}
                 </p>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Os novos comunicados aparecerão aqui.
+                  {activeTab === "pendentes"
+                    ? "Quando houver novos comunicados exigindo sua ciência, eles aparecerão aqui."
+                    : "Altere os filtros ou a busca para visualizar outros itens."}
                 </p>
               </div>
             </div>

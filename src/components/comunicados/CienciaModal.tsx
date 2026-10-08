@@ -254,9 +254,9 @@ Autenticidade garantida por integridade criptográfica SHA-256.
                 <Button
                   disabled={!hasScrolledToBottom || !declaracaoChecked || submitting}
                   onClick={handleDarCiencia}
-                  className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:opacity-95 text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-lg shadow-indigo-500/20 disabled:opacity-40"
+                  className="bg-[#6366f1] hover:bg-[#5254db] text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-md disabled:opacity-40"
                 >
-                  {submitting ? "Registrando Ciência..." : "Dar Ciência"}
+                  {submitting ? "Confirmando ciência..." : "Confirmar ciência"}
                 </Button>
               </div>
             </div>
