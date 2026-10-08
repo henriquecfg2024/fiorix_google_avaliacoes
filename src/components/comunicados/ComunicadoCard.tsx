@@ -277,7 +277,7 @@ export function ComunicadoCard({
               className="flex-1 bg-[#6366f1] hover:bg-[#4f46e5] text-white font-bold text-xs py-2 rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer"
             >
               <Eye className="w-3.5 h-3.5" />
-              <span>Ler e Dar Ciência com Prova</span>
+              <span>Ler e Dar Ciência</span>
             </Button>
           ) : (
             <Button

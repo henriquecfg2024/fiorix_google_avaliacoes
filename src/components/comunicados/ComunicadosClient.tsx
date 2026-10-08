@@ -29,6 +29,10 @@ export function ComunicadosClient({
   const [activeTab, setActiveTab] = useState<"nao_lidos" | "todos">("nao_lidos");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterPrioridade, setFilterPrioridade] = useState<string>("TODAS");
+  const [filterStatusCiencia, setFilterStatusCiencia] = useState<"TODOS" | "PENDENTE" | "CIENTE">("TODOS");
+  const [filterComAnexo, setFilterComAnexo] = useState<boolean>(false);
   const [selectedComunicado, setSelectedComunicado] = useState<ComunicadoItem | null>(null);
   const [pdfPreview, setPdfPreview] = useState<{ title: string; url: string; id: string } | null>(null);
   const [comunicados, setComunicados] = useState<ComunicadoItem[]>(() => initialComunicados ?? []);
@@ -42,9 +46,29 @@ export function ComunicadosClient({
     (c) => c.prioridade === "URGENTE" && (!c.ciencias || c.ciencias.length === 0)
   );
 
+  const hasActiveFilters =
+    filterPrioridade !== "TODAS" || filterStatusCiencia !== "TODOS" || filterComAnexo;
+
   const filteredComunicados = comunicados.filter((c) => {
     const matchTab = activeTab === "nao_lidos" ? !c.visualizado : true;
     if (!matchTab) return false;
+
+    if (filterPrioridade !== "TODAS" && c.prioridade !== filterPrioridade) {
+      return false;
+    }
+
+    const isCiente = Boolean(c.ciencias && c.ciencias.length > 0);
+    if (filterStatusCiencia === "PENDENTE" && isCiente) {
+      return false;
+    }
+    if (filterStatusCiencia === "CIENTE" && !isCiente) {
+      return false;
+    }
+
+    if (filterComAnexo && (!c.anexos || c.anexos.length === 0)) {
+      return false;
+    }
+
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return c.titulo.toLowerCase().includes(q) || c.conteudo?.toLowerCase().includes(q);
@@ -163,10 +187,19 @@ export function ComunicadosClient({
 
           {/* Botão filtro */}
           <button
-            className="w-10 h-10 flex items-center justify-center rounded-2xl border bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200 dark:bg-white/[0.05] dark:border-white/10 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/8 transition-all"
-            aria-label="Filtrar"
+            onClick={() => setFilterOpen((v) => !v)}
+            className={`relative w-10 h-10 flex items-center justify-center rounded-2xl border transition-all ${
+              filterOpen || hasActiveFilters
+                ? "bg-violet-600/20 border-violet-500/40 text-violet-300 shadow-[0_0_12px_rgba(139,92,246,0.25)]"
+                : "bg-slate-100 border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200 dark:bg-white/[0.05] dark:border-white/10 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/8"
+            }`}
+            aria-label="Filtrar comunicados"
+            title="Filtrar comunicados"
           >
             <SlidersHorizontal className="w-4 h-4" />
+            {hasActiveFilters && (
+              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-violet-400 ring-2 ring-slate-50 dark:ring-[#070A12]" />
+            )}
           </button>
         </div>
 
@@ -181,6 +214,97 @@ export function ComunicadosClient({
               placeholder="Buscar comunicados..."
               className="pl-9 h-9 bg-white dark:bg-white/[0.04] border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-violet-500/60 focus:ring-0"
             />
+          </div>
+        )}
+
+        {/* Painel de filtros expansível */}
+        {filterOpen && (
+          <div className="p-3.5 bg-white dark:bg-[#0E1325]/95 border border-slate-200 dark:border-white/10 rounded-2xl space-y-3 shadow-xl backdrop-blur-md transition-all">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <span className="flex items-center gap-1.5">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-violet-500" />
+                Filtros
+              </span>
+              {hasActiveFilters && (
+                <button
+                  onClick={() => {
+                    setFilterPrioridade("TODAS");
+                    setFilterStatusCiencia("TODOS");
+                    setFilterComAnexo(false);
+                  }}
+                  className="text-[11px] text-violet-500 dark:text-violet-400 hover:underline font-medium transition-colors"
+                >
+                  Limpar filtros
+                </button>
+              )}
+            </div>
+
+            {/* Prioridade */}
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+                Prioridade
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { id: "TODAS", label: "Todas" },
+                  { id: "URGENTE", label: "Urgente" },
+                  { id: "IMPORTANTE", label: "Importante" },
+                  { id: "NORMAL", label: "Normal" },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setFilterPrioridade(item.id)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                      filterPrioridade === item.id
+                        ? "bg-violet-600 text-white shadow-sm"
+                        : "bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-white/5 dark:hover:bg-white/10 dark:text-slate-300"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Status de Ciência */}
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+                Status de Ciência
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { id: "TODOS", label: "Todos" },
+                  { id: "PENDENTE", label: "Pendente de Ciência" },
+                  { id: "CIENTE", label: "Ciência Realizada" },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setFilterStatusCiencia(item.id as "TODOS" | "PENDENTE" | "CIENTE")}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                      filterStatusCiencia === item.id
+                        ? "bg-violet-600 text-white shadow-sm"
+                        : "bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-white/5 dark:hover:bg-white/10 dark:text-slate-300"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Anexos */}
+            <div className="pt-1 flex items-center justify-between border-t border-slate-100 dark:border-white/5">
+              <label htmlFor="filter-anexo" className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-2 cursor-pointer select-none py-1">
+                <input
+                  id="filter-anexo"
+                  type="checkbox"
+                  checked={filterComAnexo}
+                  onChange={(e) => setFilterComAnexo(e.target.checked)}
+                  className="rounded border-slate-300 dark:border-white/20 text-violet-600 focus:ring-violet-500 bg-transparent cursor-pointer"
+                />
+                Apenas com anexo PDF
+              </label>
+            </div>
           </div>
         )}
 

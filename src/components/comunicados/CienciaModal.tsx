@@ -177,7 +177,7 @@ Autenticidade garantida por integridade criptográfica SHA-256.
                   Diretriz de Leitura Obrigatória
                 </h3>
                 <p className="text-xs text-white/50">
-                  Para habilitar a declaração de ciência com validade jurídica e prova de integridade, role todo o conteúdo até o fim (ou visualize o conteúdo completo).
+                  Para habilitar a declaração de ciência com validade jurídica, role todo o conteúdo até o fim (ou visualize o conteúdo completo).
                 </p>
                 <div className="mt-2 flex items-center gap-2 text-xs font-mono text-cyan-400">
                   <span>Progresso de leitura: {hasScrolledToBottom ? 100 : scrollProgress}%</span>
@@ -199,9 +199,6 @@ Autenticidade garantida por integridade criptográfica SHA-256.
               {/* Anexos */}
               {comunicado.anexos && comunicado.anexos.length > 0 && (
                 <div className="pt-4 border-t border-slate-200 dark:border-white/10 mt-6">
-                  <h4 className="text-xs font-bold text-white/70 uppercase mb-2">
-                    Documento Anexo Oficial ({comunicado.anexos.length})
-                  </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {comunicado.anexos.map((anexo) => (
                       <div key={anexo.id} className="p-3 bg-[#12141F] rounded-xl border border-rose-500/20 flex items-center justify-between gap-3">
@@ -259,7 +256,7 @@ Autenticidade garantida por integridade criptográfica SHA-256.
                   onClick={handleDarCiencia}
                   className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:opacity-95 text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-lg shadow-indigo-500/20 disabled:opacity-40"
                 >
-                  {submitting ? "Gerando Prova de Integridade..." : "Dar Ciência com Prova de Integridade"}
+                  {submitting ? "Registrando Ciência..." : "Dar Ciência"}
                 </Button>
               </div>
             </div>
