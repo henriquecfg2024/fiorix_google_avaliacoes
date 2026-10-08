@@ -380,7 +380,7 @@ export function PainelRHClient({
       toast.success(
         pdfAnexoData
           ? "Comunicado com PDF e hash SHA-256 publicado com sucesso!"
-          : "Comunicado publicado com integridade SHA-256 gravada no banco de dados e na trilha WORM!"
+          : "Comunicado publicado com integridade SHA-256 gravada no banco de dados e na trilha de auditoria!"
       );
       setNovoModalOpen(false);
       setNovoTitulo("");
@@ -507,7 +507,7 @@ export function PainelRHClient({
                   }`}
                 >
                   {currentTab === "holerites" && "DISTRIBUIÇÃO & RECIBOS • 7º RI SP"}
-                  {currentTab === "comunicados" && "CIÊNCIA OFICIAL & WORM • 7º RI SP"}
+                  {currentTab === "comunicados" && "CIÊNCIA OFICIAL • 7º RI SP"}
                   {currentTab === "geral" && "ÁREA RESTRITA • 7º RI SP"}
                 </span>
               </div>
@@ -522,7 +522,7 @@ export function PainelRHClient({
             {currentTab === "holerites" && (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-cyan-300 font-mono text-xs self-start sm:self-center">
                 <Lock className="w-3.5 h-3.5" />
-                <span>Criptografia WORM SHA-256 Ativa</span>
+                <span>Criptografia SHA-256 Ativa</span>
               </div>
             )}
           </div>
@@ -586,7 +586,7 @@ export function PainelRHClient({
 
             <div className="p-6 rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm shadow-sm">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Rastreabilidade & WORM</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Rastreabilidade</span>
                 <ShieldCheck className={`w-4 h-4 ${totalHolerites > 0 ? "text-indigo-400" : "text-slate-500"}`} />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
@@ -748,7 +748,7 @@ export function PainelRHClient({
                     </div>
                     <div className="h-px bg-white/[0.04]" />
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400 font-medium">Rastreabilidade WORM:</span>
+                      <span className="text-slate-400 font-medium">Rastreabilidade:</span>
                       <span className="font-bold text-cyan-400 font-mono">
                         {totalHolerites > 0 ? `${percentWormHolerite}% íntegro` : "Sem documentos para validação"}
                       </span>
@@ -864,7 +864,7 @@ export function PainelRHClient({
                   <option value="TODOS">Todos os Status</option>
                   <option value="PUBLICADO">Publicado</option>
                   <option value="ARQUIVADO">Arquivado</option>
-                  <option value="EXCLUIDO">Excluído (WORM)</option>
+                  <option value="EXCLUIDO">Excluído</option>
                 </select>
 
                 <Button
@@ -1004,7 +1004,7 @@ export function PainelRHClient({
                                 setComunicadoToDelete(item);
                                 setDeleteComunicadoModal(true);
                               }}
-                              title="Excluir e Arquivar WORM"
+                              title="Excluir e Arquivar"
                               className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-white/5 rounded-lg transition-colors"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -1376,7 +1376,7 @@ export function PainelRHClient({
           onConfirm={confirmDeleteComunicado}
           title="Excluir Comunicado Interno"
           itemDescription={`"${comunicadoToDelete.titulo}" (${comunicadoToDelete.ciencias} ciências registradas com hash)`}
-          wormWarning="32 ciências com hash válido. Por Provimento 213/2026 Art. 7, a exclusão não apaga a trilha de auditoria, apenas arquiva em custódia WORM por 5 anos com hash imutável."
+          wormWarning="32 ciências com hash válido. Por Provimento 213/2026 Art. 7, a exclusão não apaga a trilha de auditoria, apenas arquiva em custódia por 5 anos com hash imutável."
         />
       )}
 
@@ -1391,7 +1391,7 @@ export function PainelRHClient({
           onConfirm={confirmDeleteAviso}
           title="Excluir Aviso de Férias Emitido"
           itemDescription={`Aviso de férias de ${avisoToDelete.colaborador} (Período: ${avisoToDelete.periodoGozo})`}
-          wormWarning="O cancelamento deste aviso formal de férias será registrado na trilha de auditoria trabalhista com custódia WORM de 5 anos."
+          wormWarning="O cancelamento deste aviso formal de férias será registrado na trilha de auditoria trabalhista com custódia de 5 anos."
         />
       )}
       {/* Modal de Confirmação de Publicação / Retirada do ar da Escala Anual */}
@@ -1424,7 +1424,7 @@ export function PainelRHClient({
 
             <p className="text-xs text-slate-300 leading-relaxed">
               {pubActionTarget === "PUBLICAR"
-                ? `Ao publicar, os colaboradores poderão visualizar somente as próprias férias daquele ano. A homologação será registrada na trilha de auditoria WORM.`
+                ? `Ao publicar, os colaboradores poderão visualizar somente as próprias férias daquele ano. A homologação será registrada na trilha de auditoria.`
                 : `Ao retirar do ar, as informações deixam de ser exibidas aos colaboradores imediatamente. Todos os lançamentos permanecem rigorosamente preservados para edição pelo RH.`}
             </p>
 

@@ -339,7 +339,7 @@ function ProtocoloStrip({ data }: { data: TrajetoriaData }) {
               : 'Localização comprovada sem registro de horário'}
           </p>
           <p className="text-[10px] text-slate-500 dark:text-white/40">
-            Rastreabilidade WORM e carimbo de data/hora
+            Rastreabilidade e carimbo de data/hora
           </p>
         </div>
 

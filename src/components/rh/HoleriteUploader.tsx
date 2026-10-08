@@ -629,7 +629,7 @@ export function HoleriteUploader() {
             </div>
 
             <div className="px-6 py-3 bg-[#12141F] flex items-center justify-between">
-              <span className="text-[11px] text-slate-400 font-mono">🔒 Criptografia AES-256 e Trilha WORM ativas</span>
+              <span className="text-[11px] text-slate-400 font-mono">🔒 Criptografia AES-256 e Trilha de Auditoria ativas</span>
               <Button size="sm" onClick={() => setViewPdfItem(null)} className="bg-white/10 hover:bg-white/20 text-xs">
                 Fechar Visualizador
               </Button>
@@ -702,7 +702,7 @@ export function HoleriteUploader() {
           onConfirm={confirmDeleteHolerite}
           title="Excluir Holerite (LGPD Art. 5 II)"
           itemDescription={`Holerite ${itemToDelete.mesAno} de ${itemToDelete.colaborador} (CPF: ${itemToDelete.cpf})`}
-          wormWarning="Excluir holerite? Dado pessoal sensível (LGPD Art. 5 II) será desvinculado e removido do storage ativo, mas o log e hash da operação serão mantidos em custódia WORM por 5 anos para comprovação jurídica perante o Provimento 213/2026."
+          wormWarning="Excluir holerite? Dado pessoal sensível (LGPD Art. 5 II) será desvinculado e removido do storage ativo, mas o log e hash da operação serão mantidos em custódia por 5 anos para comprovação jurídica perante o Provimento 213/2026."
         />
       )}
     </div>

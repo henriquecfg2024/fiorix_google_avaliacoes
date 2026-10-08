@@ -21,7 +21,7 @@ export function DeleteConfirmModal({
   onConfirm,
   title,
   itemDescription,
-  wormWarning = "Por Diretriz Operacional Interna e LGPD Art. 5 II, a exclusão não apaga a trilha de auditoria; os registros são arquivados com custódia WORM de 5 anos com hash criptográfico imutável.",
+  wormWarning = "Por Diretriz Operacional Interna e LGPD Art. 5 II, a exclusão não apaga a trilha de auditoria; os registros são arquivados com custódia de 5 anos com hash criptográfico imutável.",
   loading = false,
 }: DeleteConfirmModalProps) {
   const [motivo, setMotivo] = useState("");
@@ -136,7 +136,7 @@ export function DeleteConfirmModal({
               disabled={isSubmitting || loading}
               className="bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-700 hover:to-red-800 text-white font-bold text-xs px-5 py-2 rounded-xl shadow-lg shadow-rose-900/40"
             >
-              {isSubmitting || loading ? "Gravando Trilha WORM..." : "Excluir e Arquivar com Hash"}
+              {isSubmitting || loading ? "Gravando Trilha..." : "Excluir e Arquivar com Hash"}
             </Button>
           </div>
         </form>
