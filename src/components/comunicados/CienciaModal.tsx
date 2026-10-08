@@ -177,7 +177,7 @@ Autenticidade garantida por integridade criptográfica SHA-256.
                   Diretriz de Leitura Obrigatória
                 </h3>
                 <p className="text-xs text-white/50">
-                  Para habilitar a declaração de ciência com validade jurídica e prova de integridade SHA-256, role todo o conteúdo até o fim (ou visualize o conteúdo completo).
+                  Para habilitar a declaração de ciência com validade jurídica e prova de integridade, role todo o conteúdo até o fim (ou visualize o conteúdo completo).
                 </p>
                 <div className="mt-2 flex items-center gap-2 text-xs font-mono text-cyan-400">
                   <span>Progresso de leitura: {hasScrolledToBottom ? 100 : scrollProgress}%</span>
