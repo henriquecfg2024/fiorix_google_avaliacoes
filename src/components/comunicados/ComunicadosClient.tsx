@@ -81,13 +81,15 @@ export function ComunicadosClient({
 
   const handleCienciaSuccess = (comprovanteHash: string) => {
     if (!selectedComunicado) return;
+    const novaCiencia = { id: `sci-${Date.now()}`, dataCiencia: new Date().toISOString(), comprovanteHash };
+    setSelectedComunicado((prev) => (prev ? { ...prev, visualizado: true, ciencias: [novaCiencia] } : null));
     setComunicados((prev) =>
       prev.map((item) =>
         item.id === selectedComunicado.id
           ? {
               ...item,
               visualizado: true,
-              ciencias: [{ id: `sci-${Date.now()}`, dataCiencia: new Date().toISOString(), comprovanteHash }],
+              ciencias: [novaCiencia],
             }
           : item
       )

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth"; // Assumindo o NextAuth setup
+import { prisma } from "@/lib/prisma";
 import { PessoasRepository } from "@/lib/pessoas/repository";
 import { generateCienciaHash } from "@/lib/security/hash";
 import { getRequestIp, maskIp } from "@/lib/security/requestIp";
@@ -31,6 +32,28 @@ export async function POST(req: NextRequest) {
         { error: "Comunicado não encontrado ou sem permissão de acesso." },
         { status: 404 }
       );
+    }
+
+    // Verifica se o usuário já possui ciência registrada para este comunicado (idempotência)
+    const cienciaExistente = await prisma.fiorixComunicadoCiencia.findUnique({
+      where: {
+        tenantId_comunicadoId_usuarioId: {
+          tenantId,
+          comunicadoId,
+          usuarioId,
+        },
+      },
+    });
+
+    if (cienciaExistente) {
+      return NextResponse.json({
+        success: true,
+        alreadyRegistered: true,
+        comprovanteHash: cienciaExistente.comprovanteHash,
+        qrCodeUrl: cienciaExistente.qrCodeUrl,
+        timestamp: cienciaExistente.dataCiencia?.toISOString() || cienciaExistente.createdAt.toISOString(),
+        ipMascarado: maskIp(cienciaExistente.ip || ""),
+      });
     }
 
     // Gera o comprovante hash server-side

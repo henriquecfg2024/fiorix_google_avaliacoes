@@ -11,9 +11,10 @@ import {
   Info,
   Loader2,
 } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { QRComprovante } from "./QRComprovante";
 
 interface CienciaModalProps {
   comunicado: {
@@ -24,15 +25,35 @@ interface CienciaModalProps {
     prioridade: string;
     versao: number;
     autorNome?: string;
+    exigeCiencia?: boolean;
     anexos?: Array<{ id: string; nomeOriginal: string; tamanhoBytes: number; url?: string }>;
+    ciencias?: Array<{ id: string; dataCiencia: string | Date; comprovanteHash: string }>;
   };
   onClose: () => void;
   onSuccess: (comprovanteHash: string) => void;
 }
 
 export function CienciaModal({ comunicado, onClose, onSuccess }: CienciaModalProps) {
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
+  const isJaCiente = Boolean(comunicado.ciencias && comunicado.ciencias.length > 0);
+  const primeiraCiencia = isJaCiente ? comunicado.ciencias![0] : null;
+
+  let dataCienciaFormatada = "";
+  if (primeiraCiencia?.dataCiencia) {
+    try {
+      const cd =
+        typeof primeiraCiencia.dataCiencia === "string"
+          ? new Date(primeiraCiencia.dataCiencia)
+          : primeiraCiencia.dataCiencia;
+      if (!isNaN(cd.getTime())) {
+        dataCienciaFormatada = format(cd, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+      }
+    } catch {
+      dataCienciaFormatada = "";
+    }
+  }
+
+  const [scrollProgress, setScrollProgress] = useState(isJaCiente ? 100 : 0);
+  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(isJaCiente);
   const [declaracaoChecked, setDeclaracaoChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [resultadoCiencia, setResultadoCiencia] = useState<{
@@ -57,6 +78,10 @@ export function CienciaModal({ comunicado, onClose, onSuccess }: CienciaModalPro
   }, [onClose, submitting]);
 
   const checkScroll = () => {
+    if (isJaCiente) {
+      setHasScrolledToBottom(true);
+      return;
+    }
     if (!scrollRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
     const totalScroll = scrollHeight - clientHeight;
@@ -82,14 +107,14 @@ export function CienciaModal({ comunicado, onClose, onSuccess }: CienciaModalPro
       clearTimeout(t2);
       window.removeEventListener("resize", checkScroll);
     };
-  }, [comunicado]);
+  }, [comunicado, isJaCiente]);
 
   const handleScroll = () => {
     checkScroll();
   };
 
   const handleDarCiencia = async () => {
-    if (!hasScrolledToBottom || !declaracaoChecked || submitting) return;
+    if (isJaCiente || !hasScrolledToBottom || !declaracaoChecked || submitting) return;
 
     setSubmitting(true);
     try {
@@ -118,7 +143,14 @@ export function CienciaModal({ comunicado, onClose, onSuccess }: CienciaModalPro
   };
 
   const handleDownloadComprovante = () => {
-    if (!resultadoCiencia) return;
+    const hashFinal = resultadoCiencia?.comprovanteHash || primeiraCiencia?.comprovanteHash || "";
+    const dataFinal = resultadoCiencia
+      ? new Date(resultadoCiencia.timestamp).toLocaleString("pt-BR")
+      : dataCienciaFormatada || new Date().toLocaleString("pt-BR");
+    const ipFinal = resultadoCiencia?.ipMascarado || "Registrado na auditoria";
+    const appUrl = typeof window !== "undefined" ? window.location.origin : "https://fiorix-omega.vercel.app";
+    const qrUrl = resultadoCiencia?.qrCodeUrl || (hashFinal ? `${appUrl}/verifica/${hashFinal}` : "");
+
     const receiptText = `
 ============================================================
               COMPROVANTE DE CIÊNCIA — FIORIX
@@ -129,10 +161,10 @@ ID: ${comunicado.id}
 HASH DO CONTEÚDO: ${comunicado.conteudoHash}
 ------------------------------------------------------------
 PROVA DE INTEGRIDADE:
-HASH DO COMPROVANTE (SHA-256): ${resultadoCiencia.comprovanteHash}
-REGISTRADO EM: ${resultadoCiencia.timestamp}
-IP DO CLIENTE: ${resultadoCiencia.ipMascarado}
-URL DE VERIFICAÇÃO: ${resultadoCiencia.qrCodeUrl}
+HASH DO COMPROVANTE (SHA-256): ${hashFinal}
+REGISTRADO EM: ${dataFinal}
+IP DO CLIENTE: ${ipFinal}
+URL DE VERIFICAÇÃO: ${qrUrl}
 ------------------------------------------------------------
 Autenticidade garantida por integridade criptográfica SHA-256.
 ============================================================
@@ -231,7 +263,7 @@ Autenticidade garantida por integridade criptográfica SHA-256.
             onClick={onClose}
             disabled={submitting}
             aria-label="Fechar"
-            className="p-1.5 text-white/40 hover:text-white rounded-lg hover:bg-white/10 transition-colors shrink-0 -mr-1 -mt-1 disabled:opacity-40"
+            className="p-1.5 text-white/40 hover:text-white rounded-lg hover:bg-white/10 transition-colors shrink-0 -mr-1 -mt-1 disabled:opacity-40 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -246,11 +278,20 @@ Autenticidade garantida por integridade criptográfica SHA-256.
               onScroll={handleScroll}
               className="flex-1 p-5 sm:p-6 overflow-y-auto space-y-5 text-white/85 text-sm leading-relaxed"
             >
-              {/* Orientação Direta */}
-              <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-xs text-white/70">
-                <Info className="w-4 h-4 text-indigo-400 shrink-0" />
-                <span>{orientacaoTexto}</span>
-              </div>
+              {/* Orientação ou Confirmação de Ciência Existente */}
+              {isJaCiente ? (
+                <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>
+                    Ciência já confirmada{dataCienciaFormatada ? ` em ${dataCienciaFormatada}` : ""}.
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-xs text-white/70">
+                  <Info className="w-4 h-4 text-indigo-400 shrink-0" />
+                  <span>{orientacaoTexto}</span>
+                </div>
+              )}
 
               {/* Texto do Comunicado */}
               <div className="text-white/90 whitespace-pre-wrap font-sans text-sm sm:text-base leading-relaxed selection:bg-indigo-500/30">
@@ -303,77 +344,106 @@ Autenticidade garantida por integridade criptográfica SHA-256.
               )}
             </div>
 
-            {/* Rodapé com Declaração e Ações */}
-            <div className="p-5 sm:p-6 border-t border-white/10 bg-[#070A12]/90 space-y-4">
-              <div
-                className={`p-3.5 sm:p-4 rounded-xl border transition-all ${
-                  hasScrolledToBottom
-                    ? "bg-indigo-500/[0.04] border-indigo-500/25"
-                    : "bg-white/[0.02] border-white/5 opacity-60"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    id="declaracao"
-                    disabled={!hasScrolledToBottom}
-                    checked={declaracaoChecked}
-                    onCheckedChange={(v) => setDeclaracaoChecked(Boolean(v))}
-                    className="mt-0.5 border-white/30 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
-                  />
-                  <div className="space-y-1">
-                    <label
-                      htmlFor="declaracao"
-                      className={`text-xs sm:text-sm leading-snug select-none cursor-pointer block ${
-                        hasScrolledToBottom ? "text-white font-medium" : "text-white/40 cursor-not-allowed"
-                      }`}
+            {/* Rodapé: se já possui ciência, mostra status e fechar; se não, mostra declaração e confirmação */}
+            {isJaCiente ? (
+              <div className="p-5 sm:p-6 border-t border-white/10 bg-[#070A12]/90 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs text-emerald-400 font-medium">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <span>Ciência registrada{dataCienciaFormatada ? ` · ${dataCienciaFormatada}` : ""}</span>
+                </div>
+                <div className="flex items-center justify-end gap-2.5">
+                  {primeiraCiencia?.comprovanteHash && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadComprovante}
+                      className="border-white/10 text-white/80 hover:bg-white/10 hover:text-white text-xs gap-1.5 cursor-pointer"
                     >
-                      {declaracaoTexto}
-                    </label>
-                    {!hasScrolledToBottom ? (
-                      <p className="text-[11px] text-amber-400/80">
-                        Role até o final do texto para habilitar a declaração.
-                      </p>
-                    ) : !declaracaoChecked ? (
-                      <p className="text-[11px] text-white/45">
-                        Marque a declaração para confirmar.
-                      </p>
-                    ) : null}
-                  </div>
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Baixar Comprovante</span>
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    onClick={onClose}
+                    className="bg-white/10 hover:bg-white/20 text-white font-semibold text-xs px-4 rounded-xl cursor-pointer"
+                  >
+                    Fechar
+                  </Button>
                 </div>
               </div>
+            ) : (
+              <div className="p-5 sm:p-6 border-t border-white/10 bg-[#070A12]/90 space-y-4">
+                <div
+                  className={`p-3.5 sm:p-4 rounded-xl border transition-all ${
+                    hasScrolledToBottom
+                      ? "bg-indigo-500/[0.04] border-indigo-500/25"
+                      : "bg-white/[0.02] border-white/5 opacity-60"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="declaracao"
+                      disabled={!hasScrolledToBottom}
+                      checked={declaracaoChecked}
+                      onCheckedChange={(v) => setDeclaracaoChecked(Boolean(v))}
+                      className="mt-0.5 border-white/30 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
+                    />
+                    <div className="space-y-1">
+                      <label
+                        htmlFor="declaracao"
+                        className={`text-xs sm:text-sm leading-snug select-none cursor-pointer block ${
+                          hasScrolledToBottom ? "text-white font-medium" : "text-white/40 cursor-not-allowed"
+                        }`}
+                      >
+                        {declaracaoTexto}
+                      </label>
+                      {!hasScrolledToBottom ? (
+                        <p className="text-[11px] text-amber-400/80">
+                          Role até o final do texto para habilitar a declaração.
+                        </p>
+                      ) : !declaracaoChecked ? (
+                        <p className="text-[11px] text-white/45">
+                          Marque a declaração para confirmar.
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
 
-              <div className="flex items-center justify-between gap-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onClose}
-                  disabled={submitting}
-                  className="text-white/60 hover:text-white hover:bg-white/5 text-xs px-3"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  disabled={!hasScrolledToBottom || !declaracaoChecked || submitting}
-                  onClick={handleDarCiencia}
-                  className="bg-[#6366f1] hover:bg-[#5254db] text-white font-semibold text-xs px-5 py-2.5 rounded-xl shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Confirmando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>Confirmar ciência</span>
-                    </>
-                  )}
-                </Button>
+                <div className="flex items-center justify-between gap-4">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onClose}
+                    disabled={submitting}
+                    className="text-white/60 hover:text-white hover:bg-white/5 text-xs px-3 cursor-pointer"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    disabled={!hasScrolledToBottom || !declaracaoChecked || submitting}
+                    onClick={handleDarCiencia}
+                    className="bg-[#6366f1] hover:bg-[#5254db] text-white font-semibold text-xs px-5 py-2.5 rounded-xl shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Confirmando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Confirmar ciência</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         ) : (
-          /* Tela de Sucesso com QR Code e Hash SHA-256 */
+          /* Tela de Sucesso Limpa */
           <div className="p-6 sm:p-8 flex flex-col items-center justify-center space-y-6 bg-[#0B1020]">
             <div className="w-12 h-12 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center justify-center border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.25)]">
               <CheckCircle2 className="w-6 h-6" />
@@ -393,23 +463,9 @@ Autenticidade garantida por integridade criptográfica SHA-256.
                   {new Date(resultadoCiencia.timestamp).toLocaleString("pt-BR")}
                 </span>
               </div>
-              <div className="flex justify-between py-1 border-b border-white/5">
+              <div className="flex justify-between py-1">
                 <span className="text-white/40">IP Mascarado:</span>
                 <span className="text-white font-mono">{resultadoCiencia.ipMascarado}</span>
-              </div>
-              <div className="flex flex-col py-1 border-b border-white/5">
-                <span className="text-white/40 mb-1">Hash do Comprovante (SHA-256):</span>
-                <span className="text-cyan-400 font-mono text-[10px] break-all bg-black/40 p-2 rounded border border-white/5">
-                  {resultadoCiencia.comprovanteHash}
-                </span>
-              </div>
-
-              {/* QR Code */}
-              <div className="pt-2 flex justify-center">
-                <QRComprovante
-                  url={resultadoCiencia.qrCodeUrl}
-                  hash={resultadoCiencia.comprovanteHash}
-                />
               </div>
             </div>
 
@@ -417,14 +473,14 @@ Autenticidade garantida por integridade criptográfica SHA-256.
               <Button
                 variant="outline"
                 onClick={handleDownloadComprovante}
-                className="flex-1 border-white/10 text-white/80 hover:bg-white/10 hover:text-white text-xs gap-1.5"
+                className="flex-1 border-white/10 text-white/80 hover:bg-white/10 hover:text-white text-xs gap-1.5 cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Baixar Comprovante</span>
               </Button>
               <Button
                 onClick={onClose}
-                className="flex-1 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs"
+                className="flex-1 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs cursor-pointer"
               >
                 Concluir
               </Button>
