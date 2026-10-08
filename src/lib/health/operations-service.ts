@@ -81,12 +81,12 @@ function evaluatePostgresStatus(latencyMs: number, tenantId: string): {
   if (latencyMs <= 1500) {
     status = 'operational';
     reason = `Latência normal (${latencyMs} ms)`;
-  } else if (latencyMs > 1500 && latencyMs <= 3000) {
-    // Variação aceitável do pooler de conexões do Supabase (PgBouncer)
+  } else if (latencyMs > 1500 && latencyMs <= 4000) {
+    // Variação aceitável do pooler de conexões do Supabase (PgBouncer) e cold start inicial
     status = 'operational';
-    reason = `Latência com leve variação do pooler (${latencyMs} ms)`;
+    reason = `Latência com variação transitória do pooler (${latencyMs} ms)`;
   } else {
-    // Acima de 3000 ms: degradado
+    // Acima de 4000 ms: degradado
     status = 'degraded';
     reason = `Latência elevada da aplicação (${latencyMs} ms)`;
   }
