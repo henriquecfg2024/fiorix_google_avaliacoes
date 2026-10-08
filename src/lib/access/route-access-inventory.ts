@@ -112,6 +112,8 @@ export const ROUTE_ACCESS_INVENTORY: Readonly<Record<string, RouteAccessEntry>> 
   'app/preview-visao-consolidada/page.tsx': page('CANONICAL', 'MEDIUM', { moduleId: 'core.dashboard', note: 'Página de preview de visão consolidada.' }),
   'app/relatorios/imprimir-colaboradores/page.tsx': page('CANONICAL', 'HIGH', { moduleId: 'pessoas.gestao', note: 'Impressão de colaboradores com dados pessoais.' }),
   'app/relatorios/imprimir-mensal/page.tsx': page('CANONICAL', 'MEDIUM', { moduleId: 'google.relatorios' }),
+  'app/valida/[hash]/page.tsx': page('REDIRECT_ONLY', 'LOW', { note: 'Redirecionamento para /verifica/[hash].' }),
+  'app/verifica/[hash]/page.tsx': page('PUBLIC_AUTH', 'LOW', { note: 'Validação pública de autenticidade e ciência de comunicados.' }),
 
   // ─── APIs ─────────────────────────────────────────────────────────────────
   'app/api/auth/callback/google/route.ts': api('PUBLIC_AUTH', 'HIGH'),
