@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { ShieldCheck, CheckCircle2, AlertTriangle, FileText, Download, ExternalLink, X, Lock, Check } from "lucide-react";
+import { ShieldCheck, CheckCircle2, AlertTriangle, FileText, Download, ExternalLink, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { QRComprovante } from "./QRComprovante";
@@ -228,11 +228,6 @@ Autenticidade garantida por integridade criptográfica SHA-256.
                 </div>
               )}
 
-              {/* Selo de Autenticidade e Integridade */}
-              <div className="pt-4 border-t border-slate-200 dark:border-white/5 text-[11px] text-white/50 flex items-center gap-2">
-                <Lock className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Documento oficial com integridade e autenticidade digitais verificadas.</span>
-              </div>
             </div>
 
             {/* Footer with Checkbox and Action */}
