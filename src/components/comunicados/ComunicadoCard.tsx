@@ -270,8 +270,8 @@ export function ComunicadoCard({
                 onClick={() => {
                   if (onOpenAnexos) {
                     onOpenAnexos(comunicado);
-                  } else if (comunicado.anexos?.[0]?.id) {
-                    window.open(`/api/comunicados/anexo/${comunicado.anexos[0].id}`, "_blank");
+                  } else if (comunicado.anexos?.[0]?.url || comunicado.anexos?.[0]?.id) {
+                    window.open(comunicado.anexos[0].url || `/api/comunicados/anexo/${comunicado.anexos[0].id}`, "_blank");
                   }
                 }}
                 className="border border-slate-700 bg-slate-800/40 hover:bg-slate-800 text-slate-200 font-medium text-xs py-2 px-3.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"

@@ -24,7 +24,7 @@ interface CienciaModalProps {
     prioridade: string;
     versao: number;
     autorNome?: string;
-    anexos?: Array<{ id: string; nomeOriginal: string; tamanhoBytes: number }>;
+    anexos?: Array<{ id: string; nomeOriginal: string; tamanhoBytes: number; url?: string }>;
   };
   onClose: () => void;
   onSuccess: (comprovanteHash: string) => void;
@@ -286,10 +286,11 @@ Autenticidade garantida por integridade criptográfica SHA-256.
                           </div>
                         </div>
                         <a
-                          href={`/api/comunicados/anexo/${anexo.id}`}
+                          href={anexo.url || `/api/comunicados/anexo/${anexo.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 rounded-lg text-xs font-semibold transition-colors shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 rounded-lg text-xs font-semibold transition-colors shrink-0 cursor-pointer"
                           title="Abrir anexo em nova aba"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />

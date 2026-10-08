@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { supabaseAdmin } from "@/lib/supabase";
 import { ComunicadosClient } from "@/components/comunicados/ComunicadosClient";
 import { PessoasRepository } from "@/lib/pessoas/repository";
 
@@ -33,31 +34,55 @@ export default async function ComunicadosPage() {
 
       if (tenantId && userId) {
         const dbComunicados = await PessoasRepository.getComunicados(tenantId, userId, userRole);
-        initialComunicados = dbComunicados.map((c: any) => ({
-          id: c.id,
-          titulo: c.titulo,
-          conteudo: c.conteudo,
-          conteudoHash: c.conteudoHash,
-          prioridade: c.prioridade,
-          versao: c.versao ?? 1,
-          dataPublicacao: c.dataPublicacao ? new Date(c.dataPublicacao).toISOString() : new Date().toISOString(),
-          dataExpiracao: c.dataExpiracao ? new Date(c.dataExpiracao).toISOString() : null,
-          exigeCiencia: c.exigeCiencia ?? true,
-          visualizado: Boolean(c.ciencias && c.ciencias.length > 0),
-          autorNome: c.autor?.name || "RH",
-          anexos: (c.anexos || []).map((a: any) => ({
-            id: a.id,
-            nomeOriginal: a.nomeOriginal,
-            tamanhoBytes: a.tamanhoBytes,
-            hashSha256: a.hashSha256,
-            storagePath: a.storagePath,
-          })),
-          ciencias: (c.ciencias || []).map((ci: any) => ({
-            id: ci.id,
-            dataCiencia: ci.dataCiencia ? new Date(ci.dataCiencia).toISOString() : new Date().toISOString(),
-            comprovanteHash: ci.comprovanteHash || "",
-          })),
-        }));
+        initialComunicados = await Promise.all(
+          dbComunicados.map(async (c: any) => {
+            const anexosComUrl = await Promise.all(
+              (c.anexos || []).map(async (a: any) => {
+                let url = `/api/comunicados/anexo/${a.id}`;
+                try {
+                  if (a.storagePath) {
+                    const { data } = await supabaseAdmin.storage
+                      .from("fiorix-comunicados-anexos")
+                      .createSignedUrl(a.storagePath, 3600);
+                    if (data?.signedUrl) {
+                      url = data.signedUrl;
+                    }
+                  }
+                } catch (err) {
+                  console.warn("[ComunicadosPage] Falha ao pré-gerar signedUrl:", err);
+                }
+                return {
+                  id: a.id,
+                  nomeOriginal: a.nomeOriginal,
+                  tamanhoBytes: a.tamanhoBytes,
+                  hashSha256: a.hashSha256,
+                  storagePath: a.storagePath,
+                  url,
+                };
+              })
+            );
+
+            return {
+              id: c.id,
+              titulo: c.titulo,
+              conteudo: c.conteudo,
+              conteudoHash: c.conteudoHash,
+              prioridade: c.prioridade,
+              versao: c.versao ?? 1,
+              dataPublicacao: c.dataPublicacao ? new Date(c.dataPublicacao).toISOString() : new Date().toISOString(),
+              dataExpiracao: c.dataExpiracao ? new Date(c.dataExpiracao).toISOString() : null,
+              exigeCiencia: c.exigeCiencia ?? true,
+              visualizado: Boolean(c.ciencias && c.ciencias.length > 0),
+              autorNome: c.autor?.name || "RH",
+              anexos: anexosComUrl,
+              ciencias: (c.ciencias || []).map((ci: any) => ({
+                id: ci.id,
+                dataCiencia: ci.dataCiencia ? new Date(ci.dataCiencia).toISOString() : new Date().toISOString(),
+                comprovanteHash: ci.comprovanteHash || "",
+              })),
+            };
+          })
+        );
       }
     }
   } catch (err) {

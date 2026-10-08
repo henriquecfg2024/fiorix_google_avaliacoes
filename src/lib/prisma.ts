@@ -8,11 +8,12 @@ function getDatabaseUrl() {
 
   try {
     const url = new URL(value);
-    // 15 conexões permitem que Promise.all execute múltiplas queries paralelas no dashboard/saúde
-    // sem saturar o pool local do Prisma nem causar timeouts transitórios P2024.
-    url.searchParams.set('connection_limit', process.env.PRISMA_CONNECTION_LIMIT || '15');
-    url.searchParams.set('pool_timeout', process.env.PRISMA_POOL_TIMEOUT || '20');
-    url.searchParams.set('connect_timeout', process.env.PRISMA_CONNECT_TIMEOUT || '15');
+    // Em ambiente serverless (Vercel), cada invocação é um processo isolado.
+    // Limitar para 3 conexões impede saturação do pooler (PgBouncer/Supavisor) do Supabase.
+    const defaultLimit = process.env.VERCEL ? '3' : '10';
+    url.searchParams.set('connection_limit', process.env.PRISMA_CONNECTION_LIMIT || defaultLimit);
+    url.searchParams.set('pool_timeout', process.env.PRISMA_POOL_TIMEOUT || '10');
+    url.searchParams.set('connect_timeout', process.env.PRISMA_CONNECT_TIMEOUT || '10');
     return url.toString();
   } catch {
     return value;
