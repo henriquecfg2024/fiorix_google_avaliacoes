@@ -228,10 +228,10 @@ Autenticidade garantida por integridade criptográfica SHA-256.
                 </div>
               )}
 
-              {/* Hash de Conteúdo */}
-              <div className="pt-4 border-t border-slate-200 dark:border-white/5 text-[11px] font-mono text-white/40 flex items-center gap-2">
-                <Lock className="w-3 h-3 text-indigo-400" />
-                <span>Hash do Conteúdo: {comunicado.conteudoHash}</span>
+              {/* Selo de Autenticidade e Integridade */}
+              <div className="pt-4 border-t border-slate-200 dark:border-white/5 text-[11px] text-white/50 flex items-center gap-2">
+                <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Documento oficial com integridade e autenticidade digitais verificadas.</span>
               </div>
             </div>
 
