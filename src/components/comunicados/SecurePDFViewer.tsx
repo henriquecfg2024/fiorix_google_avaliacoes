@@ -1,7 +1,19 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Download, Lock, FileText, X, ExternalLink, Printer, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  Download,
+  Lock,
+  FileText,
+  X,
+  ExternalLink,
+  Printer,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+  Maximize2,
+  Minimize2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface SecurePDFViewerProps {
@@ -27,6 +39,7 @@ export function SecurePDFViewer({
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
     setTimestamp(new Date().toLocaleString("pt-BR"));
@@ -41,7 +54,22 @@ export function SecurePDFViewer({
     }).catch(() => {});
   }, [documentType, documentId]);
 
-  const loadDocumentBlob = React.useCallback(() => {
+  // Tecla ESC: se maximizado, restaura; se normal, fecha
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (isMaximized) {
+          setIsMaximized(false);
+        } else if (onClose) {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isMaximized, onClose]);
+
+  const loadDocumentBlob = useCallback(() => {
     if (!fileUrl) {
       setLoading(false);
       return;
@@ -117,43 +145,57 @@ export function SecurePDFViewer({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-      <div className="relative w-full max-w-4xl h-[85vh] bg-white dark:bg-[#0B1020] border border-white/12 rounded-[28px] flex flex-col shadow-[0_25px_70px_rgba(0,0,0,0.5)] overflow-hidden">
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md transition-all duration-200 ${
+        isMaximized ? "p-0" : "p-3 sm:p-5"
+      }`}
+    >
+      <div
+        className={`relative w-full bg-white dark:bg-[#0B1020] flex flex-col shadow-[0_25px_70px_rgba(0,0,0,0.5)] overflow-hidden transition-all duration-200 ${
+          isMaximized
+            ? "w-screen h-screen max-w-none rounded-none border-0"
+            : "max-w-5xl h-[88vh] border border-white/12 rounded-[24px]"
+        }`}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/8 bg-[#070A12]/80">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+        <div
+          onDoubleClick={() => setIsMaximized((prev) => !prev)}
+          className="flex items-center justify-between px-5 sm:px-6 py-3.5 border-b border-white/8 bg-[#070A12]/90 select-none cursor-default"
+          title="Dê dois cliques para alternar entre maximizado e tamanho padrão"
+        >
+          <div className="flex items-center gap-3 min-w-0 pr-3">
+            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 shrink-0">
               <FileText className="w-5 h-5" />
             </div>
-            <div>
-              <h2 className="text-sm font-bold text-white">
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-white truncate" title={documentTitle}>
                 {documentTitle}
               </h2>
-              <p className="text-xs text-white/50">
+              <p className="text-[11px] text-white/50">
                 Documento pessoal e confidencial
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <Button
               variant="outline"
               size="sm"
               onClick={handlePrint}
-              className="border-slate-200 dark:border-white/10 text-white/80 hover:bg-white/10 text-xs gap-1.5"
+              className="border-slate-200 dark:border-white/10 text-white/80 hover:bg-white/10 text-xs gap-1.5 h-8 px-2.5 sm:px-3 cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Imprimir</span>
+              <span className="hidden sm:inline">Imprimir</span>
             </Button>
             {allowDownload && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleDownload}
-                className="border-slate-200 dark:border-white/10 text-white/80 hover:bg-white/10 text-xs gap-1.5"
+                className="border-slate-200 dark:border-white/10 text-white/80 hover:bg-white/10 text-xs gap-1.5 h-8 px-2.5 sm:px-3 cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>Baixar</span>
+                <span className="hidden sm:inline">Baixar</span>
               </Button>
             )}
             {fileUrl && (
@@ -161,17 +203,36 @@ export function SecurePDFViewer({
                 href={fileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="border border-slate-200 dark:border-white/10 text-white/80 hover:bg-white/10 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+                className="border border-slate-200 dark:border-white/10 text-white/80 hover:bg-white/10 text-xs px-2.5 sm:px-3 h-8 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
                 title="Abrir PDF em nova aba"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                <span>Nova Aba</span>
+                <span className="hidden sm:inline">Nova Aba</span>
               </a>
             )}
+
+            {/* Botão Maximizar / Restaurar */}
+            <button
+              type="button"
+              onClick={() => setIsMaximized((prev) => !prev)}
+              aria-label={isMaximized ? "Restaurar tamanho da janela" : "Maximizar para tela cheia"}
+              title={isMaximized ? "Restaurar tamanho da janela" : "Maximizar para tela cheia"}
+              className="border border-slate-200 dark:border-white/10 text-white/80 hover:bg-white/10 hover:text-white text-xs p-2 h-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer"
+            >
+              {isMaximized ? (
+                <Minimize2 className="w-4 h-4 text-indigo-400" />
+              ) : (
+                <Maximize2 className="w-4 h-4 text-slate-300 hover:text-white" />
+              )}
+            </button>
+
             {onClose && (
               <button
+                type="button"
                 onClick={onClose}
-                className="p-1.5 text-white/60 hover:text-white rounded-lg hover:bg-white/10 transition-colors ml-2"
+                aria-label="Fechar visualizador"
+                title="Fechar (ESC)"
+                className="p-1.5 text-white/60 hover:text-white rounded-lg hover:bg-white/10 transition-colors ml-1 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -180,7 +241,11 @@ export function SecurePDFViewer({
         </div>
 
         {/* Content Viewer Area with Dynamic Watermark */}
-        <div className="relative flex-1 bg-[#05050a] overflow-auto flex items-center justify-center p-6 select-none">
+        <div
+          className={`relative flex-1 bg-[#05050a] overflow-auto flex items-center justify-center select-none ${
+            isMaximized ? "p-2 sm:p-3" : "p-4 sm:p-6"
+          }`}
+        >
           {/* Watermark Overlay */}
           <div className="absolute inset-0 pointer-events-none z-10 flex flex-col justify-around overflow-hidden opacity-10 rotate-[-25deg] select-none">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -280,7 +345,7 @@ export function SecurePDFViewer({
         </div>
 
         {/* Footer Security Notice */}
-        <div className="px-6 py-3 bg-[#080A12] border-t border-slate-200 dark:border-white/5 flex items-center text-xs text-white/50">
+        <div className="px-6 py-2.5 bg-[#080A12] border-t border-slate-200 dark:border-white/5 flex items-center text-xs text-white/50 shrink-0">
           <div className="flex items-center gap-2">
             <Lock className="w-3.5 h-3.5 text-indigo-400" />
             <span>Somente você pode visualizar seus documentos.</span>
