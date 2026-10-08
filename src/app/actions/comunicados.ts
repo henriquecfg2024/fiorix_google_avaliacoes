@@ -86,7 +86,7 @@ export async function getComunicadosRH(): Promise<ComunicadoItem[]> {
       id: c.id,
       titulo: c.titulo,
       data: dataFmt,
-      autor: c.autor?.name ? `${c.autor.name} (${user.role === 'RH' ? 'RH' : user.role === 'SUBSTITUTO' ? 'Substituto' : 'Gestão'})` : 'RH / Gestão',
+      autor: c.autor?.name ? `${c.autor.name} (${user.role === 'RH' ? 'RH' : user.role === 'SUBSTITUTO' ? 'Substituto' : 'Gestão'})` : 'RH',
       destinatarios: c.destinatarios?.includes('TODOS')
         ? `Todos (${totalColaboradores || 63} colaboradores)`
         : `${c.destinatarios?.join(', ') || 'Geral'}`,

@@ -186,9 +186,13 @@ export function ComunicadoCard({
 
         {/* Autor & Anexos metadata */}
         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-white/50 mt-1 mb-3">
-          <span>{comunicado.autorNome || "Administração"}</span>
-          <span>•</span>
-          <span>{comunicado.setor || "Diretoria Geral"}</span>
+          <span>{(comunicado.autorNome || "RH").replace(/\s*\/\s*Gestão/i, "").trim()}</span>
+          {comunicado.setor && (
+            <>
+              <span>•</span>
+              <span>{comunicado.setor}</span>
+            </>
+          )}
           {comunicado.anexos && comunicado.anexos.length > 0 && (
             <>
               <span>•</span>

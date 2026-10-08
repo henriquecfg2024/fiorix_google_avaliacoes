@@ -44,7 +44,7 @@ export default async function ComunicadosPage() {
           dataExpiracao: c.dataExpiracao ? new Date(c.dataExpiracao).toISOString() : null,
           exigeCiencia: c.exigeCiencia ?? true,
           visualizado: Boolean(c.ciencias && c.ciencias.length > 0),
-          autorNome: c.autor?.name || "RH / Gestão",
+          autorNome: c.autor?.name || "RH",
           anexos: (c.anexos || []).map((a: any) => ({
             id: a.id,
             nomeOriginal: a.nomeOriginal,
