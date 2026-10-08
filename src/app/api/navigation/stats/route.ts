@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 const getNavigationStatsForTenant = unstable_cache(
   async (tenantId: string) => {
-    const [biTotal, metasTotal, prodTotal, auditoriaTotal, importTotal, pendingReviewsCount] =
+    const [biTotal, metasTotal, prodTotal, auditoriaTotal, importTotal] =
       await Promise.all([
         prisma.fiorixBiData.count({ where: { tenantId } }).catch(() => 0),
         prisma.fiorixMetasDados.count({ where: { tenantId, status: "Atrasado" } }).catch(() => 0),
@@ -20,15 +20,12 @@ const getNavigationStatsForTenant = unstable_cache(
           .aggregate({ where: { tenantId }, _sum: { rowsCount: true } })
           .then((result) => result._sum.rowsCount || 0)
           .catch(() => 0),
-        prisma.review
-          .count({ where: { tenantId, status: "PENDING", deletedFromGoogle: false } })
-          .catch(() => 0),
       ]);
 
-    return { biTotal, metasTotal, prodTotal, auditoriaTotal, importTotal, pendingReviewsCount };
+    return { biTotal, metasTotal, prodTotal, auditoriaTotal, importTotal };
   },
   ["navigation-stats-v2"],
-  { revalidate: 300 }
+  { revalidate: 60, tags: ["navigation-stats-v2"] }
 );
 
 function formatNumber(num: number) {
@@ -40,8 +37,13 @@ function formatNumber(num: number) {
 export async function GET() {
   try {
     const { tenantId } = await requireAuth();
-    const { biTotal, metasTotal, prodTotal, auditoriaTotal, importTotal, pendingReviewsCount } =
-      await getNavigationStatsForTenant(tenantId);
+    const [{ biTotal, metasTotal, prodTotal, auditoriaTotal, importTotal }, pendingReviewsCount] =
+      await Promise.all([
+        getNavigationStatsForTenant(tenantId),
+        prisma.review
+          .count({ where: { tenantId, status: "PENDING", deletedFromGoogle: false } })
+          .catch(() => 0),
+      ]);
 
     return NextResponse.json({
       success: true,

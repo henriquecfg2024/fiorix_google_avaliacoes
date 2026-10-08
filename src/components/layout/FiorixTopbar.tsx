@@ -12,6 +12,7 @@ import { getHomeRouteForRole } from "@/lib/permissions";
 import {
   loadCurrentUserOnce,
   loadNavigationStatsOnce,
+  fetchNavigationStatsFresh,
   type NavigationStats,
 } from "@/lib/navigation/client-data";
 import { getUserNavPermissionsAction } from "@/app/actions/nav-permissions";
@@ -31,6 +32,15 @@ export function FiorixTopbar() {
   const [navigationStats, setNavigationStats] = useState<NavigationStats>({});
   const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
 
+  const refreshStats = useCallback(() => {
+    fetchNavigationStatsFresh()
+      .then((stats) => {
+        setNavigationStats(stats);
+        setPendingCount(Number(stats.pendingReviewsCount || 0));
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     loadCurrentUserOnce()
       .then((user) => {
@@ -46,13 +56,18 @@ export function FiorixTopbar() {
       })
       .catch(() => {});
 
-    loadNavigationStatsOnce()
-      .then((stats) => {
-        setNavigationStats(stats);
-        setPendingCount(Number(stats.pendingReviewsCount || 0));
-      })
-      .catch(() => {});
-  }, []);
+    refreshStats();
+  }, [refreshStats]);
+
+  useEffect(() => {
+    const handleStatsUpdated = () => refreshStats();
+    window.addEventListener("fiorix:navigation-stats-updated", handleStatsUpdated);
+    return () => window.removeEventListener("fiorix:navigation-stats-updated", handleStatsUpdated);
+  }, [refreshStats]);
+
+  useEffect(() => {
+    refreshStats();
+  }, [pathname, refreshStats]);
 
   useEffect(() => {
     setIsMobileMenuOpen(false);

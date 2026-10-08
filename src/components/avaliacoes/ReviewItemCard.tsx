@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { generateAiResponse, sendReviewResponse } from '@/app/actions/reviews';
+import { invalidateNavigationStats } from '@/lib/navigation/client-data';
 import {
   CheckCircle,
   Clock,
@@ -154,6 +155,7 @@ export function ReviewItemCard({ review, staffNames }: ReviewItemProps) {
     setIsSending(true);
     try {
       await sendReviewResponse(review.id, responseText);
+      invalidateNavigationStats();
       toast.success('Resposta enviada com sucesso ao Google!');
       setIsOpen(false);
     } catch (err: any) {

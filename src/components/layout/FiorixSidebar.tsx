@@ -9,6 +9,7 @@ import { getHomeRouteForRole } from "@/lib/permissions";
 import {
   loadCurrentUserOnce,
   loadNavigationStatsOnce,
+  fetchNavigationStatsFresh,
   type NavigationStats,
 } from "@/lib/navigation/client-data";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
@@ -51,6 +52,14 @@ export function FiorixSidebar() {
     loadNavigationStatsOnce()
       .then(setNavigationStats)
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const handleStatsUpdated = () => {
+      fetchNavigationStatsFresh().then(setNavigationStats).catch(() => {});
+    };
+    window.addEventListener("fiorix:navigation-stats-updated", handleStatsUpdated);
+    return () => window.removeEventListener("fiorix:navigation-stats-updated", handleStatsUpdated);
   }, []);
 
   // Resetar estado de navegação quando a rota muda

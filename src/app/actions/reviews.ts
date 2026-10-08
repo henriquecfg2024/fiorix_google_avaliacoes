@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { requireTenant } from '@/lib/auth-helpers';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { replyToGoogleReview } from '@/lib/google';
 
 export async function generateAiResponse(
@@ -111,6 +111,10 @@ export async function sendReviewResponse(reviewId: string, content: string) {
 
   revalidatePath('/avaliacoes');
   revalidatePath('/dashboard');
+  revalidatePath('/api/navigation/stats');
+  try {
+    revalidateTag('navigation-stats-v2');
+  } catch {}
 }
 
 export async function getPendingCount() {

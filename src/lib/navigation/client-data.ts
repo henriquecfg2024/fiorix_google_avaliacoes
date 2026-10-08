@@ -21,18 +21,31 @@ export function loadCurrentUserOnce() {
   return currentUserPromise;
 }
 
+export function invalidateNavigationStats() {
+  navigationStatsPromise = null;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("fiorix:navigation-stats-updated"));
+  }
+}
+
+export function fetchNavigationStatsFresh(): Promise<NavigationStats> {
+  navigationStatsPromise = fetch("/api/navigation/stats", { cache: "no-store" })
+    .then(async (response) => {
+      if (!response.ok) throw new Error(`Falha ao carregar estatísticas (${response.status})`);
+      const data = await response.json();
+      return data.success && data.stats ? data.stats : {};
+    })
+    .catch((error) => {
+      navigationStatsPromise = null;
+      throw error;
+    });
+
+  return navigationStatsPromise;
+}
+
 export function loadNavigationStatsOnce() {
   if (!navigationStatsPromise) {
-    navigationStatsPromise = fetch("/api/navigation/stats")
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`Falha ao carregar estatísticas (${response.status})`);
-        const data = await response.json();
-        return data.success && data.stats ? data.stats : {};
-      })
-      .catch((error) => {
-        navigationStatsPromise = null;
-        throw error;
-      });
+    return fetchNavigationStatsFresh();
   }
 
   return navigationStatsPromise;
