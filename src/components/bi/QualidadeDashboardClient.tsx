@@ -593,12 +593,12 @@ export function QualidadeDashboardClient() {
           </div>
           <div className="my-2">
             <span className="text-2xl font-bold font-mono text-white">
-              {kpis ? kpis.totalPrenotacoes.toLocaleString("pt-BR") : "823"}
+              {kpis ? kpis.totalPrenotacoes.toLocaleString("pt-BR") : "826"}
             </span>
           </div>
           <div className="text-[10px] text-slate-400 font-mono flex items-center justify-between pt-1 border-t border-slate-800/80">
             <span className="text-slate-300 font-semibold">
-              {kpis ? kpis.totalAtivas.toLocaleString("pt-BR") : "800"} ativas
+              {kpis ? kpis.totalAtivas.toLocaleString("pt-BR") : "803"} ativas
             </span>
             <span className="text-rose-400 font-semibold bg-rose-500/10 px-1 rounded">
               {kpis ? kpis.totalCanceladas : "23"} cancel.
@@ -674,7 +674,7 @@ export function QualidadeDashboardClient() {
                 {isAcima
                   ? "⚠️ Acima do Limite de 5.0%"
                   : `${kpis ? kpis.prenotacoesComErro : 3} / ${
-                      kpis ? kpis.totalPrenotacoes.toLocaleString("pt-BR") : "823"
+                      kpis ? kpis.totalPrenotacoes.toLocaleString("pt-BR") : "826"
                     } no mês`}
               </span>
             </div>

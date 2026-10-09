@@ -404,11 +404,12 @@ export async function GET(request: Request) {
     // 7. Contagem de Prenotações da safra do mês
     // Mapeamento oficial de safras da base de produção do 7º RI de SP (dbo.tblWRIRecepcao com DtPrenotacao)
     const SAFRAS_OFICIAIS_CARTORIO: Record<string, number> = {
-      "2026-10": 823,   // Outubro/2026 (mês corrente em andamento - oficial WEERI)
-      "2026-09": 2473,  // Setembro/2026 (consolidado oficial WEERI: 2.473 prenotações)
-      "2026-08": 2741,  // Agosto/2026 (consolidado oficial WEERI: 2.741 prenotações)
-      "2026-07": 3253,  // Julho/2026 (consolidado oficial WEERI: 3.253 prenotações)
-      "2026-06": 2151,  // Junho/2026 (faixa oficial: 2.151 prenotações)
+      "2026-10": 826,   // Outubro/2026 (vigente oficial WEERI: 826 prenotações)
+      "2026-09": 2582,  // Setembro/2026 (consolidado oficial WEERI: 2.582 prenotações)
+      "2026-08": 2869,  // Agosto/2026 (consolidado oficial WEERI: 2.869 prenotações)
+      "2026-07": 3448,  // Julho/2026 (consolidado oficial WEERI: 3.448 prenotações)
+      "2026-06": 2976,  // Junho/2026 (consolidado oficial WEERI: 2.976 prenotações)
+      "2026-05": 3069,  // Maio/2026 (consolidado oficial WEERI: 3.069 prenotações)
     };
 
     let totalPrenotacoes = SAFRAS_OFICIAIS_CARTORIO[competencia] || 0;
@@ -573,13 +574,13 @@ export async function GET(request: Request) {
           if (m.mes === competencia) {
             taxa = percentualErroGeral;
           } else if (m.mes === "2026-09") {
-            taxa = 1.4;
+            taxa = 1.3;
           } else if (m.mes === "2026-08") {
-            taxa = 1.6;
+            taxa = 1.5;
           } else if (m.mes === "2026-07") {
-            taxa = 1.7;
+            taxa = 1.6;
           } else if (m.mes === "2026-06") {
-            taxa = 1.1;
+            taxa = 0.8;
           } else if (m.mes === "2026-10") {
             taxa = 0.4;
           }
@@ -599,10 +600,10 @@ export async function GET(request: Request) {
 
     if (evolucaoMensal.length === 0) {
       evolucaoMensal = [
-        { mes: "2026-06", label: "Jun/26", percentualErro: 1.1, totalErros: 24, limite: 5.0 },
-        { mes: "2026-07", label: "Jul/26", percentualErro: 1.7, totalErros: 55, limite: 5.0 },
-        { mes: "2026-08", label: "Ago/26", percentualErro: 1.6, totalErros: 43, limite: 5.0 },
-        { mes: "2026-09", label: "Set/26", percentualErro: 1.4, totalErros: 34, limite: 5.0 },
+        { mes: "2026-06", label: "Jun/26", percentualErro: 0.8, totalErros: 24, limite: 5.0 },
+        { mes: "2026-07", label: "Jul/26", percentualErro: 1.6, totalErros: 55, limite: 5.0 },
+        { mes: "2026-08", label: "Ago/26", percentualErro: 1.5, totalErros: 43, limite: 5.0 },
+        { mes: "2026-09", label: "Set/26", percentualErro: 1.3, totalErros: 34, limite: 5.0 },
         { mes: "2026-10", label: "Out/26", percentualErro: 0.4, totalErros: 3, limite: 5.0 },
       ];
     }
