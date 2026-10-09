@@ -29,7 +29,7 @@ export interface IncrementalModuleStatus {
 }
 
 export interface ConnectorTelemetry {
-  status: 'ONLINE' | 'DEGRADED' | 'OFFLINE' | 'AMBIGUOUS' | 'UNKNOWN';
+  status: 'ONLINE' | 'DEGRADED' | 'OFFLINE' | 'AMBIGUOUS' | 'UNKNOWN' | 'STANDBY';
   environment: 'Produção';
   server: string;
   windowsService: string;

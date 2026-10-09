@@ -20,6 +20,7 @@ interface Props {
 export function ConnectorDetailCard({ connector }: Props) {
   const isOnline = connector.status === 'ONLINE';
   const isAmbiguous = connector.status === 'AMBIGUOUS';
+  const isStandby = connector.status === 'STANDBY';
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-white/10 dark:bg-[#0B1020]/90 dark:shadow-xl backdrop-blur-xl flex flex-col justify-between h-full">
@@ -34,16 +35,22 @@ export function ConnectorDetailCard({ connector }: Props) {
                 ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                 : (isOnline 
                     ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                    : 'bg-rose-500/10 text-rose-400 border-rose-500/20')
+                    : (isStandby
+                        ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                        : 'bg-rose-500/10 text-rose-400 border-rose-500/20'))
             }`}>
-              {connector.status}
+              {isStandby ? 'STANDBY (PAUSADO)' : connector.status}
             </span>
           </div>
         </div>
 
         {connector.note && (
-          <div className="mb-4 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+          <div className={`mb-4 p-2.5 rounded-xl border text-xs flex items-center gap-2 ${
+            isStandby
+              ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-300'
+              : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+          }`}>
+            {isStandby ? <Clock className="h-4 w-4 shrink-0 text-indigo-400" /> : <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />}
             <span>{connector.note}</span>
           </div>
         )}
@@ -76,8 +83,8 @@ export function ConnectorDetailCard({ connector }: Props) {
                 <Activity className="h-3.5 w-3.5 text-slate-400 dark:text-white/40" />
                 Windows Service
               </span>
-              <span className={`inline-flex items-center gap-1 font-semibold text-[11px] ${isOnline ? 'text-emerald-400' : 'text-amber-400'}`}>
-                {isOnline ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
+              <span className={`inline-flex items-center gap-1 font-semibold text-[11px] ${isOnline ? 'text-emerald-400' : (isStandby ? 'text-indigo-400' : 'text-amber-400')}`}>
+                {isOnline ? <CheckCircle2 className="h-3 w-3" /> : (isStandby ? <Clock className="h-3 w-3 text-indigo-400" /> : <AlertCircle className="h-3 w-3" />)}
                 {connector.windowsService}
               </span>
             </div>
@@ -108,8 +115,14 @@ export function ConnectorDetailCard({ connector }: Props) {
             <div className="p-3 rounded-xl bg-white/[0.02] border border-slate-200 dark:border-white/6 flex flex-col justify-between h-full">
               <div className="flex items-center justify-between text-slate-500 dark:text-white/60 mb-2">
                 <span className="text-[11px] font-semibold text-white">Status do Conector</span>
-                <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-                  {isOnline ? 'Ativo' : 'Offline'}
+                <span className={`text-[9px] uppercase px-1.5 py-0.5 rounded font-mono border ${
+                  isOnline 
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                    : (isStandby 
+                        ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' 
+                        : 'bg-rose-500/10 text-rose-400 border-rose-500/20')
+                }`}>
+                  {isOnline ? 'Ativo' : (isStandby ? 'Standby' : 'Offline')}
                 </span>
               </div>
               <div className="space-y-2 text-xs">
@@ -161,7 +174,7 @@ export function ConnectorDetailCard({ connector }: Props) {
         </div>
         <div className="text-right">
           <span className="text-[10px] text-white/30 block uppercase font-sans">Sinal do processo</span>
-          <span className="text-white/80">{isOnline ? 'Ativo' : 'Inativo'}</span>
+          <span className="text-white/80">{isOnline ? 'Ativo' : (isStandby ? 'Standby' : 'Inativo')}</span>
         </div>
       </div>
     </div>

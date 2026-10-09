@@ -51,7 +51,7 @@ export interface IncrementalModuleStatus {
 }
 
 export interface ConnectorTelemetry {
-  status: 'ONLINE' | 'DEGRADED' | 'OFFLINE' | 'UNKNOWN' | 'AMBIGUOUS';
+  status: 'ONLINE' | 'DEGRADED' | 'OFFLINE' | 'UNKNOWN' | 'AMBIGUOUS' | 'STANDBY';
   environment: OperationsEnvironment;
   configuration: 'single' | 'missing' | 'ambiguous' | 'unavailable';
   serverLabel: string;

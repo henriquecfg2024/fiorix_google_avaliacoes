@@ -341,6 +341,8 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   const isAmbiguous = activeConnectors.length > 1;
   const targetConnector = activeConnectors.length === 1 ? activeConnectors[0] : null;
 
+  const { isBusinessHours: isOfficeOpen } = checkBusinessHoursState(now);
+
   // Avaliação de Heartbeat
   let connectorStatus: ConnectorTelemetry['status'] = 'UNKNOWN';
   let heartbeatAgoSeconds: number | null = null;
@@ -352,13 +354,19 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     if (targetConnector.lastSeenAt) {
       heartbeatAgoSeconds = Math.max(0, Math.floor((now.getTime() - new Date(targetConnector.lastSeenAt).getTime()) / 1000));
       isConnectorOnline = heartbeatAgoSeconds <= 120;
-      connectorStatus = isConnectorOnline ? 'ONLINE' : 'OFFLINE';
+      if (isConnectorOnline) {
+        connectorStatus = 'ONLINE';
+      } else if (!isOfficeOpen) {
+        connectorStatus = 'STANDBY';
+      } else {
+        connectorStatus = 'OFFLINE';
+      }
     } else {
-      connectorStatus = 'OFFLINE';
+      connectorStatus = !isOfficeOpen ? 'STANDBY' : 'OFFLINE';
       heartbeatAgoSeconds = null;
     }
   } else {
-    connectorStatus = 'OFFLINE';
+    connectorStatus = !isOfficeOpen ? 'STANDBY' : 'OFFLINE';
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -499,8 +507,10 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       key: cfg.key,
       status,
       lastSyncAt: lastSyncDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' }),
-      nextExpectedAt: nextExpectedDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' }),
-      delaySeconds: Math.max(0, elapsedSeconds - cfg.expectedIntervalSeconds),
+      nextExpectedAt: !isWorkHours
+        ? '07:00 (Próximo expediente)'
+        : nextExpectedDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' }),
+      delaySeconds: !isWorkHours ? 0 : Math.max(0, elapsedSeconds - cfg.expectedIntervalSeconds),
       recordsCount: records,
       isIncremental: true,
       expectedIntervalSeconds: cfg.expectedIntervalSeconds,
@@ -514,7 +524,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
 
   if (isAmbiguous) {
     globalStatus = 'MONITORAMENTO INCOMPLETO';
-  } else if (!isConnectorOnline || dbStatus === 'offline') {
+  } else if ((!isConnectorOnline && isOfficeOpen) || dbStatus === 'offline') {
     globalStatus = 'DEGRADADO';
   } else if (dbStatus === 'degraded' || incrementalModules.some((m) => m.status === 'ERROR')) {
     globalStatus = 'DEGRADADO';
@@ -566,20 +576,32 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     {
       id: 'connector',
       name: 'FIORIX Connector',
-      status: isAmbiguous ? 'unknown' : (isConnectorOnline ? 'operational' : 'offline'),
+      status: isAmbiguous ? 'unknown' : (isConnectorOnline || !isOfficeOpen ? 'operational' : 'offline'),
       latencyMs: null,
-      lastSignalAt: isAmbiguous ? 'Configuração ambígua' : (heartbeatAgoSeconds !== null ? `${heartbeatAgoSeconds}s atrás` : 'Sem sinal'),
+      lastSignalAt: isAmbiguous
+        ? 'Configuração ambígua'
+        : (isConnectorOnline
+            ? (heartbeatAgoSeconds !== null ? `${heartbeatAgoSeconds}s atrás` : 'Ativo')
+            : (!isOfficeOpen ? 'Pausado (fora do expediente)' : (heartbeatAgoSeconds !== null ? `${heartbeatAgoSeconds}s atrás` : 'Sem sinal'))),
       provenance: 'live',
-      details: isAmbiguous ? 'Múltiplos conectores detectados' : 'Serviço Windows no servidor do cartório',
+      details: isAmbiguous
+        ? 'Múltiplos conectores detectados'
+        : (!isOfficeOpen && !isConnectorOnline
+            ? 'Serviço em repouso programado (Expediente: Seg–Sáb 07h–19h)'
+            : 'Serviço Windows no servidor do cartório'),
     },
     {
       id: 'webri-sql',
       name: 'WEBRI SQL',
-      status: isConnectorOnline ? 'operational' : 'unknown',
+      status: isConnectorOnline || !isOfficeOpen ? 'operational' : 'unknown',
       latencyMs: null,
-      lastSignalAt: isConnectorOnline ? 'Sinal via conector' : 'Não disponível',
+      lastSignalAt: isConnectorOnline
+        ? 'Sinal via conector'
+        : (!isOfficeOpen ? 'Pausado (fora do expediente)' : 'Não disponível'),
       provenance: isConnectorOnline ? 'calculated' : 'unavailable',
-      details: 'SQL Server corporativo do cartório',
+      details: !isOfficeOpen && !isConnectorOnline
+        ? 'SQL Server corporativo (Sincronizações pausadas até 07h)'
+        : 'SQL Server corporativo do cartório',
     },
     {
       id: 'github',
@@ -602,7 +624,6 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   }
 
   // Se o conector estiver offline durante o expediente por mais de 5 minutos, notificar webhook
-  const { isBusinessHours: isOfficeOpen } = checkBusinessHoursState(now);
   if (!isConnectorOnline && isOfficeOpen && heartbeatAgoSeconds && heartbeatAgoSeconds > 300) {
     dispatchAlert({
       tenantId,
@@ -621,7 +642,11 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     status: connectorStatus,
     environment: 'Produção',
     server: 'Servidor do Cartório (Windows Service)',
-    windowsService: isConnectorOnline ? 'Em execução' : (isAmbiguous ? 'Configuração ambígua' : 'Não detectado'),
+    windowsService: isConnectorOnline
+      ? 'Em execução'
+      : (isAmbiguous
+          ? 'Configuração ambígua'
+          : (!isOfficeOpen ? 'Standby / Repouso (Fora do expediente)' : 'Não detectado')),
     uptimeFormatted,
     heartbeatAgoSeconds,
     cpuPercent: latestTelemetry?.cpuPercent ?? null,
@@ -638,7 +663,9 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     },
     note: isAmbiguous 
       ? 'Atenção: Existem múltiplos conectores ativos configurados para este tenant. Contate o suporte técnico.' 
-      : (activeConnectors.length === 0 ? 'Nenhum conector ativo registrado para este tenant.' : undefined),
+      : (connectorStatus === 'STANDBY'
+          ? 'Fora do horário de expediente (07h às 19h - Seg a Sáb). As sincronizações automáticas são pausadas no período noturno e aos domingos.'
+          : (activeConnectors.length === 0 ? 'Nenhum conector ativo registrado para este tenant.' : undefined)),
   };
 
   // E2. Consulta de Lotes Recentes para Métricas Reais e Incidentes Ativos
