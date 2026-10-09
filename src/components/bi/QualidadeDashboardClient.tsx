@@ -583,9 +583,9 @@ export function QualidadeDashboardClient() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════
-           4. CARDS SUPERIORES DE INDICADORES (9 KPIS C/ CONCILIAÇÃO DE SAFRA)
+           4. CARDS SUPERIORES DE INDICADORES (8 KPIS C/ CONCILIAÇÃO DE SAFRA)
            ══════════════════════════════════════════════════════════════════ */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-9 gap-3">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-8 gap-3">
         {/* 1. Prenotações (com Subtotal de Canceladas) */}
         <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
           <div className="flex items-center justify-between">
@@ -648,18 +648,7 @@ export function QualidadeDashboardClient() {
           </div>
         </div>
 
-        {/* 4. Prenotações com Erro */}
-        <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
-          <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Prenotações c/ Erro</span>
-          <div className="my-2">
-            <span className="text-2xl font-bold font-mono text-amber-400">
-              {kpis ? kpis.prenotacoesComErro : "34"}
-            </span>
-          </div>
-          <span className="text-[10px] text-slate-500 font-mono">Títulos distintos</span>
-        </div>
-
-        {/* 5. Quantidade de Erros */}
+        {/* 4. Quantidade de Erros */}
         <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
           <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Quantidade de Erros</span>
           <div className="my-2">
@@ -670,7 +659,7 @@ export function QualidadeDashboardClient() {
           <span className="text-[10px] text-slate-500 font-mono">Total eventos retorno</span>
         </div>
 
-        {/* 6. % de Erro Geral */}
+        {/* 5. % de Erro Geral */}
         {(() => {
           const isAcima = (kpis?.percentualErroGeral ?? 1.3) > 5.0;
           return (
@@ -723,7 +712,7 @@ export function QualidadeDashboardClient() {
           );
         })()}
 
-        {/* 7. SLA Correção */}
+        {/* 6. SLA Correção */}
         <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">SLA Correção</span>
@@ -740,7 +729,7 @@ export function QualidadeDashboardClient() {
           <span className="text-[10px] text-slate-500 font-mono">Tempo até saneamento</span>
         </div>
 
-        {/* 8. Colaboradores Acima da Meta */}
+        {/* 7. Colaboradores Acima da Meta */}
         <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Acima da Meta</span>
@@ -756,7 +745,7 @@ export function QualidadeDashboardClient() {
           <span className="text-[10px] text-emerald-400 font-mono">Superaram meta</span>
         </div>
 
-        {/* 9. Dentro do Limite */}
+        {/* 8. Dentro do Limite */}
         <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
           <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Dentro Limite</span>
           <div className="my-2">
