@@ -5,8 +5,6 @@ import {
   ShieldCheck,
   Printer,
   FileSpreadsheet,
-  Target,
-  Percent,
   Search,
   X,
   FileText,
@@ -446,30 +444,6 @@ export function QualidadeDashboardClient() {
               <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
               <span>Exportar XLS</span>
             </button>
-
-            {/* Ações exclusivas de liderança / Substituto */}
-            {isGestor && (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setModalMetaOpen(true)}
-                  className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 text-xs font-semibold transition-all shadow-lg shadow-purple-500/10 active:scale-95"
-                >
-                  <Target className="h-4 w-4" />
-                  <span>Estipular Meta</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setLimiteForm((prev) => ({ ...prev, competenciaInicio: competencia }));
-                    setModalLimiteOpen(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs font-semibold transition-all active:scale-95"
-                >
-                  <Percent className="h-4 w-4" />
-                  <span>Alterar Limite (5%)</span>
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </section>
@@ -642,9 +616,9 @@ export function QualidadeDashboardClient() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════
-           4. CARDS SUPERIORES DE INDICADORES (8 KPIS C/ CONCILIAÇÃO DE SAFRA)
+           4. CARDS SUPERIORES DE INDICADORES (5 KPIS PRINCIPAIS)
            ══════════════════════════════════════════════════════════════════ */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-8 gap-3">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
         {/* 1. Prenotações (com Subtotal de Canceladas) */}
         <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
           <div className="flex items-center justify-between">
@@ -770,50 +744,6 @@ export function QualidadeDashboardClient() {
             </div>
           );
         })()}
-
-        {/* 6. SLA Correção */}
-        <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">SLA Correção</span>
-            <span className="text-[9px] font-mono px-1 rounded bg-emerald-500/15 text-emerald-400 font-bold">
-              {kpis ? `${kpis.slaAbaixo48hPercent}% < 48h` : "14.7% < 48h"}
-            </span>
-          </div>
-          <div className="my-2 flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold font-mono text-cyan-400">
-              {kpis ? `${kpis.slaMedioDias}d` : "5.5d"}
-            </span>
-            <span className="text-xs text-slate-500 font-mono">médio</span>
-          </div>
-          <span className="text-[10px] text-slate-500 font-mono">Tempo até saneamento</span>
-        </div>
-
-        {/* 7. Colaboradores Acima da Meta */}
-        <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Acima da Meta</span>
-            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-bold">
-              Meta +10
-            </span>
-          </div>
-          <div className="my-2">
-            <span className="text-2xl font-bold font-mono text-purple-300">
-              {kpis ? kpis.colaboradoresAcimaMeta : "17 / 17"}
-            </span>
-          </div>
-          <span className="text-[10px] text-emerald-400 font-mono">Superaram meta</span>
-        </div>
-
-        {/* 8. Dentro do Limite */}
-        <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
-          <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Dentro Limite</span>
-          <div className="my-2">
-            <span className="text-2xl font-bold font-mono text-emerald-400">
-              {kpis ? kpis.colaboradoresDentroLimite : "14 / 17"}
-            </span>
-          </div>
-          <span className="text-[10px] text-emerald-400 font-mono">Abaixo de 5%</span>
-        </div>
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════
