@@ -7,7 +7,7 @@ export async function unpackLiveRecords({
   records,
 }: {
   tenantId: string;
-  source: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes';
+  source: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes' | 'safras';
   records: any[];
 }): Promise<void> {
   if (!records || records.length === 0) return;
@@ -367,6 +367,34 @@ export async function unpackLiveRecords({
           id_usuario_destino = EXCLUDED.id_usuario_destino,
           usuario_destino = EXCLUDED.usuario_destino,
           observacao = EXCLUDED.observacao,
+          updated_at = NOW();
+      `,
+        tenantId,
+        recordsJson
+      );
+    } else if (source === 'safras') {
+      await prisma.$executeRawUnsafe(
+        `
+        WITH batch_records AS (
+          SELECT DISTINCT ON (item->>'Competencia', item->>'competencia')
+            $1::text AS tenant_id,
+            COALESCE(item->>'Competencia', item->>'competencia') AS competencia,
+            COALESCE((item->>'TotalPrenotacoes')::int, (item->>'total_prenotacoes')::int, 0) AS total_prenotacoes,
+            COALESCE((item->>'TotalONR')::int, (item->>'total_onr')::int, 0) AS total_onr,
+            COALESCE((item->>'TotalRecepcao')::int, (item->>'total_recepcao')::int, 0) AS total_recepcao
+          FROM jsonb_array_elements($2::jsonb) AS item
+          WHERE COALESCE(item->>'Competencia', item->>'competencia') IS NOT NULL
+        )
+        INSERT INTO public.fiorix_qualidade_safras (
+          tenant_id, competencia, total_prenotacoes, total_onr, total_recepcao, created_at, updated_at
+        )
+        SELECT 
+          tenant_id, competencia, total_prenotacoes, total_onr, total_recepcao, NOW(), NOW()
+        FROM batch_records
+        ON CONFLICT (tenant_id, competencia) DO UPDATE SET
+          total_prenotacoes = EXCLUDED.total_prenotacoes,
+          total_onr = EXCLUDED.total_onr,
+          total_recepcao = EXCLUDED.total_recepcao,
           updated_at = NOW();
       `,
         tenantId,
