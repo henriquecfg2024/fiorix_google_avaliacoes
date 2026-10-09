@@ -4,7 +4,7 @@ import { QualidadeDashboardClient } from "@/components/bi/QualidadeDashboardClie
 
 export const metadata: Metadata = {
   title: "Qualidade — Gestão de Prazos | FIORIX",
-  description: "Controle de qualidade, retornos internos, metas dinâmicas e limites de erro.",
+  description: "Controle de qualidade, retornos internos e limites de erro.",
 };
 
 export default function QualidadePage() {

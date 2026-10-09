@@ -42,7 +42,7 @@ interface KpiData {
   slaMedioDias: number;
   slaAbaixo48hPercent: number;
   producaoTotal: number;
-  colaboradoresAcimaMeta: string;
+  colaboradoresAcimaMeta?: string;
   colaboradoresDentroLimite: string;
 }
 
@@ -53,10 +53,10 @@ interface ColaboradorItem {
   atividade: string;
   origem: string;
   producao: number;
-  meta: number;
-  metaTipo: "auto" | "manual" | "departamento";
-  statusMeta: string;
-  atingiuMeta: boolean;
+  meta?: number;
+  metaTipo?: "auto" | "manual" | "departamento";
+  statusMeta?: string;
+  atingiuMeta?: boolean;
   erros: number;
   errosPorTipo: {
     telaRecepcao: number;
@@ -124,22 +124,12 @@ export function QualidadeDashboardClient() {
   const [userRole, setUserRole] = useState("SUBSTITUTO");
 
   // Modais / Gavetas Laterais
-  const [modalMetaOpen, setModalMetaOpen] = useState(false);
   const [modalLimiteOpen, setModalLimiteOpen] = useState(false);
   const [modalRevisaoOpen, setModalRevisaoOpen] = useState(false);
   const [modalFichaOpen, setModalFichaOpen] = useState(false);
 
   // Estados dos Formulários dos Modais
   const [selectedColab, setSelectedColab] = useState<ColaboradorItem | null>(null);
-  const [metaForm, setMetaForm] = useState({
-    tipoAlvo: "COLABORADOR" as "COLABORADOR" | "DEPARTAMENTO",
-    colaboradorNome: "",
-    departamento: "Qualificação Registral",
-    atividade: "Contraditório (REAL / PESSOAL)",
-    origem: "TODOS",
-    metaValor: 140,
-    competenciaInicio: "2026-09",
-  });
   const [limiteForm, setLimiteForm] = useState({
     tipoAlvo: "COLABORADOR" as "COLABORADOR" | "DEPARTAMENTO",
     colaboradorNome: "",
@@ -193,10 +183,9 @@ export function QualidadeDashboardClient() {
         setEvolucaoMensal(data.evolucaoMensal || []);
         if (data.userRole) setUserRole(data.userRole);
 
-        // Preenche o nome padrão nos formulários de meta e limite caso ainda vazio
+        // Preenche o nome padrão no formulário de limite caso ainda vazio
         if (listaColabs.length > 0) {
           const primeiroColab = listaColabs[0].nome;
-          setMetaForm((prev) => (!prev.colaboradorNome ? { ...prev, colaboradorNome: primeiroColab } : prev));
           setLimiteForm((prev) => (!prev.colaboradorNome ? { ...prev, colaboradorNome: primeiroColab } : prev));
         }
       }
@@ -228,10 +217,6 @@ export function QualidadeDashboardClient() {
     if (!list.includes("Balcão & Recepção")) list.push("Balcão & Recepção");
     return list;
   }, [colaboradores]);
-
-  const colaboradoresDoDepto = useMemo(() => {
-    return colaboradores.filter((c) => c.departamento === metaForm.departamento);
-  }, [colaboradores, metaForm.departamento]);
 
   const colaboradoresDoDeptoLimite = useMemo(() => {
     return colaboradores.filter((c) => c.departamento === limiteForm.departamento);
@@ -278,38 +263,6 @@ export function QualidadeDashboardClient() {
       justificativa: "",
     });
     setModalRevisaoOpen(true);
-  };
-
-  // Salvar Meta via API (Suporta Por Colaborador ou Por Departamento)
-  const handleSalvarMeta = async () => {
-    try {
-      const payload = {
-        ...metaForm,
-        colaboradoresNomes:
-          metaForm.tipoAlvo === "DEPARTAMENTO"
-            ? colaboradoresDoDepto.map((c) => c.nome)
-            : undefined,
-      };
-      const res = await fetch("/api/bi/qualidade/metas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) {
-        if (metaForm.tipoAlvo === "DEPARTAMENTO") {
-          alert(`Meta de ${metaForm.metaValor} prenotações estipulada com sucesso para os ${colaboradoresDoDepto.length} colaboradores do departamento ${metaForm.departamento}!`);
-        } else {
-          alert(`Meta de ${metaForm.metaValor} salva com sucesso para ${metaForm.colaboradorNome}!`);
-        }
-        setModalMetaOpen(false);
-        fetchData();
-      } else {
-        const errData = await res.json().catch(() => null);
-        alert(errData?.error || "Erro ao gravar meta.");
-      }
-    } catch {
-      alert("Falha de rede ao salvar meta.");
-    }
   };
 
   // Salvar Limite via API (Suporta Por Colaborador ou Por Departamento)
@@ -420,8 +373,8 @@ export function QualidadeDashboardClient() {
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-400 mt-1.5 max-w-3xl leading-relaxed">
-              Monitoramento contínuo de erros internos, metas dinâmicas (+10 da média) e limites de erro (5.0%). Safra
-              calculada pela data de entrada da prenotação (inclusive canceladas).
+              Monitoramento contínuo de erros internos e limites de erro (5.0%). Safra calculada pela data de
+              entrada da prenotação (inclusive canceladas).
             </p>
           </div>
 
@@ -922,7 +875,7 @@ export function QualidadeDashboardClient() {
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-1">
-              Meta automática = Média do mês anterior + 10 | Limite padrão = 5.0% | Auditoria contínua
+              Limite padrão = 5.0% por colaborador/departamento | Auditoria contínua de qualidade
             </p>
           </div>
 
@@ -948,8 +901,6 @@ export function QualidadeDashboardClient() {
                 <th className="pb-3 px-3">Atividade</th>
                 <th className="pb-3 px-3">Origem</th>
                 <th className="pb-3 px-3">Produção</th>
-                <th className="pb-3 px-3">Meta Mensal</th>
-                <th className="pb-3 px-3">Status Meta</th>
                 <th className="pb-3 px-3">Erros</th>
                 <th className="pb-3 px-3">% Erro</th>
                 <th className="pb-3 px-3">Limite Permitido</th>
@@ -986,38 +937,6 @@ export function QualidadeDashboardClient() {
                     </span>
                   </td>
                   <td className="py-3.5 px-3 font-bold text-white">{c.producao}</td>
-                  <td className="py-3.5 px-3 text-slate-300">
-                    {c.meta}{" "}
-                    <span
-                      className={`text-[9px] ${
-                        c.metaTipo === "manual"
-                          ? "text-purple-400 font-semibold"
-                          : c.metaTipo === "departamento"
-                          ? "text-cyan-400 font-semibold"
-                          : "text-slate-500"
-                      }`}
-                      title={
-                        c.metaTipo === "manual"
-                          ? "Meta individual estipulada"
-                          : c.metaTipo === "departamento"
-                          ? `Meta estipulada para o departamento (${c.departamento})`
-                          : "Meta automática (safra anterior + 10)"
-                      }
-                    >
-                      ({c.metaTipo === "departamento" ? "depto" : c.metaTipo})
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-3">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border font-sans ${
-                        c.atingiuMeta
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                          : "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                      }`}
-                    >
-                      {c.statusMeta}
-                    </span>
-                  </td>
                   <td className="py-3.5 px-3 text-white font-bold">{c.erros}</td>
                   <td className={`py-3.5 px-3 font-bold ${c.dentroLimite ? "text-emerald-400" : "text-rose-400"}`}>
                     {c.percentualErro}%
@@ -1067,25 +986,20 @@ export function QualidadeDashboardClient() {
                       {isGestor && (
                         <button
                           onClick={() => {
-                            setMetaForm({
+                            setLimiteForm((prev) => ({
+                              ...prev,
                               tipoAlvo: "COLABORADOR",
                               colaboradorNome: c.nome.toUpperCase(),
                               departamento: c.departamento,
-                              atividade: c.atividade,
-                              metaValor: c.meta,
-                              origem: c.origem || "TODOS",
-                              competenciaInicio: competencia,
-                            });
-                            setLimiteForm((prev) => ({
-                              ...prev,
-                              colaboradorNome: c.nome.toUpperCase(),
                               limitePercentual: c.limite,
+                              competenciaInicio: competencia,
                             }));
-                            setModalMetaOpen(true);
+                            setModalLimiteOpen(true);
                           }}
                           className="px-2.5 py-1 rounded-lg bg-[#151A2C] hover:bg-slate-700 text-xs text-slate-200 transition-all"
+                          title="Alterar Limite de Erro"
                         >
-                          Configurar
+                          Alterar Limite
                         </button>
                       )}
                     </div>
@@ -1187,229 +1101,7 @@ export function QualidadeDashboardClient() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════
-           DRAWER 1: ESTIPULAR META MANUAL (SUBSTITUTO)
-           ══════════════════════════════════════════════════════════════════ */}
-      {modalMetaOpen && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md h-full border-l border-slate-800 bg-[#111729] p-6 shadow-2xl text-white flex flex-col justify-between">
-            <div className="space-y-5">
-              <div className="flex items-start justify-between border-b border-slate-800 pb-4">
-                <div>
-                  <h3 className="text-base font-bold tracking-tight">Estipular Meta de Produção</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {metaForm.tipoAlvo === "DEPARTAMENTO"
-                      ? "Configuração coletiva para todos os colaboradores do departamento"
-                      : "Configuração individual com vigência contínua por colaborador"}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setModalMetaOpen(false)}
-                  className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="space-y-4 text-xs">
-                {/* Seletor de Escopo: Por Colaborador vs Por Departamento */}
-                <div>
-                  <label className="block text-slate-400 mb-1.5 font-semibold">Tipo de Aplicação da Meta</label>
-                  <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-[#0F1424] border border-slate-800">
-                    <button
-                      type="button"
-                      onClick={() => setMetaForm((prev) => ({ ...prev, tipoAlvo: "COLABORADOR" }))}
-                      className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                        metaForm.tipoAlvo === "COLABORADOR"
-                          ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
-                          : "text-slate-400 hover:text-white"
-                      }`}
-                    >
-                      <User className="w-3.5 h-3.5" />
-                      <span>Por Colaborador</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const depto = metaForm.departamento || "Qualificação Registral";
-                        const atividadeDepto =
-                          depto === "Balcão & Recepção"
-                            ? "Autenticação Caixa (TELA RECEPÇÃO)"
-                            : "Contraditório (REAL / PESSOAL)";
-                        setMetaForm((prev) => ({
-                          ...prev,
-                          tipoAlvo: "DEPARTAMENTO",
-                          departamento: depto,
-                          atividade: atividadeDepto,
-                        }));
-                      }}
-                      className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                        metaForm.tipoAlvo === "DEPARTAMENTO"
-                          ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
-                          : "text-slate-400 hover:text-white"
-                      }`}
-                    >
-                      <Building2 className="w-3.5 h-3.5" />
-                      <span>Por Departamento</span>
-                    </button>
-                  </div>
-                </div>
-
-                {metaForm.tipoAlvo === "COLABORADOR" ? (
-                  <div>
-                    <label className="block text-slate-400 mb-1 font-semibold">Colaborador</label>
-                    <select
-                      value={metaForm.colaboradorNome}
-                      onChange={(e) => {
-                        const colabSel = colaboradores.find((c) => c.nome === e.target.value);
-                        setMetaForm((prev) => ({
-                          ...prev,
-                          colaboradorNome: e.target.value,
-                          departamento: colabSel?.departamento || prev.departamento,
-                          atividade: colabSel?.atividade || prev.atividade,
-                        }));
-                      }}
-                      className="w-full px-3 py-2 rounded-xl bg-[#151A2C] border border-slate-700 text-white"
-                    >
-                      {colaboradores.map((c) => (
-                        <option key={c.nome} value={c.nome.toUpperCase()}>
-                          {c.nome.toUpperCase()} ({c.departamento})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-slate-400 mb-1 font-semibold">Departamento / Setor</label>
-                    <select
-                      value={metaForm.departamento}
-                      onChange={(e) => {
-                        const depto = e.target.value;
-                        const atividadeDepto =
-                          depto === "Balcão & Recepção"
-                            ? "Autenticação Caixa (TELA RECEPÇÃO)"
-                            : "Contraditório (REAL / PESSOAL)";
-                        setMetaForm((prev) => ({
-                          ...prev,
-                          departamento: depto,
-                          atividade: atividadeDepto,
-                        }));
-                      }}
-                      className="w-full px-3 py-2 rounded-xl bg-[#151A2C] border border-slate-700 text-white"
-                    >
-                      {departamentosDisponiveis.map((d) => (
-                        <option key={d} value={d}>
-                          🏢 {d}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {metaForm.tipoAlvo === "DEPARTAMENTO" && (
-                  <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/25 space-y-2">
-                    <div className="flex items-center justify-between text-xs font-bold text-purple-300">
-                      <span>Equipe do Setor ({colaboradoresDoDepto.length} colaboradores)</span>
-                      <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-[10px] font-mono">
-                        {metaForm.departamento}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-300 leading-relaxed">
-                      A meta será aplicada a todos os colaboradores que pertencem a este setor e realizam as respectivas atividades:
-                    </p>
-                    <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pt-1 border-t border-purple-500/20">
-                      {colaboradoresDoDepto.map((c) => (
-                        <span
-                          key={c.nome}
-                          className="px-2 py-0.5 rounded bg-[#111729] text-[10px] font-mono text-purple-200 border border-purple-500/30"
-                        >
-                          {c.nome}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Atividade</label>
-                  <select
-                    value={metaForm.atividade}
-                    onChange={(e) => setMetaForm({ ...metaForm, atividade: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-[#151A2C] border border-slate-700 text-white"
-                  >
-                    <option value="Contraditório (REAL / PESSOAL)">Contraditório (REAL / PESSOAL)</option>
-                    <option value="Autenticação Caixa (TELA RECEPÇÃO)">Autenticação Caixa (TELA RECEPÇÃO — 112/116)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Origem do Protocolo</label>
-                  <select
-                    value={metaForm.origem}
-                    onChange={(e) => setMetaForm({ ...metaForm, origem: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-[#151A2C] border border-slate-700 text-white"
-                  >
-                    <option value="TODOS">Todos</option>
-                    <option value="ONR">ONR / Digital</option>
-                    <option value="RECEPCAO">Recepção / Físico</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">
-                    {metaForm.tipoAlvo === "DEPARTAMENTO"
-                      ? "Meta Mensal por Colaborador do Setor (Prenotações)"
-                      : "Meta Mensal (Prenotações)"}
-                  </label>
-                  <input
-                    type="number"
-                    value={metaForm.metaValor}
-                    onChange={(e) => setMetaForm({ ...metaForm, metaValor: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-xl bg-[#151A2C] border border-slate-700 text-white font-mono font-bold"
-                  />
-                  <span className="text-[10px] text-slate-500 mt-1 block">
-                    {metaForm.tipoAlvo === "DEPARTAMENTO"
-                      ? `Estipula a meta de ${metaForm.metaValor} para cada colaborador de ${metaForm.departamento}`
-                      : "Substitui a meta automática de média anterior + 10"}
-                  </span>
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Competência de Início da Vigência</label>
-                  <input
-                    type="month"
-                    value={metaForm.competenciaInicio}
-                    onChange={(e) => setMetaForm({ ...metaForm, competenciaInicio: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-[#151A2C] border border-slate-700 text-white font-mono"
-                  />
-                  <span className="text-[10px] text-slate-500 mt-1 block">
-                    Vigora a partir deste mês sem afetar o histórico passado
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-800 flex justify-end gap-2">
-              <button
-                onClick={() => setModalMetaOpen(false)}
-                className="px-4 py-2 rounded-xl bg-[#151A2C] text-slate-400 text-xs hover:text-white"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSalvarMeta}
-                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-lg shadow-purple-500/20"
-              >
-                {metaForm.tipoAlvo === "DEPARTAMENTO"
-                  ? `Salvar Meta para o Departamento (${colaboradoresDoDepto.length})`
-                  : "Salvar Meta"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ══════════════════════════════════════════════════════════════════
-           DRAWER 2: ALTERAR LIMITE DE ERRO (SUBSTITUTO)
+           DRAWER 1: ALTERAR LIMITE DE ERRO (SUBSTITUTO)
            ══════════════════════════════════════════════════════════════════ */}
       {modalLimiteOpen && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -1723,8 +1415,8 @@ export function QualidadeDashboardClient() {
                 <div className="p-3 rounded-xl bg-[#151A2C] border border-slate-800">
                   <span className="text-[10px] uppercase font-semibold text-slate-400 block">Produção Realizada</span>
                   <div className="text-xl font-bold font-mono text-cyan-400 mt-1">{selectedColab.producao}</div>
-                  <span className="text-[10px] text-emerald-400 font-mono">
-                    Meta: {selectedColab.meta} ({selectedColab.statusMeta})
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    Prenotações concluídas
                   </span>
                 </div>
 
