@@ -154,11 +154,8 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
 
               <div>
                 <div className="flex items-center gap-2.5">
-                  <h1 className="text-2xl font-semibold tracking-tight text-[#F1F5F9] flex items-center gap-2">
-                    <span>Central de Operações</span>
-                    <span className="font-extrabold tracking-tight bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
-                      FIORIX
-                    </span>
+                  <h1 className="text-2xl font-semibold tracking-tight text-[#F1F5F9]">
+                    Central de Operações
                   </h1>
                 </div>
                 
