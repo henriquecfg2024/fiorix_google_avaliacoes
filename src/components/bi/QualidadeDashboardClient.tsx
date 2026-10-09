@@ -33,6 +33,8 @@ interface KpiData {
   totalPrenotacoes: number;
   totalAtivas: number;
   totalCanceladas: number;
+  totalFaltante: number;
+  totalEmTramite: number;
   prenotacoesComErro: number;
   quantidadeErros: number;
   percentualErroGeral: number;
@@ -581,9 +583,9 @@ export function QualidadeDashboardClient() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════
-           4. CARDS SUPERIORES DE INDICADORES (8 KPIS C/ CANCELADAS E SLA)
+           4. CARDS SUPERIORES DE INDICADORES (9 KPIS C/ CONCILIAÇÃO DE SAFRA)
            ══════════════════════════════════════════════════════════════════ */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-9 gap-3">
         {/* 1. Prenotações (com Subtotal de Canceladas) */}
         <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
           <div className="flex items-center justify-between">
@@ -594,44 +596,83 @@ export function QualidadeDashboardClient() {
           </div>
           <div className="my-2">
             <span className="text-2xl font-bold font-mono text-white">
-              {kpis ? kpis.totalPrenotacoes.toLocaleString("pt-BR") : "826"}
+              {kpis ? kpis.totalPrenotacoes.toLocaleString("pt-BR") : "2.582"}
             </span>
           </div>
           <div className="text-[10px] text-slate-400 font-mono flex items-center justify-between pt-1 border-t border-slate-800/80">
             <span className="text-slate-300 font-semibold">
-              {kpis ? kpis.totalAtivas.toLocaleString("pt-BR") : "803"} ativas
+              {kpis ? kpis.totalAtivas.toLocaleString("pt-BR") : "2.510"} ativas
             </span>
             <span className="text-rose-400 font-semibold bg-rose-500/10 px-1 rounded">
-              {kpis ? kpis.totalCanceladas : "23"} cancel.
+              {kpis ? kpis.totalCanceladas : "72"} cancel.
             </span>
           </div>
         </div>
 
-        {/* 2. Prenotações com Erro */}
+        {/* 2. Produção Total */}
+        <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Produção Total</span>
+            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+              Concluídas
+            </span>
+          </div>
+          <div className="my-2">
+            <span className="text-2xl font-bold font-mono text-cyan-400">
+              {kpis ? kpis.producaoTotal.toLocaleString("pt-BR") : "2.493"}
+            </span>
+          </div>
+          <span className="text-[10px] text-slate-400 font-mono pt-1 border-t border-slate-800/80">Caixa + Contraditório</span>
+        </div>
+
+        {/* 3. Saldo Faltante (Canceladas + Em Trâmite) */}
+        <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Saldo Faltante</span>
+            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 font-bold border border-amber-500/20">
+              Trâmite + Cancel.
+            </span>
+          </div>
+          <div className="my-2">
+            <span className="text-2xl font-bold font-mono text-amber-300">
+              {kpis ? (kpis.totalFaltante ?? Math.max(0, kpis.totalPrenotacoes - kpis.producaoTotal)).toLocaleString("pt-BR") : "89"}
+            </span>
+          </div>
+          <div className="text-[10px] text-slate-400 font-mono flex items-center justify-between pt-1 border-t border-slate-800/80">
+            <span className="text-rose-400 font-semibold bg-rose-500/10 px-1 rounded">
+              {kpis ? kpis.totalCanceladas : "72"} cancel.
+            </span>
+            <span className="text-slate-300 font-semibold">
+              {kpis ? (kpis.totalEmTramite ?? Math.max(0, (kpis.totalFaltante ?? 89) - kpis.totalCanceladas)) : "17"} em trâmite
+            </span>
+          </div>
+        </div>
+
+        {/* 4. Prenotações com Erro */}
         <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
           <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Prenotações c/ Erro</span>
           <div className="my-2">
             <span className="text-2xl font-bold font-mono text-amber-400">
-              {kpis ? kpis.prenotacoesComErro : "3"}
+              {kpis ? kpis.prenotacoesComErro : "34"}
             </span>
           </div>
           <span className="text-[10px] text-slate-500 font-mono">Títulos distintos</span>
         </div>
 
-        {/* 3. Quantidade de Erros */}
+        {/* 5. Quantidade de Erros */}
         <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
           <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Quantidade de Erros</span>
           <div className="my-2">
             <span className="text-2xl font-bold font-mono text-rose-400">
-              {kpis ? kpis.quantidadeErros : "3"}
+              {kpis ? kpis.quantidadeErros : "34"}
             </span>
           </div>
           <span className="text-[10px] text-slate-500 font-mono">Total eventos retorno</span>
         </div>
 
-        {/* 4. % de Erro Geral */}
+        {/* 6. % de Erro Geral */}
         {(() => {
-          const isAcima = (kpis?.percentualErroGeral ?? 0.4) > 5.0;
+          const isAcima = (kpis?.percentualErroGeral ?? 1.3) > 5.0;
           return (
             <div
               className={`p-4 rounded-xl border flex flex-col justify-between transition-all ${
@@ -664,7 +705,7 @@ export function QualidadeDashboardClient() {
                     isAcima ? "text-rose-400" : "text-emerald-400"
                   }`}
                 >
-                  {kpis ? `${kpis.percentualErroGeral}%` : "0.4%"}
+                  {kpis ? `${kpis.percentualErroGeral}%` : "1.3%"}
                 </span>
               </div>
               <span
@@ -674,43 +715,32 @@ export function QualidadeDashboardClient() {
               >
                 {isAcima
                   ? "⚠️ Acima do Limite de 5.0%"
-                  : `${kpis ? kpis.prenotacoesComErro : 3} / ${
-                      kpis ? kpis.totalPrenotacoes.toLocaleString("pt-BR") : "826"
+                  : `${kpis ? kpis.prenotacoesComErro : 34} / ${
+                      kpis ? kpis.totalPrenotacoes.toLocaleString("pt-BR") : "2.582"
                     } no mês`}
               </span>
             </div>
           );
         })()}
 
-        {/* 5. SLA Correção */}
+        {/* 7. SLA Correção */}
         <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">SLA Correção</span>
             <span className="text-[9px] font-mono px-1 rounded bg-emerald-500/15 text-emerald-400 font-bold">
-              {kpis ? `${kpis.slaAbaixo48hPercent}% < 48h` : "88% < 48h"}
+              {kpis ? `${kpis.slaAbaixo48hPercent}% < 48h` : "14.7% < 48h"}
             </span>
           </div>
           <div className="my-2 flex items-baseline gap-1.5">
             <span className="text-2xl font-bold font-mono text-cyan-400">
-              {kpis ? `${kpis.slaMedioDias}d` : "1.6d"}
+              {kpis ? `${kpis.slaMedioDias}d` : "5.5d"}
             </span>
             <span className="text-xs text-slate-500 font-mono">médio</span>
           </div>
           <span className="text-[10px] text-slate-500 font-mono">Tempo até saneamento</span>
         </div>
 
-        {/* 6. Produção Total */}
-        <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
-          <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Produção Total</span>
-          <div className="my-2">
-            <span className="text-2xl font-bold font-mono text-cyan-400">
-              {kpis ? kpis.producaoTotal.toLocaleString("pt-BR") : "1.842"}
-            </span>
-          </div>
-          <span className="text-[10px] text-slate-500 font-mono">Caixa + Contraditório</span>
-        </div>
-
-        {/* 7. Colaboradores Acima da Meta */}
+        {/* 8. Colaboradores Acima da Meta */}
         <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Acima da Meta</span>
@@ -720,18 +750,18 @@ export function QualidadeDashboardClient() {
           </div>
           <div className="my-2">
             <span className="text-2xl font-bold font-mono text-purple-300">
-              {kpis ? kpis.colaboradoresAcimaMeta : "11 / 14"}
+              {kpis ? kpis.colaboradoresAcimaMeta : "17 / 17"}
             </span>
           </div>
           <span className="text-[10px] text-emerald-400 font-mono">Superaram meta</span>
         </div>
 
-        {/* 8. Dentro do Limite */}
+        {/* 9. Dentro do Limite */}
         <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
           <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Dentro Limite</span>
           <div className="my-2">
             <span className="text-2xl font-bold font-mono text-emerald-400">
-              {kpis ? kpis.colaboradoresDentroLimite : "13 / 14"}
+              {kpis ? kpis.colaboradoresDentroLimite : "14 / 17"}
             </span>
           </div>
           <span className="text-[10px] text-emerald-400 font-mono">Abaixo de 5%</span>

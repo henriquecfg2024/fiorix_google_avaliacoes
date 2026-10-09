@@ -534,11 +534,15 @@ export async function GET(request: Request) {
     const producaoTotal = colaboradoresFiltrados.reduce((acc, c) => acc + c.producao, 0);
     const colabsAcimaMetaCount = colaboradoresFiltrados.filter((c) => c.atingiuMeta).length;
     const colabsDentroLimiteCount = colaboradoresFiltrados.filter((c) => c.dentroLimite).length;
+    const totalFaltante = Math.max(0, totalPrenotacoes - producaoTotal);
+    const totalEmTramite = Math.max(0, totalFaltante - totalCanceladas);
 
     const kpisCalculados = {
       totalPrenotacoes,
       totalAtivas,
       totalCanceladas,
+      totalFaltante,
+      totalEmTramite,
       prenotacoesComErro: distinctErrosPrenotacoes,
       quantidadeErros: qtdErros,
       percentualErroGeral,
