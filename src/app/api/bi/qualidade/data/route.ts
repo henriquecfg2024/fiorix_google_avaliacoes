@@ -429,9 +429,17 @@ export async function GET(request: Request) {
             : ("auto" as const);
 
         const limiteKey = `${c.nome}__TODOS`;
-        const limiteManual = limitesMap.get(limiteKey);
+        const limiteDeptKey = `DEP:${departamento.trim().toUpperCase()}__TODOS`;
+        const limiteIndividual = limitesMap.get(limiteKey);
+        const limiteDept = limitesMap.get(limiteDeptKey);
+        const limiteManual = limiteIndividual ?? limiteDept;
         const limiteValor = limiteManual ?? 5.0;
-        const limiteTipo = limiteManual !== undefined ? ("manual" as const) : ("padrao" as const);
+        const limiteTipo =
+          limiteIndividual !== undefined
+            ? ("manual" as const)
+            : limiteDept !== undefined
+            ? ("departamento" as const)
+            : ("padrao" as const);
 
         const percentualErro = producao > 0 ? Number(((totalErros / producao) * 100).toFixed(1)) : 0;
         const atingiuMeta = producao >= metaValor;

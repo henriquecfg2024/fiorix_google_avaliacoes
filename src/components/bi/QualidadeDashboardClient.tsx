@@ -67,7 +67,7 @@ interface ColaboradorItem {
   };
   percentualErro: number;
   limite: number;
-  limiteTipo: "padrao" | "manual";
+  limiteTipo: "padrao" | "manual" | "departamento";
   statusLimite: string;
   dentroLimite: boolean;
   reincidente: boolean;
@@ -143,7 +143,9 @@ export function QualidadeDashboardClient() {
     competenciaInicio: "2026-09",
   });
   const [limiteForm, setLimiteForm] = useState({
+    tipoAlvo: "COLABORADOR" as "COLABORADOR" | "DEPARTAMENTO",
     colaboradorNome: "",
+    departamento: "Qualificação Registral",
     tipoRetorno: "TODOS",
     limitePercentual: 5.0,
     competenciaInicio: "2026-09",
@@ -233,6 +235,10 @@ export function QualidadeDashboardClient() {
     return colaboradores.filter((c) => c.departamento === metaForm.departamento);
   }, [colaboradores, metaForm.departamento]);
 
+  const colaboradoresDoDeptoLimite = useMemo(() => {
+    return colaboradores.filter((c) => c.departamento === limiteForm.departamento);
+  }, [colaboradores, limiteForm.departamento]);
+
   // Pontos calculados dinamicamente para o gráfico SVG de evolução da safra
   const pontosGrafico = useMemo(() => {
     if (!evolucaoMensal || evolucaoMensal.length === 0) return [];
@@ -308,20 +314,32 @@ export function QualidadeDashboardClient() {
     }
   };
 
-  // Salvar Limite via API
+  // Salvar Limite via API (Suporta Por Colaborador ou Por Departamento)
   const handleSalvarLimite = async () => {
     try {
+      const payload = {
+        ...limiteForm,
+        colaboradoresNomes:
+          limiteForm.tipoAlvo === "DEPARTAMENTO"
+            ? colaboradoresDoDeptoLimite.map((c) => c.nome)
+            : undefined,
+      };
       const res = await fetch("/api/bi/qualidade/limites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(limiteForm),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
-        alert(`Limite de ${limiteForm.limitePercentual}% salvo com sucesso para ${limiteForm.colaboradorNome}!`);
+        if (limiteForm.tipoAlvo === "DEPARTAMENTO") {
+          alert(`Limite de ${limiteForm.limitePercentual}% salvo com sucesso para os ${colaboradoresDoDeptoLimite.length} colaboradores do departamento ${limiteForm.departamento}!`);
+        } else {
+          alert(`Limite de ${limiteForm.limitePercentual}% salvo com sucesso para ${limiteForm.colaboradorNome}!`);
+        }
         setModalLimiteOpen(false);
         fetchData();
       } else {
-        alert("Erro ao gravar limite.");
+        const errData = await res.json().catch(() => null);
+        alert(errData?.error || "Erro ao gravar limite.");
       }
     } catch {
       alert("Falha de rede ao salvar limite.");
@@ -441,7 +459,10 @@ export function QualidadeDashboardClient() {
                 </button>
 
                 <button
-                  onClick={() => setModalLimiteOpen(true)}
+                  onClick={() => {
+                    setLimiteForm((prev) => ({ ...prev, competenciaInicio: competencia }));
+                    setModalLimiteOpen(true);
+                  }}
                   className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-xs font-semibold transition-all active:scale-95"
                 >
                   <Percent className="h-4 w-4" />
@@ -1075,10 +1096,21 @@ export function QualidadeDashboardClient() {
                     {c.limite}%{" "}
                     <span
                       className={`text-[9px] ${
-                        c.limiteTipo === "manual" ? "text-amber-400 font-semibold" : "text-slate-500"
+                        c.limiteTipo === "manual"
+                          ? "text-amber-400 font-semibold"
+                          : c.limiteTipo === "departamento"
+                          ? "text-cyan-400 font-semibold"
+                          : "text-slate-500"
                       }`}
+                      title={
+                        c.limiteTipo === "manual"
+                          ? "Limite individual estipulado"
+                          : c.limiteTipo === "departamento"
+                          ? `Limite estipulado para o departamento (${c.departamento})`
+                          : "Limite padrão do cartório (5.0%)"
+                      }
                     >
-                      ({c.limiteTipo})
+                      ({c.limiteTipo === "departamento" ? "depto" : c.limiteTipo})
                     </span>
                   </td>
                   <td className="py-3.5 px-3">
@@ -1456,7 +1488,11 @@ export function QualidadeDashboardClient() {
               <div className="flex items-start justify-between border-b border-slate-800 pb-4">
                 <div>
                   <h3 className="text-base font-bold tracking-tight">Alterar Limite de Erro</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Padrão do cartório = 5.0% por tipo de retorno</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {limiteForm.tipoAlvo === "DEPARTAMENTO"
+                      ? "Configuração coletiva de limite para todos os colaboradores do departamento"
+                      : "Padrão do cartório = 5.0% por tipo de retorno com vigência individual"}
+                  </p>
                 </div>
                 <button
                   onClick={() => setModalLimiteOpen(false)}
@@ -1466,21 +1502,107 @@ export function QualidadeDashboardClient() {
                 </button>
               </div>
 
-              <div className="space-y-3.5 text-xs">
+              <div className="space-y-4 text-xs">
+                {/* Seletor de Escopo: Por Colaborador vs Por Departamento */}
                 <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Colaborador</label>
-                  <select
-                    value={limiteForm.colaboradorNome}
-                    onChange={(e) => setLimiteForm({ ...limiteForm, colaboradorNome: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-[#151A2C] border border-slate-700 text-white"
-                  >
-                    {colaboradores.map((c) => (
-                      <option key={c.nome} value={c.nome.toUpperCase()}>
-                        {c.nome.toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="block text-slate-400 mb-1.5 font-semibold">Tipo de Aplicação do Limite</label>
+                  <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-[#0F1424] border border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setLimiteForm((prev) => ({ ...prev, tipoAlvo: "COLABORADOR" }))}
+                      className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                        limiteForm.tipoAlvo === "COLABORADOR"
+                          ? "bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/30"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      <User className="w-3.5 h-3.5" />
+                      <span>Por Colaborador</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const depto = limiteForm.departamento || "Qualificação Registral";
+                        setLimiteForm((prev) => ({
+                          ...prev,
+                          tipoAlvo: "DEPARTAMENTO",
+                          departamento: depto,
+                        }));
+                      }}
+                      className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                        limiteForm.tipoAlvo === "DEPARTAMENTO"
+                          ? "bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/30"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      <Building2 className="w-3.5 h-3.5" />
+                      <span>Por Departamento</span>
+                    </button>
+                  </div>
                 </div>
+
+                {limiteForm.tipoAlvo === "COLABORADOR" ? (
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Colaborador</label>
+                    <select
+                      value={limiteForm.colaboradorNome}
+                      onChange={(e) => {
+                        const colabSel = colaboradores.find((c) => c.nome === e.target.value);
+                        setLimiteForm((prev) => ({
+                          ...prev,
+                          colaboradorNome: e.target.value,
+                          departamento: colabSel?.departamento || prev.departamento,
+                        }));
+                      }}
+                      className="w-full px-3 py-2 rounded-xl bg-[#151A2C] border border-slate-700 text-white"
+                    >
+                      {colaboradores.map((c) => (
+                        <option key={c.nome} value={c.nome.toUpperCase()}>
+                          {c.nome.toUpperCase()} ({c.departamento})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Departamento / Setor</label>
+                    <select
+                      value={limiteForm.departamento}
+                      onChange={(e) => setLimiteForm((prev) => ({ ...prev, departamento: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl bg-[#151A2C] border border-slate-700 text-white"
+                    >
+                      {departamentosDisponiveis.map((d) => (
+                        <option key={d} value={d}>
+                          🏢 {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {limiteForm.tipoAlvo === "DEPARTAMENTO" && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-amber-300">
+                      <span>Equipe do Setor ({colaboradoresDoDeptoLimite.length} colaboradores)</span>
+                      <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-[10px] font-mono">
+                        {limiteForm.departamento}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      O limite de tolerância será aplicado coletivamente a todos os colaboradores deste departamento:
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pt-1 border-t border-amber-500/20">
+                      {colaboradoresDoDeptoLimite.map((c) => (
+                        <span
+                          key={c.nome}
+                          className="px-2 py-0.5 rounded bg-[#111729] text-[10px] font-mono text-amber-200 border border-amber-500/30"
+                        >
+                          {c.nome}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-slate-400 mb-1 font-semibold">Tipo de Retorno</label>
@@ -1497,7 +1619,11 @@ export function QualidadeDashboardClient() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Percentual Limite (%)</label>
+                  <label className="block text-slate-400 mb-1 font-semibold">
+                    {limiteForm.tipoAlvo === "DEPARTAMENTO"
+                      ? "Percentual Limite para o Setor (%)"
+                      : "Percentual Limite (%)"}
+                  </label>
                   <input
                     type="number"
                     step="0.1"
@@ -1506,7 +1632,9 @@ export function QualidadeDashboardClient() {
                     className="w-full px-3 py-2 rounded-xl bg-[#151A2C] border border-slate-700 text-white font-mono font-bold"
                   />
                   <span className="text-[10px] text-slate-500 mt-1 block">
-                    Percentual máximo tolerado antes de sinalizar alerta de qualidade
+                    {limiteForm.tipoAlvo === "DEPARTAMENTO"
+                      ? `Define o limite máximo de ${limiteForm.limitePercentual}% para os membros de ${limiteForm.departamento}`
+                      : "Percentual máximo tolerado antes de sinalizar alerta de qualidade"}
                   </span>
                 </div>
 
@@ -1533,7 +1661,9 @@ export function QualidadeDashboardClient() {
                 onClick={handleSalvarLimite}
                 className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/20"
               >
-                Salvar Limite
+                {limiteForm.tipoAlvo === "DEPARTAMENTO"
+                  ? `Salvar Limite para o Departamento (${colaboradoresDoDeptoLimite.length})`
+                  : "Salvar Limite"}
               </button>
             </div>
           </div>
