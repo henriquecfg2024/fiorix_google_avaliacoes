@@ -121,9 +121,6 @@ export function QualidadeDashboardClient() {
   const [evolucaoMensal, setEvolucaoMensal] = useState<EvolucaoItem[]>([]);
   const [userRole, setUserRole] = useState("SUBSTITUTO");
 
-  // Simulação de Perfil (Substituto vs Colaborador)
-  const [simulatedRole, setSimulatedRole] = useState<"SUBSTITUTO" | "USER" | "COLABORADOR">("SUBSTITUTO");
-
   // Modais / Gavetas Laterais
   const [modalMetaOpen, setModalMetaOpen] = useState(false);
   const [modalLimiteOpen, setModalLimiteOpen] = useState(false);
@@ -133,14 +130,14 @@ export function QualidadeDashboardClient() {
   // Estados dos Formulários dos Modais
   const [selectedColab, setSelectedColab] = useState<ColaboradorItem | null>(null);
   const [metaForm, setMetaForm] = useState({
-    colaboradorNome: "Carlos Silva",
+    colaboradorNome: "",
     atividade: "Contraditório (REAL / PESSOAL)",
     origem: "TODOS",
     metaValor: 140,
     competenciaInicio: "2026-09",
   });
   const [limiteForm, setLimiteForm] = useState({
-    colaboradorNome: "Carlos Silva",
+    colaboradorNome: "",
     tipoRetorno: "TODOS",
     limitePercentual: 5.0,
     competenciaInicio: "2026-09",
@@ -154,7 +151,8 @@ export function QualidadeDashboardClient() {
     justificativa: "",
   });
 
-  const isGestor = simulatedRole === "SUBSTITUTO" || (userRole === "MASTER" || userRole === "ADMIN" || userRole === "SUBSTITUTO");
+  const isGestor =
+    userRole === "MASTER" || userRole === "ADMIN" || userRole === "SUBSTITUTO" || userRole === "GESTOR";
 
   // Carregar Dados da API
   const fetchData = useCallback(async () => {
@@ -178,6 +176,13 @@ export function QualidadeDashboardClient() {
         setTopCausas(data.topCausas || []);
         setEvolucaoMensal(data.evolucaoMensal || []);
         if (data.userRole) setUserRole(data.userRole);
+
+        // Preenche o nome padrão nos formulários de meta e limite caso ainda vazio
+        if (data.colaboradores && data.colaboradores.length > 0) {
+          const primeiroColab = data.colaboradores[0].nome;
+          setMetaForm((prev) => (!prev.colaboradorNome ? { ...prev, colaboradorNome: primeiroColab } : prev));
+          setLimiteForm((prev) => (!prev.colaboradorNome ? { ...prev, colaboradorNome: primeiroColab } : prev));
+        }
       }
     } catch (err) {
       console.error("Falha ao buscar dados de qualidade:", err);
@@ -193,15 +198,12 @@ export function QualidadeDashboardClient() {
   // Filtragem de Colaboradores na Tabela
   const colaboradoresFiltrados = useMemo(() => {
     let list = colaboradores;
-    if (simulatedRole === "COLABORADOR") {
-      list = list.filter((c) => c.nome.toLowerCase().includes("carlos silva"));
-    }
     if (buscaColaborador.trim()) {
       const q = buscaColaborador.toLowerCase();
       list = list.filter((c) => c.nome.toLowerCase().includes(q) || c.departamento.toLowerCase().includes(q));
     }
     return list;
-  }, [colaboradores, simulatedRole, buscaColaborador]);
+  }, [colaboradores, buscaColaborador]);
 
   // Abertura da Ficha Individual
   const handleAbrirFicha = (colab: ColaboradorItem) => {
@@ -321,57 +323,7 @@ export function QualidadeDashboardClient() {
   return (
     <div className="space-y-6">
       {/* ══════════════════════════════════════════════════════════════════
-           1. SIMULADOR DE PERFIS & CONTROLE DE GESTÃO (TOPO)
-           ══════════════════════════════════════════════════════════════════ */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-[#090E1D] border border-[#1E293B] text-xs font-sans no-print shadow-md">
-        <div className="flex items-center gap-2">
-          <span className="inline-block w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
-          <span className="font-bold text-slate-200">Módulo de Qualidade</span>
-          <span className="text-slate-600">•</span>
-          <span className="text-slate-400">Safra: Data de Entrada</span>
-          <span className="text-slate-600">•</span>
-          <span className="text-emerald-400 font-medium">Tela Retornos Inalterada</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-slate-400 uppercase font-semibold tracking-wider mr-1 hidden sm:inline">
-            Simular Perfil:
-          </span>
-          <button
-            onClick={() => setSimulatedRole("SUBSTITUTO")}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              simulatedRole === "SUBSTITUTO"
-                ? "bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-lg shadow-purple-500/10"
-                : "bg-slate-800/40 text-slate-400 border-slate-700/60 hover:text-slate-200"
-            }`}
-          >
-            <span>👑 Substituto (Gestão)</span>
-          </button>
-          <button
-            onClick={() => setSimulatedRole("USER")}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              simulatedRole === "USER"
-                ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-lg shadow-cyan-500/10"
-                : "bg-slate-800/40 text-slate-400 border-slate-700/60 hover:text-slate-200"
-            }`}
-          >
-            <span>👤 User (Geral)</span>
-          </button>
-          <button
-            onClick={() => setSimulatedRole("COLABORADOR")}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              simulatedRole === "COLABORADOR"
-                ? "bg-blue-500/20 text-blue-300 border-blue-500/40 shadow-lg shadow-blue-500/10"
-                : "bg-slate-800/40 text-slate-400 border-slate-700/60 hover:text-slate-200"
-            }`}
-          >
-            <span>💼 Colaborador (Carlos)</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ══════════════════════════════════════════════════════════════════
-           2. HEADER PRINCIPAL DA TELA
+           HEADER PRINCIPAL DA TELA OFICIAL
            ══════════════════════════════════════════════════════════════════ */}
       <section className="rounded-2xl border border-slate-800 bg-[#111729] p-6 shadow-xl relative overflow-hidden">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -381,10 +333,6 @@ export function QualidadeDashboardClient() {
               <span>GESTÃO DE PRAZOS</span>
               <span className="text-slate-600">/</span>
               <span className="text-cyan-400 font-semibold">QUALIDADE</span>
-              <span className="text-slate-600">/</span>
-              <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                Oficial
-              </span>
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex flex-wrap items-center gap-3">
@@ -442,27 +390,6 @@ export function QualidadeDashboardClient() {
             )}
           </div>
         </div>
-
-        {/* Banner de Colaborador (quando visão restrita) */}
-        {simulatedRole === "COLABORADOR" && (
-          <div className="mt-4 p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/25 text-xs text-blue-300 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <CheckCircle2 className="h-4 w-4 text-blue-400 shrink-0" />
-              <span>
-                Visão Restrita: você está visualizando exclusivamente os <strong>seus indicadores e sua produção individual</strong> (Carlos Silva).
-              </span>
-            </div>
-            <button
-              onClick={() => {
-                const carlos = colaboradores.find((c) => c.nome.toLowerCase().includes("carlos"));
-                if (carlos) handleAbrirFicha(carlos);
-              }}
-              className="px-3 py-1 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 font-semibold font-mono text-[11px] underline transition-all"
-            >
-              Ver Minha Ficha Completa
-            </button>
-          </div>
-        )}
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════
@@ -509,7 +436,8 @@ export function QualidadeDashboardClient() {
               onChange={(e) => setCompetencia(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl bg-[#151A2C] border border-slate-700/80 text-xs text-slate-200 font-mono font-medium focus:outline-none focus:border-cyan-400 transition-colors shadow-sm"
             >
-              <option value="2026-09">Setembro / 2026 (Atual)</option>
+              <option value="2026-10">Outubro / 2026 (Mês Vigente)</option>
+              <option value="2026-09">Setembro / 2026 (Consolidado)</option>
               <option value="2026-08">Agosto / 2026</option>
               <option value="2026-07">Julho / 2026</option>
               <option value="2026-06">Junho / 2026</option>
