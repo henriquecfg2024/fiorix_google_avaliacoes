@@ -4,7 +4,6 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   ShieldCheck,
   Printer,
-  FileSpreadsheet,
   Search,
   X,
   FileText,
@@ -12,6 +11,7 @@ import {
   Sparkles,
   ArrowUpRight,
   ChevronRight,
+  ChevronDown,
   TrendingDown,
   TrendingUp,
   AlertTriangle,
@@ -122,6 +122,7 @@ export function QualidadeDashboardClient() {
   const [topCausas, setTopCausas] = useState<TopCausaItem[]>([]);
   const [evolucaoMensal, setEvolucaoMensal] = useState<EvolucaoItem[]>([]);
   const [userRole, setUserRole] = useState("SUBSTITUTO");
+  const [colaboradoresVisivel, setColaboradoresVisivel] = useState(false);
 
   // Modais / Gavetas Laterais
   const [modalLimiteOpen, setModalLimiteOpen] = useState(false);
@@ -323,26 +324,6 @@ export function QualidadeDashboardClient() {
     }
   };
 
-  // Exportar dados como CSV
-  const handleExportCSV = () => {
-    if (!eventos || eventos.length === 0) return;
-    const header = "Prenotacao,DataEntrada,DataRetorno,SLA_Dias,TipoRetorno,Sigla,Responsavel,Origem,Categoria,Observacao\n";
-    const rows = eventos
-      .map(
-        (e) =>
-          `"${e.numeroPrenotacao}","${e.dataEntrada}","${e.dataRetorno}","${e.slaDias}","${e.tipoRetorno}","${e.siglaRetorno}","${e.usuarioDestino}","${e.origem}","${e.categoria}","${e.observacao.replace(/"/g, '""')}"`
-      )
-      .join("\n");
-    const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `fiorix_qualidade_${competencia}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   // Resetar todos os filtros
   const handleResetFiltros = () => {
     setTipoRetorno("TODOS");
@@ -359,45 +340,21 @@ export function QualidadeDashboardClient() {
            HEADER PRINCIPAL DA TELA OFICIAL
            ══════════════════════════════════════════════════════════════════ */}
       <section className="rounded-2xl border border-slate-800 bg-[#111729] p-6 shadow-xl relative overflow-hidden">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div>
-            {/* Breadcrumb */}
-            <div className="flex items-center gap-2 text-xs font-mono text-slate-400 mb-2">
-              <span>GESTÃO DE PRAZOS</span>
-              <span className="text-slate-600">/</span>
-              <span className="text-cyan-400 font-semibold">QUALIDADE</span>
-            </div>
-
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-              Controle de Qualidade
-            </h1>
-
-            <p className="text-xs sm:text-sm text-slate-400 mt-1.5 max-w-3xl leading-relaxed">
-              Monitoramento contínuo de erros internos e limites de erro (5.0%). Safra calculada pela data de
-              entrada da prenotação (inclusive canceladas).
-            </p>
+        <div>
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 text-xs font-mono text-slate-400 mb-2">
+            <span>GESTÃO DE PRAZOS</span>
+            <span className="text-slate-600">/</span>
+            <span className="text-cyan-400 font-semibold">QUALIDADE</span>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0 no-print">
-            <button
-              onClick={() => window.print()}
-              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-medium transition-all active:scale-95 shadow-sm"
-              title="Imprimir painel completo"
-            >
-              <Printer className="h-4 w-4" />
-              <span>Imprimir Painel</span>
-            </button>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+            Controle de Qualidade
+          </h1>
 
-            <button
-              onClick={handleExportCSV}
-              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-medium transition-all active:scale-95 shadow-sm"
-              title="Exportar dados consolidados em planilha"
-            >
-              <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
-              <span>Exportar XLS</span>
-            </button>
-          </div>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1.5 max-w-3xl leading-relaxed">
+            Monitoramento contínuo de erros internos. Calculo realizado pela data de entrada da prenotação.
+          </p>
         </div>
       </section>
 
@@ -708,10 +665,10 @@ export function QualidadeDashboardClient() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-semibold text-white tracking-wide">
-                Qualidade Mês a Mês (Evolução da Safra)
+                Qualidade Mês a Mês (Evolução)
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Percentual de erro confrontado com o limite máximo de 5.0%
+                Percentual de erro
               </p>
             </div>
             <div className="flex items-center gap-3 text-[11px] font-mono text-slate-400">
@@ -863,177 +820,41 @@ export function QualidadeDashboardClient() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════
-           6. TABELA "INDICADORES POR COLABORADOR" (C/ FICHA PDF E ALERTA)
+           6. DETALHAMENTO DOS EVENTOS DE RETORNO (DESTAQUE PRINCIPAL)
            ══════════════════════════════════════════════════════════════════ */}
-      <section className="rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-white tracking-wide">Indicadores por Colaborador</h3>
-              <span className="px-2 py-0.5 rounded-md bg-[#151A2C] text-[11px] font-mono text-slate-400 border border-slate-800">
-                Responsável = Usuário Destino do Retorno
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Limite padrão = 5.0% por colaborador/departamento | Auditoria contínua de qualidade
-            </p>
-          </div>
+      <section className="rounded-2xl border-2 border-cyan-500/40 bg-[#111729] p-6 shadow-2xl shadow-cyan-500/10 ring-1 ring-cyan-500/20 space-y-4 relative overflow-hidden">
+        {/* Barra superior de destaque com gradiente */}
+        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500" />
 
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={buscaColaborador}
-                onChange={(e) => setBuscaColaborador(e.target.value)}
-                placeholder="Filtrar colaborador..."
-                className="pl-8 pr-3 py-1.5 rounded-xl bg-[#151A2C] border border-slate-700/80 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-400"
-              />
+            <div className="p-2.5 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 shadow-md">
+              <AlertTriangle className="h-5 w-5 text-cyan-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h3 className="text-base font-bold text-white tracking-wide">
+                  Detalhamento dos Eventos de Retorno (Erros Internos)
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-mono font-bold">
+                  {eventos.length} {eventos.length === 1 ? "evento" : "eventos"}
+                </span>
+                {filtroCausa && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-mono font-semibold flex items-center gap-1.5 shadow-sm">
+                    <span>Filtro Causa: {filtroCausa}</span>
+                    <button onClick={() => setFiltroCausa(null)} className="text-amber-300 hover:text-white" title="Limpar filtro">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                Cada linha representa um retorno interno apontado no protocolo (Responsável = destino do retorno)
+              </p>
             </div>
           </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs font-mono">
-            <thead>
-              <tr className="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-semibold font-sans">
-                <th className="pb-3 pr-4">Colaborador</th>
-                <th className="pb-3 px-3">Atividade</th>
-                <th className="pb-3 px-3">Origem</th>
-                <th className="pb-3 px-3">Produção</th>
-                <th className="pb-3 px-3">Erros</th>
-                <th className="pb-3 px-3">% Erro</th>
-                <th className="pb-3 px-3">Limite Permitido</th>
-                <th className="pb-3 px-3">Status Limite</th>
-                <th className="pb-3 pl-3 text-right">Ações & Ficha</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 text-slate-300">
-              {colaboradoresFiltrados.map((c) => (
-                <tr key={c.nome} className="hover:bg-[#151A2C] transition-colors">
-                  <td className="py-3.5 pr-4 font-sans font-semibold text-white flex items-center gap-2">
-                    <span className="w-7 h-7 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-[10px] font-bold">
-                      {c.iniciais}
-                    </span>
-                    <div>
-                      <div className="text-white font-bold flex items-center gap-1.5 uppercase">
-                        <span>{c.nome.toUpperCase()}</span>
-                        {c.reincidente && (
-                          <span
-                            className="px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30 text-[9px] font-mono font-bold"
-                            title={c.reincidenciaMotivo}
-                          >
-                            ⚠️ Reincidente
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-mono font-normal">{c.departamento}</div>
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-3 font-sans text-slate-400">{c.atividade}</td>
-                  <td className="py-3.5 px-3">
-                    <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] font-sans text-slate-300">
-                      {c.origem}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-3 font-bold text-white">{c.producao}</td>
-                  <td className="py-3.5 px-3 text-white font-bold">{c.erros}</td>
-                  <td className={`py-3.5 px-3 font-bold ${c.dentroLimite ? "text-emerald-400" : "text-rose-400"}`}>
-                    {c.percentualErro}%
-                  </td>
-                  <td className="py-3.5 px-3 text-slate-300">
-                    {c.limite}%{" "}
-                    <span
-                      className={`text-[9px] ${
-                        c.limiteTipo === "manual"
-                          ? "text-amber-400 font-semibold"
-                          : c.limiteTipo === "departamento"
-                          ? "text-cyan-400 font-semibold"
-                          : "text-slate-500"
-                      }`}
-                      title={
-                        c.limiteTipo === "manual"
-                          ? "Limite individual estipulado"
-                          : c.limiteTipo === "departamento"
-                          ? `Limite estipulado para o departamento (${c.departamento})`
-                          : "Limite padrão do cartório (5.0%)"
-                      }
-                    >
-                      ({c.limiteTipo === "departamento" ? "depto" : c.limiteTipo})
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-3">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border font-sans ${
-                        c.dentroLimite
-                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                          : "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                      }`}
-                    >
-                      {c.statusLimite}
-                    </span>
-                  </td>
-                  <td className="py-3.5 pl-3 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        onClick={() => handleAbrirFicha(c)}
-                        className="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 font-semibold text-xs flex items-center gap-1 border border-cyan-500/30 transition-all active:scale-95"
-                        title="Abrir Ficha de Feedback Individual"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        <span>Ficha PDF</span>
-                      </button>
-                      {isGestor && (
-                        <button
-                          onClick={() => {
-                            setLimiteForm((prev) => ({
-                              ...prev,
-                              tipoAlvo: "COLABORADOR",
-                              colaboradorNome: c.nome.toUpperCase(),
-                              departamento: c.departamento,
-                              limitePercentual: c.limite,
-                              competenciaInicio: competencia,
-                            }));
-                            setModalLimiteOpen(true);
-                          }}
-                          className="px-2.5 py-1 rounded-lg bg-[#151A2C] hover:bg-slate-700 text-xs text-slate-200 transition-all"
-                          title="Alterar Limite de Erro"
-                        >
-                          Alterar Limite
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════════════════════
-           7. TABELA DETALHADA "EVENTOS DE ERRO" COM FILTRO ATIVO DE CAUSA
-           ══════════════════════════════════════════════════════════════════ */}
-      <section className="rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h3 className="text-sm font-semibold text-white tracking-wide flex items-center gap-2">
-              <span>Detalhamento dos Eventos de Retorno (Erros Internos)</span>
-              {filtroCausa && (
-                <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-mono font-semibold flex items-center gap-1">
-                  <span>Causa: {filtroCausa}</span>
-                  <button onClick={() => setFiltroCausa(null)} className="ml-1 text-cyan-400 hover:text-white">
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-            </h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Cada linha representa um retorno interno apontado no protocolo (Responsável = destino do retorno)
-            </p>
-          </div>
-          <span className="text-xs font-mono text-slate-400">
-            Mostrando {eventos.length} eventos no período
+          <span className="text-xs font-mono font-bold text-cyan-400 bg-cyan-500/10 px-3 py-1.5 rounded-xl border border-cyan-500/20 shrink-0 shadow-sm">
+            {eventos.length} eventos no período
           </span>
         </div>
 
@@ -1044,7 +865,6 @@ export function QualidadeDashboardClient() {
                 <th className="pb-3 pr-4">Prenotação</th>
                 <th className="pb-3 px-3">Data Entrada</th>
                 <th className="pb-3 px-3">Data Retorno</th>
-                <th className="pb-3 px-3">SLA Resolução</th>
                 <th className="pb-3 px-3">Tipo</th>
                 <th className="pb-3 px-3">Responsável Erro</th>
                 <th className="pb-3 px-3">Origem</th>
@@ -1059,7 +879,6 @@ export function QualidadeDashboardClient() {
                   <td className="py-3 pr-4 font-bold text-white">{ev.numeroPrenotacao}</td>
                   <td className="py-3 px-3">{ev.dataEntrada}</td>
                   <td className="py-3 px-3 text-slate-200">{ev.dataRetorno}</td>
-                  <td className="py-3 px-3 text-emerald-400 font-semibold">{ev.slaDias} dias</td>
                   <td className="py-3 px-3">
                     <span
                       className={`px-2 py-0.5 rounded font-bold text-[10px] ${
@@ -1098,6 +917,169 @@ export function QualidadeDashboardClient() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+           7. TABELA "INDICADORES POR COLABORADOR" (OCULTO POR PADRÃO)
+           ══════════════════════════════════════════════════════════════════ */}
+      <section className="rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-slate-800 text-slate-400">
+              <Users className="w-5 h-5 text-slate-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-semibold text-white tracking-wide">Indicadores por Colaborador</h3>
+                <span className="px-2 py-0.5 rounded-md bg-[#151A2C] text-[11px] font-mono text-slate-400 border border-slate-800">
+                  Responsável = Usuário Destino do Retorno
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-800/80 text-[11px] font-mono text-slate-400">
+                  {colaboradores.length} colaboradores
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                Auditoria contínua de qualidade
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {colaboradoresVisivel && (
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={buscaColaborador}
+                  onChange={(e) => setBuscaColaborador(e.target.value)}
+                  placeholder="Filtrar colaborador..."
+                  className="pl-8 pr-3 py-1.5 rounded-xl bg-[#151A2C] border border-slate-700/80 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setColaboradoresVisivel((prev) => !prev)}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#151A2C] hover:bg-[#1E263F] border border-slate-700/80 text-xs text-slate-300 hover:text-white font-medium transition-all active:scale-95 shadow-sm"
+            >
+              <span>{colaboradoresVisivel ? "Ocultar Colaboradores" : "Exibir Colaboradores"}</span>
+              <ChevronDown
+                className={`w-4 h-4 text-cyan-400 transition-transform duration-200 ${
+                  colaboradoresVisivel ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Tabela visível somente quando expandida */}
+        {colaboradoresVisivel && (
+          <div className="overflow-x-auto pt-2 border-t border-slate-800/80">
+            <table className="w-full text-left text-xs font-mono">
+              <thead>
+                <tr className="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-semibold font-sans">
+                  <th className="pb-3 pr-4">Colaborador</th>
+                  <th className="pb-3 px-3">Atividade</th>
+                  <th className="pb-3 px-3">Origem</th>
+                  <th className="pb-3 px-3">Produção</th>
+                  <th className="pb-3 px-3">Erros</th>
+                  <th className="pb-3 px-3">% Erro</th>
+                  <th className="pb-3 px-3">Limite Permitido</th>
+                  <th className="pb-3 pl-3 text-right">Ações & Ficha</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                {colaboradoresFiltrados.map((c) => (
+                  <tr key={c.nome} className="hover:bg-[#151A2C] transition-colors">
+                    <td className="py-3.5 pr-4 font-sans font-semibold text-white flex items-center gap-2">
+                      <span className="w-7 h-7 rounded-full bg-cyan-500/20 text-cyan-300 flex items-center justify-center text-[10px] font-bold">
+                        {c.iniciais}
+                      </span>
+                      <div>
+                        <div className="text-white font-bold flex items-center gap-1.5 uppercase">
+                          <span>{c.nome.toUpperCase()}</span>
+                          {c.reincidente && (
+                            <span
+                              className="px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30 text-[9px] font-mono font-bold"
+                              title={c.reincidenciaMotivo}
+                            >
+                              ⚠️ Reincidente
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono font-normal">{c.departamento}</div>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-3 font-sans text-slate-400">{c.atividade}</td>
+                    <td className="py-3.5 px-3">
+                      <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] font-sans text-slate-300">
+                        {c.origem}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-3 font-bold text-white">{c.producao}</td>
+                    <td className="py-3.5 px-3 text-white font-bold">{c.erros}</td>
+                    <td className={`py-3.5 px-3 font-bold ${c.dentroLimite ? "text-emerald-400" : "text-rose-400"}`}>
+                      {c.percentualErro}%
+                    </td>
+                    <td className="py-3.5 px-3 text-slate-300">
+                      {c.limite}%{" "}
+                      <span
+                        className={`text-[9px] ${
+                          c.limiteTipo === "manual"
+                            ? "text-amber-400 font-semibold"
+                            : c.limiteTipo === "departamento"
+                            ? "text-cyan-400 font-semibold"
+                            : "text-slate-500"
+                        }`}
+                        title={
+                          c.limiteTipo === "manual"
+                            ? "Limite individual estipulado"
+                            : c.limiteTipo === "departamento"
+                            ? `Limite estipulado para o departamento (${c.departamento})`
+                            : "Limite padrão do cartório (5.0%)"
+                        }
+                      >
+                        ({c.limiteTipo === "departamento" ? "depto" : c.limiteTipo})
+                      </span>
+                    </td>
+                    <td className="py-3.5 pl-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => handleAbrirFicha(c)}
+                          className="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 font-semibold text-xs flex items-center gap-1 border border-cyan-500/30 transition-all active:scale-95"
+                          title="Abrir Ficha de Feedback Individual"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>Ficha PDF</span>
+                        </button>
+                        {isGestor && (
+                          <button
+                            onClick={() => {
+                              setLimiteForm((prev) => ({
+                                ...prev,
+                                tipoAlvo: "COLABORADOR",
+                                colaboradorNome: c.nome.toUpperCase(),
+                                departamento: c.departamento,
+                                limitePercentual: c.limite,
+                                competenciaInicio: competencia,
+                              }));
+                              setModalLimiteOpen(true);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-[#151A2C] hover:bg-slate-700 text-xs text-slate-200 transition-all"
+                            title="Alterar Limite de Erro"
+                          >
+                            Alterar Limite
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════
