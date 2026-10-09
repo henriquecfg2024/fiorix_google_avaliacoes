@@ -335,11 +335,8 @@ export function QualidadeDashboardClient() {
               <span className="text-cyan-400 font-semibold">QUALIDADE</span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex flex-wrap items-center gap-3">
-              <span>Controle de Qualidade</span>
-              <span className="text-xs font-mono px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/25 font-bold tracking-wide">
-                1º TELA RECEPÇÃO • 2º PESSOAL • 3º REAL
-              </span>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+              Controle de Qualidade
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-400 mt-1.5 max-w-3xl leading-relaxed">
