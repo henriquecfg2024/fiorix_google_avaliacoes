@@ -88,6 +88,14 @@ export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
         description: 'Títulos em retorno, responsáveis e observações',
       },
       {
+        id: 'qualidade',
+        label: 'Qualidade',
+        href: '/bi/qualidade',
+        groupId: 'operacional',
+        groupLabel: 'GESTÃO DE PRAZOS',
+        description: 'Controle de qualidade, retornos internos, metas e limites de erro',
+      },
+      {
         id: 'impressoes',
         label: 'Impressões',
         href: '/controle-impressoes',

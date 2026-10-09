@@ -78,6 +78,9 @@ model Tenant {
   impressoesDados   FiorixImpressoesDados[]
   intervencoes      FiorixIntervencao[]
   relatorios        FiorixRelatorio[]
+  qualidadeMetas         FiorixQualidadeMeta[]
+  qualidadeLimites       FiorixQualidadeLimite[]
+  qualidadeRevisoesCausa FiorixQualidadeRevisaoCausa[]
 
   // Sincronização Automática - SaaS
   autoSyncEnabled Boolean                 @default(false)
@@ -430,6 +433,7 @@ model FiorixRetornosDados {
   usuarioDestinoRetorno  String?   @map("usuario_destino_retorno") @db.VarChar(255)
   observacao             String?   @map("observacao") @db.Text
   seqTitulo              Int?      @map("seq_titulo")
+  protocoloEntidade      String?   @map("protocolo_entidade") @db.VarChar(100)
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
 
@@ -439,6 +443,60 @@ model FiorixRetornosDados {
   @@index([tenantId, idTipoRetorno], name: "idx_fiorix_retornos_tenant_tipo")
   @@index([tenantId, numeroPrenotacao], name: "idx_fiorix_retornos_tenant_prenotacao")
   @@map("fiorix_retornos_dados")
+}
+
+model FiorixQualidadeMeta {
+  id                String   @id @default(cuid())
+  tenantId          String   @map("tenant_id")
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  colaboradorNome   String   @map("colaborador_nome") @db.VarChar(255)
+  atividade         String   @map("atividade") @db.VarChar(100)
+  origem            String?  @map("origem") @db.VarChar(50)
+  metaValor         Int      @map("meta_valor")
+  competenciaInicio String   @map("competencia_inicio") @db.VarChar(7)
+  criadoPor         String?  @map("criado_por") @db.VarChar(255)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, colaboradorNome, atividade, competenciaInicio])
+  @@index([tenantId, colaboradorNome])
+  @@map("fiorix_qualidade_metas")
+}
+
+model FiorixQualidadeLimite {
+  id                String   @id @default(cuid())
+  tenantId          String   @map("tenant_id")
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  colaboradorNome   String   @map("colaborador_nome") @db.VarChar(255)
+  tipoRetorno       String   @map("tipo_retorno") @db.VarChar(100)
+  limitePercentual  Decimal  @map("limite_percentual") @db.Decimal(5, 2)
+  competenciaInicio String   @map("competencia_inicio") @db.VarChar(7)
+  criadoPor         String?  @map("criado_por") @db.VarChar(255)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, colaboradorNome, tipoRetorno, competenciaInicio])
+  @@index([tenantId, colaboradorNome])
+  @@map("fiorix_qualidade_limites")
+}
+
+model FiorixQualidadeRevisaoCausa {
+  id                 String   @id @default(cuid())
+  tenantId           String   @map("tenant_id")
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  idAndamento        BigInt   @map("id_andamento")
+  numeroPrenotacao   Int      @map("numero_prenotacao")
+  categoriaSugerida  String?  @map("categoria_sugerida") @db.VarChar(100)
+  categoriaRevisada  String   @map("categoria_revisada") @db.VarChar(100)
+  justificativa      String?  @map("justificativa") @db.Text
+  revisadoPor        String?  @map("revisado_por") @db.VarChar(255)
+  revisadoEm         DateTime @default(now()) @map("revisado_em")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, idAndamento])
+  @@index([tenantId, numeroPrenotacao])
+  @@map("fiorix_qualidade_revisoes_causa")
 }
 
 model FiorixImpressoesDados {

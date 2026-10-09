@@ -265,7 +265,8 @@ export async function unpackLiveRecords({
             COALESCE(item->>'IdUsuarioDestino', item->>'id_usuario_destino', NULL) AS id_usuario_destino,
             COALESCE(item->>'UsuarioDestinoRetorno', item->>'usuario_destino_retorno', 'Não informado') AS usuario_destino_retorno,
             COALESCE(item->>'Observacao', item->>'observacao', '') AS observacao,
-            COALESCE((item->>'SeqTitulo')::int, (item->>'seq_titulo')::int, 1) AS seq_titulo
+            COALESCE((item->>'SeqTitulo')::int, (item->>'seq_titulo')::int, 1) AS seq_titulo,
+            COALESCE(item->>'ProtocoloEntidade', item->>'protocolo_entidade', NULL) AS protocolo_entidade
           FROM jsonb_array_elements($2::jsonb) AS item
           WHERE item->>'IdAndamento' IS NOT NULL
         )
@@ -273,14 +274,14 @@ export async function unpackLiveRecords({
           tenant_id, id_andamento, id_recepcao, numero_prenotacao, data_recepcao,
           tipo_recepcao, forma_titulo, id_tipo_retorno, sigla_retorno, tipo_retorno,
           familia_retorno, classificacao, data_retorno, id_usuario_origem, usuario_origem,
-          id_usuario_destino, usuario_destino_retorno, observacao, seq_titulo,
+          id_usuario_destino, usuario_destino_retorno, observacao, seq_titulo, protocolo_entidade,
           created_at, updated_at
         )
         SELECT 
           tenant_id, id_andamento, id_recepcao, numero_prenotacao, data_recepcao,
           tipo_recepcao, forma_titulo, id_tipo_retorno, sigla_retorno, tipo_retorno,
           familia_retorno, classificacao, data_retorno, id_usuario_origem, usuario_origem,
-          id_usuario_destino, usuario_destino_retorno, observacao, seq_titulo,
+          id_usuario_destino, usuario_destino_retorno, observacao, seq_titulo, protocolo_entidade,
           NOW(), NOW()
         FROM batch_records
         ON CONFLICT (tenant_id, id_andamento) DO UPDATE SET
@@ -301,6 +302,7 @@ export async function unpackLiveRecords({
           usuario_destino_retorno = EXCLUDED.usuario_destino_retorno,
           observacao = EXCLUDED.observacao,
           seq_titulo = EXCLUDED.seq_titulo,
+          protocolo_entidade = EXCLUDED.protocolo_entidade,
           updated_at = NOW();
       `,
         tenantId,

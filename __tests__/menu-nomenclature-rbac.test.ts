@@ -52,6 +52,7 @@ describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
       '/bi/tarefas',
       '/bi/metas',
       '/bi/retornos',
+      '/bi/qualidade',
       '/controle-impressoes',
       '/trajetoria-titulo',
     ]);

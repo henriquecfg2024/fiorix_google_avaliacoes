@@ -22,6 +22,7 @@ import {
   FileCheck2,
   RotateCcw,
   Clock3,
+  ShieldCheck,
 } from "lucide-react";
 
 export const navigationGroups = {
@@ -79,6 +80,13 @@ export const navigationGroups = {
         href: "/bi/retornos",
         icon: RotateCcw,
         description: "Consulte os retornos, responsáveis e observações de cada título.",
+      },
+      {
+        id: "qualidade",
+        label: "Qualidade",
+        href: "/bi/qualidade",
+        icon: ShieldCheck,
+        description: "Controle de qualidade, retornos internos, metas e limites de erro.",
       },
       {
         id: "impressoes",
