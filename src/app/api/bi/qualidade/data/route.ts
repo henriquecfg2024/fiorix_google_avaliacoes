@@ -406,7 +406,7 @@ export async function GET(request: Request) {
     const SAFRAS_OFICIAIS_CARTORIO: Record<string, number> = {
       "2026-10": 823,   // Outubro/2026 (mês corrente em andamento - oficial WEERI)
       "2026-09": 2473,  // Setembro/2026 (consolidado oficial WEERI: 2.473 prenotações)
-      "2026-08": 1686,  // Agosto/2026 (consolidado oficial: 1.686 prenotações)
+      "2026-08": 2741,  // Agosto/2026 (consolidado oficial WEERI: 2.741 prenotações)
       "2026-07": 2381,  // Julho/2026 (consolidado oficial: 2.381 prenotações)
       "2026-06": 2151,  // Junho/2026 (faixa oficial: 2.151 prenotações)
     };
@@ -575,7 +575,7 @@ export async function GET(request: Request) {
           } else if (m.mes === "2026-09") {
             taxa = 1.4;
           } else if (m.mes === "2026-08") {
-            taxa = 2.5;
+            taxa = 1.6;
           } else if (m.mes === "2026-07") {
             taxa = 2.3;
           } else if (m.mes === "2026-06") {
@@ -601,7 +601,7 @@ export async function GET(request: Request) {
       evolucaoMensal = [
         { mes: "2026-06", label: "Jun/26", percentualErro: 1.1, totalErros: 24, limite: 5.0 },
         { mes: "2026-07", label: "Jul/26", percentualErro: 2.3, totalErros: 55, limite: 5.0 },
-        { mes: "2026-08", label: "Ago/26", percentualErro: 2.5, totalErros: 43, limite: 5.0 },
+        { mes: "2026-08", label: "Ago/26", percentualErro: 1.6, totalErros: 43, limite: 5.0 },
         { mes: "2026-09", label: "Set/26", percentualErro: 1.4, totalErros: 34, limite: 5.0 },
         { mes: "2026-10", label: "Out/26", percentualErro: 0.4, totalErros: 3, limite: 5.0 },
       ];
