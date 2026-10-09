@@ -415,10 +415,18 @@ export async function GET(request: Request) {
         const producao = Math.max(10, Math.round((baseProducao + (hash % 20)) * fatorSafra));
 
         const metaKey = `${c.nome}__${atividade}`;
-        const metaManual = metasMap.get(metaKey);
+        const metaDeptKey = `DEP:${departamento.trim().toUpperCase()}__${atividade}`;
+        const metaIndividual = metasMap.get(metaKey);
+        const metaDept = metasMap.get(metaDeptKey);
+        const metaManual = metaIndividual ?? metaDept;
         const metaPadrao = c.isRecepcao ? 200 : 110;
         const metaValor = metaManual ?? Math.max(10, Math.round(metaPadrao * fatorSafra));
-        const metaTipo = metaManual !== undefined ? ("manual" as const) : ("auto" as const);
+        const metaTipo =
+          metaIndividual !== undefined
+            ? ("manual" as const)
+            : metaDept !== undefined
+            ? ("departamento" as const)
+            : ("auto" as const);
 
         const limiteKey = `${c.nome}__TODOS`;
         const limiteManual = limitesMap.get(limiteKey);

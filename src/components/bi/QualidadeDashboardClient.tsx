@@ -27,6 +27,8 @@ import {
   Calendar,
   Layers,
   Award,
+  Building2,
+  User,
 } from "lucide-react";
 
 interface KpiData {
@@ -54,7 +56,7 @@ interface ColaboradorItem {
   origem: string;
   producao: number;
   meta: number;
-  metaTipo: "auto" | "manual";
+  metaTipo: "auto" | "manual" | "departamento";
   statusMeta: string;
   atingiuMeta: boolean;
   erros: number;
@@ -132,7 +134,9 @@ export function QualidadeDashboardClient() {
   // Estados dos Formulários dos Modais
   const [selectedColab, setSelectedColab] = useState<ColaboradorItem | null>(null);
   const [metaForm, setMetaForm] = useState({
+    tipoAlvo: "COLABORADOR" as "COLABORADOR" | "DEPARTAMENTO",
     colaboradorNome: "",
+    departamento: "Qualificação Registral",
     atividade: "Contraditório (REAL / PESSOAL)",
     origem: "TODOS",
     metaValor: 140,
@@ -217,6 +221,18 @@ export function QualidadeDashboardClient() {
     return list;
   }, [colaboradores, buscaColaborador]);
 
+  // Departamentos disponíveis e colaboradores vinculados ao setor selecionado no formulário
+  const departamentosDisponiveis = useMemo(() => {
+    const list = Array.from(new Set(colaboradores.map((c) => c.departamento).filter(Boolean)));
+    if (!list.includes("Qualificação Registral")) list.push("Qualificação Registral");
+    if (!list.includes("Balcão & Recepção")) list.push("Balcão & Recepção");
+    return list;
+  }, [colaboradores]);
+
+  const colaboradoresDoDepto = useMemo(() => {
+    return colaboradores.filter((c) => c.departamento === metaForm.departamento);
+  }, [colaboradores, metaForm.departamento]);
+
   // Pontos calculados dinamicamente para o gráfico SVG de evolução da safra
   const pontosGrafico = useMemo(() => {
     if (!evolucaoMensal || evolucaoMensal.length === 0) return [];
@@ -260,20 +276,32 @@ export function QualidadeDashboardClient() {
     setModalRevisaoOpen(true);
   };
 
-  // Salvar Meta via API
+  // Salvar Meta via API (Suporta Por Colaborador ou Por Departamento)
   const handleSalvarMeta = async () => {
     try {
+      const payload = {
+        ...metaForm,
+        colaboradoresNomes:
+          metaForm.tipoAlvo === "DEPARTAMENTO"
+            ? colaboradoresDoDepto.map((c) => c.nome)
+            : undefined,
+      };
       const res = await fetch("/api/bi/qualidade/metas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(metaForm),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
-        alert(`Meta de ${metaForm.metaValor} salva com sucesso para ${metaForm.colaboradorNome}!`);
+        if (metaForm.tipoAlvo === "DEPARTAMENTO") {
+          alert(`Meta de ${metaForm.metaValor} prenotações estipulada com sucesso para os ${colaboradoresDoDepto.length} colaboradores do departamento ${metaForm.departamento}!`);
+        } else {
+          alert(`Meta de ${metaForm.metaValor} salva com sucesso para ${metaForm.colaboradorNome}!`);
+        }
         setModalMetaOpen(false);
         fetchData();
       } else {
-        alert("Erro ao gravar meta.");
+        const errData = await res.json().catch(() => null);
+        alert(errData?.error || "Erro ao gravar meta.");
       }
     } catch {
       alert("Falha de rede ao salvar meta.");
@@ -1011,10 +1039,21 @@ export function QualidadeDashboardClient() {
                     {c.meta}{" "}
                     <span
                       className={`text-[9px] ${
-                        c.metaTipo === "manual" ? "text-purple-400 font-semibold" : "text-slate-500"
+                        c.metaTipo === "manual"
+                          ? "text-purple-400 font-semibold"
+                          : c.metaTipo === "departamento"
+                          ? "text-cyan-400 font-semibold"
+                          : "text-slate-500"
                       }`}
+                      title={
+                        c.metaTipo === "manual"
+                          ? "Meta individual estipulada"
+                          : c.metaTipo === "departamento"
+                          ? `Meta estipulada para o departamento (${c.departamento})`
+                          : "Meta automática (safra anterior + 10)"
+                      }
                     >
-                      ({c.metaTipo})
+                      ({c.metaTipo === "departamento" ? "depto" : c.metaTipo})
                     </span>
                   </td>
                   <td className="py-3.5 px-3">
@@ -1066,12 +1105,15 @@ export function QualidadeDashboardClient() {
                       {isGestor && (
                         <button
                           onClick={() => {
-                            setMetaForm((prev) => ({
-                              ...prev,
+                            setMetaForm({
+                              tipoAlvo: "COLABORADOR",
                               colaboradorNome: c.nome.toUpperCase(),
+                              departamento: c.departamento,
                               atividade: c.atividade,
                               metaValor: c.meta,
-                            }));
+                              origem: c.origem || "TODOS",
+                              competenciaInicio: competencia,
+                            });
                             setLimiteForm((prev) => ({
                               ...prev,
                               colaboradorNome: c.nome.toUpperCase(),
@@ -1192,7 +1234,11 @@ export function QualidadeDashboardClient() {
               <div className="flex items-start justify-between border-b border-slate-800 pb-4">
                 <div>
                   <h3 className="text-base font-bold tracking-tight">Estipular Meta de Produção</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Configuração com vigência contínua por colaborador</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {metaForm.tipoAlvo === "DEPARTAMENTO"
+                      ? "Configuração coletiva para todos os colaboradores do departamento"
+                      : "Configuração individual com vigência contínua por colaborador"}
+                  </p>
                 </div>
                 <button
                   onClick={() => setModalMetaOpen(false)}
@@ -1202,21 +1248,124 @@ export function QualidadeDashboardClient() {
                 </button>
               </div>
 
-              <div className="space-y-3.5 text-xs">
+              <div className="space-y-4 text-xs">
+                {/* Seletor de Escopo: Por Colaborador vs Por Departamento */}
                 <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Colaborador</label>
-                  <select
-                    value={metaForm.colaboradorNome}
-                    onChange={(e) => setMetaForm({ ...metaForm, colaboradorNome: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-[#151A2C] border border-slate-700 text-white"
-                  >
-                    {colaboradores.map((c) => (
-                      <option key={c.nome} value={c.nome.toUpperCase()}>
-                        {c.nome.toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="block text-slate-400 mb-1.5 font-semibold">Tipo de Aplicação da Meta</label>
+                  <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-[#0F1424] border border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setMetaForm((prev) => ({ ...prev, tipoAlvo: "COLABORADOR" }))}
+                      className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                        metaForm.tipoAlvo === "COLABORADOR"
+                          ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      <User className="w-3.5 h-3.5" />
+                      <span>Por Colaborador</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const depto = metaForm.departamento || "Qualificação Registral";
+                        const atividadeDepto =
+                          depto === "Balcão & Recepção"
+                            ? "Autenticação Caixa (TELA RECEPÇÃO)"
+                            : "Contraditório (REAL / PESSOAL)";
+                        setMetaForm((prev) => ({
+                          ...prev,
+                          tipoAlvo: "DEPARTAMENTO",
+                          departamento: depto,
+                          atividade: atividadeDepto,
+                        }));
+                      }}
+                      className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                        metaForm.tipoAlvo === "DEPARTAMENTO"
+                          ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+                          : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      <Building2 className="w-3.5 h-3.5" />
+                      <span>Por Departamento</span>
+                    </button>
+                  </div>
                 </div>
+
+                {metaForm.tipoAlvo === "COLABORADOR" ? (
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Colaborador</label>
+                    <select
+                      value={metaForm.colaboradorNome}
+                      onChange={(e) => {
+                        const colabSel = colaboradores.find((c) => c.nome === e.target.value);
+                        setMetaForm((prev) => ({
+                          ...prev,
+                          colaboradorNome: e.target.value,
+                          departamento: colabSel?.departamento || prev.departamento,
+                          atividade: colabSel?.atividade || prev.atividade,
+                        }));
+                      }}
+                      className="w-full px-3 py-2 rounded-xl bg-[#151A2C] border border-slate-700 text-white"
+                    >
+                      {colaboradores.map((c) => (
+                        <option key={c.nome} value={c.nome.toUpperCase()}>
+                          {c.nome.toUpperCase()} ({c.departamento})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Departamento / Setor</label>
+                    <select
+                      value={metaForm.departamento}
+                      onChange={(e) => {
+                        const depto = e.target.value;
+                        const atividadeDepto =
+                          depto === "Balcão & Recepção"
+                            ? "Autenticação Caixa (TELA RECEPÇÃO)"
+                            : "Contraditório (REAL / PESSOAL)";
+                        setMetaForm((prev) => ({
+                          ...prev,
+                          departamento: depto,
+                          atividade: atividadeDepto,
+                        }));
+                      }}
+                      className="w-full px-3 py-2 rounded-xl bg-[#151A2C] border border-slate-700 text-white"
+                    >
+                      {departamentosDisponiveis.map((d) => (
+                        <option key={d} value={d}>
+                          🏢 {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {metaForm.tipoAlvo === "DEPARTAMENTO" && (
+                  <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/25 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-purple-300">
+                      <span>Equipe do Setor ({colaboradoresDoDepto.length} colaboradores)</span>
+                      <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-[10px] font-mono">
+                        {metaForm.departamento}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      A meta será aplicada a todos os colaboradores que pertencem a este setor e realizam as respectivas atividades:
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pt-1 border-t border-purple-500/20">
+                      {colaboradoresDoDepto.map((c) => (
+                        <span
+                          key={c.nome}
+                          className="px-2 py-0.5 rounded bg-[#111729] text-[10px] font-mono text-purple-200 border border-purple-500/30"
+                        >
+                          {c.nome}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-slate-400 mb-1 font-semibold">Atividade</label>
@@ -1244,7 +1393,11 @@ export function QualidadeDashboardClient() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1 font-semibold">Meta Mensal (Prenotações)</label>
+                  <label className="block text-slate-400 mb-1 font-semibold">
+                    {metaForm.tipoAlvo === "DEPARTAMENTO"
+                      ? "Meta Mensal por Colaborador do Setor (Prenotações)"
+                      : "Meta Mensal (Prenotações)"}
+                  </label>
                   <input
                     type="number"
                     value={metaForm.metaValor}
@@ -1252,7 +1405,9 @@ export function QualidadeDashboardClient() {
                     className="w-full px-3 py-2 rounded-xl bg-[#151A2C] border border-slate-700 text-white font-mono font-bold"
                   />
                   <span className="text-[10px] text-slate-500 mt-1 block">
-                    Substitui a meta automática de média anterior + 10
+                    {metaForm.tipoAlvo === "DEPARTAMENTO"
+                      ? `Estipula a meta de ${metaForm.metaValor} para cada colaborador de ${metaForm.departamento}`
+                      : "Substitui a meta automática de média anterior + 10"}
                   </span>
                 </div>
 
@@ -1282,7 +1437,9 @@ export function QualidadeDashboardClient() {
                 onClick={handleSalvarMeta}
                 className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-lg shadow-purple-500/20"
               >
-                Salvar Meta
+                {metaForm.tipoAlvo === "DEPARTAMENTO"
+                  ? `Salvar Meta para o Departamento (${colaboradoresDoDepto.length})`
+                  : "Salvar Meta"}
               </button>
             </div>
           </div>

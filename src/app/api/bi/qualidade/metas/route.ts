@@ -17,8 +17,94 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { colaboradorNome, atividade, origem, metaValor, competenciaInicio } = body;
+    const {
+      tipoAlvo = "COLABORADOR",
+      colaboradorNome,
+      departamento,
+      colaboradoresNomes,
+      atividade,
+      origem,
+      metaValor,
+      competenciaInicio,
+    } = body;
 
+    // 1. Estipular meta por DEPARTAMENTO (aplica em lote aos membros e grava o registro do setor)
+    if (tipoAlvo === "DEPARTAMENTO") {
+      if (!departamento || !atividade || typeof metaValor !== "number" || !competenciaInicio) {
+        return NextResponse.json(
+          { success: false, error: "Parâmetros obrigatórios para meta departamental ausentes ou inválidos." },
+          { status: 400 }
+        );
+      }
+
+      const deptUpper = departamento.trim().toUpperCase();
+
+      // Grava a regra de meta mestre do departamento
+      await prisma.fiorixQualidadeMeta.upsert({
+        where: {
+          tenantId_colaboradorNome_atividade_competenciaInicio: {
+            tenantId: user.tenantId,
+            colaboradorNome: `DEP:${deptUpper}`,
+            atividade,
+            competenciaInicio,
+          },
+        },
+        create: {
+          tenantId: user.tenantId,
+          colaboradorNome: `DEP:${deptUpper}`,
+          atividade,
+          origem: origem || "TODOS",
+          metaValor: Math.max(1, Math.round(metaValor)),
+          competenciaInicio,
+          criadoPor: user.email || user.id,
+        },
+        update: {
+          metaValor: Math.max(1, Math.round(metaValor)),
+          origem: origem || "TODOS",
+          criadoPor: user.email || user.id,
+        },
+      });
+
+      // Aplica individualmente a todos os colaboradores do departamento que realizam a atividade
+      const nomesList: string[] = Array.isArray(colaboradoresNomes) ? colaboradoresNomes : [];
+      for (const nome of nomesList) {
+        const cNomeUpper = (nome || "").trim().toUpperCase();
+        if (!cNomeUpper) continue;
+        await prisma.fiorixQualidadeMeta.upsert({
+          where: {
+            tenantId_colaboradorNome_atividade_competenciaInicio: {
+              tenantId: user.tenantId,
+              colaboradorNome: cNomeUpper,
+              atividade,
+              competenciaInicio,
+            },
+          },
+          create: {
+            tenantId: user.tenantId,
+            colaboradorNome: cNomeUpper,
+            atividade,
+            origem: origem || "TODOS",
+            metaValor: Math.max(1, Math.round(metaValor)),
+            competenciaInicio,
+            criadoPor: user.email || user.id,
+          },
+          update: {
+            metaValor: Math.max(1, Math.round(metaValor)),
+            origem: origem || "TODOS",
+            criadoPor: user.email || user.id,
+          },
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        tipoAlvo: "DEPARTAMENTO",
+        departamento: deptUpper,
+        totalColaboradores: nomesList.length,
+      });
+    }
+
+    // 2. Estipular meta individual por COLABORADOR
     if (!colaboradorNome || !atividade || typeof metaValor !== "number" || !competenciaInicio) {
       return NextResponse.json(
         { success: false, error: "Parâmetros obrigatórios ausentes ou inválidos." },
