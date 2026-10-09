@@ -457,11 +457,12 @@ export function QualidadeDashboardClient() {
               onChange={(e) => setCompetencia(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl bg-[#151A2C] border border-slate-700/80 text-xs text-slate-200 font-mono font-medium focus:outline-none focus:border-cyan-400 transition-colors shadow-sm"
             >
-              <option value="2026-10">Outubro / 2026 (Mês Vigente)</option>
-              <option value="2026-09">Setembro / 2026 (Consolidado)</option>
+              <option value="2026-10">Outubro / 2026</option>
+              <option value="2026-09">Setembro / 2026</option>
               <option value="2026-08">Agosto / 2026</option>
               <option value="2026-07">Julho / 2026</option>
               <option value="2026-06">Junho / 2026</option>
+              <option value="2026-05">Maio / 2026</option>
             </select>
           </div>
 
