@@ -376,14 +376,14 @@ export async function unpackLiveRecords({
       await prisma.$executeRawUnsafe(
         `
         WITH batch_records AS (
-          SELECT DISTINCT ON (item->>'Competencia', item->>'competencia')
+          SELECT DISTINCT ON (COALESCE(item->>'Competencia', item->>'competencia', item->>'mes'))
             $1::text AS tenant_id,
-            COALESCE(item->>'Competencia', item->>'competencia') AS competencia,
+            COALESCE(item->>'Competencia', item->>'competencia', item->>'mes') AS competencia,
             COALESCE((item->>'TotalPrenotacoes')::int, (item->>'total_prenotacoes')::int, 0) AS total_prenotacoes,
             COALESCE((item->>'TotalONR')::int, (item->>'total_onr')::int, 0) AS total_onr,
             COALESCE((item->>'TotalRecepcao')::int, (item->>'total_recepcao')::int, 0) AS total_recepcao
           FROM jsonb_array_elements($2::jsonb) AS item
-          WHERE COALESCE(item->>'Competencia', item->>'competencia') IS NOT NULL
+          WHERE COALESCE(item->>'Competencia', item->>'competencia', item->>'mes') IS NOT NULL
         )
         INSERT INTO public.fiorix_qualidade_safras (
           tenant_id, competencia, total_prenotacoes, total_onr, total_recepcao, created_at, updated_at
