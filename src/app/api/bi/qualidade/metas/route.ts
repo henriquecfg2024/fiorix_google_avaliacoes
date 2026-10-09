@@ -26,18 +26,20 @@ export async function POST(request: Request) {
       );
     }
 
+    const nomeUpper = colaboradorNome.trim().toUpperCase();
+
     const saved = await prisma.fiorixQualidadeMeta.upsert({
       where: {
         tenantId_colaboradorNome_atividade_competenciaInicio: {
           tenantId: user.tenantId,
-          colaboradorNome,
+          colaboradorNome: nomeUpper,
           atividade,
           competenciaInicio,
         },
       },
       create: {
         tenantId: user.tenantId,
-        colaboradorNome,
+        colaboradorNome: nomeUpper,
         atividade,
         origem: origem || "TODOS",
         metaValor: Math.max(1, Math.round(metaValor)),

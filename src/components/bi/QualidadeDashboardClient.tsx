@@ -173,15 +173,25 @@ export function QualidadeDashboardClient() {
       if (res.ok) {
         const data = await res.json();
         setKpis(data.kpis);
-        setColaboradores(data.colaboradores || []);
-        setEventos(data.eventos || []);
+        const listaColabs = (data.colaboradores || []).map((c: ColaboradorItem) => ({
+          ...c,
+          nome: c.nome.toUpperCase(),
+        }));
+        setColaboradores(listaColabs);
+        setEventos(
+          (data.eventos || []).map((ev: EventoRetornoItem) => ({
+            ...ev,
+            usuarioDestino: ev.usuarioDestino ? ev.usuarioDestino.toUpperCase() : "NÃO ATRIBUÍDO",
+            usuarioOrigem: ev.usuarioOrigem ? ev.usuarioOrigem.toUpperCase() : "SISTEMA",
+          }))
+        );
         setTopCausas(data.topCausas || []);
         setEvolucaoMensal(data.evolucaoMensal || []);
         if (data.userRole) setUserRole(data.userRole);
 
         // Preenche o nome padrão nos formulários de meta e limite caso ainda vazio
-        if (data.colaboradores && data.colaboradores.length > 0) {
-          const primeiroColab = data.colaboradores[0].nome;
+        if (listaColabs.length > 0) {
+          const primeiroColab = listaColabs[0].nome;
           setMetaForm((prev) => (!prev.colaboradorNome ? { ...prev, colaboradorNome: primeiroColab } : prev));
           setLimiteForm((prev) => (!prev.colaboradorNome ? { ...prev, colaboradorNome: primeiroColab } : prev));
         }
@@ -976,8 +986,8 @@ export function QualidadeDashboardClient() {
                       {c.iniciais}
                     </span>
                     <div>
-                      <div className="text-white font-bold flex items-center gap-1.5">
-                        <span>{c.nome}</span>
+                      <div className="text-white font-bold flex items-center gap-1.5 uppercase">
+                        <span>{c.nome.toUpperCase()}</span>
                         {c.reincidente && (
                           <span
                             className="px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30 text-[9px] font-mono font-bold"
@@ -1058,13 +1068,13 @@ export function QualidadeDashboardClient() {
                           onClick={() => {
                             setMetaForm((prev) => ({
                               ...prev,
-                              colaboradorNome: c.nome,
+                              colaboradorNome: c.nome.toUpperCase(),
                               atividade: c.atividade,
                               metaValor: c.meta,
                             }));
                             setLimiteForm((prev) => ({
                               ...prev,
-                              colaboradorNome: c.nome,
+                              colaboradorNome: c.nome.toUpperCase(),
                               limitePercentual: c.limite,
                             }));
                             setModalMetaOpen(true);
@@ -1145,7 +1155,7 @@ export function QualidadeDashboardClient() {
                       {ev.tipoRetorno}
                     </span>
                   </td>
-                  <td className="py-3 px-3 font-sans text-white">{ev.usuarioDestino}</td>
+                  <td className="py-3 px-3 font-sans text-white uppercase">{ev.usuarioDestino.toUpperCase()}</td>
                   <td className="py-3 px-3">{ev.origem}</td>
                   <td className="py-3 px-3 font-sans text-slate-300 max-w-xs truncate" title={ev.observacao}>
                     {ev.observacao}
@@ -1201,8 +1211,8 @@ export function QualidadeDashboardClient() {
                     className="w-full px-3 py-2 rounded-xl bg-[#151A2C] border border-slate-700 text-white"
                   >
                     {colaboradores.map((c) => (
-                      <option key={c.nome} value={c.nome}>
-                        {c.nome}
+                      <option key={c.nome} value={c.nome.toUpperCase()}>
+                        {c.nome.toUpperCase()}
                       </option>
                     ))}
                   </select>
@@ -1308,8 +1318,8 @@ export function QualidadeDashboardClient() {
                     className="w-full px-3 py-2 rounded-xl bg-[#151A2C] border border-slate-700 text-white"
                   >
                     {colaboradores.map((c) => (
-                      <option key={c.nome} value={c.nome}>
-                        {c.nome}
+                      <option key={c.nome} value={c.nome.toUpperCase()}>
+                        {c.nome.toUpperCase()}
                       </option>
                     ))}
                   </select>
@@ -1478,7 +1488,7 @@ export function QualidadeDashboardClient() {
                     </span>
                     <span className="text-slate-400 text-xs">• {competencia}</span>
                   </div>
-                  <h3 className="text-lg font-bold text-white mt-1">{selectedColab.nome}</h3>
+                  <h3 className="text-lg font-bold text-white mt-1 uppercase">{selectedColab.nome.toUpperCase()}</h3>
                   <p className="text-xs text-slate-400">
                     {selectedColab.atividade} • Origem {selectedColab.origem}
                   </p>

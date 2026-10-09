@@ -161,7 +161,7 @@ export async function GET(request: Request) {
     });
     const metasMap = new Map<string, number>();
     metasDb.forEach((m) => {
-      const key = `${m.colaboradorNome}__${m.atividade}`;
+      const key = `${m.colaboradorNome.trim().toUpperCase()}__${m.atividade}`;
       if (!metasMap.has(key)) metasMap.set(key, m.metaValor);
     });
 
@@ -175,7 +175,7 @@ export async function GET(request: Request) {
     });
     const limitesMap = new Map<string, number>();
     limitesDb.forEach((l) => {
-      const key = `${l.colaboradorNome}__${l.tipoRetorno}`;
+      const key = `${l.colaboradorNome.trim().toUpperCase()}__${l.tipoRetorno}`;
       if (!limitesMap.has(key)) limitesMap.set(key, Number(l.limitePercentual));
     });
 
@@ -234,8 +234,8 @@ export async function GET(request: Request) {
         idTipoRetorno: row.idTipoRetorno,
         tipoRetorno: tipoNome,
         siglaRetorno: siglaRet,
-        usuarioOrigem: row.usuarioOrigem || "Sistema",
-        usuarioDestino: (row.usuarioDestinoRetorno || "Não atribuído").trim(),
+        usuarioOrigem: row.usuarioOrigem ? row.usuarioOrigem.trim().toUpperCase() : "SISTEMA",
+        usuarioDestino: row.usuarioDestinoRetorno ? row.usuarioDestinoRetorno.trim().toUpperCase() : "NÃO ATRIBUÍDO",
         origem: origemNome,
         observacao: (row.observacao || "").trim(),
         categoria: categoriaFinal,
@@ -338,30 +338,48 @@ export async function GET(request: Request) {
 
     for (const item of colabsDb) {
       const rawNome = (item.usuarioDestinoRetorno || "").trim();
-      if (!rawNome || rawNome === "Não atribuído" || rawNome === "Sistema") continue;
-      const parts = rawNome.split(" ").filter(Boolean);
+      if (
+        !rawNome ||
+        rawNome.toUpperCase() === "NÃO ATRIBUÍDO" ||
+        rawNome.toUpperCase() === "NAO ATRIBUIDO" ||
+        rawNome.toUpperCase() === "SISTEMA"
+      ) {
+        continue;
+      }
+      const upperNome = rawNome.toUpperCase();
+      const parts = upperNome.split(" ").filter(Boolean);
       const iniciais = (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
       const isRecepcao = item.idTipoRetorno === 292;
-      colabMap.set(rawNome, {
-        nome: rawNome,
-        iniciais,
-        isRecepcao,
-        errosTelaRecepcao: 0,
-        errosPessoal: 0,
-        errosReal: 0,
-        causasCount: {},
-      });
+      if (!colabMap.has(upperNome)) {
+        colabMap.set(upperNome, {
+          nome: upperNome,
+          iniciais,
+          isRecepcao,
+          errosTelaRecepcao: 0,
+          errosPessoal: 0,
+          errosReal: 0,
+          causasCount: {},
+        });
+      }
     }
 
     for (const ev of eventosCompletos) {
-      const nome = ev.usuarioDestino;
-      if (!nome || nome === "Não atribuído") continue;
+      const rawNome = (ev.usuarioDestino || "").trim();
+      if (
+        !rawNome ||
+        rawNome.toUpperCase() === "NÃO ATRIBUÍDO" ||
+        rawNome.toUpperCase() === "NAO ATRIBUIDO" ||
+        rawNome.toUpperCase() === "SISTEMA"
+      ) {
+        continue;
+      }
+      const upperNome = rawNome.toUpperCase();
 
-      if (!colabMap.has(nome)) {
-        const parts = nome.split(" ").filter(Boolean);
+      if (!colabMap.has(upperNome)) {
+        const parts = upperNome.split(" ").filter(Boolean);
         const iniciais = (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
-        colabMap.set(nome, {
-          nome,
+        colabMap.set(upperNome, {
+          nome: upperNome,
           iniciais,
           isRecepcao: ev.idTipoRetorno === 292,
           errosTelaRecepcao: 0,
@@ -371,7 +389,7 @@ export async function GET(request: Request) {
         });
       }
 
-      const c = colabMap.get(nome)!;
+      const c = colabMap.get(upperNome)!;
       if (ev.idTipoRetorno === 292) {
         c.errosTelaRecepcao++;
       } else if (ev.idTipoRetorno === 294) {
