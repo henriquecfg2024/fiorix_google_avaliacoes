@@ -179,7 +179,7 @@ export function QualidadeDashboardClient() {
         }));
         setColaboradores(listaColabs);
         setEventos(
-          (data.eventos || []).map((ev: EventoRetornoItem) => ({
+          (data.eventos || []).map((ev: EventoItem) => ({
             ...ev,
             usuarioDestino: ev.usuarioDestino ? ev.usuarioDestino.toUpperCase() : "NÃO ATRIBUÍDO",
             usuarioOrigem: ev.usuarioOrigem ? ev.usuarioOrigem.toUpperCase() : "SISTEMA",
