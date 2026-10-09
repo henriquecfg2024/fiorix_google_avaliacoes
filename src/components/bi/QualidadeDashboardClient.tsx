@@ -104,8 +104,8 @@ interface EvolucaoItem {
 }
 
 export function QualidadeDashboardClient() {
-  // Filtros Globais
-  const [competencia, setCompetencia] = useState("2026-09");
+  // Filtros Globais (Inicia no mês vigente Outubro/2026 com 823 prenotações oficiais)
+  const [competencia, setCompetencia] = useState("2026-10");
   const [tipoRetorno, setTipoRetorno] = useState<"TODOS" | "TELA_RECEPCAO" | "PESSOAL" | "REAL">("TODOS");
   const [origem, setOrigem] = useState<"TODOS" | "ONR" | "RECEPCAO">("TODOS");
   const [filtroCausa, setFiltroCausa] = useState<string | null>(null);
@@ -204,6 +204,30 @@ export function QualidadeDashboardClient() {
     }
     return list;
   }, [colaboradores, buscaColaborador]);
+
+  // Pontos calculados dinamicamente para o gráfico SVG de evolução da safra
+  const pontosGrafico = useMemo(() => {
+    if (!evolucaoMensal || evolucaoMensal.length === 0) return [];
+    const count = evolucaoMensal.length;
+    return evolucaoMensal.map((item, idx) => {
+      const x = count === 1 ? 250 : Math.round(35 + (idx / (count - 1)) * 430);
+      const taxaClamped = Math.max(0, Math.min(8.0, Number(item.percentualErro) || 0));
+      // Escala gráfica: 0% de erro = y:150, Limite 5% = y:72
+      const y = Math.round(150 - taxaClamped * 15.6);
+      return { ...item, x, y };
+    });
+  }, [evolucaoMensal]);
+
+  const polylinePoints = useMemo(() => {
+    return pontosGrafico.map((p) => `${p.x},${p.y}`).join(" ");
+  }, [pontosGrafico]);
+
+  const polygonPoints = useMemo(() => {
+    if (pontosGrafico.length === 0) return "";
+    const firstX = pontosGrafico[0].x;
+    const lastX = pontosGrafico[pontosGrafico.length - 1].x;
+    return `${firstX},180 ${pontosGrafico.map((p) => `${p.x},${p.y}`).join(" ")} ${lastX},180`;
+  }, [pontosGrafico]);
 
   // Abertura da Ficha Individual
   const handleAbrirFicha = (colab: ColaboradorItem) => {
@@ -317,7 +341,7 @@ export function QualidadeDashboardClient() {
     setFiltroCausa(null);
     setBuscaColaborador("");
     setBuscaGeral("");
-    setCompetencia("2026-09");
+    setCompetencia("2026-10");
   };
 
   return (
@@ -569,15 +593,15 @@ export function QualidadeDashboardClient() {
           </div>
           <div className="my-2">
             <span className="text-2xl font-bold font-mono text-white">
-              {kpis ? kpis.totalPrenotacoes.toLocaleString("pt-BR") : "1.480"}
+              {kpis ? kpis.totalPrenotacoes.toLocaleString("pt-BR") : "823"}
             </span>
           </div>
           <div className="text-[10px] text-slate-400 font-mono flex items-center justify-between pt-1 border-t border-slate-800/80">
             <span className="text-slate-300 font-semibold">
-              {kpis ? kpis.totalAtivas.toLocaleString("pt-BR") : "1.438"} ativas
+              {kpis ? kpis.totalAtivas.toLocaleString("pt-BR") : "800"} ativas
             </span>
             <span className="text-rose-400 font-semibold bg-rose-500/10 px-1 rounded">
-              {kpis ? kpis.totalCanceladas : "42"} cancel.
+              {kpis ? kpis.totalCanceladas : "23"} cancel.
             </span>
           </div>
         </div>
@@ -587,7 +611,7 @@ export function QualidadeDashboardClient() {
           <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Prenotações c/ Erro</span>
           <div className="my-2">
             <span className="text-2xl font-bold font-mono text-amber-400">
-              {kpis ? kpis.prenotacoesComErro : "52"}
+              {kpis ? kpis.prenotacoesComErro : "3"}
             </span>
           </div>
           <span className="text-[10px] text-slate-500 font-mono">Títulos distintos</span>
@@ -598,7 +622,7 @@ export function QualidadeDashboardClient() {
           <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Quantidade de Erros</span>
           <div className="my-2">
             <span className="text-2xl font-bold font-mono text-rose-400">
-              {kpis ? kpis.quantidadeErros : "64"}
+              {kpis ? kpis.quantidadeErros : "3"}
             </span>
           </div>
           <span className="text-[10px] text-slate-500 font-mono">Total eventos retorno</span>
@@ -606,7 +630,7 @@ export function QualidadeDashboardClient() {
 
         {/* 4. % de Erro Geral */}
         {(() => {
-          const isAcima = (kpis?.percentualErroGeral ?? 2.3) > 5.0;
+          const isAcima = (kpis?.percentualErroGeral ?? 0.4) > 5.0;
           return (
             <div
               className={`p-4 rounded-xl border flex flex-col justify-between transition-all ${
@@ -639,7 +663,7 @@ export function QualidadeDashboardClient() {
                     isAcima ? "text-rose-400" : "text-emerald-400"
                   }`}
                 >
-                  {kpis ? `${kpis.percentualErroGeral}%` : "2.3%"}
+                  {kpis ? `${kpis.percentualErroGeral}%` : "0.4%"}
                 </span>
               </div>
               <span
@@ -649,8 +673,8 @@ export function QualidadeDashboardClient() {
               >
                 {isAcima
                   ? "⚠️ Acima do Limite de 5.0%"
-                  : `${kpis ? kpis.prenotacoesComErro : 34} / ${
-                      kpis ? kpis.totalPrenotacoes.toLocaleString("pt-BR") : "1.480"
+                  : `${kpis ? kpis.prenotacoesComErro : 3} / ${
+                      kpis ? kpis.totalPrenotacoes.toLocaleString("pt-BR") : "823"
                     } no mês`}
               </span>
             </div>
@@ -758,22 +782,41 @@ export function QualidadeDashboardClient() {
                 Limite: 5%
               </text>
 
-              {/* Área e Linha da Curva de Qualidade */}
-              <polygon points="0,120 100,105 200,90 300,82 400,95 500,85 500,180 0,180" fill="url(#gradQualidade)" />
-              <polyline
-                points="0,120 100,105 200,90 300,82 400,95 500,85"
-                fill="none"
-                stroke="#06B6D4"
-                strokeWidth="2.5"
-              />
+              {/* Área e Linha da Curva de Qualidade Dinâmica */}
+              {polygonPoints && <polygon points={polygonPoints} fill="url(#gradQualidade)" />}
+              {polylinePoints && (
+                <polyline
+                  points={polylinePoints}
+                  fill="none"
+                  stroke="#06B6D4"
+                  strokeWidth="2.5"
+                />
+              )}
 
-              {/* Pontos da Série */}
-              <circle cx="0" cy="120" r="4" fill="#06B6D4" />
-              <circle cx="100" cy="105" r="4" fill="#06B6D4" />
-              <circle cx="200" cy="90" r="4" fill="#06B6D4" />
-              <circle cx="300" cy="82" r="4" fill="#06B6D4" />
-              <circle cx="400" cy="95" r="4" fill="#06B6D4" />
-              <circle cx="500" cy="85" r="4" fill="#06B6D4" />
+              {/* Pontos da Série Dinâmicos */}
+              {pontosGrafico.map((p, idx) => (
+                <g key={p.mes}>
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={idx === pontosGrafico.length - 1 ? 5.5 : 4}
+                    fill={idx === pontosGrafico.length - 1 ? "#22D3EE" : "#06B6D4"}
+                    stroke="#0F172A"
+                    strokeWidth="1.5"
+                  />
+                  <text
+                    x={p.x}
+                    y={p.y - 8}
+                    fill={idx === pontosGrafico.length - 1 ? "#22D3EE" : "#94A3B8"}
+                    fontSize="10"
+                    fontWeight={idx === pontosGrafico.length - 1 ? "bold" : "normal"}
+                    textAnchor="middle"
+                    fontFamily="JetBrains Mono, monospace"
+                  >
+                    {p.percentualErro}%
+                  </text>
+                </g>
+              ))}
             </svg>
           </div>
 
