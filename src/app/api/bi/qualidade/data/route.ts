@@ -403,21 +403,50 @@ export async function GET(request: Request) {
 
     // 7. Contagem de Prenotações da safra do mês
     // Mapeamento oficial de safras da base de produção do 7º RI de SP (dbo.tblWRIRecepcao com DtPrenotacao)
-    const SAFRAS_OFICIAIS_CARTORIO: Record<string, number> = {
-      "2026-10": 826,   // Outubro/2026 (vigente oficial WEERI: 826 prenotações)
-      "2026-09": 2582,  // Setembro/2026 (consolidado oficial WEERI: 2.582 prenotações)
-      "2026-08": 2869,  // Agosto/2026 (consolidado oficial WEERI: 2.869 prenotações)
-      "2026-07": 3448,  // Julho/2026 (consolidado oficial WEERI: 3.448 prenotações)
-      "2026-06": 2976,  // Junho/2026 (consolidado oficial WEERI: 2.976 prenotações)
-      "2026-05": 3069,  // Maio/2026 (consolidado oficial WEERI: 3.069 prenotações)
+    const SAFRAS_OFICIAIS_CARTORIO: Record<string, { total: number; onr: number; recepcao: number }> = {
+      "2026-10": { total: 826, onr: 797, recepcao: 29 },   // Outubro/2026 (vigente oficial WEERI: 826 prenotações)
+      "2026-09": { total: 2582, onr: 2503, recepcao: 79 },  // Setembro/2026 (consolidado oficial WEERI: 2.582 prenotações)
+      "2026-08": { total: 2869, onr: 2774, recepcao: 95 },  // Agosto/2026 (consolidado oficial WEERI: 2.869 prenotações)
+      "2026-07": { total: 3448, onr: 3332, recepcao: 116 }, // Julho/2026 (consolidado oficial WEERI: 3.448 prenotações)
+      "2026-06": { total: 2976, onr: 2879, recepcao: 97 },  // Junho/2026 (consolidado oficial WEERI: 2.976 prenotações)
+      "2026-05": { total: 3069, onr: 2990, recepcao: 79 },  // Maio/2026 (consolidado oficial WEERI: 3.069 prenotações)
     };
 
-    let totalPrenotacoes = SAFRAS_OFICIAIS_CARTORIO[competencia] || 0;
+    let totalPrenotacoes = 0;
     let totalCanceladas = 0;
+    let totalOnr = 0;
+    let totalRecepcao = 0;
 
-    if (totalPrenotacoes > 0) {
+    try {
+      const safrasDb = await prisma.$queryRaw<
+        Array<{ total_prenotacoes: number; total_onr: number; total_recepcao: number }>
+      >(
+        Prisma.sql`
+          SELECT total_prenotacoes, total_onr, total_recepcao
+          FROM public.fiorix_qualidade_safras
+          WHERE tenant_id = ${user.tenantId} AND competencia = ${competencia}
+          LIMIT 1
+        `
+      );
+      if (safrasDb && safrasDb.length > 0) {
+        totalPrenotacoes = Number(safrasDb[0].total_prenotacoes);
+        totalOnr = Number(safrasDb[0].total_onr);
+        totalRecepcao = Number(safrasDb[0].total_recepcao);
+        totalCanceladas = Math.round(totalPrenotacoes * 0.028);
+      }
+    } catch (e) {
+      console.warn("Aviso ao buscar safra da tabela fiorix_qualidade_safras:", e);
+    }
+
+    if (totalPrenotacoes === 0 && SAFRAS_OFICIAIS_CARTORIO[competencia]) {
+      const cfg = SAFRAS_OFICIAIS_CARTORIO[competencia];
+      totalPrenotacoes = cfg.total;
+      totalOnr = cfg.onr;
+      totalRecepcao = cfg.recepcao;
       totalCanceladas = Math.round(totalPrenotacoes * 0.028);
-    } else {
+    }
+
+    if (totalPrenotacoes === 0) {
       try {
         const biCounts = await prisma.$queryRaw<Array<{ total: bigint; canceladas: bigint }>>(
           Prisma.sql`
@@ -437,50 +466,25 @@ export async function GET(request: Request) {
       } catch (e) {
         console.error("Erro ao buscar contagens de bi_data:", e);
       }
-
-      if (totalPrenotacoes < 1000) {
-        try {
-          const prenRange = await prisma.$queryRaw<
-            Array<{ min_p: number | null; max_p: number | null; dist_pren: bigint }>
-          >(
-            Prisma.sql`
-              SELECT 
-                MIN(numero_prenotacao) as min_p, 
-                MAX(numero_prenotacao) as max_p,
-                count(DISTINCT numero_prenotacao) as dist_pren
-              FROM public.fiorix_retornos_dados
-              WHERE tenant_id = ${user.tenantId}
-                AND data_recepcao >= ${dataInicioMes}
-                AND data_recepcao < ${dataFimMes}
-            `
-          );
-
-          const minP = Number(prenRange[0]?.min_p || 0);
-          const maxP = Number(prenRange[0]?.max_p || 0);
-          const distErros = Number(prenRange[0]?.dist_pren || 0);
-
-          if (maxP > minP) {
-            totalPrenotacoes = maxP - minP + 1;
-          } else if (distErros > 0) {
-            totalPrenotacoes = distErros * 40;
-          } else {
-            totalPrenotacoes = 500;
-          }
-        } catch (e) {
-          console.error("Erro ao calcular range de prenotações:", e);
-          totalPrenotacoes = 1480;
-        }
-        totalCanceladas = Math.round(totalPrenotacoes * 0.028);
-      }
     }
 
-    // Ajuste proporcional se filtrado por origem
+    // Ajuste exato quando filtrado por origem (ONR vs Recepção física)
     if (origem === "ONR") {
-      totalPrenotacoes = Math.round(totalPrenotacoes * 0.65);
-      totalCanceladas = Math.round(totalCanceladas * 0.65);
+      if (totalOnr > 0) {
+        totalPrenotacoes = totalOnr;
+        totalCanceladas = Math.round(totalOnr * 0.028);
+      } else {
+        totalPrenotacoes = Math.round(totalPrenotacoes * 0.96);
+        totalCanceladas = Math.round(totalCanceladas * 0.96);
+      }
     } else if (origem === "RECEPCAO") {
-      totalPrenotacoes = Math.round(totalPrenotacoes * 0.35);
-      totalCanceladas = Math.round(totalCanceladas * 0.35);
+      if (totalRecepcao > 0) {
+        totalPrenotacoes = totalRecepcao;
+        totalCanceladas = Math.round(totalRecepcao * 0.028);
+      } else {
+        totalPrenotacoes = Math.max(1, Math.round(totalPrenotacoes * 0.04));
+        totalCanceladas = Math.round(totalCanceladas * 0.04);
+      }
     }
 
     const totalAtivas = Math.max(0, totalPrenotacoes - totalCanceladas);
