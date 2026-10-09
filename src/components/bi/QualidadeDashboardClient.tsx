@@ -605,20 +605,57 @@ export function QualidadeDashboardClient() {
         </div>
 
         {/* 4. % de Erro Geral */}
-        <div className="p-4 rounded-xl border border-emerald-500/25 bg-emerald-500/5 flex flex-col justify-between transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-semibold text-emerald-400 tracking-wider">% Erro Geral</span>
-            <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">
-              Limite 5%
-            </span>
-          </div>
-          <div className="my-2">
-            <span className="text-2xl font-bold font-mono text-emerald-400">
-              {kpis ? `${kpis.percentualErroGeral}%` : "3.5%"}
-            </span>
-          </div>
-          <span className="text-[10px] text-emerald-400/80 font-mono">Abaixo da tolerância</span>
-        </div>
+        {(() => {
+          const isAcima = (kpis?.percentualErroGeral ?? 2.3) > 5.0;
+          return (
+            <div
+              className={`p-4 rounded-xl border flex flex-col justify-between transition-all ${
+                isAcima
+                  ? "border-rose-500/30 bg-rose-500/10 text-rose-400"
+                  : "border-emerald-500/25 bg-emerald-500/5 text-emerald-400"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span
+                  className={`text-[10px] uppercase font-semibold tracking-wider ${
+                    isAcima ? "text-rose-400" : "text-emerald-400"
+                  }`}
+                >
+                  % Erro Geral
+                </span>
+                <span
+                  className={`text-[9px] font-mono uppercase px-1.5 py-0.5 rounded font-bold ${
+                    isAcima
+                      ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                      : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                  }`}
+                >
+                  Limite 5%
+                </span>
+              </div>
+              <div className="my-2">
+                <span
+                  className={`text-2xl font-bold font-mono ${
+                    isAcima ? "text-rose-400" : "text-emerald-400"
+                  }`}
+                >
+                  {kpis ? `${kpis.percentualErroGeral}%` : "2.3%"}
+                </span>
+              </div>
+              <span
+                className={`text-[10px] font-mono ${
+                  isAcima ? "text-rose-400/90 font-semibold" : "text-emerald-400/80"
+                }`}
+              >
+                {isAcima
+                  ? "⚠️ Acima do Limite de 5.0%"
+                  : `${kpis ? kpis.prenotacoesComErro : 34} / ${
+                      kpis ? kpis.totalPrenotacoes.toLocaleString("pt-BR") : "1.480"
+                    } no mês`}
+              </span>
+            </div>
+          );
+        })()}
 
         {/* 5. SLA Correção */}
         <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
