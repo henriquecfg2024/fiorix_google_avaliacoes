@@ -1,14 +1,7 @@
+'use client';
+
 import React from 'react';
-import { 
-  AlertOctagon, 
-  AlertTriangle, 
-  Info, 
-  Clock, 
-  CheckCircle2, 
-  Bell, 
-  ExternalLink,
-  ShieldCheck
-} from 'lucide-react';
+import { ShieldCheck, Bell, AlertTriangle, AlertOctagon, CheckCircle2 } from 'lucide-react';
 import type { OperationsHealthSnapshot } from '@/lib/health/types';
 
 interface Props {
@@ -16,144 +9,49 @@ interface Props {
   alerts: OperationsHealthSnapshot['alerts'];
 }
 
-export function IncidentesAlertasSection({ incidents, alerts }: Props) {
-  const getSeverityBadge = (severity: 'CRITICAL' | 'WARNING' | 'INFO') => {
-    switch (severity) {
-      case 'CRITICAL':
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500/10 text-rose-400 border border-rose-500/20 font-mono">
-            CRITICAL
-          </span>
-        );
-      case 'WARNING':
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
-            WARNING
-          </span>
-        );
-      case 'INFO':
-        return (
-          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono">
-            INFO
-          </span>
-        );
-    }
-  };
-
-  const getAlertIcon = (severity: 'CRITICAL' | 'WARNING' | 'INFO') => {
-    switch (severity) {
-      case 'CRITICAL':
-        return <AlertOctagon className="h-4 w-4 text-rose-400" />;
-      case 'WARNING':
-        return <AlertTriangle className="h-4 w-4 text-amber-400" />;
-      case 'INFO':
-        return <Info className="h-4 w-4 text-cyan-400" />;
-    }
-  };
-
+export function IncidentesAlertasSection({ incidents = [], alerts = [] }: Props) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {/* Bloco 1: Incidentes Recentes */}
-      <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-white/10 dark:bg-[#0B1020]/90 dark:shadow-xl backdrop-blur-xl flex flex-col justify-between">
-        <div>
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-wide">
-              Incidentes Recentes
-            </h3>
-            <span className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white/40 font-mono">
-              Origem auditada
-            </span>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Incidentes Card */}
+      <div className="rounded-2xl border border-[#1E293B] bg-[#111729] p-5 shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-3.5">
+          <div className="p-2.5 rounded-xl bg-[rgba(16,185,129,0.1)] text-[#10B981] border border-[rgba(16,185,129,0.2)]">
+            <ShieldCheck className="h-5 w-5" />
           </div>
-
-          {incidents.length === 0 ? (
-            <div className="p-6 rounded-xl bg-slate-50 border border-slate-200 dark:bg-white/[0.02] dark:border-white/6 text-center">
-              <ShieldCheck className="h-8 w-8 text-emerald-400/80 mx-auto mb-2" />
-              <p className="text-xs font-semibold text-slate-800 dark:text-white/90">
-                Nenhum incidente registrado nas últimas 24 horas
-              </p>
-              <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
-                Todas as rotinas e lotes do cartório foram processados com integridade e sem falhas ativas.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2.5">
-              {incidents.map((inc) => (
-                <div 
-                  key={inc.id}
-                  className="p-3 rounded-xl bg-slate-50 border border-slate-200 dark:bg-white/[0.02] dark:border-white/6 hover:border-white/12 transition-colors flex items-center justify-between gap-3"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    {getSeverityBadge(inc.severity)}
-                    <span className="text-xs font-mono text-slate-500 dark:text-white/40 shrink-0">{inc.time}</span>
-                    <div className="min-w-0">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
-                        {inc.service} — {inc.description}
-                      </span>
-                    </div>
-                  </div>
-
-                  <span className="text-xs font-mono text-slate-500 dark:text-white/50 shrink-0">
-                    {inc.duration}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+          <div>
+            <h4 className="text-xs font-semibold text-[#F1F5F9]">
+              {incidents.length === 0 ? 'Nenhum incidente nas últimas 24 horas' : `${incidents.length} incidente(s) registrado(s)`}
+            </h4>
+            <p className="text-[11px] text-[#64748B] mt-0.5">
+              {incidents.length === 0 
+                ? 'Ingestões e infraestrutura operando com 100% de estabilidade.' 
+                : 'Monitoramento em contingência com alertas automáticos.'}
+            </p>
+          </div>
         </div>
+        <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[rgba(16,185,129,0.1)] text-[#10B981] border border-[rgba(16,185,129,0.2)] font-semibold shrink-0">
+          Auditado
+        </span>
       </div>
 
-      {/* Bloco 2: Alertas Ativos */}
-      <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-white/10 dark:bg-[#0B1020]/90 dark:shadow-xl backdrop-blur-xl flex flex-col justify-between">
-        <div>
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-wide flex items-center gap-2">
-              Alertas Ativos
-            </h3>
-            <span className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-white/40 font-mono">
-              Condições reais
-            </span>
+      {/* Alertas Card */}
+      <div className="rounded-2xl border border-[#1E293B] bg-[#111729] p-5 shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-3.5">
+          <div className="p-2.5 rounded-xl bg-[#3B82F6]/10 text-[#3B82F6] border border-[#3B82F6]/20">
+            <Bell className="h-5 w-5" />
           </div>
-
-          {alerts.length === 0 ? (
-            <div className="p-6 rounded-xl bg-slate-50 border border-slate-200 dark:bg-white/[0.02] dark:border-white/6 text-center">
-              <CheckCircle2 className="h-8 w-8 text-emerald-400/50 mx-auto mb-2" />
-              <p className="text-xs font-semibold text-white/80">
-                Nenhum alerta crítico ativo
-              </p>
-              <p className="text-[11px] text-slate-500 dark:text-white/40 mt-1">
-                Todos os subsistemas verificados operam sem condições de alarme.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2.5">
-              {alerts.map((alt) => (
-                <div 
-                  key={alt.id}
-                  className="p-3 rounded-xl bg-slate-50 border border-slate-200 dark:bg-white/[0.02] dark:border-white/6 hover:border-white/12 transition-colors flex items-start justify-between gap-3"
-                >
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className="p-1.5 rounded-lg bg-white/[0.04] shrink-0 mt-0.5">
-                      {getAlertIcon(alt.severity)}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        {getSeverityBadge(alt.severity)}
-                        <span className="text-xs font-bold text-slate-900 dark:text-white truncate">{alt.title}</span>
-                      </div>
-                      <p className="text-xs text-slate-500 dark:text-white/50 truncate">
-                        {alt.detail}
-                      </p>
-                    </div>
-                  </div>
-
-                  <span className="text-xs font-mono text-slate-500 dark:text-white/40 shrink-0">
-                    {alt.timeAgo}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+          <div>
+            <h4 className="text-xs font-semibold text-[#F1F5F9]">
+              Canais de Notificação Ativos
+            </h4>
+            <p className="text-[11px] text-[#64748B] mt-0.5">
+              WhatsApp CallMeBot & E-mail SMTP prontos para alertas críticos.
+            </p>
+          </div>
         </div>
+        <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#3B82F6]/10 text-[#3B82F6] border border-[#3B82F6]/20 font-semibold shrink-0">
+          Monitorando
+        </span>
       </div>
     </div>
   );

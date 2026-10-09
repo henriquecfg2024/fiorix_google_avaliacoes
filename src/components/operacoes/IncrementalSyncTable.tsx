@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CheckCircle2, Clock, RefreshCw, AlertCircle, HelpCircle, Layers, Eye } from 'lucide-react';
+import { Clock, CheckCircle2, ArrowRight } from 'lucide-react';
 import type { IncrementalModuleStatus, BatchHistoryItem } from '@/lib/health/types';
 import { BatchHistoryModal } from './BatchHistoryModal';
 
@@ -13,149 +13,114 @@ interface Props {
 export function IncrementalSyncTable({ modules, recentBatches }: Props) {
   const [selectedModule, setSelectedModule] = useState<{ name: string; key: string } | null>(null);
 
-  const getStatusBadge = (status: IncrementalModuleStatus['status']) => {
-    switch (status) {
-      case 'OK':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            OK
-          </span>
-        );
-      case 'WARNING':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-            Atenção
-          </span>
-        );
-      case 'ERROR':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
-            <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
-            Atrasado
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-500/10 text-slate-400 border border-slate-500/20">
-            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-            Desconhecido
-          </span>
-        );
-    }
-  };
-
   return (
     <>
-      <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-white/10 dark:bg-[#0B1020]/90 dark:shadow-xl backdrop-blur-xl flex flex-col justify-between h-full">
+      <div className="rounded-2xl border border-[#1E293B] bg-[#111729] p-5 shadow-sm flex flex-col justify-between h-full">
         <div>
-          <div className="flex items-center justify-between gap-3 mb-4">
+          {/* Header */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-wide">
+              <h3 className="text-sm font-semibold text-[#F1F5F9] tracking-wide">
                 Sincronização Incremental
               </h3>
-              <span className="px-2 py-0.5 rounded-md bg-slate-100 text-[11px] font-medium text-slate-700 border border-slate-200 dark:bg-white/[0.06] dark:text-slate-600 dark:text-white/70 dark:border-white/8">
+              <span className="px-2 py-0.5 rounded-md bg-[#151A2C] text-[11px] font-mono text-[#94A3B8] border border-[#1E293B]">
                 Ciclos: 60 min (Escalonado a cada 15 min)
               </span>
-              <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-[11px] font-semibold text-indigo-300 border border-indigo-500/20 flex items-center gap-1.5">
-                <Clock className="h-3 w-3 text-indigo-400" />
+              <span className="px-2 py-0.5 rounded-md bg-[#818CF8]/10 text-[11px] font-semibold text-[#818CF8] border border-[#818CF8]/20 flex items-center gap-1.5">
+                <Clock className="h-3 w-3 text-[#818CF8]" />
                 Expediente: Seg–Sáb (07h–19h)
               </span>
             </div>
           </div>
 
+          {/* Table */}
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs font-mono">
               <thead>
-                <tr className="border-b border-white/8 text-[11px] uppercase tracking-wider text-slate-500 dark:text-white/40 font-semibold">
-                  <th className="pb-3 pr-4 font-medium">Módulo</th>
-                  <th className="pb-3 px-3 font-medium">Status</th>
-                  <th className="pb-3 px-3 font-medium">Última Execução</th>
-                  <th className="pb-3 px-3 font-medium">Próxima Esperada</th>
-                  <th className="pb-3 px-3 font-medium">Atraso</th>
-                  <th className="pb-3 px-3 font-medium">Registros</th>
-                  <th className="pb-3 px-3 font-medium">Diagnóstico</th>
-                  <th className="pb-3 pl-3 font-medium text-right">Ações</th>
+                <tr className="border-b border-[#1E293B] text-[11px] uppercase tracking-wider text-[#64748B] font-semibold font-sans">
+                  <th className="pb-3 pr-4">Módulo</th>
+                  <th className="pb-3 px-3">Janela</th>
+                  <th className="pb-3 px-3">Última Execução</th>
+                  <th className="pb-3 px-3">Próxima Esperada</th>
+                  <th className="pb-3 px-3">Atraso</th>
+                  <th className="pb-3 px-3">Registros</th>
+                  <th className="pb-3 pl-3 text-right">Ação</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-white/6 font-mono text-slate-700 dark:text-white/80">
-                {modules.map((item) => (
-                  <tr key={item.key} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors" title={item.statusNote}>
-                    <td className="py-3 pr-4 font-sans font-semibold text-slate-900 dark:text-white">
-                      {item.module}
-                      <span className="block text-[10px] font-normal text-slate-500 dark:text-white/40 font-mono">
-                        Janela: {item.expectedIntervalSeconds}s ({Math.round(item.expectedIntervalSeconds / 60)} min)
-                      </span>
-                    </td>
-                    <td className="py-3 px-3">
-                      {getStatusBadge(item.status)}
-                    </td>
-                    <td className="py-3 px-3 text-slate-600 dark:text-white/70">
-                      {item.lastSyncAt ?? 'Não disponível'}
-                    </td>
-                    <td className="py-3 px-3 text-slate-500 dark:text-white/50">
-                      {item.nextExpectedAt ?? '-'}
-                    </td>
-                    <td className="py-3 px-3">
-                      {item.delaySeconds !== null ? (
-                        <span className={item.delaySeconds === 0 ? 'text-emerald-400 font-semibold' : 'text-amber-400'}>
-                          {item.delaySeconds === 0 ? '0s' : `${Math.round(item.delaySeconds / 60)}m`}
-                        </span>
-                      ) : (
-                        <span className="text-white/40">-</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-3 text-white/90">
-                      {item.recordsCount !== null ? (
-                        item.recordsCount === 0 ? (
-                          <span className="text-white/60">0 (sem alt.)</span>
-                        ) : (
-                          item.recordsCount.toLocaleString('pt-BR')
-                        )
-                      ) : (
-                        <span className="text-white/40">Pendente</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-white/60 font-sans">
-                        {item.statusNote ? item.statusNote : 'Ciclo pontual'}
-                      </span>
-                    </td>
-                    <td className="py-3 pl-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedModule({ name: item.module, key: item.key })}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-blue-600/20 text-slate-600 dark:text-white/70 hover:text-blue-300 border border-white/8 hover:border-blue-500/30 text-[11px] font-sans font-semibold transition-all active:scale-95"
-                        title="Ver histórico de lotes recebidos"
-                      >
-                        <Eye className="h-3 w-3" />
-                        <span>Ver Lotes</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+              <tbody className="divide-y divide-[#1E293B]/60 text-[#94A3B8]">
+                {modules.map((item) => {
+                  const isOk = item.status === 'OK';
+                  const isWarning = item.status === 'WARNING';
+                  const dotColor = isOk ? 'bg-[#10B981]' : (isWarning ? 'bg-[#F59E0B]' : 'bg-[#F43F5E]');
+                  const delayText = item.delaySeconds !== null 
+                    ? (item.delaySeconds === 0 ? '0s' : `${Math.round(item.delaySeconds / 60)}m`) 
+                    : '-';
+                  const delayColor = item.delaySeconds === 0 ? 'text-[#10B981] font-semibold' : 'text-[#F59E0B]';
+
+                  return (
+                    <tr 
+                      key={item.key} 
+                      className="hover:bg-[#151A2C] transition-colors group"
+                      title={item.statusNote || undefined}
+                    >
+                      <td className="py-3 pr-4 font-sans font-semibold text-[#F1F5F9] flex items-center gap-2">
+                        <span className={`h-2 w-2 rounded-full ${dotColor} shrink-0`} />
+                        <span>{item.module}</span>
+                      </td>
+                      <td className="py-3 px-3 text-[#64748B]">
+                        {item.expectedIntervalSeconds ? `${Math.round(item.expectedIntervalSeconds / 60)} min` : '60 min'}
+                      </td>
+                      <td className="py-3 px-3 text-[#94A3B8]">
+                        {item.lastSyncAt ?? 'Não disponível'}
+                      </td>
+                      <td className="py-3 px-3 text-[#F1F5F9]">
+                        {item.nextExpectedAt ?? '-'}
+                      </td>
+                      <td className={`py-3 px-3 ${delayColor}`}>
+                        {delayText}
+                      </td>
+                      <td className="py-3 px-3 text-[#F1F5F9]">
+                        {item.recordsCount !== null ? (
+                          item.recordsCount === 0 ? '0 (sem alt.)' : `${item.recordsCount.toLocaleString('pt-BR')} reg${item.recordsCount > 1 ? 's' : ''}`
+                        ) : 'Pendente'}
+                      </td>
+                      <td className="py-3 pl-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedModule({ name: item.module, key: item.key })}
+                          className="p-1.5 rounded-lg bg-[#151A2C] hover:bg-[#1E293B] text-[#64748B] hover:text-[#3B82F6] transition-all"
+                          title="Ver Lotes"
+                        >
+                          <ArrowRight className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-white/6 flex items-center gap-2 text-xs font-medium text-white/60">
-          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
-          <span>
-            Rotinas ativas de Segunda a Sábado (07h às 19h). Sincronizações automáticas pausadas no período noturno e aos domingos.
-          </span>
+        {/* Footer */}
+        <div className="mt-4 pt-3 border-t border-[#1E293B] flex items-center justify-between text-xs text-[#64748B] font-sans">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-[#10B981] shrink-0" />
+            <span>Rotinas ativas de Segunda a Sábado (07h às 19h). Pausadas no período noturno e domingos.</span>
+          </div>
+          <span className="font-mono text-[11px] text-[#10B981] shrink-0 hidden sm:inline">100% no prazo</span>
         </div>
       </div>
 
-      {/* Modal de Detalhes dos Lotes */}
-      <BatchHistoryModal
-        isOpen={!!selectedModule}
-        onClose={() => setSelectedModule(null)}
-        moduleName={selectedModule?.name ?? ''}
-        moduleKey={selectedModule?.key ?? ''}
-        batches={selectedModule ? (recentBatches?.[selectedModule.key] ?? []) : []}
-      />
+      {selectedModule && (
+        <BatchHistoryModal
+          isOpen={!!selectedModule}
+          onClose={() => setSelectedModule(null)}
+          moduleName={selectedModule.name}
+          moduleKey={selectedModule.key}
+          batches={recentBatches ? recentBatches[selectedModule.key] || [] : []}
+        />
+      )}
     </>
   );
 }

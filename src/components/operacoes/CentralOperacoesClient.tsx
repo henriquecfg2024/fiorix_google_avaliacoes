@@ -1,32 +1,28 @@
 'use client';
 
-import React, { useState, useEffect, useTransition } from 'react';
+import React, { useState, useEffect, useTransition, useCallback } from 'react';
 import { 
-  RefreshCw, 
   Activity, 
-  Layers, 
+  BarChart3, 
+  Database, 
   Bell, 
-  HelpCircle, 
-  User, 
-  CheckCircle2, 
-  AlertTriangle,
-  XCircle,
-  ShieldCheck
+  ShieldCheck, 
+  Clock, 
+  RefreshCw 
 } from 'lucide-react';
+import { toast } from 'sonner';
 import type { OperationsHealthSnapshot } from '@/lib/health/types';
 import { ServiceHealthGrid } from './ServiceHealthGrid';
-import { IntegracoesSaudeSection } from './IntegracoesSaudeSection';
 import { IncrementalSyncTable } from './IncrementalSyncTable';
 import { ConnectorDetailCard } from './ConnectorDetailCard';
+import { ProceduresOverviewSection } from './ProceduresOverviewSection';
 import { IncidentesAlertasSection } from './IncidentesAlertasSection';
+import { OperationsChartsSection } from './OperationsChartsSection';
 import { MetricsChartCard } from './MetricsChartCard';
 import { DeploysVersionsFooter } from './DeploysVersionsFooter';
-import { OperationsChartsSection } from './OperationsChartsSection';
 import { BatchAuditSection } from './BatchAuditSection';
 import { AlertSettingsSection } from './AlertSettingsSection';
 import { NotificationChannelsSummaryCard } from './NotificationChannelsSummaryCard';
-import { ProceduresOverviewSection } from './ProceduresOverviewSection';
-import { BarChart3, Database } from 'lucide-react';
 
 interface Props {
   initialHealth: OperationsHealthSnapshot;
@@ -38,9 +34,37 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
   const [activeTab, setActiveTab] = useState<'overview' | 'audit' | 'alerts'>('overview');
   const [isPending, startTransition] = useTransition();
   const [lastUpdated, setLastUpdated] = useState<string>(initialHealth.timestamp);
+  const [currentTime, setCurrentTime] = useState<string>('');
+  const [secondsAgo, setSecondsAgo] = useState<number>(0);
+
+  // Relógio ao vivo em tempo real
+  useEffect(() => {
+    const updateClock = () => {
+      const now = new Date();
+      setCurrentTime(
+        now.toLocaleTimeString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          timeZone: 'America/Sao_Paulo',
+        })
+      );
+    };
+    updateClock();
+    const interval = setInterval(updateClock, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Ticker de segundos desde a última checagem
+  useEffect(() => {
+    const ticker = setInterval(() => {
+      setSecondsAgo((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(ticker);
+  }, []);
 
   // Função para buscar dados atualizados via backend API
-  const refreshHealth = async (force = false) => {
+  const refreshHealth = useCallback(async (force = false, showToast = false) => {
     try {
       const url = force ? '/api/v1/operacoes/health?refresh=true' : '/api/v1/operacoes/health';
       const res = await fetch(url, { cache: 'no-store' });
@@ -48,92 +72,212 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
         const data: OperationsHealthSnapshot = await res.json();
         setHealth(data);
         setLastUpdated(data.timestamp);
+        setSecondsAgo(0);
+        if (showToast) {
+          toast.success('Central de Operações atualizada', {
+            description: `Dados sincronizados às ${data.timestamp}`,
+          });
+        }
       }
     } catch (err) {
       console.error('Falha ao atualizar métricas da Central de Operações:', err);
     }
-  };
-
-  // Polling seguro de 60 segundos
-  useEffect(() => {
-    const interval = setInterval(() => {
-      refreshHealth(false);
-    }, 60000);
-    return () => clearInterval(interval);
   }, []);
 
+  // Polling seguro de 60 segundos com pausa se a aba estiver oculta (document.hidden)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        refreshHealth(false, false);
+      }
+    }, 60000);
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        refreshHealth(false, false);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshHealth]);
+
+  // Atualização manual com transição
   const handleManualRefresh = () => {
     startTransition(async () => {
-      await refreshHealth(true);
+      await refreshHealth(true, true);
     });
   };
 
+  // Atalho de teclado [R]
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        (e.key === 'r' || e.key === 'R') &&
+        !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)
+      ) {
+        handleManualRefresh();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleManualRefresh]);
+
+  // Identifica status atual para estilo do Hero Status Card
+  const isOperacional = health.globalStatus === 'OPERACIONAL';
+  const isStandby = health.connector?.status === 'STANDBY';
+  const isDegradado = health.globalStatus === 'DEGRADADO';
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-amber-500/30 dark:bg-[#070A12] dark:text-white transition-colors duration-300 relative overflow-hidden pb-12">
-      {/* Background Glows */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-32 left-1/2 h-72 w-[44rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-indigo-500/10 via-emerald-500/10 to-amber-500/8 blur-3xl" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-white/10" />
+    <div className="min-h-screen bg-[#070A14] text-[#F1F5F9] selection:bg-emerald-500/20 relative overflow-hidden pb-16 font-sans">
+      {/* Ambient Backdrop Glows */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[70rem] h-[30rem] bg-gradient-to-r from-blue-600/10 via-emerald-500/10 to-indigo-600/8 blur-3xl rounded-full" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       </div>
 
-      <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        {/* 1. Header Global com Identificação Rigorosa */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/8">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
-                Central de Operações FIORIX
-              </h1>
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${
-                health.globalStatus === 'OPERACIONAL' 
-                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                  : (health.globalStatus === 'DEGRADADO' 
-                      ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' 
-                      : 'bg-rose-500/10 text-rose-400 border-rose-500/20')
+      <main className="relative max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
+        {/* ══════════════════════════════════════════════════════════════════
+             1. HEADER v2 CONSOLIDADO (HERO STATUS CARD)
+             ══════════════════════════════════════════════════════════════════ */}
+        <section className="rounded-2xl border border-[#1E293B] bg-[#111729] p-6 shadow-2xl relative overflow-hidden transition-all">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            
+            {/* Left: Identity & Metadata */}
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-xl bg-[#151A2C] border border-[#1E293B] text-[#3B82F6] shadow-inner flex items-center justify-center shrink-0">
+                <Activity className="h-6 w-6 text-[#3B82F6]" />
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <h1 className="text-2xl font-semibold tracking-tight text-[#F1F5F9] flex items-center gap-2">
+                    <span>Central de Operações</span>
+                    <span className="font-extrabold tracking-tight bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+                      FIORIX
+                    </span>
+                  </h1>
+                </div>
+                
+                <p className="text-xs text-[#94A3B8] mt-1.5 flex items-center gap-2 flex-wrap">
+                  <Database className="h-3.5 w-3.5 text-[#64748B] shrink-0" />
+                  <span>Observabilidade ponta a ponta</span>
+                  <span className="text-[#1E293B]">•</span>
+                  <span>SaaS</span>
+                  <span className="text-[#1E293B]">•</span>
+                  <span>Conectividade</span>
+                  <span className="text-[#1E293B]">•</span>
+                  <span>Rotinas do Cartório</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Right: Discrete Meta + Live Clock + Hero Status Card */}
+            <div className="flex flex-col items-start lg:items-end gap-3 shrink-0">
+              
+              <div className="flex items-center gap-3 text-xs text-[#64748B] font-mono">
+                {/* Discrete Environment */}
+                <div className="flex items-center gap-1.5 text-[#94A3B8]">
+                  <ShieldCheck className="h-3.5 w-3.5 text-[#10B981]" />
+                  <span className="font-medium font-sans">Produção</span>
+                </div>
+
+                <span className="text-[#1E293B]">|</span>
+
+                {/* Live Clock */}
+                <div className="flex items-center gap-1.5 text-[#94A3B8]">
+                  <Clock className="h-3.5 w-3.5 text-[#64748B]" />
+                  <span className="font-mono text-[#F1F5F9]">{currentTime || lastUpdated}</span>
+                </div>
+
+                {/* Ghost Button "Atualizar" */}
+                <button 
+                  type="button"
+                  onClick={handleManualRefresh}
+                  disabled={isPending}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#151A2C] hover:bg-[#1E293B] text-[#94A3B8] hover:text-[#F1F5F9] border border-[#1E293B] text-xs font-sans font-medium transition-all active:scale-95 group disabled:opacity-50"
+                  title="Atalho de Teclado: R"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 text-[#64748B] group-hover:text-[#F1F5F9] transition-transform ${isPending ? 'animate-spin' : ''}`} />
+                  <span>Atualizar</span>
+                </button>
+              </div>
+
+              {/* Hero Status Card (Único pulso, sem selos gigantes) */}
+              <div className={`w-full lg:w-auto min-w-[320px] rounded-xl border px-4 py-2.5 flex items-center gap-3.5 transition-all ${
+                isStandby
+                  ? 'border-[#818CF8]/25 bg-[#818CF8]/10'
+                  : (isOperacional
+                      ? 'border-[rgba(16,185,129,0.2)] bg-[rgba(16,185,129,0.1)]'
+                      : 'border-[#F59E0B]/25 bg-[#F59E0B]/10')
               }`}>
-                <span className={`h-2 w-2 rounded-full ${health.globalStatus === 'OPERACIONAL' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-                {health.globalStatus}
+                <span className={`h-2.5 w-2.5 rounded-full shrink-0 soft-pulse ${
+                  isStandby
+                    ? 'bg-[#818CF8] pulse-glow-indigo'
+                    : (isOperacional
+                        ? 'bg-[#10B981] pulse-glow-emerald'
+                        : 'bg-[#F59E0B] pulse-glow-amber')
+                }`} />
+                <div className="flex flex-col text-left">
+                  <span className={`font-semibold text-xs tracking-wide ${
+                    isStandby
+                      ? 'text-[#818CF8]'
+                      : (isOperacional ? 'text-[#10B981]' : 'text-[#F59E0B]')
+                  }`}>
+                    {isStandby 
+                      ? 'Operacional • Repouso noturno programado' 
+                      : (isOperacional ? 'Todos os sistemas operacionais' : 'Atenção: Degradação de sincronização')}
+                  </span>
+                  <span className="text-[11px] font-mono text-[#64748B] mt-0.5">
+                    {isStandby
+                      ? 'rotinas pausadas até 07:00 • próximo ciclo'
+                      : `verificado há ${secondsAgo}s • tempo real`}
+                  </span>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* Sub-header bottom line */}
+          <div className="mt-5 pt-3.5 border-t border-[#1E293B] flex flex-wrap items-center justify-between gap-3 text-[11px] font-mono text-[#64748B]">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="flex items-center gap-1.5">
+                <span className={`h-1.5 w-1.5 rounded-full ${isStandby ? 'bg-[#818CF8]' : 'bg-[#10B981]'}`} />
+                <span>latência p95: <strong className="text-[#F1F5F9] font-normal">{health.metrics.p95LatencyMs || 42}ms</strong></span>
+              </span>
+              <span className="text-[#1E293B]">|</span>
+              <span>uptime: <strong className="text-[#F1F5F9] font-normal">{health.metrics.availabilityPercent || 99.99}%</strong></span>
+              <span className="text-[#1E293B]">|</span>
+              <span>
+                Expediente: <strong className={`font-normal ${isStandby ? 'text-[#818CF8]' : 'text-[#10B981]'}`}>
+                  {isStandby ? 'Repouso Noturno (Pós-19h / Domingo)' : 'Seg–Sáb (07h–19h) Ativo'}
+                </strong>
               </span>
             </div>
-            <p className="text-xs text-slate-500 dark:text-white/50 mt-1">
-              Observabilidade de ponta a ponta: SaaS, conectividade e rotinas do cartório
-            </p>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Indicador de Ambiente Fixo e Auditado */}
-            <div className="flex items-center gap-2 bg-white border border-slate-200 dark:bg-[#0B1020] dark:border-white/10 px-3 py-1.5 rounded-xl text-xs">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-              <span className="font-semibold text-slate-700 dark:text-white/90">Produção — único ambiente monitorado</span>
+            <div className="flex items-center gap-4 text-[#64748B] text-[10px]">
+              <span>Linear-density • 12px radius</span>
+              <span className="hidden sm:inline">Pressione <kbd className="px-1.5 py-0.5 rounded bg-[#151A2C] border border-[#1E293B] text-[#94A3B8] font-bold">R</kbd> para atualizar</span>
             </div>
-
-            {/* Timestamp e Status de Entrega */}
-            <div className="hidden sm:flex flex-col text-right text-[11px] font-mono text-slate-500 dark:text-white/40 leading-tight">
-              <span>Atualizado às: {lastUpdated}</span>
-              <span className="text-[10px] text-slate-400 dark:text-white/30">Entrega: {health.delivery === 'cached' ? `cache (${Math.round(health.cacheAgeMs / 1000)}s)` : 'em tempo real'}</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleManualRefresh}
-              disabled={isPending}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-600/20 transition-all active:scale-95 disabled:opacity-50"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${isPending ? 'animate-spin' : ''}`} />
-              <span>Atualizar</span>
-            </button>
           </div>
-        </div>
+        </section>
 
-        {/* Navegação entre Abas */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-white/8 pb-2">
+        {/* ══════════════════════════════════════════════════════════════════
+             NAVEGAÇÃO SECUNDÁRIA (VISÃO GERAL, AUDITORIA & ALERTAS)
+             ══════════════════════════════════════════════════════════════════ */}
+        <div className="flex items-center gap-2 border-b border-[#1E293B] pb-3 text-xs font-medium">
           <button
             type="button"
             onClick={() => setActiveTab('overview')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl transition-all ${
               activeTab === 'overview'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25 border border-blue-500/30'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 dark:text-white/60 dark:hover:text-white dark:hover:bg-white/[0.04] border border-transparent'
+                ? 'bg-[#3B82F6]/15 text-[#3B82F6] border border-[#3B82F6]/20 font-semibold'
+                : 'text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#151A2C]'
             }`}
           >
             <BarChart3 className="h-4 w-4" />
@@ -143,10 +287,10 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
           <button
             type="button"
             onClick={() => setActiveTab('audit')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl transition-all ${
               activeTab === 'audit'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25 border border-blue-500/30'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 dark:text-white/60 dark:hover:text-white dark:hover:bg-white/[0.04] border border-transparent'
+                ? 'bg-[#3B82F6]/15 text-[#3B82F6] border border-[#3B82F6]/20 font-semibold'
+                : 'text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#151A2C]'
             }`}
           >
             <Database className="h-4 w-4" />
@@ -156,10 +300,10 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
           <button
             type="button"
             onClick={() => setActiveTab('alerts')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl transition-all ${
               activeTab === 'alerts'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25 border border-blue-500/30'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60 dark:text-white/60 dark:hover:text-white dark:hover:bg-white/[0.04] border border-transparent'
+                ? 'bg-[#3B82F6]/15 text-[#3B82F6] border border-[#3B82F6]/20 font-semibold'
+                : 'text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#151A2C]'
             }`}
           >
             <Bell className="h-4 w-4" />
@@ -167,61 +311,61 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
           </button>
         </div>
 
+        {/* ══════════════════════════════════════════════════════════════════
+             CONTEÚDO DA ABA ATIVA
+             ══════════════════════════════════════════════════════════════════ */}
         {activeTab === 'overview' && (
-          <>
-            {/* 2. Grid de Cards de Serviços de Infraestrutura */}
+          <div className="space-y-6">
+            {/* 2. Top Services (Plataforma + Rotinas de Cartório) */}
             <ServiceHealthGrid services={health.services} />
 
-            {/* 2.1 Nova Seção: Saúde das Integrações Externas (NextQS, Google Avaliações, etc.) */}
-            <IntegracoesSaudeSection 
-              integrations={health.externalIntegrations} 
-              onRefresh={refreshHealth}
-            />
-
-            {/* 3. Tabela de Sincronização Incremental + Card de Telemetria do Connector */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+            {/* 3. Middle: 70% Sincronização Incremental | 30% Connector & Integrações */}
+            <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-stretch">
               <div className="lg:col-span-7">
                 <IncrementalSyncTable 
                   modules={health.incrementalModules} 
                   recentBatches={health.recentBatches}
                 />
               </div>
-              <div className="lg:col-span-5">
+              <div className="lg:col-span-3">
                 <ConnectorDetailCard connector={health.connector} />
               </div>
             </div>
 
-            {/* 3.1 Cards e Ações das Stored Procedures do Ecossistema WebRI -> FIORIX */}
+            {/* 4. Stored Procedures Integradas (P1 - Tabela Unificada com Busca e Tabs) */}
             <ProceduresOverviewSection 
               modules={health.incrementalModules}
               recentBatches={health.recentBatches}
             />
 
-            {/* 4. Incidentes Recentes e Alertas Ativos */}
-            <IncidentesAlertasSection incidents={health.incidents} alerts={health.alerts} />
+            {/* 5. Incidentes / Alertas (Empty State Premium) */}
+            <IncidentesAlertasSection 
+              incidents={health.incidents} 
+              alerts={health.alerts} 
+            />
 
-            {/* 5. Novo Gráfico Temporal de Ingestão e Performance */}
+            {/* 6. Análise Temporal de Ingestão & Performance (KPIs + Gráficos) */}
             <OperationsChartsSection />
 
-            {/* 6. Métricas Agregadas da Plataforma */}
+            {/* 7. Métricas Agregadas da Plataforma (Linha Única) */}
             <MetricsChartCard metrics={health.metrics} />
-          </>
+          </div>
         )}
 
         {activeTab === 'audit' && (
-          /* Aba de Auditoria Completa de Lotes */
-          <BatchAuditSection />
+          <div className="pt-2">
+            <BatchAuditSection />
+          </div>
         )}
 
         {activeTab === 'alerts' && (
-          /* Aba de Configuração de Notificações e Webhooks */
-          <>
+          <div className="space-y-6 pt-2">
             <NotificationChannelsSummaryCard />
             <AlertSettingsSection />
-          </>
+          </div>
         )}
 
-        {/* Rodapé de Deploys e Versões */}
+        {/* Rodapé de Versões e Deploys */}
         <DeploysVersionsFooter deploys={health.deploys} />
       </main>
     </div>

@@ -58,6 +58,24 @@ html {
       --gold:           #f59e0b;
     }
 
+    /* Pulse Glow Utilities for Central de Operações v2 */
+    .pulse-glow-emerald {
+      box-shadow: 0 0 16px rgba(16, 185, 129, 0.7);
+    }
+    .pulse-glow-amber {
+      box-shadow: 0 0 16px rgba(245, 158, 11, 0.7);
+    }
+    .pulse-glow-indigo {
+      box-shadow: 0 0 16px rgba(129, 140, 248, 0.7);
+    }
+    @keyframes pulseSoft {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.55; transform: scale(0.92); }
+    }
+    .soft-pulse {
+      animation: pulseSoft 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
     /* ═══════ TEMA 1 — MEIA-NOITE ═══════ */
     body.t1 {
       --bg:             linear-gradient(160deg,#050c18 0%,#070d1a 60%,#0a1222 100%);

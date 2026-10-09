@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { X, Layers, Clock, CheckCircle2, AlertTriangle, XCircle, ArrowUpDown } from 'lucide-react';
+import { X, Layers, Clock, CheckCircle2, AlertTriangle, XCircle, ArrowRight } from 'lucide-react';
 import type { BatchHistoryItem } from '@/lib/health/types';
 
 interface Props {
@@ -19,21 +19,21 @@ export function BatchHistoryModal({ isOpen, onClose, moduleName, moduleKey, batc
     switch (status.toLowerCase()) {
       case 'completed':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[rgba(16,185,129,0.1)] text-[#10B981] border border-[rgba(16,185,129,0.2)]">
             <CheckCircle2 className="h-3 w-3" />
-            Concluído
+            OK
           </span>
         );
       case 'partial':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
             <AlertTriangle className="h-3 w-3" />
             Parcial
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
             <XCircle className="h-3 w-3" />
             {status}
           </span>
@@ -42,23 +42,23 @@ export function BatchHistoryModal({ isOpen, onClose, moduleName, moduleKey, batc
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div 
-        className="relative w-full max-w-2xl rounded-2xl border border-slate-200 bg-white dark:border-white/12 dark:bg-[#0B1020]/95 p-6 shadow-2xl backdrop-blur-2xl text-slate-900 dark:text-white space-y-5 animate-in zoom-in-95 duration-200"
+        className="relative w-full max-w-lg h-full border-l border-[#1E293B] bg-[#111729] p-6 shadow-2xl text-[#F1F5F9] flex flex-col justify-between animate-in slide-in-from-right duration-300"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/8 pb-4">
+        <div className="flex items-start justify-between border-b border-[#1E293B] pb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
+            <div className="p-2.5 rounded-xl bg-[#151A2C] border border-[#1E293B] text-[#3B82F6]">
               <Layers className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-                Histórico de Lotes — {moduleName}
+              <h3 className="text-base font-semibold tracking-tight text-[#F1F5F9] flex items-center gap-2">
+                Histórico de Lotes
               </h3>
-              <p className="text-xs text-slate-500 dark:text-white/50">
-                Últimos lotes recebidos via conector para a fonte <span className="font-mono text-white/80">{moduleKey}</span>
+              <p className="text-xs text-[#94A3B8] mt-0.5">
+                {moduleName} • <span className="font-mono text-[#F1F5F9]">{moduleKey}</span>
               </p>
             </div>
           </div>
@@ -66,62 +66,59 @@ export function BatchHistoryModal({ isOpen, onClose, moduleName, moduleKey, batc
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-xl hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+            className="p-1.5 rounded-xl hover:bg-[#151A2C] text-[#94A3B8] hover:text-[#F1F5F9] transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Tabela de Lotes */}
-        <div className="overflow-x-auto max-h-[380px] overflow-y-auto">
+        {/* Lotes List / Table */}
+        <div className="flex-1 overflow-y-auto my-4 pr-1">
           {batches && batches.length > 0 ? (
-            <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 bg-[#0B1020] border-b border-white/8 text-[11px] uppercase tracking-wider text-slate-500 dark:text-white/40 font-semibold">
-                <tr>
-                  <th className="pb-3 pt-1">Identificador</th>
-                  <th className="pb-3 pt-1">Horário</th>
-                  <th className="pb-3 pt-1">Registros</th>
-                  <th className="pb-3 pt-1">Duração</th>
-                  <th className="pb-3 pt-1 text-right">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-white/6 font-mono text-slate-700 dark:text-white/80">
-                {batches.map((batch) => (
-                  <tr key={batch.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
-                    <td className="py-3 text-[11px] text-white/50">
-                      {batch.batchId ? `${batch.batchId.slice(0, 8)}...${batch.batchId.slice(-4)}` : batch.id}
-                    </td>
-                    <td className="py-3 text-white/90">
-                      {batch.receivedAt}
-                    </td>
-                    <td className="py-3 font-semibold text-emerald-400">
-                      {batch.recordsReceived.toLocaleString('pt-BR')}
-                    </td>
-                    <td className="py-3 text-white/60">
-                      {batch.durationMs !== null ? `${(batch.durationMs / 1000).toFixed(1)}s` : '-'}
-                    </td>
-                    <td className="py-3 text-right">
+            <div className="space-y-2.5">
+              {batches.map((batch) => (
+                <div
+                  key={batch.id}
+                  className="p-3 rounded-xl bg-[#070A14] border border-[#1E293B] hover:border-slate-700 transition-colors flex items-center justify-between text-xs font-mono"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-[#94A3B8] font-sans font-medium">
+                        {batch.batchId ? `${batch.batchId.slice(0, 8)}...` : batch.id}
+                      </span>
                       {getStatusBadge(batch.status)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                    <div className="text-[11px] text-[#64748B]">
+                      {batch.receivedAt}
+                    </div>
+                  </div>
+
+                  <div className="text-right space-y-1">
+                    <span className="font-semibold text-[#10B981] block">
+                      {batch.recordsReceived.toLocaleString('pt-BR')} reg{batch.recordsReceived > 1 ? 's' : ''}
+                    </span>
+                    <span className="text-[10px] text-[#64748B] block font-sans">
+                      {batch.durationMs !== null ? `${(batch.durationMs / 1000).toFixed(2)}s` : '-'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
-            <div className="py-12 text-center text-white/40 text-xs space-y-2">
-              <Clock className="h-8 w-8 mx-auto text-white/20" />
-              <p>Nenhum lote recente registrado para esta fonte nas últimas 24 horas.</p>
+            <div className="py-16 text-center text-[#64748B] text-xs space-y-2">
+              <Clock className="h-8 w-8 mx-auto text-[#1E293B]" />
+              <p>Nenhum lote recente registrado nas últimas 24 horas.</p>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-3 border-t border-white/8 text-xs text-white/40">
-          <span>Total de lotes listados: {batches?.length ?? 0}</span>
+        <div className="flex items-center justify-between pt-4 border-t border-[#1E293B] text-xs text-[#94A3B8]">
+          <span>Total: <strong className="text-[#F1F5F9] font-mono">{batches?.length ?? 0}</strong> lotes</span>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition-colors"
+            className="px-4 py-2 rounded-xl bg-[#151A2C] hover:bg-[#1E293B] text-[#F1F5F9] border border-[#1E293B] text-xs font-medium transition-colors"
           >
             Fechar
           </button>

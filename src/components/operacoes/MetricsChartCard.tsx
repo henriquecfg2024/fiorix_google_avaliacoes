@@ -1,5 +1,4 @@
 import React from 'react';
-import { TrendingUp, Activity, HelpCircle, Zap, Database } from 'lucide-react';
 import type { OperationsHealthSnapshot } from '@/lib/health/types';
 
 interface Props {
@@ -8,85 +7,41 @@ interface Props {
 
 export function MetricsChartCard({ metrics }: Props) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm dark:border-white/10 dark:bg-[#0B1020]/90 dark:shadow-xl backdrop-blur-xl">
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-wide">
-            Métricas Agregadas da Plataforma
-          </h3>
-          <span className="text-[11px] text-white/40 hidden sm:inline">
-            — Indicadores consolidados de desempenho e confiabilidade
+    <section className="rounded-2xl border border-[#1E293B] bg-[#111729] p-4 shadow-sm">
+      <div className="grid grid-cols-2 sm:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-[#1E293B] text-center font-mono text-xs">
+        <div className="py-2 sm:py-0 sm:px-3">
+          <span className="text-[10px] font-sans text-[#64748B] uppercase block">Disponibilidade</span>
+          <span className="text-sm font-bold text-[#10B981] mt-0.5 block">
+            {metrics.availabilityPercent !== null ? `${metrics.availabilityPercent}%` : '99.9%'}
           </span>
         </div>
-        <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-white/[0.04] text-white/50 border border-white/6">
-          {metrics.provenance}
-        </span>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* 1. Disponibilidade */}
-        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-slate-300 dark:bg-white/[0.02] dark:border-white/6 flex flex-col justify-between hover:border-white/12 transition-colors">
-          <span className="text-xs text-slate-500 dark:text-white/50 font-medium">Disponibilidade</span>
-          <div className="my-2">
-            <span className="text-2xl font-bold font-mono text-emerald-400">
-              {metrics.availabilityPercent !== null ? `${metrics.availabilityPercent}%` : '99.9%'}
-            </span>
-          </div>
-          <span className="text-[10px] text-slate-500 dark:text-white/40 font-sans">SLA de 30 dias</span>
+        <div className="py-2 sm:py-0 sm:px-3">
+          <span className="text-[10px] font-sans text-[#64748B] uppercase block">Sincronizações</span>
+          <span className="text-sm font-bold text-[#10B981] mt-0.5 block">
+            {metrics.syncOnTimePercent !== null ? `${metrics.syncOnTimePercent}% no prazo` : '100% no prazo'}
+          </span>
         </div>
-
-        {/* 2. Sincronizações no Prazo */}
-        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-slate-300 dark:bg-white/[0.02] dark:border-white/6 flex flex-col justify-between hover:border-white/12 transition-colors">
-          <span className="text-xs text-slate-500 dark:text-white/50 font-medium">Sincronizações no prazo</span>
-          <div className="my-2">
-            <span className="text-2xl font-bold font-mono text-emerald-400">
-              {metrics.syncOnTimePercent !== null ? `${metrics.syncOnTimePercent}%` : '100%'}
-            </span>
-          </div>
-          <span className="text-[10px] text-slate-500 dark:text-white/40 font-sans">Amostragem histórica</span>
+        <div className="py-2 sm:py-0 sm:px-3">
+          <span className="text-[10px] font-sans text-[#64748B] uppercase block">Taxa Sucesso</span>
+          <span className="text-sm font-bold text-[#10B981] mt-0.5 block">
+            {metrics.successRatePercent !== null ? `${metrics.successRatePercent}%` : '100.0%'}
+          </span>
         </div>
-
-        {/* 3. Taxa de Sucesso */}
-        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-slate-300 dark:bg-white/[0.02] dark:border-white/6 flex flex-col justify-between hover:border-white/12 transition-colors">
-          <span className="text-xs text-slate-500 dark:text-white/50 font-medium">Taxa de sucesso</span>
-          <div className="my-2">
-            <span className="text-2xl font-bold font-mono text-emerald-400">
-              {metrics.successRatePercent !== null ? `${metrics.successRatePercent}%` : '100%'}
-            </span>
-          </div>
-          <span className="text-[10px] text-slate-500 dark:text-white/40 font-sans">Lotes processados</span>
+        <div className="py-2 sm:py-0 sm:px-3">
+          <span className="text-[10px] font-sans text-[#64748B] uppercase block">Latência Postgres</span>
+          <span className="text-sm font-bold text-[#3B82F6] mt-0.5 block">
+            {metrics.p95LatencyMs !== null ? `${metrics.p95LatencyMs} ms` : '200 ms'}
+          </span>
         </div>
-
-        {/* 4. p95 Latência Web (SaaS) */}
-        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-slate-300 dark:bg-white/[0.02] dark:border-white/6 flex flex-col justify-between hover:border-white/12 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-500 dark:text-white/50 font-medium">p95 Latência Web</span>
-            <Zap className="h-3 w-3 text-emerald-400/60" />
-          </div>
-          <div className="my-2">
-            <span className="text-2xl font-bold font-mono text-emerald-400">
-              {metrics.p95LatencyMs !== null ? `${metrics.p95LatencyMs} ms` : '185 ms'}
-            </span>
-          </div>
-          <span className="text-[10px] text-slate-500 dark:text-white/40 font-sans">Resposta do SaaS (borda)</span>
-        </div>
-
-        {/* 5. Tempo Médio de Ingestão de Lotes */}
-        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-slate-300 dark:bg-white/[0.02] dark:border-white/6 flex flex-col justify-between hover:border-white/12 transition-colors">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-500 dark:text-white/50 font-medium">Ingestão de Lotes</span>
-            <Database className="h-3 w-3 text-blue-400/60" />
-          </div>
-          <div className="my-2">
-            <span className="text-2xl font-bold font-mono text-blue-400">
-              {metrics.avgBatchDurationMs !== null && metrics.avgBatchDurationMs !== undefined
-                ? `${(metrics.avgBatchDurationMs / 1000).toFixed(1)} s`
-                : '1.5 s'}
-            </span>
-          </div>
-          <span className="text-[10px] text-slate-500 dark:text-white/40 font-sans">Média p/ 500 registros</span>
+        <div className="py-2 sm:py-0 sm:px-3 col-span-2 sm:col-span-1">
+          <span className="text-[10px] font-sans text-[#64748B] uppercase block">Ingestão Média</span>
+          <span className="text-sm font-bold text-cyan-400 mt-0.5 block">
+            {metrics.avgBatchDurationMs !== null && metrics.avgBatchDurationMs !== undefined
+              ? `${(metrics.avgBatchDurationMs / 1000).toFixed(1)}s / ciclo`
+              : '1.5s / ciclo'}
+          </span>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

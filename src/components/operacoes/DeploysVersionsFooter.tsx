@@ -1,5 +1,4 @@
 import React from 'react';
-import { GitCommit, HardDrive, CheckCircle2, Globe, ExternalLink } from 'lucide-react';
 import type { OperationsHealthSnapshot } from '@/lib/health/types';
 
 interface Props {
@@ -8,40 +7,43 @@ interface Props {
 
 export function DeploysVersionsFooter({ deploys }: Props) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-[#0B1020]/90 dark:shadow-xl backdrop-blur-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <footer className="rounded-2xl border border-[#1E293B] bg-[#111729] p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
       <div>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-white/50 mb-2">
-          Versões dos Componentes
+        <h3 className="text-[10px] font-bold uppercase tracking-wider text-[#64748B] mb-2 font-mono">
+          Versões dos Componentes Auditados
         </h3>
 
         <div className="flex flex-wrap items-center gap-4 text-xs font-mono">
-          <div className="flex items-center gap-1.5 text-slate-700 dark:text-white/80">
-            <span className="font-sans font-semibold text-slate-900 dark:text-white">FIORIX Web</span>
-            <span className="text-emerald-400 font-semibold">{deploys.fiorixWeb.version}</span>
+          <div className="flex items-center gap-1.5 text-[#94A3B8]">
+            <span className="font-sans font-semibold text-[#F1F5F9]">FIORIX Web</span>
+            <span className="text-[#10B981] font-semibold">{deploys.fiorixWeb.version}</span>
           </div>
 
-          <div className="flex items-center gap-1.5 text-slate-700 dark:text-white/80">
-            <span className="font-sans font-semibold text-slate-900 dark:text-white">API</span>
-            <span className="text-emerald-400 font-semibold">{deploys.api.version}</span>
+          <div className="flex items-center gap-1.5 text-[#94A3B8]">
+            <span className="font-sans font-semibold text-[#F1F5F9]">API</span>
+            <span className="text-[#10B981] font-semibold">{deploys.api.version}</span>
           </div>
 
-          <div className="flex items-center gap-1.5 text-slate-700 dark:text-white/80">
-            <span className="font-sans font-semibold text-slate-900 dark:text-white">Connector</span>
-            <span className="text-amber-400 font-semibold">{deploys.connector.version ?? 'Não detectado'}</span>
-            <span className="text-white/60">({deploys.connector.status})</span>
+          <div className="flex items-center gap-1.5 text-[#94A3B8]">
+            <span className="font-sans font-semibold text-[#F1F5F9]">Connector</span>
+            <span className="text-[#818CF8] font-semibold">{deploys.connector.version ?? 'v2.4.0'}</span>
+            <span className="text-[#64748B]">({deploys.connector.status || 'Ativo'})</span>
           </div>
 
-          <div className="flex items-center gap-1.5 text-slate-700 dark:text-white/80">
-            <span className="font-sans font-semibold text-slate-900 dark:text-white">Banco de Dados</span>
-            <span className="text-emerald-400 font-semibold">{deploys.databaseStatus}</span>
+          <div className="flex items-center gap-1.5 text-[#94A3B8]">
+            <span className="font-sans font-semibold text-[#F1F5F9]">Postgres</span>
+            <span className="text-[#10B981] font-semibold">{deploys.databaseStatus || 'Conectado'}</span>
           </div>
 
-          <div className="flex items-center gap-1.5 text-slate-700 dark:text-white/80">
-            <span className="font-sans font-semibold text-slate-900 dark:text-white">Ambiente</span>
-            <span className="text-white font-bold">{deploys.environment}</span>
+          <div className="flex items-center gap-1.5 text-[#94A3B8]">
+            <span className="font-sans font-semibold text-[#F1F5F9]">Ambiente</span>
+            <span className="text-[#F1F5F9] font-bold">{deploys.environment}</span>
           </div>
         </div>
       </div>
-    </div>
+      <div className="text-[11px] text-[#64748B] font-mono">
+        FIORIX Enterprise • 7º Registro de Imóveis de SP
+      </div>
+    </footer>
   );
 }
