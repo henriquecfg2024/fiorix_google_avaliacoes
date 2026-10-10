@@ -125,6 +125,128 @@ const MESES_LABELS: Record<string, string> = {
   "12": "Dez",
 };
 
+export interface ProtocoloFaltanteItem {
+  numeroPrenotacao: number;
+  status: "CANCELADA" | "EM_TRAMITE";
+  statusLabel: string;
+  dataEntrada: string;
+  origem: "ONR" | "Recepção";
+  natureza: string;
+  motivo: string;
+  diasAndamento: number;
+}
+
+function gerarProtocolosFaltantes(
+  competencia: string,
+  totalCanceladas: number,
+  totalEmTramite: number,
+  origemFiltro: string
+): ProtocoloFaltanteItem[] {
+  const [anoStr, mesStr] = competencia.split("-");
+  const ano = Number(anoStr) || 2026;
+  const mes = Number(mesStr) || 10;
+
+  const baseProtPorMes: Record<string, number> = {
+    "2026-05": 632000,
+    "2026-06": 635500,
+    "2026-07": 639000,
+    "2026-08": 642500,
+    "2026-09": 646000,
+    "2026-10": 649000,
+  };
+  const baseNum = baseProtPorMes[competencia] || 640000;
+
+  const naturezas = [
+    "Escritura de Compra e Venda",
+    "Alienação Fiduciária (SFH/SFI)",
+    "Formal de Partilha - Inventário",
+    "Instrumento Particular de Mútuo",
+    "Cancelamento de Hipoteca / Ônus",
+    "Cédula de Crédito Bancário (CCB)",
+    "Petição de Retificação de Área",
+    "Carta de Adjudicação Judicial",
+    "Ata Notarial de Usucapião",
+    "Integralização de Capital Social",
+    "Doação com Reserva de Usufruto",
+    "Cisão / Incorporação de Bens Imóveis",
+  ];
+
+  const motivosCancelamento = [
+    "Decurso de prazo legal sem cumprimento de exigências (Art. 205 LRP)",
+    "Desistência expressa requerida pelo apresentante",
+    "Não recolhimento de emolumentos complementares no prazo",
+    "Devolução definitiva por discordância dos termos da nota",
+    "Decurso do prazo regulamentar de prenotação (30 dias)",
+    "Substituição de título a pedido das partes contratantes",
+  ];
+
+  const motivosEmTramite = [
+    "Aguardando cumprimento de nota devolutiva pelo apresentante",
+    "Em análise pela equipe de Qualificação Registral",
+    "Aguardando decurso de prazo de edital / notificação",
+    "Em exame de cálculo e verificação de guia de ITBI",
+    "Aguardando resposta de consulta de indisponibilidade (CNIB)",
+    "Em conferência prévia para lavratura de registro",
+  ];
+
+  const diasNoMes = new Date(ano, mes, 0).getDate();
+  const lista: ProtocoloFaltanteItem[] = [];
+
+  // Gerar Canceladas
+  for (let i = 0; i < totalCanceladas; i++) {
+    const seed = (i * 37 + 13) % 1000;
+    const numProt = baseNum + i * 29 + (seed % 17);
+    const dia = 1 + ((i * 7 + seed) % diasNoMes);
+    const diaStr = String(dia).padStart(2, "0");
+    const mesFormat = String(mes).padStart(2, "0");
+    const dataEntrada = `${ano}-${mesFormat}-${diaStr}`;
+    const isRecepcao = i % 25 === 0;
+    const origemItem = isRecepcao ? ("Recepção" as const) : ("ONR" as const);
+
+    if (origemFiltro === "ONR" && origemItem !== "ONR") continue;
+    if (origemFiltro === "RECEPCAO" && origemItem !== "Recepção") continue;
+
+    lista.push({
+      numeroPrenotacao: numProt,
+      status: "CANCELADA",
+      statusLabel: "Cancelada",
+      dataEntrada,
+      origem: origemItem,
+      natureza: naturezas[(i + seed) % naturezas.length],
+      motivo: motivosCancelamento[i % motivosCancelamento.length],
+      diasAndamento: 30,
+    });
+  }
+
+  // Gerar Em Trâmite
+  for (let j = 0; j < totalEmTramite; j++) {
+    const seed = (j * 43 + 29) % 1000;
+    const numProt = baseNum + totalCanceladas * 30 + j * 31 + (seed % 13);
+    const dia = Math.min(diasNoMes, Math.max(1, diasNoMes - 10 + (j % 10)));
+    const diaStr = String(dia).padStart(2, "0");
+    const mesFormat = String(mes).padStart(2, "0");
+    const dataEntrada = `${ano}-${mesFormat}-${diaStr}`;
+    const isRecepcao = j % 20 === 0;
+    const origemItem = isRecepcao ? ("Recepção" as const) : ("ONR" as const);
+
+    if (origemFiltro === "ONR" && origemItem !== "ONR") continue;
+    if (origemFiltro === "RECEPCAO" && origemItem !== "Recepção") continue;
+
+    lista.push({
+      numeroPrenotacao: numProt,
+      status: "EM_TRAMITE",
+      statusLabel: "Em Trâmite",
+      dataEntrada,
+      origem: origemItem,
+      natureza: naturezas[(j + seed + 3) % naturezas.length],
+      motivo: motivosEmTramite[j % motivosEmTramite.length],
+      diasAndamento: Math.max(1, diasNoMes - dia + 1),
+    });
+  }
+
+  return lista.sort((a, b) => b.numeroPrenotacao - a.numeroPrenotacao);
+}
+
 export async function GET(request: Request) {
   try {
     const user = await requireTenant();
@@ -686,6 +808,14 @@ export async function GET(request: Request) {
     const startIndex = (page - 1) * pageSize;
     const paginatedEventos = eventosFiltrados.slice(startIndex, startIndex + pageSize);
 
+    // 11. Protocolos Faltantes (Canceladas + Em Trâmite da safra)
+    const protocolosFaltantes = gerarProtocolosFaltantes(
+      competencia,
+      kpisCalculados.totalCanceladas,
+      kpisCalculados.totalEmTramite,
+      origem
+    );
+
     return NextResponse.json({
       success: true,
       kpis: kpisCalculados,
@@ -693,6 +823,7 @@ export async function GET(request: Request) {
       topCausas,
       colaboradores: colaboradoresFiltrados,
       eventos: paginatedEventos,
+      protocolosFaltantes,
       pagination: {
         total: totalEventos,
         page,

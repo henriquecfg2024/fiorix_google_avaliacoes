@@ -27,7 +27,21 @@ import {
   Award,
   Building2,
   User,
+  Copy,
+  Check,
+  XCircle,
 } from "lucide-react";
+
+export interface ProtocoloFaltanteItem {
+  numeroPrenotacao: number;
+  status: "CANCELADA" | "EM_TRAMITE";
+  statusLabel: string;
+  dataEntrada: string;
+  origem: "ONR" | "Recepção";
+  natureza: string;
+  motivo: string;
+  diasAndamento: number;
+}
 
 interface KpiData {
   totalPrenotacoes: number;
@@ -124,6 +138,16 @@ export function QualidadeDashboardClient() {
   const [userRole, setUserRole] = useState("SUBSTITUTO");
   const [colaboradoresVisivel, setColaboradoresVisivel] = useState(false);
 
+  // Estado para Card SALDO FALTANTE e listagem dos respectivos protocolos
+  const [filtroSaldoFaltante, setFiltroSaldoFaltante] = useState(false);
+  const [subFiltroStatus, setSubFiltroStatus] = useState<"TODOS" | "CANCELADA" | "EM_TRAMITE">("TODOS");
+  const [buscaFaltante, setBuscaFaltante] = useState("");
+  const [protocolosFaltantes, setProtocolosFaltantes] = useState<ProtocoloFaltanteItem[]>([]);
+  const [paginaFaltante, setPaginaFaltante] = useState(1);
+  const [copiadoProt, setCopiadoProt] = useState<number | null>(null);
+  const [copiadoTodos, setCopiadoTodos] = useState(false);
+  const itensPorPaginaFaltante = 15;
+
   // Modais / Gavetas Laterais
   const [modalLimiteOpen, setModalLimiteOpen] = useState(false);
   const [modalRevisaoOpen, setModalRevisaoOpen] = useState(false);
@@ -182,6 +206,7 @@ export function QualidadeDashboardClient() {
         );
         setTopCausas(data.topCausas || []);
         setEvolucaoMensal(data.evolucaoMensal || []);
+        setProtocolosFaltantes(data.protocolosFaltantes || []);
         if (data.userRole) setUserRole(data.userRole);
 
         // Preenche o nome padrão no formulário de limite caso ainda vazio
@@ -324,6 +349,53 @@ export function QualidadeDashboardClient() {
     }
   };
 
+  // Filtragem dos Protocolos Faltantes
+  const protocolosFaltantesFiltrados = useMemo(() => {
+    let list = protocolosFaltantes;
+    if (subFiltroStatus === "CANCELADA") {
+      list = list.filter((p) => p.status === "CANCELADA");
+    } else if (subFiltroStatus === "EM_TRAMITE") {
+      list = list.filter((p) => p.status === "EM_TRAMITE");
+    }
+    if (buscaFaltante.trim()) {
+      const q = buscaFaltante.toLowerCase();
+      list = list.filter(
+        (p) =>
+          String(p.numeroPrenotacao).includes(q) ||
+          p.natureza.toLowerCase().includes(q) ||
+          p.motivo.toLowerCase().includes(q) ||
+          p.origem.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [protocolosFaltantes, subFiltroStatus, buscaFaltante]);
+
+  const totalPaginasFaltante = Math.max(1, Math.ceil(protocolosFaltantesFiltrados.length / itensPorPaginaFaltante));
+  const protocolosPaginados = useMemo(() => {
+    const start = (paginaFaltante - 1) * itensPorPaginaFaltante;
+    return protocolosFaltantesFiltrados.slice(start, start + itensPorPaginaFaltante);
+  }, [protocolosFaltantesFiltrados, paginaFaltante, itensPorPaginaFaltante]);
+
+  // Reset de página ao alterar filtros da listagem faltante
+  useEffect(() => {
+    setPaginaFaltante(1);
+  }, [subFiltroStatus, buscaFaltante, filtroSaldoFaltante]);
+
+  // Handlers para Copiar Protocolo Individual e Lista Completa
+  const handleCopiarProtocolo = (num: number) => {
+    navigator.clipboard.writeText(String(num));
+    setCopiadoProt(num);
+    setTimeout(() => setCopiadoProt(null), 2000);
+  };
+
+  const handleCopiarTodosProtocolos = () => {
+    if (protocolosFaltantesFiltrados.length === 0) return;
+    const listaNums = protocolosFaltantesFiltrados.map((p) => p.numeroPrenotacao).join(", ");
+    navigator.clipboard.writeText(listaNums);
+    setCopiadoTodos(true);
+    setTimeout(() => setCopiadoTodos(false), 2500);
+  };
+
   // Resetar todos os filtros
   const handleResetFiltros = () => {
     setTipoRetorno("TODOS");
@@ -332,6 +404,10 @@ export function QualidadeDashboardClient() {
     setBuscaColaborador("");
     setBuscaGeral("");
     setCompetencia("2026-10");
+    setFiltroSaldoFaltante(false);
+    setSubFiltroStatus("TODOS");
+    setBuscaFaltante("");
+    setPaginaFaltante(1);
   };
 
   return (
@@ -568,25 +644,90 @@ export function QualidadeDashboardClient() {
           <span className="text-[10px] text-slate-400 font-mono pt-1 border-t border-slate-800/80">Caixa + Contraditório</span>
         </div>
 
-        {/* 3. Saldo Faltante (Canceladas + Em Trâmite) */}
-        <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
+        {/* 3. Saldo Faltante (Canceladas + Em Trâmite) - Clicável para filtrar e listar protocolos */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setFiltroSaldoFaltante((prev) => !prev)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setFiltroSaldoFaltante((prev) => !prev);
+            }
+          }}
+          className={`p-4 rounded-xl border flex flex-col justify-between transition-all cursor-pointer select-none group relative overflow-hidden ${
+            filtroSaldoFaltante
+              ? "border-amber-400 bg-amber-500/15 ring-2 ring-amber-400/50 shadow-xl shadow-amber-500/15"
+              : "border-slate-800 bg-[#111729] hover:bg-[#151A2C] hover:border-amber-500/60 hover:shadow-lg hover:shadow-amber-500/10 active:scale-[0.99]"
+          }`}
+          title={
+            filtroSaldoFaltante
+              ? "Clique para ocultar a listagem de protocolos do saldo faltante"
+              : "Clique para filtrar e ver a listagem dos respectivos protocolos"
+          }
+        >
+          {filtroSaldoFaltante && (
+            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500" />
+          )}
+
           <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Saldo Faltante</span>
-            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 font-bold border border-amber-500/20">
-              Trâmite + Cancel.
+            <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider flex items-center gap-1.5">
+              <span>Saldo Faltante</span>
+              {filtroSaldoFaltante && (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              )}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold border transition-colors flex items-center gap-1 ${
+                  filtroSaldoFaltante
+                    ? "bg-amber-400 text-slate-950 border-amber-300 font-extrabold shadow-sm"
+                    : "bg-amber-500/15 text-amber-300 border-amber-500/20 group-hover:border-amber-400/50 group-hover:bg-amber-500/25"
+                }`}
+              >
+                <span>Trâmite + Cancel.</span>
+                <span className="text-[8px] font-semibold opacity-90">
+                  {filtroSaldoFaltante ? "✕ Ativo" : "↗ Listar"}
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <div className="my-2 flex items-baseline justify-between">
+            <span className="text-2xl font-bold font-mono text-amber-300 group-hover:text-amber-200 transition-colors">
+              {kpis
+                ? (
+                    kpis.totalFaltante ??
+                    Math.max(0, kpis.totalPrenotacoes - kpis.producaoTotal)
+                  ).toLocaleString("pt-BR")
+                : "89"}
+            </span>
+            <span className="text-[10px] font-mono text-amber-400/90 flex items-center gap-1 transition-opacity">
+              {filtroSaldoFaltante ? (
+                <span className="underline font-semibold text-amber-300">Ocultar lista ✕</span>
+              ) : (
+                <span className="text-slate-400 group-hover:text-amber-300 transition-colors">
+                  Clique p/ filtrar ↗
+                </span>
+              )}
             </span>
           </div>
-          <div className="my-2">
-            <span className="text-2xl font-bold font-mono text-amber-300">
-              {kpis ? (kpis.totalFaltante ?? Math.max(0, kpis.totalPrenotacoes - kpis.producaoTotal)).toLocaleString("pt-BR") : "89"}
-            </span>
-          </div>
+
           <div className="text-[10px] text-slate-400 font-mono flex items-center justify-between pt-1 border-t border-slate-800/80">
             <span className="text-rose-400 font-semibold bg-rose-500/10 px-1 rounded">
               {kpis ? kpis.totalCanceladas : "72"} cancel.
             </span>
             <span className="text-slate-300 font-semibold">
-              {kpis ? (kpis.totalEmTramite ?? Math.max(0, (kpis.totalFaltante ?? 89) - kpis.totalCanceladas)) : "17"} em trâmite
+              {kpis
+                ? (
+                    kpis.totalEmTramite ??
+                    Math.max(
+                      0,
+                      (kpis.totalFaltante ?? 89) - kpis.totalCanceladas
+                    )
+                  )
+                : "17"}{" "}
+              em trâmite
             </span>
           </div>
         </div>
@@ -655,6 +796,274 @@ export function QualidadeDashboardClient() {
           );
         })()}
       </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+           4.1. LISTAGEM DOS PROTOCOLOS DO SALDO FALTANTE (AO CLICAR NO CARD)
+           ══════════════════════════════════════════════════════════════════ */}
+      {filtroSaldoFaltante && (
+        <section className="rounded-2xl border-2 border-amber-500/40 bg-[#111729] p-5 sm:p-6 shadow-2xl shadow-amber-500/10 ring-1 ring-amber-500/20 space-y-4 relative overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+          {/* Barra superior de destaque com gradiente âmbar/dourado */}
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-600" />
+
+          {/* Topo do Painel de Protocolos Faltantes */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 shadow-md">
+                <Layers className="h-5 w-5 text-amber-400" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h3 className="text-base font-bold text-white tracking-wide">
+                    Listagem dos Protocolos — Saldo Faltante
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-mono font-bold">
+                    {protocolosFaltantesFiltrados.length}{" "}
+                    {protocolosFaltantesFiltrados.length === 1 ? "protocolo" : "protocolos"}
+                  </span>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                    Safra {competencia}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Protocolos da safra que ainda não foram concluídos na competência selecionada (
+                  <span className="text-rose-400 font-semibold">{kpis?.totalCanceladas ?? 0} cancelados</span> e{" "}
+                  <span className="text-amber-300 font-semibold">{kpis?.totalEmTramite ?? 0} em trâmite</span>).
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-start md:self-auto">
+              <button
+                type="button"
+                onClick={handleCopiarTodosProtocolos}
+                className="px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-xs text-slate-200 font-semibold transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                title="Copiar lista de números para conferência"
+              >
+                {copiadoTodos ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5 text-amber-400" />
+                )}
+                <span>{copiadoTodos ? "Copiados!" : "Copiar Protocolos"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFiltroSaldoFaltante(false)}
+                className="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-500/40 text-xs font-semibold transition-all flex items-center gap-1 active:scale-95"
+                title="Fechar listagem de protocolos do saldo faltante"
+              >
+                <X className="w-4 h-4" />
+                <span>Fechar</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Filtros em Abas e Barra de Pesquisa */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+            {/* Abas Rápidas: Todos | Canceladas | Em Trâmite */}
+            <div className="inline-flex p-1 rounded-xl bg-[#0B0F1A] border border-slate-800 text-xs">
+              <button
+                type="button"
+                onClick={() => setSubFiltroStatus("TODOS")}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 text-xs ${
+                  subFiltroStatus === "TODOS"
+                    ? "bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <span>Todos</span>
+                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300">
+                  {protocolosFaltantes.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSubFiltroStatus("CANCELADA")}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 text-xs ${
+                  subFiltroStatus === "CANCELADA"
+                    ? "bg-rose-500/25 text-rose-300 border border-rose-500/40 shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <XCircle className="w-3 h-3 text-rose-400" />
+                <span>Canceladas</span>
+                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300">
+                  {protocolosFaltantes.filter((p) => p.status === "CANCELADA").length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSubFiltroStatus("EM_TRAMITE")}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 text-xs ${
+                  subFiltroStatus === "EM_TRAMITE"
+                    ? "bg-yellow-500/25 text-yellow-300 border border-yellow-500/40 shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Clock className="w-3 h-3 text-yellow-400" />
+                <span>Em Trâmite</span>
+                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded-full bg-yellow-500/20 text-yellow-300">
+                  {protocolosFaltantes.filter((p) => p.status === "EM_TRAMITE").length}
+                </span>
+              </button>
+            </div>
+
+            {/* Input de Busca Rápida */}
+            <div className="relative flex-1 sm:max-w-xs">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar por protocolo, natureza ou motivo..."
+                value={buscaFaltante}
+                onChange={(e) => setBuscaFaltante(e.target.value)}
+                className="w-full pl-9 pr-8 py-1.5 rounded-xl bg-[#151A2C] border border-slate-700/80 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-colors"
+              />
+              {buscaFaltante && (
+                <button
+                  type="button"
+                  onClick={() => setBuscaFaltante("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  title="Limpar busca"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Tabela de Protocolos Faltantes */}
+          <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#090E1D]">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 bg-[#151A2C] text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
+                  <th className="py-2.5 px-3">Nº Prenotação</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3">Data Entrada</th>
+                  <th className="py-2.5 px-3">Origem</th>
+                  <th className="py-2.5 px-3">Natureza do Título</th>
+                  <th className="py-2.5 px-3">Andamento / Motivo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 font-mono text-[11px]">
+                {protocolosPaginados.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-slate-400 font-sans">
+                      Nenhum protocolo encontrado com os filtros aplicados.
+                    </td>
+                  </tr>
+                ) : (
+                  protocolosPaginados.map((item) => (
+                    <tr
+                      key={item.numeroPrenotacao}
+                      className="hover:bg-slate-800/40 transition-colors group"
+                    >
+                      {/* Nº Prenotação */}
+                      <td className="py-2.5 px-3 font-bold text-white">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-cyan-300">#{item.numeroPrenotacao}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopiarProtocolo(item.numeroPrenotacao)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-amber-300 p-0.5 rounded"
+                            title="Copiar número"
+                          >
+                            {copiadoProt === item.numeroPrenotacao ? (
+                              <Check className="w-3 h-3 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-2.5 px-3 font-sans">
+                        {item.status === "CANCELADA" ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                            <XCircle className="w-3 h-3 text-rose-400" />
+                            <span>Cancelada</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                            <Clock className="w-3 h-3 text-amber-400" />
+                            <span>Em Trâmite</span>
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Data Entrada */}
+                      <td className="py-2.5 px-3 text-slate-300">
+                        {item.dataEntrada
+                          ? item.dataEntrada.split("-").reverse().join("/")
+                          : "—"}
+                      </td>
+
+                      {/* Origem */}
+                      <td className="py-2.5 px-3 font-sans">
+                        {item.origem === "ONR" ? (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                            🌐 ONR
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                            🏢 Recepção
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Natureza */}
+                      <td className="py-2.5 px-3 font-sans text-slate-200 max-w-[200px] truncate" title={item.natureza}>
+                        {item.natureza}
+                      </td>
+
+                      {/* Motivo / Andamento */}
+                      <td className="py-2.5 px-3 font-sans text-slate-400 max-w-[320px] truncate" title={item.motivo}>
+                        {item.motivo}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Paginação */}
+          {totalPaginasFaltante > 1 && (
+            <div className="flex items-center justify-between text-xs text-slate-400 pt-1 font-mono">
+              <span>
+                Mostrando {(paginaFaltante - 1) * itensPorPaginaFaltante + 1}–
+                {Math.min(paginaFaltante * itensPorPaginaFaltante, protocolosFaltantesFiltrados.length)} de{" "}
+                {protocolosFaltantesFiltrados.length} protocolos
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaginaFaltante((p) => Math.max(1, p - 1))}
+                  disabled={paginaFaltante === 1}
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-700 transition-colors"
+                >
+                  Anterior
+                </button>
+                <span className="text-slate-300 font-bold px-1">
+                  {paginaFaltante} / {totalPaginasFaltante}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPaginaFaltante((p) => Math.min(totalPaginasFaltante, p + 1))}
+                  disabled={paginaFaltante === totalPaginasFaltante}
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-700 transition-colors"
+                >
+                  Próxima
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════
            5. GRÁFICOS: EVOLUÇÃO MÊS A MÊS & TOP CAUSAS CLICÁVEIS

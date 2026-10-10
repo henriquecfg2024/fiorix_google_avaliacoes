@@ -143,6 +143,90 @@ function checkBusinessHoursState(now: Date): { isBusinessHours: boolean; isMorni
   }
 }
 
+/**
+ * Calcula a próxima execução esperada considerando a janela de expediente (Seg-Sáb, 07h-19h)
+ * e o escalonamento dos ciclos (a cada 15 min).
+ */
+function computeNextExpectedDate(
+  lastSyncDate: Date,
+  intervalSeconds: number,
+  moduleKey: string,
+  now: Date
+): { nextExpectedDate: Date; isPendingFirstCycleToday: boolean } {
+  // Escalonamento a cada 15 min na reabertura matinal do expediente (07h às 19h Seg-Sáb)
+  const morningOffsetsMinutes: Record<string, number> = {
+    bi: 0,             // 07:00:00
+    produtividade: 15, // 07:15:00
+    metas: 30,         // 07:30:00
+    tarefas: 45,       // 07:45:00
+    retornos: 20,      // 07:20:00
+    impressoes: 25,    // 07:25:00
+  };
+
+  const offsetMinutes = morningOffsetsMinutes[moduleKey] ?? 0;
+  const candidate = new Date(lastSyncDate.getTime() + intervalSeconds * 1000);
+
+  const getSpDetails = (d: Date) => {
+    try {
+      const spStr = d.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' });
+      const dt = new Date(spStr);
+      return {
+        day: dt.getDay(),
+        hour: dt.getHours(),
+        minute: dt.getMinutes(),
+        year: dt.getFullYear(),
+        month: dt.getMonth(),
+        date: dt.getDate(),
+      };
+    } catch {
+      return {
+        day: d.getDay(),
+        hour: d.getHours(),
+        minute: d.getMinutes(),
+        year: d.getFullYear(),
+        month: d.getMonth(),
+        date: d.getDate(),
+      };
+    }
+  };
+
+  const candSp = getSpDetails(candidate);
+  const nowSp = getSpDetails(now);
+
+  const isDifferentDay =
+    candSp.date !== nowSp.date || candSp.month !== nowSp.month || candSp.year !== nowSp.year;
+  const isAfterHours = candSp.hour >= 19 || candSp.hour < 7 || candSp.day === 0;
+
+  if (isAfterHours || isDifferentDay) {
+    const targetSp = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+
+    if (nowSp.hour >= 19 || nowSp.day === 0) {
+      const daysToAdd = nowSp.day === 6 ? 2 : 1;
+      targetSp.setDate(targetSp.getDate() + daysToAdd);
+    }
+
+    targetSp.setHours(7, offsetMinutes, 0, 0);
+
+    const y = targetSp.getFullYear();
+    const m = String(targetSp.getMonth() + 1).padStart(2, '0');
+    const d = String(targetSp.getDate()).padStart(2, '0');
+    const h = String(targetSp.getHours()).padStart(2, '0');
+    const min = String(targetSp.getMinutes()).padStart(2, '0');
+    const adjustedIso = `${y}-${m}-${d}T${h}:${min}:00-03:00`;
+    const nextExpected = new Date(adjustedIso);
+
+    return {
+      nextExpectedDate: nextExpected,
+      isPendingFirstCycleToday: isDifferentDay && nowSp.hour < 8,
+    };
+  }
+
+  return {
+    nextExpectedDate: candidate,
+    isPendingFirstCycleToday: false,
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 4. FUNÇÃO PRINCIPAL DE OBSERVABILIDADE
 // ─────────────────────────────────────────────────────────────────────────────
@@ -467,11 +551,18 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       continue;
     }
 
+    const { isBusinessHours: isWorkHours, isMorningGracePeriod } = checkBusinessHoursState(now);
+
+    const { nextExpectedDate, isPendingFirstCycleToday } = computeNextExpectedDate(
+      lastSyncDate,
+      cfg.expectedIntervalSeconds,
+      cfg.key,
+      now
+    );
+
     const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - lastSyncDate.getTime()) / 1000));
     const warningThreshold = cfg.expectedIntervalSeconds * 1.5;
     const errorThreshold = cfg.expectedIntervalSeconds * 3.0;
-
-    const { isBusinessHours: isWorkHours, isMorningGracePeriod } = checkBusinessHoursState(now);
 
     let status: 'OK' | 'WARNING' | 'ERROR' = 'OK';
     let statusNote = 'Sincronizado dentro da janela esperada';
@@ -479,38 +570,53 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     if (!isWorkHours) {
       status = 'OK';
       statusNote = 'Fora do expediente (07h às 19h - Seg a Sáb) — Sincronizações pausadas';
-    } else if (isMorningGracePeriod && elapsedSeconds > errorThreshold) {
+    } else if (isPendingFirstCycleToday || isMorningGracePeriod) {
       status = 'OK';
-      statusNote = 'Início do expediente — aguardando primeiro ciclo da manhã';
+      statusNote = 'Início do expediente — aguardando ciclo escalonado da manhã';
     } else if (!isConnectorOnline) {
       status = 'WARNING';
       statusNote = 'Conector pausado ou offline — aguardando ciclo do serviço local';
     } else if (statusEntry?.lastError && elapsedSeconds > warningThreshold) {
       status = 'ERROR';
       statusNote = `Erro transitório no SQL Server do cartório: ${statusEntry.lastError}`;
-    } else if (elapsedSeconds > errorThreshold) {
+    } else if (now.getTime() > nextExpectedDate.getTime() + errorThreshold * 1000) {
       status = 'ERROR';
-      const mins = Math.round(elapsedSeconds / 60);
+      const mins = Math.round((now.getTime() - nextExpectedDate.getTime()) / 60000);
       const limitMins = Math.round(errorThreshold / 60);
       statusNote = `Sem lote há ${mins} min (tolerância: ${limitMins} min)`;
-    } else if (elapsedSeconds > warningThreshold) {
+    } else if (now.getTime() > nextExpectedDate.getTime() + warningThreshold * 1000) {
       status = 'WARNING';
-      const mins = Math.round(elapsedSeconds / 60);
+      const mins = Math.round((now.getTime() - nextExpectedDate.getTime()) / 60000);
       statusNote = `Sincronização com atraso moderado (${mins} min)`;
     }
 
+    // Atraso exato em segundos: 0 durante folga, pausa noturna ou carência matinal
+    let delaySeconds = 0;
+    if (isWorkHours && !isPendingFirstCycleToday && !isMorningGracePeriod && now.getTime() > nextExpectedDate.getTime()) {
+      delaySeconds = Math.max(0, Math.floor((now.getTime() - nextExpectedDate.getTime()) / 1000));
+    }
+
     const records = lastBatch?.recordsReceived ?? statusEntry?.recordsLastSync ?? null;
-    const nextExpectedDate = new Date(lastSyncDate.getTime() + cfg.expectedIntervalSeconds * 1000);
 
     incrementalModules.push({
       module: cfg.module,
       key: cfg.key,
       status,
-      lastSyncAt: lastSyncDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' }),
+      lastSyncAt: lastSyncDate.toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZone: 'America/Sao_Paulo',
+      }),
       nextExpectedAt: !isWorkHours
         ? '07:00 (Próximo expediente)'
-        : nextExpectedDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' }),
-      delaySeconds: !isWorkHours ? 0 : Math.max(0, elapsedSeconds - cfg.expectedIntervalSeconds),
+        : nextExpectedDate.toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            timeZone: 'America/Sao_Paulo',
+          }),
+      delaySeconds,
       recordsCount: records,
       isIncremental: true,
       expectedIntervalSeconds: cfg.expectedIntervalSeconds,
