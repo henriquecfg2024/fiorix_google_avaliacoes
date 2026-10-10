@@ -1768,16 +1768,6 @@ export function QualidadeDashboardClient() {
                 Clique em uma causa para isolar os protocolos na tabela
               </p>
             </div>
-            {isGestor && (
-              <button
-                onClick={() => {
-                  if (eventos.length > 0) handleAbrirRevisao(eventos[0]);
-                }}
-                className="text-xs text-purple-400 hover:underline font-semibold no-print"
-              >
-                Revisar
-              </button>
-            )}
           </div>
 
           <div className="space-y-2.5 pt-1">
@@ -1899,7 +1889,7 @@ export function QualidadeDashboardClient() {
                     {renderColabSortHeader("percentualErro", "% Erro")}
                     {renderColabSortHeader("limite", "Limite Permitido")}
                     <th className="pb-3 pl-3 pr-4 text-right text-slate-400 font-sans font-semibold uppercase text-[10px] tracking-wider">
-                      Ações & Ficha
+                      Ficha Individual
                     </th>
                   </tr>
                 </thead>
@@ -1958,7 +1948,7 @@ export function QualidadeDashboardClient() {
                       </span>
                     </td>
                     <td className="py-3.5 pl-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center justify-end">
                         <button
                           onClick={() => handleAbrirFicha(c)}
                           className="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 font-semibold text-xs flex items-center gap-1 border border-cyan-500/30 transition-all active:scale-95"
@@ -1967,25 +1957,6 @@ export function QualidadeDashboardClient() {
                           <FileText className="w-3.5 h-3.5" />
                           <span>Ficha PDF</span>
                         </button>
-                        {isGestor && (
-                          <button
-                            onClick={() => {
-                              setLimiteForm((prev) => ({
-                                ...prev,
-                                tipoAlvo: "COLABORADOR",
-                                colaboradorNome: c.nome.toUpperCase(),
-                                departamento: c.departamento,
-                                limitePercentual: c.limite,
-                                competenciaInicio: competencia,
-                              }));
-                              setModalLimiteOpen(true);
-                            }}
-                            className="px-2.5 py-1 rounded-lg bg-[#151A2C] hover:bg-slate-700 text-xs text-slate-200 transition-all"
-                            title="Alterar Limite de Erro"
-                          >
-                            Alterar Limite
-                          </button>
-                        )}
                       </div>
                     </td>
                   </tr>
