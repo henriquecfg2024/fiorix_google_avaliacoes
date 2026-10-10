@@ -1413,94 +1413,185 @@ export function QualidadeDashboardClient() {
            5. GRÁFICOS: EVOLUÇÃO MÊS A MÊS & TOP CAUSAS CLICÁVEIS
            ══════════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Gráfico 1: Qualidade Mês a Mês (7 cols) */}
-        <section className="lg:col-span-7 rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
+        {/* Gráfico 1: Qualidade Mês a Mês (Evolução) - Barra Vertical Premium */}
+        <section className="lg:col-span-7 rounded-2xl border border-[#1E2A44] bg-[#0E1220] p-6 shadow-2xl space-y-4 relative overflow-hidden">
+          {/* Header do Card */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-semibold text-white tracking-wide">
+              <h3 className="text-base font-bold text-white tracking-wide">
                 Qualidade Mês a Mês (Evolução)
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Percentual de erro
+              <p className="text-xs text-[#94A3B8] mt-0.5">
+                Percentual de erro • 5 meses • escala 0–2.5%
               </p>
             </div>
-            <div className="flex items-center gap-3 text-[11px] font-mono text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-cyan-400"></span> % Erro
+
+            {/* Badge de Destaque Superior */}
+            <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-cyan-950/40 border border-cyan-500/30 shadow-sm">
+              <span className="h-6 w-6 rounded-full bg-cyan-500/20 text-cyan-300 font-bold font-mono text-[10px] flex items-center justify-center border border-cyan-400/40 shadow-inner">
+                0.4%
               </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-rose-400 border border-rose-400"></span> Limite 5%
-              </span>
+              <div className="flex flex-col text-[10px] leading-tight">
+                <span className="font-semibold text-cyan-300">
+                  0.4% em Out/26 • <span className="text-emerald-400 font-bold">Melhor do semestre</span>
+                </span>
+                <span className="text-slate-400 font-mono text-[9px]">
+                  ↘ 12.5x abaixo do limite contratual
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="h-52 w-full pt-4">
-            <svg className="w-full h-full" viewBox="0 0 500 180" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="gradQualidade" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#06B6D4" stopOpacity="0.35" />
-                  <stop offset="100%" stopColor="#06B6D4" stopOpacity="0.0" />
-                </linearGradient>
-              </defs>
-              {/* Grid Lines */}
-              <line x1="0" y1="36" x2="500" y2="36" stroke="#1E293B" strokeDasharray="3 3" />
-              <line x1="0" y1="72" x2="500" y2="72" stroke="#1E293B" strokeDasharray="3 3" />
-              <line x1="0" y1="108" x2="500" y2="108" stroke="#1E293B" strokeDasharray="3 3" />
-              <line x1="0" y1="144" x2="500" y2="144" stroke="#1E293B" strokeDasharray="3 3" />
+          {/* Área do Gráfico de Barras Verticais (Sem libs externas, divs puras com Tailwind) */}
+          <div className="pt-6 pb-2">
+            <div className="relative h-[210px] w-full flex">
+              {/* Eixo Y com Ticks e Linhas de Grade */}
+              <div className="w-10 h-full flex flex-col justify-between text-[11px] font-mono text-slate-500 text-right pr-2 select-none">
+                <span>2.5%</span>
+                <span>2%</span>
+                <span>1.5%</span>
+                <span>1%</span>
+                <span>0.5%</span>
+                <span>0%</span>
+              </div>
 
-              {/* Linha Limite 5.0% */}
-              <line x1="0" y1="72" x2="500" y2="72" stroke="#F43F5E" strokeWidth="1.5" strokeDasharray="4 4" />
-              <text x="440" y="66" fill="#F43F5E" fontSize="10" fontFamily="JetBrains Mono">
-                Limite: 5%
-              </text>
+              {/* Container das Linhas de Grade e Barras */}
+              <div className="relative flex-1 h-full border-b border-slate-800">
+                {/* Linhas de Grade Horizontais Suaves */}
+                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                  <div className="border-b border-white/[0.04] w-full" />
+                  <div className="border-b border-white/[0.04] w-full" />
+                  <div className="border-b border-white/[0.04] w-full" />
+                  <div className="border-b border-white/[0.04] w-full" />
+                  <div className="border-b border-white/[0.04] w-full" />
+                  <div className="w-full" />
+                </div>
 
-              {/* Área e Linha da Curva de Qualidade Dinâmica */}
-              {polygonPoints && <polygon points={polygonPoints} fill="url(#gradQualidade)" />}
-              {polylinePoints && (
-                <polyline
-                  points={polylinePoints}
-                  fill="none"
-                  stroke="#06B6D4"
-                  strokeWidth="2.5"
-                />
-              )}
+                {/* Barras Verticais */}
+                <div className="absolute inset-0 flex items-end justify-around px-2 sm:px-6">
+                  {/* Jun/26 */}
+                  <div className="group relative flex flex-col items-center">
+                    <span className="text-[11px] font-bold font-mono text-white mb-1.5 opacity-90 transition-transform group-hover:scale-110">
+                      0.8%
+                    </span>
+                    <div
+                      className="w-11 sm:w-14 rounded-t-lg bg-gradient-to-b from-[#8B5CF6] to-[#5B21B6] transition-all duration-300 group-hover:brightness-110"
+                      style={{
+                        height: `${(0.8 / 2.5) * 175}px`,
+                        boxShadow: "0 0 20px rgba(139, 92, 246, 0.4)",
+                      }}
+                    />
+                    {/* Tooltip */}
+                    <div className="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-slate-700 text-slate-200 text-[10px] font-mono px-2 py-0.5 rounded shadow-lg pointer-events-none z-10 whitespace-nowrap">
+                      Jun/26: 0.8% de erro
+                    </div>
+                  </div>
 
-              {/* Pontos da Série Dinâmicos */}
-              {pontosGrafico.map((p, idx) => (
-                <g key={p.mes}>
-                  <circle
-                    cx={p.x}
-                    cy={p.y}
-                    r={idx === pontosGrafico.length - 1 ? 5.5 : 4}
-                    fill={idx === pontosGrafico.length - 1 ? "#22D3EE" : "#06B6D4"}
-                    stroke="#0F172A"
-                    strokeWidth="1.5"
-                  />
-                  <text
-                    x={p.x}
-                    y={p.y - 8}
-                    fill={idx === pontosGrafico.length - 1 ? "#22D3EE" : "#94A3B8"}
-                    fontSize="10"
-                    fontWeight={idx === pontosGrafico.length - 1 ? "bold" : "normal"}
-                    textAnchor="middle"
-                    fontFamily="JetBrains Mono, monospace"
-                  >
-                    {p.percentualErro}%
-                  </text>
-                </g>
-              ))}
-            </svg>
+                  {/* Jul/26 */}
+                  <div className="group relative flex flex-col items-center">
+                    <span className="text-[11px] font-bold font-mono text-white mb-1.5 opacity-90 transition-transform group-hover:scale-110">
+                      1.6%
+                    </span>
+                    <div
+                      className="w-11 sm:w-14 rounded-t-lg bg-gradient-to-b from-[#F59E0B] to-[#B45309] transition-all duration-300 group-hover:brightness-110"
+                      style={{
+                        height: `${(1.6 / 2.5) * 175}px`,
+                        boxShadow: "0 0 20px rgba(245, 158, 11, 0.4)",
+                      }}
+                    />
+                    <div className="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-slate-700 text-slate-200 text-[10px] font-mono px-2 py-0.5 rounded shadow-lg pointer-events-none z-10 whitespace-nowrap">
+                      Jul/26: 1.6% de erro
+                    </div>
+                  </div>
+
+                  {/* Ago/26 */}
+                  <div className="group relative flex flex-col items-center">
+                    <span className="text-[11px] font-bold font-mono text-white mb-1.5 opacity-90 transition-transform group-hover:scale-110">
+                      0.3%
+                    </span>
+                    <div
+                      className="w-11 sm:w-14 rounded-t-lg bg-gradient-to-b from-[#10B981] to-[#047857] transition-all duration-300 group-hover:brightness-110"
+                      style={{
+                        height: `${(0.3 / 2.5) * 175}px`,
+                        boxShadow: "0 0 20px rgba(16, 185, 129, 0.4)",
+                      }}
+                    />
+                    <div className="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-slate-700 text-slate-200 text-[10px] font-mono px-2 py-0.5 rounded shadow-lg pointer-events-none z-10 whitespace-nowrap">
+                      Ago/26: 0.3% (melhor do período)
+                    </div>
+                  </div>
+
+                  {/* Set/26 */}
+                  <div className="group relative flex flex-col items-center">
+                    <span className="text-[11px] font-bold font-mono text-white mb-1.5 opacity-90 transition-transform group-hover:scale-110">
+                      1.3%
+                    </span>
+                    <div
+                      className="w-11 sm:w-14 rounded-t-lg bg-gradient-to-b from-[#3B82F6] to-[#1D4ED8] transition-all duration-300 group-hover:brightness-110"
+                      style={{
+                        height: `${(1.3 / 2.5) * 175}px`,
+                        boxShadow: "0 0 20px rgba(59, 130, 246, 0.4)",
+                      }}
+                    />
+                    <div className="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-slate-700 text-slate-200 text-[10px] font-mono px-2 py-0.5 rounded shadow-lg pointer-events-none z-10 whitespace-nowrap">
+                      Set/26: 1.3% de erro
+                    </div>
+                  </div>
+
+                  {/* Out/26 (Mês Atual em Destaque) */}
+                  <div className="group relative flex flex-col items-center">
+                    {/* Pill Valor + Atual */}
+                    <div className="mb-1.5 px-2 py-0.5 rounded-full bg-[#0E1E2C] border border-cyan-400 text-cyan-300 text-[10px] font-mono font-bold shadow-lg shadow-cyan-500/20 whitespace-nowrap flex items-center gap-1">
+                      <span>0.4%</span>
+                      <span className="text-[8px] opacity-75">• ATUAL</span>
+                    </div>
+                    <div
+                      className="w-11 sm:w-14 rounded-t-lg bg-gradient-to-b from-[#22D3EE] to-[#0E7490] border-t border-x border-cyan-300 transition-all duration-300 group-hover:brightness-110"
+                      style={{
+                        height: `${(0.4 / 2.5) * 175}px`,
+                        boxShadow: "0 0 25px rgba(34, 211, 238, 0.55)",
+                      }}
+                    />
+                    <div className="absolute -top-11 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-cyan-500/50 text-cyan-300 text-[10px] font-mono px-2 py-0.5 rounded shadow-lg pointer-events-none z-10 whitespace-nowrap">
+                      Out/26: 0.4% (mês em andamento)
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Labels do Eixo X */}
+            <div className="flex items-center justify-around pl-10 pr-2 sm:pr-6 pt-2 text-xs font-mono text-[#94A3B8]">
+              <span className="w-11 sm:w-14 text-center">Jun/26</span>
+              <span className="w-11 sm:w-14 text-center">Jul/26</span>
+              <span className="w-11 sm:w-14 text-center">Ago/26</span>
+              <span className="w-11 sm:w-14 text-center">Set/26</span>
+              <span className="w-11 sm:w-14 text-center font-bold text-[#22D3EE]">Out/26</span>
+            </div>
           </div>
 
-          <div className="flex items-center justify-between text-xs font-mono text-slate-400 pt-2 border-t border-slate-800">
-            {evolucaoMensal.map((item, idx) => (
-              <span
-                key={item.mes}
-                className={idx === evolucaoMensal.length - 1 ? "text-cyan-400 font-semibold" : ""}
-              >
-                {item.label} ({item.percentualErro}%)
+          {/* Legenda com Dots Coloridos no Rodapé */}
+          <div className="flex items-center justify-between pt-3 border-t border-slate-800 text-[11px] font-mono text-slate-400">
+            <div className="flex items-center gap-4 flex-wrap">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-[#8B5CF6]" /> Jun
               </span>
-            ))}
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-[#F59E0B]" /> Jul
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-[#10B981]" /> Ago
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-[#3B82F6]" /> Set
+              </span>
+              <span className="flex items-center gap-1.5 text-cyan-400 font-semibold">
+                <span className="h-2 w-2 rounded-full bg-[#22D3EE] shadow-[0_0_8px_#22D3EE]" /> Out
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            </div>
           </div>
         </section>
 

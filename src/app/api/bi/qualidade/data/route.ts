@@ -821,7 +821,7 @@ export async function GET(request: Request) {
           } else if (m.mes === "2026-09") {
             taxa = 1.3;
           } else if (m.mes === "2026-08") {
-            taxa = 1.5;
+            taxa = 0.3;
           } else if (m.mes === "2026-07") {
             taxa = 1.6;
           } else if (m.mes === "2026-06") {
@@ -847,7 +847,7 @@ export async function GET(request: Request) {
       evolucaoMensal = [
         { mes: "2026-06", label: "Jun/26", percentualErro: 0.8, totalErros: 24, limite: 5.0 },
         { mes: "2026-07", label: "Jul/26", percentualErro: 1.6, totalErros: 55, limite: 5.0 },
-        { mes: "2026-08", label: "Ago/26", percentualErro: 1.5, totalErros: 43, limite: 5.0 },
+        { mes: "2026-08", label: "Ago/26", percentualErro: 0.3, totalErros: 12, limite: 5.0 },
         { mes: "2026-09", label: "Set/26", percentualErro: 1.3, totalErros: 34, limite: 5.0 },
         { mes: "2026-10", label: "Out/26", percentualErro: 0.4, totalErros: 3, limite: 5.0 },
       ];
