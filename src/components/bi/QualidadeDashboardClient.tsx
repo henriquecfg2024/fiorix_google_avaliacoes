@@ -894,6 +894,72 @@ export function QualidadeDashboardClient() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════
+           2. TOP CAUSAS DOS ERROS INTERNOS (LOGO ABAIXO DO HERO MÊS A MÊS)
+           ══════════════════════════════════════════════════════════════════ */}
+      <section className="rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-lg space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h3 className="text-sm font-semibold text-white tracking-wide uppercase flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+              <span>TOP CAUSAS DOS ERROS INTERNOS</span>
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Clique em uma causa para isolar os protocolos na tabela
+            </p>
+          </div>
+          {filtroCausa && (
+            <button
+              type="button"
+              onClick={() => setFiltroCausa(null)}
+              className="px-2.5 py-1 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-xs font-mono text-cyan-300 hover:bg-cyan-500/25 transition-all"
+            >
+              Limpar filtro ({filtroCausa}) ✕
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pt-1">
+          {topCausas.map((c) => {
+            const isSelected = filtroCausa === c.nome;
+            return (
+              <div
+                key={c.id}
+                onClick={() => setFiltroCausa(isSelected ? null : c.nome)}
+                className={`p-3 rounded-xl border cursor-pointer transition-all space-y-2 group ${
+                  isSelected
+                    ? "bg-cyan-500/15 border-cyan-400 shadow-md shadow-cyan-500/20"
+                    : "bg-[#151A2C] border-slate-800 hover:border-slate-600 hover:bg-slate-800/60"
+                }`}
+              >
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-slate-200 flex items-center gap-1.5 group-hover:text-white transition-colors uppercase">
+                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: c.cor }}></span>
+                    <span className="truncate">{c.nome}</span>
+                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-mono text-slate-200 font-semibold uppercase">
+                      {c.quantidade} erros ({c.percentual}%)
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono transition-opacity ${
+                        isSelected ? "text-cyan-400 opacity-100" : "text-slate-400 opacity-0 group-hover:opacity-100"
+                      }`}
+                    >
+                      {isSelected ? "Ativo ✕" : "Filtrar ↗"}
+                    </span>
+                  </div>
+                </div>
+                <div className="w-full bg-[#070A14] h-1.5 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all" style={{ width: `${c.percentual}%`, backgroundColor: c.cor }} />
+                </div>
+                <span className="text-[10px] text-slate-400 block truncate uppercase">{c.exemplos}</span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
            3. BARRA DE FILTROS SECUNDÁRIOS: CARDS EM DESTAQUE PARA TIPOS DE RETORNO
            ══════════════════════════════════════════════════════════════════ */}
       <section className="rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-lg space-y-4">
@@ -1754,65 +1820,9 @@ export function QualidadeDashboardClient() {
            5. GRÁFICOS: EVOLUÇÃO MÊS A MÊS & TOP CAUSAS CLICÁVEIS
            ══════════════════════════════════════════════════════════════════ */}
       {/* ══════════════════════════════════════════════════════════════════
-           5. DETALHES: 2 COLUNAS (TOP CAUSAS + INDICADORES POR COLABORADOR)
+           5. TABELA "INDICADORES POR COLABORADOR"
            ══════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-        {/* Coluna Esquerda: Top Causas de Erro Clicáveis (5 cols) */}
-        <section className="xl:col-span-5 rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold text-white tracking-wide uppercase flex items-center gap-2">
-                <span>TOP CAUSAS DOS ERROS INTERNOS</span>
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Clique em uma causa para isolar os protocolos na tabela
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-2.5 pt-1">
-            {topCausas.map((c) => {
-              const isSelected = filtroCausa === c.nome;
-              return (
-                <div
-                  key={c.id}
-                  onClick={() => setFiltroCausa(isSelected ? null : c.nome)}
-                  className={`p-2.5 rounded-xl border cursor-pointer transition-all space-y-1.5 group ${
-                    isSelected
-                      ? "bg-cyan-500/15 border-cyan-400 shadow-md shadow-cyan-500/20"
-                      : "bg-[#151A2C] border-slate-800 hover:border-slate-600 hover:bg-slate-800/60"
-                  }`}
-                >
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-200 flex items-center gap-1.5 group-hover:text-white transition-colors uppercase">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.cor }}></span>
-                      <span>{c.nome}</span>
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-slate-200 font-semibold uppercase">
-                        {c.quantidade} erros ({c.percentual}%)
-                      </span>
-                      <span
-                        className={`text-[10px] font-mono transition-opacity ${
-                          isSelected ? "text-cyan-400 opacity-100" : "text-slate-400 opacity-0 group-hover:opacity-100"
-                        }`}
-                      >
-                        {isSelected ? "Ativo ✕" : "Filtrar ↗"}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="w-full bg-[#070A14] h-1.5 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${c.percentual}%`, backgroundColor: c.cor }} />
-                  </div>
-                  <span className="text-[10px] text-slate-400 block truncate uppercase">{c.exemplos}</span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-      {/* Coluna Direita: TABELA "INDICADORES POR COLABORADOR" */}
-      <section className="xl:col-span-7 rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-sm space-y-4">
+      <section className="rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-slate-800 text-slate-400">
@@ -1967,7 +1977,6 @@ export function QualidadeDashboardClient() {
         </div>
       )}
     </section>
-      </div>
 
       {/* ══════════════════════════════════════════════════════════════════
            DRAWER 1: ALTERAR LIMITE DE ERRO (SUBSTITUTO)

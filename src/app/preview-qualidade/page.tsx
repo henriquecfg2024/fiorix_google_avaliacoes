@@ -571,6 +571,68 @@ export default function PreviewQualidadeHeroPage() {
         </section>
 
         {/* ══════════════════════════════════════════════════════════════════
+             2. TOP CAUSAS DOS ERROS INTERNOS (LOGO ABAIXO DO HERO MÊS A MÊS)
+             ══════════════════════════════════════════════════════════════════ */}
+        <section className="rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-lg space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h3 className="text-sm font-semibold text-white tracking-wide uppercase flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+                <span>TOP CAUSAS DOS ERROS INTERNOS</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Clique em uma causa para isolar os protocolos na tabela
+              </p>
+            </div>
+            {filtroCausa && (
+              <button
+                type="button"
+                onClick={() => setFiltroCausa(null)}
+                className="px-2.5 py-1 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-xs font-mono text-cyan-300 hover:bg-cyan-500/25 transition-all"
+              >
+                Limpar filtro ({filtroCausa}) ✕
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pt-1">
+            {topCausas.length > 0 ? (
+              topCausas.map((tc, idx) => (
+                <div
+                  key={tc.causa}
+                  onClick={() => setFiltroCausa(filtroCausa === tc.causa ? null : tc.causa)}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all space-y-2 group ${
+                    filtroCausa === tc.causa
+                      ? "bg-cyan-500/15 border-cyan-500/40 ring-1 ring-cyan-500/30 shadow-md shadow-cyan-500/20"
+                      : "bg-[#090E1D] border-slate-800 hover:border-slate-700 hover:bg-[#0E1528]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-xs font-semibold">
+                    <span className="text-slate-200 flex items-center gap-2 group-hover:text-white uppercase">
+                      <span className="w-5 h-5 rounded-full bg-slate-800 text-cyan-400 font-mono text-[10px] flex items-center justify-center font-bold">
+                        {idx + 1}
+                      </span>
+                      <span>{tc.causa}</span>
+                    </span>
+                    <span className="font-mono text-slate-200 font-bold uppercase">
+                      {tc.quantidade} ({tc.percentual}%)
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500"
+                      style={{ width: `${Math.min(100, tc.percentual * 2)}%` }}
+                    />
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-8 text-center text-xs text-slate-500 col-span-3">Nenhum evento registrado</div>
+            )}
+          </div>
+        </section>
+
+        {/* ══════════════════════════════════════════════════════════════════
              3. BARRA DE FILTROS SECUNDÁRIOS: CARDS EM DESTAQUE PARA TIPOS DE RETORNO
              ══════════════════════════════════════════════════════════════════ */}
         <section className="rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-lg space-y-4">
@@ -930,63 +992,9 @@ export default function PreviewQualidadeHeroPage() {
         )}
 
         {/* ══════════════════════════════════════════════════════════════════
-             6. DETALHES: 2 COLUNAS (TOP CAUSAS + INDICADORES POR COLABORADOR)
+             5. INDICADORES POR COLABORADOR
              ══════════════════════════════════════════════════════════════════ */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Coluna Esquerda: TOP CAUSAS DOS ERROS INTERNOS (5 cols) */}
-          <div className="lg:col-span-5 rounded-2xl border border-slate-800 bg-[#111729] p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div>
-                <h3 className="text-base font-bold text-white tracking-wide">
-                  Top Causas dos Erros Internos
-                </h3>
-                <p className="text-xs text-slate-400">Classificação dos apontamentos do contraditório</p>
-              </div>
-              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                {topCausas.length} causas
-              </span>
-            </div>
-
-            <div className="space-y-3 pt-2">
-              {topCausas.length > 0 ? (
-                topCausas.map((tc, idx) => (
-                  <div
-                    key={tc.causa}
-                    onClick={() => setFiltroCausa(filtroCausa === tc.causa ? null : tc.causa)}
-                    className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                      filtroCausa === tc.causa
-                        ? "bg-cyan-500/15 border-cyan-500/40 ring-1 ring-cyan-500/30"
-                        : "bg-[#090E1D] border-slate-800 hover:border-slate-700 hover:bg-[#0E1528]"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-xs font-semibold mb-1.5">
-                      <span className="text-slate-200 flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-slate-800 text-cyan-400 font-mono text-[10px] flex items-center justify-center font-bold">
-                          {idx + 1}
-                        </span>
-                        <span>{tc.causa}</span>
-                      </span>
-                      <span className="font-mono text-cyan-400 font-bold">
-                        {tc.quantidade} ({tc.percentual}%)
-                      </span>
-                    </div>
-                    {/* Barra de progresso */}
-                    <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500"
-                        style={{ width: `${Math.min(100, tc.percentual * 2)}%` }}
-                      />
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="p-8 text-center text-xs text-slate-500">Nenhum evento registrado</div>
-              )}
-            </div>
-          </div>
-
-          {/* Coluna Direita: INDICADORES POR COLABORADOR (7 cols) */}
-          <div className="lg:col-span-7 rounded-2xl border border-slate-800 bg-[#111729] p-6 shadow-xl space-y-4">
+        <section className="rounded-2xl border border-slate-800 bg-[#111729] p-6 shadow-xl space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
               <div>
                 <h3 className="text-base font-bold text-white tracking-wide">
@@ -1106,7 +1114,6 @@ export default function PreviewQualidadeHeroPage() {
                 </tbody>
               </table>
             </div>
-          </div>
         </section>
       </div>
     </div>
