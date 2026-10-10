@@ -167,8 +167,8 @@ const MESES_GRAFICO_EVOLUCAO = [
     shadowColor: "rgba(16, 185, 129, 0.6)",
     glowColor: "rgba(16, 185, 129, 0.4)",
     dotColor: "#10B981",
-    tooltip: "Ago/26: 0.3% (Melhor histórico do período - Clique para filtrar)",
-    badgeHighlight: "Menor Erro do Ano",
+    tooltip: "Ago/26: 0.3% (Melhor do semestre - Menor taxa de erro histórica)",
+    badgeHighlight: "Melhor do semestre (Menor Erro)",
     badgeRatio: "16.6x abaixo do limite",
   },
   {
@@ -200,7 +200,7 @@ const MESES_GRAFICO_EVOLUCAO = [
     glowColor: "rgba(34, 211, 238, 0.55)",
     dotColor: "#22D3EE",
     tooltip: "Out/26: 0.4% (Mês em andamento - Clique para filtrar)",
-    badgeHighlight: "Melhor do semestre",
+    badgeHighlight: "Mês Vigente em Andamento",
     badgeRatio: "12.5x abaixo do limite",
   },
 ];
@@ -224,26 +224,48 @@ export function QualidadeDashboardClient() {
   const [userRole, setUserRole] = useState("SUBSTITUTO");
   const [colaboradoresVisivel, setColaboradoresVisivel] = useState(false);
 
+  // Cálculo dinâmico do melhor mês do semestre (menor taxa de erro histórica)
+  const melhorMesSemestre = useMemo(() => {
+    return [...MESES_GRAFICO_EVOLUCAO].sort((a, b) => a.value - b.value)[0];
+  }, []);
+
   const mesSelecionadoInfo = useMemo(() => {
-    return (
-      MESES_GRAFICO_EVOLUCAO.find((m) => m.key === competencia) || {
-        key: competencia,
-        label: competencia,
-        shortLabel: competencia.split("-")[1],
-        value: kpis ? kpis.percentualErroGeral : 0.4,
-        colorFrom: "#22D3EE",
-        colorTo: "#0E7490",
-        borderActive: "border-cyan-300",
-        ringColor: "ring-cyan-400/50",
-        shadowColor: "rgba(34, 211, 238, 0.65)",
-        glowColor: "rgba(34, 211, 238, 0.55)",
-        dotColor: "#22D3EE",
-        tooltip: `${competencia}: ${kpis?.percentualErroGeral || 0.4}%`,
-        badgeHighlight: "Safra Selecionada",
-        badgeRatio: `${(5.0 / Math.max(0.1, kpis?.percentualErroGeral || 0.4)).toFixed(1)}x abaixo do limite`,
-      }
-    );
-  }, [competencia, kpis]);
+    const item = MESES_GRAFICO_EVOLUCAO.find((m) => m.key === competencia);
+    const taxa = item ? item.value : (kpis ? kpis.percentualErroGeral : 0.4);
+    const label = item ? item.label : competencia;
+    const dotColor = item ? item.dotColor : "#22D3EE";
+    const isMelhor = taxa === melhorMesSemestre.value;
+    const isAtual = competencia === "2026-10";
+
+    let highlight = item ? item.badgeHighlight : "Safra Consolidada";
+    if (isMelhor) {
+      highlight = "Melhor do semestre (Menor Erro)";
+    } else if (isAtual) {
+      highlight = `Mês Vigente em Andamento • Recorde: ${melhorMesSemestre.label} (${melhorMesSemestre.value}%)`;
+    } else {
+      highlight = `Safra Consolidada • Recorde: ${melhorMesSemestre.label} (${melhorMesSemestre.value}%)`;
+    }
+
+    const multLimite = (5.0 / Math.max(0.1, taxa)).toFixed(1);
+
+    return {
+      key: competencia,
+      label,
+      shortLabel: item ? item.shortLabel : competencia.split("-")[1],
+      value: taxa,
+      colorFrom: item ? item.colorFrom : "#22D3EE",
+      colorTo: item ? item.colorTo : "#0E7490",
+      borderActive: item ? item.borderActive : "border-cyan-300",
+      ringColor: item ? item.ringColor : "ring-cyan-400/50",
+      shadowColor: item ? item.shadowColor : "rgba(34, 211, 238, 0.65)",
+      glowColor: item ? item.glowColor : "rgba(34, 211, 238, 0.55)",
+      dotColor,
+      isMelhor,
+      isAtual,
+      badgeHighlight: highlight,
+      badgeRatio: `${multLimite}x abaixo do limite contratual`,
+    };
+  }, [competencia, kpis, melhorMesSemestre]);
 
   // Estado para Cards clicáveis (NÃO REALIZADOS e QUANTIDADE DE ERROS) e listagem
   const [filtroSaldoFaltante, setFiltroSaldoFaltante] = useState(false);
@@ -1707,7 +1729,7 @@ export function QualidadeDashboardClient() {
                           >
                             <span>{m.value}%</span>
                             <span className="text-[8px] opacity-90 font-sans tracking-wider">
-                              • {isOut ? "ATUAL" : "ATIVO"}
+                              • {m.key === melhorMesSemestre.key ? "MELHOR" : isOut ? "ATUAL" : "ATIVO"}
                             </span>
                           </div>
                         ) : (
