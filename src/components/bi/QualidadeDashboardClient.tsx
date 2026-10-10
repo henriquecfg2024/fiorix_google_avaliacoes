@@ -988,25 +988,25 @@ export function QualidadeDashboardClient() {
               <span>Tipos de Retorno:</span>
             </span>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full p-1.5 rounded-2xl bg-[#090E1D] border-2 border-[#1E293B] shadow-inner">
+            <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 w-full p-1.5 rounded-2xl bg-[#090E1D] border-2 border-[#1E293B] shadow-inner">
               {/* 0. TODOS */}
               <button
                 type="button"
                 onClick={() => setTipoRetorno("TODOS")}
-                className={`flex items-center justify-center py-2.5 px-3 rounded-xl font-bold transition-all text-xs tracking-wider active:scale-95 ${
+                className={`flex items-center justify-center py-2.5 px-3 sm:px-4 rounded-xl font-bold transition-all text-xs tracking-wider shrink-0 active:scale-95 ${
                   tipoRetorno === "TODOS"
                     ? "bg-slate-700 text-white border-2 border-slate-300 shadow-lg shadow-white/10 ring-2 ring-white/20"
                     : "bg-slate-900/60 text-slate-400 border border-slate-800 hover:bg-slate-800/80 hover:text-white"
                 }`}
               >
-                <span>TODOS</span>
+                <span className="whitespace-nowrap">TODOS</span>
               </button>
 
               {/* 1. TELA RECEPÇÃO */}
               <button
                 type="button"
                 onClick={() => setTipoRetorno("TELA_RECEPCAO")}
-                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-extrabold transition-all text-xs tracking-wider active:scale-95 ${
+                className={`flex items-center justify-center gap-1.5 py-2.5 px-3 sm:px-4 rounded-xl font-extrabold transition-all text-xs tracking-wider flex-1 whitespace-nowrap active:scale-95 ${
                   tipoRetorno === "TELA_RECEPCAO"
                     ? "bg-cyan-500 text-slate-950 border-2 border-cyan-200 shadow-xl shadow-cyan-500/40 ring-2 ring-cyan-300/50 scale-[1.02]"
                     : "bg-cyan-950/40 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/20 hover:text-cyan-100 hover:border-cyan-400"
@@ -1014,14 +1014,14 @@ export function QualidadeDashboardClient() {
                 title="Retorno Tela de Recepção"
               >
                 <Layers className={`w-4 h-4 shrink-0 ${tipoRetorno === "TELA_RECEPCAO" ? "text-slate-950" : "text-cyan-400"}`} />
-                <span className="truncate">TELA RECEPÇÃO</span>
+                <span className="whitespace-nowrap font-bold">TELA RECEPÇÃO</span>
               </button>
 
               {/* 2. PESSOAL */}
               <button
                 type="button"
                 onClick={() => setTipoRetorno("PESSOAL")}
-                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-extrabold transition-all text-xs tracking-wider active:scale-95 ${
+                className={`flex items-center justify-center gap-1.5 py-2.5 px-3 sm:px-4 rounded-xl font-extrabold transition-all text-xs tracking-wider shrink-0 whitespace-nowrap active:scale-95 ${
                   tipoRetorno === "PESSOAL"
                     ? "bg-blue-600 text-white border-2 border-blue-200 shadow-xl shadow-blue-500/40 ring-2 ring-blue-300/50 scale-[1.02]"
                     : "bg-blue-950/40 text-blue-300 border border-blue-500/40 hover:bg-blue-500/20 hover:text-blue-100 hover:border-blue-400"
@@ -1029,14 +1029,14 @@ export function QualidadeDashboardClient() {
                 title="Retorno Pessoal"
               >
                 <Users className={`w-4 h-4 shrink-0 ${tipoRetorno === "PESSOAL" ? "text-white" : "text-blue-400"}`} />
-                <span className="truncate">PESSOAL</span>
+                <span className="whitespace-nowrap">PESSOAL</span>
               </button>
 
               {/* 3. REAL */}
               <button
                 type="button"
                 onClick={() => setTipoRetorno("REAL")}
-                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-extrabold transition-all text-xs tracking-wider active:scale-95 ${
+                className={`flex items-center justify-center gap-1.5 py-2.5 px-3 sm:px-4 rounded-xl font-extrabold transition-all text-xs tracking-wider shrink-0 whitespace-nowrap active:scale-95 ${
                   tipoRetorno === "REAL"
                     ? "bg-purple-600 text-white border-2 border-purple-200 shadow-xl shadow-purple-500/40 ring-2 ring-purple-300/50 scale-[1.02]"
                     : "bg-purple-950/40 text-purple-300 border border-purple-500/40 hover:bg-purple-500/20 hover:text-purple-100 hover:border-purple-400"
@@ -1044,7 +1044,7 @@ export function QualidadeDashboardClient() {
                 title="Retorno Real"
               >
                 <ShieldCheck className={`w-4 h-4 shrink-0 ${tipoRetorno === "REAL" ? "text-white" : "text-purple-400"}`} />
-                <span className="truncate">REAL</span>
+                <span className="whitespace-nowrap">REAL</span>
               </button>
             </div>
           </div>
