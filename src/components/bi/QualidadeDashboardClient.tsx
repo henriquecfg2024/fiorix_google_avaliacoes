@@ -164,6 +164,19 @@ export function QualidadeDashboardClient() {
     }
   };
 
+  // Ordenação da Tabela Indicadores por Colaborador
+  const [colabSortCol, setColabSortCol] = useState<string>("nome");
+  const [colabSortDir, setColabSortDir] = useState<"asc" | "desc">("asc");
+
+  const handleColabSort = (col: string) => {
+    if (colabSortCol === col) {
+      setColabSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setColabSortCol(col);
+      setColabSortDir("asc");
+    }
+  };
+
   // Modais / Gavetas Laterais
   const [modalLimiteOpen, setModalLimiteOpen] = useState(false);
   const [modalRevisaoOpen, setModalRevisaoOpen] = useState(false);
@@ -242,15 +255,36 @@ export function QualidadeDashboardClient() {
     fetchData();
   }, [fetchData]);
 
-  // Filtragem de Colaboradores na Tabela
+  // Filtragem e Ordenação de Colaboradores na Tabela
   const colaboradoresFiltrados = useMemo(() => {
-    let list = colaboradores;
+    let list = [...colaboradores];
     if (buscaColaborador.trim()) {
       const q = buscaColaborador.toLowerCase();
       list = list.filter((c) => c.nome.toLowerCase().includes(q) || c.departamento.toLowerCase().includes(q));
     }
+
+    list.sort((a, b) => {
+      let valA: any = a[colabSortCol as keyof ColaboradorItem];
+      let valB: any = b[colabSortCol as keyof ColaboradorItem];
+
+      if (valA === undefined || valA === null) valA = "";
+      if (valB === undefined || valB === null) valB = "";
+
+      if (typeof valA === "string" && typeof valB === "string") {
+        return colabSortDir === "asc"
+          ? valA.localeCompare(valB, "pt-BR", { numeric: true, sensitivity: "base" })
+          : valB.localeCompare(valA, "pt-BR", { numeric: true, sensitivity: "base" });
+      }
+
+      if (typeof valA === "number" && typeof valB === "number") {
+        return colabSortDir === "asc" ? valA - valB : valB - valA;
+      }
+
+      return 0;
+    });
+
     return list;
-  }, [colaboradores, buscaColaborador]);
+  }, [colaboradores, buscaColaborador, colabSortCol, colabSortDir]);
 
   // Departamentos disponíveis e colaboradores vinculados ao setor selecionado no formulário
   const departamentosDisponiveis = useMemo(() => {
@@ -480,6 +514,35 @@ export function QualidadeDashboardClient() {
           <span className="shrink-0 transition-opacity">
             {isSorted ? (
               sortDir === "asc" ? (
+                <ArrowUp className="w-3.5 h-3.5 text-cyan-400" />
+              ) : (
+                <ArrowDown className="w-3.5 h-3.5 text-cyan-400" />
+              )
+            ) : (
+              <ArrowUpDown className="w-3 h-3 text-slate-600 group-hover/th:text-slate-300" />
+            )}
+          </span>
+        </div>
+      </th>
+    );
+  };
+
+  // Helper para renderizar cabeçalhos de coluna ordenáveis em Colaboradores
+  const renderColabSortHeader = (colKey: string, label: string, align: "left" | "right" = "left") => {
+    const isSorted = colabSortCol === colKey;
+    return (
+      <th
+        onClick={() => handleColabSort(colKey)}
+        className={`pb-3 px-3 cursor-pointer select-none group/th transition-all hover:bg-slate-800/80 ${
+          align === "right" ? "text-right" : "text-left"
+        } ${isSorted ? "text-cyan-300 font-bold bg-slate-800/40" : "text-slate-400 font-semibold"}`}
+        title={`Clique para ordenar por ${label}`}
+      >
+        <div className={`inline-flex items-center gap-1.5 ${align === "right" ? "justify-end" : "justify-start"}`}>
+          <span>{label}</span>
+          <span className="shrink-0 transition-opacity">
+            {isSorted ? (
+              colabSortDir === "asc" ? (
                 <ArrowUp className="w-3.5 h-3.5 text-cyan-400" />
               ) : (
                 <ArrowDown className="w-3.5 h-3.5 text-cyan-400" />
@@ -1749,20 +1812,34 @@ export function QualidadeDashboardClient() {
 
         {/* Tabela visível somente quando expandida */}
         {colaboradoresVisivel && (
-          <div className="overflow-x-auto pt-2 border-t border-slate-800/80">
-            <table className="w-full text-left text-xs font-mono">
-              <thead>
-                <tr className="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-semibold font-sans">
-                  <th className="pb-3 pr-4">Colaborador</th>
-                  <th className="pb-3 px-3">Atividade</th>
-                  <th className="pb-3 px-3">Origem</th>
-                  <th className="pb-3 px-3">Produção</th>
-                  <th className="pb-3 px-3">Erros</th>
-                  <th className="pb-3 px-3">% Erro</th>
-                  <th className="pb-3 px-3">Limite Permitido</th>
-                  <th className="pb-3 pl-3 text-right">Ações & Ficha</th>
-                </tr>
-              </thead>
+          <div className="pt-2 border-t border-slate-800/80 space-y-2">
+            {/* Dica de ordenação para o usuário */}
+            <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 pt-1">
+              <span className="flex items-center gap-1.5 font-mono text-[10px]">
+                <ArrowUpDown className="w-3 h-3 text-cyan-400" />
+                <span>Clique nos cabeçalhos das colunas para ordenar (ascendente/descendente)</span>
+              </span>
+              <span className="text-[10px] font-mono text-cyan-300">
+                Ordenando por: <strong className="uppercase">{colabSortCol}</strong> ({colabSortDir.toUpperCase()})
+              </span>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-slate-800/80 bg-[#090E1D]">
+              <table className="w-full text-left text-xs font-mono">
+                <thead>
+                  <tr className="border-b border-slate-800 bg-[#151A2C] text-[11px] uppercase tracking-wider text-slate-400 font-semibold font-sans">
+                    {renderColabSortHeader("nome", "Colaborador")}
+                    {renderColabSortHeader("atividade", "Atividade")}
+                    {renderColabSortHeader("origem", "Origem")}
+                    {renderColabSortHeader("producao", "Produção")}
+                    {renderColabSortHeader("erros", "Erros")}
+                    {renderColabSortHeader("percentualErro", "% Erro")}
+                    {renderColabSortHeader("limite", "Limite Permitido")}
+                    <th className="pb-3 pl-3 pr-4 text-right text-slate-400 font-sans font-semibold uppercase text-[10px] tracking-wider">
+                      Ações & Ficha
+                    </th>
+                  </tr>
+                </thead>
               <tbody className="divide-y divide-slate-800/60 text-slate-300">
                 {colaboradoresFiltrados.map((c) => (
                   <tr key={c.nome} className="hover:bg-[#151A2C] transition-colors">
@@ -1853,8 +1930,9 @@ export function QualidadeDashboardClient() {
               </tbody>
             </table>
           </div>
-        )}
-      </section>
+        </div>
+      )}
+    </section>
 
       {/* ══════════════════════════════════════════════════════════════════
            DRAWER 1: ALTERAR LIMITE DE ERRO (SUBSTITUTO)
