@@ -605,12 +605,12 @@ export function QualidadeDashboardClient() {
            4. CARDS SUPERIORES DE INDICADORES (5 KPIS PRINCIPAIS)
            ══════════════════════════════════════════════════════════════════ */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
-        {/* 1. Prenotações (com Subtotal de Canceladas) */}
+        {/* 1. Prenotações */}
         <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Prenotações</span>
             <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-              Safra Entrada
+              Entrada
             </span>
           </div>
           <div className="my-2">
@@ -618,20 +618,12 @@ export function QualidadeDashboardClient() {
               {kpis ? kpis.totalPrenotacoes.toLocaleString("pt-BR") : "2.582"}
             </span>
           </div>
-          <div className="text-[10px] text-slate-400 font-mono flex items-center justify-between pt-1 border-t border-slate-800/80">
-            <span className="text-slate-300 font-semibold">
-              {kpis ? kpis.totalAtivas.toLocaleString("pt-BR") : "2.510"} ativas
-            </span>
-            <span className="text-rose-400 font-semibold bg-rose-500/10 px-1 rounded">
-              {kpis ? kpis.totalCanceladas : "72"} cancel.
-            </span>
-          </div>
         </div>
 
-        {/* 2. Produção Total */}
+        {/* 2. Produção */}
         <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Produção Total</span>
+            <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Produção</span>
             <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
               Concluídas
             </span>
@@ -641,10 +633,9 @@ export function QualidadeDashboardClient() {
               {kpis ? kpis.producaoTotal.toLocaleString("pt-BR") : "2.493"}
             </span>
           </div>
-          <span className="text-[10px] text-slate-400 font-mono pt-1 border-t border-slate-800/80">Caixa + Contraditório</span>
         </div>
 
-        {/* 3. Saldo Faltante (Canceladas + Em Trâmite) - Clicável para filtrar e listar protocolos */}
+        {/* 3. Não Realizados (Canceladas + Em Trâmite) - Clicável para filtrar e listar protocolos */}
         <div
           role="button"
           tabIndex={0}
@@ -662,7 +653,7 @@ export function QualidadeDashboardClient() {
           }`}
           title={
             filtroSaldoFaltante
-              ? "Clique para ocultar a listagem de protocolos do saldo faltante"
+              ? "Clique para ocultar a listagem de protocolos não realizados"
               : "Clique para filtrar e ver a listagem dos respectivos protocolos"
           }
         >
@@ -672,7 +663,7 @@ export function QualidadeDashboardClient() {
 
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider flex items-center gap-1.5">
-              <span>Saldo Faltante</span>
+              <span>Não Realizados</span>
               {filtroSaldoFaltante && (
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
               )}
@@ -762,15 +753,6 @@ export function QualidadeDashboardClient() {
                 >
                   % Erro Geral
                 </span>
-                <span
-                  className={`text-[9px] font-mono uppercase px-1.5 py-0.5 rounded font-bold ${
-                    isAcima
-                      ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
-                      : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                  }`}
-                >
-                  Limite 5%
-                </span>
               </div>
               <div className="my-2">
                 <span
@@ -781,17 +763,6 @@ export function QualidadeDashboardClient() {
                   {kpis ? `${kpis.percentualErroGeral}%` : "1.3%"}
                 </span>
               </div>
-              <span
-                className={`text-[10px] font-mono ${
-                  isAcima ? "text-rose-400/90 font-semibold" : "text-emerald-400/80"
-                }`}
-              >
-                {isAcima
-                  ? "⚠️ Acima do Limite de 5.0%"
-                  : `${kpis ? kpis.prenotacoesComErro : 34} / ${
-                      kpis ? kpis.totalPrenotacoes.toLocaleString("pt-BR") : "2.582"
-                    } no mês`}
-              </span>
             </div>
           );
         })()}

@@ -687,10 +687,16 @@ export async function GET(request: Request) {
     const slaAbaixo48hPercent =
       qtdErros > 0 ? Number(((eventosAbaixo48h / qtdErros) * 100).toFixed(1)) : 88.0;
 
-    const producaoTotal = colaboradoresFiltrados.reduce((acc, c) => acc + c.producao, 0);
+    const producaoTotalGlobal = colaboradoresProcessados.reduce((acc, c) => acc + c.producao, 0);
+    const producaoFiltrada = colaboradoresFiltrados.reduce((acc, c) => acc + c.producao, 0);
     const colabsAcimaMetaCount = colaboradoresFiltrados.filter((c) => c.atingiuMeta).length;
     const colabsDentroLimiteCount = colaboradoresFiltrados.filter((c) => c.dentroLimite).length;
-    const totalFaltante = Math.max(0, totalPrenotacoes - producaoTotal);
+
+    // Quando o filtro é apenas por Tipo de Retorno (análise qualitativa de erros),
+    // o volume de Produção Geral e o Saldo Não Realizados da safra permanecem os números reais da competência,
+    // evitando subtrair a produção de um único subsetor do universo total de 3.069 prenotações do cartório.
+    const producaoExibida = tipoRetorno !== "TODOS" ? producaoTotalGlobal : producaoFiltrada;
+    const totalFaltante = Math.max(0, totalPrenotacoes - producaoExibida);
     const totalEmTramite = Math.max(0, totalFaltante - totalCanceladas);
 
     const kpisCalculados = {
@@ -705,7 +711,7 @@ export async function GET(request: Request) {
       limiteGeral: 5.0,
       slaMedioDias,
       slaAbaixo48hPercent,
-      producaoTotal,
+      producaoTotal: producaoExibida,
       colaboradoresAcimaMeta: `${colabsAcimaMetaCount} / ${colaboradoresFiltrados.length}`,
       colaboradoresDentroLimite: `${colabsDentroLimiteCount} / ${colaboradoresFiltrados.length}`,
     };
