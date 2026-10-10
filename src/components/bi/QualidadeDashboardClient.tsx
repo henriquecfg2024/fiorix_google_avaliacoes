@@ -2326,7 +2326,7 @@ export function QualidadeDashboardClient() {
                 </div>
                 <p className="text-[11px] leading-relaxed opacity-90">
                   {selectedColab.dentroLimite
-                    ? "O colaborador operou dentro do limite de tolerância estabelecido pelo cartório (5.0%) e cumpriu os critérios técnicos de conformidade registral."
+                    ? "Seu empenho e cuidado contribuem para a qualidade dos serviços do cartório. Mantenha a atenção em cada etapa: a precisão e a conformidade registral exigem vigilância constante."
                     : "O colaborador excedeu a margem de tolerância técnica pactuada para a competência. Recomenda-se alinhamento registral com o Oficial Substituto."}
                 </p>
               </div>
