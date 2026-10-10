@@ -495,16 +495,6 @@ export async function getEsperaData(
         }
       };
 
-      const hasValidSite = resolvedSiteId && /^[0-9a-fA-F]{24}$/.test(resolvedSiteId);
-
-      const [queueData, openedData, reportsData, suspensionsData, bookingsData] = await Promise.all([
-        hasValidSite ? fetchSafe(`${baseUrl}/v1/organization/reports/service/queue/${resolvedSiteId}`) : Promise.resolve(null),
-        hasValidSite ? fetchSafe(`${baseUrl}/v1/organization/reports/service/opened/${resolvedSiteId}?limit=200&page=1`) : Promise.resolve(null),
-        fetchSafe(`${baseUrl}/v1/organization/reports?start_datetime=${encodeURIComponent(startIso)}&end_datetime=${encodeURIComponent(endIso)}&limit=500&page=1`),
-        fetchSafe(`${baseUrl}/v1/organization/reports/suspension?start_datetime=${encodeURIComponent(startIso)}&end_datetime=${encodeURIComponent(endIso)}&limit=200&page=1`),
-        fetchSafe(`${baseUrl}/v1/organization/schedules/bookings?limit=100&page=1`),
-      ]);
-
       const extractArray = (data: any): any[] => {
         if (Array.isArray(data)) return data;
         if (data && Array.isArray(data.data)) return data.data;
@@ -513,9 +503,34 @@ export async function getEsperaData(
         return [];
       };
 
+      const fetchAllReports = async () => {
+        const all: any[] = [];
+        let page = 1;
+        const maxPages = 10;
+        while (page <= maxPages) {
+          const url = `${baseUrl}/v1/organization/reports?start_datetime=${encodeURIComponent(startIso)}&end_datetime=${encodeURIComponent(endIso)}&limit=500&page=${page}`;
+          const res = await fetchSafe(url);
+          const list = extractArray(res);
+          if (!list || list.length === 0) break;
+          all.push(...list);
+          if (list.length < 500) break;
+          page++;
+        }
+        return all;
+      };
+
+      const hasValidSite = resolvedSiteId && /^[0-9a-fA-F]{24}$/.test(resolvedSiteId);
+
+      const [queueData, openedData, rawReportTickets, suspensionsData, bookingsData] = await Promise.all([
+        hasValidSite ? fetchSafe(`${baseUrl}/v1/organization/reports/service/queue/${resolvedSiteId}`) : Promise.resolve(null),
+        hasValidSite ? fetchSafe(`${baseUrl}/v1/organization/reports/service/opened/${resolvedSiteId}?limit=200&page=1`) : Promise.resolve(null),
+        fetchAllReports(),
+        fetchSafe(`${baseUrl}/v1/organization/reports/suspension?start_datetime=${encodeURIComponent(startIso)}&end_datetime=${encodeURIComponent(endIso)}&limit=200&page=1`),
+        fetchSafe(`${baseUrl}/v1/organization/schedules/bookings?limit=100&page=1`),
+      ]);
+
       const rawQueueTickets = extractArray(queueData);
       const rawOpenedTickets = extractArray(openedData);
-      const rawReportTickets = extractArray(reportsData);
       const rawSuspensions = extractArray(suspensionsData);
       const rawBookings = extractArray(bookingsData);
 
