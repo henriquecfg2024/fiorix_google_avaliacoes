@@ -91,24 +91,13 @@ export default async function EstatisticasPage() {
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        {/* Cabeçalho */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-              <Link href="/" className="hover:text-slate-900 dark:hover:text-white transition-colors">Dashboard</Link>
-              <span className="text-slate-400 dark:text-slate-600">/</span>
-              <span>Gestão</span>
-              <span className="text-slate-400 dark:text-slate-600">/</span>
-              <span className="text-amber-600 dark:text-amber-300">Estatísticas</span>
-            </div>
-            <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Estatísticas de Desempenho
-              </h1>
-              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
-                SAÚDE DA REPUTAÇÃO
-              </span>
-            </div>
+        {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-slate-400 tracking-wider">PRESENÇA NO GOOGLE</span>
+            <span className="text-slate-600">/</span>
+            <span className="text-cyan-400 font-extrabold tracking-wider">ESTATÍSTICAS</span>
+            <h1 className="sr-only">Estatísticas de Desempenho</h1>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-500 dark:text-white/50">Base de análise:</span>
