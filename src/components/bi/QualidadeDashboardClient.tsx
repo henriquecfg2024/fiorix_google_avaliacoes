@@ -35,6 +35,7 @@ import {
   ArrowDown,
   BarChart3,
   Filter,
+  Info,
 } from "lucide-react";
 
 export interface ProtocoloFaltanteItem {
@@ -701,26 +702,27 @@ export function QualidadeDashboardClient() {
   return (
     <div className="space-y-6">
       {/* ══════════════════════════════════════════════════════════════════
-           HEADER PRINCIPAL DA TELA OFICIAL
+           BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (OPÇÃO 2 APROVADA)
            ══════════════════════════════════════════════════════════════════ */}
-      <section className="rounded-2xl border border-slate-800 bg-[#111729] p-6 shadow-xl relative overflow-hidden">
-        <div>
-          {/* Breadcrumb */}
-          <div className="flex items-center gap-2 text-xs font-mono text-slate-400 mb-2">
-            <span>GESTÃO DE PRAZOS</span>
-            <span className="text-slate-600">/</span>
-            <span className="text-cyan-400 font-semibold">QUALIDADE</span>
-          </div>
-
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-            Controle de Qualidade
-          </h1>
-
-          <p className="text-xs sm:text-sm text-slate-400 mt-1.5 max-w-3xl leading-relaxed">
-            Monitoramento contínuo de erros internos. Calculo realizado pela data de entrada da prenotação.
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1 pt-1 pb-1 border-b border-slate-800/60">
+        <div className="flex items-center gap-2 text-xs font-mono">
+          <span className="text-slate-400 tracking-wider">GESTÃO DE PRAZOS</span>
+          <span className="text-slate-600">/</span>
+          <span className="text-cyan-400 font-extrabold tracking-wider">QUALIDADE</span>
+          <span
+            className="text-slate-500 hover:text-cyan-400 cursor-help transition-colors ml-1"
+            title="Monitoramento contínuo de erros internos. Cálculo realizado pela data de entrada da prenotação."
+          >
+            <Info className="w-3.5 h-3.5 inline" />
+          </span>
+          <h1 className="sr-only">Controle de Qualidade</h1>
         </div>
-      </section>
+
+        <div className="text-[11px] font-mono text-slate-400 flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span>Cálculo por data de entrada da prenotação</span>
+        </div>
+      </div>
 
       {/* ══════════════════════════════════════════════════════════════════
            2. [HERO] CARD PRINCIPAL: QUALIDADE MÊS A MÊS (EVOLUÇÃO)
