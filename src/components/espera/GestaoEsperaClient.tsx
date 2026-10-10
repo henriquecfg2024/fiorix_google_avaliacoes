@@ -962,13 +962,13 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
         </div>
         <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-          <div className="pb-4 border-b border-white/8">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-              <Clock3 className="w-3.5 h-3.5 text-indigo-400" />
-              <span>SUPERVISÃO & GESTÃO DE ESPERA · NEXTQS</span>
+          <div className="flex items-center justify-between gap-2 px-1 pt-1 pb-2 border-b border-white/8">
+            <div className="flex items-center gap-2 text-xs font-mono">
+              <span className="text-slate-400 tracking-wider">GESTÃO DE PRAZOS</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-cyan-400 font-extrabold tracking-wider">ESPERA</span>
+              <h1 className="sr-only">Gestão de Espera e Atendimento</h1>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">Painel de Supervisão & Espera</h1>
-            <p className="text-xs text-white/50 mt-1">Conecte a NextQS para liberar todos os relatórios executivos e operacionais em tempo real.</p>
           </div>
           <div className="flex items-center justify-center min-h-[50vh]">
             <div className="max-w-lg w-full rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-10 text-center space-y-6 shadow-2xl">
@@ -1020,24 +1020,18 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        {/* Header com controles globais */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-4 border-b border-white/8">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-              <Clock3 className="w-3.5 h-3.5 text-indigo-400" />
-              <span>SUPERVISÃO & ATENDIMENTO · NEXTQS</span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-3">
-              <span>Gestão de Espera & Atendimento</span>
-              {siteLabel && (
-                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300">
-                  {siteLabel}
-                </span>
-              )}
-            </h1>
-            <p className="text-xs text-white/50 mt-1">
-              Métricas executivas, filas em tempo real, horários de pico, produtividade dos agentes e pausas operacionais.
-            </p>
+        {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 pt-1 pb-2 border-b border-white/8">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-slate-400 tracking-wider">GESTÃO DE PRAZOS</span>
+            <span className="text-slate-600">/</span>
+            <span className="text-cyan-400 font-extrabold tracking-wider">ESPERA</span>
+            {siteLabel && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300">
+                {siteLabel}
+              </span>
+            )}
+            <h1 className="sr-only">Gestão de Espera e Atendimento</h1>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
