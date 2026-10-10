@@ -41,6 +41,8 @@ import {
   X,
 } from 'lucide-react';
 
+import { EsperaCalendarCard } from './EsperaCalendarCard';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TIPOS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -51,9 +53,7 @@ type Aba =
   | 'ao_vivo'
   | 'atendimentos'
   | 'pico'
-  | 'agentes'
-  | 'suspensoes'
-  | 'agendamentos';
+  | 'agentes';
 
 type SortField =
   | 'emissao'
@@ -72,6 +72,7 @@ interface SenhaRecord {
   senha: string;
   servico: string;
   fila: string;
+  data?: string;
   emissao: string;
   chamada: string;
   inicioAtendimento?: string;
@@ -589,6 +590,29 @@ function cleanServiceName(name: string): string {
   ) {
     return 'TÍTULO';
   }
+  if (
+    upper === 'CERTIDÕES PRONTAS' ||
+    upper === 'CERTIDOES PRONTAS' ||
+    upper === 'CERTIDÕES NA HORA' ||
+    upper === 'CERTIDOES NA HORA' ||
+    upper.includes('CERTIDÕES PRONTAS') ||
+    upper.includes('CERTIDOES PRONTAS') ||
+    upper.includes('CERTIDÕES NA HORA') ||
+    upper.includes('CERTIDOES NA HORA')
+  ) {
+    return 'CERTIDÕES NA HORA';
+  }
+  if (
+    upper === 'CERTIDÃO' ||
+    upper === 'CERTIDAO' ||
+    upper === 'PEDIDO DE CERTIDÃO' ||
+    upper === 'PEDIDO DE CERTIDAO' ||
+    upper.includes('PEDIDO DE CERTID') ||
+    upper === 'CERTIDÕES' ||
+    upper === 'CERTIDOES'
+  ) {
+    return 'PEDIDO DE CERTIDÃO';
+  }
   return name.trim();
 }
 
@@ -830,37 +854,93 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
     fetchData();
   }, [periodo, fetchData]);
 
+  // Estado de data selecionada no calendário interativo
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // Limpa filtro de data ao alternar período
+  useEffect(() => {
+    setSelectedDate(null);
+  }, [periodo]);
+
+  // Registros ativos considerando filtro do calendário
+  const activeRecords = useMemo(() => {
+    if (!selectedDate) return allRecords;
+    return allRecords.filter((r) => {
+      if (r.data) return r.data === selectedDate;
+      if (r.emissao && r.emissao.length >= 10 && r.emissao.includes('-')) {
+        return r.emissao.substring(0, 10) === selectedDate;
+      }
+      return false;
+    });
+  }, [allRecords, selectedDate]);
+
   // Cálculos derivados
-  const recordsWithWait = useMemo(() => allRecords.filter((r) => r.tempoEsperaMin !== null), [allRecords]);
+  const recordsWithWait = useMemo(() => activeRecords.filter((r) => r.tempoEsperaMin !== null), [activeRecords]);
   const dentroSla = useMemo(() => recordsWithWait.filter((r) => (r.tempoEsperaMin || 0) <= slaMinutes), [recordsWithWait, slaMinutes]);
   const foraSla = useMemo(() => recordsWithWait.filter((r) => (r.tempoEsperaMin || 0) > slaMinutes), [recordsWithWait, slaMinutes]);
 
-  const servicosUnicos = useMemo(() => [...new Set(allRecords.map((r) => r.servico).filter((s) => s !== '—'))].sort(), [allRecords]);
-  const filasUnicas = useMemo(() => [...new Set(allRecords.map((r) => r.fila).filter((f) => f !== '—'))].sort(), [allRecords]);
+  const servicosUnicos = useMemo(() => [...new Set(activeRecords.map((r) => r.servico).filter((s) => s !== '—'))].sort(), [activeRecords]);
+  const filasUnicas = useMemo(() => [...new Set(activeRecords.map((r) => r.fila).filter((f) => f !== '—'))].sort(), [activeRecords]);
   const atendentesUnicos = useMemo(
-    () => [...new Set(allRecords.map((r) => r.atendente?.toUpperCase()).filter((a) => a && a !== '—'))].sort(),
-    [allRecords]
+    () => [...new Set(activeRecords.map((r) => r.atendente?.toUpperCase()).filter((a) => a && a !== '—'))].sort(),
+    [activeRecords]
   );
-  const situacoesUnicas = useMemo(() => [...new Set(allRecords.map((r) => r.situacao).filter((s) => s !== '—'))].sort(), [allRecords]);
+  const situacoesUnicas = useMemo(() => [...new Set(activeRecords.map((r) => r.situacao).filter((s) => s !== '—'))].sort(), [activeRecords]);
 
-  // Distribuição por serviço para Visão Geral (fixo e ordenado por: PRIORIDADE, TÍTULO, CERTIDÃO e RETIRADA)
+  // Distribuição por horários de pico (recalcula dinamicamente para o dia selecionado)
+  const displayHorariosPico = useMemo(() => {
+    if (!selectedDate) return horariosPico;
+    const horasMap: Record<string, { total: number; dentroSla: number; foraSla: number; totalEspera: number; countEspera: number }> = {};
+    const horasLista = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
+    for (const h of horasLista) {
+      horasMap[h] = { total: 0, dentroSla: 0, foraSla: 0, totalEspera: 0, countEspera: 0 };
+    }
+    for (const r of activeRecords) {
+      if (r.emissao && r.emissao !== '—') {
+        const horaKey = r.emissao.split(':')[0] + ':00';
+        if (!horasMap[horaKey]) {
+          horasMap[horaKey] = { total: 0, dentroSla: 0, foraSla: 0, totalEspera: 0, countEspera: 0 };
+        }
+        horasMap[horaKey].total += 1;
+        if (r.tempoEsperaMin !== null) {
+          horasMap[horaKey].totalEspera += r.tempoEsperaMin;
+          horasMap[horaKey].countEspera += 1;
+          if (r.tempoEsperaMin <= slaMinutes) {
+            horasMap[horaKey].dentroSla += 1;
+          } else {
+            horasMap[horaKey].foraSla += 1;
+          }
+        }
+      }
+    }
+    return Object.entries(horasMap).map(([hora, val]) => ({
+      hora,
+      total: val.total,
+      dentroSla: val.dentroSla,
+      foraSla: val.foraSla,
+      mediaEsperaMin: val.countEspera > 0 ? Math.round(val.totalEspera / val.countEspera) : 0,
+    })).sort((a, b) => a.hora.localeCompare(b.hora));
+  }, [selectedDate, activeRecords, horariosPico, slaMinutes]);
+
+  // Distribuição por serviço para Visão Geral (ordenado por: PRIORIDADE, TÍTULO, PEDIDO DE CERTIDÃO, RETIRADA, CERTIDÕES NA HORA)
   const servicosDistribuicao = useMemo(() => {
-    // Garante que os 4 serviços fundamentais do cartório sempre constem no card
     const map: Record<string, { total: number; dentroSla: number; totalEspera: number; countEspera: number }> = {
       'PRIORIDADE': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
       'TÍTULO': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
-      'CERTIDÃO': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
+      'PEDIDO DE CERTIDÃO': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
       'RETIRADA': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
+      'CERTIDÕES NA HORA': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
     };
 
-    for (const r of allRecords) {
+    for (const r of activeRecords) {
       const rawService = cleanServiceName(r.servico !== '—' ? r.servico : 'Geral');
       let s = rawService;
       const upper = rawService.toUpperCase();
       if (upper === 'PRIORIDADE') s = 'PRIORIDADE';
       else if (upper === 'TÍTULO' || upper === 'TITULO') s = 'TÍTULO';
-      else if (upper === 'CERTIDÃO' || upper === 'CERTIDAO') s = 'CERTIDÃO';
+      else if (upper === 'PEDIDO DE CERTIDÃO' || upper === 'PEDIDO DE CERTIDAO' || upper === 'CERTIDÃO' || upper === 'CERTIDAO' || upper.includes('PEDIDO DE CERTID') || upper === 'CERTIDÕES' || upper === 'CERTIDOES') s = 'PEDIDO DE CERTIDÃO';
       else if (upper === 'RETIRADA') s = 'RETIRADA';
+      else if (upper === 'CERTIDÕES NA HORA' || upper === 'CERTIDOES NA HORA' || upper.includes('CERTIDÕES PRONTAS') || upper.includes('CERTIDOES PRONTAS') || upper.includes('CERTIDÕES NA HORA') || upper.includes('CERTIDOES NA HORA')) s = 'CERTIDÕES NA HORA';
 
       if (!map[s]) map[s] = { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 };
       map[s].total += 1;
@@ -875,9 +955,11 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
       'PRIORIDADE': 1,
       'TÍTULO': 2,
       'TITULO': 2,
-      'CERTIDÃO': 3,
-      'CERTIDAO': 3,
+      'PEDIDO DE CERTIDÃO': 3,
+      'PEDIDO DE CERTIDAO': 3,
       'RETIRADA': 4,
+      'CERTIDÕES NA HORA': 5,
+      'CERTIDOES NA HORA': 5,
     };
 
     return Object.entries(map)
@@ -893,11 +975,11 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
         if (orderA !== orderB) return orderA - orderB;
         return b.total - a.total;
       });
-  }, [allRecords, slaMinutes]);
+  }, [activeRecords, slaMinutes]);
 
   // Filtros e ordenação aplicados na tabela de atendimentos
   const filteredRecords = useMemo(() => {
-    let result = allRecords;
+    let result = activeRecords;
     if (filtroServico) result = result.filter((r) => r.servico === filtroServico);
     if (filtroFila) result = result.filter((r) => r.fila === filtroFila);
     if (filtroAtendente) result = result.filter((r) => r.atendente?.toUpperCase() === filtroAtendente.toUpperCase());
@@ -913,19 +995,19 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
       );
     }
     return sortRecordsList(result, sortField, sortDir);
-  }, [allRecords, filtroServico, filtroFila, filtroAtendente, filtroSituacao, searchQuery, sortField, sortDir]);
+  }, [activeRecords, filtroServico, filtroFila, filtroAtendente, filtroSituacao, searchQuery, sortField, sortDir]);
 
   // Filtros e ordenação para o card "Últimas Senhas Processadas" (Visão Geral)
   const previewServicosUnicos = useMemo(() => {
-    return [...new Set(allRecords.map((r) => r.servico).filter((s) => s && s !== '—'))].sort();
-  }, [allRecords]);
+    return [...new Set(activeRecords.map((r) => r.servico).filter((s) => s && s !== '—'))].sort();
+  }, [activeRecords]);
 
   const previewSituacoesUnicas = useMemo(() => {
-    return [...new Set(allRecords.map((r) => r.situacao).filter((s) => s && s !== '—' && s !== '0'))].sort();
-  }, [allRecords]);
+    return [...new Set(activeRecords.map((r) => r.situacao).filter((s) => s && s !== '—' && s !== '0'))].sort();
+  }, [activeRecords]);
 
   const filteredPreviewList = useMemo(() => {
-    let list = allRecords;
+    let list = activeRecords;
     if (previewFiltroSituacao !== 'ALL') {
       list = list.filter((r) => r.situacao.toLowerCase() === previewFiltroSituacao.toLowerCase());
     }
@@ -943,7 +1025,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
       );
     }
     return sortRecordsList(list, sortField, sortDir);
-  }, [allRecords, previewFiltroSituacao, previewFiltroServico, searchQuery, sortField, sortDir]);
+  }, [activeRecords, previewFiltroSituacao, previewFiltroServico, searchQuery, sortField, sortDir]);
 
   const previewTotalPages = Math.ceil(filteredPreviewList.length / previewPageSize) || 1;
   const previewStartIndex = (previewPage - 1) * previewPageSize;
@@ -1013,8 +1095,6 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
     { key: 'atendimentos', label: 'Atendimentos', badge: allRecords.length },
     { key: 'pico', label: 'Horários de Pico' },
     { key: 'agentes', label: 'Performance da Equipe', badge: performanceAgentes.length },
-    { key: 'suspensoes', label: 'Pausas & Suspensões', badge: suspensoes.length },
-    { key: 'agendamentos', label: 'Agendamentos', badge: agendamentos.length },
   ];
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1228,6 +1308,26 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
             {/* ABA 1: VISÃO GERAL (Dashboard Executivo) */}
             {activeAba === 'visao_geral' && (
               <div className="space-y-6">
+                {/* Banner de Filtro de Calendário Ativo */}
+                {selectedDate && (
+                  <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-200 text-xs shadow-lg backdrop-blur-xl">
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-400 animate-pulse" />
+                      <span>
+                        Exibindo dados filtrados para: <strong className="text-white capitalize">{new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong> — <span className="font-mono text-indigo-300 font-bold">{activeRecords.length}</span> senhas registradas
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDate(null)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/40 hover:bg-indigo-600 text-white font-bold transition-all cursor-pointer text-xs border border-indigo-400/30"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Ver período completo</span>
+                    </button>
+                  </div>
+                )}
+
                 {/* Seção Superior: Indicadores Principais de Espera e Volume */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* SLA Espera */}
@@ -1243,21 +1343,31 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                     <div className="my-2">
                       <div className="flex items-baseline gap-2">
                         <span className="text-3xl font-black text-emerald-400 font-mono">
-                          {kpis?.slaEsperaPerc ?? (recordsWithWait.length > 0 ? Math.round((dentroSla.length / recordsWithWait.length) * 100) : '—')}%
+                          {selectedDate
+                            ? (recordsWithWait.length > 0 ? Math.round((dentroSla.length / recordsWithWait.length) * 100) : 100)
+                            : (kpis?.slaEsperaPerc ?? (recordsWithWait.length > 0 ? Math.round((dentroSla.length / recordsWithWait.length) * 100) : '—'))}%
                         </span>
                         <span className="text-xs text-slate-400">dentro do SLA</span>
                       </div>
                       <div className="w-full bg-white/5 rounded-full h-1.5 mt-2 overflow-hidden">
                         <div
                           className="bg-emerald-500 h-1.5 rounded-full transition-all duration-700"
-                          style={{ width: `${kpis?.slaEsperaPerc ?? 92}%` }}
+                          style={{
+                            width: `${
+                              selectedDate
+                                ? (recordsWithWait.length > 0 ? Math.round((dentroSla.length / recordsWithWait.length) * 100) : 100)
+                                : (kpis?.slaEsperaPerc ?? 92)
+                            }%`,
+                          }}
                         />
                       </div>
                     </div>
                     <div className="pt-3 border-t border-white/6 flex items-center justify-between text-xs text-slate-400">
                       <span>Tempo médio na fila:</span>
                       <span className="font-bold text-white font-mono">
-                        {kpis?.mediaEsperaMin ?? (recordsWithWait.length > 0 ? Math.round(recordsWithWait.reduce((a, b) => a + (b.tempoEsperaMin || 0), 0) / recordsWithWait.length) : 0)} min
+                        {selectedDate
+                          ? (recordsWithWait.length > 0 ? Math.round(recordsWithWait.reduce((a, b) => a + (b.tempoEsperaMin || 0), 0) / recordsWithWait.length) : 0)
+                          : (kpis?.mediaEsperaMin ?? (recordsWithWait.length > 0 ? Math.round(recordsWithWait.reduce((a, b) => a + (b.tempoEsperaMin || 0), 0) / recordsWithWait.length) : 0))} min
                       </span>
                     </div>
                   </div>
@@ -1274,14 +1384,16 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                     </div>
                     <div className="my-2 flex items-baseline gap-2">
                       <span className="text-3xl font-black text-white font-mono">
-                        {kpis?.totalSenhas ?? allRecords.length}
+                        {selectedDate ? activeRecords.length : (kpis?.totalSenhas ?? allRecords.length)}
                       </span>
                       <span className="text-xs text-slate-400">senhas geradas</span>
                     </div>
                     <div className="pt-3 border-t border-white/6 flex items-center justify-between text-xs text-slate-400">
                       <span>Desistências / Cancelados:</span>
                       <span className="font-bold text-rose-400 font-mono">
-                        {kpis?.totalDesistencias ?? allRecords.filter((r) => r.situacao === 'Desistência' || r.situacao === 'Cancelado').length}
+                        {selectedDate
+                          ? activeRecords.filter((r) => r.situacao === 'Desistência' || r.situacao === 'Cancelado').length
+                          : (kpis?.totalDesistencias ?? allRecords.filter((r) => r.situacao === 'Desistência' || r.situacao === 'Cancelado').length)}
                       </span>
                     </div>
                   </div>
@@ -1318,99 +1430,116 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                   </div>
                 )}
 
-                {/* Gráfico Simplificado de Horários de Pico e Serviços */}
+                {/* Grade Analítica: Calendário Interativo + Horários de Pico + Serviços Mais Demandados */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                  {/* Resumo de Horários de Pico */}
-                  <div className="lg:col-span-7 rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-xl space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <BarChart3 className="w-4 h-4 text-indigo-400" />
-                        <h3 className="text-sm font-bold text-white">Distribuição por Horário</h3>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setActiveAba('pico')}
-                        className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
-                      >
-                        Ver detalhes
-                      </button>
-                    </div>
-
-                    {horariosPico.length > 0 ? (
-                      <div className="space-y-3 pt-2">
-                        <div className="h-44 flex items-end gap-2 pt-6 pb-2 px-2 border-b border-white/10">
-                          {horariosPico.map((h) => {
-                            const maxVal = Math.max(...horariosPico.map((p) => p.total), 1);
-                            const heightPerc = Math.max(8, Math.round((h.total / maxVal) * 100));
-                            return (
-                              <div key={h.hora} className="flex-1 flex flex-col items-center gap-1 group relative">
-                                {/* Tooltip */}
-                                <div className="absolute -top-12 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-white/20 text-[10px] text-white py-1 px-2 rounded-lg pointer-events-none whitespace-nowrap z-20 shadow-xl">
-                                  <div className="font-bold">{h.hora}</div>
-                                  <div>Total: {h.total}</div>
-                                  <div className="text-emerald-400">Dentro SLA: {h.dentroSla}</div>
-                                </div>
-                                <div className="w-full flex flex-col justify-end h-32 rounded-lg bg-white/[0.02] overflow-hidden p-0.5">
-                                  <div
-                                    className="w-full rounded-md bg-gradient-to-t from-indigo-600 to-indigo-400 transition-all group-hover:from-indigo-500 group-hover:to-cyan-400"
-                                    style={{ height: `${heightPerc}%` }}
-                                  />
-                                </div>
-                                <span className="text-[10px] font-mono text-slate-400">{h.hora.split(':')[0]}h</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
-                          <span>Faixa operacional das 08h às 18h</span>
-                          <span className="font-mono text-indigo-300">
-                            Maior fluxo: {horariosPico.slice().sort((a, b) => b.total - a.total)[0]?.hora || '—'}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="py-12 text-center text-slate-500 text-xs">
-                        Nenhum atendimento registrado no período selecionado.
-                      </div>
-                    )}
+                  {/* Card 1: Calendário Interativo */}
+                  <div className="lg:col-span-4 flex flex-col">
+                    <EsperaCalendarCard
+                      allRecords={allRecords}
+                      selectedDate={selectedDate}
+                      onSelectDate={(d) => {
+                        setSelectedDate(d);
+                        setPreviewPage(1);
+                      }}
+                      slaMinutes={slaMinutes}
+                    />
                   </div>
 
-                  {/* Distribuição por Serviços */}
-                  <div className="lg:col-span-5 rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-xl space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Layers className="w-4 h-4 text-indigo-400" />
-                        <h3 className="text-sm font-bold text-white">Serviços Mais Demandados</h3>
+                  {/* Card 2: Resumo de Horários de Pico */}
+                  <div className="lg:col-span-4 rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 sm:p-6 shadow-xl space-y-4 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <BarChart3 className="w-4 h-4 text-indigo-400" />
+                          <h3 className="text-sm font-bold text-white">Distribuição por Horário</h3>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setActiveAba('pico')}
+                          className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
+                        >
+                          Ver detalhes
+                        </button>
                       </div>
-                      <span className="text-xs text-slate-500 font-mono">{servicosDistribuicao.length} tipos</span>
-                    </div>
 
-                    {servicosDistribuicao.length > 0 ? (
-                      <div className="space-y-3 pt-1">
-                        {servicosDistribuicao.slice(0, 5).map((servico) => (
-                          <div key={servico.nome} className="p-3 rounded-xl bg-white/[0.02] border border-white/6 space-y-1.5">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="font-semibold text-white truncate max-w-[200px]">{servico.nome}</span>
-                              <span className="font-mono font-bold text-indigo-300">{servico.total} senhas</span>
-                            </div>
-                            <div className="flex items-center justify-between text-[11px] text-slate-400">
-                              <span>SLA de conformidade</span>
-                              <span className="font-mono text-emerald-400 font-bold">{servico.dentroSlaPerc}%</span>
-                            </div>
-                            <div className="w-full bg-white/5 rounded-full h-1 overflow-hidden">
-                              <div
-                                className="bg-emerald-500 h-1 rounded-full"
-                                style={{ width: `${servico.dentroSlaPerc}%` }}
-                              />
-                            </div>
+                      {displayHorariosPico.length > 0 ? (
+                        <div className="space-y-3 pt-2">
+                          <div className="h-44 flex items-end gap-1.5 pt-6 pb-2 px-1 border-b border-white/10">
+                            {displayHorariosPico.map((h) => {
+                              const maxVal = Math.max(...displayHorariosPico.map((p) => p.total), 1);
+                              const heightPerc = Math.max(8, Math.round((h.total / maxVal) * 100));
+                              return (
+                                <div key={h.hora} className="flex-1 flex flex-col items-center gap-1 group relative">
+                                  {/* Tooltip */}
+                                  <div className="absolute -top-12 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-white/20 text-[10px] text-white py-1 px-2 rounded-lg pointer-events-none whitespace-nowrap z-20 shadow-xl">
+                                    <div className="font-bold">{h.hora}</div>
+                                    <div>Total: {h.total}</div>
+                                    <div className="text-emerald-400">Dentro SLA: {h.dentroSla}</div>
+                                  </div>
+                                  <div className="w-full flex flex-col justify-end h-32 rounded-lg bg-white/[0.02] overflow-hidden p-0.5">
+                                    <div
+                                      className="w-full rounded-md bg-gradient-to-t from-indigo-600 to-indigo-400 transition-all group-hover:from-indigo-500 group-hover:to-cyan-400"
+                                      style={{ height: `${heightPerc}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-[9px] font-mono text-slate-400">{h.hora.split(':')[0]}h</span>
+                                </div>
+                              );
+                            })}
                           </div>
-                        ))}
+                          <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 pt-1">
+                            <span>Faixa operacional das 08h às 18h</span>
+                            <span className="font-mono text-indigo-300">
+                              Pico: {displayHorariosPico.slice().sort((a, b) => b.total - a.total)[0]?.hora || '—'}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="py-12 text-center text-slate-500 text-xs">
+                          Nenhum atendimento registrado no período selecionado.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Card 3: Distribuição por Serviços Mais Demandados */}
+                  <div className="lg:col-span-4 rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 sm:p-6 shadow-xl space-y-4 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Layers className="w-4 h-4 text-indigo-400" />
+                          <h3 className="text-sm font-bold text-white">Serviços Mais Demandados</h3>
+                        </div>
+                        <span className="text-xs text-slate-500 font-mono">{servicosDistribuicao.length} tipos</span>
                       </div>
-                    ) : (
-                      <div className="py-12 text-center text-slate-500 text-xs">
-                        Nenhum serviço registrado.
-                      </div>
-                    )}
+
+                      {servicosDistribuicao.length > 0 ? (
+                        <div className="space-y-2.5 pt-2">
+                          {servicosDistribuicao.slice(0, 5).map((servico) => (
+                            <div key={servico.nome} className="p-2.5 sm:p-3 rounded-xl bg-white/[0.02] border border-white/6 space-y-1.5">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="font-semibold text-white truncate max-w-[180px]">{servico.nome}</span>
+                                <span className="font-mono font-bold text-indigo-300">{servico.total} senhas</span>
+                              </div>
+                              <div className="flex items-center justify-between text-[11px] text-slate-400">
+                                <span>SLA de conformidade</span>
+                                <span className="font-mono text-emerald-400 font-bold">{servico.dentroSlaPerc}%</span>
+                              </div>
+                              <div className="w-full bg-white/5 rounded-full h-1 overflow-hidden">
+                                <div
+                                  className="bg-emerald-500 h-1 rounded-full"
+                                  style={{ width: `${servico.dentroSlaPerc}%` }}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-12 text-center text-slate-500 text-xs">
+                          Nenhum serviço registrado.
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -2375,132 +2504,6 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                   ) : (
                     <div className="py-16 text-center text-slate-500 text-xs">
                       Nenhum atendente com registros no período.
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* ABA 6: PAUSAS & SUSPENSÕES */}
-            {activeAba === 'suspensoes' && (
-              <div className="space-y-6">
-                <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-xl space-y-6">
-                  <div>
-                    <h3 className="text-base font-bold text-white flex items-center gap-2">
-                      <Coffee className="w-5 h-5 text-indigo-400" />
-                      <span>Relatório de Pausas & Suspensões</span>
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Histórico e controle dos intervalos operacionais (Almoço, Café, Banheiro, Reunião) dos operadores.
-                    </p>
-                  </div>
-
-                  {suspensoes.length > 0 ? (
-                    <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-[#080811] text-[11px] font-mono uppercase text-slate-400 border-b border-white/8">
-                          <tr>
-                            <th className="py-3.5 px-4">Colaborador</th>
-                            <th className="py-3.5 px-3">Motivo da Pausa</th>
-                            <th className="py-3.5 px-3">Início</th>
-                            <th className="py-3.5 px-3">Término</th>
-                            <th className="py-3.5 px-3 text-right">Duração</th>
-                            <th className="py-3.5 px-4">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/6 text-slate-300">
-                          {suspensoes.map((s) => (
-                            <tr key={s.id} className="hover:bg-white/[0.02]">
-                              <td className="py-3 px-4 font-bold text-white text-sm uppercase">{s.atendente}</td>
-                              <td className="py-3 px-3">
-                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
-                                  {s.motivo}
-                                </span>
-                              </td>
-                              <td className="py-3 px-3 font-mono text-slate-400">{s.inicio}</td>
-                              <td className="py-3 px-3 font-mono text-slate-400">{s.fim}</td>
-                              <td className="py-3 px-3 text-right font-mono font-bold text-white">
-                                {s.duracaoMin !== null ? `${s.duracaoMin} min` : '—'}
-                              </td>
-                              <td className="py-3 px-4">
-                                {s.emAndamento ? (
-                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 animate-pulse">
-                                    Em Pausa Agora
-                                  </span>
-                                ) : (
-                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/5 text-slate-400 border border-white/10">
-                                    Concluída
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="py-16 text-center text-slate-500 text-xs">
-                      Nenhuma pausa registrada no período.
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* ABA 7: AGENDAMENTOS */}
-            {activeAba === 'agendamentos' && (
-              <div className="space-y-6">
-                <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-xl space-y-6">
-                  <div>
-                    <h3 className="text-base font-bold text-white flex items-center gap-2">
-                      <CalendarCheck className="w-5 h-5 text-indigo-400" />
-                      <span>Relatório de Agendamentos & Reservas</span>
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Acompanhamento de clientes agendados, comparecimentos e controle de no-shows.
-                    </p>
-                  </div>
-
-                  {agendamentos.length > 0 ? (
-                    <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-[#080811] text-[11px] font-mono uppercase text-slate-400 border-b border-white/8">
-                          <tr>
-                            <th className="py-3.5 px-4">Cliente</th>
-                            <th className="py-3.5 px-3">Serviço Agendado</th>
-                            <th className="py-3.5 px-3">Horário</th>
-                            <th className="py-3.5 px-3">Senha Vinculada</th>
-                            <th className="py-3.5 px-4">Status de Comparecimento</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/6 text-slate-300">
-                          {agendamentos.map((b) => (
-                            <tr key={b.id} className="hover:bg-white/[0.02]">
-                              <td className="py-3 px-4 font-bold text-white text-sm">{b.cliente}</td>
-                              <td className="py-3 px-3">{b.servico}</td>
-                              <td className="py-3 px-3 font-mono text-slate-400">{b.horario}</td>
-                              <td className="py-3 px-3 font-mono font-bold text-indigo-300">{b.senha}</td>
-                              <td className="py-3 px-4">
-                                <span
-                                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                                    b.status === 'Compareceu'
-                                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                      : b.status === 'Não compareceu'
-                                      ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                                      : 'bg-blue-500/10 text-blue-300 border-blue-500/20'
-                                  }`}
-                                >
-                                  {b.status}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="py-16 text-center text-slate-500 text-xs">
-                      Nenhum agendamento encontrado no período.
                     </div>
                   )}
                 </div>

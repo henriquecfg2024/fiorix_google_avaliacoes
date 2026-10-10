@@ -6,6 +6,7 @@ export interface SenhaRecord {
   senha: string;
   servico: string;
   fila: string;
+  data?: string;
   emissao: string;
   chamada: string;
   inicioAtendimento?: string;
@@ -157,10 +158,53 @@ function formatTime(value: string | null | undefined): string {
 function cleanServiceName(name: string): string {
   if (!name || name === '—') return name;
   const upper = name.trim().toUpperCase();
-  if (upper === 'NÃO AGENDADO' || upper === 'NAO AGENDADO' || upper === 'NÃO-AGENDADO' || upper.includes('NÃO AGENDADO') || upper.includes('NAO AGENDADO')) {
+  if (
+    upper === 'NÃO AGENDADO' ||
+    upper === 'NAO AGENDADO' ||
+    upper === 'NÃO-AGENDADO' ||
+    upper === 'NAO-AGENDADO' ||
+    upper.includes('NÃO AGENDADO') ||
+    upper.includes('NAO AGENDADO')
+  ) {
     return 'TÍTULO';
   }
+  if (
+    upper === 'CERTIDÕES PRONTAS' ||
+    upper === 'CERTIDOES PRONTAS' ||
+    upper === 'CERTIDÕES NA HORA' ||
+    upper === 'CERTIDOES NA HORA' ||
+    upper.includes('CERTIDÕES PRONTAS') ||
+    upper.includes('CERTIDOES PRONTAS') ||
+    upper.includes('CERTIDÕES NA HORA') ||
+    upper.includes('CERTIDOES NA HORA')
+  ) {
+    return 'CERTIDÕES NA HORA';
+  }
+  if (
+    upper === 'CERTIDÃO' ||
+    upper === 'CERTIDAO' ||
+    upper === 'PEDIDO DE CERTIDÃO' ||
+    upper === 'PEDIDO DE CERTIDAO' ||
+    upper.includes('PEDIDO DE CERTID') ||
+    upper === 'CERTIDÕES' ||
+    upper === 'CERTIDOES'
+  ) {
+    return 'PEDIDO DE CERTIDÃO';
+  }
   return name.trim();
+}
+
+function extractDateStr(value: string | null | undefined): string {
+  if (!value) {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+  }
+  try {
+    const d = new Date(value);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+    }
+  } catch {}
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
 function normalizeTicket(raw: NextQSTicket, index: number): SenhaRecord {
@@ -178,6 +222,7 @@ function normalizeTicket(raw: NextQSTicket, index: number): SenhaRecord {
   const rawEmissao = raw.ticket_generated_at || (raw as any).created_at;
   const rawChamada = raw.ticket_first_call_at || (raw as any).service_started_at;
 
+  const data = extractDateStr(rawEmissao);
   const emissao = formatTime(rawEmissao);
   const chamada = formatTime(rawChamada);
   const inicioAtendimento = formatTime(raw.service_started_at);
@@ -209,6 +254,7 @@ function normalizeTicket(raw: NextQSTicket, index: number): SenhaRecord {
     senha,
     servico,
     fila,
+    data,
     emissao,
     chamada,
     inicioAtendimento,
@@ -448,12 +494,21 @@ export async function getEsperaData(
       const rawSuspensions = extractArray(suspensionsData);
       const rawBookings = extractArray(bookingsData);
 
+      const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+
       // Deduplicação
       const seenKeys = new Set<string>();
       const allCombinedTickets: NextQSTicket[] = [];
 
       for (const t of [...rawOpenedTickets, ...rawQueueTickets, ...rawReportTickets]) {
-        const rawDate = t.ticket_generated_at || (t as any).created_at || '';
+        const rawDate = t.ticket_generated_at || (t as any).created_at || (t as any).service_started_at || '';
+        const ticketDateStr = extractDateStr(rawDate);
+
+        // Se o período filtrado for 'hoje', só inclui tickets que realmente pertençam à data de hoje
+        if (periodo === 'hoje' && ticketDateStr !== todayStr) {
+          continue;
+        }
+
         const uniqueId = t.service_origin_id || (t as any)._id || (t as any).origin_id || (t.ticket ? `${t.ticket}-${rawDate}` : null);
         if (uniqueId) {
           if (seenKeys.has(uniqueId)) continue;
@@ -469,8 +524,18 @@ export async function getEsperaData(
         return timeB.localeCompare(timeA);
       });
 
-      const realtimeQueueNormalized = rawQueueTickets.map((t, i) => normalizeTicket(t, i));
-      const realtimeOpenedNormalized = rawOpenedTickets.map((t, i) => normalizeTicket(t, i));
+      // Em tempo real ao vivo, apenas atendimentos iniciados ou gerados na data de hoje
+      const rawOpenedToday = rawOpenedTickets.filter((t) => {
+        const tDate = extractDateStr(t.service_started_at || t.ticket_generated_at || (t as any).created_at);
+        return tDate === todayStr;
+      });
+      const rawQueueToday = rawQueueTickets.filter((t) => {
+        const tDate = extractDateStr(t.ticket_generated_at || (t as any).created_at);
+        return tDate === todayStr;
+      });
+
+      const realtimeQueueNormalized = rawQueueToday.map((t, i) => normalizeTicket(t, i));
+      const realtimeOpenedNormalized = rawOpenedToday.map((t, i) => normalizeTicket(t, i));
 
       // Métricas Executivas
       const totalSenhas = normalized.length;
