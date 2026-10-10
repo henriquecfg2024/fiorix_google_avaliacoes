@@ -207,7 +207,7 @@ export default function PreviewQualidadeHeroPage() {
   const [colabSortDir, setColabSortDir] = useState<"asc" | "desc">("desc");
   const [ordemColuna, setOrdemColuna] = useState<"numeroPrenotacao" | "tipoRetorno" | "dataEntrada" | "dataRetorno" | "responsavel">("numeroPrenotacao");
   const [ordemDirecao, setOrdemDirecao] = useState<"asc" | "desc">("desc");
-  const [modeloHeader, setModeloHeader] = useState<"OPCAO_1" | "OPCAO_2" | "OPCAO_3" | "ATUAL">("OPCAO_1");
+  const [modeloHeader, setModeloHeader] = useState<"OPCAO_1" | "OPCAO_2" | "OPCAO_3" | "ATUAL">("OPCAO_2");
 
   // Melhores do Semestre
   const melhorMesSemestre = useMemo(() => {
@@ -489,22 +489,19 @@ export default function PreviewQualidadeHeroPage() {
         )}
 
         {/* ══════════════════════════════════════════════════════════════════
-             VARIAÇÃO: OPÇÃO 2 (BARRA EM LINHA ÚNICA / INLINE MINIMALISTA)
+             VARIAÇÃO: OPÇÃO 2 (BARRA EM LINHA ÚNICA — EXATAMENTE COMO NO MENU)
              ══════════════════════════════════════════════════════════════════ */}
         {modeloHeader === "OPCAO_2" && (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1 pt-1 pb-1 border-b border-slate-800/60 animate-in fade-in duration-200">
-            <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
-              <span className="text-slate-400">GESTÃO DE PRAZOS</span>
+            <div className="flex items-center gap-2 text-xs font-mono">
+              <span className="text-slate-400 tracking-wider">GESTÃO DE PRAZOS</span>
               <span className="text-slate-600">/</span>
-              <span className="text-white font-extrabold tracking-wide">CONTROLE DE QUALIDADE</span>
-              <span className="px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[10px] font-bold">
-                7º RI SP
-              </span>
+              <span className="text-cyan-400 font-extrabold tracking-wider">QUALIDADE</span>
               <span
-                className="text-slate-400 hover:text-cyan-300 cursor-help transition-colors flex items-center gap-1"
-                title="Cálculo realizado pela data de entrada da prenotação. Monitoramento contínuo de erros internos."
+                className="text-slate-500 hover:text-cyan-400 cursor-help transition-colors ml-1"
+                title="Monitoramento contínuo de erros internos. Cálculo realizado pela data de entrada da prenotação."
               >
-                <Info className="w-3.5 h-3.5 text-cyan-400" />
+                <Info className="w-3.5 h-3.5 inline" />
               </span>
             </div>
 
