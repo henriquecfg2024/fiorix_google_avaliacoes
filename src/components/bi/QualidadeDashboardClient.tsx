@@ -676,7 +676,7 @@ export function QualidadeDashboardClient() {
                     : "bg-amber-500/15 text-amber-300 border-amber-500/20 group-hover:border-amber-400/50 group-hover:bg-amber-500/25"
                 }`}
               >
-                <span>Trâmite + Cancel.</span>
+                <span>Cancelado + Trâmite</span>
                 <span className="text-[8px] font-semibold opacity-90">
                   {filtroSaldoFaltante ? "✕ Ativo" : "↗ Listar"}
                 </span>
