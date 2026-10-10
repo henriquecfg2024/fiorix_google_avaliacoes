@@ -288,7 +288,7 @@ export function FiorixHeader() {
         {/* Direita: Badge Status, Selector, User Profile + Mobile Menu Trigger */}
         <div className="flex items-center gap-4">
           {/* Badge de resposta */}
-          {canViewReviews && (
+          {canViewReviews && pathname?.startsWith("/avaliacoes") && (
             <Link
               href="/avaliacoes?status=PENDING"
               className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all ${

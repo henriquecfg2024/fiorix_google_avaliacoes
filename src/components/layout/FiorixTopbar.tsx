@@ -285,7 +285,7 @@ export function FiorixTopbar() {
 
         {/* Direita: Badge Status, User Profile */}
         <div className="flex items-center gap-4">
-          {canViewReviews && (
+          {canViewReviews && pathname?.startsWith("/avaliacoes") && (
             <Link
               prefetch={false}
               href="/avaliacoes?status=PENDING"

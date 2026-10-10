@@ -68,10 +68,7 @@ export default function PreviewVisaoConsolidadaPage() {
 
           {/* Ações da Direita */}
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-xl text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>✓ Todas respondidas</span>
-            </div>
+
 
 
 
