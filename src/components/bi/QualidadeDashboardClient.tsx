@@ -748,7 +748,7 @@ export function QualidadeDashboardClient() {
             {/* Instrução em Destaque Visível no Topo */}
             <div className="flex items-center gap-2 pt-0.5">
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-[#151C2E] border border-cyan-500/30 text-xs font-semibold text-cyan-300 shadow-sm animate-pulse">
-                <span>👆 Clique em qualquer mês para filtrar todo o painel</span>
+                <span>Clique em qualquer mês para filtrar todo o painel 👇</span>
               </span>
               <span className="text-xs text-slate-400 hidden sm:inline">
                 • Escala oficial de 0 a 2.5% • Limite tolerado: 5.0%
