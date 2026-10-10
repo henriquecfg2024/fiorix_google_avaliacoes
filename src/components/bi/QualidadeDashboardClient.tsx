@@ -768,14 +768,11 @@ export function QualidadeDashboardClient() {
             >
               {mesSelecionadoInfo.value}%
             </span>
-            <div className="flex flex-col text-xs leading-tight">
+            <div className="flex items-center text-xs">
               <span className="font-bold text-white flex items-center gap-1.5">
                 <span style={{ color: mesSelecionadoInfo.dotColor }}>{mesSelecionadoInfo.label}</span>
                 <span className="text-slate-400 font-normal">•</span>
                 <span>{mesSelecionadoInfo.badgeHighlight}</span>
-              </span>
-              <span className="text-emerald-400 font-mono text-[10px] mt-0.5">
-                ↘ {mesSelecionadoInfo.badgeRatio}
               </span>
             </div>
           </div>
