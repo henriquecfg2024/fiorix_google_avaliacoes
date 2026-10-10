@@ -1052,6 +1052,88 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
     })).sort((a, b) => a.hora.localeCompare(b.hora));
   }, [selectedDate, activeRecords, horariosPico, slaMinutes]);
 
+  // Performance dos Agentes calculada dinamicamente com base em activeRecords
+  const displayPerformanceAgentes = useMemo(() => {
+    if (activeRecords.length === 0) {
+      return !selectedDate ? performanceAgentes : [];
+    }
+
+    const agentesMap: Record<string, {
+      totalAtendimentos: number;
+      totalEspera: number;
+      countEspera: number;
+      totalAtendimento: number;
+      countAtendimento: number;
+      dentroSla: number;
+      desistencias: number;
+      notas: number[];
+    }> = {};
+
+    for (const r of activeRecords) {
+      const rawNome = r.atendente !== '—' && r.atendente ? r.atendente.trim() : 'RECEPÇÃO / TRIAGEM';
+      const nome = rawNome.toUpperCase();
+      if (!agentesMap[nome]) {
+        agentesMap[nome] = {
+          totalAtendimentos: 0,
+          totalEspera: 0,
+          countEspera: 0,
+          totalAtendimento: 0,
+          countAtendimento: 0,
+          dentroSla: 0,
+          desistencias: 0,
+          notas: [],
+        };
+      }
+
+      if (r.situacao === 'Desistência' || r.situacao === 'Cancelado') {
+        agentesMap[nome].desistencias += 1;
+      } else {
+        agentesMap[nome].totalAtendimentos += 1;
+      }
+
+      if (r.tempoEsperaMin !== null) {
+        agentesMap[nome].totalEspera += r.tempoEsperaMin;
+        agentesMap[nome].countEspera += 1;
+        if (r.tempoEsperaMin <= slaMinutes) {
+          agentesMap[nome].dentroSla += 1;
+        }
+      }
+
+      if (r.tempoAtendimentoMin !== null && r.tempoAtendimentoMin !== undefined) {
+        agentesMap[nome].totalAtendimento += r.tempoAtendimentoMin;
+        agentesMap[nome].countAtendimento += 1;
+      }
+
+      if (r.avaliacao && r.avaliacao !== '—') {
+        const num = parseFloat(r.avaliacao.replace(/[^0-9.]/g, ''));
+        if (!isNaN(num)) agentesMap[nome].notas.push(num);
+      }
+    }
+
+    return Object.entries(agentesMap)
+      .map(([atendente, val]) => ({
+        atendente,
+        totalAtendimentos: val.totalAtendimentos,
+        mediaEsperaMin: val.countEspera > 0 ? Math.round(val.totalEspera / val.countEspera) : 0,
+        mediaAtendimentoMin: val.countAtendimento > 0 ? Math.round(val.totalAtendimento / val.countAtendimento) : 0,
+        dentroSlaPerc: val.countEspera > 0 ? Math.round((val.dentroSla / val.countEspera) * 1000) / 10 : 100,
+        desistencias: val.desistencias,
+        csatScore: val.notas.length > 0 ? Math.round((val.notas.reduce((a, b) => a + b, 0) / val.notas.length) * 20) : null,
+      }))
+      .filter((a) => a.totalAtendimentos > 0 || a.desistencias > 0)
+      .sort((a, b) => b.totalAtendimentos - a.totalAtendimentos);
+  }, [activeRecords, selectedDate, performanceAgentes, slaMinutes]);
+
+  const picoDestaque = useMemo(() => {
+    if (displayHorariosPico.length === 0) return null;
+    const sorted = [...displayHorariosPico].sort((a, b) => b.total - a.total);
+    return sorted[0]?.total > 0 ? sorted[0] : null;
+  }, [displayHorariosPico]);
+
+  const agenteDestaque = useMemo(() => {
+    return displayPerformanceAgentes.length > 0 ? displayPerformanceAgentes[0] : null;
+  }, [displayPerformanceAgentes]);
+
   // Distribuição por serviço para Visão Geral (fixo e ordenado por: PRIORIDADE, TÍTULO, PEDIDO DE CERTIDÃO e RETIRADA)
   const servicosDistribuicao = useMemo(() => {
     const map: Record<string, { total: number; dentroSla: number; totalEspera: number; countEspera: number }> = {
@@ -2196,7 +2278,86 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
 
             {/* ABA 3: ATENDIMENTOS (Relatório Analítico Completo) */}
             {activeAba === 'atendimentos' && (
-              <div className="space-y-5">
+              <div className="space-y-6">
+                {/* Grade Superior: Calendário Interativo + Resumo do Período */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                  <div className="lg:col-span-4 flex flex-col">
+                    <EsperaCalendarCard
+                      allRecords={calendarBaseRecords}
+                      selectedDate={selectedDate}
+                      onSelectDate={handleSelectDate}
+                      onMonthChange={handleMonthChange}
+                      slaMinutes={slaMinutes}
+                    />
+                  </div>
+                  <div className="lg:col-span-8 flex flex-col justify-between space-y-4">
+                    {/* Banner de status / seleção */}
+                    {selectedDate ? (
+                      <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-200 text-xs shadow-lg backdrop-blur-xl">
+                        <div className="flex items-center gap-2.5">
+                          <span className={`inline-block w-2.5 h-2.5 rounded-full ${isWeekend(selectedDate) ? 'bg-rose-400' : 'bg-indigo-400'} animate-pulse`} />
+                          <span>
+                            Exibindo atendimentos para: <strong className="text-white capitalize">{new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+                            {isWeekend(selectedDate) ? (
+                              <span className="text-rose-400 ml-1.5 font-bold">
+                                — Final de semana (Não há expediente no Cartório / Fechado)
+                              </span>
+                            ) : (
+                              <> — <span className="font-mono text-indigo-300 font-bold">{activeRecords.length}</span> senhas registradas</>
+                            )}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDate(null)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/40 hover:bg-indigo-600 text-white font-bold transition-all cursor-pointer text-xs border border-indigo-400/30 shrink-0"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          <span>Ver mês completo</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-white/[0.03] border border-white/10 text-slate-300 text-xs shadow-lg">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                          <span>Exibindo todos os atendimentos do mês ({calendarBaseRecords.length} senhas emitidas nos dias úteis)</span>
+                        </div>
+                        <span className="text-[11px] text-slate-400">Clique em qualquer dia do calendário para filtrar</span>
+                      </div>
+                    )}
+
+                    {/* Cards de Métricas de Atendimento do Período */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/8 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-slate-400">Total Senhas</span>
+                        <div className="text-2xl font-black text-white font-mono">{activeRecords.length}</div>
+                        <div className="text-[10px] text-slate-500">no período ativo</div>
+                      </div>
+                      <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/8 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-emerald-400">Dentro do SLA</span>
+                        <div className="text-2xl font-black text-emerald-400 font-mono">
+                          {recordsWithWait.length > 0 ? `${Math.round((dentroSla.length / recordsWithWait.length) * 100)}%` : '—'}
+                        </div>
+                        <div className="text-[10px] text-slate-500">{dentroSla.length} atendimentos</div>
+                      </div>
+                      <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/8 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-indigo-400">Média de Espera</span>
+                        <div className="text-2xl font-black text-indigo-300 font-mono">
+                          {recordsWithWait.length > 0 ? Math.round(recordsWithWait.reduce((a, b) => a + (b.tempoEsperaMin || 0), 0) / recordsWithWait.length) : 0} min
+                        </div>
+                        <div className="text-[10px] text-slate-500">meta: até {slaMinutes} min</div>
+                      </div>
+                      <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/8 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-rose-400">Desistências</span>
+                        <div className="text-2xl font-black text-rose-400 font-mono">
+                          {activeRecords.filter((r) => r.situacao === 'Desistência' || r.situacao === 'Cancelado').length}
+                        </div>
+                        <div className="text-[10px] text-slate-500">não atendidos</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Barra de Filtros e Busca */}
                 <div className="rounded-[20px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-4 space-y-3 shadow-xl">
                   <div className="flex flex-col md:flex-row gap-3">
@@ -2426,11 +2587,86 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
             {/* ABA 4: HORÁRIOS DE PICO */}
             {activeAba === 'pico' && (
               <div className="space-y-6">
+                {/* Grade Superior: Calendário Interativo + Resumo de Pico */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                  <div className="lg:col-span-4 flex flex-col">
+                    <EsperaCalendarCard
+                      allRecords={calendarBaseRecords}
+                      selectedDate={selectedDate}
+                      onSelectDate={handleSelectDate}
+                      onMonthChange={handleMonthChange}
+                      slaMinutes={slaMinutes}
+                    />
+                  </div>
+                  <div className="lg:col-span-8 rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 sm:p-6 shadow-xl space-y-4 flex flex-col justify-between">
+                    {/* Banner de status / seleção */}
+                    {selectedDate && (
+                      <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-200 text-xs shadow-lg backdrop-blur-xl">
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-block w-2.5 h-2.5 rounded-full ${isWeekend(selectedDate) ? 'bg-rose-400' : 'bg-indigo-400'} animate-pulse`} />
+                          <span>
+                            Horários para: <strong className="text-white capitalize">{new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+                            {isWeekend(selectedDate) && <span className="text-rose-400 ml-1 font-bold">— Sem expediente</span>}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDate(null)}
+                          className="text-[11px] font-bold text-indigo-300 hover:text-white px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer"
+                        >
+                          Ver mês
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4 text-indigo-400" />
+                        <span>Visão Executiva de Fluxo Horário</span>
+                      </h4>
+                      <p className="text-xs text-slate-400">
+                        {selectedDate
+                          ? `Análise de afluência e tempo de espera hora a hora do dia selecionado.`
+                          : `Média consolidada de senhas e tempos de espera por faixa horária no mês.`}
+                      </p>
+                    </div>
+
+                    {/* Destaques de Pico */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/8">
+                      <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-slate-400">Horário de Maior Fluxo</span>
+                        <div className="text-xl font-black text-indigo-300 font-mono">
+                          {picoDestaque ? picoDestaque.hora : '—'}
+                        </div>
+                        <div className="text-[10px] text-slate-500">
+                          {picoDestaque ? `${picoDestaque.total} senhas emitidas` : 'Sem emissões'}
+                        </div>
+                      </div>
+                      <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-emerald-400">SLA no Horário de Pico</span>
+                        <div className="text-xl font-black text-emerald-400 font-mono">
+                          {picoDestaque && picoDestaque.total > 0
+                            ? `${Math.round((picoDestaque.dentroSla / picoDestaque.total) * 100)}%`
+                            : '—'}
+                        </div>
+                        <div className="text-[10px] text-slate-500">conformidade no pico</div>
+                      </div>
+                      <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-cyan-400">Espera Média no Pico</span>
+                        <div className="text-xl font-black text-cyan-300 font-mono">
+                          {picoDestaque ? `${picoDestaque.mediaEsperaMin} min` : '—'}
+                        </div>
+                        <div className="text-[10px] text-slate-500">tempo na fila</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-xl space-y-6">
                   <div>
                     <h3 className="text-base font-bold text-white flex items-center gap-2">
                       <BarChart3 className="w-5 h-5 text-indigo-400" />
-                      <span>Relatório de Horários de Pico</span>
+                      <span>Relatório Detalhado de Horários de Pico</span>
                     </h3>
                     <p className="text-xs text-slate-400 mt-1">
                       Identifique as faixas horárias com maior afluência e tempo de espera na recepção.
@@ -2440,8 +2676,8 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                   {/* Gráfico Visual */}
                   <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/8 space-y-4">
                     <div className="h-56 flex items-end gap-3 pt-6 pb-2 px-2 border-b border-white/10">
-                      {horariosPico.map((h) => {
-                        const maxVal = Math.max(...horariosPico.map((p) => p.total), 1);
+                      {displayHorariosPico.map((h) => {
+                        const maxVal = Math.max(...displayHorariosPico.map((p) => p.total), 1);
                         const heightPerc = Math.max(10, Math.round((h.total / maxVal) * 100));
                         return (
                           <div key={h.hora} className="flex-1 flex flex-col items-center gap-1 group relative">
@@ -2479,7 +2715,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/6 text-slate-300">
-                        {horariosPico.map((h) => {
+                        {displayHorariosPico.map((h) => {
                           const perc = h.total > 0 ? Math.round((h.dentroSla / h.total) * 100) : 100;
                           return (
                             <tr key={h.hora} className="hover:bg-white/[0.02]">
@@ -2516,18 +2752,97 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
             {/* ABA 5: PERFORMANCE DOS AGENTES */}
             {activeAba === 'agentes' && (
               <div className="space-y-6">
+                {/* Grade Superior: Calendário Interativo + Resumo da Equipe */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                  <div className="lg:col-span-4 flex flex-col">
+                    <EsperaCalendarCard
+                      allRecords={calendarBaseRecords}
+                      selectedDate={selectedDate}
+                      onSelectDate={handleSelectDate}
+                      onMonthChange={handleMonthChange}
+                      slaMinutes={slaMinutes}
+                    />
+                  </div>
+                  <div className="lg:col-span-8 rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 sm:p-6 shadow-xl space-y-4 flex flex-col justify-between">
+                    {/* Banner de status / seleção */}
+                    {selectedDate && (
+                      <div className="flex items-center justify-between px-4 py-2.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-200 text-xs shadow-lg backdrop-blur-xl">
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-block w-2.5 h-2.5 rounded-full ${isWeekend(selectedDate) ? 'bg-rose-400' : 'bg-indigo-400'} animate-pulse`} />
+                          <span>
+                            Equipe em: <strong className="text-white capitalize">{new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+                            {isWeekend(selectedDate) && <span className="text-rose-400 ml-1 font-bold">— Sem expediente</span>}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDate(null)}
+                          className="text-[11px] font-bold text-indigo-300 hover:text-white px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer"
+                        >
+                          Ver mês
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Award className="w-4 h-4 text-indigo-400" />
+                        <span>Resumo de Produtividade da Equipe</span>
+                      </h4>
+                      <p className="text-xs text-slate-400">
+                        {selectedDate
+                          ? `Métricas individuais de atendimento registradas na data selecionada.`
+                          : `Produtividade consolidada dos atendentes ao longo de todo o mês.`}
+                      </p>
+                    </div>
+
+                    {/* Destaques da Equipe */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-white/8">
+                      <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-amber-400 flex items-center gap-1">
+                          🥇 Atendente Destaque #1
+                        </span>
+                        <div className="text-base font-black text-white truncate uppercase">
+                          {agenteDestaque ? agenteDestaque.atendente : '—'}
+                        </div>
+                        <div className="text-[10px] text-slate-500">
+                          {agenteDestaque ? `${agenteDestaque.totalAtendimentos} atendimentos realizados` : 'Sem registros'}
+                        </div>
+                      </div>
+                      <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-indigo-400">TMA Médio de Mesa</span>
+                        <div className="text-xl font-black text-indigo-300 font-mono">
+                          {displayPerformanceAgentes.length > 0
+                            ? `${Math.round(displayPerformanceAgentes.reduce((a, b) => a + b.mediaAtendimentoMin, 0) / displayPerformanceAgentes.length)} min`
+                            : '—'}
+                        </div>
+                        <div className="text-[10px] text-slate-500">tempo por atendimento</div>
+                      </div>
+                      <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/8 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-emerald-400">SLA Médio da Equipe</span>
+                        <div className="text-xl font-black text-emerald-400 font-mono">
+                          {displayPerformanceAgentes.length > 0
+                            ? `${Math.round(displayPerformanceAgentes.reduce((a, b) => a + b.dentroSlaPerc, 0) / displayPerformanceAgentes.length)}%`
+                            : '—'}
+                        </div>
+                        <div className="text-[10px] text-slate-500">conformidade de espera</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-xl space-y-6">
                   <div>
                     <h3 className="text-base font-bold text-white flex items-center gap-2">
                       <Award className="w-5 h-5 text-indigo-400" />
-                      <span>Performance & Produtividade dos Agentes</span>
+                      <span>Ranking de Performance dos Agentes</span>
                     </h3>
                     <p className="text-xs text-slate-400 mt-1">
                       Ranking individual de atendimento, tempo médio de guichê (TMA), tempo de espera gerado e taxa de conformidade SLA.
                     </p>
                   </div>
 
-                  {performanceAgentes.length > 0 ? (
+                  {displayPerformanceAgentes.length > 0 ? (
                     <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
                       <table className="w-full text-left text-xs">
                         <thead className="bg-[#080811] text-[11px] font-mono uppercase text-slate-400 border-b border-white/8">
@@ -2543,7 +2858,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/6 text-slate-300">
-                          {performanceAgentes.map((agente, index) => (
+                          {displayPerformanceAgentes.map((agente, index) => (
                             <tr key={agente.atendente} className="hover:bg-white/[0.02] transition-colors">
                               <td className="py-3 px-4 font-mono font-bold">
                                 {index === 0 ? (
@@ -2617,7 +2932,9 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                     </div>
                   ) : (
                     <div className="py-16 text-center text-slate-500 text-xs">
-                      Nenhum atendente com registros no período.
+                      {isWeekend(selectedDate || '')
+                        ? 'Final de semana — Não houve atendimentos ou expediente nesta data.'
+                        : 'Nenhum atendente com registros no período.'}
                     </div>
                   )}
                 </div>
