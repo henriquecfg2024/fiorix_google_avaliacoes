@@ -571,60 +571,99 @@ export default function PreviewQualidadeHeroPage() {
         </section>
 
         {/* ══════════════════════════════════════════════════════════════════
-             3. BARRA DE FILTROS SECUNDÁRIOS: LINHA COMPACTA
+             3. BARRA DE FILTROS SECUNDÁRIOS: CARDS EM DESTAQUE PARA TIPOS DE RETORNO
              ══════════════════════════════════════════════════════════════════ */}
-        <section className="rounded-2xl border border-slate-800 bg-[#111729] p-4 shadow-sm">
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+        <section className="rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-lg space-y-4">
+          <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
             {/* Bloco 1: Indicador de Mês Selecionado (Sincronizado) */}
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
-                <Calendar className="h-4 w-4" />
+              <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+                <Calendar className="h-5 w-5" />
               </div>
               <div>
-                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">
+                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block font-semibold">
                   Competência Ativa:
                 </span>
-                <span className="text-sm font-bold text-white font-mono flex items-center gap-2">
+                <span className="text-base font-extrabold text-white font-mono flex items-center gap-2">
                   <span>{mesSelecionadoInfo.label}</span>
-                  <span className="text-[10px] font-mono px-2 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
                     Sincronizado com Hero
                   </span>
                 </span>
               </div>
             </div>
 
-            {/* Bloco 2: Tipo de Retorno */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
-                Tipos de Retorno:
+            {/* Bloco 2: Tipo de Retorno (Cards com Destaque Forte) */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1 max-w-3xl">
+              <span className="text-[11px] text-slate-200 font-bold uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                <span>Tipos de Retorno:</span>
               </span>
-              <div className="inline-flex p-1 rounded-xl bg-[#090E1D] border border-slate-800 text-xs">
-                {(["TODOS", "TELA_RECEPCAO", "PESSOAL", "REAL"] as const).map((tipo) => (
-                  <button
-                    key={tipo}
-                    type="button"
-                    onClick={() => setTipoRetorno(tipo)}
-                    className={`px-3 py-1.5 rounded-lg font-bold transition-all text-xs ${
-                      tipoRetorno === tipo
-                        ? "bg-slate-700 text-white border border-slate-400 shadow-md"
-                        : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    {tipo === "TODOS"
-                      ? "TODOS"
-                      : tipo === "TELA_RECEPCAO"
-                      ? "TELA RECEPÇÃO"
-                      : tipo === "PESSOAL"
-                      ? "PESSOAL"
-                      : "REAL"}
-                  </button>
-                ))}
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full p-1.5 rounded-2xl bg-[#090E1D] border-2 border-[#1E293B] shadow-inner">
+                {/* 0. TODOS */}
+                <button
+                  type="button"
+                  onClick={() => setTipoRetorno("TODOS")}
+                  className={`flex items-center justify-center py-2.5 px-3 rounded-xl font-bold transition-all text-xs tracking-wider active:scale-95 ${
+                    tipoRetorno === "TODOS"
+                      ? "bg-slate-700 text-white border-2 border-slate-300 shadow-lg shadow-white/10 ring-2 ring-white/20"
+                      : "bg-slate-900/60 text-slate-400 border border-slate-800 hover:bg-slate-800/80 hover:text-white"
+                  }`}
+                >
+                  <span>TODOS</span>
+                </button>
+
+                {/* 1. TELA RECEPÇÃO */}
+                <button
+                  type="button"
+                  onClick={() => setTipoRetorno("TELA_RECEPCAO")}
+                  className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-extrabold transition-all text-xs tracking-wider active:scale-95 ${
+                    tipoRetorno === "TELA_RECEPCAO"
+                      ? "bg-cyan-500 text-slate-950 border-2 border-cyan-200 shadow-xl shadow-cyan-500/40 ring-2 ring-cyan-300/50 scale-[1.02]"
+                      : "bg-cyan-950/40 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/20 hover:text-cyan-100 hover:border-cyan-400"
+                  }`}
+                  title="Retorno Tela de Recepção"
+                >
+                  <Layers className={`w-4 h-4 shrink-0 ${tipoRetorno === "TELA_RECEPCAO" ? "text-slate-950" : "text-cyan-400"}`} />
+                  <span className="truncate">TELA RECEPÇÃO</span>
+                </button>
+
+                {/* 2. PESSOAL */}
+                <button
+                  type="button"
+                  onClick={() => setTipoRetorno("PESSOAL")}
+                  className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-extrabold transition-all text-xs tracking-wider active:scale-95 ${
+                    tipoRetorno === "PESSOAL"
+                      ? "bg-blue-600 text-white border-2 border-blue-200 shadow-xl shadow-blue-500/40 ring-2 ring-blue-300/50 scale-[1.02]"
+                      : "bg-blue-950/40 text-blue-300 border border-blue-500/40 hover:bg-blue-500/20 hover:text-blue-100 hover:border-blue-400"
+                  }`}
+                  title="Retorno Pessoal"
+                >
+                  <Users className={`w-4 h-4 shrink-0 ${tipoRetorno === "PESSOAL" ? "text-white" : "text-blue-400"}`} />
+                  <span className="truncate">PESSOAL</span>
+                </button>
+
+                {/* 3. REAL */}
+                <button
+                  type="button"
+                  onClick={() => setTipoRetorno("REAL")}
+                  className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-extrabold transition-all text-xs tracking-wider active:scale-95 ${
+                    tipoRetorno === "REAL"
+                      ? "bg-purple-600 text-white border-2 border-purple-200 shadow-xl shadow-purple-500/40 ring-2 ring-purple-300/50 scale-[1.02]"
+                      : "bg-purple-950/40 text-purple-300 border border-purple-500/40 hover:bg-purple-500/20 hover:text-purple-100 hover:border-purple-400"
+                  }`}
+                  title="Retorno Real"
+                >
+                  <ShieldCheck className={`w-4 h-4 shrink-0 ${tipoRetorno === "REAL" ? "text-white" : "text-purple-400"}`} />
+                  <span className="truncate">REAL</span>
+                </button>
               </div>
             </div>
 
             {/* Bloco 3: Origem do Protocolo */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
+            <div className="flex items-center gap-2.5 shrink-0">
+              <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
                 Origem:
               </span>
               <div className="inline-flex p-1 rounded-xl bg-[#090E1D] border border-slate-800 text-xs">
@@ -655,7 +694,7 @@ export default function PreviewQualidadeHeroPage() {
                   setBuscaColaborador("");
                   setBuscaGeral("");
                 }}
-                className="text-xs text-slate-400 hover:text-cyan-400 underline transition-colors ml-2"
+                className="text-xs text-slate-400 hover:text-cyan-400 underline transition-colors ml-1"
                 title="Restaurar padrão"
               >
                 Limpar
