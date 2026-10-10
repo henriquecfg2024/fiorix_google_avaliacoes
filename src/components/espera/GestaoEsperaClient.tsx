@@ -922,14 +922,13 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
     })).sort((a, b) => a.hora.localeCompare(b.hora));
   }, [selectedDate, activeRecords, horariosPico, slaMinutes]);
 
-  // Distribuição por serviço para Visão Geral (ordenado por: PRIORIDADE, TÍTULO, PEDIDO DE CERTIDÃO, RETIRADA, CERTIDÕES NA HORA)
+  // Distribuição por serviço para Visão Geral (fixo e ordenado por: PRIORIDADE, TÍTULO, PEDIDO DE CERTIDÃO e RETIRADA)
   const servicosDistribuicao = useMemo(() => {
     const map: Record<string, { total: number; dentroSla: number; totalEspera: number; countEspera: number }> = {
       'PRIORIDADE': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
       'TÍTULO': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
       'PEDIDO DE CERTIDÃO': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
       'RETIRADA': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
-      'CERTIDÕES NA HORA': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
     };
 
     for (const r of activeRecords) {
@@ -938,9 +937,12 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
       const upper = rawService.toUpperCase();
       if (upper === 'PRIORIDADE') s = 'PRIORIDADE';
       else if (upper === 'TÍTULO' || upper === 'TITULO') s = 'TÍTULO';
-      else if (upper === 'PEDIDO DE CERTIDÃO' || upper === 'PEDIDO DE CERTIDAO' || upper === 'CERTIDÃO' || upper === 'CERTIDAO' || upper.includes('PEDIDO DE CERTID') || upper === 'CERTIDÕES' || upper === 'CERTIDOES') s = 'PEDIDO DE CERTIDÃO';
+      else if (upper === 'PEDIDO DE CERTIDÃO' || upper === 'PEDIDO DE CERTIDAO' || upper === 'CERTIDÃO' || upper === 'CERTIDAO' || upper.includes('PEDIDO DE CERTID')) s = 'PEDIDO DE CERTIDÃO';
       else if (upper === 'RETIRADA') s = 'RETIRADA';
-      else if (upper === 'CERTIDÕES NA HORA' || upper === 'CERTIDOES NA HORA' || upper.includes('CERTIDÕES PRONTAS') || upper.includes('CERTIDOES PRONTAS') || upper.includes('CERTIDÕES NA HORA') || upper.includes('CERTIDOES NA HORA')) s = 'CERTIDÕES NA HORA';
+      else {
+        // Ignora outros tipos ou tipos removidos (como CERTIDÕES NA HORA)
+        continue;
+      }
 
       if (!map[s]) map[s] = { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 };
       map[s].total += 1;
@@ -958,11 +960,10 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
       'PEDIDO DE CERTIDÃO': 3,
       'PEDIDO DE CERTIDAO': 3,
       'RETIRADA': 4,
-      'CERTIDÕES NA HORA': 5,
-      'CERTIDOES NA HORA': 5,
     };
 
     return Object.entries(map)
+      .filter(([nome]) => priorityOrder[nome.toUpperCase()] !== undefined)
       .map(([nome, val]) => ({
         nome,
         total: val.total,
