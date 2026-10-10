@@ -2326,7 +2326,7 @@ export function QualidadeDashboardClient() {
                 </div>
                 <p className="text-[11px] leading-relaxed opacity-90">
                   {selectedColab.dentroLimite
-                    ? "Seu empenho e cuidado contribuem para a qualidade dos serviços do cartório. Mantenha a atenção em cada etapa: a precisão e a conformidade registral exigem vigilância constante."
+                    ? "O seu empenho e cuidado contribuem para a qualidade dos serviços do cartório."
                     : "O colaborador excedeu a margem de tolerância técnica pactuada para a competência. Recomenda-se alinhamento registral com o Oficial Substituto."}
                 </p>
               </div>
