@@ -934,7 +934,7 @@ export function QualidadeDashboardClient() {
                       {/* Nº Prenotação */}
                       <td className="py-2.5 px-3 font-bold text-white">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-cyan-300">#{item.numeroPrenotacao}</span>
+                          <span className="font-mono text-cyan-300">{item.numeroPrenotacao}</span>
                           <button
                             type="button"
                             onClick={() => handleCopiarProtocolo(item.numeroPrenotacao)}
