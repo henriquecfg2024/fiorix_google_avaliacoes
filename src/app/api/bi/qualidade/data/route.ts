@@ -192,11 +192,20 @@ function gerarProtocolosFaltantes(
   const diasNoMes = new Date(ano, mes, 0).getDate();
   const lista: ProtocoloFaltanteItem[] = [];
 
+  // Determinar limite máximo de dias para a competência:
+  // Se for o mês corrente (ano atual e mês atual), a data de entrada nunca pode ultrapassar a data de hoje (dia 10).
+  const hoje = new Date();
+  const anoAtual = hoje.getFullYear();
+  const mesAtual = hoje.getMonth() + 1;
+  const diaHoje = hoje.getDate();
+  const ehMesAtual = ano === anoAtual && mes === mesAtual;
+  const maxDiaValido = ehMesAtual ? Math.min(diaHoje, diasNoMes) : diasNoMes;
+
   // Gerar Canceladas
   for (let i = 0; i < totalCanceladas; i++) {
     const seed = (i * 37 + 13) % 1000;
     const numProt = baseNum + i * 29 + (seed % 17);
-    const dia = 1 + ((i * 7 + seed) % diasNoMes);
+    const dia = 1 + ((i * 7 + seed) % maxDiaValido);
     const diaStr = String(dia).padStart(2, "0");
     const mesFormat = String(mes).padStart(2, "0");
     const dataEntrada = `${ano}-${mesFormat}-${diaStr}`;
@@ -222,7 +231,7 @@ function gerarProtocolosFaltantes(
   for (let j = 0; j < totalEmTramite; j++) {
     const seed = (j * 43 + 29) % 1000;
     const numProt = baseNum + totalCanceladas * 30 + j * 31 + (seed % 13);
-    const dia = Math.min(diasNoMes, Math.max(1, diasNoMes - 10 + (j % 10)));
+    const dia = Math.min(maxDiaValido, Math.max(1, maxDiaValido - 4 + (j % 5)));
     const diaStr = String(dia).padStart(2, "0");
     const mesFormat = String(mes).padStart(2, "0");
     const dataEntrada = `${ano}-${mesFormat}-${diaStr}`;
@@ -240,7 +249,7 @@ function gerarProtocolosFaltantes(
       origem: origemItem,
       natureza: naturezas[(j + seed + 3) % naturezas.length],
       motivo: motivosEmTramite[j % motivosEmTramite.length],
-      diasAndamento: Math.max(1, diasNoMes - dia + 1),
+      diasAndamento: Math.max(1, maxDiaValido - dia + 1),
     });
   }
 
@@ -728,7 +737,7 @@ export async function GET(request: Request) {
         const exemplos = eventosFiltrados
           .filter((e) => e.categoria === catNome && e.observacao.length > 5)
           .slice(0, 2)
-          .map((e) => `"${e.observacao.substring(0, 45)}"`)
+          .map((e) => `"${e.observacao.substring(0, 45).toUpperCase()}"`)
           .join(", ");
 
         return {
@@ -737,7 +746,7 @@ export async function GET(request: Request) {
           quantidade: qtd,
           percentual: qtdErros > 0 ? Number(((qtd / qtdErros) * 100).toFixed(1)) : 0,
           cor: cfg ? cfg.cor : "#94A3B8",
-          exemplos: exemplos || '"Observações registradas no contraditório"',
+          exemplos: (exemplos || '"OBSERVAÇÕES REGISTRADAS NO CONTRADITÓRIO"').toUpperCase(),
         };
       })
       .sort((a, b) => b.quantidade - a.quantidade);

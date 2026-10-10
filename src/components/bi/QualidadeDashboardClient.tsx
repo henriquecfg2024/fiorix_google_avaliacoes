@@ -785,7 +785,7 @@ export function QualidadeDashboardClient() {
               <div>
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <h3 className="text-base font-bold text-white tracking-wide">
-                    Listagem dos Protocolos — Saldo Faltante
+                    Listagem dos Protocolos — Não realizados
                   </h3>
                   <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-mono font-bold">
                     {protocolosFaltantesFiltrados.length}{" "}
@@ -822,7 +822,7 @@ export function QualidadeDashboardClient() {
                 type="button"
                 onClick={() => setFiltroSaldoFaltante(false)}
                 className="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-500/40 text-xs font-semibold transition-all flex items-center gap-1 active:scale-95"
-                title="Fechar listagem de protocolos do saldo faltante"
+                title="Fechar listagem de protocolos não realizados"
               >
                 <X className="w-4 h-4" />
                 <span>Fechar</span>
@@ -1135,11 +1135,8 @@ export function QualidadeDashboardClient() {
         <section className="lg:col-span-5 rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-white tracking-wide flex items-center gap-2">
-                <span>Top Causas dos Erros Internos</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-semibold">
-                  Clicável para filtrar
-                </span>
+              <h3 className="text-sm font-semibold text-white tracking-wide uppercase flex items-center gap-2">
+                <span>TOP CAUSAS DOS ERROS INTERNOS</span>
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
                 Clique em uma causa para isolar os protocolos na tabela abaixo
@@ -1171,12 +1168,12 @@ export function QualidadeDashboardClient() {
                   }`}
                 >
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-200 flex items-center gap-1.5 group-hover:text-white transition-colors">
+                    <span className="font-semibold text-slate-200 flex items-center gap-1.5 group-hover:text-white transition-colors uppercase">
                       <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.cor }}></span>
                       <span>{c.nome}</span>
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-slate-200 font-semibold">
+                      <span className="font-mono text-slate-200 font-semibold uppercase">
                         {c.quantidade} erros ({c.percentual}%)
                       </span>
                       <span
@@ -1191,7 +1188,7 @@ export function QualidadeDashboardClient() {
                   <div className="w-full bg-[#070A14] h-1.5 rounded-full overflow-hidden">
                     <div className="h-full rounded-full" style={{ width: `${c.percentual}%`, backgroundColor: c.cor }} />
                   </div>
-                  <span className="text-[10px] text-slate-400 block truncate">{c.exemplos}</span>
+                  <span className="text-[10px] text-slate-400 block truncate uppercase">{c.exemplos}</span>
                 </div>
               );
             })}
