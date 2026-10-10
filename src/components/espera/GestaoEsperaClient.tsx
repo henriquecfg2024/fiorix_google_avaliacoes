@@ -843,11 +843,25 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
   );
   const situacoesUnicas = useMemo(() => [...new Set(allRecords.map((r) => r.situacao).filter((s) => s !== '—'))].sort(), [allRecords]);
 
-  // Distribuição por serviço para Visão Geral (ordenado por: PRIORIDADE, TÍTULO, CERTIDÃO e RETIRADA)
+  // Distribuição por serviço para Visão Geral (fixo e ordenado por: PRIORIDADE, TÍTULO, CERTIDÃO e RETIRADA)
   const servicosDistribuicao = useMemo(() => {
-    const map: Record<string, { total: number; dentroSla: number; totalEspera: number; countEspera: number }> = {};
+    // Garante que os 4 serviços fundamentais do cartório sempre constem no card
+    const map: Record<string, { total: number; dentroSla: number; totalEspera: number; countEspera: number }> = {
+      'PRIORIDADE': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
+      'TÍTULO': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
+      'CERTIDÃO': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
+      'RETIRADA': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
+    };
+
     for (const r of allRecords) {
-      const s = cleanServiceName(r.servico !== '—' ? r.servico : 'Geral');
+      const rawService = cleanServiceName(r.servico !== '—' ? r.servico : 'Geral');
+      let s = rawService;
+      const upper = rawService.toUpperCase();
+      if (upper === 'PRIORIDADE') s = 'PRIORIDADE';
+      else if (upper === 'TÍTULO' || upper === 'TITULO') s = 'TÍTULO';
+      else if (upper === 'CERTIDÃO' || upper === 'CERTIDAO') s = 'CERTIDÃO';
+      else if (upper === 'RETIRADA') s = 'RETIRADA';
+
       if (!map[s]) map[s] = { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 };
       map[s].total += 1;
       if (r.tempoEsperaMin !== null) {
