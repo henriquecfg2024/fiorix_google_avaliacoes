@@ -26,6 +26,7 @@ import {
   ArrowRight,
   Eye,
   RefreshCw,
+  Info,
 } from "lucide-react";
 
 // Tipagem dos KPIs e dados
@@ -206,6 +207,7 @@ export default function PreviewQualidadeHeroPage() {
   const [colabSortDir, setColabSortDir] = useState<"asc" | "desc">("desc");
   const [ordemColuna, setOrdemColuna] = useState<"numeroPrenotacao" | "tipoRetorno" | "dataEntrada" | "dataRetorno" | "responsavel">("numeroPrenotacao");
   const [ordemDirecao, setOrdemDirecao] = useState<"asc" | "desc">("desc");
+  const [modeloHeader, setModeloHeader] = useState<"OPCAO_1" | "OPCAO_2" | "OPCAO_3" | "ATUAL">("OPCAO_1");
 
   // Melhores do Semestre
   const melhorMesSemestre = useMemo(() => {
@@ -369,35 +371,173 @@ export default function PreviewQualidadeHeroPage() {
 
       <div className="mx-auto max-w-[1700px] w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* ══════════════════════════════════════════════════════════════════
-             1. HEADER DA PÁGINA: GESTÃO DE PRAZOS / CONTROLE DE QUALIDADE
+             LABORATÓRIO VISUAL: ALTERNADOR INTERATIVO DE MODELOS DE CABEÇALHO
              ══════════════════════════════════════════════════════════════════ */}
-        <section className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-mono text-cyan-400 tracking-wider uppercase">
-            <span>GESTÃO DE PRAZOS</span>
-            <span>/</span>
-            <span className="text-slate-400">QUALIDADE REGISTRAL</span>
-          </div>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-[#0C1322] via-[#0E1A30] to-[#0C1322] p-4 shadow-xl">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
-                <span>Controle de Qualidade</span>
-                <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
-                  7º RI São Paulo
+              <div className="flex items-center gap-2">
+                <span className="flex h-2 w-2 rounded-full bg-cyan-400 animate-ping" />
+                <span className="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider">
+                  Laboratório de UX • Comparador de Cabeçalho
                 </span>
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-3xl leading-relaxed">
-                Painel gerencial de auditoria do contraditório interno e cumprimento dos limites técnicos de conformidade registral.
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Clique nos botões abaixo para ver o impacto visual e o ganho de espaço acima da dobra em tempo real:
               </p>
             </div>
 
-            {loading && (
-              <div className="flex items-center gap-2 text-xs text-cyan-400 bg-cyan-500/10 px-3 py-1.5 rounded-xl border border-cyan-500/20">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                <span>Atualizando dados do mês...</span>
-              </div>
-            )}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <button
+                type="button"
+                onClick={() => setModeloHeader("OPCAO_1")}
+                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all text-left border cursor-pointer ${
+                  modeloHeader === "OPCAO_1"
+                    ? "bg-cyan-500 text-slate-950 border-cyan-300 shadow-lg shadow-cyan-500/25 ring-2 ring-cyan-400/50 scale-[1.02]"
+                    : "bg-[#151C2E] text-slate-300 border-slate-700 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <div className="font-extrabold flex items-center justify-between">
+                  <span>Opção 1 ⭐</span>
+                  <span className="text-[10px] font-mono opacity-90 font-black text-cyan-950 bg-cyan-300/60 px-1 rounded">-160px</span>
+                </div>
+                <div className="text-[10px] opacity-80 font-normal truncate mt-0.5">Integrado ao Hero</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setModeloHeader("OPCAO_2")}
+                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all text-left border cursor-pointer ${
+                  modeloHeader === "OPCAO_2"
+                    ? "bg-cyan-500 text-slate-950 border-cyan-300 shadow-lg shadow-cyan-500/25 ring-2 ring-cyan-400/50 scale-[1.02]"
+                    : "bg-[#151C2E] text-slate-300 border-slate-700 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <div className="font-extrabold flex items-center justify-between">
+                  <span>Opção 2</span>
+                  <span className="text-[10px] font-mono opacity-90 font-black text-cyan-950 bg-cyan-300/60 px-1 rounded">-120px</span>
+                </div>
+                <div className="text-[10px] opacity-80 font-normal truncate mt-0.5">Linha Única Inline</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setModeloHeader("OPCAO_3")}
+                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all text-left border cursor-pointer ${
+                  modeloHeader === "OPCAO_3"
+                    ? "bg-cyan-500 text-slate-950 border-cyan-300 shadow-lg shadow-cyan-500/25 ring-2 ring-cyan-400/50 scale-[1.02]"
+                    : "bg-[#151C2E] text-slate-300 border-slate-700 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <div className="font-extrabold flex items-center justify-between">
+                  <span>Opção 3</span>
+                  <span className="text-[10px] font-mono opacity-90 font-black text-cyan-950 bg-cyan-300/60 px-1 rounded">-140px</span>
+                </div>
+                <div className="text-[10px] opacity-80 font-normal truncate mt-0.5">Breadcrumb + Chip</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setModeloHeader("ATUAL")}
+                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all text-left border cursor-pointer ${
+                  modeloHeader === "ATUAL"
+                    ? "bg-slate-600 text-white border-slate-300 shadow-lg ring-2 ring-slate-400/50 scale-[1.02]"
+                    : "bg-[#151C2E] text-slate-400 border-slate-800 hover:bg-slate-800 hover:text-slate-200"
+                }`}
+              >
+                <div className="font-extrabold flex items-center justify-between">
+                  <span>Como Está</span>
+                  <span className="text-[10px] font-mono opacity-70">Original</span>
+                </div>
+                <div className="text-[10px] opacity-80 font-normal truncate mt-0.5">2 Caixas Grandes</div>
+              </button>
+            </div>
           </div>
-        </section>
+        </div>
+
+        {/* ══════════════════════════════════════════════════════════════════
+             VARIAÇÃO: MODELO "ATUAL" (CABEÇALHO EM CARTÃO GRANDE SEPARADO)
+             ══════════════════════════════════════════════════════════════════ */}
+        {modeloHeader === "ATUAL" && (
+          <section className="rounded-2xl border border-slate-800 bg-[#111729] p-6 shadow-xl relative overflow-hidden transition-all animate-in fade-in duration-200">
+            <div className="flex items-center gap-2 text-xs font-mono text-cyan-400 tracking-wider uppercase mb-2">
+              <span>GESTÃO DE PRAZOS</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-slate-400">QUALIDADE REGISTRAL</span>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                  <span>Controle de Qualidade</span>
+                  <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                    7º RI São Paulo
+                  </span>
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-3xl leading-relaxed">
+                  Monitoramento contínuo de erros internos. Calculo realizado pela data de entrada da prenotação.
+                </p>
+              </div>
+
+              {loading && (
+                <div className="flex items-center gap-2 text-xs text-cyan-400 bg-cyan-500/10 px-3 py-1.5 rounded-xl border border-cyan-500/20">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Atualizando dados do mês...</span>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════
+             VARIAÇÃO: OPÇÃO 2 (BARRA EM LINHA ÚNICA / INLINE MINIMALISTA)
+             ══════════════════════════════════════════════════════════════════ */}
+        {modeloHeader === "OPCAO_2" && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1 pt-1 pb-1 border-b border-slate-800/60 animate-in fade-in duration-200">
+            <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
+              <span className="text-slate-400">GESTÃO DE PRAZOS</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-white font-extrabold tracking-wide">CONTROLE DE QUALIDADE</span>
+              <span className="px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[10px] font-bold">
+                7º RI SP
+              </span>
+              <span
+                className="text-slate-400 hover:text-cyan-300 cursor-help transition-colors flex items-center gap-1"
+                title="Cálculo realizado pela data de entrada da prenotação. Monitoramento contínuo de erros internos."
+              >
+                <Info className="w-3.5 h-3.5 text-cyan-400" />
+              </span>
+            </div>
+
+            <div className="text-[11px] font-mono text-slate-400 flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              <span>Cálculo por data de entrada da prenotação</span>
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════
+             VARIAÇÃO: OPÇÃO 3 (BREADCRUMB COM CHIP / BADGE EM DESTAQUE)
+             ══════════════════════════════════════════════════════════════════ */}
+        {modeloHeader === "OPCAO_3" && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1 py-1 animate-in fade-in duration-200">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="text-xs font-mono text-slate-400">Gestão de Prazos</span>
+              <span className="text-slate-600 font-mono">/</span>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-[#111729] border border-cyan-500/40 shadow-sm">
+                <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+                <span className="text-xs font-extrabold text-white tracking-wide">Controle de Qualidade</span>
+                <span className="text-[10px] font-mono text-cyan-300 bg-cyan-500/10 px-1.5 py-0.2 rounded border border-cyan-500/20">7º RI</span>
+              </div>
+              <span className="text-xs text-slate-400 hidden md:inline">
+                • Auditoria do contraditório interno
+              </span>
+            </div>
+
+            <div className="text-xs text-slate-400 font-mono hidden sm:block">
+              Regra: Data de entrada
+            </div>
+          </div>
+        )}
 
         {/* ══════════════════════════════════════════════════════════════════
              2. [HERO] CARD PRINCIPAL: QUALIDADE MÊS A MÊS (EVOLUÇÃO)
@@ -406,54 +546,132 @@ export default function PreviewQualidadeHeroPage() {
           {/* Efeito Glow Atmosférico no Topo */}
           <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-cyan-500/15 blur-3xl rounded-full" />
 
-          {/* Topo do Hero: Título + Call-to-action Interativo + Pill de Insight Dinâmico */}
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                  <BarChart3 className="w-4 h-4" />
+          {/* Seletor dinâmico do topo do Hero conforme a opção ativa */}
+          {modeloHeader === "OPCAO_1" ? (
+            /* ══ TOPO HERO: OPÇÃO 1 (HEADER TOTALMENTE INTEGRADO AO HERO) ══ */
+            <div className="relative z-10 space-y-4 pb-4 border-b border-slate-800/80 animate-in fade-in duration-200">
+              {/* Linha 1 do Hero Integrado: Breadcrumb Discreto + Badge do Mês */}
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+                  <span className="hover:text-slate-300 transition-colors">GESTÃO DE PRAZOS</span>
+                  <span className="text-slate-600">/</span>
+                  <span className="text-cyan-400 font-bold">QUALIDADE</span>
+                  <span className="text-slate-600">•</span>
+                  <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                    <span>7º RI São Paulo</span>
+                    <span
+                      className="text-cyan-400 cursor-help transition-transform hover:scale-110"
+                      title="Cálculo realizado pela data de entrada da prenotação. Auditoria contínua de conformidade registral."
+                    >
+                      <Info className="w-3.5 h-3.5 inline" />
+                    </span>
+                  </span>
                 </div>
-                <h2 className="text-lg sm:text-xl font-bold text-white tracking-wide">
-                  Qualidade Mês a Mês (Evolução)
-                </h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 shadow-sm">
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-                  Filtro Mestre Ativo
-                </span>
+
+                {/* Badge do Mês Ativo */}
+                <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-[#090D1A] border border-cyan-500/30 shadow-md">
+                  <span
+                    className="h-7 px-2 rounded-lg font-bold font-mono text-xs flex items-center justify-center border shadow-inner transition-colors"
+                    style={{
+                      backgroundColor: `${mesSelecionadoInfo.dotColor}25`,
+                      borderColor: `${mesSelecionadoInfo.dotColor}80`,
+                      color: mesSelecionadoInfo.dotColor,
+                    }}
+                  >
+                    {mesSelecionadoInfo.value}%
+                  </span>
+                  <div className="flex items-center text-xs">
+                    <span className="font-bold text-white flex items-center gap-1.5">
+                      <span style={{ color: mesSelecionadoInfo.dotColor }}>{mesSelecionadoInfo.label}</span>
+                      <span className="text-slate-400 font-normal">•</span>
+                      <span>{mesSelecionadoInfo.badgeHighlight}</span>
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              {/* Instrução em Destaque Visível no Topo */}
-              <div className="flex items-center gap-2 pt-0.5">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-[#151C2E] border border-cyan-500/30 text-xs font-semibold text-cyan-300 shadow-sm animate-pulse">
-                  <span>Clique 👇 em qualquer mês para filtrar todo o painel.</span>
-                </span>
-                <span className="text-xs text-slate-400 hidden sm:inline">
-                  • Escala oficial de 0 a 2.5% • Limite tolerado: 5.0%
-                </span>
-              </div>
-            </div>
+              {/* Linha 2 do Hero Integrado: Título Principal Oficial + Ação de Filtro */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-1">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-sm">
+                    <BarChart3 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h1 className="text-lg sm:text-2xl font-black text-white tracking-tight">
+                        Controle de Qualidade — Evolução Mês a Mês
+                      </h1>
+                      <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 shadow-sm">
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                        Filtro Mestre Ativo
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Auditoria do contraditório interno e cumprimento dos limites técnicos de conformidade registral
+                    </p>
+                  </div>
+                </div>
 
-            {/* Insight Dinâmico do Mês Selecionado */}
-            <div className="inline-flex items-center gap-3 px-3.5 py-2 rounded-2xl bg-[#090D1A] border border-cyan-500/30 shadow-lg">
-              <span
-                className="h-8 w-8 rounded-xl font-bold font-mono text-xs flex items-center justify-center border shadow-inner transition-colors"
-                style={{
-                  backgroundColor: `${mesSelecionadoInfo.dotColor}25`,
-                  borderColor: `${mesSelecionadoInfo.dotColor}80`,
-                  color: mesSelecionadoInfo.dotColor,
-                }}
-              >
-                {mesSelecionadoInfo.value}%
-              </span>
-              <div className="flex items-center text-xs">
-                <span className="font-bold text-white flex items-center gap-1.5">
-                  <span style={{ color: mesSelecionadoInfo.dotColor }}>{mesSelecionadoInfo.label}</span>
-                  <span className="text-slate-400 font-normal">•</span>
-                  <span>{mesSelecionadoInfo.badgeHighlight}</span>
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#151C2E] border border-cyan-500/30 text-xs font-semibold text-cyan-300 shadow-sm animate-pulse">
+                    <span>Clique 👇 em qualquer mês para filtrar todo o painel.</span>
+                  </span>
+                  <span className="text-xs text-slate-400 hidden xl:inline">
+                    • Escala 0 a 2.5% • Limite: 5.0%
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            /* ══ TOPO HERO: OPÇÕES 2, 3 E ATUAL (DESIGN CLÁSSICO DO HERO) ══ */
+            <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-800/80 animate-in fade-in duration-200">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                    <BarChart3 className="w-4 h-4" />
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-bold text-white tracking-wide">
+                    Qualidade Mês a Mês (Evolução)
+                  </h2>
+                  <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 shadow-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                    Filtro Mestre Ativo
+                  </span>
+                </div>
+
+                {/* Instrução em Destaque Visível no Topo */}
+                <div className="flex items-center gap-2 pt-0.5">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-[#151C2E] border border-cyan-500/30 text-xs font-semibold text-cyan-300 shadow-sm animate-pulse">
+                    <span>Clique 👇 em qualquer mês para filtrar todo o painel.</span>
+                  </span>
+                  <span className="text-xs text-slate-400 hidden sm:inline">
+                    • Escala oficial de 0 a 2.5% • Limite tolerado: 5.0%
+                  </span>
+                </div>
+              </div>
+
+              {/* Insight Dinâmico do Mês Selecionado */}
+              <div className="inline-flex items-center gap-3 px-3.5 py-2 rounded-2xl bg-[#090D1A] border border-cyan-500/30 shadow-lg">
+                <span
+                  className="h-8 w-8 rounded-xl font-bold font-mono text-xs flex items-center justify-center border shadow-inner transition-colors"
+                  style={{
+                    backgroundColor: `${mesSelecionadoInfo.dotColor}25`,
+                    borderColor: `${mesSelecionadoInfo.dotColor}80`,
+                    color: mesSelecionadoInfo.dotColor,
+                  }}
+                >
+                  {mesSelecionadoInfo.value}%
+                </span>
+                <div className="flex items-center text-xs">
+                  <span className="font-bold text-white flex items-center gap-1.5">
+                    <span style={{ color: mesSelecionadoInfo.dotColor }}>{mesSelecionadoInfo.label}</span>
+                    <span className="text-slate-400 font-normal">•</span>
+                    <span>{mesSelecionadoInfo.badgeHighlight}</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Área do Gráfico de Barras Verticais */}
           <div className="pt-6 pb-2 relative z-10">
