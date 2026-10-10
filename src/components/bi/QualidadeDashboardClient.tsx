@@ -136,7 +136,7 @@ const MESES_GRAFICO_EVOLUCAO = [
     glowColor: "rgba(139, 92, 246, 0.4)",
     dotColor: "#8B5CF6",
     tooltip: "Jun/26: 0.8% de erro (Clique para filtrar todo o dashboard)",
-    badgeHighlight: "Safra Consolidada",
+    badgeHighlight: "Consolidado",
     badgeRatio: "6.2x abaixo do limite",
   },
   {
@@ -152,7 +152,7 @@ const MESES_GRAFICO_EVOLUCAO = [
     glowColor: "rgba(245, 158, 11, 0.4)",
     dotColor: "#F59E0B",
     tooltip: "Jul/26: 1.6% de erro (Clique para filtrar todo o dashboard)",
-    badgeHighlight: "Safra Consolidada",
+    badgeHighlight: "Consolidado",
     badgeRatio: "3.1x abaixo do limite",
   },
   {
@@ -184,7 +184,7 @@ const MESES_GRAFICO_EVOLUCAO = [
     glowColor: "rgba(59, 130, 246, 0.4)",
     dotColor: "#3B82F6",
     tooltip: "Set/26: 1.3% de erro (Clique para filtrar todo o dashboard)",
-    badgeHighlight: "Safra Consolidada",
+    badgeHighlight: "Consolidado",
     badgeRatio: "3.8x abaixo do limite",
   },
   {
@@ -237,13 +237,13 @@ export function QualidadeDashboardClient() {
     const isMelhor = taxa === melhorMesSemestre.value;
     const isAtual = competencia === "2026-10";
 
-    let highlight = item ? item.badgeHighlight : "Safra Consolidada";
+    let highlight = item ? item.badgeHighlight : "Consolidado";
     if (isMelhor) {
       highlight = "Melhor do semestre (Menor Erro)";
     } else if (isAtual) {
       highlight = `Mês Vigente em Andamento • Recorde: ${melhorMesSemestre.label} (${melhorMesSemestre.value}%)`;
     } else {
-      highlight = `Safra Consolidada • Recorde: ${melhorMesSemestre.label} (${melhorMesSemestre.value}%)`;
+      highlight = `Consolidado • Recorde: ${melhorMesSemestre.label} (${melhorMesSemestre.value}%)`;
     }
 
     const multLimite = (5.0 / Math.max(0.1, taxa)).toFixed(1);
@@ -424,7 +424,7 @@ export function QualidadeDashboardClient() {
     return colaboradores.filter((c) => c.departamento === limiteForm.departamento);
   }, [colaboradores, limiteForm.departamento]);
 
-  // Pontos calculados dinamicamente para o gráfico SVG de evolução da safra
+  // Pontos calculados dinamicamente para o gráfico SVG de evolução mensal
   const pontosGrafico = useMemo(() => {
     if (!evolucaoMensal || evolucaoMensal.length === 0) return [];
     const count = evolucaoMensal.length;
@@ -738,7 +738,7 @@ export function QualidadeDashboardClient() {
                 </span>
               </h2>
               <p className="text-[11px] text-slate-400">
-                Os retornos e erros são contabilizados na safra do mês de entrada do título (inclusive cancelados).
+                Os retornos e erros são contabilizados no mês de entrada do título (inclusive cancelados).
               </p>
             </div>
           </div>
@@ -1053,7 +1053,7 @@ export function QualidadeDashboardClient() {
           title={
             filtroSaldoFaltante && abaAtivaListagem === "ERROS"
               ? "Clique para ocultar a listagem de protocolos com erro"
-              : "Clique para ver a listagem dos protocolos com erro da safra"
+              : "Clique para ver a listagem dos protocolos com erro"
           }
         >
           {filtroSaldoFaltante && abaAtivaListagem === "ERROS" && (
@@ -1174,33 +1174,20 @@ export function QualidadeDashboardClient() {
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <h3 className="text-base font-bold text-white tracking-wide">
                     {abaAtivaListagem === "NAO_REALIZADOS"
-                      ? "Listagem dos Protocolos — Não realizados"
-                      : "Listagem dos Protocolos — Erros da Safra"}
+                      ? "Listagem dos Protocolos — Não Realizados"
+                      : "Listagem dos Protocolos — Erros"}
                   </h3>
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full border text-xs font-mono font-bold ${
-                      abaAtivaListagem === "NAO_REALIZADOS"
-                        ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
-                        : "bg-rose-500/20 text-rose-300 border-rose-500/30"
-                    }`}
-                  >
-                    {totalItensAtivos} {totalItensAtivos === 1 ? "protocolo" : "protocolos"}
-                  </span>
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                    Safra {competencia}
-                  </span>
                 </div>
                 <p className="text-xs text-slate-400 mt-1">
                   {abaAtivaListagem === "NAO_REALIZADOS" ? (
                     <>
-                      Protocolos da safra que ainda não foram concluídos na competência selecionada (
+                      Protocolos pendentes ou cancelados na competência selecionada (
                       <span className="text-rose-400 font-semibold">{kpis?.totalCanceladas ?? 0} cancelados</span> e{" "}
                       <span className="text-amber-300 font-semibold">{kpis?.totalEmTramite ?? 0} em trâmite</span>).
                     </>
                   ) : (
                     <>
-                      Protocolos da safra que sofreram eventos de retorno interno apontados pelo contraditório (
-                      <span className="text-rose-400 font-semibold">{kpis?.quantidadeErros ?? 0} eventos totais</span>).
+                      Protocolos com eventos de retorno interno apontados pelo contraditório.
                     </>
                   )}
                 </p>
@@ -1270,7 +1257,7 @@ export function QualidadeDashboardClient() {
                   }`}
                 >
                   <AlertTriangle className="w-3 h-3" />
-                  <span>Protocolos com Erro</span>
+                  <span>Com Erro</span>
                   <span className="font-mono text-[10px] px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300">
                     {kpis ? kpis.quantidadeErros : eventosErros.length}
                   </span>
