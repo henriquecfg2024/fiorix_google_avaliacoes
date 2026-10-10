@@ -1526,7 +1526,109 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                   </div>
                 )}
 
-                {/* Seção Superior: Indicadores Principais de Espera e Volume */}
+                {/* Banner de Monitoramento Ao Vivo com Acesso Rápido */}
+                {(realtime.fila.length > 0 || realtime.emAtendimento.length > 0) && (
+                  <div className="rounded-[20px] border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-blue-950/30 to-purple-950/30 p-5 backdrop-blur-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="relative flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-bold text-white">Atendimento em Tempo Real</h4>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
+                            Ao Vivo
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-300 mt-0.5">
+                          {realtime.fila.length} pessoas aguardando chamada e {realtime.emAtendimento.length} guichês atendendo agora.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveAba('ao_vivo')}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 transition-all cursor-pointer"
+                    >
+                      <span>Abrir Painel Ao Vivo</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Grade Analítica Superior: Calendário Interativo + Horários de Pico */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                  {/* Card 1: Calendário Interativo */}
+                  <div className="lg:col-span-5 flex flex-col">
+                    <EsperaCalendarCard
+                      allRecords={calendarBaseRecords}
+                      selectedDate={selectedDate}
+                      onSelectDate={handleSelectDate}
+                      onMonthChange={handleMonthChange}
+                      slaMinutes={slaMinutes}
+                    />
+                  </div>
+
+                  {/* Card 2: Resumo de Horários de Pico (Distribuição por Horário) */}
+                  <div className="lg:col-span-7 rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 sm:p-6 shadow-xl space-y-4 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <BarChart3 className="w-4 h-4 text-indigo-400" />
+                          <h3 className="text-sm font-bold text-white">Distribuição por Horário</h3>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setActiveAba('pico')}
+                          className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
+                        >
+                          Ver detalhes
+                        </button>
+                      </div>
+
+                      {displayHorariosPico.length > 0 ? (
+                        <div className="space-y-3 pt-2">
+                          <div className="h-44 flex items-end gap-1.5 pt-6 pb-2 px-1 border-b border-white/10">
+                            {displayHorariosPico.map((h) => {
+                              const maxVal = Math.max(...displayHorariosPico.map((p) => p.total), 1);
+                              const heightPerc = Math.max(8, Math.round((h.total / maxVal) * 100));
+                              return (
+                                <div key={h.hora} className="flex-1 flex flex-col items-center gap-1 group relative">
+                                  {/* Tooltip */}
+                                  <div className="absolute -top-12 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-white/20 text-[10px] text-white py-1 px-2 rounded-lg pointer-events-none whitespace-nowrap z-20 shadow-xl">
+                                    <div className="font-bold">{h.hora}</div>
+                                    <div>Total: {h.total}</div>
+                                    <div className="text-emerald-400">Dentro SLA: {h.dentroSla}</div>
+                                  </div>
+                                  <div className="w-full flex flex-col justify-end h-32 rounded-lg bg-white/[0.02] overflow-hidden p-0.5">
+                                    <div
+                                      className="w-full rounded-md bg-gradient-to-t from-indigo-600 to-indigo-400 transition-all group-hover:from-indigo-500 group-hover:to-cyan-400"
+                                      style={{ height: `${heightPerc}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-[9px] font-mono text-slate-400">{h.hora.split(':')[0]}h</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 pt-1">
+                            <span>Faixa operacional das 08h às 18h</span>
+                            <span className="font-mono text-indigo-300">
+                              Pico: {displayHorariosPico.slice().sort((a, b) => b.total - a.total)[0]?.hora || '—'}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="py-12 text-center text-slate-500 text-xs">
+                          Nenhum atendimento registrado no período selecionado.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Indicadores Principais de Espera e Volume (Posicionados após Distribuição por Horário) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* SLA Espera */}
                   <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
@@ -1597,145 +1699,43 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                   </div>
                 </div>
 
-                {/* Banner de Monitoramento Ao Vivo com Acesso Rápido */}
-                {(realtime.fila.length > 0 || realtime.emAtendimento.length > 0) && (
-                  <div className="rounded-[20px] border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-blue-950/30 to-purple-950/30 p-5 backdrop-blur-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
-                    <div className="flex items-center gap-3">
-                      <div className="relative flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                {/* Card 3: Distribuição por Serviços Mais Demandados */}
+                <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 sm:p-6 shadow-xl space-y-4 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-indigo-400" />
+                        <h3 className="text-sm font-bold text-white">Serviços Mais Demandados</h3>
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-bold text-white">Atendimento em Tempo Real</h4>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
-                            Ao Vivo
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-300 mt-0.5">
-                          {realtime.fila.length} pessoas aguardando chamada e {realtime.emAtendimento.length} guichês atendendo agora.
-                        </p>
-                      </div>
+                      <span className="text-xs text-slate-500 font-mono">{servicosDistribuicao.length} tipos</span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setActiveAba('ao_vivo')}
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 transition-all cursor-pointer"
-                    >
-                      <span>Abrir Painel Ao Vivo</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
 
-                {/* Grade Analítica: Calendário Interativo + Horários de Pico + Serviços Mais Demandados */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                  {/* Card 1: Calendário Interativo */}
-                  <div className="lg:col-span-4 flex flex-col">
-                    <EsperaCalendarCard
-                      allRecords={calendarBaseRecords}
-                      selectedDate={selectedDate}
-                      onSelectDate={handleSelectDate}
-                      onMonthChange={handleMonthChange}
-                      slaMinutes={slaMinutes}
-                    />
-                  </div>
-
-                  {/* Card 2: Resumo de Horários de Pico */}
-                  <div className="lg:col-span-4 rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 sm:p-6 shadow-xl space-y-4 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <BarChart3 className="w-4 h-4 text-indigo-400" />
-                          <h3 className="text-sm font-bold text-white">Distribuição por Horário</h3>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setActiveAba('pico')}
-                          className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
-                        >
-                          Ver detalhes
-                        </button>
-                      </div>
-
-                      {displayHorariosPico.length > 0 ? (
-                        <div className="space-y-3 pt-2">
-                          <div className="h-44 flex items-end gap-1.5 pt-6 pb-2 px-1 border-b border-white/10">
-                            {displayHorariosPico.map((h) => {
-                              const maxVal = Math.max(...displayHorariosPico.map((p) => p.total), 1);
-                              const heightPerc = Math.max(8, Math.round((h.total / maxVal) * 100));
-                              return (
-                                <div key={h.hora} className="flex-1 flex flex-col items-center gap-1 group relative">
-                                  {/* Tooltip */}
-                                  <div className="absolute -top-12 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-white/20 text-[10px] text-white py-1 px-2 rounded-lg pointer-events-none whitespace-nowrap z-20 shadow-xl">
-                                    <div className="font-bold">{h.hora}</div>
-                                    <div>Total: {h.total}</div>
-                                    <div className="text-emerald-400">Dentro SLA: {h.dentroSla}</div>
-                                  </div>
-                                  <div className="w-full flex flex-col justify-end h-32 rounded-lg bg-white/[0.02] overflow-hidden p-0.5">
-                                    <div
-                                      className="w-full rounded-md bg-gradient-to-t from-indigo-600 to-indigo-400 transition-all group-hover:from-indigo-500 group-hover:to-cyan-400"
-                                      style={{ height: `${heightPerc}%` }}
-                                    />
-                                  </div>
-                                  <span className="text-[9px] font-mono text-slate-400">{h.hora.split(':')[0]}h</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 pt-1">
-                            <span>Faixa operacional das 08h às 18h</span>
-                            <span className="font-mono text-indigo-300">
-                              Pico: {displayHorariosPico.slice().sort((a, b) => b.total - a.total)[0]?.hora || '—'}
-                            </span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="py-12 text-center text-slate-500 text-xs">
-                          Nenhum atendimento registrado no período selecionado.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Card 3: Distribuição por Serviços Mais Demandados */}
-                  <div className="lg:col-span-4 rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 sm:p-6 shadow-xl space-y-4 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Layers className="w-4 h-4 text-indigo-400" />
-                          <h3 className="text-sm font-bold text-white">Serviços Mais Demandados</h3>
-                        </div>
-                        <span className="text-xs text-slate-500 font-mono">{servicosDistribuicao.length} tipos</span>
-                      </div>
-
-                      {servicosDistribuicao.length > 0 ? (
-                        <div className="space-y-2.5 pt-2">
-                          {servicosDistribuicao.slice(0, 5).map((servico) => (
-                            <div key={servico.nome} className="p-2.5 sm:p-3 rounded-xl bg-white/[0.02] border border-white/6 space-y-1.5">
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="font-semibold text-white truncate max-w-[180px]">{servico.nome}</span>
-                                <span className="font-mono font-bold text-indigo-300">{servico.total} senhas</span>
-                              </div>
-                              <div className="flex items-center justify-between text-[11px] text-slate-400">
-                                <span>SLA de conformidade</span>
-                                <span className="font-mono text-emerald-400 font-bold">{servico.dentroSlaPerc}%</span>
-                              </div>
-                              <div className="w-full bg-white/5 rounded-full h-1 overflow-hidden">
-                                <div
-                                  className="bg-emerald-500 h-1 rounded-full"
-                                  style={{ width: `${servico.dentroSlaPerc}%` }}
-                                />
-                              </div>
+                    {servicosDistribuicao.length > 0 ? (
+                      <div className="space-y-2.5 pt-2">
+                        {servicosDistribuicao.slice(0, 5).map((servico) => (
+                          <div key={servico.nome} className="p-2.5 sm:p-3 rounded-xl bg-white/[0.02] border border-white/6 space-y-1.5">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-semibold text-white truncate max-w-[180px] sm:max-w-md">{servico.nome}</span>
+                              <span className="font-mono font-bold text-indigo-300">{servico.total} senhas</span>
                             </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="py-12 text-center text-slate-500 text-xs">
-                          Nenhum serviço registrado.
-                        </div>
-                      )}
-                    </div>
+                            <div className="flex items-center justify-between text-[11px] text-slate-400">
+                              <span>SLA de conformidade</span>
+                              <span className="font-mono text-emerald-400 font-bold">{servico.dentroSlaPerc}%</span>
+                            </div>
+                            <div className="w-full bg-white/5 rounded-full h-1 overflow-hidden">
+                              <div
+                                className="bg-emerald-500 h-1 rounded-full"
+                                style={{ width: `${servico.dentroSlaPerc}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-12 text-center text-slate-500 text-xs">
+                        Nenhum serviço registrado.
+                      </div>
+                    )}
                   </div>
                 </div>
 
