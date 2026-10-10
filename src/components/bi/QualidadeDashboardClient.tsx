@@ -122,6 +122,89 @@ interface EvolucaoItem {
   limite: number;
 }
 
+const MESES_GRAFICO_EVOLUCAO = [
+  {
+    key: "2026-06",
+    label: "Jun/26",
+    shortLabel: "Jun",
+    value: 0.8,
+    colorFrom: "#8B5CF6",
+    colorTo: "#5B21B6",
+    borderActive: "border-purple-400",
+    ringColor: "ring-purple-500/50",
+    shadowColor: "rgba(139, 92, 246, 0.6)",
+    glowColor: "rgba(139, 92, 246, 0.4)",
+    dotColor: "#8B5CF6",
+    tooltip: "Jun/26: 0.8% de erro (Clique para filtrar todo o dashboard)",
+    badgeHighlight: "Safra Consolidada",
+    badgeRatio: "6.2x abaixo do limite",
+  },
+  {
+    key: "2026-07",
+    label: "Jul/26",
+    shortLabel: "Jul",
+    value: 1.6,
+    colorFrom: "#F59E0B",
+    colorTo: "#B45309",
+    borderActive: "border-amber-400",
+    ringColor: "ring-amber-500/50",
+    shadowColor: "rgba(245, 158, 11, 0.6)",
+    glowColor: "rgba(245, 158, 11, 0.4)",
+    dotColor: "#F59E0B",
+    tooltip: "Jul/26: 1.6% de erro (Clique para filtrar todo o dashboard)",
+    badgeHighlight: "Safra Consolidada",
+    badgeRatio: "3.1x abaixo do limite",
+  },
+  {
+    key: "2026-08",
+    label: "Ago/26",
+    shortLabel: "Ago",
+    value: 0.3,
+    colorFrom: "#10B981",
+    colorTo: "#047857",
+    borderActive: "border-emerald-400",
+    ringColor: "ring-emerald-500/50",
+    shadowColor: "rgba(16, 185, 129, 0.6)",
+    glowColor: "rgba(16, 185, 129, 0.4)",
+    dotColor: "#10B981",
+    tooltip: "Ago/26: 0.3% (Melhor histórico do período - Clique para filtrar)",
+    badgeHighlight: "Menor Erro do Ano",
+    badgeRatio: "16.6x abaixo do limite",
+  },
+  {
+    key: "2026-09",
+    label: "Set/26",
+    shortLabel: "Set",
+    value: 1.3,
+    colorFrom: "#3B82F6",
+    colorTo: "#1D4ED8",
+    borderActive: "border-blue-400",
+    ringColor: "ring-blue-500/50",
+    shadowColor: "rgba(59, 130, 246, 0.6)",
+    glowColor: "rgba(59, 130, 246, 0.4)",
+    dotColor: "#3B82F6",
+    tooltip: "Set/26: 1.3% de erro (Clique para filtrar todo o dashboard)",
+    badgeHighlight: "Safra Consolidada",
+    badgeRatio: "3.8x abaixo do limite",
+  },
+  {
+    key: "2026-10",
+    label: "Out/26",
+    shortLabel: "Out",
+    value: 0.4,
+    colorFrom: "#22D3EE",
+    colorTo: "#0E7490",
+    borderActive: "border-cyan-300",
+    ringColor: "ring-cyan-400/50",
+    shadowColor: "rgba(34, 211, 238, 0.65)",
+    glowColor: "rgba(34, 211, 238, 0.55)",
+    dotColor: "#22D3EE",
+    tooltip: "Out/26: 0.4% (Mês em andamento - Clique para filtrar)",
+    badgeHighlight: "Melhor do semestre",
+    badgeRatio: "12.5x abaixo do limite",
+  },
+];
+
 export function QualidadeDashboardClient() {
   // Filtros Globais (Inicia no mês vigente Outubro/2026 com 823 prenotações oficiais)
   const [competencia, setCompetencia] = useState("2026-10");
@@ -140,6 +223,27 @@ export function QualidadeDashboardClient() {
   const [evolucaoMensal, setEvolucaoMensal] = useState<EvolucaoItem[]>([]);
   const [userRole, setUserRole] = useState("SUBSTITUTO");
   const [colaboradoresVisivel, setColaboradoresVisivel] = useState(false);
+
+  const mesSelecionadoInfo = useMemo(() => {
+    return (
+      MESES_GRAFICO_EVOLUCAO.find((m) => m.key === competencia) || {
+        key: competencia,
+        label: competencia,
+        shortLabel: competencia.split("-")[1],
+        value: kpis ? kpis.percentualErroGeral : 0.4,
+        colorFrom: "#22D3EE",
+        colorTo: "#0E7490",
+        borderActive: "border-cyan-300",
+        ringColor: "ring-cyan-400/50",
+        shadowColor: "rgba(34, 211, 238, 0.65)",
+        glowColor: "rgba(34, 211, 238, 0.55)",
+        dotColor: "#22D3EE",
+        tooltip: `${competencia}: ${kpis?.percentualErroGeral || 0.4}%`,
+        badgeHighlight: "Safra Selecionada",
+        badgeRatio: `${(5.0 / Math.max(0.1, kpis?.percentualErroGeral || 0.4)).toFixed(1)}x abaixo do limite`,
+      }
+    );
+  }, [competencia, kpis]);
 
   // Estado para Cards clicáveis (NÃO REALIZADOS e QUANTIDADE DE ERROS) e listagem
   const [filtroSaldoFaltante, setFiltroSaldoFaltante] = useState(false);
@@ -1509,30 +1613,45 @@ export function QualidadeDashboardClient() {
            5. GRÁFICOS: EVOLUÇÃO MÊS A MÊS & TOP CAUSAS CLICÁVEIS
            ══════════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Gráfico 1: Qualidade Mês a Mês (Evolução) - Barra Vertical Premium */}
+        {/* Gráfico 1: Qualidade Mês a Mês (Evolução) - Barra Vertical Premium e Interativo */}
         <section className="lg:col-span-7 rounded-2xl border border-[#1E2A44] bg-[#0E1220] p-6 shadow-2xl space-y-4 relative overflow-hidden">
           {/* Header do Card */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-base font-bold text-white tracking-wide">
-                Qualidade Mês a Mês (Evolução)
-              </h3>
-              <p className="text-xs text-[#94A3B8] mt-0.5">
-                Percentual de erro • 5 meses • escala 0–2.5%
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-white tracking-wide">
+                  Qualidade Mês a Mês (Evolução)
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[10px] font-mono font-semibold">
+                  Interativo
+                </span>
+              </div>
+              <p className="text-xs text-[#94A3B8] mt-0.5 flex items-center gap-1.5">
+                <span>Percentual de erro • 5 meses • escala 0–2.5%</span>
+                <span className="text-slate-600">•</span>
+                <span className="text-cyan-400/90 font-medium">Clique no mês para filtrar o painel</span>
               </p>
             </div>
 
-            {/* Badge de Destaque Superior */}
-            <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-cyan-950/40 border border-cyan-500/30 shadow-sm">
-              <span className="h-6 w-6 rounded-full bg-cyan-500/20 text-cyan-300 font-bold font-mono text-[10px] flex items-center justify-center border border-cyan-400/40 shadow-inner">
-                0.4%
+            {/* Badge de Destaque Superior Dinâmico */}
+            <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-cyan-950/40 border border-cyan-500/30 shadow-sm transition-all">
+              <span
+                className="h-6 w-6 rounded-full font-bold font-mono text-[10px] flex items-center justify-center border shadow-inner transition-colors"
+                style={{
+                  backgroundColor: `${mesSelecionadoInfo.dotColor}25`,
+                  borderColor: `${mesSelecionadoInfo.dotColor}80`,
+                  color: mesSelecionadoInfo.dotColor,
+                }}
+              >
+                {mesSelecionadoInfo.value}%
               </span>
               <div className="flex flex-col text-[10px] leading-tight">
-                <span className="font-semibold text-cyan-300">
-                  0.4% em Out/26 • <span className="text-emerald-400 font-bold">Melhor do semestre</span>
+                <span className="font-semibold transition-colors" style={{ color: mesSelecionadoInfo.dotColor }}>
+                  {mesSelecionadoInfo.value}% em {mesSelecionadoInfo.label} •{" "}
+                  <span className="text-white font-bold">{mesSelecionadoInfo.badgeHighlight}</span>
                 </span>
                 <span className="text-slate-400 font-mono text-[9px]">
-                  ↘ 12.5x abaixo do limite contratual
+                  ↘ {mesSelecionadoInfo.badgeRatio}
                 </span>
               </div>
             </div>
@@ -1563,130 +1682,124 @@ export function QualidadeDashboardClient() {
                   <div className="w-full" />
                 </div>
 
-                {/* Barras Verticais */}
+                {/* Barras Verticais Clicáveis */}
                 <div className="absolute inset-0 flex items-end justify-around px-2 sm:px-6">
-                  {/* Jun/26 */}
-                  <div className="group relative flex flex-col items-center">
-                    <span className="text-[11px] font-bold font-mono text-white mb-1.5 opacity-90 transition-transform group-hover:scale-110">
-                      0.8%
-                    </span>
-                    <div
-                      className="w-11 sm:w-14 rounded-t-lg bg-gradient-to-b from-[#8B5CF6] to-[#5B21B6] transition-all duration-300 group-hover:brightness-110"
-                      style={{
-                        height: `${(0.8 / 2.5) * 175}px`,
-                        boxShadow: "0 0 20px rgba(139, 92, 246, 0.4)",
-                      }}
-                    />
-                    {/* Tooltip */}
-                    <div className="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-slate-700 text-slate-200 text-[10px] font-mono px-2 py-0.5 rounded shadow-lg pointer-events-none z-10 whitespace-nowrap">
-                      Jun/26: 0.8% de erro
-                    </div>
-                  </div>
+                  {MESES_GRAFICO_EVOLUCAO.map((m) => {
+                    const isSelected = competencia === m.key;
+                    const isOut = m.key === "2026-10";
 
-                  {/* Jul/26 */}
-                  <div className="group relative flex flex-col items-center">
-                    <span className="text-[11px] font-bold font-mono text-white mb-1.5 opacity-90 transition-transform group-hover:scale-110">
-                      1.6%
-                    </span>
-                    <div
-                      className="w-11 sm:w-14 rounded-t-lg bg-gradient-to-b from-[#F59E0B] to-[#B45309] transition-all duration-300 group-hover:brightness-110"
-                      style={{
-                        height: `${(1.6 / 2.5) * 175}px`,
-                        boxShadow: "0 0 20px rgba(245, 158, 11, 0.4)",
-                      }}
-                    />
-                    <div className="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-slate-700 text-slate-200 text-[10px] font-mono px-2 py-0.5 rounded shadow-lg pointer-events-none z-10 whitespace-nowrap">
-                      Jul/26: 1.6% de erro
-                    </div>
-                  </div>
+                    return (
+                      <div
+                        key={m.key}
+                        onClick={() => setCompetencia(m.key)}
+                        className="group relative flex flex-col items-center cursor-pointer select-none"
+                      >
+                        {/* Pill Valor / Status no topo da barra */}
+                        {isSelected ? (
+                          <div
+                            className="mb-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold shadow-lg whitespace-nowrap flex items-center gap-1 animate-in fade-in zoom-in-95 duration-200"
+                            style={{
+                              backgroundColor: "#0B1322",
+                              border: `1.5px solid ${m.dotColor}`,
+                              color: m.dotColor,
+                              boxShadow: `0 0 15px ${m.glowColor}`,
+                            }}
+                          >
+                            <span>{m.value}%</span>
+                            <span className="text-[8px] opacity-90 font-sans tracking-wider">
+                              • {isOut ? "ATUAL" : "ATIVO"}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] font-bold font-mono text-white mb-1.5 opacity-80 transition-transform group-hover:scale-110 group-hover:opacity-100">
+                            {m.value}%
+                          </span>
+                        )}
 
-                  {/* Ago/26 */}
-                  <div className="group relative flex flex-col items-center">
-                    <span className="text-[11px] font-bold font-mono text-white mb-1.5 opacity-90 transition-transform group-hover:scale-110">
-                      0.3%
-                    </span>
-                    <div
-                      className="w-11 sm:w-14 rounded-t-lg bg-gradient-to-b from-[#10B981] to-[#047857] transition-all duration-300 group-hover:brightness-110"
-                      style={{
-                        height: `${(0.3 / 2.5) * 175}px`,
-                        boxShadow: "0 0 20px rgba(16, 185, 129, 0.4)",
-                      }}
-                    />
-                    <div className="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-slate-700 text-slate-200 text-[10px] font-mono px-2 py-0.5 rounded shadow-lg pointer-events-none z-10 whitespace-nowrap">
-                      Ago/26: 0.3% (melhor do período)
-                    </div>
-                  </div>
+                        {/* Barra */}
+                        <div
+                          className={`w-11 sm:w-14 rounded-t-lg transition-all duration-300 ${
+                            isSelected
+                              ? `scale-105 sm:scale-110 z-10 brightness-110 border-t-2 border-x-2 ${m.borderActive}`
+                              : "opacity-75 hover:opacity-100 hover:scale-105"
+                          }`}
+                          style={{
+                            background: `linear-gradient(to bottom, ${m.colorFrom}, ${m.colorTo})`,
+                            height: `${(m.value / 2.5) * 175}px`,
+                            boxShadow: isSelected
+                              ? `0 0 25px ${m.shadowColor}, 0 0 40px ${m.glowColor}`
+                              : `0 0 15px ${m.glowColor}`,
+                          }}
+                        />
 
-                  {/* Set/26 */}
-                  <div className="group relative flex flex-col items-center">
-                    <span className="text-[11px] font-bold font-mono text-white mb-1.5 opacity-90 transition-transform group-hover:scale-110">
-                      1.3%
-                    </span>
-                    <div
-                      className="w-11 sm:w-14 rounded-t-lg bg-gradient-to-b from-[#3B82F6] to-[#1D4ED8] transition-all duration-300 group-hover:brightness-110"
-                      style={{
-                        height: `${(1.3 / 2.5) * 175}px`,
-                        boxShadow: "0 0 20px rgba(59, 130, 246, 0.4)",
-                      }}
-                    />
-                    <div className="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-slate-700 text-slate-200 text-[10px] font-mono px-2 py-0.5 rounded shadow-lg pointer-events-none z-10 whitespace-nowrap">
-                      Set/26: 1.3% de erro
-                    </div>
-                  </div>
-
-                  {/* Out/26 (Mês Atual em Destaque) */}
-                  <div className="group relative flex flex-col items-center">
-                    {/* Pill Valor + Atual */}
-                    <div className="mb-1.5 px-2 py-0.5 rounded-full bg-[#0E1E2C] border border-cyan-400 text-cyan-300 text-[10px] font-mono font-bold shadow-lg shadow-cyan-500/20 whitespace-nowrap flex items-center gap-1">
-                      <span>0.4%</span>
-                      <span className="text-[8px] opacity-75">• ATUAL</span>
-                    </div>
-                    <div
-                      className="w-11 sm:w-14 rounded-t-lg bg-gradient-to-b from-[#22D3EE] to-[#0E7490] border-t border-x border-cyan-300 transition-all duration-300 group-hover:brightness-110"
-                      style={{
-                        height: `${(0.4 / 2.5) * 175}px`,
-                        boxShadow: "0 0 25px rgba(34, 211, 238, 0.55)",
-                      }}
-                    />
-                    <div className="absolute -top-11 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-cyan-500/50 text-cyan-300 text-[10px] font-mono px-2 py-0.5 rounded shadow-lg pointer-events-none z-10 whitespace-nowrap">
-                      Out/26: 0.4% (mês em andamento)
-                    </div>
-                  </div>
+                        {/* Tooltip ao passar o mouse */}
+                        <div className="absolute -top-11 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-slate-700 text-slate-200 text-[10px] font-mono px-2.5 py-1 rounded-md shadow-xl pointer-events-none z-30 whitespace-nowrap flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: m.dotColor }} />
+                          <span>{m.tooltip}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
 
-            {/* Labels do Eixo X */}
+            {/* Labels do Eixo X - Clicáveis */}
             <div className="flex items-center justify-around pl-10 pr-2 sm:pr-6 pt-2 text-xs font-mono text-[#94A3B8]">
-              <span className="w-11 sm:w-14 text-center">Jun/26</span>
-              <span className="w-11 sm:w-14 text-center">Jul/26</span>
-              <span className="w-11 sm:w-14 text-center">Ago/26</span>
-              <span className="w-11 sm:w-14 text-center">Set/26</span>
-              <span className="w-11 sm:w-14 text-center font-bold text-[#22D3EE]">Out/26</span>
+              {MESES_GRAFICO_EVOLUCAO.map((m) => {
+                const isSelected = competencia === m.key;
+                return (
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() => setCompetencia(m.key)}
+                    className={`w-11 sm:w-14 text-center cursor-pointer transition-all hover:scale-110 ${
+                      isSelected
+                        ? "font-bold text-[#22D3EE] drop-shadow-[0_0_8px_rgba(34,211,238,0.8)] underline underline-offset-4 decoration-cyan-400"
+                        : "hover:text-white"
+                    }`}
+                    title={`Filtrar dashboard para ${m.label}`}
+                  >
+                    {m.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Legenda com Dots Coloridos no Rodapé */}
+          {/* Legenda com Dots Coloridos no Rodapé - Clicáveis */}
           <div className="flex items-center justify-between pt-3 border-t border-slate-800 text-[11px] font-mono text-slate-400">
-            <div className="flex items-center gap-4 flex-wrap">
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#8B5CF6]" /> Jun
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#F59E0B]" /> Jul
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#10B981]" /> Ago
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#3B82F6]" /> Set
-              </span>
-              <span className="flex items-center gap-1.5 text-cyan-400 font-semibold">
-                <span className="h-2 w-2 rounded-full bg-[#22D3EE] shadow-[0_0_8px_#22D3EE]" /> Out
-              </span>
+            <div className="flex items-center gap-3.5 flex-wrap">
+              {MESES_GRAFICO_EVOLUCAO.map((m) => {
+                const isSelected = competencia === m.key;
+                return (
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() => setCompetencia(m.key)}
+                    className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md transition-all cursor-pointer ${
+                      isSelected
+                        ? "bg-slate-800/90 text-white font-bold ring-1 ring-cyan-400/50"
+                        : "hover:bg-slate-800/40 hover:text-slate-200"
+                    }`}
+                    title={`Filtrar por ${m.label}`}
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full transition-transform"
+                      style={{
+                        backgroundColor: m.dotColor,
+                        boxShadow: isSelected ? `0 0 8px ${m.dotColor}` : "none",
+                      }}
+                    />
+                    <span style={{ color: isSelected ? m.dotColor : undefined }}>{m.shortLabel}</span>
+                    {isSelected && <span className="text-[9px] text-cyan-400">✓</span>}
+                  </button>
+                );
+              })}
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 text-[10px] text-cyan-400 font-sans">
               <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              <span className="hidden sm:inline">Clique no mês para filtrar</span>
             </div>
           </div>
         </section>
