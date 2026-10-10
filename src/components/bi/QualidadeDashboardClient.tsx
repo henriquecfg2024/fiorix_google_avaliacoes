@@ -30,6 +30,9 @@ import {
   Copy,
   Check,
   XCircle,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 export interface ProtocoloFaltanteItem {
@@ -138,15 +141,28 @@ export function QualidadeDashboardClient() {
   const [userRole, setUserRole] = useState("SUBSTITUTO");
   const [colaboradoresVisivel, setColaboradoresVisivel] = useState(false);
 
-  // Estado para Card SALDO FALTANTE e listagem dos respectivos protocolos
+  // Estado para Cards clicáveis (NÃO REALIZADOS e QUANTIDADE DE ERROS) e listagem
   const [filtroSaldoFaltante, setFiltroSaldoFaltante] = useState(false);
+  const [abaAtivaListagem, setAbaAtivaListagem] = useState<"NAO_REALIZADOS" | "ERROS">("NAO_REALIZADOS");
   const [subFiltroStatus, setSubFiltroStatus] = useState<"TODOS" | "CANCELADA" | "EM_TRAMITE">("TODOS");
   const [buscaFaltante, setBuscaFaltante] = useState("");
   const [protocolosFaltantes, setProtocolosFaltantes] = useState<ProtocoloFaltanteItem[]>([]);
+  const [eventosErros, setEventosErros] = useState<EventoItem[]>([]);
+  const [sortCol, setSortCol] = useState<string>("numeroPrenotacao");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [paginaFaltante, setPaginaFaltante] = useState(1);
   const [copiadoProt, setCopiadoProt] = useState<number | null>(null);
   const [copiadoTodos, setCopiadoTodos] = useState(false);
   const itensPorPaginaFaltante = 15;
+
+  const handleSort = (col: string) => {
+    if (sortCol === col) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortCol(col);
+      setSortDir("asc");
+    }
+  };
 
   // Modais / Gavetas Laterais
   const [modalLimiteOpen, setModalLimiteOpen] = useState(false);
@@ -197,13 +213,13 @@ export function QualidadeDashboardClient() {
           nome: c.nome.toUpperCase(),
         }));
         setColaboradores(listaColabs);
-        setEventos(
-          (data.eventos || []).map((ev: EventoItem) => ({
-            ...ev,
-            usuarioDestino: ev.usuarioDestino ? ev.usuarioDestino.toUpperCase() : "NÃO ATRIBUÍDO",
-            usuarioOrigem: ev.usuarioOrigem ? ev.usuarioOrigem.toUpperCase() : "SISTEMA",
-          }))
-        );
+        const listaErros = (data.eventosErros || data.eventos || []).map((ev: EventoItem) => ({
+          ...ev,
+          usuarioDestino: ev.usuarioDestino ? ev.usuarioDestino.toUpperCase() : "NÃO ATRIBUÍDO",
+          usuarioOrigem: ev.usuarioOrigem ? ev.usuarioOrigem.toUpperCase() : "SISTEMA",
+        }));
+        setEventos(listaErros);
+        setEventosErros(listaErros);
         setTopCausas(data.topCausas || []);
         setEvolucaoMensal(data.evolucaoMensal || []);
         setProtocolosFaltantes(data.protocolosFaltantes || []);
@@ -349,7 +365,7 @@ export function QualidadeDashboardClient() {
     }
   };
 
-  // Filtragem dos Protocolos Faltantes
+  // Filtragem e Ordenação dos Protocolos Faltantes (Não Realizados)
   const protocolosFaltantesFiltrados = useMemo(() => {
     let list = protocolosFaltantes;
     if (subFiltroStatus === "CANCELADA") {
@@ -364,22 +380,73 @@ export function QualidadeDashboardClient() {
           String(p.numeroPrenotacao).includes(q) ||
           p.natureza.toLowerCase().includes(q) ||
           p.motivo.toLowerCase().includes(q) ||
-          p.origem.toLowerCase().includes(q)
+          p.origem.toLowerCase().includes(q) ||
+          p.statusLabel.toLowerCase().includes(q) ||
+          p.dataEntrada.includes(q)
       );
     }
-    return list;
-  }, [protocolosFaltantes, subFiltroStatus, buscaFaltante]);
+    return [...list].sort((a, b) => {
+      const valA = (a as any)[sortCol];
+      const valB = (b as any)[sortCol];
+      if (typeof valA === "number" && typeof valB === "number") {
+        return sortDir === "asc" ? valA - valB : valB - valA;
+      }
+      const strA = String(valA ?? "").toLowerCase();
+      const strB = String(valB ?? "").toLowerCase();
+      return sortDir === "asc" ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+  }, [protocolosFaltantes, subFiltroStatus, buscaFaltante, sortCol, sortDir]);
 
-  const totalPaginasFaltante = Math.max(1, Math.ceil(protocolosFaltantesFiltrados.length / itensPorPaginaFaltante));
+  // Filtragem e Ordenação dos Protocolos com Erro
+  const eventosErrosFiltrados = useMemo(() => {
+    let list = eventosErros.length > 0 ? eventosErros : eventos;
+    if (buscaFaltante.trim()) {
+      const q = buscaFaltante.toLowerCase();
+      list = list.filter(
+        (e) =>
+          String(e.numeroPrenotacao).includes(q) ||
+          e.tipoRetorno.toLowerCase().includes(q) ||
+          e.usuarioDestino.toLowerCase().includes(q) ||
+          e.origem.toLowerCase().includes(q) ||
+          e.observacao.toLowerCase().includes(q) ||
+          e.categoria.toLowerCase().includes(q) ||
+          e.dataEntrada.includes(q) ||
+          e.dataRetorno.includes(q)
+      );
+    }
+    return [...list].sort((a, b) => {
+      const valA = (a as any)[sortCol];
+      const valB = (b as any)[sortCol];
+      if (typeof valA === "number" && typeof valB === "number") {
+        return sortDir === "asc" ? valA - valB : valB - valA;
+      }
+      const strA = String(valA ?? "").toLowerCase();
+      const strB = String(valB ?? "").toLowerCase();
+      return sortDir === "asc" ? strA.localeCompare(strB) : strB.localeCompare(strA);
+    });
+  }, [eventosErros, eventos, buscaFaltante, sortCol, sortDir]);
+
+  const totalItensAtivos =
+    abaAtivaListagem === "NAO_REALIZADOS"
+      ? protocolosFaltantesFiltrados.length
+      : eventosErrosFiltrados.length;
+
+  const totalPaginasFaltante = Math.max(1, Math.ceil(totalItensAtivos / itensPorPaginaFaltante));
+
   const protocolosPaginados = useMemo(() => {
     const start = (paginaFaltante - 1) * itensPorPaginaFaltante;
     return protocolosFaltantesFiltrados.slice(start, start + itensPorPaginaFaltante);
   }, [protocolosFaltantesFiltrados, paginaFaltante, itensPorPaginaFaltante]);
 
-  // Reset de página ao alterar filtros da listagem faltante
+  const eventosErrosPaginados = useMemo(() => {
+    const start = (paginaFaltante - 1) * itensPorPaginaFaltante;
+    return eventosErrosFiltrados.slice(start, start + itensPorPaginaFaltante);
+  }, [eventosErrosFiltrados, paginaFaltante, itensPorPaginaFaltante]);
+
+  // Reset de página ao alterar filtros da listagem
   useEffect(() => {
     setPaginaFaltante(1);
-  }, [subFiltroStatus, buscaFaltante, filtroSaldoFaltante]);
+  }, [subFiltroStatus, buscaFaltante, filtroSaldoFaltante, abaAtivaListagem]);
 
   // Handlers para Copiar Protocolo Individual e Lista Completa
   const handleCopiarProtocolo = (num: number) => {
@@ -389,11 +456,41 @@ export function QualidadeDashboardClient() {
   };
 
   const handleCopiarTodosProtocolos = () => {
-    if (protocolosFaltantesFiltrados.length === 0) return;
-    const listaNums = protocolosFaltantesFiltrados.map((p) => p.numeroPrenotacao).join(", ");
+    const listaAlvo = abaAtivaListagem === "NAO_REALIZADOS" ? protocolosFaltantesFiltrados : eventosErrosFiltrados;
+    if (listaAlvo.length === 0) return;
+    const listaNums = listaAlvo.map((p) => p.numeroPrenotacao).join(", ");
     navigator.clipboard.writeText(listaNums);
     setCopiadoTodos(true);
     setTimeout(() => setCopiadoTodos(false), 2500);
+  };
+
+  // Helper para renderizar cabeçalhos de coluna ordenáveis
+  const renderSortHeader = (colKey: string, label: string, align: "left" | "right" = "left") => {
+    const isSorted = sortCol === colKey;
+    return (
+      <th
+        onClick={() => handleSort(colKey)}
+        className={`py-2.5 px-3 cursor-pointer select-none group/th transition-all hover:bg-slate-800/90 ${
+          align === "right" ? "text-right" : "text-left"
+        } ${isSorted ? "text-cyan-300 font-bold bg-slate-800/40" : "text-slate-400 font-semibold"}`}
+        title={`Clique para ordenar por ${label}`}
+      >
+        <div className={`inline-flex items-center gap-1.5 ${align === "right" ? "justify-end" : "justify-start"}`}>
+          <span>{label}</span>
+          <span className="shrink-0 transition-opacity">
+            {isSorted ? (
+              sortDir === "asc" ? (
+                <ArrowUp className="w-3.5 h-3.5 text-cyan-400" />
+              ) : (
+                <ArrowDown className="w-3.5 h-3.5 text-cyan-400" />
+              )
+            ) : (
+              <ArrowUpDown className="w-3 h-3 text-slate-600 group-hover/th:text-slate-300" />
+            )}
+          </span>
+        </div>
+      </th>
+    );
   };
 
   // Resetar todos os filtros
@@ -636,49 +733,62 @@ export function QualidadeDashboardClient() {
         </div>
 
         {/* 3. Não Realizados (Canceladas + Em Trâmite) - Clicável para filtrar e listar protocolos */}
+        {/* 3. Não Realizados (Canceladas + Em Trâmite) - Clicável para filtrar e listar protocolos */}
         <div
           role="button"
           tabIndex={0}
-          onClick={() => setFiltroSaldoFaltante((prev) => !prev)}
+          onClick={() => {
+            if (filtroSaldoFaltante && abaAtivaListagem === "NAO_REALIZADOS") {
+              setFiltroSaldoFaltante(false);
+            } else {
+              setFiltroSaldoFaltante(true);
+              setAbaAtivaListagem("NAO_REALIZADOS");
+            }
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              setFiltroSaldoFaltante((prev) => !prev);
+              if (filtroSaldoFaltante && abaAtivaListagem === "NAO_REALIZADOS") {
+                setFiltroSaldoFaltante(false);
+              } else {
+                setFiltroSaldoFaltante(true);
+                setAbaAtivaListagem("NAO_REALIZADOS");
+              }
             }
           }}
           className={`p-4 rounded-xl border flex flex-col justify-between transition-all cursor-pointer select-none group relative overflow-hidden ${
-            filtroSaldoFaltante
+            filtroSaldoFaltante && abaAtivaListagem === "NAO_REALIZADOS"
               ? "border-amber-400 bg-amber-500/15 ring-2 ring-amber-400/50 shadow-xl shadow-amber-500/15"
               : "border-slate-800 bg-[#111729] hover:bg-[#151A2C] hover:border-amber-500/60 hover:shadow-lg hover:shadow-amber-500/10 active:scale-[0.99]"
           }`}
           title={
-            filtroSaldoFaltante
+            filtroSaldoFaltante && abaAtivaListagem === "NAO_REALIZADOS"
               ? "Clique para ocultar a listagem de protocolos não realizados"
-              : "Clique para filtrar e ver a listagem dos respectivos protocolos"
+              : "Clique para filtrar e ver a listagem dos protocolos não realizados"
           }
         >
-          {filtroSaldoFaltante && (
+          {filtroSaldoFaltante && abaAtivaListagem === "NAO_REALIZADOS" && (
             <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500" />
           )}
 
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider flex items-center gap-1.5">
               <span>Não Realizados</span>
-              {filtroSaldoFaltante && (
+              {filtroSaldoFaltante && abaAtivaListagem === "NAO_REALIZADOS" && (
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
               )}
             </span>
             <div className="flex items-center gap-1.5">
               <span
                 className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold border transition-colors flex items-center gap-1 ${
-                  filtroSaldoFaltante
+                  filtroSaldoFaltante && abaAtivaListagem === "NAO_REALIZADOS"
                     ? "bg-amber-400 text-slate-950 border-amber-300 font-extrabold shadow-sm"
                     : "bg-amber-500/15 text-amber-300 border-amber-500/20 group-hover:border-amber-400/50 group-hover:bg-amber-500/25"
                 }`}
               >
                 <span>Cancelado + Trâmite</span>
                 <span className="text-[8px] font-semibold opacity-90">
-                  {filtroSaldoFaltante ? "✕ Ativo" : "↗ Listar"}
+                  {filtroSaldoFaltante && abaAtivaListagem === "NAO_REALIZADOS" ? "✕ Ativo" : "↗ Listar"}
                 </span>
               </span>
             </div>
@@ -694,7 +804,7 @@ export function QualidadeDashboardClient() {
                 : "89"}
             </span>
             <span className="text-[10px] font-mono text-amber-400/90 flex items-center gap-1 transition-opacity">
-              {filtroSaldoFaltante ? (
+              {filtroSaldoFaltante && abaAtivaListagem === "NAO_REALIZADOS" ? (
                 <span className="underline font-semibold text-amber-300">Ocultar lista ✕</span>
               ) : (
                 <span className="text-slate-400 group-hover:text-amber-300 transition-colors">
@@ -723,12 +833,79 @@ export function QualidadeDashboardClient() {
           </div>
         </div>
 
-        {/* 4. Quantidade de Erros */}
-        <div className="p-4 rounded-xl border border-slate-800 bg-[#111729] flex flex-col justify-between hover:bg-[#151A2C] transition-all">
-          <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Quantidade de Erros</span>
-          <div className="my-2">
-            <span className="text-2xl font-bold font-mono text-rose-400">
+        {/* 4. Quantidade de Erros - Clicável para listar os protocolos na listagem */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            if (filtroSaldoFaltante && abaAtivaListagem === "ERROS") {
+              setFiltroSaldoFaltante(false);
+            } else {
+              setFiltroSaldoFaltante(true);
+              setAbaAtivaListagem("ERROS");
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              if (filtroSaldoFaltante && abaAtivaListagem === "ERROS") {
+                setFiltroSaldoFaltante(false);
+              } else {
+                setFiltroSaldoFaltante(true);
+                setAbaAtivaListagem("ERROS");
+              }
+            }
+          }}
+          className={`p-4 rounded-xl border flex flex-col justify-between transition-all cursor-pointer select-none group relative overflow-hidden ${
+            filtroSaldoFaltante && abaAtivaListagem === "ERROS"
+              ? "border-rose-400 bg-rose-500/15 ring-2 ring-rose-400/50 shadow-xl shadow-rose-500/15"
+              : "border-slate-800 bg-[#111729] hover:bg-[#151A2C] hover:border-rose-500/60 hover:shadow-lg hover:shadow-rose-500/10 active:scale-[0.99]"
+          }`}
+          title={
+            filtroSaldoFaltante && abaAtivaListagem === "ERROS"
+              ? "Clique para ocultar a listagem de protocolos com erro"
+              : "Clique para ver a listagem dos protocolos com erro da safra"
+          }
+        >
+          {filtroSaldoFaltante && abaAtivaListagem === "ERROS" && (
+            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-400 via-pink-400 to-rose-600" />
+          )}
+
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider flex items-center gap-1.5">
+              <span>Quantidade de Erros</span>
+              {filtroSaldoFaltante && abaAtivaListagem === "ERROS" && (
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
+              )}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`text-[9px] font-mono px-1.5 py-0.5 rounded font-bold border transition-colors flex items-center gap-1 ${
+                  filtroSaldoFaltante && abaAtivaListagem === "ERROS"
+                    ? "bg-rose-400 text-slate-950 border-rose-300 font-extrabold shadow-sm"
+                    : "bg-rose-500/15 text-rose-300 border-rose-500/20 group-hover:border-rose-400/50 group-hover:bg-rose-500/25"
+                }`}
+              >
+                <span>Erros</span>
+                <span className="text-[8px] font-semibold opacity-90">
+                  {filtroSaldoFaltante && abaAtivaListagem === "ERROS" ? "✕ Ativo" : "↗ Listar"}
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <div className="my-2 flex items-baseline justify-between">
+            <span className="text-2xl font-bold font-mono text-rose-400 group-hover:text-rose-300 transition-colors">
               {kpis ? kpis.quantidadeErros : "34"}
+            </span>
+            <span className="text-[10px] font-mono text-rose-400/90 flex items-center gap-1 transition-opacity">
+              {filtroSaldoFaltante && abaAtivaListagem === "ERROS" ? (
+                <span className="underline font-semibold text-rose-300">Ocultar lista ✕</span>
+              ) : (
+                <span className="text-slate-400 group-hover:text-rose-300 transition-colors">
+                  Clique p/ filtrar ↗
+                </span>
+              )}
             </span>
           </div>
           <span className="text-[10px] text-slate-500 font-mono">Total eventos retorno</span>
@@ -769,36 +946,74 @@ export function QualidadeDashboardClient() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════
-           4.1. LISTAGEM DOS PROTOCOLOS DO SALDO FALTANTE (AO CLICAR NO CARD)
+           4.1. LISTAGEM DOS PROTOCOLOS (NÃO REALIZADOS OU COM ERRO)
            ══════════════════════════════════════════════════════════════════ */}
       {filtroSaldoFaltante && (
-        <section className="rounded-2xl border-2 border-amber-500/40 bg-[#111729] p-5 sm:p-6 shadow-2xl shadow-amber-500/10 ring-1 ring-amber-500/20 space-y-4 relative overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
-          {/* Barra superior de destaque com gradiente âmbar/dourado */}
-          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-600" />
+        <section
+          className={`rounded-2xl border-2 p-5 sm:p-6 shadow-2xl space-y-4 relative overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 ${
+            abaAtivaListagem === "NAO_REALIZADOS"
+              ? "border-amber-500/40 bg-[#111729] shadow-amber-500/10 ring-1 ring-amber-500/20"
+              : "border-rose-500/40 bg-[#111729] shadow-rose-500/10 ring-1 ring-rose-500/20"
+          }`}
+        >
+          {/* Barra superior de destaque com gradiente temático */}
+          <div
+            className={`absolute top-0 inset-x-0 h-1 bg-gradient-to-r ${
+              abaAtivaListagem === "NAO_REALIZADOS"
+                ? "from-amber-400 via-yellow-400 to-amber-600"
+                : "from-rose-400 via-pink-400 to-rose-600"
+            }`}
+          />
 
-          {/* Topo do Painel de Protocolos Faltantes */}
+          {/* Topo do Painel de Protocolos */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-slate-800">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 shadow-md">
-                <Layers className="h-5 w-5 text-amber-400" />
+              <div
+                className={`p-2.5 rounded-xl border shadow-md ${
+                  abaAtivaListagem === "NAO_REALIZADOS"
+                    ? "bg-amber-500/15 border-amber-500/30 text-amber-400"
+                    : "bg-rose-500/15 border-rose-500/30 text-rose-400"
+                }`}
+              >
+                {abaAtivaListagem === "NAO_REALIZADOS" ? (
+                  <Layers className="h-5 w-5 text-amber-400" />
+                ) : (
+                  <AlertTriangle className="h-5 w-5 text-rose-400" />
+                )}
               </div>
               <div>
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <h3 className="text-base font-bold text-white tracking-wide">
-                    Listagem dos Protocolos — Não realizados
+                    {abaAtivaListagem === "NAO_REALIZADOS"
+                      ? "Listagem dos Protocolos — Não realizados"
+                      : "Listagem dos Protocolos — Erros da Safra"}
                   </h3>
-                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-mono font-bold">
-                    {protocolosFaltantesFiltrados.length}{" "}
-                    {protocolosFaltantesFiltrados.length === 1 ? "protocolo" : "protocolos"}
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full border text-xs font-mono font-bold ${
+                      abaAtivaListagem === "NAO_REALIZADOS"
+                        ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                        : "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                    }`}
+                  >
+                    {totalItensAtivos} {totalItensAtivos === 1 ? "protocolo" : "protocolos"}
                   </span>
                   <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
                     Safra {competencia}
                   </span>
                 </div>
                 <p className="text-xs text-slate-400 mt-1">
-                  Protocolos da safra que ainda não foram concluídos na competência selecionada (
-                  <span className="text-rose-400 font-semibold">{kpis?.totalCanceladas ?? 0} cancelados</span> e{" "}
-                  <span className="text-amber-300 font-semibold">{kpis?.totalEmTramite ?? 0} em trâmite</span>).
+                  {abaAtivaListagem === "NAO_REALIZADOS" ? (
+                    <>
+                      Protocolos da safra que ainda não foram concluídos na competência selecionada (
+                      <span className="text-rose-400 font-semibold">{kpis?.totalCanceladas ?? 0} cancelados</span> e{" "}
+                      <span className="text-amber-300 font-semibold">{kpis?.totalEmTramite ?? 0} em trâmite</span>).
+                    </>
+                  ) : (
+                    <>
+                      Protocolos da safra que sofreram eventos de retorno interno apontados pelo contraditório (
+                      <span className="text-rose-400 font-semibold">{kpis?.quantidadeErros ?? 0} eventos totais</span>).
+                    </>
+                  )}
                 </p>
               </div>
             </div>
@@ -813,7 +1028,7 @@ export function QualidadeDashboardClient() {
                 {copiadoTodos ? (
                   <Check className="w-3.5 h-3.5 text-emerald-400" />
                 ) : (
-                  <Copy className="w-3.5 h-3.5 text-amber-400" />
+                  <Copy className={`w-3.5 h-3.5 ${abaAtivaListagem === "NAO_REALIZADOS" ? "text-amber-400" : "text-rose-400"}`} />
                 )}
                 <span>{copiadoTodos ? "Copiados!" : "Copiar Protocolos"}</span>
               </button>
@@ -822,7 +1037,7 @@ export function QualidadeDashboardClient() {
                 type="button"
                 onClick={() => setFiltroSaldoFaltante(false)}
                 className="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-500/40 text-xs font-semibold transition-all flex items-center gap-1 active:scale-95"
-                title="Fechar listagem de protocolos não realizados"
+                title="Fechar listagem"
               >
                 <X className="w-4 h-4" />
                 <span>Fechar</span>
@@ -830,56 +1045,91 @@ export function QualidadeDashboardClient() {
             </div>
           </div>
 
-          {/* Filtros em Abas e Barra de Pesquisa */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
-            {/* Abas Rápidas: Todos | Canceladas | Em Trâmite */}
-            <div className="inline-flex p-1 rounded-xl bg-[#0B0F1A] border border-slate-800 text-xs">
-              <button
-                type="button"
-                onClick={() => setSubFiltroStatus("TODOS")}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 text-xs ${
-                  subFiltroStatus === "TODOS"
-                    ? "bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-sm"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                <span>Todos</span>
-                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300">
-                  {protocolosFaltantes.length}
-                </span>
-              </button>
+          {/* Abas Principais de Seleção: [ Não Realizados ] vs [ Protocolos com Erro ] */}
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 pt-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="inline-flex p-1 rounded-xl bg-[#0B0F1A] border border-slate-800 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAbaAtivaListagem("NAO_REALIZADOS");
+                    setPaginaFaltante(1);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 text-xs ${
+                    abaAtivaListagem === "NAO_REALIZADOS"
+                      ? "bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-sm"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <Layers className="w-3 h-3" />
+                  <span>Não Realizados</span>
+                  <span className="font-mono text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300">
+                    {protocolosFaltantes.length}
+                  </span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setSubFiltroStatus("CANCELADA")}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 text-xs ${
-                  subFiltroStatus === "CANCELADA"
-                    ? "bg-rose-500/25 text-rose-300 border border-rose-500/40 shadow-sm"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                <XCircle className="w-3 h-3 text-rose-400" />
-                <span>Canceladas</span>
-                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300">
-                  {protocolosFaltantes.filter((p) => p.status === "CANCELADA").length}
-                </span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAbaAtivaListagem("ERROS");
+                    setPaginaFaltante(1);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 text-xs ${
+                    abaAtivaListagem === "ERROS"
+                      ? "bg-rose-500/25 text-rose-300 border border-rose-500/40 shadow-sm"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <AlertTriangle className="w-3 h-3" />
+                  <span>Protocolos com Erro</span>
+                  <span className="font-mono text-[10px] px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-300">
+                    {kpis ? kpis.quantidadeErros : eventosErros.length}
+                  </span>
+                </button>
+              </div>
 
-              <button
-                type="button"
-                onClick={() => setSubFiltroStatus("EM_TRAMITE")}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 text-xs ${
-                  subFiltroStatus === "EM_TRAMITE"
-                    ? "bg-yellow-500/25 text-yellow-300 border border-yellow-500/40 shadow-sm"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                <Clock className="w-3 h-3 text-yellow-400" />
-                <span>Em Trâmite</span>
-                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded-full bg-yellow-500/20 text-yellow-300">
-                  {protocolosFaltantes.filter((p) => p.status === "EM_TRAMITE").length}
-                </span>
-              </button>
+              {/* Sub-abas exclusivas de Não Realizados: Todos | Canceladas | Em Trâmite */}
+              {abaAtivaListagem === "NAO_REALIZADOS" && (
+                <div className="inline-flex p-1 rounded-xl bg-[#0B0F1A] border border-slate-800 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setSubFiltroStatus("TODOS")}
+                    className={`px-2.5 py-1 rounded-lg font-semibold transition-all text-xs ${
+                      subFiltroStatus === "TODOS"
+                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    Todos ({protocolosFaltantes.length})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSubFiltroStatus("CANCELADA")}
+                    className={`px-2.5 py-1 rounded-lg font-semibold transition-all flex items-center gap-1 text-xs ${
+                      subFiltroStatus === "CANCELADA"
+                        ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <XCircle className="w-3 h-3 text-rose-400" />
+                    <span>Canceladas ({protocolosFaltantes.filter((p) => p.status === "CANCELADA").length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSubFiltroStatus("EM_TRAMITE")}
+                    className={`px-2.5 py-1 rounded-lg font-semibold transition-all flex items-center gap-1 text-xs ${
+                      subFiltroStatus === "EM_TRAMITE"
+                        ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <Clock className="w-3 h-3 text-yellow-400" />
+                    <span>Em Trâmite ({protocolosFaltantes.filter((p) => p.status === "EM_TRAMITE").length})</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Input de Busca Rápida */}
@@ -887,10 +1137,16 @@ export function QualidadeDashboardClient() {
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Buscar por protocolo, natureza ou motivo..."
+                placeholder={
+                  abaAtivaListagem === "NAO_REALIZADOS"
+                    ? "Buscar por protocolo, natureza ou motivo..."
+                    : "Buscar por protocolo, responsável ou motivo..."
+                }
                 value={buscaFaltante}
                 onChange={(e) => setBuscaFaltante(e.target.value)}
-                className="w-full pl-9 pr-8 py-1.5 rounded-xl bg-[#151A2C] border border-slate-700/80 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-colors"
+                className={`w-full pl-9 pr-8 py-1.5 rounded-xl bg-[#151A2C] border border-slate-700/80 text-xs text-slate-200 placeholder-slate-500 focus:outline-none transition-colors ${
+                  abaAtivaListagem === "NAO_REALIZADOS" ? "focus:border-amber-400" : "focus:border-rose-400"
+                }`}
               />
               {buscaFaltante && (
                 <button
@@ -905,97 +1161,214 @@ export function QualidadeDashboardClient() {
             </div>
           </div>
 
-          {/* Tabela de Protocolos Faltantes */}
+          {/* Dica de ordenação para o usuário */}
+          <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
+            <span className="flex items-center gap-1.5 font-mono text-[10px]">
+              <ArrowUpDown className="w-3 h-3 text-cyan-400" />
+              <span>Clique nos cabeçalhos das colunas para ordenar (ascendente/descendente)</span>
+            </span>
+            <span className="text-[10px] font-mono text-cyan-300">
+              Ordenando por: <strong className="uppercase">{sortCol}</strong> ({sortDir.toUpperCase()})
+            </span>
+          </div>
+
+          {/* Tabela de Protocolos com Cabeçalhos Clicáveis de Ordenação */}
           <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#090E1D]">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-slate-800 bg-[#151A2C] text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
-                  <th className="py-2.5 px-3">Nº Prenotação</th>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3">Data Entrada</th>
-                  <th className="py-2.5 px-3">Origem</th>
-                  <th className="py-2.5 px-3">Natureza do Título</th>
-                  <th className="py-2.5 px-3">Andamento / Motivo</th>
+                  {abaAtivaListagem === "NAO_REALIZADOS" ? (
+                    <>
+                      {renderSortHeader("numeroPrenotacao", "Nº Prenotação")}
+                      {renderSortHeader("statusLabel", "Status")}
+                      {renderSortHeader("dataEntrada", "Data Entrada")}
+                      {renderSortHeader("origem", "Origem")}
+                      {renderSortHeader("natureza", "Natureza do Título")}
+                      {renderSortHeader("motivo", "Andamento / Motivo")}
+                    </>
+                  ) : (
+                    <>
+                      {renderSortHeader("numeroPrenotacao", "Nº Prenotação")}
+                      {renderSortHeader("tipoRetorno", "Tipo de Erro")}
+                      {renderSortHeader("dataEntrada", "Data Entrada")}
+                      {renderSortHeader("dataRetorno", "Data Retorno")}
+                      {renderSortHeader("usuarioDestino", "Responsável Erro")}
+                      {renderSortHeader("origem", "Origem")}
+                      {renderSortHeader("observacao", "Observação Original")}
+                      {renderSortHeader("categoria", "Categoria")}
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 font-mono text-[11px]">
-                {protocolosPaginados.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400 font-sans">
-                      Nenhum protocolo encontrado com os filtros aplicados.
-                    </td>
-                  </tr>
-                ) : (
-                  protocolosPaginados.map((item) => (
-                    <tr
-                      key={item.numeroPrenotacao}
-                      className="hover:bg-slate-800/40 transition-colors group"
-                    >
-                      {/* Nº Prenotação */}
-                      <td className="py-2.5 px-3 font-bold text-white">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-cyan-300">{item.numeroPrenotacao}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleCopiarProtocolo(item.numeroPrenotacao)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-amber-300 p-0.5 rounded"
-                            title="Copiar número"
-                          >
-                            {copiadoProt === item.numeroPrenotacao ? (
-                              <Check className="w-3 h-3 text-emerald-400" />
-                            ) : (
-                              <Copy className="w-3 h-3" />
-                            )}
-                          </button>
-                        </div>
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-2.5 px-3 font-sans">
-                        {item.status === "CANCELADA" ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
-                            <XCircle className="w-3 h-3 text-rose-400" />
-                            <span>Cancelada</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                            <Clock className="w-3 h-3 text-amber-400" />
-                            <span>Em Trâmite</span>
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Data Entrada */}
-                      <td className="py-2.5 px-3 text-slate-300">
-                        {item.dataEntrada
-                          ? item.dataEntrada.split("-").reverse().join("/")
-                          : "—"}
-                      </td>
-
-                      {/* Origem */}
-                      <td className="py-2.5 px-3 font-sans">
-                        {item.origem === "ONR" ? (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                            🌐 ONR
-                          </span>
-                        ) : (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">
-                            🏢 Recepção
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Natureza */}
-                      <td className="py-2.5 px-3 font-sans text-slate-200 max-w-[200px] truncate" title={item.natureza}>
-                        {item.natureza}
-                      </td>
-
-                      {/* Motivo / Andamento */}
-                      <td className="py-2.5 px-3 font-sans text-slate-400 max-w-[320px] truncate" title={item.motivo}>
-                        {item.motivo}
+                {abaAtivaListagem === "NAO_REALIZADOS" ? (
+                  protocolosPaginados.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-400 font-sans">
+                        Nenhum protocolo não realizado encontrado com os filtros aplicados.
                       </td>
                     </tr>
-                  ))
+                  ) : (
+                    protocolosPaginados.map((item) => (
+                      <tr
+                        key={item.numeroPrenotacao}
+                        className="hover:bg-slate-800/40 transition-colors group"
+                      >
+                        {/* Nº Prenotação */}
+                        <td className="py-2.5 px-3 font-bold text-white">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-cyan-300">{item.numeroPrenotacao}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopiarProtocolo(item.numeroPrenotacao)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-amber-300 p-0.5 rounded"
+                              title="Copiar número"
+                            >
+                              {copiadoProt === item.numeroPrenotacao ? (
+                                <Check className="w-3 h-3 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </button>
+                          </div>
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-2.5 px-3 font-sans">
+                          {item.status === "CANCELADA" ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                              <XCircle className="w-3 h-3 text-rose-400" />
+                              <span>Cancelada</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                              <Clock className="w-3 h-3 text-amber-400" />
+                              <span>Em Trâmite</span>
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Data Entrada */}
+                        <td className="py-2.5 px-3 text-slate-300">
+                          {item.dataEntrada
+                            ? item.dataEntrada.split("-").reverse().join("/")
+                            : "—"}
+                        </td>
+
+                        {/* Origem */}
+                        <td className="py-2.5 px-3 font-sans">
+                          {item.origem === "ONR" ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                              🌐 ONR
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                              🏢 Recepção
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Natureza */}
+                        <td className="py-2.5 px-3 font-sans text-slate-200 max-w-[200px] truncate" title={item.natureza}>
+                          {item.natureza}
+                        </td>
+
+                        {/* Motivo / Andamento */}
+                        <td className="py-2.5 px-3 font-sans text-slate-400 max-w-[320px] truncate" title={item.motivo}>
+                          {item.motivo}
+                        </td>
+                      </tr>
+                    ))
+                  )
+                ) : (
+                  eventosErrosPaginados.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-slate-400 font-sans">
+                        Nenhum evento de erro encontrado com os filtros aplicados.
+                      </td>
+                    </tr>
+                  ) : (
+                    eventosErrosPaginados.map((item) => (
+                      <tr
+                        key={item.idAndamento}
+                        className="hover:bg-slate-800/40 transition-colors group"
+                      >
+                        {/* Nº Prenotação */}
+                        <td className="py-2.5 px-3 font-bold text-white">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-rose-300">{item.numeroPrenotacao}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopiarProtocolo(item.numeroPrenotacao)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-rose-300 p-0.5 rounded"
+                              title="Copiar número"
+                            >
+                              {copiadoProt === item.numeroPrenotacao ? (
+                                <Check className="w-3 h-3 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </button>
+                          </div>
+                        </td>
+
+                        {/* Tipo de Erro */}
+                        <td className="py-2.5 px-3 font-sans">
+                          <span
+                            className={`px-2 py-0.5 rounded font-bold text-[10px] ${
+                              item.idTipoRetorno === 292
+                                ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+                                : item.idTipoRetorno === 294
+                                ? "bg-blue-500/15 text-blue-300 border border-blue-500/30"
+                                : "bg-purple-500/15 text-purple-300 border border-purple-500/30"
+                            }`}
+                          >
+                            {item.tipoRetorno}
+                          </span>
+                        </td>
+
+                        {/* Data Entrada */}
+                        <td className="py-2.5 px-3 text-slate-300">
+                          {item.dataEntrada || "—"}
+                        </td>
+
+                        {/* Data Retorno */}
+                        <td className="py-2.5 px-3 text-slate-300">
+                          {item.dataRetorno || "—"}
+                        </td>
+
+                        {/* Responsável Erro */}
+                        <td className="py-2.5 px-3 font-sans text-white uppercase font-semibold">
+                          {item.usuarioDestino}
+                        </td>
+
+                        {/* Origem */}
+                        <td className="py-2.5 px-3 font-sans">
+                          {item.origem === "ONR" ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                              🌐 ONR
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                              🏢 Recepção
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Observação Original */}
+                        <td className="py-2.5 px-3 font-sans text-slate-300 max-w-[280px] truncate" title={item.observacao}>
+                          {item.observacao}
+                        </td>
+
+                        {/* Categoria */}
+                        <td className="py-2.5 px-3 font-sans">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-800 text-slate-300 border border-slate-700 uppercase">
+                            {item.categoria}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )
                 )}
               </tbody>
             </table>
@@ -1006,8 +1379,8 @@ export function QualidadeDashboardClient() {
             <div className="flex items-center justify-between text-xs text-slate-400 pt-1 font-mono">
               <span>
                 Mostrando {(paginaFaltante - 1) * itensPorPaginaFaltante + 1}–
-                {Math.min(paginaFaltante * itensPorPaginaFaltante, protocolosFaltantesFiltrados.length)} de{" "}
-                {protocolosFaltantesFiltrados.length} protocolos
+                {Math.min(paginaFaltante * itensPorPaginaFaltante, totalItensAtivos)} de{" "}
+                {totalItensAtivos} protocolos
               </span>
 
               <div className="flex items-center gap-2">

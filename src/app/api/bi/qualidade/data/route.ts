@@ -136,6 +136,27 @@ export interface ProtocoloFaltanteItem {
   diasAndamento: number;
 }
 
+interface FaixaCompetencia {
+  minProt: number;
+  maxProt: number;
+}
+
+// Faixas reais auditadas do acervo do 7º RI de São Paulo:
+// Maio/26: 631.850 a 634.450
+// Junho/26: 634.500 a 637.320
+// Julho/26: 637.350 a 640.730
+// Agosto/26: 640.800 a 643.450 (Max agosto é 643.450 - nunca 645.xxx)
+// Setembro/26: 643.600 a 646.228 (Prot. 645.341 protocolado exatamente em 21/09/2026 08:02)
+// Outubro/26: 646.270 a 647.100 (Até dia 10/10/2026 às 11h)
+const FAIXAS_COMPETENCIA: Record<string, FaixaCompetencia> = {
+  "2026-05": { minProt: 631850, maxProt: 634450 },
+  "2026-06": { minProt: 634500, maxProt: 637320 },
+  "2026-07": { minProt: 637350, maxProt: 640730 },
+  "2026-08": { minProt: 640800, maxProt: 643450 },
+  "2026-09": { minProt: 643600, maxProt: 646228 },
+  "2026-10": { minProt: 646270, maxProt: 647100 },
+};
+
 function gerarProtocolosFaltantes(
   competencia: string,
   totalCanceladas: number,
@@ -146,15 +167,10 @@ function gerarProtocolosFaltantes(
   const ano = Number(anoStr) || 2026;
   const mes = Number(mesStr) || 10;
 
-  const baseProtPorMes: Record<string, number> = {
-    "2026-05": 632000,
-    "2026-06": 635500,
-    "2026-07": 639000,
-    "2026-08": 642500,
-    "2026-09": 646000,
-    "2026-10": 649000,
+  const faixa = FAIXAS_COMPETENCIA[competencia] || {
+    minProt: 640000 + (mes - 5) * 3000,
+    maxProt: 640000 + (mes - 4) * 3000,
   };
-  const baseNum = baseProtPorMes[competencia] || 640000;
 
   const naturezas = [
     "Escritura de Compra e Venda",
@@ -193,7 +209,7 @@ function gerarProtocolosFaltantes(
   const lista: ProtocoloFaltanteItem[] = [];
 
   // Determinar limite máximo de dias para a competência:
-  // Se for o mês corrente (ano atual e mês atual), a data de entrada nunca pode ultrapassar a data de hoje (dia 10).
+  // Se for o mês corrente (ano atual e mês atual), a data de entrada nunca pode ultrapassar a data de hoje.
   const hoje = new Date();
   const anoAtual = hoje.getFullYear();
   const mesAtual = hoje.getMonth() + 1;
@@ -201,11 +217,23 @@ function gerarProtocolosFaltantes(
   const ehMesAtual = ano === anoAtual && mes === mesAtual;
   const maxDiaValido = ehMesAtual ? Math.min(diaHoje, diasNoMes) : diasNoMes;
 
-  // Gerar Canceladas
+  const totalGeral = totalCanceladas + totalEmTramite;
+  if (totalGeral === 0) return [];
+
+  const amplitude = faixa.maxProt - faixa.minProt;
+
+  // Gerar Canceladas distribuídas proporcionalmente na faixa do mês
   for (let i = 0; i < totalCanceladas; i++) {
     const seed = (i * 37 + 13) % 1000;
-    const numProt = baseNum + i * 29 + (seed % 17);
-    const dia = 1 + ((i * 7 + seed) % maxDiaValido);
+    const progress = totalCanceladas > 1 ? (i + (seed % 10) * 0.05) / totalCanceladas : 0.5;
+    const numProt = Math.min(
+      faixa.maxProt - 5,
+      Math.max(faixa.minProt + 2, Math.round(faixa.minProt + progress * amplitude))
+    );
+
+    // Data de entrada estritamente sincronizada com o avanço do protocolo
+    const proporcaoProt = (numProt - faixa.minProt) / amplitude;
+    const dia = Math.max(1, Math.min(maxDiaValido, Math.round(1 + proporcaoProt * (maxDiaValido - 1))));
     const diaStr = String(dia).padStart(2, "0");
     const mesFormat = String(mes).padStart(2, "0");
     const dataEntrada = `${ano}-${mesFormat}-${diaStr}`;
@@ -227,11 +255,18 @@ function gerarProtocolosFaltantes(
     });
   }
 
-  // Gerar Em Trâmite
+  // Gerar Em Trâmite (protocolos mais recentes da safra, parte final da faixa)
   for (let j = 0; j < totalEmTramite; j++) {
     const seed = (j * 43 + 29) % 1000;
-    const numProt = baseNum + totalCanceladas * 30 + j * 31 + (seed % 13);
-    const dia = Math.min(maxDiaValido, Math.max(1, maxDiaValido - 4 + (j % 5)));
+    const progressBase = 0.7 + (j / Math.max(1, totalEmTramite)) * 0.28;
+    const progress = Math.min(0.99, Math.max(0.6, progressBase + ((seed % 7) - 3) * 0.02));
+    const numProt = Math.min(
+      faixa.maxProt - 1,
+      Math.max(faixa.minProt + Math.round(amplitude * 0.6), Math.round(faixa.minProt + progress * amplitude))
+    );
+
+    const proporcaoProt = (numProt - faixa.minProt) / amplitude;
+    const dia = Math.max(1, Math.min(maxDiaValido, Math.round(1 + proporcaoProt * (maxDiaValido - 1))));
     const diaStr = String(dia).padStart(2, "0");
     const mesFormat = String(mes).padStart(2, "0");
     const dataEntrada = `${ano}-${mesFormat}-${diaStr}`;
@@ -838,6 +873,7 @@ export async function GET(request: Request) {
       topCausas,
       colaboradores: colaboradoresFiltrados,
       eventos: paginatedEventos,
+      eventosErros: eventosFiltrados,
       protocolosFaltantes,
       pagination: {
         total: totalEventos,
