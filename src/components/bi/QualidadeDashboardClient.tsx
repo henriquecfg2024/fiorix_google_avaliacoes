@@ -33,6 +33,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  BarChart3,
+  Filter,
 } from "lucide-react";
 
 export interface ProtocoloFaltanteItem {
@@ -222,7 +224,7 @@ export function QualidadeDashboardClient() {
   const [topCausas, setTopCausas] = useState<TopCausaItem[]>([]);
   const [evolucaoMensal, setEvolucaoMensal] = useState<EvolucaoItem[]>([]);
   const [userRole, setUserRole] = useState("SUBSTITUTO");
-  const [colaboradoresVisivel, setColaboradoresVisivel] = useState(false);
+  const [colaboradoresVisivel, setColaboradoresVisivel] = useState(true);
 
   // Cálculo dinâmico do melhor mês do semestre (menor taxa de erro histórica)
   const melhorMesSemestre = useMemo(() => {
@@ -721,73 +723,214 @@ export function QualidadeDashboardClient() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════
-           3. FILTROS EM BLOCOS: CARD COMPETÊNCIA (ENTRADA) COM DESTAQUE
+           2. [HERO] CARD PRINCIPAL: QUALIDADE MÊS A MÊS (EVOLUÇÃO)
            ══════════════════════════════════════════════════════════════════ */}
-      <section className="rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-sm space-y-4">
-        {/* Topo do Card Competência */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800/80">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
-              <Calendar className="h-4 w-4" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-white tracking-wide flex items-center gap-2">
-                <span>Competência (Entrada)</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-500/25 font-semibold">
-                  Mês de Entrada da Prenotação
-                </span>
+      <section className="w-full rounded-2xl border-2 border-[#1E2A44] bg-[#0E1220] p-6 shadow-2xl relative overflow-hidden transition-all duration-300 hover:border-cyan-500/40 hover:shadow-cyan-500/10">
+        {/* Efeito Glow Atmosférico no Topo */}
+        <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-cyan-500/15 blur-3xl rounded-full" />
+
+        {/* Topo do Hero: Título + Call-to-action Interativo + Pill de Insight Dinâmico */}
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                <BarChart3 className="w-4 h-4" />
+              </div>
+              <h2 className="text-lg sm:text-xl font-bold text-white tracking-wide">
+                Qualidade Mês a Mês (Evolução)
               </h2>
-              <p className="text-[11px] text-slate-400">
-                Os retornos e erros são contabilizados no mês de entrada do título (inclusive cancelados).
-              </p>
+              <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                Filtro Mestre Ativo
+              </span>
+            </div>
+
+            {/* Instrução em Destaque Visível no Topo */}
+            <div className="flex items-center gap-2 pt-0.5">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-[#151C2E] border border-cyan-500/30 text-xs font-semibold text-cyan-300 shadow-sm animate-pulse">
+                <span>👆 Clique em qualquer mês para filtrar todo o painel</span>
+              </span>
+              <span className="text-xs text-slate-400 hidden sm:inline">
+                • Escala oficial de 0 a 2.5% • Limite tolerado: 5.0%
+              </span>
             </div>
           </div>
 
-          <button
-            onClick={handleResetFiltros}
-            className="text-xs text-slate-400 hover:text-cyan-400 underline transition-colors self-start sm:self-auto flex items-center gap-1"
-          >
-            <span>Limpar todos os filtros</span>
-          </button>
+          {/* Insight Dinâmico do Mês Selecionado */}
+          <div className="inline-flex items-center gap-3 px-3.5 py-2 rounded-2xl bg-[#090D1A] border border-cyan-500/30 shadow-lg">
+            <span
+              className="h-8 w-8 rounded-xl font-bold font-mono text-xs flex items-center justify-center border shadow-inner transition-colors"
+              style={{
+                backgroundColor: `${mesSelecionadoInfo.dotColor}25`,
+                borderColor: `${mesSelecionadoInfo.dotColor}80`,
+                color: mesSelecionadoInfo.dotColor,
+              }}
+            >
+              {mesSelecionadoInfo.value}%
+            </span>
+            <div className="flex flex-col text-xs leading-tight">
+              <span className="font-bold text-white flex items-center gap-1.5">
+                <span style={{ color: mesSelecionadoInfo.dotColor }}>{mesSelecionadoInfo.label}</span>
+                <span className="text-slate-400 font-normal">•</span>
+                <span>{mesSelecionadoInfo.badgeHighlight}</span>
+              </span>
+              <span className="text-emerald-400 font-mono text-[10px] mt-0.5">
+                ↘ {mesSelecionadoInfo.badgeRatio}
+              </span>
+            </div>
+          </div>
         </div>
 
-        {/* Filtros em Linha */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
-          {/* Bloco 1: Seleção de Mês/Ano (3 cols) */}
-          <div className="lg:col-span-3 flex flex-col gap-1.5">
-            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Mês de Entrada:</span>
-            </label>
-            <select
-              value={competencia}
-              onChange={(e) => setCompetencia(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-[#151A2C] border border-slate-700/80 text-xs text-slate-200 font-mono font-medium focus:outline-none focus:border-cyan-400 transition-colors shadow-sm"
-            >
-              <option value="2026-10">Outubro / 2026</option>
-              <option value="2026-09">Setembro / 2026</option>
-              <option value="2026-08">Agosto / 2026</option>
-              <option value="2026-07">Julho / 2026</option>
-              <option value="2026-06">Junho / 2026</option>
-              <option value="2026-05">Maio / 2026</option>
-            </select>
+        {/* Área do Gráfico de Barras Verticais */}
+        <div className="pt-6 pb-2 relative z-10">
+          <div className="relative h-[220px] w-full flex">
+            {/* Eixo Y com Ticks */}
+            <div className="w-12 h-full flex flex-col justify-between text-xs font-mono text-slate-500 text-right pr-2.5 select-none font-semibold">
+              <span>2.5%</span>
+              <span>2.0%</span>
+              <span>1.5%</span>
+              <span>1.0%</span>
+              <span>0.5%</span>
+              <span>0.0%</span>
+            </div>
+
+            {/* Grid e Barras */}
+            <div className="relative flex-1 h-full border-b-2 border-slate-700/80">
+              {/* Linhas de Grade Horizontais Faint */}
+              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                <div className="border-b border-white/[0.05] w-full" />
+                <div className="border-b border-white/[0.05] w-full" />
+                <div className="border-b border-white/[0.05] w-full" />
+                <div className="border-b border-white/[0.05] w-full" />
+                <div className="border-b border-white/[0.05] w-full" />
+                <div className="w-full" />
+              </div>
+
+              {/* Barras Verticais Interativas */}
+              <div className="absolute inset-0 flex items-end justify-around px-4 sm:px-12">
+                {MESES_GRAFICO_EVOLUCAO.map((m) => {
+                  const isSelected = competencia === m.key;
+                  const isMelhor = m.key === melhorMesSemestre.key;
+                  const isOut = m.key === "2026-10";
+
+                  return (
+                    <div
+                      key={m.key}
+                      onClick={() => setCompetencia(m.key)}
+                      className="group relative flex flex-col items-center cursor-pointer select-none"
+                    >
+                      {/* Indicador no topo da barra */}
+                      {isSelected ? (
+                        <div
+                          className="mb-2 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold shadow-xl whitespace-nowrap flex items-center gap-1.5 transition-all scale-105"
+                          style={{
+                            backgroundColor: "#0B1322",
+                            border: `2px solid ${m.dotColor}`,
+                            color: m.dotColor,
+                            boxShadow: `0 0 20px ${m.glowColor}`,
+                          }}
+                        >
+                          <span>{m.value}%</span>
+                          <span className="text-[9px] opacity-90 font-sans uppercase tracking-wider font-extrabold">
+                            • {isMelhor ? "RECORDE" : isOut ? "VIGENTE" : "ATIVO"}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-bold font-mono text-slate-300 mb-2 opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all">
+                          {m.value}%
+                        </span>
+                      )}
+
+                      {/* A Barra */}
+                      <div
+                        className={`w-12 sm:w-16 rounded-t-xl transition-all duration-300 ${
+                          isSelected
+                            ? `scale-105 sm:scale-110 z-10 brightness-110 border-t-2 border-x-2 ${m.borderActive} ring-4 ${m.ringColor}`
+                            : "opacity-75 hover:opacity-100 hover:scale-105"
+                        }`}
+                        style={{
+                          background: `linear-gradient(to bottom, ${m.colorFrom}, ${m.colorTo})`,
+                          height: `${(m.value / 2.5) * 180}px`,
+                          boxShadow: isSelected
+                            ? `0 0 30px ${m.shadowColor}, 0 0 50px ${m.glowColor}`
+                            : `0 0 15px ${m.glowColor}`,
+                        }}
+                      />
+
+                      {/* Tooltip ao passar o mouse */}
+                      <div className="absolute -top-12 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-slate-700 text-slate-200 text-xs font-mono px-3 py-1 rounded-lg shadow-2xl pointer-events-none z-30 whitespace-nowrap flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: m.dotColor }} />
+                        <span>{m.tooltip}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
-          {/* Bloco 2: Tipo de Retorno (TODOS -> TELA RECEPÇÃO -> PESSOAL -> REAL) (6 cols) */}
-          <div className="lg:col-span-6 flex flex-col gap-1.5">
-            <label className="text-[11px] font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-              <span className="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-              <span>Tipos de Retorno:</span>
-            </label>
+          {/* Labels do Eixo X - Clicáveis */}
+          <div className="flex items-center justify-around pl-12 pr-4 sm:pr-12 pt-3 text-xs sm:text-sm font-mono text-[#94A3B8]">
+            {MESES_GRAFICO_EVOLUCAO.map((m) => {
+              const isSelected = competencia === m.key;
+              return (
+                <button
+                  key={m.key}
+                  type="button"
+                  onClick={() => setCompetencia(m.key)}
+                  className={`w-12 sm:w-16 text-center cursor-pointer transition-all hover:scale-110 py-1 rounded-md ${
+                    isSelected
+                      ? "font-black text-[#22D3EE] drop-shadow-[0_0_10px_rgba(34,211,238,0.9)] underline underline-offset-8 decoration-cyan-400 decoration-2"
+                      : "hover:text-white"
+                  }`}
+                  title={`Filtrar dashboard para ${m.label}`}
+                >
+                  {m.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
-            <div className="grid grid-cols-4 gap-2 p-1.5 rounded-2xl bg-[#090E1D] border-2 border-[#1E293B] shadow-lg">
+      {/* ══════════════════════════════════════════════════════════════════
+           3. BARRA DE FILTROS SECUNDÁRIOS: CARDS EM DESTAQUE PARA TIPOS DE RETORNO
+           ══════════════════════════════════════════════════════════════════ */}
+      <section className="rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-lg space-y-4">
+        <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
+          {/* Bloco 1: Indicador de Mês Selecionado (Sincronizado com Hero) */}
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+              <Calendar className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block font-semibold">
+                Competência Ativa:
+              </span>
+              <span className="text-base font-extrabold text-white font-mono flex items-center gap-2">
+                <span>{mesSelecionadoInfo.label}</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                  Sincronizado com Hero
+                </span>
+              </span>
+            </div>
+          </div>
+
+          {/* Bloco 2: Tipo de Retorno (Cards com Destaque Forte) */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1 max-w-3xl">
+            <span className="text-[11px] text-slate-200 font-bold uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+              <span>Tipos de Retorno:</span>
+            </span>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full p-1.5 rounded-2xl bg-[#090E1D] border-2 border-[#1E293B] shadow-inner">
               {/* 0. TODOS */}
               <button
                 type="button"
                 onClick={() => setTipoRetorno("TODOS")}
-                className={`flex items-center justify-center py-3 px-3 rounded-xl font-bold transition-all text-center active:scale-95 text-xs tracking-wider ${
+                className={`flex items-center justify-center py-2.5 px-3 rounded-xl font-bold transition-all text-xs tracking-wider active:scale-95 ${
                   tipoRetorno === "TODOS"
-                    ? "bg-slate-700/90 text-white border-2 border-slate-300 shadow-lg shadow-white/10 ring-1 ring-white/20"
+                    ? "bg-slate-700 text-white border-2 border-slate-300 shadow-lg shadow-white/10 ring-2 ring-white/20"
                     : "bg-slate-900/60 text-slate-400 border border-slate-800 hover:bg-slate-800/80 hover:text-white"
                 }`}
               >
@@ -798,14 +941,14 @@ export function QualidadeDashboardClient() {
               <button
                 type="button"
                 onClick={() => setTipoRetorno("TELA_RECEPCAO")}
-                className={`flex items-center justify-center gap-1.5 py-3 px-2 rounded-xl font-extrabold transition-all text-center active:scale-95 text-xs tracking-wider truncate ${
+                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-extrabold transition-all text-xs tracking-wider active:scale-95 ${
                   tipoRetorno === "TELA_RECEPCAO"
-                    ? "bg-cyan-500/25 text-cyan-300 border-2 border-cyan-400 shadow-xl shadow-cyan-500/30 ring-2 ring-cyan-400/40"
-                    : "bg-cyan-500/10 text-cyan-300/80 border border-cyan-500/30 hover:bg-cyan-500/20 hover:text-cyan-200 hover:border-cyan-400"
+                    ? "bg-cyan-500 text-slate-950 border-2 border-cyan-200 shadow-xl shadow-cyan-500/40 ring-2 ring-cyan-300/50 scale-[1.02]"
+                    : "bg-cyan-950/40 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/20 hover:text-cyan-100 hover:border-cyan-400"
                 }`}
                 title="Retorno Tela de Recepção"
               >
-                <Layers className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <Layers className={`w-4 h-4 shrink-0 ${tipoRetorno === "TELA_RECEPCAO" ? "text-slate-950" : "text-cyan-400"}`} />
                 <span className="truncate">TELA RECEPÇÃO</span>
               </button>
 
@@ -813,14 +956,14 @@ export function QualidadeDashboardClient() {
               <button
                 type="button"
                 onClick={() => setTipoRetorno("PESSOAL")}
-                className={`flex items-center justify-center gap-1.5 py-3 px-2 rounded-xl font-extrabold transition-all text-center active:scale-95 text-xs tracking-wider truncate ${
+                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-extrabold transition-all text-xs tracking-wider active:scale-95 ${
                   tipoRetorno === "PESSOAL"
-                    ? "bg-blue-500/25 text-blue-300 border-2 border-blue-400 shadow-xl shadow-blue-500/30 ring-2 ring-blue-400/40"
-                    : "bg-blue-500/10 text-blue-300/80 border border-blue-500/30 hover:bg-blue-500/20 hover:text-blue-200 hover:border-blue-400"
+                    ? "bg-blue-600 text-white border-2 border-blue-200 shadow-xl shadow-blue-500/40 ring-2 ring-blue-300/50 scale-[1.02]"
+                    : "bg-blue-950/40 text-blue-300 border border-blue-500/40 hover:bg-blue-500/20 hover:text-blue-100 hover:border-blue-400"
                 }`}
                 title="Retorno Pessoal"
               >
-                <Users className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                <Users className={`w-4 h-4 shrink-0 ${tipoRetorno === "PESSOAL" ? "text-white" : "text-blue-400"}`} />
                 <span className="truncate">PESSOAL</span>
               </button>
 
@@ -828,61 +971,50 @@ export function QualidadeDashboardClient() {
               <button
                 type="button"
                 onClick={() => setTipoRetorno("REAL")}
-                className={`flex items-center justify-center gap-1.5 py-3 px-2 rounded-xl font-extrabold transition-all text-center active:scale-95 text-xs tracking-wider truncate ${
+                className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-extrabold transition-all text-xs tracking-wider active:scale-95 ${
                   tipoRetorno === "REAL"
-                    ? "bg-purple-500/25 text-purple-300 border-2 border-purple-400 shadow-xl shadow-purple-500/30 ring-2 ring-purple-400/40"
-                    : "bg-purple-500/10 text-purple-300/80 border border-purple-500/30 hover:bg-purple-500/20 hover:text-purple-200 hover:border-purple-400"
+                    ? "bg-purple-600 text-white border-2 border-purple-200 shadow-xl shadow-purple-500/40 ring-2 ring-purple-300/50 scale-[1.02]"
+                    : "bg-purple-950/40 text-purple-300 border border-purple-500/40 hover:bg-purple-500/20 hover:text-purple-100 hover:border-purple-400"
                 }`}
                 title="Retorno Real"
               >
-                <Award className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                <ShieldCheck className={`w-4 h-4 shrink-0 ${tipoRetorno === "REAL" ? "text-white" : "text-purple-400"}`} />
                 <span className="truncate">REAL</span>
               </button>
             </div>
           </div>
 
-          {/* Bloco 3: Origem do Protocolo (3 cols) */}
-          <div className="lg:col-span-3 flex flex-col gap-1.5">
-            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              Origem do Protocolo:
-            </label>
-            <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-[#151A2C] border border-slate-700/80 text-xs">
-              <button
-                type="button"
-                onClick={() => setOrigem("TODOS")}
-                className={`py-2 px-1 rounded-lg font-semibold transition-all text-center text-[11px] ${
-                  origem === "TODOS"
-                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                Todos
-              </button>
-              <button
-                type="button"
-                onClick={() => setOrigem("ONR")}
-                className={`py-2 px-1 rounded-lg transition-all text-center text-[11px] truncate ${
-                  origem === "ONR"
-                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-semibold"
-                    : "text-slate-400 hover:text-white"
-                }`}
-                title="Digital ONR"
-              >
-                🌐 ONR
-              </button>
-              <button
-                type="button"
-                onClick={() => setOrigem("RECEPCAO")}
-                className={`py-2 px-1 rounded-lg transition-all text-center text-[11px] truncate ${
-                  origem === "RECEPCAO"
-                    ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-semibold"
-                    : "text-slate-400 hover:text-white"
-                }`}
-                title="Balcão Recepção"
-              >
-                🏢 Recepção
-              </button>
+          {/* Bloco 3: Origem do Protocolo */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
+              Origem:
+            </span>
+            <div className="inline-flex p-1 rounded-xl bg-[#090E1D] border border-slate-800 text-xs">
+              {(["TODOS", "ONR", "RECEPCAO"] as const).map((ori) => (
+                <button
+                  key={ori}
+                  type="button"
+                  onClick={() => setOrigem(ori)}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all text-xs ${
+                    origem === ori
+                      ? "bg-cyan-600 text-white shadow-md shadow-cyan-600/30"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  {ori === "TODOS" ? "Todos" : ori === "ONR" ? "ONR" : "Recepção"}
+                </button>
+              ))}
             </div>
+
+            {/* Botão Limpar Filtros */}
+            <button
+              type="button"
+              onClick={handleResetFiltros}
+              className="text-xs text-slate-400 hover:text-cyan-400 underline transition-colors ml-1"
+              title="Restaurar padrão"
+            >
+              Limpar
+            </button>
           </div>
         </div>
       </section>
@@ -1621,207 +1753,19 @@ export function QualidadeDashboardClient() {
       {/* ══════════════════════════════════════════════════════════════════
            5. GRÁFICOS: EVOLUÇÃO MÊS A MÊS & TOP CAUSAS CLICÁVEIS
            ══════════════════════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Gráfico 1: Qualidade Mês a Mês (Evolução) - Barra Vertical Premium e Interativo */}
-        <section className="lg:col-span-7 rounded-2xl border border-[#1E2A44] bg-[#0E1220] p-6 shadow-2xl space-y-4 relative overflow-hidden">
-          {/* Header do Card */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-white tracking-wide">
-                  Qualidade Mês a Mês (Evolução)
-                </h3>
-                <span className="px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[10px] font-mono font-semibold">
-                  Interativo
-                </span>
-              </div>
-              <p className="text-xs text-[#94A3B8] mt-0.5 flex items-center gap-1.5">
-                <span>Percentual de erro • 5 meses • escala 0–2.5%</span>
-                <span className="text-slate-600">•</span>
-                <span className="text-cyan-400/90 font-medium">Clique no mês para filtrar o painel</span>
-              </p>
-            </div>
-
-            {/* Badge de Destaque Superior Dinâmico */}
-            <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-cyan-950/40 border border-cyan-500/30 shadow-sm transition-all">
-              <span
-                className="h-6 w-6 rounded-full font-bold font-mono text-[10px] flex items-center justify-center border shadow-inner transition-colors"
-                style={{
-                  backgroundColor: `${mesSelecionadoInfo.dotColor}25`,
-                  borderColor: `${mesSelecionadoInfo.dotColor}80`,
-                  color: mesSelecionadoInfo.dotColor,
-                }}
-              >
-                {mesSelecionadoInfo.value}%
-              </span>
-              <div className="flex flex-col text-[10px] leading-tight">
-                <span className="font-semibold transition-colors" style={{ color: mesSelecionadoInfo.dotColor }}>
-                  {mesSelecionadoInfo.value}% em {mesSelecionadoInfo.label} •{" "}
-                  <span className="text-white font-bold">{mesSelecionadoInfo.badgeHighlight}</span>
-                </span>
-                <span className="text-slate-400 font-mono text-[9px]">
-                  ↘ {mesSelecionadoInfo.badgeRatio}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Área do Gráfico de Barras Verticais (Sem libs externas, divs puras com Tailwind) */}
-          <div className="pt-6 pb-2">
-            <div className="relative h-[210px] w-full flex">
-              {/* Eixo Y com Ticks e Linhas de Grade */}
-              <div className="w-10 h-full flex flex-col justify-between text-[11px] font-mono text-slate-500 text-right pr-2 select-none">
-                <span>2.5%</span>
-                <span>2%</span>
-                <span>1.5%</span>
-                <span>1%</span>
-                <span>0.5%</span>
-                <span>0%</span>
-              </div>
-
-              {/* Container das Linhas de Grade e Barras */}
-              <div className="relative flex-1 h-full border-b border-slate-800">
-                {/* Linhas de Grade Horizontais Suaves */}
-                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                  <div className="border-b border-white/[0.04] w-full" />
-                  <div className="border-b border-white/[0.04] w-full" />
-                  <div className="border-b border-white/[0.04] w-full" />
-                  <div className="border-b border-white/[0.04] w-full" />
-                  <div className="border-b border-white/[0.04] w-full" />
-                  <div className="w-full" />
-                </div>
-
-                {/* Barras Verticais Clicáveis */}
-                <div className="absolute inset-0 flex items-end justify-around px-2 sm:px-6">
-                  {MESES_GRAFICO_EVOLUCAO.map((m) => {
-                    const isSelected = competencia === m.key;
-                    const isOut = m.key === "2026-10";
-
-                    return (
-                      <div
-                        key={m.key}
-                        onClick={() => setCompetencia(m.key)}
-                        className="group relative flex flex-col items-center cursor-pointer select-none"
-                      >
-                        {/* Pill Valor / Status no topo da barra */}
-                        {isSelected ? (
-                          <div
-                            className="mb-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold shadow-lg whitespace-nowrap flex items-center gap-1 animate-in fade-in zoom-in-95 duration-200"
-                            style={{
-                              backgroundColor: "#0B1322",
-                              border: `1.5px solid ${m.dotColor}`,
-                              color: m.dotColor,
-                              boxShadow: `0 0 15px ${m.glowColor}`,
-                            }}
-                          >
-                            <span>{m.value}%</span>
-                            <span className="text-[8px] opacity-90 font-sans tracking-wider">
-                              • {m.key === melhorMesSemestre.key ? "MELHOR" : isOut ? "ATUAL" : "ATIVO"}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-[11px] font-bold font-mono text-white mb-1.5 opacity-80 transition-transform group-hover:scale-110 group-hover:opacity-100">
-                            {m.value}%
-                          </span>
-                        )}
-
-                        {/* Barra */}
-                        <div
-                          className={`w-11 sm:w-14 rounded-t-lg transition-all duration-300 ${
-                            isSelected
-                              ? `scale-105 sm:scale-110 z-10 brightness-110 border-t-2 border-x-2 ${m.borderActive}`
-                              : "opacity-75 hover:opacity-100 hover:scale-105"
-                          }`}
-                          style={{
-                            background: `linear-gradient(to bottom, ${m.colorFrom}, ${m.colorTo})`,
-                            height: `${(m.value / 2.5) * 175}px`,
-                            boxShadow: isSelected
-                              ? `0 0 25px ${m.shadowColor}, 0 0 40px ${m.glowColor}`
-                              : `0 0 15px ${m.glowColor}`,
-                          }}
-                        />
-
-                        {/* Tooltip ao passar o mouse */}
-                        <div className="absolute -top-11 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 border border-slate-700 text-slate-200 text-[10px] font-mono px-2.5 py-1 rounded-md shadow-xl pointer-events-none z-30 whitespace-nowrap flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: m.dotColor }} />
-                          <span>{m.tooltip}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Labels do Eixo X - Clicáveis */}
-            <div className="flex items-center justify-around pl-10 pr-2 sm:pr-6 pt-2 text-xs font-mono text-[#94A3B8]">
-              {MESES_GRAFICO_EVOLUCAO.map((m) => {
-                const isSelected = competencia === m.key;
-                return (
-                  <button
-                    key={m.key}
-                    type="button"
-                    onClick={() => setCompetencia(m.key)}
-                    className={`w-11 sm:w-14 text-center cursor-pointer transition-all hover:scale-110 ${
-                      isSelected
-                        ? "font-bold text-[#22D3EE] drop-shadow-[0_0_8px_rgba(34,211,238,0.8)] underline underline-offset-4 decoration-cyan-400"
-                        : "hover:text-white"
-                    }`}
-                    title={`Filtrar dashboard para ${m.label}`}
-                  >
-                    {m.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Legenda com Dots Coloridos no Rodapé - Clicáveis */}
-          <div className="flex items-center justify-between pt-3 border-t border-slate-800 text-[11px] font-mono text-slate-400">
-            <div className="flex items-center gap-3.5 flex-wrap">
-              {MESES_GRAFICO_EVOLUCAO.map((m) => {
-                const isSelected = competencia === m.key;
-                return (
-                  <button
-                    key={m.key}
-                    type="button"
-                    onClick={() => setCompetencia(m.key)}
-                    className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md transition-all cursor-pointer ${
-                      isSelected
-                        ? "bg-slate-800/90 text-white font-bold ring-1 ring-cyan-400/50"
-                        : "hover:bg-slate-800/40 hover:text-slate-200"
-                    }`}
-                    title={`Filtrar por ${m.label}`}
-                  >
-                    <span
-                      className="h-2 w-2 rounded-full transition-transform"
-                      style={{
-                        backgroundColor: m.dotColor,
-                        boxShadow: isSelected ? `0 0 8px ${m.dotColor}` : "none",
-                      }}
-                    />
-                    <span style={{ color: isSelected ? m.dotColor : undefined }}>{m.shortLabel}</span>
-                    {isSelected && <span className="text-[9px] text-cyan-400">✓</span>}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex items-center gap-1.5 text-[10px] text-cyan-400 font-sans">
-              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
-              <span className="hidden sm:inline">Clique no mês para filtrar</span>
-            </div>
-          </div>
-        </section>
-
-        {/* Gráfico 2: Top Causas de Erro Clicáveis (5 cols) */}
-        <section className="lg:col-span-5 rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-sm space-y-3">
+      {/* ══════════════════════════════════════════════════════════════════
+           5. DETALHES: 2 COLUNAS (TOP CAUSAS + INDICADORES POR COLABORADOR)
+           ══════════════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+        {/* Coluna Esquerda: Top Causas de Erro Clicáveis (5 cols) */}
+        <section className="xl:col-span-5 rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-semibold text-white tracking-wide uppercase flex items-center gap-2">
                 <span>TOP CAUSAS DOS ERROS INTERNOS</span>
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Clique em uma causa para isolar os protocolos na tabela abaixo
+                Clique em uma causa para isolar os protocolos na tabela
               </p>
             </div>
             {isGestor && (
@@ -1876,12 +1820,9 @@ export function QualidadeDashboardClient() {
             })}
           </div>
         </section>
-      </div>
 
-      {/* ══════════════════════════════════════════════════════════════════
-           6. TABELA "INDICADORES POR COLABORADOR" (OCULTO POR PADRÃO)
-           ══════════════════════════════════════════════════════════════════ */}
-      <section className="rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-sm space-y-4">
+      {/* Coluna Direita: TABELA "INDICADORES POR COLABORADOR" */}
+      <section className="xl:col-span-7 rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-slate-800 text-slate-400">
@@ -2055,6 +1996,7 @@ export function QualidadeDashboardClient() {
         </div>
       )}
     </section>
+      </div>
 
       {/* ══════════════════════════════════════════════════════════════════
            DRAWER 1: ALTERAR LIMITE DE ERRO (SUBSTITUTO)
