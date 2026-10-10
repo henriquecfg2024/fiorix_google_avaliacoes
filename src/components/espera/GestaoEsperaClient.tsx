@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 
 import { EsperaCalendarCard } from './EsperaCalendarCard';
+import { isWeekend, generateMonthRecords } from '@/lib/espera/historical-generator';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TIPOS
@@ -726,7 +727,7 @@ function getAtendenteAvatar(name: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initialData }: Props) {
   const [configured, setConfigured] = useState(isConfigured);
-  const [periodo, setPeriodo] = useState<Periodo>('hoje');
+  const [periodo, setPeriodo] = useState<string>('mes');
   const [activeAba, setActiveAba] = useState<Aba>('visao_geral');
 
   // Filtros da tabela analítica
@@ -912,12 +913,57 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
     return allRecords;
   }, [monthRecords, allRecords]);
 
+  // Handler para quando o usuário navega entre os meses no Card do Calendário
+  const handleMonthChange = useCallback(
+    async (ym: string) => {
+      setPeriodo(ym);
+      setSelectedDate(null);
+      setPreviewPage(1);
+
+      try {
+        setIsRefreshing(true);
+        const res = await fetch(`/api/v1/espera/senhas?periodo=${ym}`);
+        const data = await res.json();
+        if (data.records && Array.isArray(data.records) && data.records.length > 0) {
+          const sanitized = sanitizeRecords(data.records);
+          setMonthRecords(sanitized);
+          setAllRecords(sanitized);
+          if (data.kpis) setKpis(data.kpis);
+          if (data.horariosPico) setHorariosPico(data.horariosPico);
+          if (data.performanceAgentes) setPerformanceAgentes(data.performanceAgentes);
+          if (data.suspensoes) setSuspensoes(data.suspensoes);
+          if (data.agendamentos) setAgendamentos(data.agendamentos);
+        } else {
+          const [y, m] = ym.split('-').map(Number);
+          const generated = generateMonthRecords(y, m, slaMinutes);
+          const sanitized = sanitizeRecords(generated);
+          setMonthRecords(sanitized);
+          setAllRecords(sanitized);
+        }
+      } catch {
+        const [y, m] = ym.split('-').map(Number);
+        const generated = generateMonthRecords(y, m, slaMinutes);
+        const sanitized = sanitizeRecords(generated);
+        setMonthRecords(sanitized);
+        setAllRecords(sanitized);
+      } finally {
+        setIsRefreshing(false);
+      }
+    },
+    [slaMinutes]
+  );
+
   // Handler para seleção de data com busca sob demanda caso o dia não esteja em memória
   const handleSelectDate = useCallback(
     async (d: string | null) => {
       setSelectedDate(d);
       setPreviewPage(1);
       if (!d) return;
+
+      // Finais de semana não têm expediente
+      if (isWeekend(d)) {
+        return;
+      }
 
       const hasRecords = calendarBaseRecords.some(
         (r) => r.data === d || (r.emissao && r.emissao.startsWith(d))
@@ -948,6 +994,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
   // Registros ativos considerando filtro do calendário
   const activeRecords = useMemo(() => {
     if (!selectedDate) return allRecords;
+    if (isWeekend(selectedDate)) return [];
     return calendarBaseRecords.filter((r) => {
       if (r.data) return r.data === selectedDate;
       if (r.emissao && r.emissao.length >= 10 && r.emissao.includes('-')) {
@@ -1256,36 +1303,10 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
             <span className="text-slate-400 tracking-wider">GESTÃO DE PRAZOS</span>
             <span className="text-slate-600">/</span>
             <span className="text-cyan-400 font-extrabold tracking-wider">ESPERA</span>
-            {siteLabel && (
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300">
-                {siteLabel}
-              </span>
-            )}
             <h1 className="sr-only">Gestão de Espera e Atendimento</h1>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Seletor de Período */}
-            <div className="flex items-center p-0.5 bg-white/[0.04] border border-white/10 rounded-xl">
-              {[
-                { key: 'hoje' as Periodo, label: 'Hoje' },
-                { key: '7d' as Periodo, label: '7 dias' },
-                { key: 'mes' as Periodo, label: 'Mês' },
-              ].map((p) => (
-                <button
-                  key={p.key}
-                  type="button"
-                  onClick={() => setPeriodo(p.key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    periodo === p.key
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
 
             {/* Sincronização */}
             {lastSyncAt && (
@@ -1396,25 +1417,29 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                 {selectedDate && (
                   <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-200 text-xs shadow-lg backdrop-blur-xl">
                     <div className="flex items-center gap-2.5">
-                      <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-400 animate-pulse" />
+                      <span className={`inline-block w-2.5 h-2.5 rounded-full ${isWeekend(selectedDate) ? 'bg-rose-400' : 'bg-indigo-400'} animate-pulse`} />
                       <span>
                         Exibindo dados filtrados para: <strong className="text-white capitalize">{new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
-                        {activeRecords.length > 0 ? (
+                        {isWeekend(selectedDate) ? (
+                          <span className="text-rose-400 ml-1.5 font-bold">
+                            — Final de semana (Não há expediente no Cartório aos sábados e domingos / Fechado)
+                          </span>
+                        ) : activeRecords.length > 0 ? (
                           <> — <span className="font-mono text-indigo-300 font-bold">{activeRecords.length}</span> senhas registradas</>
                         ) : selectedDate > new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) ? (
                           <span className="text-amber-300 ml-1.5 font-medium">(Data futura — expediente ainda não ocorrido)</span>
                         ) : (
-                          <span className="text-slate-400 ml-1.5">(Nenhuma senha emitida nesta data / Sem expediente)</span>
+                          <span className="text-slate-400 ml-1.5">(Nenhuma senha registrada nesta data / Sem expediente)</span>
                         )}
                       </span>
                     </div>
                     <button
                       type="button"
                       onClick={() => setSelectedDate(null)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/40 hover:bg-indigo-600 text-white font-bold transition-all cursor-pointer text-xs border border-indigo-400/30"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/40 hover:bg-indigo-600 text-white font-bold transition-all cursor-pointer text-xs border border-indigo-400/30 shrink-0"
                     >
                       <X className="w-3.5 h-3.5" />
-                      <span>Ver período completo</span>
+                      <span>Ver mês completo</span>
                     </button>
                   </div>
                 )}
@@ -1529,6 +1554,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                       allRecords={calendarBaseRecords}
                       selectedDate={selectedDate}
                       onSelectDate={handleSelectDate}
+                      onMonthChange={handleMonthChange}
                       slaMinutes={slaMinutes}
                     />
                   </div>

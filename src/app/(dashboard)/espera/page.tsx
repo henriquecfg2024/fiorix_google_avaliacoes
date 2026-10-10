@@ -21,8 +21,8 @@ export default async function EsperaPage() {
 
   const isAdmin = user.role === 'MASTER' || user.role === 'ADMIN';
 
-  // Buscar dados iniciais no servidor (Server-Side Rendering instantâneo)
-  const initialData = await getEsperaData(user.tenantId, 'hoje').catch(() => null);
+  // Buscar dados iniciais no servidor para o mês corrente (SSR instantâneo)
+  const initialData = await getEsperaData(user.tenantId, 'mes').catch(() => null);
 
   return (
     <GestaoEsperaClient

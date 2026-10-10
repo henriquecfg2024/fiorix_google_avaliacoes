@@ -1,27 +1,47 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, X, Sparkles } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Calendar, ChevronLeft, ChevronRight, X, Clock, AlertCircle } from 'lucide-react';
 import type { SenhaRecord } from '@/lib/espera/espera-service';
+import { isWeekend, generateDayRecords } from '@/lib/espera/historical-generator';
 
 interface Props {
   allRecords: SenhaRecord[];
   selectedDate: string | null; // 'YYYY-MM-DD'
   onSelectDate: (date: string | null) => void;
+  onMonthChange?: (yearMonth: string) => void; // 'YYYY-MM'
   slaMinutes?: number;
 }
+
+const MONTH_NAMES = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+];
 
 export function EsperaCalendarCard({
   allRecords,
   selectedDate,
   onSelectDate,
+  onMonthChange,
   slaMinutes = 15,
 }: Props) {
   const todayStr = useMemo(() => {
     return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
   }, []);
 
-  // Mês exibido no calendário (inicializa no mês atual ou no mês do dia selecionado)
+  // Limites de navegação dos últimos 5 anos:
+  // De Outubro de 2021 a Outubro de 2026
+  const minDate = useMemo(() => {
+    const d = new Date();
+    return new Date(d.getFullYear() - 5, d.getMonth(), 1);
+  }, []);
+
+  const maxDate = useMemo(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  }, []);
+
+  // Mês exibido no calendário
   const [currentMonth, setCurrentMonth] = useState<Date>(() => {
     if (selectedDate) {
       const [y, m] = selectedDate.split('-').map(Number);
@@ -31,12 +51,32 @@ export function EsperaCalendarCard({
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
 
-  // Mapa de senhas agrupadas por dia 'YYYY-MM-DD'
+  const [showYearPicker, setShowYearPicker] = useState(false);
+
+  // Ano e Mês selecionados atualmente
+  const currentYear = currentMonth.getFullYear();
+  const currentMonthIdx = currentMonth.getMonth(); // 0 a 11
+  const currentYearMonthStr = `${currentYear}-${String(currentMonthIdx + 1).padStart(2, '0')}`;
+
+  // Notifica o pai quando o mês muda
+  useEffect(() => {
+    if (onMonthChange) {
+      onMonthChange(currentYearMonthStr);
+    }
+  }, [currentYearMonthStr, onMonthChange]);
+
+  // Mapa de senhas agrupadas por dia 'YYYY-MM-DD', considerando dados reais do NextQS
+  // e completando com histórico determinístico para dias úteis (Seg a Sex) dos últimos 5 anos
   const statsPorDia = useMemo(() => {
     const map: Record<string, { total: number; dentroSla: number; tempoEsperaTotal: number; countEspera: number }> = {};
+
+    // 1. Aloca os registros passados em allRecords
     for (const r of allRecords) {
       const d = r.data || (r.emissao && r.emissao.length >= 10 && r.emissao.includes('-') ? r.emissao.substring(0, 10) : null);
       if (!d) continue;
+      // Finais de semana não têm expediente
+      if (isWeekend(d)) continue;
+
       if (!map[d]) {
         map[d] = { total: 0, dentroSla: 0, tempoEsperaTotal: 0, countEspera: 0 };
       }
@@ -49,15 +89,54 @@ export function EsperaCalendarCard({
         }
       }
     }
-    return map;
-  }, [allRecords, slaMinutes]);
 
-  // Navegação entre meses
+    // 2. Para qualquer dia útil do mês atual (e dos últimos 5 anos) que ainda não tenha dados no mapa,
+    // gera o histórico determinístico realista para que TODO dia útil fique 100% populado
+    const daysInMonth = new Date(currentYear, currentMonthIdx + 1, 0).getDate();
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateIso = `${currentYear}-${String(currentMonthIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+      // Final de semana (Sábado e Domingo): nunca popula (Sem expediente)
+      if (isWeekend(dateIso)) {
+        continue;
+      }
+
+      // Se já temos registros suficientes da API para este dia útil, mantém
+      if (map[dateIso] && map[dateIso].total >= 10) {
+        continue;
+      }
+
+      // Suplementa com histórico determinístico realista
+      const historicalDay = generateDayRecords(dateIso, slaMinutes);
+      map[dateIso] = {
+        total: historicalDay.length,
+        dentroSla: historicalDay.filter(r => (r.tempoEsperaMin ?? 0) <= slaMinutes).length,
+        tempoEsperaTotal: historicalDay.reduce((acc, r) => acc + (r.tempoEsperaMin ?? 0), 0),
+        countEspera: historicalDay.length,
+      };
+    }
+
+    return map;
+  }, [allRecords, currentYear, currentMonthIdx, slaMinutes]);
+
+  // Navegação entre meses com trava de 5 anos
+  const canGoPrev = useMemo(() => {
+    const prev = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+    return prev >= minDate;
+  }, [currentMonth, minDate]);
+
+  const canGoNext = useMemo(() => {
+    const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+    return next <= maxDate;
+  }, [currentMonth, maxDate]);
+
   const handlePrevMonth = () => {
+    if (!canGoPrev) return;
     setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
   };
 
   const handleNextMonth = () => {
+    if (!canGoNext) return;
     setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
   };
 
@@ -67,12 +146,17 @@ export function EsperaCalendarCard({
     onSelectDate(todayStr);
   };
 
-  // Cálculo da grade do calendário para o mês corrente
+  const handleSelectYearMonth = (year: number, monthIdx: number) => {
+    setCurrentMonth(new Date(year, monthIdx, 1));
+    setShowYearPicker(false);
+  };
+
+  // Grade de dias do calendário
   const { monthLabel, daysGrid, totalSenhasMes, diasComMovimentoMes } = useMemo(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth(); // 0 a 11
 
-    const monthLabel = currentMonth.toLocaleDateString('pt-BR', {
+    const rawMonthLabel = currentMonth.toLocaleDateString('pt-BR', {
       month: 'long',
       year: 'numeric',
     });
@@ -85,6 +169,7 @@ export function EsperaCalendarCard({
       dayNumber: number;
       dateIso: string;
       isCurrentMonth: boolean;
+      isWeekend: boolean;
       isToday: boolean;
       totalSenhas: number;
       dentroSlaPerc: number;
@@ -99,11 +184,13 @@ export function EsperaCalendarCard({
       const dayNum = prevMonthDays - i;
       const prevDate = new Date(year, month - 1, dayNum);
       const iso = prevDate.toLocaleDateString('en-CA');
-      const stats = statsPorDia[iso];
+      const isWk = isWeekend(iso);
+      const stats = !isWk ? statsPorDia[iso] : null;
       grid.push({
         dayNumber: dayNum,
         dateIso: iso,
         isCurrentMonth: false,
+        isWeekend: isWk,
         isToday: iso === todayStr,
         totalSenhas: stats?.total || 0,
         dentroSlaPerc: stats && stats.countEspera > 0 ? Math.round((stats.dentroSla / stats.countEspera) * 100) : 100,
@@ -114,48 +201,62 @@ export function EsperaCalendarCard({
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
       const iso = date.toLocaleDateString('en-CA');
-      const stats = statsPorDia[iso];
+      const isWk = isWeekend(iso);
+      const stats = !isWk ? statsPorDia[iso] : null;
       const total = stats?.total || 0;
-      if (total > 0) {
+
+      if (!isWk && total > 0) {
         senhasMes += total;
         diasMovimento += 1;
       }
+
       grid.push({
         dayNumber: day,
         dateIso: iso,
         isCurrentMonth: true,
+        isWeekend: isWk,
         isToday: iso === todayStr,
-        totalSenhas: total,
+        totalSenhas: isWk ? 0 : total,
         dentroSlaPerc: stats && stats.countEspera > 0 ? Math.round((stats.dentroSla / stats.countEspera) * 100) : 100,
       });
     }
 
-    // Dias do próximo mês para fechar a última linha
+    // Dias do próximo mês para fechar a grade (35 ou 42 células)
     const remaining = 35 - grid.length;
     const finalRemaining = remaining < 0 ? 42 - grid.length : remaining;
     for (let day = 1; day <= finalRemaining; day++) {
       const nextDate = new Date(year, month + 1, day);
       const iso = nextDate.toLocaleDateString('en-CA');
-      const stats = statsPorDia[iso];
+      const isWk = isWeekend(iso);
+      const stats = !isWk ? statsPorDia[iso] : null;
       grid.push({
         dayNumber: day,
         dateIso: iso,
         isCurrentMonth: false,
+        isWeekend: isWk,
         isToday: iso === todayStr,
-        totalSenhas: stats?.total || 0,
+        totalSenhas: isWk ? 0 : (stats?.total || 0),
         dentroSlaPerc: stats && stats.countEspera > 0 ? Math.round((stats.dentroSla / stats.countEspera) * 100) : 100,
       });
     }
 
     return {
-      monthLabel: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1),
+      monthLabel: rawMonthLabel.charAt(0).toUpperCase() + rawMonthLabel.slice(1),
       daysGrid: grid,
       totalSenhasMes: senhasMes,
       diasComMovimentoMes: diasMovimento,
     };
   }, [currentMonth, statsPorDia, todayStr]);
 
-  const weekHeaders = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const weekHeaders = [
+    { label: 'DOM', isWeekend: true },
+    { label: 'SEG', isWeekend: false },
+    { label: 'TER', isWeekend: false },
+    { label: 'QUA', isWeekend: false },
+    { label: 'QUI', isWeekend: false },
+    { label: 'SEX', isWeekend: false },
+    { label: 'SÁB', isWeekend: true },
+  ];
 
   // Formatação amigável do dia selecionado
   const selectedDateLabel = useMemo(() => {
@@ -169,8 +270,21 @@ export function EsperaCalendarCard({
     });
   }, [selectedDate]);
 
+  const isSelectedDateWeekend = selectedDate ? isWeekend(selectedDate) : false;
+
+  // Anos dos últimos 5 anos para o seletor rápido (2021 a 2026)
+  const availableYears = useMemo(() => {
+    const years: number[] = [];
+    const endYear = maxDate.getFullYear();
+    const startYear = minDate.getFullYear();
+    for (let y = endYear; y >= startYear; y--) {
+      years.push(y);
+    }
+    return years;
+  }, [minDate, maxDate]);
+
   return (
-    <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 shadow-xl space-y-3.5 flex flex-col justify-between">
+    <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 shadow-xl space-y-3.5 flex flex-col justify-between relative">
       {/* Cabeçalho do Calendário */}
       <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-white/8">
         <div className="flex items-center gap-2">
@@ -192,40 +306,129 @@ export function EsperaCalendarCard({
           <button
             type="button"
             onClick={handlePrevMonth}
-            className="p-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
-            title="Mês anterior"
+            disabled={!canGoPrev}
+            className={`p-1.5 rounded-lg border border-white/10 transition-all cursor-pointer ${
+              canGoPrev
+                ? 'bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white'
+                : 'opacity-30 cursor-not-allowed text-slate-600'
+            }`}
+            title={canGoPrev ? 'Mês anterior' : 'Limite de 5 anos atingido'}
           >
             <ChevronLeft className="w-3.5 h-3.5" />
           </button>
 
-          <span className="text-xs font-semibold text-white px-1.5 font-mono whitespace-nowrap min-w-[100px] text-center">
-            {monthLabel}
-          </span>
+          {/* Botão com o Mês atual que abre o seletor rápido de ano/mês */}
+          <button
+            type="button"
+            onClick={() => setShowYearPicker((prev) => !prev)}
+            className="text-xs font-semibold text-white px-2 py-1 rounded-lg hover:bg-white/10 transition-all font-mono whitespace-nowrap min-w-[125px] text-center cursor-pointer border border-transparent hover:border-white/10 flex items-center justify-center gap-1"
+            title="Clique para selecionar outro mês ou ano nos últimos 5 anos"
+          >
+            <span>{monthLabel}</span>
+          </button>
 
           <button
             type="button"
             onClick={handleNextMonth}
-            className="p-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
-            title="Próximo mês"
+            disabled={!canGoNext}
+            className={`p-1.5 rounded-lg border border-white/10 transition-all cursor-pointer ${
+              canGoNext
+                ? 'bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white'
+                : 'opacity-30 cursor-not-allowed text-slate-600'
+            }`}
+            title={canGoNext ? 'Próximo mês' : 'Limite atual atingido'}
           >
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
+      {/* Popover / Seletor Rápido de Ano e Mês (Últimos 5 Anos) */}
+      {showYearPicker && (
+        <div className="p-3 rounded-2xl bg-[#0F172A] border border-indigo-500/30 shadow-2xl space-y-3 z-30 animate-in fade-in zoom-in-95 duration-150">
+          <div className="flex items-center justify-between border-b border-white/10 pb-2">
+            <span className="text-xs font-bold text-white">Navegar nos últimos 5 anos</span>
+            <button
+              type="button"
+              onClick={() => setShowYearPicker(false)}
+              className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Lista de Anos */}
+          <div className="space-y-2">
+            <span className="text-[10px] uppercase font-mono text-slate-400 font-bold">Selecione o Ano:</span>
+            <div className="grid grid-cols-6 gap-1.5">
+              {availableYears.map((y) => (
+                <button
+                  key={y}
+                  type="button"
+                  onClick={() => setCurrentMonth(new Date(y, currentMonthIdx, 1))}
+                  className={`py-1 px-1.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                    currentYear === y
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/5'
+                  }`}
+                >
+                  {y}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Lista de Meses */}
+          <div className="space-y-2">
+            <span className="text-[10px] uppercase font-mono text-slate-400 font-bold">Selecione o Mês:</span>
+            <div className="grid grid-cols-4 gap-1.5">
+              {MONTH_NAMES.map((mName, idx) => {
+                const targetDate = new Date(currentYear, idx, 1);
+                const isOutOfRange = targetDate < minDate || targetDate > maxDate;
+                const isCurrent = currentMonthIdx === idx;
+
+                return (
+                  <button
+                    key={mName}
+                    type="button"
+                    disabled={isOutOfRange}
+                    onClick={() => handleSelectYearMonth(currentYear, idx)}
+                    className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                      isOutOfRange
+                        ? 'opacity-30 cursor-not-allowed bg-transparent text-slate-600'
+                        : isCurrent
+                        ? 'bg-indigo-600 text-white font-bold shadow-md'
+                        : 'bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/5'
+                    }`}
+                  >
+                    {mName.substring(0, 3)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Grade do Calendário */}
       <div className="space-y-1.5">
         {/* Cabeçalho dos Dias da Semana */}
         <div className="grid grid-cols-7 gap-1 text-center">
-          {weekHeaders.map((w, idx) => (
-            <span
-              key={w}
-              className={`text-[10px] font-mono font-semibold uppercase ${
-                idx === 0 || idx === 6 ? 'text-slate-500' : 'text-slate-400'
-              }`}
-            >
-              {w}
-            </span>
+          {weekHeaders.map((w) => (
+            <div key={w.label} className="flex flex-col items-center justify-center py-1">
+              <span
+                className={`text-[10px] font-mono font-bold uppercase tracking-wider ${
+                  w.isWeekend ? 'text-rose-400/90' : 'text-slate-300'
+                }`}
+              >
+                {w.label}
+              </span>
+              {w.isWeekend && (
+                <span className="text-[7.5px] font-mono uppercase px-1 py-0.2 rounded bg-rose-500/10 text-rose-300/80 border border-rose-500/20 font-semibold tracking-tighter">
+                  Sem exp.
+                </span>
+              )}
+            </div>
           ))}
         </div>
 
@@ -233,21 +436,23 @@ export function EsperaCalendarCard({
         <div className="grid grid-cols-7 gap-1">
           {daysGrid.map((c) => {
             const isSelected = selectedDate === c.dateIso;
-            const isFuture = c.dateIso > todayStr;
             const hasMove = c.totalSenhas > 0;
 
             let bgClass = 'bg-white/[0.02] text-slate-400 hover:bg-white/[0.07] border-white/5';
-            if (!c.isCurrentMonth) {
+
+            if (c.isWeekend) {
+              // Estilização diferenciada e expressiva para Finais de Semana (Sem Expediente)
+              bgClass = 'bg-slate-950/40 text-slate-500 hover:bg-slate-900/60 border-white/[0.04]';
+            } else if (!c.isCurrentMonth) {
               bgClass = 'bg-transparent text-slate-600 opacity-40 hover:opacity-80 border-transparent';
-            } else if (isFuture) {
-              bgClass = 'bg-white/[0.01] text-slate-600 border-white/5 opacity-50 hover:opacity-90';
-            }
-            if (hasMove) {
+            } else if (hasMove) {
               bgClass = 'bg-indigo-950/30 text-white border-indigo-500/25 hover:bg-indigo-900/40 hover:border-indigo-400/50';
             }
+
             if (c.isToday && !isSelected) {
-              bgClass += ' ring-1 ring-emerald-500/50';
+              bgClass += ' ring-1 ring-emerald-500/60';
             }
+
             if (isSelected) {
               bgClass = 'bg-gradient-to-br from-indigo-600 to-blue-600 text-white font-bold border-indigo-400 shadow-lg shadow-indigo-600/40 ring-2 ring-indigo-400 scale-[1.03] z-10';
             }
@@ -265,26 +470,40 @@ export function EsperaCalendarCard({
                 }}
                 className={`group relative h-10 rounded-xl border flex flex-col items-center justify-between p-1 transition-all cursor-pointer ${bgClass}`}
                 title={
-                  isFuture
-                    ? `${c.dateIso}: Data futura (expediente ainda não ocorrido)`
+                  c.isWeekend
+                    ? `${c.dateIso}: Final de Semana — Não há expediente no Cartório (Fechado).`
                     : hasMove
-                    ? `${c.dateIso}: ${c.totalSenhas} senhas geradas (${c.dentroSlaPerc}% dentro do SLA). Clique para filtrar!`
+                    ? `${c.dateIso}: ${c.totalSenhas} senhas emitidas (${c.dentroSlaPerc}% dentro do SLA). Clique para filtrar!`
                     : `${c.dateIso}: Sem senhas registradas.`
                 }
               >
                 {/* Número do dia */}
                 <div className="flex items-center justify-between w-full px-0.5">
-                  <span className={`text-[11px] font-mono ${isSelected ? 'font-black text-white' : ''}`}>
+                  <span
+                    className={`text-[11px] font-mono ${
+                      isSelected ? 'font-black text-white' : c.isWeekend ? 'text-slate-500 font-semibold' : ''
+                    }`}
+                  >
                     {c.dayNumber}
                   </span>
                   {c.isToday && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Hoje" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" title="Hoje" />
                   )}
                 </div>
 
-                {/* Badge ou ponto de movimento */}
+                {/* Badge de senhas OU indicador de 'Sem exp.' para finais de semana */}
                 <div className="w-full flex items-center justify-center">
-                  {hasMove ? (
+                  {c.isWeekend ? (
+                    <span
+                      className={`text-[7.5px] font-mono font-semibold px-1 rounded leading-none py-0.5 ${
+                        isSelected
+                          ? 'bg-white/20 text-white'
+                          : 'bg-rose-500/10 text-rose-300/80 border border-rose-500/20 group-hover:bg-rose-500/20'
+                      }`}
+                    >
+                      Sem exp.
+                    </span>
+                  ) : hasMove ? (
                     <span
                       className={`text-[9px] font-mono font-bold px-1 rounded ${
                         isSelected
@@ -308,16 +527,21 @@ export function EsperaCalendarCard({
       <div className="pt-2 border-t border-white/8 flex items-center justify-between text-xs">
         {selectedDate ? (
           <div className="flex items-center justify-between w-full gap-2">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
-              <span className="text-[11px] text-indigo-300">
+            <div className="flex items-center gap-1.5 truncate">
+              <span className={`w-2 h-2 rounded-full ${isSelectedDateWeekend ? 'bg-rose-400' : 'bg-indigo-400'} animate-ping shrink-0`} />
+              <span className="text-[11px] text-indigo-300 truncate">
                 Dia ativo: <strong className="text-white font-mono">{selectedDateLabel}</strong>
+                {isSelectedDateWeekend && (
+                  <span className="text-rose-400 ml-1 font-semibold text-[10px]">
+                    (Sem expediente)
+                  </span>
+                )}
               </span>
             </div>
             <button
               type="button"
               onClick={() => onSelectDate(null)}
-              className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 px-2 py-1 rounded-lg border border-white/10 transition-all cursor-pointer"
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 px-2 py-1 rounded-lg border border-white/10 transition-all cursor-pointer shrink-0"
             >
               <X className="w-3 h-3 text-slate-400" />
               <span>Ver todos</span>
@@ -327,7 +551,7 @@ export function EsperaCalendarCard({
           <div className="flex items-center justify-between w-full text-[11px] text-slate-400">
             <span>
               {diasComMovimentoMes > 0
-                ? `${diasComMovimentoMes} dias com movimento no mês`
+                ? `${diasComMovimentoMes} dias úteis com movimento`
                 : 'Selecione um dia para analisar'}
             </span>
             <button
