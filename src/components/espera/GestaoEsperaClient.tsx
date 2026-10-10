@@ -574,8 +574,43 @@ function SortHeader({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BADGES PADRÃO FIORIX
+// BADGES E TRATAMENTO DE SERVIÇOS PADRÃO FIORIX
 // ─────────────────────────────────────────────────────────────────────────────
+function cleanServiceName(name: string): string {
+  if (!name || name === '—') return name;
+  const upper = name.trim().toUpperCase();
+  if (
+    upper === 'NÃO AGENDADO' ||
+    upper === 'NAO AGENDADO' ||
+    upper === 'NÃO-AGENDADO' ||
+    upper === 'NAO-AGENDADO' ||
+    upper.includes('NÃO AGENDADO') ||
+    upper.includes('NAO AGENDADO')
+  ) {
+    return 'TÍTULO';
+  }
+  return name.trim();
+}
+
+function sanitizeRecord(r: SenhaRecord): SenhaRecord {
+  return {
+    ...r,
+    servico: cleanServiceName(r.servico),
+    fila: cleanServiceName(r.fila),
+  };
+}
+
+function sanitizeRecords(records: SenhaRecord[]): SenhaRecord[] {
+  return (records || []).map(sanitizeRecord);
+}
+
+function sanitizeRealtime(rt: RealtimeData): RealtimeData {
+  return {
+    fila: (rt?.fila || []).map(sanitizeRecord),
+    emAtendimento: (rt?.emAtendimento || []).map(sanitizeRecord),
+  };
+}
+
 function getSituacaoBadge(situacao: string) {
   if (!situacao || situacao === '—') {
     return <span className="text-slate-400 dark:text-slate-600 font-mono">—</span>;
@@ -625,7 +660,8 @@ function getSituacaoBadge(situacao: string) {
 
 function getServicoBadge(servico: string) {
   if (!servico || servico === '—') return <span className="text-slate-400 dark:text-slate-600 font-mono">—</span>;
-  const s = servico.toUpperCase();
+  const cleaned = cleanServiceName(servico);
+  const s = cleaned.toUpperCase();
   let badgeStyle = 'bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-white/10';
   if (s.includes('PRIORIDADE')) {
     badgeStyle = 'bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-500/30';
@@ -633,21 +669,22 @@ function getServicoBadge(servico: string) {
     badgeStyle = 'bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30';
   } else if (s.includes('RETIRADA')) {
     badgeStyle = 'bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30';
-  } else if (s.includes('AGENDADO')) {
+  } else if (s.includes('AGENDADO') || s.includes('TÍTULO') || s.includes('TITULO')) {
     badgeStyle = 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/25';
   }
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold border ${badgeStyle} whitespace-nowrap shadow-xs`}>
-      {servico}
+      {cleaned}
     </span>
   );
 }
 
 function getFilaBadge(fila: string) {
   if (!fila || fila === '—') return <span className="text-slate-400 dark:text-slate-600 font-mono">—</span>;
+  const cleaned = cleanServiceName(fila);
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/10 whitespace-nowrap">
-      {fila}
+      {cleaned}
     </span>
   );
 }
@@ -698,9 +735,9 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
   }, [isConfigured]);
 
   // Estados de dados da API inicializados diretamente com dados do servidor (0ms de latência percebida)
-  const [allRecords, setAllRecords] = useState<SenhaRecord[]>(initialData?.records || []);
+  const [allRecords, setAllRecords] = useState<SenhaRecord[]>(sanitizeRecords(initialData?.records || []));
   const [kpis, setKpis] = useState<KPIs | null>(initialData?.kpis || null);
-  const [realtime, setRealtime] = useState<RealtimeData>(initialData?.realtime || { fila: [], emAtendimento: [] });
+  const [realtime, setRealtime] = useState<RealtimeData>(sanitizeRealtime(initialData?.realtime || { fila: [], emAtendimento: [] }));
   const [horariosPico, setHorariosPico] = useState<HorarioPico[]>(initialData?.horariosPico || []);
   const [performanceAgentes, setPerformanceAgentes] = useState<PerformanceAgente[]>(initialData?.performanceAgentes || []);
   const [suspensoes, setSuspensoes] = useState<Suspensao[]>(initialData?.suspensoes || []);
@@ -723,9 +760,9 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
       if (cached) {
         const data = JSON.parse(cached);
         if (data.records && Array.isArray(data.records) && data.records.length > 0) {
-          setAllRecords(data.records);
+          setAllRecords(sanitizeRecords(data.records));
           if (data.kpis) setKpis(data.kpis);
-          if (data.realtime) setRealtime(data.realtime);
+          if (data.realtime) setRealtime(sanitizeRealtime(data.realtime));
           if (data.horariosPico) setHorariosPico(data.horariosPico);
           if (data.performanceAgentes) setPerformanceAgentes(data.performanceAgentes);
           if (data.suspensoes) setSuspensoes(data.suspensoes);
@@ -763,13 +800,13 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
       }
 
       if (Array.isArray(data.records)) {
-        setAllRecords(data.records);
+        setAllRecords(sanitizeRecords(data.records));
         try {
           sessionStorage.setItem(`fiorix_espera_${periodo}`, JSON.stringify(data));
         } catch {}
       }
       setKpis(data.kpis || null);
-      setRealtime(data.realtime || { fila: [], emAtendimento: [] });
+      setRealtime(sanitizeRealtime(data.realtime || { fila: [], emAtendimento: [] }));
       setHorariosPico(data.horariosPico || []);
       setPerformanceAgentes(data.performanceAgentes || []);
       setSuspensoes(data.suspensoes || []);
@@ -806,11 +843,11 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
   );
   const situacoesUnicas = useMemo(() => [...new Set(allRecords.map((r) => r.situacao).filter((s) => s !== '—'))].sort(), [allRecords]);
 
-  // Distribuição por serviço para Visão Geral
+  // Distribuição por serviço para Visão Geral (ordenado por: PRIORIDADE, TÍTULO, CERTIDÃO e RETIRADA)
   const servicosDistribuicao = useMemo(() => {
     const map: Record<string, { total: number; dentroSla: number; totalEspera: number; countEspera: number }> = {};
     for (const r of allRecords) {
-      const s = r.servico !== '—' ? r.servico : 'Geral';
+      const s = cleanServiceName(r.servico !== '—' ? r.servico : 'Geral');
       if (!map[s]) map[s] = { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 };
       map[s].total += 1;
       if (r.tempoEsperaMin !== null) {
@@ -819,6 +856,16 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
         if (r.tempoEsperaMin <= slaMinutes) map[s].dentroSla += 1;
       }
     }
+
+    const priorityOrder: Record<string, number> = {
+      'PRIORIDADE': 1,
+      'TÍTULO': 2,
+      'TITULO': 2,
+      'CERTIDÃO': 3,
+      'CERTIDAO': 3,
+      'RETIRADA': 4,
+    };
+
     return Object.entries(map)
       .map(([nome, val]) => ({
         nome,
@@ -826,7 +873,12 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
         dentroSlaPerc: val.countEspera > 0 ? Math.round((val.dentroSla / val.countEspera) * 100) : 100,
         mediaEsperaMin: val.countEspera > 0 ? Math.round(val.totalEspera / val.countEspera) : 0,
       }))
-      .sort((a, b) => b.total - a.total);
+      .sort((a, b) => {
+        const orderA = priorityOrder[a.nome.toUpperCase()] ?? 99;
+        const orderB = priorityOrder[b.nome.toUpperCase()] ?? 99;
+        if (orderA !== orderB) return orderA - orderB;
+        return b.total - a.total;
+      });
   }, [allRecords, slaMinutes]);
 
   // Filtros e ordenação aplicados na tabela de atendimentos
@@ -1162,191 +1214,62 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
             {/* ABA 1: VISÃO GERAL (Dashboard Executivo) */}
             {activeAba === 'visao_geral' && (
               <div className="space-y-6">
-                {/* Seção Superior: SLA Geral Gauge + Cards Indicadores */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                  {/* Gauge Circular SLA Geral (Estilo NextQS Manager 92%) */}
-                  <div className="lg:col-span-4 rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-2xl flex flex-col items-center justify-center relative">
-                    <div className="absolute inset-0 rounded-[24px] overflow-hidden pointer-events-none">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -mr-8 -mt-8" />
-                    </div>
-                    <div className="w-full flex items-center justify-between mb-2 relative z-10">
-                      <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400">
-                        Índice Geral de Atendimento
+                {/* Seção Superior: Indicadores Principais de Espera e Volume */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* SLA Espera */}
+                  <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                        SLA de Espera (Fila)
                       </span>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setShowSlaInfo((v) => !v)}
-                          className="flex items-center gap-1 text-[10px] font-semibold text-indigo-300 hover:text-white bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 px-2.5 py-0.5 rounded-full transition-all"
-                          title="Ver critérios explicativos do SLA Geral"
-                        >
-                          <Info className="w-3 h-3" />
-                          <span>Critérios</span>
-                        </button>
-                        <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                       </div>
                     </div>
-
-                    <CircularSlaGauge
-                      percentage={kpis?.slaGeralPerc ?? 92}
-                      slaMinutes={slaMinutes}
-                      isOpen={showSlaInfo}
-                      onToggleOpen={() => setShowSlaInfo((v) => !v)}
-                      onClose={() => setShowSlaInfo(false)}
-                    />
-
-                    <div className="w-full grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-white/8 text-center text-xs">
-                      <div className="p-2 rounded-xl bg-white/[0.02] border border-white/6">
-                        <span className="text-slate-400 text-[10px] block">Meta Espera</span>
-                        <span className="font-bold text-white font-mono">≤ {slaMinutes} min</span>
+                    <div className="my-2">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-black text-emerald-400 font-mono">
+                          {kpis?.slaEsperaPerc ?? (recordsWithWait.length > 0 ? Math.round((dentroSla.length / recordsWithWait.length) * 100) : '—')}%
+                        </span>
+                        <span className="text-xs text-slate-400">dentro do SLA</span>
                       </div>
-                      <div className="p-2 rounded-xl bg-white/[0.02] border border-white/6">
-                        <span className="text-slate-400 text-[10px] block">Meta Atendimento</span>
-                        <span className="font-bold text-white font-mono">≤ 15 min</span>
+                      <div className="w-full bg-white/5 rounded-full h-1.5 mt-2 overflow-hidden">
+                        <div
+                          className="bg-emerald-500 h-1.5 rounded-full transition-all duration-700"
+                          style={{ width: `${kpis?.slaEsperaPerc ?? 92}%` }}
+                        />
                       </div>
+                    </div>
+                    <div className="pt-3 border-t border-white/6 flex items-center justify-between text-xs text-slate-400">
+                      <span>Tempo médio na fila:</span>
+                      <span className="font-bold text-white font-mono">
+                        {kpis?.mediaEsperaMin ?? (recordsWithWait.length > 0 ? Math.round(recordsWithWait.reduce((a, b) => a + (b.tempoEsperaMin || 0), 0) / recordsWithWait.length) : 0)} min
+                      </span>
                     </div>
                   </div>
 
-                  {/* Cards de Métricas Detalhadas (SLA Espera, SLA Atendimento, Médias) */}
-                  <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* SLA Espera */}
-                    <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                          SLA de Espera (Fila)
-                        </span>
-                        <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                        </div>
-                      </div>
-                      <div className="my-2">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-3xl font-black text-emerald-400 font-mono">
-                            {kpis?.slaEsperaPerc ?? (recordsWithWait.length > 0 ? Math.round((dentroSla.length / recordsWithWait.length) * 100) : '—')}%
-                          </span>
-                          <span className="text-xs text-slate-400">dentro do SLA</span>
-                        </div>
-                        <div className="w-full bg-white/5 rounded-full h-1.5 mt-2 overflow-hidden">
-                          <div
-                            className="bg-emerald-500 h-1.5 rounded-full transition-all duration-700"
-                            style={{ width: `${kpis?.slaEsperaPerc ?? 92}%` }}
-                          />
-                        </div>
-                      </div>
-                      <div className="pt-3 border-t border-white/6 flex items-center justify-between text-xs text-slate-400">
-                        <span>Tempo médio na fila:</span>
-                        <span className="font-bold text-white font-mono">
-                          {kpis?.mediaEsperaMin ?? (recordsWithWait.length > 0 ? Math.round(recordsWithWait.reduce((a, b) => a + (b.tempoEsperaMin || 0), 0) / recordsWithWait.length) : 0)} min
-                        </span>
+                  {/* Volume de Atendimentos */}
+                  <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                        Volume de Atendimentos
+                      </span>
+                      <div className="p-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                        <Users className="w-4 h-4 text-indigo-400" />
                       </div>
                     </div>
-
-                    {/* SLA Atendimento */}
-                    <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                          SLA de Atendimento (Mesa)
-                        </span>
-                        <div className="p-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                          <Timer className="w-4 h-4 text-blue-400" />
-                        </div>
-                      </div>
-                      <div className="my-2">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-3xl font-black text-blue-400 font-mono">
-                            {kpis?.slaAtendimentoPerc ?? 94}%
-                          </span>
-                          <span className="text-xs text-slate-400">dentro do tempo</span>
-                        </div>
-                        <div className="w-full bg-white/5 rounded-full h-1.5 mt-2 overflow-hidden">
-                          <div
-                            className="bg-blue-500 h-1.5 rounded-full transition-all duration-700"
-                            style={{ width: `${kpis?.slaAtendimentoPerc ?? 94}%` }}
-                          />
-                        </div>
-                      </div>
-                      <div className="pt-3 border-t border-white/6 flex items-center justify-between text-xs text-slate-400">
-                        <span>Tempo médio no guichê:</span>
-                        <span className="font-bold text-white font-mono">
-                          {kpis?.mediaAtendimentoMin ?? 8} min
-                        </span>
-                      </div>
+                    <div className="my-2 flex items-baseline gap-2">
+                      <span className="text-3xl font-black text-white font-mono">
+                        {kpis?.totalSenhas ?? allRecords.length}
+                      </span>
+                      <span className="text-xs text-slate-400">senhas geradas</span>
                     </div>
-
-                    {/* Total Senhas & Desistências */}
-                    <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                          Volume de Atendimentos
-                        </span>
-                        <div className="p-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-                          <Users className="w-4 h-4 text-indigo-400" />
-                        </div>
-                      </div>
-                      <div className="my-2 flex items-baseline gap-2">
-                        <span className="text-3xl font-black text-white font-mono">
-                          {kpis?.totalSenhas ?? allRecords.length}
-                        </span>
-                        <span className="text-xs text-slate-400">senhas geradas</span>
-                      </div>
-                      <div className="pt-3 border-t border-white/6 flex items-center justify-between text-xs text-slate-400">
-                        <span>Desistências / Cancelados:</span>
-                        <span className="font-bold text-rose-400 font-mono">
-                          {kpis?.totalDesistencias ?? allRecords.filter((r) => r.situacao === 'Desistência' || r.situacao === 'Cancelado').length}
-                        </span>
-                      </div>
+                    <div className="pt-3 border-t border-white/6 flex items-center justify-between text-xs text-slate-400">
+                      <span>Desistências / Cancelados:</span>
+                      <span className="font-bold text-rose-400 font-mono">
+                        {kpis?.totalDesistencias ?? allRecords.filter((r) => r.situacao === 'Desistência' || r.situacao === 'Cancelado').length}
+                      </span>
                     </div>
-
-                    {/* CSAT / Avaliação */}
-                    {(() => {
-                      const csatVal = kpis?.csatMediaPerc ?? 96;
-                      const isGreen = csatVal >= 80;
-                      const isAmber = csatVal >= 65 && csatVal < 80;
-                      const textColor = isGreen
-                        ? 'text-emerald-400'
-                        : isAmber
-                        ? 'text-amber-400'
-                        : 'text-rose-400';
-                      const badgeBg = isGreen
-                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                        : isAmber
-                        ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-                        : 'bg-rose-500/10 border-rose-500/20 text-rose-400';
-                      const iconBg = isGreen
-                        ? 'bg-emerald-500/10 border-emerald-500/20'
-                        : isAmber
-                        ? 'bg-amber-500/10 border-amber-500/20'
-                        : 'bg-rose-500/10 border-rose-500/20';
-                      const label = isGreen ? 'Excelente' : isAmber ? 'Atenção' : 'Crítico';
-
-                      return (
-                        <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                              Satisfação do Usuário (CSAT)
-                            </span>
-                            <div className={`p-1.5 rounded-lg border ${iconBg}`}>
-                              <ThumbsUp className={`w-4 h-4 ${textColor}`} />
-                            </div>
-                          </div>
-                          <div className="my-2 flex items-baseline gap-2">
-                            <span className={`text-3xl font-black font-mono ${textColor}`}>
-                              {csatVal}%
-                            </span>
-                            <span className="text-xs text-slate-400">aprovação</span>
-                            <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeBg}`}>
-                              {label}
-                            </span>
-                          </div>
-                          <div className="pt-3 border-t border-white/6 flex items-center justify-between text-xs text-slate-400">
-                            <span>Agendamentos integrados:</span>
-                            <span className="font-bold text-white font-mono">
-                              {kpis?.totalAgendamentos ?? agendamentos.length}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })()}
                   </div>
                 </div>
 

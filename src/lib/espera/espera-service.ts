@@ -154,10 +154,19 @@ function formatTime(value: string | null | undefined): string {
   }
 }
 
+function cleanServiceName(name: string): string {
+  if (!name || name === '—') return name;
+  const upper = name.trim().toUpperCase();
+  if (upper === 'NÃO AGENDADO' || upper === 'NAO AGENDADO' || upper === 'NÃO-AGENDADO' || upper.includes('NÃO AGENDADO') || upper.includes('NAO AGENDADO')) {
+    return 'TÍTULO';
+  }
+  return name.trim();
+}
+
 function normalizeTicket(raw: NextQSTicket, index: number): SenhaRecord {
   const senha = raw.ticket || (raw.ticket_alpha && raw.ticket_number ? `${raw.ticket_alpha}${String(raw.ticket_number).padStart(4, '0')}` : '—');
-  const servico = raw.ticket_label || raw.queue_label || '—';
-  const fila = raw.queue_label || '—';
+  const servico = cleanServiceName(raw.ticket_label || raw.queue_label || '—');
+  const fila = cleanServiceName(raw.queue_label || '—');
   const guiche = raw.service_desk_label
     ? (raw.service_desk_number ? `${raw.service_desk_label} ${raw.service_desk_number}` : raw.service_desk_label)
     : '—';
