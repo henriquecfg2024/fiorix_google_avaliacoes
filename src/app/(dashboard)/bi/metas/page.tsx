@@ -13,23 +13,13 @@ export default function MetasPage() {
       </div>
 
       <div className="relative mx-auto max-w-[1600px] px-5 py-6 pb-20 sm:px-8">
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-              <span>Dashboard</span>
-              <span className="text-slate-400 dark:text-slate-600">/</span>
-              <span>BI</span>
-              <span className="text-slate-400 dark:text-slate-600">/</span>
-              <span className="text-amber-600 dark:text-amber-300">Metas</span>
-            </div>
-            <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                Metas & Gargalos
-              </h1>
-              <span className="rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-amber-700 dark:text-amber-300">
-                COMPLIANCE & PRAZOS
-              </span>
-            </div>
+        {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+        <div className="mb-6 flex items-center justify-between gap-2 px-1 pt-1 pb-2 border-b border-slate-200 dark:border-white/6">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-slate-400 tracking-wider">GESTÃO DE PRAZOS</span>
+            <span className="text-slate-600">/</span>
+            <span className="text-cyan-400 font-extrabold tracking-wider">METAS</span>
+            <h1 className="sr-only">Metas & Gargalos</h1>
           </div>
         </div>
 

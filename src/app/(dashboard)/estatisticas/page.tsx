@@ -92,18 +92,12 @@ export default async function EstatisticasPage() {
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
         {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
+        <div className="flex items-center justify-between gap-2 px-1 pt-1 pb-2 border-b border-slate-200 dark:border-white/6">
           <div className="flex items-center gap-2 text-xs font-mono">
             <span className="text-slate-400 tracking-wider">PRESENÇA NO GOOGLE</span>
             <span className="text-slate-600">/</span>
             <span className="text-cyan-400 font-extrabold tracking-wider">ESTATÍSTICAS</span>
             <h1 className="sr-only">Estatísticas de Desempenho</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 dark:text-white/50">Base de análise:</span>
-            <span className="font-mono text-xs font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-lg">
-              {totalReviews} resenhas
-            </span>
           </div>
         </div>
 

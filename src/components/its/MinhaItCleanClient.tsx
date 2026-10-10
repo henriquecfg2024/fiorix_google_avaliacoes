@@ -1138,52 +1138,16 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
 
 
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-200 dark:border-white/6">
-            <div>
-              <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-                <span>Dashboard</span>
-                <span className="text-slate-600">/</span>
-                <span>Meu Espaço</span>
-                <span className="text-slate-600">/</span>
-                <span className="text-emerald-600 dark:text-emerald-400">{isSupervisao ? 'Supervisão ITs' : 'Minha IT'}</span>
-              </div>
-
-              <div className="flex items-center gap-3 mt-1.5">
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-sans">
-                  {isSupervisao ? 'Supervisão de Instruções de Trabalho' : 'Minha Instrução de Trabalho'}
-                </h1>
-
-                {!isSupervisao && (() => {
-                  const cfg = papelItemCustodia === 'RESPONSAVEL_PRINCIPAL'
-                    ? { label: 'RESPONSÁVEL TÉCNICO', dot: 'bg-emerald-400', cls: 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300 shadow-xs' }
-                    : papelItemCustodia === 'CORRESPONSAVEL'
-                    ? { label: 'CORRESPONSÁVEL', dot: 'bg-violet-400', cls: 'border-violet-500/30 bg-violet-500/15 text-violet-300 shadow-xs' }
-                    : papelItemCustodia === 'LEITOR'
-                    ? { label: 'COLABORADOR', dot: 'bg-slate-400', cls: 'border-slate-500/30 bg-slate-500/15 text-slate-300 shadow-xs' }
-                    : hasCustodia
-                    ? { label: 'RESPONSÁVEL TÉCNICO', dot: 'bg-emerald-400', cls: 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300 shadow-xs' }
-                    : null;
-                  return cfg ? (
-                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-semibold ${cfg.cls}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-                      {cfg.label}
-                    </span>
-                  ) : null;
-                })()}
-
-                {isSupervisao && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/15 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-sky-300 shadow-xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
-                    SOMENTE LEITURA
-                  </span>
-                )}
-              </div>
-
-              <p className="text-xs text-slate-400 mt-1">
-                {isSupervisao
-                  ? `${cartorioNome} • ${cartorioUnidade} • Visão de supervisão`
-                  : `${cartorioNome} • ${currentIt.departamento}`}
-              </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 pt-1 pb-2 border-b border-slate-200 dark:border-white/6">
+            <div className="flex items-center gap-2 text-xs font-mono">
+              <span className="text-slate-400 tracking-wider">ROTINA DE TRABALHO</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-cyan-400 font-extrabold tracking-wider">
+                {isSupervisao ? 'SUPERVISÃO ITS' : 'MINHA IT'}
+              </span>
+              <h1 className="sr-only">
+                {isSupervisao ? 'Supervisão de Instruções de Trabalho' : 'Minha Instrução de Trabalho'}
+              </h1>
             </div>
 
             <div className="flex items-center gap-3 self-end sm:self-auto">

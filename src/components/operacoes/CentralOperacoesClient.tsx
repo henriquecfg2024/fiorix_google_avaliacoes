@@ -140,6 +140,16 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
       </div>
 
       <main className="relative max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
+        {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+        <div className="flex items-center justify-between gap-2 px-1 pb-2 border-b border-white/8">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-slate-400 tracking-wider">SISTEMA & TECNOLOGIA</span>
+            <span className="text-slate-600">/</span>
+            <span className="text-cyan-400 font-extrabold tracking-wider">CENTRAL DE OPERAÇÕES</span>
+            <h1 className="sr-only">Central de Operações - Saúde e Monitoramento</h1>
+          </div>
+        </div>
+
         {/* ══════════════════════════════════════════════════════════════════
              1. HEADER v2 CONSOLIDADO (HERO STATUS CARD)
              ══════════════════════════════════════════════════════════════════ */}

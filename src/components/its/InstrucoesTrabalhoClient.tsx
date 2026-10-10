@@ -674,25 +674,13 @@ export function InstrucoesTrabalhoClient({
 
       <div className="relative mx-auto max-w-[1500px] px-4 sm:px-6 pt-6">
 
-        {/* ── Header ─────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 pb-4 border-b border-white/8">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 dark:text-white/50">
-              <span>INSTRUÇÕES DE TRABALHO</span>
-              <span className="text-slate-400 dark:text-white/30">/</span>
-              <span className="text-purple-400 font-semibold">Gestão de ITs</span>
-            </div>
-            <div className="flex items-center gap-3 mt-1.5">
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white uppercase">
-                Gestão de Instruções de Trabalho
-              </h1>
-              <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-0.5 text-xs font-medium text-purple-300">
-                Governança & POPs
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-white/50 mt-1">
-              Acompanhe, revise e aprove novas Instruções de Trabalho.
-            </p>
+        {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 px-1 pt-1 pb-2 border-b border-white/8">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-slate-400 tracking-wider">INSTRUÇÕES DE TRABALHO</span>
+            <span className="text-slate-600">/</span>
+            <span className="text-cyan-400 font-extrabold tracking-wider">GESTÃO DE ITS</span>
+            <h1 className="sr-only">Gestão de Instruções de Trabalho</h1>
           </div>
 
           {/* Tab switcher — Padrão FIORIX */}

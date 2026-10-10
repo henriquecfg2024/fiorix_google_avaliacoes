@@ -480,54 +480,24 @@ export function PainelRHClient({
       </div>
 
       <div className="relative mx-auto max-w-[1600px] px-5 py-6 sm:px-8 space-y-8">
-        {/* Breadcrumb + Header Dinâmico com Identidade Própria */}
+        {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
         {currentTab !== "ferias" && (
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/5">
-            <div>
-              <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-                <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
-                <span className="text-slate-600">/</span>
-                {currentTab !== "geral" ? (
-                  <button
-                    type="button"
-                    onClick={() => handleTabChange("geral")}
-                    className="hover:text-indigo-300 transition-colors cursor-pointer text-slate-300"
-                  >
-                    Painel de RH
-                  </button>
-                ) : (
-                  <span>Gestão de Pessoas</span>
-                )}
-                <span className="text-slate-600">/</span>
-                <span className="text-indigo-400">
-                  {currentTab === "holerites" && "Lançamento de Holerites"}
-                  {currentTab === "comunicados" && "Gestão de Comunicados"}
-                  {currentTab === "geral" && "Painel de RH"}
-                </span>
-              </div>
-              <div className="flex items-center gap-3 mt-1.5">
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                  {currentTab === "holerites" && "GESTÃO DE HOLERITES"}
-                  {currentTab === "comunicados" && "GESTÃO DE COMUNICADOS"}
-                  {currentTab === "geral" && "PAINEL DE RH"}
-                </h1>
-                <span
-                  className={`rounded-full border px-2.5 py-0.5 font-mono text-[11px] font-semibold ${
-                    currentTab === "holerites"
-                      ? "border-cyan-500/30 bg-cyan-500/15 text-cyan-300"
-                      : "border-indigo-500/30 bg-indigo-500/15 text-indigo-300"
-                  }`}
-                >
-                  {currentTab === "holerites" && "DISTRIBUIÇÃO & RECIBOS • 7º RI SP"}
-                  {currentTab === "comunicados" && "CIÊNCIA OFICIAL • 7º RI SP"}
-                  {currentTab === "geral" && "ÁREA RESTRITA • 7º RI SP"}
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 mt-1">
-                {currentTab === "holerites" && "Disponibilização, controle de acesso e rastreabilidade dos documentos dos colaboradores."}
-                {currentTab === "comunicados" && "Publicação, acompanhamento de ciência e auditoria dos comunicados internos."}
-                {currentTab === "geral" && "Visão consolidada dos principais indicadores, pendências e controles da gestão de pessoas."}
-              </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 pt-1 pb-2 border-b border-slate-200 dark:border-white/5">
+            <div className="flex items-center gap-2 text-xs font-mono">
+              <span className="text-slate-400 tracking-wider">
+                {currentTab === "comunicados" ? "ROTINA DE TRABALHO" : "GESTÃO DE PESSOAS"}
+              </span>
+              <span className="text-slate-600">/</span>
+              <span className="text-cyan-400 font-extrabold tracking-wider">
+                {currentTab === "holerites" && "HOLERITES"}
+                {currentTab === "comunicados" && "GESTÃO DE COMUNICADOS"}
+                {currentTab === "geral" && "PAINEL DE RH"}
+              </span>
+              <h1 className="sr-only">
+                {currentTab === "holerites" && "Gestão de Holerites"}
+                {currentTab === "comunicados" && "Gestão de Comunicados"}
+                {currentTab === "geral" && "Painel de Gestão de Pessoas e RH"}
+              </h1>
             </div>
 
             {/* Card Voltar para Painel de RH (quando estiver em Comunicados ou Holerites) */}
@@ -535,33 +505,10 @@ export function PainelRHClient({
               <button
                 type="button"
                 onClick={() => handleTabChange("geral")}
-                className={`group flex items-center gap-3.5 px-4 py-3 rounded-2xl border border-white/12 bg-[#0B1020]/90 hover:bg-[#111628] text-left transition-all duration-200 shadow-md cursor-pointer shrink-0 self-start sm:self-center ${
-                  currentTab === "holerites"
-                    ? "hover:border-cyan-500/40 hover:shadow-[0_0_20px_rgba(6,182,212,0.15)]"
-                    : "hover:border-indigo-500/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)]"
-                }`}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/12 bg-[#0B1020]/90 hover:bg-[#111628] text-xs font-semibold text-white transition-all cursor-pointer shrink-0"
               >
-                <div
-                  className={`w-10 h-10 rounded-xl border flex items-center justify-center transition-all shrink-0 ${
-                    currentTab === "holerites"
-                      ? "bg-cyan-500/15 border-cyan-500/30 text-cyan-400 group-hover:bg-cyan-500/25 group-hover:text-cyan-300"
-                      : "bg-indigo-500/15 border-indigo-500/30 text-indigo-400 group-hover:bg-indigo-500/25 group-hover:text-indigo-300"
-                  }`}
-                >
-                  <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-                </div>
-                <div className="pr-1">
-                  <div
-                    className={`flex items-center gap-1.5 text-xs font-bold text-white transition-colors ${
-                      currentTab === "holerites" ? "group-hover:text-cyan-300" : "group-hover:text-indigo-300"
-                    }`}
-                  >
-                    <span>Voltar para o Painel de RH</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Visão geral dos módulos
-                  </p>
-                </div>
+                <ArrowLeft className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Voltar ao Painel Geral</span>
               </button>
             )}
           </div>

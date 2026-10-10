@@ -586,6 +586,16 @@ export function MensagensClient({
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       </div>
 
+      {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+      <div className="flex items-center justify-between gap-2 px-1 pb-2 mb-2 border-b border-white/8 shrink-0">
+        <div className="flex items-center gap-2 text-xs font-mono">
+          <span className="text-slate-400 tracking-wider">ROTINA DE TRABALHO</span>
+          <span className="text-slate-600">/</span>
+          <span className="text-cyan-400 font-extrabold tracking-wider">MENSAGENS</span>
+          <h1 className="sr-only">Mensagens - Comunicação Corporativa</h1>
+        </div>
+      </div>
+
       {/* Banner de Ativação de Notificações no Computador */}
       {notificationPermission === 'default' && !bannerDismissed && (
         <div className="w-full bg-[#0B1020]/90 border border-emerald-500/30 text-emerald-100 rounded-2xl px-4 py-2.5 mb-3 flex items-center justify-between gap-3 text-xs shrink-0 z-20 shadow-sm backdrop-blur-xl">

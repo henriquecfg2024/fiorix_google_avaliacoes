@@ -104,25 +104,14 @@ export default function HoleritesPage() {
       </div>
 
       <div className="relative mx-auto w-full max-w-[1600px] px-5 py-6 sm:px-8 space-y-6">
-        {/* ── Breadcrumb + Header ────────────────────────────────────── */}
-        <div className="flex flex-col gap-1.5 pb-4 border-b border-slate-200 dark:border-white/10">
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-            <Link href="/dashboard" className="hover:text-white transition-colors">
-              Dashboard
-            </Link>
+        {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+        <div className="flex items-center justify-between gap-2 px-1 pt-1 pb-2 border-b border-slate-200 dark:border-white/8">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-slate-400 tracking-wider">ROTINA DE TRABALHO</span>
             <span className="text-slate-600">/</span>
-            <Link href="/pessoas" className="hover:text-white transition-colors">
-              Pessoas
-            </Link>
-            <span className="text-slate-600">/</span>
-            <span className="text-emerald-400 font-semibold">Holerites</span>
+            <span className="text-cyan-400 font-extrabold tracking-wider">HOLERITES</span>
+            <h1 className="sr-only">Meus Holerites - Comprovantes de Pagamento</h1>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            MEUS HOLERITES
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Consulte e baixe seus comprovantes de pagamento com autenticidade garantida.
-          </p>
         </div>
 
         {/* ── Cards de Indicadores / Resumo Executivo (Padrão FIORIX) ── */}

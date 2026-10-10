@@ -227,32 +227,20 @@ export default function MasterTenantsPage() {
 
   return (
     <div className="p-6 lg:p-10 max-w-7xl mx-auto space-y-8 text-white">
-      {/* Header com estilo Dark Luxury */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-zinc-800/80 pb-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-lg shadow-amber-500/10">
-              <Crown className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl font-bold tracking-tight text-white">Painel Master — Cartórios</h1>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/40">
-                  SaaS V4
-                </span>
-              </div>
-              <p className="text-xs text-zinc-400">
-                Gestão multi-tenant, provisionamento de novas serventias e isolamento de dados
-              </p>
-            </div>
-          </div>
+      {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 pt-1 pb-2 border-b border-zinc-800/80">
+        <div className="flex items-center gap-2 text-xs font-mono">
+          <span className="text-slate-400 tracking-wider">MASTER SAAS</span>
+          <span className="text-slate-600">/</span>
+          <span className="text-cyan-400 font-extrabold tracking-wider">CARTÓRIOS (TENANTS)</span>
+          <h1 className="sr-only">Painel Master - Cartórios e Multi-tenant</h1>
         </div>
 
         <Button
           onClick={handleOpenCreateModal}
-          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium px-4 py-2 rounded-xl shadow-lg shadow-purple-600/25 border border-purple-400/30 transition-all flex items-center gap-2"
+          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium px-3.5 py-1.5 rounded-xl shadow-lg shadow-purple-600/25 border border-purple-400/30 transition-all flex items-center gap-2 text-xs cursor-pointer"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-3.5 h-3.5" />
           <span>Novo Cartório</span>
         </Button>
       </div>

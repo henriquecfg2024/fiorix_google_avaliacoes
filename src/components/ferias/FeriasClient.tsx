@@ -232,27 +232,60 @@ export function FeriasClient({
       </div>
 
       <div className="relative mx-auto max-w-[1600px] px-5 py-6 sm:px-8 space-y-6">
-        {/* Se tiver acesso e estiver na aba de escala anual, exibe a escala anual */}
-        {canAccessEscala && activeTab === "escala" ? (
-          <div>
-            {/* Seletor de abas */}
-            <div className="flex justify-end mb-4">
-              <div className="flex gap-1.5 p-1 bg-slate-100 dark:bg-white/[0.04] rounded-2xl border border-slate-200 dark:border-white/8 text-xs font-bold">
-                <button
-                  onClick={() => setActiveTab("escala")}
-                  className="px-4 py-2 rounded-xl transition-all cursor-pointer bg-indigo-600 text-white shadow-lg"
-                >
-                  Escala Anual de Férias
-                </button>
+        {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 pt-1 pb-2 border-b border-slate-200 dark:border-white/6">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-slate-400 tracking-wider">ROTINA DE TRABALHO</span>
+            <span className="text-slate-600">/</span>
+            <span className="text-cyan-400 font-extrabold tracking-wider">FÉRIAS</span>
+            <h1 className="sr-only">Minhas Férias e Escala Anual</h1>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Seletor de Ano */}
+            <div className="flex items-center bg-white dark:bg-[#0c1224] border border-slate-200 dark:border-indigo-500/30 rounded-xl px-2.5 py-1 shadow-sm text-indigo-700 dark:text-indigo-300">
+              <Calendar className="w-3.5 h-3.5 text-indigo-400 mr-1.5" />
+              <select
+                value={ano}
+                onChange={(e) => setAno(Number(e.target.value))}
+                className="bg-transparent text-xs font-bold text-slate-900 dark:text-white focus:outline-none cursor-pointer"
+              >
+                <option value={2026} className="bg-[#0c101c] text-white">2026</option>
+                <option value={2027} className="bg-[#0c101c] text-white">2027</option>
+                <option value={2028} className="bg-[#0c101c] text-white">2028</option>
+              </select>
+            </div>
+
+            {canAccessEscala && (
+              <div className="flex gap-1 p-0.5 bg-slate-100 dark:bg-white/[0.04] rounded-xl border border-slate-200 dark:border-white/8 text-xs font-bold">
                 <button
                   onClick={() => setActiveTab("minhas")}
-                  className="px-4 py-2 rounded-xl transition-all cursor-pointer text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                    activeTab === "minhas"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "text-slate-400 hover:text-white"
+                  }`}
                 >
                   Minhas Férias
                 </button>
+                <button
+                  onClick={() => setActiveTab("escala")}
+                  className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                    activeTab === "escala"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Escala Anual
+                </button>
               </div>
-            </div>
+            )}
+          </div>
+        </div>
 
+        {/* Se tiver acesso e estiver na aba de escala anual, exibe a escala anual */}
+        {canAccessEscala && activeTab === "escala" ? (
+          <div>
             <EscalaAnualClient
               initialAno={ano}
               initialPublicacao={publicacao}
@@ -265,59 +298,6 @@ export function FeriasClient({
               TELA "MINHAS FÉRIAS" DO COLABORADOR (PREMIUM & ACOLHEDORA)
           ───────────────────────────────────────────────────────────── */
           <div className="space-y-6">
-            {/* 1. Header & Seletor de Ano */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/6">
-              <div>
-                <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-                  <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
-                  <span className="text-slate-600">/</span>
-                  <Link href="/pessoas" className="hover:text-white transition-colors">Pessoas</Link>
-                  <span className="text-slate-600">/</span>
-                  <span className="text-emerald-400 font-semibold">Férias</span>
-                </div>
-                <div className="flex items-center gap-3 mt-1.5">
-                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white uppercase">
-                    MINHAS FÉRIAS
-                  </h1>
-                </div>
-                <p className="text-xs text-slate-400 mt-1">
-                  Programação individual e histórico de concessões.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {/* Seletor de Ano estilizado com borda violeta */}
-                <div className="flex items-center bg-white dark:bg-[#0c1224] border border-slate-200 dark:border-indigo-500/30 rounded-2xl px-3.5 py-2 shadow-sm text-indigo-700 dark:text-indigo-300">
-                  <Calendar className="w-4 h-4 text-indigo-400 mr-2" />
-                  <select
-                    value={ano}
-                    onChange={(e) => setAno(Number(e.target.value))}
-                    className="bg-transparent text-xs font-bold text-slate-900 dark:text-white focus:outline-none cursor-pointer pr-1"
-                  >
-                    <option value={2026} className="bg-[#0c101c] text-white">2026</option>
-                    <option value={2027} className="bg-[#0c101c] text-white">2027</option>
-                    <option value={2028} className="bg-[#0c101c] text-white">2028</option>
-                  </select>
-                </div>
-
-                {canAccessEscala && (
-                  <div className="flex gap-1.5 p-1 bg-slate-100 dark:bg-white/[0.04] rounded-2xl border border-slate-200 dark:border-white/8 text-xs font-bold">
-                    <button
-                      onClick={() => setActiveTab("escala")}
-                      className="px-4 py-2 rounded-xl transition-all cursor-pointer text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                    >
-                      Escala Anual de Férias
-                    </button>
-                    <button
-                      onClick={() => setActiveTab("minhas")}
-                      className="px-4 py-2 rounded-xl transition-all cursor-pointer bg-indigo-600 text-white shadow-lg"
-                    >
-                      Minhas Férias
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
 
             {/* 1. Loading State (Skeleton Shimmer) enquanto busca os dados */}
             {loading ? (

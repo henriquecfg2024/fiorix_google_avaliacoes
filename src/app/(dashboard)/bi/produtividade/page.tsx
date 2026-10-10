@@ -233,20 +233,13 @@ export default function ProdutividadePage() {
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/10">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-white/50">
-              <span>Dashboard</span>
-              <ChevronRight className="h-3 w-3 text-white/40" />
-              <span>BI</span>
-              <ChevronRight className="h-3 w-3 text-white/40" />
-              <span className="text-amber-300 font-semibold">Recepção</span>
-            </div>
-            <div className="mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                Indicadores da Recepção
-              </h1>
-            </div>
+        {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 pt-1 pb-2 border-b border-white/8">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-slate-400 tracking-wider">GESTÃO DE PRAZOS</span>
+            <span className="text-slate-600">/</span>
+            <span className="text-cyan-400 font-extrabold tracking-wider">RECEPÇÃO</span>
+            <h1 className="sr-only">Indicadores da Recepção</h1>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">

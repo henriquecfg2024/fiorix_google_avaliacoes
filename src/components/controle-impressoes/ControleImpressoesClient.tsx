@@ -612,20 +612,13 @@ export function ControleImpressoesClient() {
         </div>
       </div>
 
-      {/* ────────────────── TOP BAR / HEADER DO RELATÓRIO NA TELA ────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 print:hidden">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-            <span>Gestão de Prazos</span>
-            <span className="text-slate-400 dark:text-slate-600">&gt;</span>
-            <span className="text-slate-900 dark:text-white font-semibold">Impressões</span>
-          </div>
-          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-slate-900 dark:text-white mt-1">
-            Controle de Impressões
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            Painel de produtividade das impressões com base na data do último registro e data das impressões realizadas.
-          </p>
+      {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 pt-1 pb-2 border-b border-white/8 print:hidden">
+        <div className="flex items-center gap-2 text-xs font-mono">
+          <span className="text-slate-400 tracking-wider">GESTÃO DE PRAZOS</span>
+          <span className="text-slate-600">/</span>
+          <span className="text-cyan-400 font-extrabold tracking-wider">IMPRESSÕES</span>
+          <h1 className="sr-only">Controle de Impressões</h1>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap print:hidden">

@@ -110,21 +110,14 @@ export function ComunicadosClient({
 
       <div className="relative mx-auto w-full max-w-3xl px-4 py-6 space-y-5">
 
-        {/* Breadcrumb + Título */}
-        <div className="space-y-1.5 pb-3 border-b border-slate-200 dark:border-white/8">
-          <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
-            <Link href="/dashboard" className="hover:text-slate-300 transition-colors">Dashboard</Link>
-            <span>/</span>
-            <Link href="/pessoas" className="hover:text-slate-300 transition-colors">Pessoas</Link>
-            <span>/</span>
-            <span className="text-violet-400 font-semibold">Comunicados</span>
+        {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+        <div className="flex items-center justify-between gap-2 px-1 pt-1 pb-2 border-b border-slate-200 dark:border-white/8">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-slate-400 tracking-wider">ROTINA DE TRABALHO</span>
+            <span className="text-slate-600">/</span>
+            <span className="text-cyan-400 font-extrabold tracking-wider">COMUNICADOS</span>
+            <h1 className="sr-only">Comunicados Internos</h1>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Comunicados internos
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Informações da equipe e suas confirmações de ciência.
-          </p>
         </div>
 
         {/* Alerta urgentes */}

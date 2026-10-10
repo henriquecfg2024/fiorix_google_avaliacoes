@@ -210,30 +210,14 @@ export default async function BiImportacoesPage() {
       </div>
 
       <main className="relative mx-auto max-w-[1700px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        {/* Header da Tela */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-              <span>Dashboard</span>
-              <span className="text-slate-400 dark:text-slate-600">/</span>
-              <span>Sistema</span>
-              <span className="text-slate-400 dark:text-slate-600">/</span>
-              <span className="text-amber-600 dark:text-amber-300">
-                Importação de Contingência
-              </span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white mt-1">
-              Importação de Contingência
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-white/60 mt-1 max-w-4xl">
-              Envie arquivos manualmente somente quando o FIORIX Connector estiver indisponível.
-              Os dados enviados passam por validação antes da atualização dos indicadores.
-            </p>
+        {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+        <div className="flex items-center justify-between gap-2 px-1 pt-1 pb-2 border-b border-slate-200 dark:border-white/6">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-slate-400 tracking-wider">SISTEMA & TECNOLOGIA</span>
+            <span className="text-slate-600">/</span>
+            <span className="text-cyan-400 font-extrabold tracking-wider">IMPORTAÇÃO DE CONTINGÊNCIA</span>
+            <h1 className="sr-only">Importação de Contingência</h1>
           </div>
-
-          <Badge className="rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 font-sans text-xs font-semibold text-amber-700 dark:text-amber-300 self-start sm:self-center">
-            RECURSO DE CONTINGÊNCIA
-          </Badge>
         </div>
 
         {/* Banner Contextual de Estado do Conector */}

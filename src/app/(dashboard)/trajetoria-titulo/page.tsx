@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import { MapPin, Calendar } from 'lucide-react';
+
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { isRedirectError } from 'next/dist/client/components/redirect';
@@ -59,50 +59,13 @@ export default async function LocalizacaoTitulosPage({
       </div>
 
       <div className="relative mx-auto max-w-[1600px] p-4 md:p-6 lg:p-8 space-y-6">
-        {/* ── Breadcrumb ── */}
-        <nav className="flex items-center gap-2 text-xs text-slate-500 dark:text-white/35 font-medium">
-          <span>Gestão de Prazos</span>
-          <span>/</span>
-          <span className="text-blue-600 dark:text-blue-400 font-semibold">Rastreio</span>
-        </nav>
-
-        {/* ── Page header ── */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-2 border-b border-slate-200 dark:border-white/6">
-          <div className="flex items-start gap-4">
-            {/* Icon */}
-            <div
-              className="flex items-center justify-center w-12 h-12 rounded-2xl shrink-0
-                bg-blue-50 border border-blue-200 text-blue-600 dark:bg-gradient-to-br dark:from-blue-600/25 dark:to-indigo-600/15 dark:border-blue-500/25 dark:text-blue-400 shadow-sm"
-            >
-              <MapPin className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            </div>
-
-            {/* Title */}
-            <div>
-              <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                Rastreio
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Consulte a situação e a última localização conhecida de um
-                protocolo no Cartório.
-              </p>
-            </div>
-          </div>
-
-          {/* Date / time display */}
-          <div
-            className="flex items-center gap-2.5 shrink-0 px-3.5 py-2 rounded-xl
-              border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl shadow-xs"
-          >
-            <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <div className="text-right">
-              <p className="text-xs font-bold text-slate-800 dark:text-white/80">
-                {dataHora} &nbsp;{hora}
-              </p>
-              <p className="text-[10px] text-slate-400 dark:text-white/40 capitalize">
-                {diaCapitalizado}
-              </p>
-            </div>
+        {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+        <div className="flex items-center justify-between gap-2 px-1 pt-1 pb-2 border-b border-slate-200 dark:border-white/6">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-slate-400 tracking-wider">GESTÃO DE PRAZOS</span>
+            <span className="text-slate-600">/</span>
+            <span className="text-cyan-400 font-extrabold tracking-wider">RASTREIO</span>
+            <h1 className="sr-only">Rastreio e Localização de Protocolos</h1>
           </div>
         </div>
 

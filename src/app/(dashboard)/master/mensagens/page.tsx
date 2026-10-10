@@ -131,24 +131,13 @@ export default async function MasterMensagensPage() {
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200 dark:border-white/6">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-              <span>Master SaaS</span>
-              <span className="text-slate-600">/</span>
-              <span className="text-amber-400">Mensagens Multi-Tenant</span>
-            </div>
-            <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
-                <Crown className="w-6 h-6 text-amber-400" />
-                Telemetria Global de Mensagens SaaS
-              </h1>
-              <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-amber-300 flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                ZERO-CONTENT ISOLATION
-              </span>
-            </div>
+        {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+        <div className="flex items-center justify-between gap-2 px-1 pt-1 pb-2 border-b border-slate-200 dark:border-white/6">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-slate-400 tracking-wider">MASTER SAAS</span>
+            <span className="text-slate-600">/</span>
+            <span className="text-cyan-400 font-extrabold tracking-wider">MENSAGENS SAAS</span>
+            <h1 className="sr-only">Telemetria Global de Mensagens SaaS</h1>
           </div>
         </div>
 

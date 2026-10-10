@@ -13,23 +13,13 @@ export default function TarefasPage() {
       </div>
 
       <div className="relative mx-auto max-w-[1600px] px-5 py-6 pb-20 sm:px-8">
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/8">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-white/60">
-              <span>Dashboard</span>
-              <span className="text-white/30">/</span>
-              <span>BI</span>
-              <span className="text-white/30">/</span>
-              <span className="text-purple-300">Tarefas</span>
-            </div>
-            <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white uppercase">
-                TAREFAS
-              </h1>
-              <span className="rounded-full border border-purple-500/25 bg-purple-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-purple-300">
-                PREVISÃO DE CARGA OPERACIONAL
-              </span>
-            </div>
+        {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+        <div className="mb-6 flex items-center justify-between gap-2 px-1 pt-1 pb-2 border-b border-white/8">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-slate-400 tracking-wider">GESTÃO DE PRAZOS</span>
+            <span className="text-slate-600">/</span>
+            <span className="text-cyan-400 font-extrabold tracking-wider">TAREFAS</span>
+            <h1 className="sr-only">Tarefas - Previsão de Carga Operacional</h1>
           </div>
         </div>
 
