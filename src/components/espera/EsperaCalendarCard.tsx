@@ -35,7 +35,8 @@ export function EsperaCalendarCard({
   const statsPorDia = useMemo(() => {
     const map: Record<string, { total: number; dentroSla: number; tempoEsperaTotal: number; countEspera: number }> = {};
     for (const r of allRecords) {
-      const d = r.data || todayStr;
+      const d = r.data || (r.emissao && r.emissao.length >= 10 && r.emissao.includes('-') ? r.emissao.substring(0, 10) : null);
+      if (!d) continue;
       if (!map[d]) {
         map[d] = { total: 0, dentroSla: 0, tempoEsperaTotal: 0, countEspera: 0 };
       }
@@ -49,7 +50,7 @@ export function EsperaCalendarCard({
       }
     }
     return map;
-  }, [allRecords, todayStr, slaMinutes]);
+  }, [allRecords, slaMinutes]);
 
   // Navegação entre meses
   const handlePrevMonth = () => {
@@ -232,11 +233,14 @@ export function EsperaCalendarCard({
         <div className="grid grid-cols-7 gap-1">
           {daysGrid.map((c) => {
             const isSelected = selectedDate === c.dateIso;
+            const isFuture = c.dateIso > todayStr;
             const hasMove = c.totalSenhas > 0;
 
             let bgClass = 'bg-white/[0.02] text-slate-400 hover:bg-white/[0.07] border-white/5';
             if (!c.isCurrentMonth) {
               bgClass = 'bg-transparent text-slate-600 opacity-40 hover:opacity-80 border-transparent';
+            } else if (isFuture) {
+              bgClass = 'bg-white/[0.01] text-slate-600 border-white/5 opacity-50 hover:opacity-90';
             }
             if (hasMove) {
               bgClass = 'bg-indigo-950/30 text-white border-indigo-500/25 hover:bg-indigo-900/40 hover:border-indigo-400/50';
@@ -261,7 +265,9 @@ export function EsperaCalendarCard({
                 }}
                 className={`group relative h-10 rounded-xl border flex flex-col items-center justify-between p-1 transition-all cursor-pointer ${bgClass}`}
                 title={
-                  hasMove
+                  isFuture
+                    ? `${c.dateIso}: Data futura (expediente ainda não ocorrido)`
+                    : hasMove
                     ? `${c.dateIso}: ${c.totalSenhas} senhas geradas (${c.dentroSlaPerc}% dentro do SLA). Clique para filtrar!`
                     : `${c.dateIso}: Sem senhas registradas.`
                 }

@@ -198,13 +198,20 @@ function extractDateStr(value: string | null | undefined): string {
   if (!value) {
     return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
   }
+  const str = String(value).trim();
+  const match = str.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match) {
+    if (!str.includes('Z') && !/[+-]\d{2}:\d{2}$/.test(str)) {
+      return match[1];
+    }
+  }
   try {
-    const d = new Date(value);
+    const d = new Date(str);
     if (!isNaN(d.getTime())) {
       return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
     }
   } catch {}
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+  return match ? match[1] : new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
 function normalizeTicket(raw: NextQSTicket, index: number): SenhaRecord {
@@ -274,6 +281,12 @@ function getDateRange(periodo: string) {
   const tzOffset = '-03:00';
   const spDateStr = now.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
   const endIso = `${spDateStr}T23:59:59${tzOffset}`;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(periodo)) {
+    const startIso = `${periodo}T00:00:00${tzOffset}`;
+    const specificEndIso = `${periodo}T23:59:59${tzOffset}`;
+    return { startIso, endIso: specificEndIso };
+  }
 
   let startIso: string;
   if (periodo === 'mes') {
@@ -506,6 +519,11 @@ export async function getEsperaData(
 
         // Se o período filtrado for 'hoje', só inclui tickets que realmente pertençam à data de hoje
         if (periodo === 'hoje' && ticketDateStr !== todayStr) {
+          continue;
+        }
+
+        // Se o período for uma data específica YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(periodo) && ticketDateStr !== periodo) {
           continue;
         }
 

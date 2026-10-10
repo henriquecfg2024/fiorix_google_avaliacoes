@@ -854,6 +854,50 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
     fetchData();
   }, [periodo, fetchData]);
 
+  // Registros do mês completo para garantir que o Calendário exiba os números de todos os dias
+  // e permita filtrar qualquer dia com 0ms de latência
+  const [monthRecords, setMonthRecords] = useState<SenhaRecord[]>(() => {
+    try {
+      const cached = sessionStorage.getItem('fiorix_espera_mes');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed.records && Array.isArray(parsed.records) && parsed.records.length > 0) {
+          return sanitizeRecords(parsed.records);
+        }
+      }
+    } catch {}
+    return [];
+  });
+
+  // Busca dados do mês em background para manter o calendário sempre preenchido com dados reais
+  useEffect(() => {
+    if (periodo === 'mes' && allRecords.length > 0) {
+      setMonthRecords(allRecords);
+      try {
+        sessionStorage.setItem('fiorix_espera_mes', JSON.stringify({ records: allRecords }));
+      } catch {}
+      return;
+    }
+
+    let isCancelled = false;
+    fetch('/api/v1/espera/senhas?periodo=mes')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!isCancelled && data.records && Array.isArray(data.records) && data.records.length > 0) {
+          const sanitized = sanitizeRecords(data.records);
+          setMonthRecords(sanitized);
+          try {
+            sessionStorage.setItem('fiorix_espera_mes', JSON.stringify(data));
+          } catch {}
+        }
+      })
+      .catch(() => null);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [periodo, allRecords]);
+
   // Estado de data selecionada no calendário interativo
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
@@ -862,17 +906,56 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
     setSelectedDate(null);
   }, [periodo]);
 
+  // Base completa com dados do mês para o calendário e para o filtro por dia
+  const calendarBaseRecords = useMemo(() => {
+    if (monthRecords.length > 0) return monthRecords;
+    return allRecords;
+  }, [monthRecords, allRecords]);
+
+  // Handler para seleção de data com busca sob demanda caso o dia não esteja em memória
+  const handleSelectDate = useCallback(
+    async (d: string | null) => {
+      setSelectedDate(d);
+      setPreviewPage(1);
+      if (!d) return;
+
+      const hasRecords = calendarBaseRecords.some(
+        (r) => r.data === d || (r.emissao && r.emissao.startsWith(d))
+      );
+      if (hasRecords) return;
+
+      // Se ainda não temos dados para esse dia em memória, busca direto da API para a data específica
+      try {
+        const res = await fetch(`/api/v1/espera/senhas?periodo=${d}`);
+        const data = await res.json();
+        if (data.records && Array.isArray(data.records) && data.records.length > 0) {
+          const sanitized = sanitizeRecords(data.records);
+          setMonthRecords((prev) => {
+            const combined = [...prev, ...sanitized];
+            const seen = new Set<string>();
+            return combined.filter((item) => {
+              if (seen.has(item.id)) return false;
+              seen.add(item.id);
+              return true;
+            });
+          });
+        }
+      } catch {}
+    },
+    [calendarBaseRecords]
+  );
+
   // Registros ativos considerando filtro do calendário
   const activeRecords = useMemo(() => {
     if (!selectedDate) return allRecords;
-    return allRecords.filter((r) => {
+    return calendarBaseRecords.filter((r) => {
       if (r.data) return r.data === selectedDate;
       if (r.emissao && r.emissao.length >= 10 && r.emissao.includes('-')) {
         return r.emissao.substring(0, 10) === selectedDate;
       }
       return false;
     });
-  }, [allRecords, selectedDate]);
+  }, [calendarBaseRecords, selectedDate, allRecords]);
 
   // Cálculos derivados
   const recordsWithWait = useMemo(() => activeRecords.filter((r) => r.tempoEsperaMin !== null), [activeRecords]);
@@ -1315,7 +1398,14 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                     <div className="flex items-center gap-2.5">
                       <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-400 animate-pulse" />
                       <span>
-                        Exibindo dados filtrados para: <strong className="text-white capitalize">{new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong> — <span className="font-mono text-indigo-300 font-bold">{activeRecords.length}</span> senhas registradas
+                        Exibindo dados filtrados para: <strong className="text-white capitalize">{new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+                        {activeRecords.length > 0 ? (
+                          <> — <span className="font-mono text-indigo-300 font-bold">{activeRecords.length}</span> senhas registradas</>
+                        ) : selectedDate > new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) ? (
+                          <span className="text-amber-300 ml-1.5 font-medium">(Data futura — expediente ainda não ocorrido)</span>
+                        ) : (
+                          <span className="text-slate-400 ml-1.5">(Nenhuma senha emitida nesta data / Sem expediente)</span>
+                        )}
                       </span>
                     </div>
                     <button
@@ -1436,12 +1526,9 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                   {/* Card 1: Calendário Interativo */}
                   <div className="lg:col-span-4 flex flex-col">
                     <EsperaCalendarCard
-                      allRecords={allRecords}
+                      allRecords={calendarBaseRecords}
                       selectedDate={selectedDate}
-                      onSelectDate={(d) => {
-                        setSelectedDate(d);
-                        setPreviewPage(1);
-                      }}
+                      onSelectDate={handleSelectDate}
                       slaMinutes={slaMinutes}
                     />
                   </div>
