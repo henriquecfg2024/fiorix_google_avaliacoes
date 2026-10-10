@@ -151,70 +151,14 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
         </div>
 
         {/* ══════════════════════════════════════════════════════════════════
-             1. HEADER v2 CONSOLIDADO (HERO STATUS CARD)
+             1. HEADER v2 CONSOLIDADO (BARRA HERO DE STATUS COMPACTA & ELEGANTE)
              ══════════════════════════════════════════════════════════════════ */}
-        <section className="rounded-2xl border border-[#1E293B] bg-[#111729] p-6 shadow-2xl relative overflow-hidden transition-all">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            
-            {/* Left: Identity & Metadata */}
-            <div className="flex items-start gap-4">
-              <div className="p-3 rounded-xl bg-[#151A2C] border border-[#1E293B] text-[#3B82F6] shadow-inner flex items-center justify-center shrink-0">
-                <Activity className="h-6 w-6 text-[#3B82F6]" />
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <h1 className="text-2xl font-semibold tracking-tight text-[#F1F5F9]">
-                    Central de Operações
-                  </h1>
-                </div>
-                
-                <p className="text-xs text-[#94A3B8] mt-1.5 flex items-center gap-2 flex-wrap">
-                  <Database className="h-3.5 w-3.5 text-[#64748B] shrink-0" />
-                  <span>Observabilidade ponta a ponta</span>
-                  <span className="text-[#1E293B]">•</span>
-                  <span>SaaS</span>
-                  <span className="text-[#1E293B]">•</span>
-                  <span>Conectividade</span>
-                  <span className="text-[#1E293B]">•</span>
-                  <span>Rotinas do Cartório</span>
-                </p>
-              </div>
-            </div>
-
-            {/* Right: Discrete Meta + Live Clock + Hero Status Card */}
-            <div className="flex flex-col items-start lg:items-end gap-3 shrink-0">
-              
-              <div className="flex items-center gap-3 text-xs text-[#64748B] font-mono">
-                {/* Discrete Environment */}
-                <div className="flex items-center gap-1.5 text-[#94A3B8]">
-                  <ShieldCheck className="h-3.5 w-3.5 text-[#10B981]" />
-                  <span className="font-medium font-sans">Produção</span>
-                </div>
-
-                <span className="text-[#1E293B]">|</span>
-
-                {/* Live Clock */}
-                <div className="flex items-center gap-1.5 text-[#94A3B8]">
-                  <Clock className="h-3.5 w-3.5 text-[#64748B]" />
-                  <span className="font-mono text-[#F1F5F9]">{currentTime || lastUpdated}</span>
-                </div>
-
-                {/* Ghost Button "Atualizar" */}
-                <button 
-                  type="button"
-                  onClick={handleManualRefresh}
-                  disabled={isPending}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#151A2C] hover:bg-[#1E293B] text-[#94A3B8] hover:text-[#F1F5F9] border border-[#1E293B] text-xs font-sans font-medium transition-all active:scale-95 group disabled:opacity-50"
-                  title="Atalho de Teclado: R"
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 text-[#64748B] group-hover:text-[#F1F5F9] transition-transform ${isPending ? 'animate-spin' : ''}`} />
-                  <span>Atualizar</span>
-                </button>
-              </div>
-
-              {/* Hero Status Card (Único pulso, sem selos gigantes) */}
-              <div className={`w-full lg:w-auto min-w-[320px] rounded-xl border px-4 py-2.5 flex items-center gap-3.5 transition-all ${
+        <section className="rounded-2xl border border-[#1E293B] bg-[#111729] p-3.5 sm:p-4 shadow-xl relative overflow-hidden transition-all">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
+            {/* Esquerda: Status Operacional com Pulso + Métricas Rápidas */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Card de Status Operacional Principal */}
+              <div className={`rounded-xl border px-3.5 py-2 flex items-center gap-3 transition-all ${
                 isStandby
                   ? 'border-[#818CF8]/25 bg-[#818CF8]/10'
                   : (isOperacional
@@ -238,7 +182,7 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
                       ? 'Operacional • Repouso noturno programado' 
                       : (isOperacional ? 'Todos os sistemas operacionais' : 'Atenção: Degradação de sincronização')}
                   </span>
-                  <span className="text-[11px] font-mono text-[#64748B] mt-0.5">
+                  <span className="text-[10px] font-mono text-[#64748B]">
                     {isStandby
                       ? 'rotinas pausadas até 07:00 • próximo ciclo'
                       : `verificado há ${secondsAgo}s • tempo real`}
@@ -246,30 +190,49 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
                 </div>
               </div>
 
+              {/* Indicadores Rápidos de Telemetria Integrados */}
+              <div className="flex items-center gap-2 text-xs font-mono text-[#94A3B8] flex-wrap">
+                <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#151A2C] border border-[#1E293B]">
+                  <span className={`h-1.5 w-1.5 rounded-full ${isStandby ? 'bg-[#818CF8]' : 'bg-[#10B981]'}`} />
+                  <span className="text-[#64748B]">p95:</span>
+                  <strong className="text-[#F1F5F9] font-normal">{health.metrics.p95LatencyMs || 42}ms</strong>
+                </span>
+                <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#151A2C] border border-[#1E293B]">
+                  <span className="text-[#64748B]">uptime:</span>
+                  <strong className="text-[#F1F5F9] font-normal">{health.metrics.availabilityPercent || 99.99}%</strong>
+                </span>
+                <span className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#151A2C] border border-[#1E293B]">
+                  <span className="text-[#64748B]">Expediente:</span>
+                  <strong className={`font-normal ${isStandby ? 'text-[#818CF8]' : 'text-[#10B981]'}`}>
+                    {isStandby ? 'Repouso Noturno' : 'Seg–Sáb (07h–19h) Ativo'}
+                  </strong>
+                </span>
+              </div>
             </div>
 
-          </div>
+            {/* Direita: Metadados, Relógio e Botão Atualizar */}
+            <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap justify-between lg:justify-end text-xs font-mono shrink-0">
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#151A2C] border border-[#1E293B] text-[#94A3B8]">
+                <ShieldCheck className="h-3.5 w-3.5 text-[#10B981]" />
+                <span className="font-medium font-sans text-xs">Produção</span>
+              </div>
 
-          {/* Sub-header bottom line */}
-          <div className="mt-5 pt-3.5 border-t border-[#1E293B] flex flex-wrap items-center justify-between gap-3 text-[11px] font-mono text-[#64748B]">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="flex items-center gap-1.5">
-                <span className={`h-1.5 w-1.5 rounded-full ${isStandby ? 'bg-[#818CF8]' : 'bg-[#10B981]'}`} />
-                <span>latência p95: <strong className="text-[#F1F5F9] font-normal">{health.metrics.p95LatencyMs || 42}ms</strong></span>
-              </span>
-              <span className="text-[#1E293B]">|</span>
-              <span>uptime: <strong className="text-[#F1F5F9] font-normal">{health.metrics.availabilityPercent || 99.99}%</strong></span>
-              <span className="text-[#1E293B]">|</span>
-              <span>
-                Expediente: <strong className={`font-normal ${isStandby ? 'text-[#818CF8]' : 'text-[#10B981]'}`}>
-                  {isStandby ? 'Repouso Noturno (Pós-19h / Domingo)' : 'Seg–Sáb (07h–19h) Ativo'}
-                </strong>
-              </span>
-            </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#151A2C] border border-[#1E293B] text-[#94A3B8]">
+                <Clock className="h-3.5 w-3.5 text-[#64748B]" />
+                <span className="font-mono text-xs text-[#F1F5F9]">{currentTime || lastUpdated}</span>
+              </div>
 
-            <div className="flex items-center gap-4 text-[#64748B] text-[10px]">
-              <span>Linear-density • 12px radius</span>
-              <span className="hidden sm:inline">Pressione <kbd className="px-1.5 py-0.5 rounded bg-[#151A2C] border border-[#1E293B] text-[#94A3B8] font-bold">R</kbd> para atualizar</span>
+              <button 
+                type="button"
+                onClick={handleManualRefresh}
+                disabled={isPending}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#151A2C] hover:bg-[#1E293B] text-[#94A3B8] hover:text-[#F1F5F9] border border-[#1E293B] text-xs font-sans font-medium transition-all active:scale-95 group disabled:opacity-50 cursor-pointer shadow-xs"
+                title="Atalho de Teclado: R"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 text-[#64748B] group-hover:text-[#F1F5F9] transition-transform ${isPending ? 'animate-spin' : ''}`} />
+                <span>Atualizar</span>
+                <kbd className="hidden sm:inline px-1 py-0.2 text-[10px] rounded bg-[#111729] border border-[#1E293B] text-[#64748B] group-hover:text-[#94A3B8]">R</kbd>
+              </button>
             </div>
           </div>
         </section>
