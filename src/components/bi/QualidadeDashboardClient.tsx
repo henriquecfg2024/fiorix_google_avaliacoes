@@ -1088,6 +1088,21 @@ export function QualidadeDashboardClient() {
                 </button>
               </div>
 
+              {/* Tag informativa de filtro por causa ativa */}
+              {filtroCausa && (
+                <span className="px-2.5 py-1 rounded-xl bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-xs font-mono font-semibold flex items-center gap-1.5 shadow-sm">
+                  <span>Causa: {filtroCausa}</span>
+                  <button
+                    type="button"
+                    onClick={() => setFiltroCausa(null)}
+                    className="text-cyan-300 hover:text-white"
+                    title="Limpar filtro de causa"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </span>
+              )}
+
               {/* Sub-abas exclusivas de Não Realizados: Todos | Canceladas | Em Trâmite */}
               {abaAtivaListagem === "NAO_REALIZADOS" && (
                 <div className="inline-flex p-1 rounded-xl bg-[#0B0F1A] border border-slate-800 text-xs">
@@ -1196,6 +1211,11 @@ export function QualidadeDashboardClient() {
                       {renderSortHeader("origem", "Origem")}
                       {renderSortHeader("observacao", "Observação Original")}
                       {renderSortHeader("categoria", "Categoria")}
+                      {isGestor && (
+                        <th className="py-2.5 px-3 text-right text-slate-400 font-sans font-semibold uppercase text-[10px] tracking-wider">
+                          Ação
+                        </th>
+                      )}
                     </>
                   )}
                 </tr>
@@ -1283,7 +1303,7 @@ export function QualidadeDashboardClient() {
                 ) : (
                   eventosErrosPaginados.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-400 font-sans">
+                      <td colSpan={isGestor ? 9 : 8} className="py-8 text-center text-slate-400 font-sans">
                         Nenhum evento de erro encontrado com os filtros aplicados.
                       </td>
                     </tr>
@@ -1366,6 +1386,19 @@ export function QualidadeDashboardClient() {
                             {item.categoria}
                           </span>
                         </td>
+
+                        {/* Ação (Revisar para gestores) */}
+                        {isGestor && (
+                          <td className="py-2.5 px-3 text-right font-sans">
+                            <button
+                              type="button"
+                              onClick={() => handleAbrirRevisao(item)}
+                              className="text-xs text-purple-400 hover:text-purple-300 hover:underline font-semibold"
+                            >
+                              Revisar
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))
                   )
@@ -1661,107 +1694,7 @@ export function QualidadeDashboardClient() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════
-           6. DETALHAMENTO DOS EVENTOS DE RETORNO (DESTAQUE PRINCIPAL)
-           ══════════════════════════════════════════════════════════════════ */}
-      <section className="rounded-2xl border-2 border-cyan-500/40 bg-[#111729] p-6 shadow-2xl shadow-cyan-500/10 ring-1 ring-cyan-500/20 space-y-4 relative overflow-hidden">
-        {/* Barra superior de destaque com gradiente */}
-        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500" />
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 shadow-md">
-              <AlertTriangle className="h-5 w-5 text-cyan-400" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h3 className="text-base font-bold text-white tracking-wide">
-                  Detalhamento dos Eventos de Retorno (Erros Internos)
-                </h3>
-                <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-mono font-bold">
-                  {eventos.length} {eventos.length === 1 ? "evento" : "eventos"}
-                </span>
-                {filtroCausa && (
-                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-mono font-semibold flex items-center gap-1.5 shadow-sm">
-                    <span>Filtro Causa: {filtroCausa}</span>
-                    <button onClick={() => setFiltroCausa(null)} className="text-amber-300 hover:text-white" title="Limpar filtro">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-slate-400 mt-1">
-                Cada linha representa um retorno interno apontado no protocolo (Responsável = destino do retorno)
-              </p>
-            </div>
-          </div>
-          <span className="text-xs font-mono font-bold text-cyan-400 bg-cyan-500/10 px-3 py-1.5 rounded-xl border border-cyan-500/20 shrink-0 shadow-sm">
-            {eventos.length} eventos no período
-          </span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs font-mono">
-            <thead>
-              <tr className="border-b border-slate-800 text-[11px] uppercase tracking-wider text-slate-400 font-semibold font-sans">
-                <th className="pb-3 pr-4">Prenotação</th>
-                <th className="pb-3 px-3">Data Entrada</th>
-                <th className="pb-3 px-3">Data Retorno</th>
-                <th className="pb-3 px-3">Tipo</th>
-                <th className="pb-3 px-3">Responsável Erro</th>
-                <th className="pb-3 px-3">Origem</th>
-                <th className="pb-3 px-3">Observação Original</th>
-                <th className="pb-3 px-3">Categoria</th>
-                {isGestor && <th className="pb-3 pl-3 text-right">Ação</th>}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 text-slate-300">
-              {eventos.map((ev) => (
-                <tr key={ev.idAndamento} className="hover:bg-[#151A2C] transition-colors">
-                  <td className="py-3 pr-4 font-bold text-white">{ev.numeroPrenotacao}</td>
-                  <td className="py-3 px-3">{ev.dataEntrada}</td>
-                  <td className="py-3 px-3 text-slate-200">{ev.dataRetorno}</td>
-                  <td className="py-3 px-3">
-                    <span
-                      className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-                        ev.idTipoRetorno === 292
-                          ? "bg-cyan-500/15 text-cyan-300"
-                          : ev.idTipoRetorno === 294
-                          ? "bg-blue-500/15 text-blue-300"
-                          : "bg-purple-500/15 text-purple-300"
-                      }`}
-                    >
-                      {ev.tipoRetorno}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 font-sans text-white uppercase">{ev.usuarioDestino.toUpperCase()}</td>
-                  <td className="py-3 px-3">{ev.origem}</td>
-                  <td className="py-3 px-3 font-sans text-slate-300 max-w-xs truncate" title={ev.observacao}>
-                    {ev.observacao}
-                  </td>
-                  <td className="py-3 px-3 font-sans">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-slate-800 text-slate-300 border border-slate-700">
-                      {ev.categoria}
-                    </span>
-                  </td>
-                  {isGestor && (
-                    <td className="py-3 pl-3 text-right">
-                      <button
-                        onClick={() => handleAbrirRevisao(ev)}
-                        className="text-xs text-purple-400 hover:underline font-semibold"
-                      >
-                        Revisar
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════════════════════
-           7. TABELA "INDICADORES POR COLABORADOR" (OCULTO POR PADRÃO)
+           6. TABELA "INDICADORES POR COLABORADOR" (OCULTO POR PADRÃO)
            ══════════════════════════════════════════════════════════════════ */}
       <section className="rounded-2xl border border-slate-800 bg-[#111729] p-5 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
