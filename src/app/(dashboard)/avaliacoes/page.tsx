@@ -265,29 +265,19 @@ export default async function AvaliacoesPage({
       </div>
 
       <main className="relative mx-auto max-w-[1600px] px-4 py-6 lg:px-8 lg:py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-white/8">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-white/60">
-              <span>Dashboard</span>
-              <span className="text-white/30">/</span>
-              <span>Gestão</span>
-              <span className="text-white/30">/</span>
-              <span className="text-amber-300">Avaliações</span>
-            </div>
-            <div className="flex items-center gap-3 mt-1">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                Avaliações do Google
-              </h1>
-              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-emerald-300">
-                GOOGLE MY BUSINESS
-              </span>
-            </div>
+        {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/8">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-slate-400 tracking-wider">PRESENÇA NO GOOGLE</span>
+            <span className="text-slate-600">/</span>
+            <span className="text-cyan-400 font-extrabold tracking-wider">AVALIAÇÕES</span>
+            <h1 className="sr-only">Avaliações do Google</h1>
           </div>
 
           <div className="inline-flex flex-wrap gap-1 self-start rounded-xl border border-white/20 bg-[#080D1A] p-1 text-xs font-semibold sm:self-auto">
             <Link
               href="/avaliacoes"
-              className={`rounded-lg px-4 py-2 text-sm transition-all ${
+              className={`rounded-lg px-3 py-1.5 text-xs transition-all ${
                 !statusFilter ? 'bg-amber-400 font-bold text-slate-950 shadow-sm' : 'text-white/70 hover:bg-white/[0.08] hover:text-white font-medium'
               }`}
             >
@@ -295,25 +285,25 @@ export default async function AvaliacoesPage({
             </Link>
             <Link
               href="/avaliacoes?status=PENDING"
-              className={`rounded-lg px-4 py-2 text-sm transition-all ${
+              className={`rounded-lg px-3 py-1.5 text-xs transition-all ${
                 statusFilter === 'PENDING' ? 'bg-amber-500 font-bold text-slate-950 shadow-sm' : 'text-white/70 hover:bg-white/[0.08] hover:text-white font-medium'
               }`}
             >
               <span className="flex items-center gap-1.5">
-                <Clock className="h-4 w-4" />
+                <Clock className="h-3.5 w-3.5" />
                 Aguardando ({pendingCount})
               </span>
             </Link>
             <Link
               href="/avaliacoes?status=RESPONDED"
-              className={`rounded-lg px-4 py-2 text-sm transition-all ${
+              className={`rounded-lg px-3 py-1.5 text-xs transition-all ${
                 statusFilter === 'RESPONDED'
                   ? 'bg-emerald-600 font-bold text-white shadow-sm'
                   : 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 font-medium'
               }`}
             >
               <span className="flex items-center gap-1.5">
-                <CheckCircle className="h-4 w-4" />
+                <CheckCircle className="h-3.5 w-3.5" />
                 Respondidas ({respondedCount})
               </span>
             </Link>
