@@ -960,8 +960,9 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
       setPreviewPage(1);
       if (!d) return;
 
-      // Finais de semana não têm expediente
-      if (isWeekend(d)) {
+      // Finais de semana e datas futuras não têm expediente/atendimento
+      const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+      if (isWeekend(d) || d > todayStr) {
         return;
       }
 
@@ -994,7 +995,8 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
   // Registros ativos considerando filtro do calendário
   const activeRecords = useMemo(() => {
     if (!selectedDate) return allRecords;
-    if (isWeekend(selectedDate)) return [];
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+    if (isWeekend(selectedDate) || selectedDate > todayStr) return [];
     return calendarBaseRecords.filter((r) => {
       if (r.data) return r.data === selectedDate;
       if (r.emissao && r.emissao.length >= 10 && r.emissao.includes('-')) {
@@ -1305,7 +1307,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
       badge: (realtime.fila.length + realtime.emAtendimento.length) > 0 ? (realtime.fila.length + realtime.emAtendimento.length) : undefined,
       dot: true,
     },
-    { key: 'atendimentos', label: 'Atendimentos', badge: allRecords.length },
+    { key: 'atendimentos', label: 'Atendimentos' },
     { key: 'pico', label: 'Horários de Pico' },
     { key: 'agentes', label: 'Performance da Equipe', badge: performanceAgentes.length },
   ];
@@ -1400,18 +1402,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
               </span>
             )}
 
-            {/* Exportar CSV */}
-            {allRecords.length > 0 && (
-              <button
-                type="button"
-                onClick={handleExportCSV}
-                title="Exportar dados filtrados para CSV"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-semibold transition-all active:scale-95 cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="hidden sm:inline">Exportar CSV</span>
-              </button>
-            )}
+
 
             {/* Botão Atualizar */}
             <button
@@ -2852,9 +2843,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                             <th className="py-3.5 px-3 text-right">Atendimentos</th>
                             <th className="py-3.5 px-3 text-right">TMA (Mesa)</th>
                             <th className="py-3.5 px-3 text-right">TME (Espera)</th>
-                            <th className="py-3.5 px-3 text-right">SLA Conformidade</th>
-                            <th className="py-3.5 px-3 text-right">Desistências</th>
-                            <th className="py-3.5 px-4 text-right">CSAT Médio</th>
+                            <th className="py-3.5 px-4 text-right">SLA Conformidade</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/6 text-slate-300">
@@ -2892,7 +2881,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                               <td className="py-3 px-3 text-right font-mono text-slate-400">
                                 {agente.mediaEsperaMin} min
                               </td>
-                              <td className="py-3 px-3 text-right">
+                              <td className="py-3 px-4 text-right">
                                 <span
                                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                                     agente.dentroSlaPerc >= 80
@@ -2904,26 +2893,6 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                                 >
                                   {agente.dentroSlaPerc}%
                                 </span>
-                              </td>
-                              <td className="py-3 px-3 text-right font-mono text-rose-400">
-                                {agente.desistencias}
-                              </td>
-                              <td className="py-3 px-4 text-right">
-                                {agente.csatScore ? (
-                                  <span
-                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                                      agente.csatScore >= 80
-                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                        : agente.csatScore >= 65
-                                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                                        : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                                    }`}
-                                  >
-                                    ★ {agente.csatScore}%
-                                  </span>
-                                ) : (
-                                  '—'
-                                )}
                               </td>
                             </tr>
                           ))}

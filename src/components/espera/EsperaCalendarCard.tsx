@@ -91,7 +91,7 @@ export function EsperaCalendarCard({
     }
 
     // 2. Para qualquer dia útil do mês atual (e dos últimos 5 anos) que ainda não tenha dados no mapa,
-    // gera o histórico determinístico realista para que TODO dia útil fique 100% populado
+    // gera o histórico determinístico realista apenas para datas já decorridas (passadas ou hoje)
     const daysInMonth = new Date(currentYear, currentMonthIdx + 1, 0).getDate();
     for (let day = 1; day <= daysInMonth; day++) {
       const dateIso = `${currentYear}-${String(currentMonthIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -101,12 +101,17 @@ export function EsperaCalendarCard({
         continue;
       }
 
+      // Datas futuras (após a data de hoje): Cartório ainda não operou nesta data (0 senhas)
+      if (dateIso > todayStr) {
+        continue;
+      }
+
       // Se já temos registros suficientes da API para este dia útil, mantém
       if (map[dateIso] && map[dateIso].total >= 10) {
         continue;
       }
 
-      // Suplementa com histórico determinístico realista
+      // Suplementa com histórico determinístico realista apenas para datas passadas
       const historicalDay = generateDayRecords(dateIso, slaMinutes);
       map[dateIso] = {
         total: historicalDay.length,
@@ -117,7 +122,7 @@ export function EsperaCalendarCard({
     }
 
     return map;
-  }, [allRecords, currentYear, currentMonthIdx, slaMinutes]);
+  }, [allRecords, currentYear, currentMonthIdx, slaMinutes, todayStr]);
 
   // Navegação entre meses com trava de 5 anos
   const canGoPrev = useMemo(() => {
@@ -170,6 +175,7 @@ export function EsperaCalendarCard({
       dateIso: string;
       isCurrentMonth: boolean;
       isWeekend: boolean;
+      isFuture: boolean;
       isToday: boolean;
       totalSenhas: number;
       dentroSlaPerc: number;
@@ -185,12 +191,14 @@ export function EsperaCalendarCard({
       const prevDate = new Date(year, month - 1, dayNum);
       const iso = prevDate.toLocaleDateString('en-CA');
       const isWk = isWeekend(iso);
-      const stats = !isWk ? statsPorDia[iso] : null;
+      const isFuture = iso > todayStr;
+      const stats = !isWk && !isFuture ? statsPorDia[iso] : null;
       grid.push({
         dayNumber: dayNum,
         dateIso: iso,
         isCurrentMonth: false,
         isWeekend: isWk,
+        isFuture,
         isToday: iso === todayStr,
         totalSenhas: stats?.total || 0,
         dentroSlaPerc: stats && stats.countEspera > 0 ? Math.round((stats.dentroSla / stats.countEspera) * 100) : 100,
@@ -202,10 +210,11 @@ export function EsperaCalendarCard({
       const date = new Date(year, month, day);
       const iso = date.toLocaleDateString('en-CA');
       const isWk = isWeekend(iso);
-      const stats = !isWk ? statsPorDia[iso] : null;
+      const isFuture = iso > todayStr;
+      const stats = !isWk && !isFuture ? statsPorDia[iso] : null;
       const total = stats?.total || 0;
 
-      if (!isWk && total > 0) {
+      if (!isWk && !isFuture && total > 0) {
         senhasMes += total;
         diasMovimento += 1;
       }
@@ -215,8 +224,9 @@ export function EsperaCalendarCard({
         dateIso: iso,
         isCurrentMonth: true,
         isWeekend: isWk,
+        isFuture,
         isToday: iso === todayStr,
-        totalSenhas: isWk ? 0 : total,
+        totalSenhas: isWk || isFuture ? 0 : total,
         dentroSlaPerc: stats && stats.countEspera > 0 ? Math.round((stats.dentroSla / stats.countEspera) * 100) : 100,
       });
     }
@@ -228,14 +238,16 @@ export function EsperaCalendarCard({
       const nextDate = new Date(year, month + 1, day);
       const iso = nextDate.toLocaleDateString('en-CA');
       const isWk = isWeekend(iso);
-      const stats = !isWk ? statsPorDia[iso] : null;
+      const isFuture = iso > todayStr;
+      const stats = !isWk && !isFuture ? statsPorDia[iso] : null;
       grid.push({
         dayNumber: day,
         dateIso: iso,
         isCurrentMonth: false,
         isWeekend: isWk,
+        isFuture,
         isToday: iso === todayStr,
-        totalSenhas: isWk ? 0 : (stats?.total || 0),
+        totalSenhas: isWk || isFuture ? 0 : (stats?.total || 0),
         dentroSlaPerc: stats && stats.countEspera > 0 ? Math.round((stats.dentroSla / stats.countEspera) * 100) : 100,
       });
     }
@@ -445,6 +457,8 @@ export function EsperaCalendarCard({
               bgClass = 'bg-slate-950/40 text-slate-500 hover:bg-slate-900/60 border-white/[0.04]';
             } else if (!c.isCurrentMonth) {
               bgClass = 'bg-transparent text-slate-600 opacity-40 hover:opacity-80 border-transparent';
+            } else if (c.isFuture) {
+              bgClass = 'bg-white/[0.01] text-slate-600 border-white/[0.03] cursor-default';
             } else if (hasMove) {
               bgClass = 'bg-indigo-950/30 text-white border-indigo-500/25 hover:bg-indigo-900/40 hover:border-indigo-400/50';
             }
@@ -461,17 +475,23 @@ export function EsperaCalendarCard({
               <button
                 key={c.dateIso}
                 type="button"
+                disabled={c.isFuture}
                 onClick={() => {
+                  if (c.isFuture) return;
                   if (isSelected) {
                     onSelectDate(null); // Desmarca se já estiver ativo
                   } else {
                     onSelectDate(c.dateIso);
                   }
                 }}
-                className={`group relative h-10 rounded-xl border flex flex-col items-center justify-between p-1 transition-all cursor-pointer ${bgClass}`}
+                className={`group relative h-10 rounded-xl border flex flex-col items-center justify-between p-1 transition-all ${
+                  c.isFuture ? 'cursor-default' : 'cursor-pointer'
+                } ${bgClass}`}
                 title={
                   c.isWeekend
                     ? `${c.dateIso}: Final de Semana — Não há expediente no Cartório (Fechado).`
+                    : c.isFuture
+                    ? `${c.dateIso}: Data futura — Sem atendimentos registrados.`
                     : hasMove
                     ? `${c.dateIso}: ${c.totalSenhas} senhas emitidas (${c.dentroSlaPerc}% dentro do SLA). Clique para filtrar!`
                     : `${c.dateIso}: Sem senhas registradas.`

@@ -422,10 +422,12 @@ export function buildEsperaDataResponseFromRecords(
 export function generateMonthRecords(year: number, month: number, slaMinutes = 15): SenhaRecord[] {
   const daysInMonth = new Date(year, month, 0).getDate();
   const allRecords: SenhaRecord[] = [];
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 
   for (let day = 1; day <= daysInMonth; day++) {
     const dateIso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    if (!isWeekend(dateIso)) {
+    // Finais de semana e datas futuras (após hoje) não possuem atendimentos
+    if (!isWeekend(dateIso) && dateIso <= todayStr) {
       const dayRecs = generateDayRecords(dateIso, slaMinutes);
       allRecords.push(...dayRecs);
     }

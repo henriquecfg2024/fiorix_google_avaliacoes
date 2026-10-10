@@ -573,7 +573,7 @@ export async function getEsperaData(
       // 1. Finais de semana (Sábado e Domingo) NUNCA possuem expediente (0 senhas registradas)
       // 2. Dias úteis (Segunda a Sexta) sem dados suficientes no NextQS são populados com registros realistas
       if (/^\d{4}-\d{2}-\d{2}$/.test(periodo)) {
-        if (isWeekend(periodo)) {
+        if (isWeekend(periodo) || periodo > todayStr) {
           normalized = [];
         } else if (normalized.length === 0) {
           normalized = generateDayRecords(periodo, config.slaMinutes);
@@ -603,6 +603,11 @@ export async function getEsperaData(
           const dayIso = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
           // Final de semana (Sábado ou Domingo): Cartório fechado (0 senhas)
           if (isWeekend(dayIso)) {
+            continue;
+          }
+
+          // Datas futuras (após a data de hoje): Cartório ainda não atendeu (0 senhas)
+          if (dayIso > todayStr) {
             continue;
           }
 
