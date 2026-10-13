@@ -581,42 +581,82 @@ function SortHeader({
 function cleanServiceName(name: string): string {
   if (!name || name === '—') return name;
   const upper = name.trim().toUpperCase();
+
+  // 1. PRIORIDADE
+  if (upper === 'PRIORIDADE' || upper.includes('PRIORIDADE')) {
+    return 'PRIORIDADE';
+  }
+
+  // 2. RETIRADA DE CERTIDÃO
   if (
+    upper === 'RETIRADA DE CERTIDÃO' ||
+    upper === 'RETIRADA DE CERTIDAO' ||
+    upper === 'CERTIDÕES PRONTAS' ||
+    upper === 'CERTIDOES PRONTAS' ||
+    upper === 'CERTIDÕES NA HORA' ||
+    upper === 'CERTIDOES NA HORA' ||
+    upper.includes('CERTIDÕES PRONTAS') ||
+    upper.includes('CERTIDOES PRONTAS') ||
+    upper.includes('CERTIDÕES NA HORA') ||
+    upper.includes('CERTIDOES NA HORA') ||
+    upper.includes('NA HORA') ||
+    upper.includes('PRONTAS') ||
+    (upper.includes('RETIRADA') && upper.includes('CERTID'))
+  ) {
+    return 'RETIRADA DE CERTIDÃO';
+  }
+
+  // 3. PEDIDO DE CERTIDÃO
+  if (
+    upper === 'PEDIDO DE CERTIDÃO' ||
+    upper === 'PEDIDO DE CERTIDAO' ||
+    upper === 'CERTIDÃO' ||
+    upper === 'CERTIDAO' ||
+    upper === 'CERTIDÕES' ||
+    upper === 'CERTIDOES' ||
+    upper.includes('PEDIDO DE CERTID') ||
+    upper.includes('CERTID')
+  ) {
+    return 'PEDIDO DE CERTIDÃO';
+  }
+
+  // 4. RETIRADA DE TÍTULOS
+  if (
+    upper === 'RETIRADA' ||
+    upper === 'RETIRDA' ||
+    upper === 'RETIRADA DE TÍTULOS' ||
+    upper === 'RETIRADA DE TITULOS' ||
+    upper === 'RETIRDA DE TÍTULOS' ||
+    upper === 'RETIRDA DE TITULOS' ||
+    upper.includes('RETIRADA') ||
+    upper.includes('RETIRDA')
+  ) {
+    return 'RETIRADA DE TÍTULOS';
+  }
+
+  // 5. PROTOCOLO DE TÍTULOS
+  if (
+    upper === 'TÍTULO' ||
+    upper === 'TITULO' ||
+    upper === 'PROTOCOLO' ||
+    upper === 'PROTOCOLOS' ||
+    upper === 'PROTOCOLO DE TÍTULOS' ||
+    upper === 'PROTOCOLO DE TITULOS' ||
+    upper === 'PROTOCOLOS DE TÍTULOS' ||
+    upper === 'PROTOCOLOS DE TITULOS' ||
     upper === 'NÃO AGENDADO' ||
     upper === 'NAO AGENDADO' ||
     upper === 'NÃO-AGENDADO' ||
     upper === 'NAO-AGENDADO' ||
     upper.includes('NÃO AGENDADO') ||
-    upper.includes('NAO AGENDADO')
+    upper.includes('NAO AGENDADO') ||
+    upper.includes('PROTOCOLO') ||
+    upper.includes('TÍTULO') ||
+    upper.includes('TITULO')
   ) {
-    return 'TÍTULO';
+    return 'PROTOCOLO DE TÍTULOS';
   }
-  if (
-    upper === 'CERTIDÕES PRONTAS' ||
-    upper === 'CERTIDOES PRONTAS' ||
-    upper === 'CERTIDÕES NA HORA' ||
-    upper === 'CERTIDOES NA HORA' ||
-    upper === 'RETIRADA DE CERTIDÃO' ||
-    upper === 'RETIRADA DE CERTIDAO' ||
-    upper.includes('CERTIDÕES PRONTAS') ||
-    upper.includes('CERTIDOES PRONTAS') ||
-    upper.includes('CERTIDÕES NA HORA') ||
-    upper.includes('CERTIDOES NA HORA') ||
-    (upper.includes('RETIRADA') && upper.includes('CERTID'))
-  ) {
-    return 'CERTIDÕES NA HORA';
-  }
-  if (
-    upper === 'CERTIDÃO' ||
-    upper === 'CERTIDAO' ||
-    upper === 'PEDIDO DE CERTIDÃO' ||
-    upper === 'PEDIDO DE CERTIDAO' ||
-    upper.includes('PEDIDO DE CERTID') ||
-    upper === 'CERTIDÕES' ||
-    upper === 'CERTIDOES'
-  ) {
-    return 'PEDIDO DE CERTIDÃO';
-  }
+
   return name.trim();
 }
 
@@ -750,11 +790,13 @@ function getServicoBadge(servico: string) {
   let badgeStyle = 'bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-white/10';
   if (s.includes('PRIORIDADE')) {
     badgeStyle = 'bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-500/30';
+  } else if (s === 'RETIRADA DE CERTIDÃO' || (s.includes('RETIRADA') && s.includes('CERTID'))) {
+    badgeStyle = 'bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30';
   } else if (s.includes('CERTID')) {
     badgeStyle = 'bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-500/30';
   } else if (s.includes('RETIRADA')) {
     badgeStyle = 'bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30';
-  } else if (s.includes('AGENDADO') || s.includes('TÍTULO') || s.includes('TITULO')) {
+  } else if (s.includes('PROTOCOLO') || s.includes('AGENDADO') || s.includes('TÍTULO') || s.includes('TITULO')) {
     badgeStyle = 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/25';
   }
   return (

@@ -231,17 +231,16 @@ function formatTime(value: string | null | undefined): string {
 function cleanServiceName(name: string): string {
   if (!name || name === '—') return name;
   const upper = name.trim().toUpperCase();
-  if (
-    upper === 'NÃO AGENDADO' ||
-    upper === 'NAO AGENDADO' ||
-    upper === 'NÃO-AGENDADO' ||
-    upper === 'NAO-AGENDADO' ||
-    upper.includes('NÃO AGENDADO') ||
-    upper.includes('NAO AGENDADO')
-  ) {
-    return 'TÍTULO';
+
+  // 1. PRIORIDADE
+  if (upper === 'PRIORIDADE' || upper.includes('PRIORIDADE')) {
+    return 'PRIORIDADE';
   }
+
+  // 2. RETIRADA DE CERTIDÃO
   if (
+    upper === 'RETIRADA DE CERTIDÃO' ||
+    upper === 'RETIRADA DE CERTIDAO' ||
     upper === 'CERTIDÕES PRONTAS' ||
     upper === 'CERTIDOES PRONTAS' ||
     upper === 'CERTIDÕES NA HORA' ||
@@ -249,21 +248,65 @@ function cleanServiceName(name: string): string {
     upper.includes('CERTIDÕES PRONTAS') ||
     upper.includes('CERTIDOES PRONTAS') ||
     upper.includes('CERTIDÕES NA HORA') ||
-    upper.includes('CERTIDOES NA HORA')
+    upper.includes('CERTIDOES NA HORA') ||
+    upper.includes('NA HORA') ||
+    upper.includes('PRONTAS') ||
+    (upper.includes('RETIRADA') && upper.includes('CERTID'))
   ) {
-    return 'CERTIDÕES NA HORA';
+    return 'RETIRADA DE CERTIDÃO';
   }
+
+  // 3. PEDIDO DE CERTIDÃO
   if (
-    upper === 'CERTIDÃO' ||
-    upper === 'CERTIDAO' ||
     upper === 'PEDIDO DE CERTIDÃO' ||
     upper === 'PEDIDO DE CERTIDAO' ||
-    upper.includes('PEDIDO DE CERTID') ||
+    upper === 'CERTIDÃO' ||
+    upper === 'CERTIDAO' ||
     upper === 'CERTIDÕES' ||
-    upper === 'CERTIDOES'
+    upper === 'CERTIDOES' ||
+    upper.includes('PEDIDO DE CERTID') ||
+    upper.includes('CERTID')
   ) {
     return 'PEDIDO DE CERTIDÃO';
   }
+
+  // 4. RETIRADA DE TÍTULOS
+  if (
+    upper === 'RETIRADA' ||
+    upper === 'RETIRDA' ||
+    upper === 'RETIRADA DE TÍTULOS' ||
+    upper === 'RETIRADA DE TITULOS' ||
+    upper === 'RETIRDA DE TÍTULOS' ||
+    upper === 'RETIRDA DE TITULOS' ||
+    upper.includes('RETIRADA') ||
+    upper.includes('RETIRDA')
+  ) {
+    return 'RETIRADA DE TÍTULOS';
+  }
+
+  // 5. PROTOCOLO DE TÍTULOS
+  if (
+    upper === 'TÍTULO' ||
+    upper === 'TITULO' ||
+    upper === 'PROTOCOLO' ||
+    upper === 'PROTOCOLOS' ||
+    upper === 'PROTOCOLO DE TÍTULOS' ||
+    upper === 'PROTOCOLO DE TITULOS' ||
+    upper === 'PROTOCOLOS DE TÍTULOS' ||
+    upper === 'PROTOCOLOS DE TITULOS' ||
+    upper === 'NÃO AGENDADO' ||
+    upper === 'NAO AGENDADO' ||
+    upper === 'NÃO-AGENDADO' ||
+    upper === 'NAO-AGENDADO' ||
+    upper.includes('NÃO AGENDADO') ||
+    upper.includes('NAO AGENDADO') ||
+    upper.includes('PROTOCOLO') ||
+    upper.includes('TÍTULO') ||
+    upper.includes('TITULO')
+  ) {
+    return 'PROTOCOLO DE TÍTULOS';
+  }
+
   return name.trim();
 }
 
