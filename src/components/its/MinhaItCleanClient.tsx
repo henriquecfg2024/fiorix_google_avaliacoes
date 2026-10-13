@@ -393,16 +393,18 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
   const cienciasButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // Permissão para gerenciar responsáveis
-  const isGestao = ['ADMIN', 'MASTER'].includes(currentUser.role);
-  const papelItemCustodia = itsCustodia.find(i => i.id === currentIt?.id)?.papelNaIt;
-  const isRespPrincipal = papelItemCustodia === 'RESPONSAVEL_PRINCIPAL' || (!isSupervisao && hasCustodia);
+  const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(String(currentUser.role || '').toUpperCase());
+  const todasAsIts = [...itsCustodia, ...(itsByParticipation || [])];
+  const itemAtual = todasAsIts.find(i => i.id === currentIt?.id);
+  const papelItemCustodia = itemAtual?.papelNaIt;
+  const isRespPrincipal = papelItemCustodia === 'RESPONSAVEL_PRINCIPAL' || (!isSupervisao && hasCustodia && papelItemCustodia !== 'LEITOR' && papelItemCustodia !== 'CORRESPONSAVEL');
   const podeGerenciar = (isGestao || isRespPrincipal) && Boolean(currentIt);
   const papelLabel = papelItemCustodia === 'RESPONSAVEL_PRINCIPAL'
     ? 'Responsável técnico'
     : papelItemCustodia === 'CORRESPONSAVEL'
     ? 'Corresponsável'
     : papelItemCustodia === 'LEITOR'
-    ? 'Colaborador'
+    ? 'Acesso de Leitura'
     : hasCustodia
     ? 'Responsável técnico'
     : isSupervisao
@@ -949,6 +951,14 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                       <span className={`shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full border ${papelConfig.bg} ${papelConfig.color}`}>
                         {papelConfig.label}
                       </span>
+                      <a
+                        href={`/minha-it?codigo=${it.codigo}`}
+                        className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/35 text-indigo-300 text-xs font-semibold transition-all border border-indigo-500/30"
+                        title="Ler Instrução de Trabalho"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Ler IT</span>
+                      </a>
                       {it.papelNaIt === 'CORRESPONSAVEL' && (
                         <button
                           onClick={() => abrirPropostaModal(it.id)}
@@ -1245,13 +1255,13 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
 
 
 
-            {/* Seletor de custódia */}
-            {itsCustodia.length > 1 ? (
+            {/* Seletor de custódia / ITs acessíveis */}
+            {todasAsIts.length > 1 ? (
               <div className="mb-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#EFECE6] border border-[#DDD7CD] rounded-2xl px-4 py-3">
                 <div className="flex items-center gap-2 shrink-0">
                   <FileText className="w-4 h-4 text-emerald-700" />
                   <span className="text-xs font-bold text-[#756E63] uppercase tracking-wide">Suas ITs</span>
-                  <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded-full">{itsCustodia.length}</span>
+                  <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded-full">{todasAsIts.length}</span>
                 </div>
                 <div className="relative flex-1 min-w-0">
                   <select
@@ -1260,9 +1270,9 @@ export function MinhaItCleanClient({ initialData }: MinhaItCleanClientProps) {
                     disabled={isPending}
                     className="w-full appearance-none bg-white hover:bg-[#FAFAF8] text-[#1C1A17] border border-[#DDD7CD] pr-8 pl-3 py-2 rounded-xl text-sm font-bold focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 focus:outline-none cursor-pointer transition-all shadow-xs"
                   >
-                    {itsCustodia.map((it) => (
+                    {todasAsIts.map((it) => (
                       <option key={it.id} value={it.codigo} className="bg-white text-[#1C1A17] font-medium">
-                        {it.titulo} — {it.departamento} • v{it.versao}
+                        {it.titulo} — {it.departamento} • v{it.versao} {it.papelNaIt === 'LEITOR' ? '(Leitura)' : it.papelNaIt === 'CORRESPONSAVEL' ? '(Corresponsável)' : ''}
                       </option>
                     ))}
                   </select>

@@ -2924,7 +2924,8 @@ export async function adicionarParticipanteIt(params: {
   try {
     const currentUser = await requireAuth();
     const tenantId = currentUser.tenantId;
-    const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(currentUser.role);
+    const userRole = String(currentUser.role || '').toUpperCase();
+    const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(userRole);
 
     // Buscar a IT
     const itRows = await prisma.$queryRawUnsafe<any[]>(
@@ -3055,7 +3056,8 @@ export async function removerParticipanteIt(
   try {
     const currentUser = await requireAuth();
     const tenantId = currentUser.tenantId;
-    const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(currentUser.role);
+    const userRole = String(currentUser.role || '').toUpperCase();
+    const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(userRole);
 
     if (!motivo?.trim()) return { success: false, error: 'O motivo da remoção é obrigatório.' };
 
@@ -3136,7 +3138,8 @@ export async function transferirResponsabilidadeIt(params: {
   try {
     const currentUser = await requireAuth();
     const tenantId = currentUser.tenantId;
-    const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(currentUser.role);
+    const userRole = String(currentUser.role || '').toUpperCase();
+    const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(userRole);
 
     if (!params.motivo?.trim()) return { success: false, error: 'O motivo da transferência é obrigatório.' };
 

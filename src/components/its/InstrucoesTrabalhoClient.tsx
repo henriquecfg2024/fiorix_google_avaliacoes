@@ -41,6 +41,7 @@ import {
   ItPendenteAprovacaoDetalhe,
   HistoricoVersoesData,
 } from '@/app/actions/its';
+import { GerenciarResponsaveisModal } from './GerenciarResponsaveisModal';
 
 // ═══════════════════════════════════════════════
 // TIPOS
@@ -138,10 +139,12 @@ function ItDetailModal({
   it,
   onClose,
   canManage,
+  onManageAccess,
 }: {
   it: ITItem;
   onClose: () => void;
   canManage: boolean;
+  onManageAccess?: (it: ITItem) => void;
 }) {
   const revisao = getStatusRevisao(it.diasSemRevisao);
 
@@ -182,10 +185,23 @@ function ItDetailModal({
             </a>
           )}
         </div>
-        <div className="p-4 sm:p-5 border-t border-white/10 flex justify-end bg-white/[0.02]">
+        <div className="p-4 sm:p-5 border-t border-white/10 flex items-center justify-between gap-3 bg-white/[0.02]">
+          {canManage && onManageAccess && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onManageAccess(it);
+              }}
+              className="px-4 py-2.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 text-xs font-bold transition-all border border-indigo-500/30 shadow-sm flex items-center gap-1.5 cursor-pointer"
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Gerenciar Acessos</span>
+            </button>
+          )}
           <button
             onClick={onClose}
-            className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all border border-white/15 shadow-sm"
+            className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all border border-white/15 shadow-sm ml-auto cursor-pointer"
           >
             Fechar
           </button>
@@ -601,6 +617,7 @@ export function InstrucoesTrabalhoClient({
   const [arquivarModal, setArquivarModal] = useState<ITItem | null>(null);
   const [historicoModal, setHistoricoModal] = useState<ITItem | null>(null);
   const [excluirPermanenteModal, setExcluirPermanenteModal] = useState<ITItem | null>(null);
+  const [acessosModalIt, setAcessosModalIt] = useState<ITItem | null>(null);
   const [menuAberto, setMenuAberto] = useState<string | null>(null); // id da IT com menu aberto
 
   const handleActioned = useCallback(() => {
@@ -851,28 +868,47 @@ export function InstrucoesTrabalhoClient({
 
                         <button
                           onClick={() => setViewItModal(it)}
-                          className="shrink-0 px-4 py-1.5 rounded-xl border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] text-white text-xs font-semibold transition-all shadow-xs"
+                          className="shrink-0 px-4 py-1.5 rounded-xl border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
                         >
                           Abrir
                         </button>
+
+                        {/* Botão de Acessos direto no card para o Substituto/Gestão */}
+                        {isGestao && (
+                          <button
+                            onClick={() => setAcessosModalIt(it)}
+                            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-xs font-semibold transition-all shadow-xs cursor-pointer"
+                            title="Conceder ou retirar acesso de leitura a colaboradores"
+                          >
+                            <Users className="w-3.5 h-3.5" />
+                            <span>Acessos</span>
+                          </button>
+                        )}
 
                         {/* Menu de ações (apenas gestão) */}
                         {isGestao && (
                           <div className="relative shrink-0">
                             <button
                               onClick={(e) => { e.stopPropagation(); setMenuAberto(menuAberto === it.id ? null : it.id); }}
-                              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+                              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                              title="Mais opções"
                             >
                               <MoreVertical className="w-4 h-4" />
                             </button>
                             {menuAberto === it.id && (
                               <div
-                                className="absolute right-0 top-10 z-20 w-52 rounded-2xl border border-white/15 bg-[#0D1424]/95 shadow-2xl p-1.5 backdrop-blur-xl overflow-hidden"
+                                className="absolute right-0 top-10 z-20 w-56 rounded-2xl border border-white/15 bg-[#0D1424]/95 shadow-2xl p-1.5 backdrop-blur-xl overflow-hidden animate-in fade-in-50 zoom-in-95"
                                 onMouseLeave={() => setMenuAberto(null)}
                               >
                                 <button
+                                  onClick={() => { setMenuAberto(null); setAcessosModalIt(it); }}
+                                  className="flex items-center gap-2.5 w-full px-3.5 py-2 rounded-xl text-xs font-medium text-indigo-300 hover:bg-indigo-500/15 transition-all text-left cursor-pointer"
+                                >
+                                  <Users className="w-4 h-4 text-indigo-400" /> Permissões de leitura
+                                </button>
+                                <button
                                   onClick={() => { setMenuAberto(null); setHistoricoModal(it); }}
-                                  className="flex items-center gap-2.5 w-full px-3.5 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-white/[0.08] hover:text-white transition-all"
+                                  className="flex items-center gap-2.5 w-full px-3.5 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-white/[0.08] hover:text-white transition-all text-left cursor-pointer"
                                 >
                                   <History className="w-4 h-4 text-slate-400" /> Ver histórico
                                 </button>
@@ -1145,6 +1181,23 @@ export function InstrucoesTrabalhoClient({
           it={viewItModal}
           onClose={() => setViewItModal(null)}
           canManage={isGestao}
+          onManageAccess={(it) => setAcessosModalIt(it)}
+        />
+      )}
+      {acessosModalIt && (
+        <GerenciarResponsaveisModal
+          isOpen={!!acessosModalIt}
+          itId={acessosModalIt.id}
+          itCodigo={acessosModalIt.codigo}
+          itTitulo={acessosModalIt.titulo}
+          currentUser={{
+            id: currentUser.id,
+            name: currentUser.name || 'Usuário',
+            email: currentUser.email || '',
+            role: currentUser.role,
+          }}
+          onClose={() => setAcessosModalIt(null)}
+          onSuccess={handleActioned}
         />
       )}
       {pessoasModal && (

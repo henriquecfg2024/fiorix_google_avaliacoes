@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Users,
@@ -9,11 +9,10 @@ import {
   Eye,
   UserMinus,
   ArrowLeftRight,
-  Filter,
   CheckCircle2,
   AlertCircle,
-  Clock,
-  Plus,
+  ShieldCheck,
+  Loader2,
 } from 'lucide-react';
 import {
   getParticipantesIt,
@@ -62,6 +61,15 @@ export function GerenciarResponsaveisModal({
   const [modalError, setModalError] = useState('');
   const [modalSuccess, setModalSuccess] = useState('');
 
+  // Confirmação in-modal para revogação/remoção de acesso
+  const [confirmarRemocao, setConfirmarRemocao] = useState<{
+    usuarioId: string;
+    nome: string;
+    papel: string;
+  } | null>(null);
+  const [motivoRemocao, setMotivoRemocao] = useState('');
+  const [removendo, setRemovendo] = useState(false);
+
   // Transferência de responsabilidade principal
   const [transferirModal, setTransferirModal] = useState(false);
   const [transferirParaId, setTransferirParaId] = useState('');
@@ -69,20 +77,58 @@ export function GerenciarResponsaveisModal({
   const [transferirManter, setTransferirManter] = useState(true);
   const [transferindo, setTransferindo] = useState(false);
 
+  const userRole = String(currentUser.role || '').toUpperCase();
+  const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(userRole);
+  const meuParticipante = participantes.find((x) => x.usuarioId === currentUser.id);
+  const souResponsavelPrincipal = meuParticipante?.papel === 'RESPONSAVEL_PRINCIPAL';
+  const podeGerenciar = isGestao || souResponsavelPrincipal;
+
   // Fechamento com Esc
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        if (confirmarRemocao) {
+          setConfirmarRemocao(null);
+        } else if (transferirModal) {
+          setTransferirModal(false);
+        } else {
+          onClose();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, confirmarRemocao, transferirModal]);
 
-  // Carregar participantes ao abrir
+  // Função para buscar colaboradores
+  async function carregarBusca(setor?: string, termo?: string) {
+    if (!itId) return;
+    setBuscandoUser(true);
+    setModalError('');
+    try {
+      const res = await buscarColaboradoresParaVincular(
+        itId,
+        termo !== undefined ? termo : buscaParticipante,
+        setor !== undefined ? setor : filtroSetor
+      );
+      if (res.success) {
+        setResultadosBusca(res.usuarios || []);
+        if (res.setoresDisponiveis && res.setoresDisponiveis.length) {
+          setSetoresDisponiveis(res.setoresDisponiveis);
+        }
+      } else {
+        setModalError(res.error || 'Erro na busca de colaboradores.');
+      }
+    } catch (err: any) {
+      setModalError(err?.message || 'Erro ao carregar colaboradores.');
+    } finally {
+      setBuscandoUser(false);
+    }
+  }
+
+  // Carregar participantes e candidatos ao abrir
   useEffect(() => {
     if (!isOpen || !itId) return;
 
@@ -93,6 +139,7 @@ export function GerenciarResponsaveisModal({
       setModalSuccess('');
       setBuscaParticipante('');
       setResultadosBusca([]);
+      setConfirmarRemocao(null);
       setTransferirModal(false);
 
       const res = await getParticipantesIt(itId!);
@@ -103,6 +150,8 @@ export function GerenciarResponsaveisModal({
           setModalError(res.error || 'Erro ao carregar participantes.');
         }
         setLoading(false);
+        // Pré-carrega colaboradores disponíveis
+        carregarBusca('TODOS', '');
       }
     }
 
@@ -114,31 +163,6 @@ export function GerenciarResponsaveisModal({
 
   if (!isOpen || !itId) return null;
 
-  const isGestao = ['ADMIN', 'SUBSTITUTO', 'MASTER'].includes(currentUser.role);
-  const meuParticipante = participantes.find((x) => x.usuarioId === currentUser.id);
-  const souResponsavelPrincipal = meuParticipante?.papel === 'RESPONSAVEL_PRINCIPAL';
-  const podeGerenciar = isGestao || souResponsavelPrincipal;
-
-  async function handleBuscar(setor?: string) {
-    if (!itId) return;
-    setBuscandoUser(true);
-    setModalError('');
-    const res = await buscarColaboradoresParaVincular(
-      itId,
-      buscaParticipante,
-      setor !== undefined ? setor : filtroSetor
-    );
-    if (res.success) {
-      setResultadosBusca(res.usuarios || []);
-      if (res.setoresDisponiveis && res.setoresDisponiveis.length) {
-        setSetoresDisponiveis(res.setoresDisponiveis);
-      }
-    } else {
-      setModalError(res.error || 'Erro na busca de colaboradores.');
-    }
-    setBuscandoUser(false);
-  }
-
   async function handleAdicionar(usuarioId: string, papel: PapelNaIt) {
     if (!itId) return;
     setAdicionandoId(usuarioId);
@@ -147,11 +171,15 @@ export function GerenciarResponsaveisModal({
 
     const res = await adicionarParticipanteIt({ itId, usuarioId, papel });
     if (res.success) {
-      setModalSuccess('Participante vinculado com sucesso!');
-      setResultadosBusca([]);
-      setBuscaParticipante('');
+      setModalSuccess(
+        papel === 'LEITOR'
+          ? 'Acesso de leitura concedido com sucesso!'
+          : 'Participante adicionado com sucesso!'
+      );
       const reload = await getParticipantesIt(itId);
       if (reload.success) setParticipantes(reload.participantes || []);
+      // Atualiza lista de colaboradores disponíveis
+      carregarBusca(filtroSetor, buscaParticipante);
       if (onSuccess) onSuccess();
     } else {
       setModalError(res.error || 'Erro ao adicionar participante.');
@@ -159,22 +187,40 @@ export function GerenciarResponsaveisModal({
     setAdicionandoId(null);
   }
 
-  async function handleRemover(usuarioId: string, nome: string) {
-    if (!itId) return;
-    const motivo = prompt(`Motivo para remover ${nome} desta IT (obrigatório):`);
-    if (!motivo?.trim()) return;
-
+  function iniciarRemocao(usuarioId: string, nome: string, papel: string) {
+    setConfirmarRemocao({ usuarioId, nome, papel });
+    setMotivoRemocao(
+      userRole === 'SUBSTITUTO'
+        ? 'Acesso revogado pelo Oficial Substituto'
+        : 'Acesso revogado pela gestão'
+    );
     setModalError('');
     setModalSuccess('');
-    const res = await removerParticipanteIt(itId, usuarioId, motivo.trim());
+  }
+
+  async function executarRemocao() {
+    if (!itId || !confirmarRemocao) return;
+    if (!motivoRemocao.trim()) {
+      setModalError('Informe o motivo da remoção.');
+      return;
+    }
+
+    setRemovendo(true);
+    setModalError('');
+    setModalSuccess('');
+
+    const res = await removerParticipanteIt(itId, confirmarRemocao.usuarioId, motivoRemocao.trim());
     if (res.success) {
-      setModalSuccess(`Participante ${nome} removido.`);
+      setModalSuccess(`Acesso de ${confirmarRemocao.nome} retirado com sucesso.`);
+      setConfirmarRemocao(null);
       const reload = await getParticipantesIt(itId);
       if (reload.success) setParticipantes(reload.participantes || []);
+      carregarBusca(filtroSetor, buscaParticipante);
       if (onSuccess) onSuccess();
     } else {
       setModalError(res.error || 'Erro ao remover participante.');
     }
+    setRemovendo(false);
   }
 
   async function handleTransferir() {
@@ -225,11 +271,18 @@ export function GerenciarResponsaveisModal({
               <Users className="w-5 h-5 text-indigo-400" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-base font-bold text-white truncate">
-                Responsáveis pela IT
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-white truncate">
+                  Gestão de Acessos e Leitores da IT
+                </h2>
+                {userRole === 'SUBSTITUTO' && (
+                  <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-300">
+                    <ShieldCheck className="w-3 h-3" /> Substituto
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-400 truncate mt-0.5">
-                {itCodigo ? `${itCodigo} • ` : ''}{itTitulo || 'Gerencie quem tem acesso a este documento'}
+                {itCodigo ? `${itCodigo} • ` : ''}{itTitulo || 'Conceda ou retire acesso de leitura para colaboradores'}
               </p>
             </div>
           </div>
@@ -263,17 +316,71 @@ export function GerenciarResponsaveisModal({
             </div>
           )}
 
+          {/* Diálogo de Confirmação de Revogação de Acesso */}
+          {confirmarRemocao && (
+            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 space-y-3 animate-in fade-in-50">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                    Confirmar Retirada de Acesso
+                  </h4>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    Deseja retirar o acesso de leitura de <strong className="text-white">{confirmarRemocao.nome}</strong> desta Instrução de Trabalho?
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                  Motivo da revogação (obrigatório para auditoria):
+                </label>
+                <input
+                  type="text"
+                  value={motivoRemocao}
+                  onChange={(e) => setMotivoRemocao(e.target.value)}
+                  placeholder="Ex: Acesso revogado pelo Oficial Substituto"
+                  className="w-full px-3 py-2 rounded-xl border border-white/20 bg-[#0B1020]/90 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-red-400"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setConfirmarRemocao(null)}
+                  disabled={removendo}
+                  className="px-3.5 py-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={executarRemocao}
+                  disabled={removendo || !motivoRemocao.trim()}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+                >
+                  {removendo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserMinus className="w-3.5 h-3.5" />}
+                  <span>Confirmar Retirada</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Lista de Participantes Atuais */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Participantes Atuais ({participantes.length})
+                Colaboradores com Acesso ({participantes.length})
               </h3>
+              <span className="text-[11px] text-slate-500">
+                {participantes.filter(p => p.papel === 'LEITOR').length} leitor(es)
+              </span>
             </div>
 
             {loading ? (
-              <div className="py-8 text-center text-slate-500 text-xs">
-                Carregando participantes...
+              <div className="py-8 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+                <span>Carregando participantes...</span>
               </div>
             ) : participantes.length === 0 ? (
               <div className="py-8 text-center text-slate-500 text-xs rounded-xl border border-white/6 bg-white/[0.02]">
@@ -296,9 +403,9 @@ export function GerenciarResponsaveisModal({
                       icon: Users,
                     },
                     LEITOR: {
-                      label: 'Leitor',
-                      color: 'text-slate-300',
-                      bg: 'bg-slate-500/15 border-slate-500/25',
+                      label: 'Acesso de Leitura',
+                      color: 'text-emerald-300',
+                      bg: 'bg-emerald-500/15 border-emerald-500/25',
                       icon: Eye,
                     },
                   }[p.papel] || {
@@ -345,13 +452,13 @@ export function GerenciarResponsaveisModal({
                         {podeRemover && (
                           <button
                             type="button"
-                            onClick={() => handleRemover(p.usuarioId, p.nome)}
+                            onClick={() => iniciarRemocao(p.usuarioId, p.nome, p.papel)}
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-colors cursor-pointer text-[11px] font-semibold"
-                            title={`Desvincular ${p.nome}`}
-                            aria-label={`Desvincular ${p.nome}`}
+                            title={`Retirar acesso de ${p.nome}`}
+                            aria-label={`Retirar acesso de ${p.nome}`}
                           >
                             <UserMinus className="w-3 h-3" />
-                            <span>Desvincular</span>
+                            <span>Retirar acesso</span>
                           </button>
                         )}
                       </div>
@@ -362,12 +469,19 @@ export function GerenciarResponsaveisModal({
             )}
           </div>
 
-          {/* Adicionar Colaborador (Apenas para Responsável Principal ou Gestão) */}
+          {/* Conceder Acesso a Colaborador (Apenas para Responsável Principal ou Gestão/Substituto) */}
           {podeGerenciar && (
             <div className="border-t border-white/10 pt-5 space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Adicionar Colaborador
-              </h3>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                    Conceder Acesso a Novo Colaborador
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Como {userRole === 'SUBSTITUTO' ? 'Oficial Substituto' : 'gestor'}, você pode conceder acesso de leitura a qualquer colaborador.
+                  </p>
+                </div>
+              </div>
 
               <div className="flex flex-col sm:flex-row gap-2">
                 {/* Campo de Busca */}
@@ -375,10 +489,12 @@ export function GerenciarResponsaveisModal({
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Buscar por nome ou e-mail..."
+                    placeholder="Buscar por nome, e-mail ou cargo..."
                     value={buscaParticipante}
-                    onChange={(e) => setBuscaParticipante(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleBuscar()}
+                    onChange={(e) => {
+                      setBuscaParticipante(e.target.value);
+                    }}
+                    onKeyDown={(e) => e.key === 'Enter' && carregarBusca(filtroSetor, buscaParticipante)}
                     className="w-full pl-9 pr-4 py-2 rounded-xl border border-white/15 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-all"
                   />
                 </div>
@@ -389,8 +505,9 @@ export function GerenciarResponsaveisModal({
                     <select
                       value={filtroSetor}
                       onChange={(e) => {
-                        setFiltroSetor(e.target.value);
-                        handleBuscar(e.target.value);
+                        const s = e.target.value;
+                        setFiltroSetor(s);
+                        carregarBusca(s, buscaParticipante);
                       }}
                       className="w-full px-3 py-2 rounded-xl border border-white/20 bg-[#0B1020]/90 text-xs text-slate-300 focus:outline-none focus:border-indigo-500/60 cursor-pointer"
                     >
@@ -406,29 +523,29 @@ export function GerenciarResponsaveisModal({
 
                 <button
                   type="button"
-                  onClick={() => handleBuscar()}
+                  onClick={() => carregarBusca(filtroSetor, buscaParticipante)}
                   disabled={buscandoUser}
                   className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
                 >
-                  <Search className="w-3.5 h-3.5" />
+                  {buscandoUser ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
                   <span>{buscandoUser ? 'Buscando...' : 'Buscar'}</span>
                 </button>
               </div>
 
               {/* Resultados da Busca */}
-              {resultadosBusca.length > 0 && (
+              {resultadosBusca.length > 0 ? (
                 <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
                   {resultadosBusca.map((u) => (
                     <div
                       key={u.id}
-                      className="flex items-center justify-between gap-3 bg-white/[0.03] rounded-xl p-3 border border-white/10"
+                      className="flex items-center justify-between gap-3 bg-white/[0.03] rounded-xl p-3 border border-white/10 hover:border-white/20 transition-all"
                     >
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-semibold text-white truncate">{u.nome}</p>
                         <p className="text-[10px] text-slate-400 truncate">
                           {u.departamento}{u.cargo ? ` · ${u.cargo}` : ''}
                         </p>
-                        {!u.mesmoSetor && (
+                        {!u.mesmoSetor && !isGestao && (
                           <p className="text-[10px] text-amber-400 mt-0.5">
                             ⚠ Outro setor — requer aprovação administrativa
                           </p>
@@ -436,28 +553,42 @@ export function GerenciarResponsaveisModal({
                       </div>
 
                       <div className="flex gap-1.5 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleAdicionar(u.id, 'CORRESPONSAVEL')}
-                          disabled={adicionandoId === u.id}
-                          className="px-2.5 py-1.5 rounded-lg bg-violet-600/80 hover:bg-violet-500 text-white text-[10px] font-semibold transition-colors disabled:opacity-50 cursor-pointer"
-                          title="Adicionar como corresponsável"
-                        >
-                          + Corresponsável
-                        </button>
+                        {/* Botão Conceder Leitura (principal) */}
                         <button
                           type="button"
                           onClick={() => handleAdicionar(u.id, 'LEITOR')}
                           disabled={adicionandoId === u.id}
-                          className="px-2.5 py-1.5 rounded-lg bg-slate-600/80 hover:bg-slate-500 text-white text-[10px] font-semibold transition-colors disabled:opacity-50 cursor-pointer"
-                          title="Adicionar como leitor"
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold transition-all disabled:opacity-50 cursor-pointer shadow-xs"
+                          title="Conceder acesso de leitura"
                         >
-                          + Leitor
+                          {adicionandoId === u.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Eye className="w-3 h-3" />
+                          )}
+                          <span>+ Conceder Leitura</span>
+                        </button>
+
+                        {/* Botão Corresponsável */}
+                        <button
+                          type="button"
+                          onClick={() => handleAdicionar(u.id, 'CORRESPONSAVEL')}
+                          disabled={adicionandoId === u.id}
+                          className="px-2.5 py-1.5 rounded-lg bg-violet-600/70 hover:bg-violet-500 text-white text-[10px] font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                          title="Adicionar como corresponsável técnico"
+                        >
+                          + Corresponsável
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
+              ) : (
+                !buscandoUser && (
+                  <p className="text-[11px] text-slate-500 italic py-2">
+                    Nenhum outro colaborador disponível encontrado para os filtros selecionados.
+                  </p>
+                )
               )}
             </div>
           )}
@@ -487,7 +618,7 @@ export function GerenciarResponsaveisModal({
                   <select
                     value={transferirParaId}
                     onChange={(e) => setTransferirParaId(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-white/20 bg-[#0B1020]/90 text-xs text-white focus:outline-none focus:border-indigo-500/60"
+                    className="w-full px-3 py-2 rounded-xl border border-white/20 bg-[#0B1020]/90 text-xs text-white focus:outline-none focus:border-indigo-500/60 cursor-pointer"
                   >
                     <option value="">Selecione o novo responsável...</option>
                     {participantes

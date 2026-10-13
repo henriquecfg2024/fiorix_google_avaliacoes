@@ -282,8 +282,10 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
     // colunas extras podem não existir ainda — silencioso
   }
 
-  // Se não tem custódia de nenhuma IT
-  if (itsCustodia.length === 0) {
+  // Se não tem custódia nem permissão em nenhuma IT
+  const todasItsAcessiveis = [...itsCustodia, ...itsByParticipation];
+
+  if (todasItsAcessiveis.length === 0) {
     // Busca departamento para pré-preencher formulario do colaborador
     let userDepartamento = currentUser.departamento || '';
     if (!userDepartamento) {
@@ -310,17 +312,17 @@ export async function getMinhaItData(codigoParam?: string): Promise<MinhaItPageD
       cartorioNome,
       cartorioUnidade,
       itsCustodia: [],
-      itsByParticipation,
+      itsByParticipation: [],
       currentIt: null,
       colaboradorItEnviada,
       departamentosDisponiveis,
     };
   }
 
-  // 3. Determina a IT selecionada (por parâmetro de código ou a primeira da lista)
-  let selectedItRef = itsCustodia[0];
+  // 3. Determina a IT selecionada (por parâmetro de código ou a primeira disponível)
+  let selectedItRef = itsCustodia[0] || itsByParticipation[0];
   if (codigoParam) {
-    const match = itsCustodia.find((i) => i.codigo.toUpperCase() === codigoParam.toUpperCase());
+    const match = todasItsAcessiveis.find((i) => i.codigo.toUpperCase() === codigoParam.toUpperCase());
     if (match) selectedItRef = match;
   }
 
