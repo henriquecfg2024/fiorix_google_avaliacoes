@@ -21,7 +21,7 @@ import { OperationsChartsSection } from './OperationsChartsSection';
 import { DeploysVersionsFooter } from './DeploysVersionsFooter';
 import { BatchAuditSection } from './BatchAuditSection';
 import { AlertSettingsSection } from './AlertSettingsSection';
-import { NotificationChannelsSummaryCard } from './NotificationChannelsSummaryCard';
+
 
 interface Props {
   initialHealth: OperationsHealthSnapshot;
@@ -329,8 +329,7 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
         )}
 
         {activeTab === 'alerts' && (
-          <div className="space-y-6 pt-2">
-            <NotificationChannelsSummaryCard />
+          <div className="pt-2">
             <AlertSettingsSection />
           </div>
         )}
