@@ -741,10 +741,6 @@ export function QualidadeDashboardClient() {
               <h2 className="text-lg sm:text-xl font-bold text-white tracking-wide">
                 Qualidade Mês a Mês (Evolução)
               </h2>
-              <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[10px] font-mono font-bold tracking-wider uppercase flex items-center gap-1.5 shadow-sm">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-                Filtro Mestre Ativo
-              </span>
             </div>
 
             {/* Instrução em Destaque Visível no Topo */}
