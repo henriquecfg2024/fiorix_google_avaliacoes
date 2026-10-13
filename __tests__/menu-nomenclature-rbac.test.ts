@@ -104,6 +104,9 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
       '/pessoas/ferias',
       '/pessoas/holerites',
     ]);
+
+    // Menu operacional inclui Espera, Rastreio e Impressões
+    expect(groups.operacional.items.map((i) => i.href)).toContain('/espera');
   });
 
   it('valida o menu para o perfil USER', () => {

@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    const user = await requireRole('MASTER', 'ADMIN', 'SUBSTITUTO');
+    const user = await requireRole('MASTER', 'ADMIN', 'SUBSTITUTO', 'COLABORADOR');
     const tenantId = user.tenantId;
 
     const periodo = req.nextUrl.searchParams.get('periodo') || 'hoje';

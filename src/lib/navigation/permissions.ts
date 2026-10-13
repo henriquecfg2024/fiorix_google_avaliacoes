@@ -74,10 +74,14 @@ export function filterNavigationByRole(
         return false;
       }
 
-      // COLABORADOR: em 'operacional' vê apenas Rastreio e Impressões; em 'pessoas' só Férias e Holerites
+      // COLABORADOR: em 'operacional' vê Rastreio, Impressões e Espera; em 'pessoas' só Férias e Holerites
       if (isColaborador) {
         if (key === "operacional") {
-          return item.href === "/trajetoria-titulo" || item.href === "/controle-impressoes";
+          return (
+            item.href === "/trajetoria-titulo" ||
+            item.href === "/controle-impressoes" ||
+            item.href === "/espera"
+          );
         }
         if (key === "pessoas") {
           return (
@@ -95,8 +99,8 @@ export function filterNavigationByRole(
         // Substituto tem acesso pleno a governancaIts, pessoas, operacional, gestao e trabalho
         return true;
       }
-      // Espera oculto para perfis USER e COLABORADOR (exclusivo para liderança: MASTER, ADMIN, SUBSTITUTO)
-      if ((isUser || isColaborador) && item.href === "/espera") {
+      // Espera oculto para perfil USER (exclusivo para liderança e colaboradores)
+      if (isUser && item.href === "/espera") {
         return false;
       }
 

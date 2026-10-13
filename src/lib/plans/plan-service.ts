@@ -233,7 +233,8 @@ export function getStaticRolePermissions(role: string, moduleId: string): Set<Mo
       mod.id === 'rotina.comunicados' ||
       mod.id === 'pessoas.holerites' ||
       mod.id === 'pessoas.ferias' ||
-      mod.id === 'rotina.mensagens'
+      mod.id === 'rotina.mensagens' ||
+      mod.id === 'prazos.espera'
     ) {
       actions.add('view');
       if (mod.id === 'pessoas.ferias' || mod.id === 'rotina.mensagens') {
