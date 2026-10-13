@@ -15,10 +15,9 @@ import type { OperationsHealthSnapshot } from '@/lib/health/types';
 import { ServiceHealthGrid } from './ServiceHealthGrid';
 import { IncrementalSyncTable } from './IncrementalSyncTable';
 import { ConnectorDetailCard } from './ConnectorDetailCard';
-import { ProceduresOverviewSection } from './ProceduresOverviewSection';
+import { IntegracoesSaudeSection } from './IntegracoesSaudeSection';
 import { IncidentesAlertasSection } from './IncidentesAlertasSection';
 import { OperationsChartsSection } from './OperationsChartsSection';
-import { MetricsChartCard } from './MetricsChartCard';
 import { DeploysVersionsFooter } from './DeploysVersionsFooter';
 import { BatchAuditSection } from './BatchAuditSection';
 import { AlertSettingsSection } from './AlertSettingsSection';
@@ -286,10 +285,10 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
              ══════════════════════════════════════════════════════════════════ */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            {/* 2. Top Services (Plataforma + Rotinas de Cartório) */}
+            {/* 1. Top Services (Plataforma SaaS Cloud & Servidor do Cartório) */}
             <ServiceHealthGrid services={health.services} />
 
-            {/* 3. Middle: 70% Sincronização Incremental | 30% Connector & Integrações */}
+            {/* 2. Middle: 70% Sincronização Incremental (com Procedures) | 30% Connector Local */}
             <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-stretch">
               <div className="lg:col-span-7">
                 <IncrementalSyncTable 
@@ -298,27 +297,28 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
                 />
               </div>
               <div className="lg:col-span-3">
-                <ConnectorDetailCard connector={health.connector} />
+                <ConnectorDetailCard 
+                  connector={health.connector} 
+                  onRefresh={() => refreshHealth(true, true)}
+                />
               </div>
             </div>
 
-            {/* 4. Stored Procedures Integradas (P1 - Tabela Unificada com Busca e Tabs) */}
-            <ProceduresOverviewSection 
-              modules={health.incrementalModules}
-              recentBatches={health.recentBatches}
+            {/* 3. Saúde das Integrações de Negócio (Google Avaliações & NextQS) */}
+            <IntegracoesSaudeSection 
+              integrations={health.externalIntegrations}
+              isAdmin={true}
+              onRefresh={() => refreshHealth(true, false)}
             />
 
-            {/* 5. Incidentes / Alertas (Empty State Premium) */}
+            {/* 4. Incidentes / Alertas Operacionais */}
             <IncidentesAlertasSection 
               incidents={health.incidents} 
               alerts={health.alerts} 
             />
 
-            {/* 6. Análise Temporal de Ingestão & Performance (KPIs + Gráficos) */}
+            {/* 5. Análise Temporal de Ingestão & Performance (KPIs + Gráficos) */}
             <OperationsChartsSection />
-
-            {/* 7. Métricas Agregadas da Plataforma (Linha Única) */}
-            <MetricsChartCard metrics={health.metrics} />
           </div>
         )}
 

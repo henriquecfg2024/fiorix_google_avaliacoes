@@ -10,6 +10,15 @@ interface Props {
   recentBatches?: Record<string, BatchHistoryItem[]>;
 }
 
+const MODULE_PROCEDURES: Record<string, { proc: string; desc: string }> = {
+  bi: { proc: 'dbo.pr_Fiorix_BI_Incremental_v2', desc: 'Protocolos e títulos' },
+  produtividade: { proc: 'dbo.pr_Fiorix_Produtividade_Incremental_v2', desc: 'Produtividade escreventes' },
+  metas: { proc: 'dbo.pr_Fiorix_Metas_Incremental_v2', desc: 'Metas e reanotação' },
+  tarefas: { proc: 'dbo.pr_Fiorix_Tarefas_Incremental_v2', desc: 'Tarefas e prazos' },
+  retornos: { proc: 'dbo.pr_Fiorix_Retornos_Incremental_v2', desc: 'Retornos e notificações' },
+  impressoes: { proc: 'dbo.pr_Fiorix_Impressoes_Incremental_v2', desc: 'Impressões e certidões' },
+};
+
 export function IncrementalSyncTable({ modules, recentBatches }: Props) {
   const [selectedModule, setSelectedModule] = useState<{ name: string; key: string } | null>(null);
 
@@ -21,10 +30,10 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2.5 flex-wrap">
               <h3 className="text-sm font-semibold text-[#F1F5F9] tracking-wide">
-                Sincronização Incremental
+                Sincronização Incremental (SQL Server WEBRI)
               </h3>
               <span className="px-2 py-0.5 rounded-md bg-[#151A2C] text-[11px] font-mono text-[#94A3B8] border border-[#1E293B]">
-                Ciclos: 60 min (Escalonado a cada 15 min)
+                6 Procedures • Ciclos 60 min (Escalonado a cada 15 min)
               </span>
               <span className="px-2 py-0.5 rounded-md bg-[#818CF8]/10 text-[11px] font-semibold text-[#818CF8] border border-[#818CF8]/20 flex items-center gap-1.5">
                 <Clock className="h-3 w-3 text-[#818CF8]" />
@@ -38,13 +47,14 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
             <table className="w-full text-left text-xs font-mono">
               <thead>
                 <tr className="border-b border-[#1E293B] text-[11px] uppercase tracking-wider text-[#64748B] font-semibold font-sans">
-                  <th className="pb-3 pr-4">Módulo</th>
+                  <th className="pb-3 pr-4">Módulo / Procedure SQL</th>
                   <th className="pb-3 px-3">Janela</th>
                   <th className="pb-3 px-3">Última Execução</th>
+                  <th className="pb-3 px-3">Duração</th>
                   <th className="pb-3 px-3">Próxima Esperada</th>
                   <th className="pb-3 px-3">Atraso</th>
                   <th className="pb-3 px-3">Registros</th>
-                  <th className="pb-3 pl-3 text-right">Ação</th>
+                  <th className="pb-3 pl-3 text-right">Lotes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1E293B]/60 text-[#94A3B8]">
@@ -56,6 +66,11 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
                     ? (item.delaySeconds === 0 ? '0s' : `${Math.round(item.delaySeconds / 60)}m`) 
                     : '-';
                   const delayColor = item.delaySeconds === 0 ? 'text-[#10B981] font-semibold' : 'text-[#F59E0B]';
+                  
+                  const procInfo = MODULE_PROCEDURES[item.key];
+                  const lastBatch = recentBatches?.[item.key]?.[0];
+                  const durationMs = lastBatch?.durationMs;
+                  const durationDisplay = durationMs ? `${durationMs} ms` : '—';
 
                   return (
                     <tr 
@@ -63,9 +78,16 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
                       className="hover:bg-[#151A2C] transition-colors group"
                       title={item.statusNote || undefined}
                     >
-                      <td className="py-3 pr-4 font-sans font-semibold text-[#F1F5F9] flex items-center gap-2">
-                        <span className={`h-2 w-2 rounded-full ${dotColor} shrink-0`} />
-                        <span>{item.module}</span>
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-2">
+                          <span className={`h-2 w-2 rounded-full ${dotColor} shrink-0`} />
+                          <span className="font-sans font-semibold text-[#F1F5F9]">{item.module}</span>
+                        </div>
+                        {procInfo && (
+                          <span className="font-mono text-[10px] text-[#64748B] block pl-4 group-hover:text-cyan-400/90 transition-colors">
+                            {procInfo.proc}
+                          </span>
+                        )}
                       </td>
                       <td className="py-3 px-3 text-[#64748B]">
                         {item.expectedIntervalSeconds ? `${Math.round(item.expectedIntervalSeconds / 60)} min` : '60 min'}
@@ -73,23 +95,34 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
                       <td className="py-3 px-3 text-[#94A3B8]">
                         {item.lastSyncAt ?? 'Não disponível'}
                       </td>
+                      <td className="py-3 px-3 text-[#94A3B8] font-mono">
+                        {durationDisplay}
+                      </td>
                       <td className="py-3 px-3 text-[#F1F5F9]">
                         {item.nextExpectedAt ?? '-'}
                       </td>
                       <td className={`py-3 px-3 ${delayColor}`}>
                         {delayText}
                       </td>
-                      <td className="py-3 px-3 text-[#F1F5F9]">
+                      <td className="py-3 px-3">
                         {item.recordsCount !== null ? (
-                          item.recordsCount === 0 ? '0 (sem alt.)' : `${item.recordsCount.toLocaleString('pt-BR')} reg${item.recordsCount > 1 ? 's' : ''}`
-                        ) : 'Pendente'}
+                          item.recordsCount === 0 ? (
+                            <span className="text-[#64748B]">0 (sem alterações)</span>
+                          ) : (
+                            <span className="text-[#F1F5F9] font-semibold">
+                              {item.recordsCount.toLocaleString('pt-BR')} reg{item.recordsCount > 1 ? 's' : ''}
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-[#F59E0B]">Pendente</span>
+                        )}
                       </td>
                       <td className="py-3 pl-3 text-right">
                         <button
                           type="button"
                           onClick={() => setSelectedModule({ name: item.module, key: item.key })}
                           className="p-1.5 rounded-lg bg-[#151A2C] hover:bg-[#1E293B] text-[#64748B] hover:text-[#3B82F6] transition-all"
-                          title="Ver Lotes"
+                          title="Ver Histórico de Lotes"
                         >
                           <ArrowRight className="h-4 w-4" />
                         </button>

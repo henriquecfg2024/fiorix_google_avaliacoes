@@ -56,13 +56,13 @@ export function ServiceHealthGrid({ services }: Props) {
   };
 
   const platformIds = ['fiorix-web', 'fiorix-api', 'supabase', 'vercel'];
-  const cartorioIds = ['connector', 'webri-sql', 'github'];
+  const cartorioIds = ['connector', 'webri-sql'];
 
   const platformServices = platformIds.map(id => services.find(s => s.id === id)).filter(Boolean) as ServiceHealthItem[];
   const cartorioServices = cartorioIds.map(id => services.find(s => s.id === id)).filter(Boolean) as ServiceHealthItem[];
 
   // Fallback se algum serviço vier fora da lista esperada
-  const otherServices = services.filter(s => !platformIds.includes(s.id) && !cartorioIds.includes(s.id));
+  const otherServices = services.filter(s => !platformIds.includes(s.id) && !cartorioIds.includes(s.id) && s.id !== 'github');
 
   return (
     <div className="space-y-4">
@@ -111,14 +111,14 @@ export function ServiceHealthGrid({ services }: Props) {
         </div>
       </div>
 
-      {/* Grupo 2: Rotinas de Cartório (3 colunas) */}
+      {/* Grupo 2: Servidor do Cartório & Banco Local (2 colunas) */}
       <div>
         <div className="text-[11px] uppercase font-semibold tracking-wider text-[#64748B] mb-2.5 flex items-center gap-2">
-          <span>Rotinas de Cartório</span>
+          <span>Servidor do Cartório & Banco Local</span>
           <span className="text-[#1E293B] font-normal">/</span>
-          <span className="text-[10px] text-[#64748B] font-mono font-normal">Serviço Local & Integrações</span>
+          <span className="text-[10px] text-[#64748B] font-mono font-normal">Conexão & Ingestão Local</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {cartorioServices.map((service) => {
             const Icon = getIcon(service.id);
             const iconColor = getIconColor(service.id);
