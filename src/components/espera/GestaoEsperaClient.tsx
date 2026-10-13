@@ -1139,13 +1139,13 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
     return displayPerformanceAgentes.length > 0 ? displayPerformanceAgentes[0] : null;
   }, [displayPerformanceAgentes]);
 
-  // Distribuição por serviço para Visão Geral (fixo e ordenado por: PRIORIDADE, PROTOCOLO DE TÍTULOS, PEDIDO DE CERTIDÃO, RETIRADA DE TÍTULOS e RETIRADA DE CERTIDÃO)
+  // Distribuição por serviço para Visão Geral (fixo e ordenado por: PRIORIDADE, PROTOCOLO DE TÍTULOS, RETIRADA DE TÍTULOS, PEDIDO DE CERTIDÃO e RETIRADA DE CERTIDÃO)
   const servicosDistribuicao = useMemo(() => {
     const map: Record<string, { total: number; dentroSla: number; totalEspera: number; countEspera: number }> = {
       'PRIORIDADE': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
       'PROTOCOLO DE TÍTULOS': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
-      'PEDIDO DE CERTIDÃO': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
       'RETIRADA DE TÍTULOS': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
+      'PEDIDO DE CERTIDÃO': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
       'RETIRADA DE CERTIDÃO': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
     };
 
@@ -1166,8 +1166,8 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
         s = 'RETIRADA DE CERTIDÃO';
       }
       else if (upper === 'TÍTULO' || upper === 'TITULO' || upper.includes('PROTOCOLO') || upper.includes('TÍTULO') || upper.includes('TITULO')) s = 'PROTOCOLO DE TÍTULOS';
-      else if (upper === 'PEDIDO DE CERTIDÃO' || upper === 'PEDIDO DE CERTIDAO' || upper === 'CERTIDÃO' || upper === 'CERTIDAO' || upper.includes('PEDIDO DE CERTID')) s = 'PEDIDO DE CERTIDÃO';
       else if (upper === 'RETIRADA' || upper.includes('RETIRADA') || upper.includes('RETIRDA')) s = 'RETIRADA DE TÍTULOS';
+      else if (upper === 'PEDIDO DE CERTIDÃO' || upper === 'PEDIDO DE CERTIDAO' || upper === 'CERTIDÃO' || upper === 'CERTIDAO' || upper.includes('PEDIDO DE CERTID')) s = 'PEDIDO DE CERTIDÃO';
       else {
         // Ignora outros tipos desconhecidos
         continue;
@@ -1185,9 +1185,11 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
     const priorityOrder: Record<string, number> = {
       'PRIORIDADE': 1,
       'PROTOCOLO DE TÍTULOS': 2,
-      'PEDIDO DE CERTIDÃO': 3,
-      'RETIRADA DE TÍTULOS': 4,
-      'RETIRDA DE TÍTULOS': 4,
+      'PROTOCOLOS DE TÍTULOS': 2,
+      'RETIRADA DE TÍTULOS': 3,
+      'RETIRDA DE TÍTULOS': 3,
+      'PEDIDO DE CERTIDÃO': 4,
+      'PEDIDO DE CERTIDAO': 4,
       'RETIRADA DE CERTIDÃO': 5,
       'RETIRADA DE CERTIDAO': 5,
       'CERTIDÕES NA HORA': 5,
