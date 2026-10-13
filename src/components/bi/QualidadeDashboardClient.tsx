@@ -1893,7 +1893,6 @@ export function QualidadeDashboardClient() {
                     {renderColabSortHeader("producao", "Produção")}
                     {renderColabSortHeader("erros", "Erros")}
                     {renderColabSortHeader("percentualErro", "% Erro")}
-                    {renderColabSortHeader("limite", "Limite Permitido")}
                     <th className="pb-3 pl-3 pr-4 text-right text-slate-400 font-sans font-semibold uppercase text-[10px] tracking-wider">
                       Ficha Individual
                     </th>
@@ -1931,27 +1930,6 @@ export function QualidadeDashboardClient() {
                     <td className="py-3.5 px-3 text-white font-bold">{c.erros}</td>
                     <td className={`py-3.5 px-3 font-bold ${c.dentroLimite ? "text-emerald-400" : "text-rose-400"}`}>
                       {c.percentualErro}%
-                    </td>
-                    <td className="py-3.5 px-3 text-slate-300">
-                      {c.limite}%{" "}
-                      <span
-                        className={`text-[9px] ${
-                          c.limiteTipo === "manual"
-                            ? "text-amber-400 font-semibold"
-                            : c.limiteTipo === "departamento"
-                            ? "text-cyan-400 font-semibold"
-                            : "text-slate-500"
-                        }`}
-                        title={
-                          c.limiteTipo === "manual"
-                            ? "Limite individual estipulado"
-                            : c.limiteTipo === "departamento"
-                            ? `Limite estipulado para o departamento (${c.departamento})`
-                            : "Limite padrão do cartório (5.0%)"
-                        }
-                      >
-                        ({c.limiteTipo === "departamento" ? "depto" : c.limiteTipo})
-                      </span>
                     </td>
                     <td className="py-3.5 pl-3 text-right">
                       <div className="flex items-center justify-end">
