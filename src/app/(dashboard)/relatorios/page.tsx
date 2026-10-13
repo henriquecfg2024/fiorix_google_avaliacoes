@@ -4,7 +4,7 @@ import { auth } from '@/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { requireAuth } from '@/lib/auth-helpers';
-import { BarChart3, Download, Printer, Users, Award, ExternalLink, Star, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Printer, Users, Award, ExternalLink, Star, Sparkles, CheckCircle2 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,13 +17,6 @@ export default async function RelatoriosPage() {
   }
   const tenantId = user.tenantId;
 
-  let totalReviews = 547;
-  try {
-    const dbTotal = await prisma.review.count({ where: { tenantId, deletedFromGoogle: false } });
-    if (dbTotal > 0) totalReviews = dbTotal;
-  } catch (err) {
-    console.error('Error fetching total reviews:', err);
-  }
 
   let dbColaboradores: any[] = [];
   try {
@@ -133,67 +126,6 @@ export default async function RelatoriosPage() {
           </div>
         </div>
 
-        {/* 1. RELATÓRIOS AVANÇADOS & EXPORTAÇÃO DE DADOS */}
-        <div className={`${surfaceCard} space-y-5 p-6`}>
-          <div>
-            <h2 className="text-lg font-extrabold tracking-tight text-white">Relatórios Avançados & Exportação de Dados</h2>
-            <p className="mt-1 text-xs text-white/50">
-              Gere relatórios impressos consolidados ou exporte a base bruta de avaliações em CSV e JSON.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 pt-1 md:grid-cols-2">
-            <div className="flex flex-col justify-between space-y-4 rounded-2xl border border-white/20 bg-[#080D1A] p-5 transition-all hover:border-white/30 hover:bg-[#0c1428]">
-              <div className="space-y-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/12 text-cyan-300">
-                  <BarChart3 className="h-5 w-5" />
-                </div>
-                <h4 className="text-sm font-bold text-white">Relatório Mensal de Reputação</h4>
-                <p className="text-xs leading-relaxed text-white/60">
-                  Resumo consolidado do volume de notas, nota média e evolução mensal do cartório em folha A4.
-                </p>
-              </div>
-              <a
-                href="/relatorios/imprimir-mensal"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 self-start rounded-xl bg-gradient-to-r from-indigo-500 to-amber-500 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-colors hover:brightness-105"
-              >
-                <Printer className="h-4 w-4" />
-                <span>Gerar PDF Mensal</span>
-              </a>
-            </div>
-
-            <div className="flex flex-col justify-between space-y-4 rounded-2xl border border-white/20 bg-[#080D1A] p-5 transition-all hover:border-white/30 hover:bg-[#0c1428]">
-              <div className="space-y-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-indigo-500/20 bg-violet-500/12 text-violet-300">
-                  <Download className="h-5 w-5" />
-                </div>
-                <h4 className="text-sm font-bold text-white">Exportação de Dados Brutos</h4>
-                <p className="text-xs leading-relaxed text-white/60">
-                  Exporte todas as {totalReviews} avaliações para planilha Excel (CSV) ou estrutura de dados JSON.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <a
-                  href="/api/export?format=csv"
-                  download
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-[#0B1020] px-3.5 py-2.5 text-xs font-bold text-white transition-colors hover:border-white/40 hover:bg-white/[0.06]"
-                >
-                  <span>📄 Exportar CSV</span>
-                </a>
-                <a
-                  href="/api/export?format=json"
-                  download
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3.5 py-2.5 text-xs font-bold text-cyan-300 transition-colors hover:bg-cyan-500/20"
-                >
-                  <span>{'{ }'} Exportar JSON</span>
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* 2. KPIS RESUMO */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
