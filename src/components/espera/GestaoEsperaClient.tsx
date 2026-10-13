@@ -596,10 +596,13 @@ function cleanServiceName(name: string): string {
     upper === 'CERTIDOES PRONTAS' ||
     upper === 'CERTIDÕES NA HORA' ||
     upper === 'CERTIDOES NA HORA' ||
+    upper === 'RETIRADA DE CERTIDÃO' ||
+    upper === 'RETIRADA DE CERTIDAO' ||
     upper.includes('CERTIDÕES PRONTAS') ||
     upper.includes('CERTIDOES PRONTAS') ||
     upper.includes('CERTIDÕES NA HORA') ||
-    upper.includes('CERTIDOES NA HORA')
+    upper.includes('CERTIDOES NA HORA') ||
+    (upper.includes('RETIRADA') && upper.includes('CERTID'))
   ) {
     return 'CERTIDÕES NA HORA';
   }
@@ -1136,13 +1139,14 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
     return displayPerformanceAgentes.length > 0 ? displayPerformanceAgentes[0] : null;
   }, [displayPerformanceAgentes]);
 
-  // Distribuição por serviço para Visão Geral (fixo e ordenado por: PRIORIDADE, TÍTULO, PEDIDO DE CERTIDÃO e RETIRADA)
+  // Distribuição por serviço para Visão Geral (fixo e ordenado por: PRIORIDADE, PROTOCOLO DE TÍTULOS, PEDIDO DE CERTIDÃO, RETIRADA DE TÍTULOS e RETIRADA DE CERTIDÃO)
   const servicosDistribuicao = useMemo(() => {
     const map: Record<string, { total: number; dentroSla: number; totalEspera: number; countEspera: number }> = {
       'PRIORIDADE': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
-      'TÍTULO': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
+      'PROTOCOLO DE TÍTULOS': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
       'PEDIDO DE CERTIDÃO': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
-      'RETIRADA': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
+      'RETIRADA DE TÍTULOS': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
+      'RETIRADA DE CERTIDÃO': { total: 0, dentroSla: 0, totalEspera: 0, countEspera: 0 },
     };
 
     for (const r of activeRecords) {
@@ -1150,11 +1154,22 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
       let s = rawService;
       const upper = rawService.toUpperCase();
       if (upper === 'PRIORIDADE') s = 'PRIORIDADE';
-      else if (upper === 'TÍTULO' || upper === 'TITULO') s = 'TÍTULO';
+      else if (
+        upper === 'RETIRADA DE CERTIDÃO' ||
+        upper === 'RETIRADA DE CERTIDAO' ||
+        upper === 'CERTIDÕES NA HORA' ||
+        upper === 'CERTIDOES NA HORA' ||
+        upper.includes('NA HORA') ||
+        upper.includes('PRONTAS') ||
+        (upper.includes('RETIRADA') && upper.includes('CERTID'))
+      ) {
+        s = 'RETIRADA DE CERTIDÃO';
+      }
+      else if (upper === 'TÍTULO' || upper === 'TITULO' || upper.includes('PROTOCOLO') || upper.includes('TÍTULO') || upper.includes('TITULO')) s = 'PROTOCOLO DE TÍTULOS';
       else if (upper === 'PEDIDO DE CERTIDÃO' || upper === 'PEDIDO DE CERTIDAO' || upper === 'CERTIDÃO' || upper === 'CERTIDAO' || upper.includes('PEDIDO DE CERTID')) s = 'PEDIDO DE CERTIDÃO';
-      else if (upper === 'RETIRADA') s = 'RETIRADA';
+      else if (upper === 'RETIRADA' || upper.includes('RETIRADA') || upper.includes('RETIRDA')) s = 'RETIRADA DE TÍTULOS';
       else {
-        // Ignora outros tipos ou tipos removidos (como CERTIDÕES NA HORA)
+        // Ignora outros tipos desconhecidos
         continue;
       }
 
@@ -1169,11 +1184,14 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
 
     const priorityOrder: Record<string, number> = {
       'PRIORIDADE': 1,
-      'TÍTULO': 2,
-      'TITULO': 2,
+      'PROTOCOLO DE TÍTULOS': 2,
       'PEDIDO DE CERTIDÃO': 3,
-      'PEDIDO DE CERTIDAO': 3,
-      'RETIRADA': 4,
+      'RETIRADA DE TÍTULOS': 4,
+      'RETIRDA DE TÍTULOS': 4,
+      'RETIRADA DE CERTIDÃO': 5,
+      'RETIRADA DE CERTIDAO': 5,
+      'CERTIDÕES NA HORA': 5,
+      'CERTIDOES NA HORA': 5,
     };
 
     return Object.entries(map)
@@ -1703,7 +1721,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
 
                     {servicosDistribuicao.length > 0 ? (
                       <div className="space-y-2.5 pt-2">
-                        {servicosDistribuicao.slice(0, 5).map((servico) => (
+                        {servicosDistribuicao.map((servico) => (
                           <div key={servico.nome} className="p-2.5 sm:p-3 rounded-xl bg-white/[0.02] border border-white/6 space-y-1.5">
                             <div className="flex items-center justify-between text-xs">
                               <span className="font-semibold text-white truncate max-w-[180px] sm:max-w-md">{servico.nome}</span>
@@ -1855,7 +1873,6 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                             <option value="atendente-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Atendente (A → Z)</option>
                             <option value="atendente-desc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Atendente (Z → A)</option>
                             <option value="servico-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Serviço (A → Z)</option>
-                            <option value="fila-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Fila (A → Z)</option>
                             <option value="guiche-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Guichê / Mesa</option>
                             <option value="situacao-asc" className="bg-white dark:bg-[#0B1020] text-slate-900 dark:text-white">Situação</option>
                           </select>
@@ -1886,7 +1903,6 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                           <tr>
                             <SortHeader label="Senha" field="senha" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} className="px-4" />
                             <SortHeader label="Serviço" field="servico" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} />
-                            <SortHeader label="Fila" field="fila" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} />
                             <SortHeader label="Emissão" field="emissao" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} />
                             <SortHeader label="Chamada" field="chamada" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} />
                             <SortHeader label="Espera" field="tempoEsperaMin" currentField={sortField} currentDir={sortDir} onSort={handleHeaderSort} align="right" />
@@ -1898,7 +1914,7 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                         <tbody className="divide-y divide-slate-200/60 dark:divide-white/5 text-slate-700 dark:text-slate-300">
                           {paginatedPreviewRows.length === 0 ? (
                             <tr>
-                              <td colSpan={9} className="py-12 text-center text-slate-500 dark:text-slate-400 text-xs">
+                              <td colSpan={8} className="py-12 text-center text-slate-500 dark:text-slate-400 text-xs">
                                 <div className="flex flex-col items-center justify-center gap-2">
                                   <Filter className="w-6 h-6 text-slate-400/50" />
                                   <p className="font-medium">Nenhum registro encontrado para os filtros selecionados.</p>
@@ -1934,11 +1950,6 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
                                   {/* Serviço */}
                                   <td className="py-3 px-3 whitespace-nowrap">
                                     {getServicoBadge(r.servico)}
-                                  </td>
-
-                                  {/* Fila */}
-                                  <td className="py-3 px-3 whitespace-nowrap">
-                                    {getFilaBadge(r.fila)}
                                   </td>
 
                                   {/* Emissão */}
