@@ -128,14 +128,86 @@ interface NextQSTicket {
   [key: string]: unknown;
 }
 
-function safeParseDate(value: string | null | undefined): number | null {
+function safeParseDate(value: string | number | null | undefined): number | null {
   if (!value) return null;
+  if (typeof value === 'number') return isNaN(value) ? null : value;
   try {
-    const d = new Date(value);
+    let str = String(value).trim();
+    if (!str) return null;
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(str)) {
+      str = str.replace(' ', 'T');
+    }
+    const d = new Date(str);
     return isNaN(d.getTime()) ? null : d.getTime();
   } catch {
     return null;
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REGRA AUTOMÁTICA DE EXPIRAÇÃO DE ATENDIMENTOS EM TEMPO REAL (AO VIVO)
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. Timeout Operacional: Atendimento aberto há mais de 60 minutos sem encerramento
+//    no terminal do guichê é descartado (esquecido/abandonado no terminal do NextQS).
+// 2. Fim de Expediente: Recepção ao público encerra às 17h00. A partir das 17h15,
+//    qualquer atendimento que não tenha sido iniciado recentemente (< 15 min) é expirado.
+// 3. Fechamento Geral: Das 18h00 às 07h30 ou fins de semana, a recepção está 100%
+//    fechada e zera guichês e fila ao vivo.
+export function isRealtimeRecordExpired(
+  r: { data?: string | null; emissao?: string; chamada?: string; inicioAtendimento?: string },
+  isQueue = false
+): boolean {
+  const now = Date.now();
+  const nowSpTime = new Date(now).toLocaleTimeString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const todayStr = new Date(now).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+  const isWeekendToday = isWeekend(todayStr);
+
+  const [currH, currM] = nowSpTime.split(':').map(Number);
+  const currentMinuteOfDay = (currH || 0) * 60 + (currM || 0);
+
+  // 1. Fora do expediente geral (após 18h00 ou antes das 07h30) ou final de semana: recepção 100% fechada
+  if (isWeekendToday || currentMinuteOfDay >= 18 * 60 || currentMinuteOfDay < 7 * 60 + 30) {
+    return true;
+  }
+
+  // 2. Horário de fechamento da recepção ao público (a partir das 17h15)
+  const isPosRecepcao = currentMinuteOfDay >= 17 * 60 + 15;
+  if (isQueue && isPosRecepcao) {
+    return true;
+  }
+
+  // Determinar horário de referência
+  const timeStr = isQueue
+    ? (r.emissao && r.emissao !== '—' ? r.emissao : null)
+    : (r.inicioAtendimento && r.inicioAtendimento !== '—'
+        ? r.inicioAtendimento
+        : (r.chamada && r.chamada !== '—' ? r.chamada : (r.emissao !== '—' ? r.emissao : null)));
+
+  if (timeStr && /^\d{2}:\d{2}/.test(timeStr)) {
+    const dStr = r.data || todayStr;
+    const timeMs = safeParseDate(`${dStr}T${timeStr.substring(0, 5)}:00-03:00`);
+    if (timeMs) {
+      const elapsedMinutes = (now - timeMs) / 60000;
+      // Se a recepção encerrou (17h15+) e o atendimento começou há mais de 15 minutos
+      if (isPosRecepcao && elapsedMinutes > 15) {
+        return true;
+      }
+      // Timeout operacional durante o dia (atendimento aberto há mais de 60 min, ou fila há mais de 90 min)
+      const maxAllowed = isQueue ? 90 : 60;
+      if (elapsedMinutes > maxAllowed) {
+        return true;
+      }
+    }
+  } else if (isPosRecepcao) {
+    return true;
+  }
+
+  return false;
 }
 
 function formatTime(value: string | null | undefined): string {
@@ -644,8 +716,13 @@ export async function getEsperaData(
         return tDate === todayStr;
       });
 
-      const realtimeQueueNormalized = rawQueueToday.map((t, i) => normalizeTicket(t, i));
-      const realtimeOpenedNormalized = rawOpenedToday.map((t, i) => normalizeTicket(t, i));
+      const realtimeQueueNormalized = rawQueueToday
+        .map((t, i) => normalizeTicket(t, i))
+        .filter((r) => !isRealtimeRecordExpired(r, true));
+
+      const realtimeOpenedNormalized = rawOpenedToday
+        .map((t, i) => normalizeTicket(t, i))
+        .filter((r) => !isRealtimeRecordExpired(r, false));
 
       // Métricas Executivas
       const totalSenhas = normalized.length;

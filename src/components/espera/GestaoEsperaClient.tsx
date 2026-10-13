@@ -632,10 +632,67 @@ function sanitizeRecords(records: SenhaRecord[]): SenhaRecord[] {
   return (records || []).map(sanitizeRecord);
 }
 
+function isRealtimeRecordExpired(
+  r: { data?: string | null; emissao?: string; chamada?: string; inicioAtendimento?: string },
+  isQueue = false
+): boolean {
+  const now = Date.now();
+  const nowSpTime = new Date(now).toLocaleTimeString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const todayStr = new Date(now).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+  const isWeekendToday = isWeekend(todayStr);
+
+  const [currH, currM] = nowSpTime.split(':').map(Number);
+  const currentMinuteOfDay = (currH || 0) * 60 + (currM || 0);
+
+  // 1. Fora do expediente geral (após 18h00 ou antes das 07h30) ou final de semana: recepção 100% fechada
+  if (isWeekendToday || currentMinuteOfDay >= 18 * 60 || currentMinuteOfDay < 7 * 60 + 30) {
+    return true;
+  }
+
+  // 2. Horário de fechamento da recepção ao público (a partir das 17h15)
+  const isPosRecepcao = currentMinuteOfDay >= 17 * 60 + 15;
+  if (isQueue && isPosRecepcao) {
+    return true;
+  }
+
+  // Determinar horário de referência
+  const timeStr = isQueue
+    ? (r.emissao && r.emissao !== '—' ? r.emissao : null)
+    : (r.inicioAtendimento && r.inicioAtendimento !== '—'
+        ? r.inicioAtendimento
+        : (r.chamada && r.chamada !== '—' ? r.chamada : (r.emissao !== '—' ? r.emissao : null)));
+
+  if (timeStr && /^\d{2}:\d{2}/.test(timeStr)) {
+    const dStr = r.data || todayStr;
+    const timeMs = new Date(`${dStr}T${timeStr.substring(0, 5)}:00-03:00`).getTime();
+    if (!isNaN(timeMs)) {
+      const elapsedMinutes = (now - timeMs) / 60000;
+      // Se a recepção encerrou (17h15+) e o atendimento começou há mais de 15 minutos
+      if (isPosRecepcao && elapsedMinutes > 15) {
+        return true;
+      }
+      // Timeout operacional durante o dia (atendimento aberto há mais de 60 min, ou fila há mais de 90 min)
+      const maxAllowed = isQueue ? 90 : 60;
+      if (elapsedMinutes > maxAllowed) {
+        return true;
+      }
+    }
+  } else if (isPosRecepcao) {
+    return true;
+  }
+
+  return false;
+}
+
 function sanitizeRealtime(rt: RealtimeData): RealtimeData {
   return {
-    fila: (rt?.fila || []).map(sanitizeRecord),
-    emAtendimento: (rt?.emAtendimento || []).map(sanitizeRecord),
+    fila: (rt?.fila || []).map(sanitizeRecord).filter((r) => !isRealtimeRecordExpired(r, true)),
+    emAtendimento: (rt?.emAtendimento || []).map(sanitizeRecord).filter((r) => !isRealtimeRecordExpired(r, false)),
   };
 }
 
@@ -761,6 +818,14 @@ export function GestaoEsperaClient({ isAdmin = false, isConfigured = true, initi
   useEffect(() => {
     setConfigured(isConfigured);
   }, [isConfigured]);
+
+  // Timer periódico para re-avaliar expiração automática de senhas ao vivo
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setRealtime((prev) => sanitizeRealtime(prev));
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Estados de dados da API inicializados diretamente com dados do servidor (0ms de latência percebida)
   const [allRecords, setAllRecords] = useState<SenhaRecord[]>(sanitizeRecords(initialData?.records || []));
