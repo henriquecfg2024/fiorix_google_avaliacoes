@@ -1,14 +1,17 @@
 'use client';
 
-import React, { useState, useEffect, useTransition, useCallback } from 'react';
+import React, { useState, useEffect, useTransition, useCallback, useRef } from 'react';
 import { 
-  Activity, 
   BarChart3, 
   Database, 
   Bell, 
   ShieldCheck, 
   Clock, 
-  RefreshCw 
+  RefreshCw,
+  Check,
+  AlertTriangle,
+  AlertOctagon,
+  Info
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { OperationsHealthSnapshot } from '@/lib/health/types';
@@ -22,10 +25,62 @@ import { DeploysVersionsFooter } from './DeploysVersionsFooter';
 import { BatchAuditSection } from './BatchAuditSection';
 import { AlertSettingsSection } from './AlertSettingsSection';
 
-
 interface Props {
   initialHealth: OperationsHealthSnapshot;
   userName: string;
+}
+
+// Tooltip acessível por mouse, teclado e toque
+function InfoTooltip({ id, text }: { id: string; text: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  return (
+    <div ref={containerRef} className="relative inline-flex items-center">
+      <button
+        type="button"
+        id={id}
+        aria-label="Mais informações"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((prev) => !prev)}
+        onMouseEnter={() => setIsOpen(true)}
+        onMouseLeave={() => setIsOpen(false)}
+        onFocus={() => setIsOpen(true)}
+        onBlur={() => setIsOpen(false)}
+        className="p-0.5 text-slate-400 hover:text-white focus:text-white rounded-full transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-400/50 cursor-pointer"
+      >
+        <Info className="h-3.5 w-3.5" />
+      </button>
+
+      {isOpen && (
+        <div
+          role="tooltip"
+          className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 rounded-xl bg-[#0F172A] border border-white/15 text-xs text-slate-200 shadow-2xl backdrop-blur-md pointer-events-none animate-in fade-in zoom-in-95 duration-150 leading-relaxed font-normal"
+        >
+          {text}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-[#0F172A]" />
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function CentralOperacoesClient({ initialHealth, userName }: Props) {
@@ -33,28 +88,9 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
   const [activeTab, setActiveTab] = useState<'overview' | 'audit' | 'alerts'>('overview');
   const [isPending, startTransition] = useTransition();
   const [lastUpdated, setLastUpdated] = useState<string>(initialHealth.timestamp);
-  const [currentTime, setCurrentTime] = useState<string>('');
   const [secondsAgo, setSecondsAgo] = useState<number>(0);
 
-  // Relógio ao vivo em tempo real
-  useEffect(() => {
-    const updateClock = () => {
-      const now = new Date();
-      setCurrentTime(
-        now.toLocaleTimeString('pt-BR', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          timeZone: 'America/Sao_Paulo',
-        })
-      );
-    };
-    updateClock();
-    const interval = setInterval(updateClock, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Ticker de segundos desde a última checagem
+  // Ticker de segundos desde a última checagem real
   useEffect(() => {
     const ticker = setInterval(() => {
       setSecondsAgo((prev) => prev + 1);
@@ -130,6 +166,25 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
   const isStandby = health.connector?.status === 'STANDBY';
   const isDegradado = health.globalStatus === 'DEGRADADO';
 
+  // Identificação dinâmica e real do ambiente da aplicação
+  const ambienteReal =
+    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview')
+      ? 'Homologação'
+      : (typeof process !== 'undefined' && process.env.NODE_ENV === 'development')
+      ? 'Desenvolvimento'
+      : (health.deploys?.environment || 'Produção');
+
+  // Valores reais e formatação brasileira para as métricas com fallback seguro
+  const p95Value = health.metrics?.p95LatencyMs;
+  const p95Display = typeof p95Value === 'number' && !isNaN(p95Value)
+    ? `${p95Value} ms`
+    : 'Sem dados';
+
+  const availValue = health.metrics?.availabilityPercent;
+  const availabilityDisplay = typeof availValue === 'number' && !isNaN(availValue)
+    ? `${availValue.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+    : 'Sem dados';
+
   return (
     <div className="min-h-screen bg-[#070A14] text-[#F1F5F9] selection:bg-emerald-500/20 relative overflow-hidden pb-16 font-sans">
       {/* Ambient Backdrop Glows */}
@@ -138,100 +193,138 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
       </div>
 
-      <main className="relative max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
-        {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
-        <div className="flex items-center justify-between gap-2 px-1 pb-2 border-b border-white/8">
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <span className="text-slate-400 tracking-wider">SISTEMA & TECNOLOGIA</span>
-            <span className="text-slate-600">/</span>
-            <span className="text-cyan-400 font-extrabold tracking-wider">CENTRAL DE OPERAÇÕES</span>
-            <h1 className="sr-only">Central de Operações - Saúde e Monitoramento</h1>
+      <main className="relative max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-5">
+        {/* TRILHA DE NAVEGAÇÃO COMPACTA */}
+        <div className="flex items-center gap-2 text-xs font-mono">
+          <span className="text-slate-400 tracking-wider">SISTEMA & TECNOLOGIA</span>
+          <span className="text-slate-600">/</span>
+          <span className="text-cyan-400 font-extrabold tracking-wider">OPERAÇÕES</span>
+        </div>
+
+        {/* 1. TÍTULO E AMBIENTE */}
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+            Central de Operações
+          </h1>
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-white/10 bg-white/5 text-xs text-slate-300 font-medium">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+            <span>{ambienteReal}</span>
           </div>
         </div>
 
-        {/* ══════════════════════════════════════════════════════════════════
-             1. HEADER v2 CONSOLIDADO (BARRA HERO DE STATUS COMPACTA & ELEGANTE)
-             ══════════════════════════════════════════════════════════════════ */}
-        <section className="rounded-2xl border border-[#1E293B] bg-[#111729] p-3.5 sm:p-4 shadow-xl relative overflow-hidden transition-all">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
-            {/* Esquerda: Status Operacional com Pulso + Métricas Rápidas */}
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Card de Status Operacional Principal */}
-              <div className={`rounded-xl border px-3.5 py-2 flex items-center gap-3 transition-all ${
+        {/* 2. FAIXA DE STATUS GERAL ("STATUS EM DESTAQUE") */}
+        <section
+          className={`rounded-2xl border p-4 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 transition-all ${
+            isStandby
+              ? 'border-indigo-500/25 bg-indigo-950/20'
+              : isOperacional
+              ? 'border-emerald-500/25 bg-emerald-950/20'
+              : isDegradado
+              ? 'border-amber-500/25 bg-amber-950/20'
+              : 'border-rose-500/25 bg-rose-950/20'
+          }`}
+        >
+          <div className="flex items-center gap-3.5">
+            <div
+              className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 border ${
                 isStandby
-                  ? 'border-[#818CF8]/25 bg-[#818CF8]/10'
-                  : (isOperacional
-                      ? 'border-[rgba(16,185,129,0.2)] bg-[rgba(16,185,129,0.1)]'
-                      : 'border-[#F59E0B]/25 bg-[#F59E0B]/10')
-              }`}>
-                <span className={`h-2.5 w-2.5 rounded-full shrink-0 soft-pulse ${
-                  isStandby
-                    ? 'bg-[#818CF8] pulse-glow-indigo'
-                    : (isOperacional
-                        ? 'bg-[#10B981] pulse-glow-emerald'
-                        : 'bg-[#F59E0B] pulse-glow-amber')
-                }`} />
-                <div className="flex flex-col text-left">
-                  <span className={`font-semibold text-xs tracking-wide ${
-                    isStandby
-                      ? 'text-[#818CF8]'
-                      : (isOperacional ? 'text-[#10B981]' : 'text-[#F59E0B]')
-                  }`}>
-                    {isStandby 
-                      ? 'Operacional • Repouso noturno programado' 
-                      : (isOperacional ? 'Todos os sistemas operacionais' : 'Atenção: Degradação de sincronização')}
-                  </span>
-                  <span className="text-[10px] font-mono text-[#64748B]">
-                    {isStandby
-                      ? 'rotinas pausadas até 07:00 • próximo ciclo'
-                      : `verificado há ${secondsAgo}s • tempo real`}
-                  </span>
-                </div>
-              </div>
+                  ? 'border-indigo-500/40 bg-indigo-500/15 text-indigo-300'
+                  : isOperacional
+                  ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-400'
+                  : isDegradado
+                  ? 'border-amber-500/40 bg-amber-500/15 text-amber-400'
+                  : 'border-rose-500/40 bg-rose-500/15 text-rose-400'
+              }`}
+            >
+              {isStandby ? (
+                <Clock className="h-4.5 w-4.5" />
+              ) : isOperacional ? (
+                <Check className="h-5 w-5 stroke-[2.5]" />
+              ) : isDegradado ? (
+                <AlertTriangle className="h-4.5 w-4.5" />
+              ) : (
+                <AlertOctagon className="h-4.5 w-4.5" />
+              )}
+            </div>
 
-              {/* Indicadores Rápidos de Telemetria Integrados */}
-              <div className="flex items-center gap-2 text-xs font-mono text-[#94A3B8] flex-wrap">
-                <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#151A2C] border border-[#1E293B]">
-                  <span className={`h-1.5 w-1.5 rounded-full ${isStandby ? 'bg-[#818CF8]' : 'bg-[#10B981]'}`} />
-                  <span className="text-[#64748B]">p95:</span>
-                  <strong className="text-[#F1F5F9] font-normal">{health.metrics.p95LatencyMs || 42}ms</strong>
-                </span>
-                <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#151A2C] border border-[#1E293B]">
-                  <span className="text-[#64748B]">uptime:</span>
-                  <strong className="text-[#F1F5F9] font-normal">{health.metrics.availabilityPercent || 99.99}%</strong>
-                </span>
-                <span className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#151A2C] border border-[#1E293B]">
-                  <span className="text-[#64748B]">Expediente:</span>
-                  <strong className={`font-normal ${isStandby ? 'text-[#818CF8]' : 'text-[#10B981]'}`}>
-                    {isStandby ? 'Repouso Noturno' : 'Seg–Sáb (07h–19h) Ativo'}
-                  </strong>
-                </span>
+            <div className="flex flex-col text-left">
+              <span className="font-semibold text-sm text-white tracking-tight">
+                {isStandby
+                  ? 'Operacional · Repouso noturno programado'
+                  : isOperacional
+                  ? 'Todos os sistemas operacionais'
+                  : isDegradado
+                  ? 'Atenção: Degradação de sincronização'
+                  : 'Instabilidade detectada nos serviços'}
+              </span>
+              <span className="text-xs text-slate-400 font-normal">
+                {isStandby
+                  ? 'Rotinas pausadas até 07:00 · Próximo ciclo agendado'
+                  : `Última verificação há ${secondsAgo} s`}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+            <button
+              type="button"
+              onClick={handleManualRefresh}
+              disabled={isPending}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white border border-white/10 hover:border-white/20 text-xs font-semibold transition-all active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+              title="Atualizar agora (Atalho: R)"
+              aria-label="Atualizar dados de operações"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 text-slate-400 group-hover:text-white transition-transform ${
+                  isPending ? 'animate-spin text-cyan-400' : ''
+                }`}
+              />
+              <span>Atualizar</span>
+            </button>
+          </div>
+        </section>
+
+        {/* 3. INDICADORES ABAIXO DO STATUS (TEMPO DE RESPOSTA E DISPONIBILIDADE) */}
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Card: Tempo de resposta (95%) */}
+          <div className="rounded-2xl border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 shadow-xl space-y-2 relative">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 font-medium">Tempo de resposta (95%)</span>
+                <InfoTooltip
+                  id="tooltip-p95"
+                  text="95% das respostas medidas ocorreram em até este tempo. Os 5% restantes demoraram mais. Este valor não é uma média."
+                />
               </div>
             </div>
 
-            {/* Direita: Metadados, Relógio e Botão Atualizar */}
-            <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap justify-between lg:justify-end text-xs font-mono shrink-0">
-              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#151A2C] border border-[#1E293B] text-[#94A3B8]">
-                <ShieldCheck className="h-3.5 w-3.5 text-[#10B981]" />
-                <span className="font-medium font-sans text-xs">Produção</span>
-              </div>
+            <div className="text-2xl sm:text-3xl font-bold font-mono text-white tracking-tight">
+              {p95Display}
+            </div>
 
-              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#151A2C] border border-[#1E293B] text-[#94A3B8]">
-                <Clock className="h-3.5 w-3.5 text-[#64748B]" />
-                <span className="font-mono text-xs text-[#F1F5F9]">{currentTime || lastUpdated}</span>
-              </div>
+            <div className="text-xs text-slate-400 font-sans">
+              Serviço e período não informados
+            </div>
+          </div>
 
-              <button 
-                type="button"
-                onClick={handleManualRefresh}
-                disabled={isPending}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#151A2C] hover:bg-[#1E293B] text-[#94A3B8] hover:text-[#F1F5F9] border border-[#1E293B] text-xs font-sans font-medium transition-all active:scale-95 group disabled:opacity-50 cursor-pointer shadow-xs"
-                title="Atalho de Teclado: R"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 text-[#64748B] group-hover:text-[#F1F5F9] transition-transform ${isPending ? 'animate-spin' : ''}`} />
-                <span>Atualizar</span>
-                <kbd className="hidden sm:inline px-1 py-0.2 text-[10px] rounded bg-[#111729] border border-[#1E293B] text-[#64748B] group-hover:text-[#94A3B8]">R</kbd>
-              </button>
+          {/* Card: Disponibilidade */}
+          <div className="rounded-2xl border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-5 shadow-xl space-y-2 relative">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 font-medium">Disponibilidade</span>
+                <InfoTooltip
+                  id="tooltip-uptime"
+                  text="Percentual do período monitorado em que o serviço esteve disponível."
+                />
+              </div>
+            </div>
+
+            <div className="text-2xl sm:text-3xl font-bold font-mono text-white tracking-tight">
+              {availabilityDisplay}
+            </div>
+
+            <div className="text-xs text-slate-400 font-sans">
+              Serviço e período não informados
             </div>
           </div>
         </section>

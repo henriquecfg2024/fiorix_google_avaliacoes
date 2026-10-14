@@ -27,18 +27,18 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
       <div className="rounded-2xl border border-[#1E293B] bg-[#111729] p-5 shadow-sm flex flex-col justify-between h-full">
         <div>
           {/* Header */}
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h3 className="text-sm font-semibold text-[#F1F5F9] tracking-wide">
-                Sincronização Incremental (SQL Server WEBRI)
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h3 className="text-sm font-semibold text-white tracking-wide">
+                Sincronização incremental
               </h3>
-              <span className="px-2 py-0.5 rounded-md bg-[#151A2C] text-[11px] font-mono text-[#94A3B8] border border-[#1E293B]">
-                6 Procedures • Ciclos 60 min (Escalonado a cada 15 min)
-              </span>
-              <span className="px-2 py-0.5 rounded-md bg-[#818CF8]/10 text-[11px] font-semibold text-[#818CF8] border border-[#818CF8]/20 flex items-center gap-1.5">
-                <Clock className="h-3 w-3 text-[#818CF8]" />
-                Expediente: Seg–Sáb (07h–19h)
-              </span>
+              <p className="text-xs text-slate-400 mt-0.5 font-sans">
+                SQL Server WEBRI · ciclos de 60 min, escalonados a cada 15 min
+              </p>
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#151A2C] border border-[#1E293B] text-xs text-slate-300 font-mono shrink-0">
+              <Clock className="h-3.5 w-3.5 text-slate-400" />
+              <span>Seg–Sáb · 07h–19h</span>
             </div>
           </div>
 
@@ -136,12 +136,12 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="mt-4 pt-3 border-t border-[#1E293B] flex items-center justify-between text-xs text-[#64748B] font-sans">
+        <div className="mt-4 pt-3 border-t border-[#1E293B] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-400 font-sans">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-[#10B981] shrink-0" />
-            <span>Rotinas ativas de Segunda a Sábado (07h às 19h). Pausadas no período noturno e domingos.</span>
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+            <span>Rotinas pausadas à noite e aos domingos. A plataforma SaaS permanece operacional 24/7.</span>
           </div>
-          <span className="font-mono text-[11px] text-[#10B981] shrink-0 hidden sm:inline">100% no prazo</span>
+          <span className="font-mono text-[11px] text-emerald-400 shrink-0">100% no prazo</span>
         </div>
       </div>
 

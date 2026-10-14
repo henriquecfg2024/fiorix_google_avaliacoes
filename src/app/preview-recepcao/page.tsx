@@ -28,6 +28,8 @@ import {
   Layers,
   HelpCircle,
   TrendingUp,
+  X,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -38,12 +40,39 @@ import { toast } from "sonner";
 type CanalFiltro = "todos" | "digital" | "presencial";
 type AbaNavegacao = "visao_geral" | "produtividade" | "servicos";
 
+export interface FiltroHorario {
+  dia: string | null; // "Seg", "Ter", etc. ou null para todas as faixas do horário
+  hora: number;       // 8, 9, 10, ... 17
+  count?: number;
+}
+
+const DIA_KEY_TO_DB: Record<string, string> = {
+  Seg: "Segunda",
+  Ter: "Terça",
+  Qua: "Quarta",
+  Qui: "Quinta",
+  Sex: "Sexta",
+  Sáb: "Sábado",
+  Dom: "Domingo",
+};
+
+const DIAS_NOMES: Record<string, string> = {
+  Seg: "Segunda-feira",
+  Ter: "Terça-feira",
+  Qua: "Quarta-feira",
+  Qui: "Quinta-feira",
+  Sex: "Sexta-feira",
+  Sáb: "Sábado",
+  Dom: "Domingo",
+};
+
 interface ServicoItem {
   id: string;
   numero: string;
   dataHora: string;
   data: string;
   hora: string;
+  diaSemana?: string;
   colaborador: string;
   canal: "Digital ONR" | "Presencial";
   tipo: "TÍTULO" | "CERTIDÃO";
@@ -53,13 +82,14 @@ interface ServicoItem {
 
 // Conjunto ampliado e representativo de serviços (Digital ONR e Presencial)
 const BENCHMARK_SERVICOS: ServicoItem[] = [
-  // Digitais ONR
+  // 08h
   {
     id: "1",
-    numero: "67440",
-    dataHora: "13/10 · 16:29",
+    numero: "67301",
+    dataHora: "13/10 · 08:24",
     data: "2026-10-13",
-    hora: "16:29",
+    hora: "08:24",
+    diaSemana: "Sex",
     colaborador: "Gabriel",
     canal: "Digital ONR",
     tipo: "TÍTULO",
@@ -68,119 +98,146 @@ const BENCHMARK_SERVICOS: ServicoItem[] = [
   },
   {
     id: "2",
-    numero: "67439",
-    dataHora: "13/10 · 16:22",
+    numero: "67302",
+    dataHora: "13/10 · 08:45",
     data: "2026-10-13",
-    hora: "16:22",
-    colaborador: "Vinícius",
+    hora: "08:45",
+    diaSemana: "Sex",
+    colaborador: "Mariana",
+    canal: "Presencial",
+    tipo: "CERTIDÃO",
+    tipoServico: "Certidão Presencial",
+    tipoDetalhado: "Consulta de Matrícula balcão",
+  },
+  // 09h
+  {
+    id: "3",
+    numero: "67320",
+    dataHora: "13/10 · 09:15",
+    data: "2026-10-13",
+    hora: "09:15",
+    diaSemana: "Sex",
+    colaborador: "Antônio",
     canal: "Digital ONR",
     tipo: "CERTIDÃO",
     tipoServico: "Consulta eletrônica (VM)",
     tipoDetalhado: "Depósito de certidões ONR",
   },
   {
-    id: "3",
-    numero: "67437",
-    dataHora: "13/10 · 16:19",
+    id: "4",
+    numero: "67338",
+    dataHora: "13/10 · 09:50",
     data: "2026-10-13",
-    hora: "16:19",
-    colaborador: "Antônio",
-    canal: "Digital ONR",
+    hora: "09:50",
+    diaSemana: "Sex",
+    colaborador: "Juliana",
+    canal: "Presencial",
     tipo: "TÍTULO",
     tipoServico: "PRENOTADO",
-    tipoDetalhado: "Complemento de depósito ONR",
+    tipoDetalhado: "Complemento de depósito balcão",
   },
-  {
-    id: "4",
-    numero: "67435",
-    dataHora: "13/10 · 16:13",
-    data: "2026-10-13",
-    hora: "16:13",
-    colaborador: "Rafael",
-    canal: "Digital ONR",
-    tipo: "CERTIDÃO",
-    tipoServico: "Consulta eletrônica (VM)",
-    tipoDetalhado: "Consulta eletrônica (VM)",
-  },
+  // 10h
   {
     id: "5",
-    numero: "67428",
-    dataHora: "13/10 · 15:48",
+    numero: "67345",
+    dataHora: "13/10 · 10:18",
     data: "2026-10-13",
-    hora: "15:48",
+    hora: "10:18",
+    diaSemana: "Sex",
     colaborador: "eProtocolo",
     canal: "Digital ONR",
     tipo: "TÍTULO",
     tipoServico: "PRENOTADO",
     tipoDetalhado: "Depósito de títulos ONR",
   },
-  {
-    id: "8",
-    numero: "67402",
-    dataHora: "13/10 · 14:10",
-    data: "2026-10-13",
-    hora: "14:10",
-    colaborador: "GuilhermeM",
-    canal: "Digital ONR",
-    tipo: "TÍTULO",
-    tipoServico: "PRENOTADO",
-    tipoDetalhado: "Complemento de depósito ONR",
-  },
-  {
-    id: "10",
-    numero: "67382",
-    dataHora: "13/10 · 12:53",
-    data: "2026-10-13",
-    hora: "12:53",
-    colaborador: "eProtocolo",
-    canal: "Digital ONR",
-    tipo: "TÍTULO",
-    tipoServico: "PRENOTADO",
-    tipoDetalhado: "Depósito de títulos ONR",
-  },
-  {
-    id: "11",
-    numero: "67375",
-    dataHora: "13/10 · 11:42",
-    data: "2026-10-13",
-    hora: "11:42",
-    colaborador: "Gabriel",
-    canal: "Digital ONR",
-    tipo: "CERTIDÃO",
-    tipoServico: "Consulta eletrônica (VM)",
-    tipoDetalhado: "Certidão digital de matrícula",
-  },
-  // Presenciais (Balcão)
   {
     id: "6",
-    numero: "67420",
-    dataHora: "13/10 · 15:32",
+    numero: "67351",
+    dataHora: "13/10 · 10:40",
     data: "2026-10-13",
-    hora: "15:32",
-    colaborador: "Mariana",
+    hora: "10:40",
+    diaSemana: "Sex",
+    colaborador: "Carlos",
     canal: "Presencial",
     tipo: "CERTIDÃO",
     tipoServico: "Certidão Presencial",
-    tipoDetalhado: "Certidão de Breve Relato",
+    tipoDetalhado: "Certidão Vinteanária Balcão",
   },
+  // 11h
   {
     id: "7",
-    numero: "67415",
-    dataHora: "13/10 · 14:55",
+    numero: "67364",
+    dataHora: "13/10 · 11:15",
     data: "2026-10-13",
-    hora: "14:55",
-    colaborador: "Carlos",
+    hora: "11:15",
+    diaSemana: "Sex",
+    colaborador: "Mariana",
     canal: "Presencial",
     tipo: "TÍTULO",
     tipoServico: "PRENOTADO",
     tipoDetalhado: "Depósito de títulos balcão",
   },
   {
+    id: "8",
+    numero: "67375",
+    dataHora: "13/10 · 11:42",
+    data: "2026-10-13",
+    hora: "11:42",
+    diaSemana: "Sex",
+    colaborador: "Gabriel",
+    canal: "Digital ONR",
+    tipo: "CERTIDÃO",
+    tipoServico: "Consulta eletrônica (VM)",
+    tipoDetalhado: "Certidão digital de matrícula",
+  },
+  // 12h (Pico)
+  {
     id: "9",
+    numero: "67382",
+    dataHora: "13/10 · 12:53",
+    data: "2026-10-13",
+    hora: "12:53",
+    diaSemana: "Sex",
+    colaborador: "eProtocolo",
+    canal: "Digital ONR",
+    tipo: "TÍTULO",
+    tipoServico: "PRENOTADO",
+    tipoDetalhado: "Depósito de títulos ONR",
+  },
+  {
+    id: "10",
+    numero: "67384",
+    dataHora: "13/10 · 12:35",
+    data: "2026-10-13",
+    hora: "12:35",
+    diaSemana: "Sex",
+    colaborador: "Fernanda",
+    canal: "Presencial",
+    tipo: "CERTIDÃO",
+    tipoServico: "Certidão Presencial",
+    tipoDetalhado: "Certidão de Breve Relato",
+  },
+  {
+    id: "11",
+    numero: "67388",
+    dataHora: "13/10 · 12:15",
+    data: "2026-10-13",
+    hora: "12:15",
+    diaSemana: "Sex",
+    colaborador: "Vinícius",
+    canal: "Digital ONR",
+    tipo: "CERTIDÃO",
+    tipoServico: "Consulta eletrônica (VM)",
+    tipoDetalhado: "Consulta eletrônica (VM)",
+  },
+  // 13h
+  {
+    id: "12",
     numero: "67390",
     dataHora: "13/10 · 13:45",
     data: "2026-10-13",
     hora: "13:45",
+    diaSemana: "Sex",
     colaborador: "Fernanda",
     canal: "Presencial",
     tipo: "CERTIDÃO",
@@ -188,36 +245,147 @@ const BENCHMARK_SERVICOS: ServicoItem[] = [
     tipoDetalhado: "Consulta de Matrícula balcão",
   },
   {
-    id: "12",
-    numero: "67364",
-    dataHora: "13/10 · 11:15",
+    id: "13",
+    numero: "67395",
+    dataHora: "13/10 · 13:15",
     data: "2026-10-13",
-    hora: "11:15",
-    colaborador: "Mariana",
+    hora: "13:15",
+    diaSemana: "Sex",
+    colaborador: "Antônio",
+    canal: "Digital ONR",
+    tipo: "TÍTULO",
+    tipoServico: "PRENOTADO",
+    tipoDetalhado: "Complemento de depósito ONR",
+  },
+  // 14h
+  {
+    id: "14",
+    numero: "67402",
+    dataHora: "13/10 · 14:10",
+    data: "2026-10-13",
+    hora: "14:10",
+    diaSemana: "Sex",
+    colaborador: "GuilhermeM",
+    canal: "Digital ONR",
+    tipo: "TÍTULO",
+    tipoServico: "PRENOTADO",
+    tipoDetalhado: "Complemento de depósito ONR",
+  },
+  {
+    id: "15",
+    numero: "67415",
+    dataHora: "13/10 · 14:55",
+    data: "2026-10-13",
+    hora: "14:55",
+    diaSemana: "Sex",
+    colaborador: "Carlos",
     canal: "Presencial",
     tipo: "TÍTULO",
     tipoServico: "PRENOTADO",
     tipoDetalhado: "Depósito de títulos balcão",
   },
+  // 15h
   {
-    id: "13",
-    numero: "67351",
-    dataHora: "13/10 · 10:40",
+    id: "16",
+    numero: "67420",
+    dataHora: "13/10 · 15:32",
     data: "2026-10-13",
-    hora: "10:40",
-    colaborador: "Carlos",
+    hora: "15:32",
+    diaSemana: "Sex",
+    colaborador: "Mariana",
     canal: "Presencial",
     tipo: "CERTIDÃO",
     tipoServico: "Certidão Presencial",
-    tipoDetalhado: "Certidão Vinteenária Balcão",
+    tipoDetalhado: "Certidão de Breve Relato",
   },
   {
-    id: "14",
-    numero: "67338",
-    dataHora: "13/10 · 09:50",
+    id: "17",
+    numero: "67428",
+    dataHora: "13/10 · 15:48",
     data: "2026-10-13",
-    hora: "09:50",
-    colaborador: "Juliana",
+    hora: "15:48",
+    diaSemana: "Sex",
+    colaborador: "eProtocolo",
+    canal: "Digital ONR",
+    tipo: "TÍTULO",
+    tipoServico: "PRENOTADO",
+    tipoDetalhado: "Depósito de títulos ONR",
+  },
+  // 16h
+  {
+    id: "18",
+    numero: "67435",
+    dataHora: "13/10 · 16:13",
+    data: "2026-10-13",
+    hora: "16:13",
+    diaSemana: "Sex",
+    colaborador: "Rafael",
+    canal: "Digital ONR",
+    tipo: "CERTIDÃO",
+    tipoServico: "Consulta eletrônica (VM)",
+    tipoDetalhado: "Consulta eletrônica (VM)",
+  },
+  {
+    id: "19",
+    numero: "67437",
+    dataHora: "13/10 · 16:19",
+    data: "2026-10-13",
+    hora: "16:19",
+    diaSemana: "Sex",
+    colaborador: "Antônio",
+    canal: "Digital ONR",
+    tipo: "TÍTULO",
+    tipoServico: "PRENOTADO",
+    tipoDetalhado: "Complemento de depósito ONR",
+  },
+  {
+    id: "20",
+    numero: "67439",
+    dataHora: "13/10 · 16:22",
+    data: "2026-10-13",
+    hora: "16:22",
+    diaSemana: "Sex",
+    colaborador: "Vinícius",
+    canal: "Digital ONR",
+    tipo: "CERTIDÃO",
+    tipoServico: "Consulta eletrônica (VM)",
+    tipoDetalhado: "Depósito de certidões ONR",
+  },
+  {
+    id: "21",
+    numero: "67440",
+    dataHora: "13/10 · 16:29",
+    data: "2026-10-13",
+    hora: "16:29",
+    diaSemana: "Sex",
+    colaborador: "Gabriel",
+    canal: "Digital ONR",
+    tipo: "TÍTULO",
+    tipoServico: "PRENOTADO",
+    tipoDetalhado: "Depósito de títulos ONR",
+  },
+  // 17h
+  {
+    id: "22",
+    numero: "67445",
+    dataHora: "13/10 · 17:08",
+    data: "2026-10-13",
+    hora: "17:08",
+    diaSemana: "Sex",
+    colaborador: "Rafael",
+    canal: "Digital ONR",
+    tipo: "CERTIDÃO",
+    tipoServico: "Consulta eletrônica (VM)",
+    tipoDetalhado: "Certidão digital de matrícula",
+  },
+  {
+    id: "23",
+    numero: "67448",
+    dataHora: "13/10 · 17:25",
+    data: "2026-10-13",
+    hora: "17:25",
+    diaSemana: "Sex",
+    colaborador: "Carlos",
     canal: "Presencial",
     tipo: "TÍTULO",
     tipoServico: "PRENOTADO",
@@ -386,6 +554,7 @@ export default function PreviewRecepcaoPage() {
   // Estados da página
   const [activeTab, setActiveTab] = useState<AbaNavegacao>("visao_geral");
   const [filtroCanal, setFiltroCanal] = useState<CanalFiltro>("digital"); // Padrão selecionado conforme o preview
+  const [filtroHorario, setFiltroHorario] = useState<FiltroHorario | null>(null); // Filtro clicável no Heatmap
   const [dataInicio, setDataInicio] = useState("2026-10-01");
   const [dataFim, setDataFim] = useState("2026-10-13");
   const [buscaTabela, setBuscaTabela] = useState("");
@@ -403,6 +572,13 @@ export default function PreviewRecepcaoPage() {
     digitalPct: "67,7%",
     presencialPct: "32,3%",
   };
+
+  // Matriz Heatmap Ativa
+  const matrizHeatmapAtiva = useMemo(() => {
+    if (filtroCanal === "digital") return MATRIZ_DIGITAL;
+    if (filtroCanal === "presencial") return MATRIZ_PRESENCIAL;
+    return MATRIZ_TODOS;
+  }, [filtroCanal]);
 
   // Manipulador de clique nos cards de canal com notificação interativa
   const handleSelecionarCanal = (novoCanal: CanalFiltro) => {
@@ -430,20 +606,220 @@ export default function PreviewRecepcaoPage() {
     setFiltroTipo("TODOS");
     setFiltroColaborador("TODOS");
     setBuscaTabela("");
+    setFiltroHorario(null);
     toast.success("Filtros complementares restaurados.");
   };
 
-  // Dados reativos conforme o canal selecionado
+  // Manipulador de clique nos cards/células do Heatmap
+  const handleToggleHorario = (diaKey: string, hora: number, count: number) => {
+    if (count === 0) {
+      toast.warning(`Nenhuma entrada registrada em ${DIAS_NOMES[diaKey] || diaKey} às ${hora}h.`);
+      return;
+    }
+    if (filtroHorario?.dia === diaKey && filtroHorario?.hora === hora) {
+      setFiltroHorario(null);
+      toast.info("Filtro de horário removido. Exibindo todos os horários.");
+    } else {
+      setFiltroHorario({ dia: diaKey, hora, count });
+      toast.success(
+        `Filtro inteligente ativado: ${DIAS_NOMES[diaKey] || diaKey} às ${hora}h (${count} entradas) · Todos os cards foram atualizados`
+      );
+    }
+  };
+
+  // Manipulador de clique no cabeçalho da coluna de horário
+  const handleToggleColunaHora = (hora: number) => {
+    if (filtroHorario?.dia === null && filtroHorario?.hora === hora) {
+      setFiltroHorario(null);
+      toast.info("Filtro de horário removido. Exibindo todos os horários.");
+    } else {
+      let countHora = 0;
+      DIAS_HEATMAP.forEach((d) => {
+        countHora += matrizHeatmapAtiva[d.key]?.[hora]?.count || 0;
+      });
+
+      setFiltroHorario({ dia: null, hora, count: countHora });
+      toast.success(
+        `Filtro inteligente ativado: Faixa das ${hora}h em todos os dias (${countHora} entradas) · Todos os cards foram atualizados`
+      );
+    }
+  };
+
+  // Totais reativos ao filtro de horário
+  const totaisExibidos = useMemo(() => {
+    if (!filtroHorario) {
+      return totaisGerais;
+    }
+
+    let total = 0;
+    let digital = 0;
+    let presencial = 0;
+
+    if (filtroHorario.dia) {
+      total = MATRIZ_TODOS[filtroHorario.dia]?.[filtroHorario.hora]?.count || 0;
+      digital = MATRIZ_DIGITAL[filtroHorario.dia]?.[filtroHorario.hora]?.count || 0;
+      presencial = MATRIZ_PRESENCIAL[filtroHorario.dia]?.[filtroHorario.hora]?.count || 0;
+    } else {
+      DIAS_HEATMAP.forEach((d) => {
+        total += MATRIZ_TODOS[d.key]?.[filtroHorario.hora]?.count || 0;
+        digital += MATRIZ_DIGITAL[d.key]?.[filtroHorario.hora]?.count || 0;
+        presencial += MATRIZ_PRESENCIAL[d.key]?.[filtroHorario.hora]?.count || 0;
+      });
+    }
+
+    const digPct = total > 0 ? `${((digital / total) * 100).toFixed(1).replace(".", ",")}%` : "0%";
+    const prePct = total > 0 ? `${((presencial / total) * 100).toFixed(1).replace(".", ",")}%` : "0%";
+
+    return {
+      total,
+      digital,
+      presencial,
+      digitalPct: digPct,
+      presencialPct: prePct,
+    };
+  }, [filtroHorario]);
+
+  // Dados reativos conforme o canal selecionado e horário
   const destaquesAtivos = DESTAQUES_POR_CANAL[filtroCanal];
   const andamentosAtivos = ANDAMENTOS_POR_CANAL[filtroCanal];
   const produtividadeAtiva = PRODUTIVIDADE_POR_CANAL[filtroCanal];
   const volumesAtivos = VOLUMES_POR_CANAL[filtroCanal];
 
-  const matrizHeatmapAtiva = useMemo(() => {
-    if (filtroCanal === "digital") return MATRIZ_DIGITAL;
-    if (filtroCanal === "presencial") return MATRIZ_PRESENCIAL;
-    return MATRIZ_TODOS;
-  }, [filtroCanal]);
+  const destaquesExibidos = useMemo(() => {
+    if (!filtroHorario) return destaquesAtivos;
+
+    const diaNome = filtroHorario.dia ? (DIAS_NOMES[filtroHorario.dia] || filtroHorario.dia) : "Todos os dias";
+    const volCanal =
+      filtroCanal === "digital"
+        ? totaisExibidos.digital
+        : filtroCanal === "presencial"
+        ? totaisExibidos.presencial
+        : totaisExibidos.total;
+
+    const pctRelativa =
+      totaisExibidos.total > 0
+        ? `${((volCanal / Math.max(1, totaisExibidos.total)) * 100).toFixed(1).replace(".", ",")}%`
+        : "100%";
+
+    const usuarioInfo =
+      filtroCanal === "presencial"
+        ? {
+            nome: "Mariana",
+            detalhe: `${Math.max(1, Math.round(volCanal * 0.42))} atendimentos às ${filtroHorario.hora}h`,
+            rotulo: "BALCÃO PRESENCIAL",
+          }
+        : filtroCanal === "digital"
+        ? {
+            nome: "eProtocolo",
+            detalhe: `${Math.max(1, Math.round(volCanal * 0.58))} autenticações às ${filtroHorario.hora}h`,
+            rotulo: "INTEGRAÇÃO ONR",
+          }
+        : {
+            nome: "eProtocolo",
+            detalhe: `${Math.max(1, Math.round(volCanal * 0.52))} autenticações às ${filtroHorario.hora}h`,
+            rotulo: "CANAL DIGITAL ONR",
+          };
+
+    const servicoInfo =
+      filtroCanal === "presencial"
+        ? {
+            nome: "Depósito de títulos balcão",
+            detalhe: `${Math.max(1, Math.round(volCanal * 0.45))} registros às ${filtroHorario.hora}h`,
+            rotulo: "TÍTULO PRESENCIAL",
+          }
+        : filtroCanal === "digital"
+        ? {
+            nome: "Consulta eletrônica (VM)",
+            detalhe: `${Math.max(1, Math.round(volCanal * 0.55))} registros às ${filtroHorario.hora}h`,
+            rotulo: "CERTIDÃO DIGITAL",
+          }
+        : {
+            nome: "Consulta eletrônica (VM)",
+            detalhe: `${Math.max(1, Math.round(volCanal * 0.48))} registros às ${filtroHorario.hora}h`,
+            rotulo: "CERTIDÃO DIGITAL",
+          };
+
+    return {
+      pico: {
+        titulo: `${diaNome} · ${filtroHorario.hora}h00`,
+        detalhe: `${volCanal} entradas registradas neste horário (${pctRelativa})`,
+        badge: `Horário ${filtroHorario.hora}h ativo`,
+      },
+      usuario: usuarioInfo,
+      servico: servicoInfo,
+    };
+  }, [filtroHorario, destaquesAtivos, filtroCanal, totaisExibidos]);
+
+  const andamentosExibidos = useMemo(() => {
+    if (!filtroHorario) return andamentosAtivos;
+
+    const volCanal =
+      filtroCanal === "digital"
+        ? totaisExibidos.digital
+        : filtroCanal === "presencial"
+        ? totaisExibidos.presencial
+        : totaisExibidos.total;
+
+    const pesos = [0.42, 0.30, 0.18, 0.10];
+    const maxVol = Math.max(1, Math.round(volCanal * pesos[0]));
+
+    return andamentosAtivos.map((item, idx) => {
+      const peso = pesos[idx] || 0.1;
+      const volNum = Math.max(1, Math.round(volCanal * peso));
+      const pct = volCanal > 0 ? `${((volNum / volCanal) * 100).toFixed(1).replace(".", ",")}%` : item.pct;
+      const barPct = idx === 0 ? "100%" : `${Math.min(100, Math.round((volNum / maxVol) * 100))}%`;
+      return {
+        nome: item.nome,
+        volume: volNum.toLocaleString("pt-BR"),
+        pct,
+        barPct,
+      };
+    });
+  }, [filtroHorario, andamentosAtivos, filtroCanal, totaisExibidos]);
+
+  const produtividadeExibida = useMemo(() => {
+    if (!filtroHorario) return produtividadeAtiva;
+
+    const volCanal =
+      filtroCanal === "digital"
+        ? totaisExibidos.digital
+        : filtroCanal === "presencial"
+        ? totaisExibidos.presencial
+        : totaisExibidos.total;
+
+    const maxTotal = Math.max(1, Math.round(volCanal * 0.35));
+
+    return produtividadeAtiva.map((pessoa, idx) => {
+      const peso = Math.max(0.08, 0.35 - idx * 0.05);
+      const volPessoa = Math.max(1, Math.round(volCanal * peso));
+      const barPct = `${Math.min(100, Math.round((volPessoa / maxTotal) * 100))}%`;
+      return {
+        ...pessoa,
+        total: volPessoa.toLocaleString("pt-BR"),
+        barPct,
+      };
+    });
+  }, [filtroHorario, produtividadeAtiva, filtroCanal, totaisExibidos]);
+
+  const volumesExibidos = useMemo(() => {
+    if (!filtroHorario) return volumesAtivos;
+
+    const volCanal =
+      filtroCanal === "digital"
+        ? totaisExibidos.digital
+        : filtroCanal === "presencial"
+        ? totaisExibidos.presencial
+        : totaisExibidos.total;
+
+    const cert = Math.max(1, Math.round(volCanal * 0.48));
+    const tit = Math.max(1, volCanal - cert);
+
+    return {
+      certidoes: cert.toLocaleString("pt-BR"),
+      titulos: tit.toLocaleString("pt-BR"),
+      picoHora: `${filtroHorario.hora}h`,
+    };
+  }, [filtroHorario, volumesAtivos, filtroCanal, totaisExibidos]);
 
   // Filtro de serviços da tabela
   const servicosFiltrados = useMemo(() => {
@@ -458,6 +834,21 @@ export default function PreviewRecepcaoPage() {
       // Filtro de colaborador
       if (filtroColaborador !== "TODOS" && item.colaborador !== filtroColaborador) return false;
 
+      // Filtro de horário clicável
+      if (filtroHorario !== null) {
+        const itemHora = parseInt(item.hora.split(":")[0], 10);
+        if (itemHora !== filtroHorario.hora) return false;
+        if (filtroHorario.dia && item.diaSemana && item.diaSemana !== filtroHorario.dia) {
+          const temItemDiaHora = BENCHMARK_SERVICOS.some(
+            (s) =>
+              s.diaSemana === filtroHorario.dia &&
+              parseInt(s.hora.split(":")[0], 10) === filtroHorario.hora &&
+              (filtroCanal === "todos" || (filtroCanal === "digital" ? s.canal === "Digital ONR" : s.canal === "Presencial"))
+          );
+          if (temItemDiaHora) return false;
+        }
+      }
+
       // Busca por texto
       if (buscaTabela.trim()) {
         const query = buscaTabela.toLowerCase();
@@ -471,7 +862,7 @@ export default function PreviewRecepcaoPage() {
 
       return true;
     });
-  }, [filtroCanal, filtroTipo, filtroColaborador, buscaTabela]);
+  }, [filtroCanal, filtroTipo, filtroColaborador, filtroHorario, buscaTabela]);
 
   // Exportar CSV de serviços
   const handleExportCSV = () => {
@@ -699,94 +1090,60 @@ export default function PreviewRecepcaoPage() {
             {/* MENU DE ABAS EM DESTAQUE MÁXIMO (ALTO RECONHECIMENTO VISUAL)  */}
             {/* ───────────────────────────────────────────────────────────── */}
             <div className="relative rounded-2xl border border-indigo-500/40 bg-[#0B1020]/95 backdrop-blur-2xl p-2.5 shadow-2xl shadow-indigo-950/40">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                {/* Abas Interativas Grandes com Afordância Clara */}
-                <div className="flex items-center gap-2 overflow-x-auto scrollbar-none w-full lg:w-auto p-0.5">
-                  <div className="hidden sm:flex items-center gap-1.5 pl-2 pr-3 text-[10px] font-black uppercase tracking-[0.18em] text-indigo-300/80 border-r border-white/10 select-none">
-                    <Sparkles className="w-3 h-3 text-cyan-400" />
-                    <span>MÓDULO:</span>
-                  </div>
-
-                  {(
-                    [
-                      {
-                        key: "visao_geral",
-                        label: "Visão geral",
-                        icon: Layers,
-                        badge: "Consolidado",
-                        descricao: "Dashboard completo & comparativo",
-                      },
-                      {
-                        key: "produtividade",
-                        label: "Produtividade",
-                        icon: BarChart3,
-                        badge: "Métricas & Heatmap",
-                        descricao: "Análise por operador e horário",
-                      },
-                      {
-                        key: "servicos",
-                        label: "Serviços",
-                        icon: FileText,
-                        badge: `${totaisGerais.total.toLocaleString("pt-BR")} itens`,
-                        descricao: "Tabela analítica & exportação",
-                      },
-                    ] as const
-                  ).map((tab) => {
-                    const Icon = tab.icon;
-                    const isActive = activeTab === tab.key;
-                    return (
-                      <button
-                        key={tab.key}
-                        type="button"
-                        onClick={() => {
-                          setActiveTab(tab.key);
-                          toast.info(`Módulo ativado: ${tab.label}`);
-                        }}
-                        className={`group relative inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap select-none border ${
+              <div className="flex items-center gap-2 overflow-x-auto scrollbar-none w-full p-0.5">
+                {(
+                  [
+                    {
+                      key: "visao_geral",
+                      label: "Visão geral",
+                      icon: Layers,
+                    },
+                    {
+                      key: "produtividade",
+                      label: "Produtividade",
+                      icon: BarChart3,
+                    },
+                    {
+                      key: "servicos",
+                      label: "Serviços",
+                      icon: FileText,
+                    },
+                  ] as const
+                ).map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => {
+                        setActiveTab(tab.key);
+                        toast.info(`Módulo ativado: ${tab.label}`);
+                      }}
+                      className={`group relative inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer whitespace-nowrap select-none border ${
+                        isActive
+                          ? "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-600/40 border-indigo-400/80 ring-2 ring-indigo-400/30 scale-[1.02]"
+                          : "bg-[#080D1A]/90 hover:bg-white/[0.08] text-slate-300 hover:text-white border-white/10 hover:border-indigo-400/40 hover:shadow-md"
+                      }`}
+                    >
+                      <div
+                        className={`p-1 rounded-lg transition-colors ${
                           isActive
-                            ? "bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-600/40 border-indigo-400/80 ring-2 ring-indigo-400/30 scale-[1.02]"
-                            : "bg-[#080D1A]/90 hover:bg-white/[0.08] text-slate-300 hover:text-white border-white/10 hover:border-indigo-400/40 hover:shadow-md"
+                            ? "bg-white/20 text-cyan-200"
+                            : "bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-cyan-300"
                         }`}
                       >
-                        <div
-                          className={`p-1 rounded-lg transition-colors ${
-                            isActive
-                              ? "bg-white/20 text-cyan-200"
-                              : "bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-cyan-300"
-                          }`}
-                        >
-                          <Icon className="w-3.5 h-3.5" />
-                        </div>
+                        <Icon className="w-3.5 h-3.5" />
+                      </div>
 
-                        <div className="flex flex-col text-left">
-                          <span className="font-extrabold tracking-wide text-xs">{tab.label}</span>
-                        </div>
+                      <span className="font-extrabold tracking-wide text-xs">{tab.label}</span>
 
-                        <span
-                          className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold transition-colors ml-1 ${
-                            isActive
-                              ? "bg-black/30 text-cyan-300 border border-cyan-400/30"
-                              : "bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-slate-200"
-                          }`}
-                        >
-                          {tab.badge}
-                        </span>
-
-                        {isActive && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse ml-0.5" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Dica / Auxílio ao Usuário */}
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/8 text-[11px] text-slate-300 font-medium">
-                  <HelpCircle className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                  <span>
-                    Dica: Clique nas abas para alternar os módulos da Recepção e obter análises focadas.
-                  </span>
-                </div>
+                      {isActive && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse ml-0.5" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -800,16 +1157,41 @@ export default function PreviewRecepcaoPage() {
                 </span>
               </div>
 
-              {/* Tag indicativa do filtro inteligente ativo */}
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0E1528] border border-cyan-500/30 text-xs">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Canal ativo:</span>
-                <span className="font-bold text-cyan-300">
-                  {filtroCanal === "todos"
-                    ? "Todos os canais (6.722)"
-                    : filtroCanal === "digital"
-                    ? "Digital ONR (4.549)"
-                    : "Presencial (2.173)"}
-                </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0E1528] border border-cyan-500/30 text-xs">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Canal ativo:</span>
+                  <span className="font-bold text-cyan-300">
+                    {filtroCanal === "todos"
+                      ? `Todos os canais (${totaisExibidos.total.toLocaleString("pt-BR")})`
+                      : filtroCanal === "digital"
+                      ? `Digital ONR (${totaisExibidos.digital.toLocaleString("pt-BR")})`
+                      : `Presencial (${totaisExibidos.presencial.toLocaleString("pt-BR")})`}
+                  </span>
+                </div>
+
+                {filtroHorario && (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 text-xs font-semibold shadow-[0_0_12px_rgba(6,182,212,0.35)] animate-in fade-in">
+                    <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>
+                      Horário:{" "}
+                      <strong>
+                        {filtroHorario.dia ? `${DIAS_NOMES[filtroHorario.dia]} ` : ""}às {filtroHorario.hora}h
+                      </strong>
+                      {filtroHorario.count !== undefined ? ` (${filtroHorario.count})` : ""}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFiltroHorario(null);
+                        toast.info("Filtro de horário removido. Exibindo todos os horários.");
+                      }}
+                      className="p-0.5 rounded-full hover:bg-white/20 text-cyan-200 hover:text-white transition-colors cursor-pointer"
+                      title="Remover filtro de horário"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -839,22 +1221,33 @@ export default function PreviewRecepcaoPage() {
                   <span className="text-xs font-black uppercase tracking-wider text-slate-300">
                     TOTAL DE ENTRADAS
                   </span>
-                  <div
-                    className={`p-2 rounded-xl border transition-colors ${
-                      filtroCanal === "todos"
-                        ? "bg-cyan-500/20 border-cyan-400/50 text-cyan-300"
-                        : "bg-white/[0.04] border-white/8 text-slate-300 group-hover:text-white"
-                    }`}
-                  >
-                    <Inbox className="w-4 h-4" />
+                  <div className="flex items-center gap-2">
+                    {filtroHorario && (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 font-bold">
+                        ⏰ {filtroHorario.dia ? `${filtroHorario.dia} ` : ""}{filtroHorario.hora}h
+                      </span>
+                    )}
+                    <div
+                      className={`p-2 rounded-xl border transition-colors ${
+                        filtroCanal === "todos"
+                          ? "bg-cyan-500/20 border-cyan-400/50 text-cyan-300"
+                          : "bg-white/[0.04] border-white/8 text-slate-300 group-hover:text-white"
+                      }`}
+                    >
+                      <Inbox className="w-4 h-4" />
+                    </div>
                   </div>
                 </div>
 
                 <div className="space-y-1 mb-6">
                   <div className="text-4xl font-black text-white font-mono tracking-tight">
-                    {totaisGerais.total.toLocaleString("pt-BR")}
+                    {totaisExibidos.total.toLocaleString("pt-BR")}
                   </div>
-                  <p className="text-xs text-slate-300">Clique para consultar todos os serviços</p>
+                  <p className="text-xs text-slate-300">
+                    {filtroHorario
+                      ? `Entradas filtradas às ${filtroHorario.hora}h · Geral`
+                      : "Clique para consultar todos os serviços"}
+                  </p>
                 </div>
 
                 {/* Linha de progresso */}
@@ -904,32 +1297,46 @@ export default function PreviewRecepcaoPage() {
                   <span className="text-xs font-black uppercase tracking-wider text-slate-300">
                     DIGITAL ONR
                   </span>
-                  <div
-                    className={`p-2 rounded-xl border transition-colors ${
-                      filtroCanal === "digital"
-                        ? "bg-emerald-500/20 border-emerald-400/50 text-emerald-300"
-                        : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                    }`}
-                  >
-                    <Laptop className="w-4 h-4" />
+                  <div className="flex items-center gap-2">
+                    {filtroHorario && (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 font-bold">
+                        ⏰ {filtroHorario.dia ? `${filtroHorario.dia} ` : ""}{filtroHorario.hora}h
+                      </span>
+                    )}
+                    <div
+                      className={`p-2 rounded-xl border transition-colors ${
+                        filtroCanal === "digital"
+                          ? "bg-emerald-500/20 border-emerald-400/50 text-emerald-300"
+                          : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                      }`}
+                    >
+                      <Laptop className="w-4 h-4" />
+                    </div>
                   </div>
                 </div>
 
                 <div className="space-y-1 mb-6">
                   <div className="flex items-baseline gap-2">
                     <span className="text-4xl font-black text-white font-mono tracking-tight">
-                      {totaisGerais.digital.toLocaleString("pt-BR")}
+                      {totaisExibidos.digital.toLocaleString("pt-BR")}
                     </span>
                     <span className="text-xs font-bold text-emerald-400 font-mono">
-                      {totaisGerais.digitalPct}
+                      {totaisExibidos.digitalPct}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-300">Clique para consultar serviços do ONR</p>
+                  <p className="text-xs text-slate-300">
+                    {filtroHorario
+                      ? `Volume ONR filtrado às ${filtroHorario.hora}h`
+                      : "Clique para consultar serviços do ONR"}
+                  </p>
                 </div>
 
                 {/* Barra de percentual */}
                 <div className="w-full bg-white/5 rounded-full h-1.5 mb-4 overflow-hidden">
-                  <div className="bg-emerald-500 h-1.5 rounded-full w-[67.7%]" />
+                  <div
+                    className="bg-emerald-500 h-1.5 rounded-full transition-all duration-300"
+                    style={{ width: totaisExibidos.digitalPct }}
+                  />
                 </div>
 
                 <div
@@ -974,32 +1381,46 @@ export default function PreviewRecepcaoPage() {
                   <span className="text-xs font-black uppercase tracking-wider text-slate-300">
                     PRESENCIAL
                   </span>
-                  <div
-                    className={`p-2 rounded-xl border transition-colors ${
-                      filtroCanal === "presencial"
-                        ? "bg-sky-500/20 border-sky-400/50 text-sky-300"
-                        : "bg-sky-500/10 border-sky-500/20 text-sky-400"
-                    }`}
-                  >
-                    <Users className="w-4 h-4" />
+                  <div className="flex items-center gap-2">
+                    {filtroHorario && (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-sky-500/20 border border-sky-400/50 text-sky-300 font-bold">
+                        ⏰ {filtroHorario.dia ? `${filtroHorario.dia} ` : ""}{filtroHorario.hora}h
+                      </span>
+                    )}
+                    <div
+                      className={`p-2 rounded-xl border transition-colors ${
+                        filtroCanal === "presencial"
+                          ? "bg-sky-500/20 border-sky-400/50 text-sky-300"
+                          : "bg-sky-500/10 border-sky-500/20 text-sky-400"
+                      }`}
+                    >
+                      <Users className="w-4 h-4" />
+                    </div>
                   </div>
                 </div>
 
                 <div className="space-y-1 mb-6">
                   <div className="flex items-baseline gap-2">
                     <span className="text-4xl font-black text-white font-mono tracking-tight">
-                      {totaisGerais.presencial.toLocaleString("pt-BR")}
+                      {totaisExibidos.presencial.toLocaleString("pt-BR")}
                     </span>
                     <span className="text-xs font-bold text-sky-400 font-mono">
-                      {totaisGerais.presencialPct}
+                      {totaisExibidos.presencialPct}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-300">Clique para consultar serviços do balcão</p>
+                  <p className="text-xs text-slate-300">
+                    {filtroHorario
+                      ? `Volume Balcão filtrado às ${filtroHorario.hora}h`
+                      : "Clique para consultar serviços do balcão"}
+                  </p>
                 </div>
 
                 {/* Barra de percentual */}
                 <div className="w-full bg-white/5 rounded-full h-1.5 mb-4 overflow-hidden">
-                  <div className="bg-sky-500 h-1.5 rounded-full w-[32.3%]" />
+                  <div
+                    className="bg-sky-500 h-1.5 rounded-full transition-all duration-300"
+                    style={{ width: totaisExibidos.presencialPct }}
+                  />
                 </div>
 
                 <div
@@ -1069,9 +1490,9 @@ export default function PreviewRecepcaoPage() {
                       onChange={(e) => handleSelecionarCanal(e.target.value as CanalFiltro)}
                       className="w-full rounded-xl bg-[#080D1A] border border-cyan-500/40 px-3 py-2 text-xs text-white font-medium focus:outline-none focus:border-cyan-400 appearance-none transition-colors cursor-pointer"
                     >
-                      <option value="todos">Todos os canais (6.722)</option>
-                      <option value="digital">Digital ONR (4.549)</option>
-                      <option value="presencial">Presencial (2.173)</option>
+                      <option value="todos">Todos os canais ({totaisExibidos.total.toLocaleString("pt-BR")})</option>
+                      <option value="digital">Digital ONR ({totaisExibidos.digital.toLocaleString("pt-BR")})</option>
+                      <option value="presencial">Presencial ({totaisExibidos.presencial.toLocaleString("pt-BR")})</option>
                     </select>
                     <ChevronDown className="w-3.5 h-3.5 text-cyan-400 absolute right-3 top-3 pointer-events-none" />
                   </div>
@@ -1160,7 +1581,7 @@ export default function PreviewRecepcaoPage() {
             </div>
 
             {/* ───────────────────────────────────────────────────────────── */}
-            {/* SUB-FAIXA DE DESTAQUES INTELIGENTES (REAGEM AO CARD DE CANAL) */}
+            {/* SUB-FAIXA DE DESTAQUES INTELIGENTES (REAGEM AO CARD E HORÁRIO)*/}
             {/* ───────────────────────────────────────────────────────────── */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* DESTAQUE 1: PICO DE ENTRADAS */}
@@ -1170,13 +1591,13 @@ export default function PreviewRecepcaoPage() {
                     PICO DE ENTRADAS
                   </span>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 font-bold">
-                    {destaquesAtivos.pico.badge}
+                    {destaquesExibidos.pico.badge}
                   </span>
                 </div>
                 <div className="text-base font-bold text-white tracking-tight">
-                  {destaquesAtivos.pico.titulo}
+                  {destaquesExibidos.pico.titulo}
                 </div>
-                <p className="text-xs text-slate-300">{destaquesAtivos.pico.detalhe}</p>
+                <p className="text-xs text-slate-300">{destaquesExibidos.pico.detalhe}</p>
               </div>
 
               {/* DESTAQUE 2: USUÁRIO / ATENDENTE EM DESTAQUE */}
@@ -1186,18 +1607,18 @@ export default function PreviewRecepcaoPage() {
                     USUÁRIO EM DESTAQUE
                   </span>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 font-bold">
-                    {destaquesAtivos.usuario.rotulo}
+                    {destaquesExibidos.usuario.rotulo}
                   </span>
                 </div>
                 <div className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-                  <span>{destaquesAtivos.usuario.nome}</span>
+                  <span>{destaquesExibidos.usuario.nome}</span>
                   {filtroCanal === "presencial" && (
                     <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300">
                       Balcão
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-300">{destaquesAtivos.usuario.detalhe}</p>
+                <p className="text-xs text-slate-300">{destaquesExibidos.usuario.detalhe}</p>
               </div>
 
               {/* DESTAQUE 3: SERVIÇO EM DESTAQUE */}
@@ -1207,13 +1628,13 @@ export default function PreviewRecepcaoPage() {
                     SERVIÇO EM DESTAQUE
                   </span>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 font-bold">
-                    {destaquesAtivos.servico.rotulo}
+                    {destaquesExibidos.servico.rotulo}
                   </span>
                 </div>
                 <div className="text-base font-bold text-white tracking-tight">
-                  {destaquesAtivos.servico.nome}
+                  {destaquesExibidos.servico.nome}
                 </div>
-                <p className="text-xs text-slate-300">{destaquesAtivos.servico.detalhe}</p>
+                <p className="text-xs text-slate-300">{destaquesExibidos.servico.detalhe}</p>
               </div>
             </div>
 
@@ -1231,17 +1652,45 @@ export default function PreviewRecepcaoPage() {
                       <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
                         <span>ENTRADA DE CERTIDÕES e TÍTULOS</span>
                         <span className="text-[11px] font-normal text-cyan-300">
-                          (Filtrado por: {filtroCanal === "todos" ? "Geral" : filtroCanal === "digital" ? "Digital ONR" : "Presencial"})
+                          (Filtrado por: {filtroCanal === "todos" ? "Geral" : filtroCanal === "digital" ? "Digital ONR" : "Presencial"}
+                          {filtroHorario
+                            ? ` · ${filtroHorario.dia ? `${DIAS_NOMES[filtroHorario.dia]} às ` : "Faixa das "}${filtroHorario.hora}h`
+                            : ""}
+                          )
                         </span>
                       </h2>
                       <p className="text-xs text-slate-300">
-                        Distribuição por dia da semana e hora · Indicadores inteligentes do canal
+                        Distribuição por dia da semana e hora · Clique em qualquer card de horário para filtrar todos os cards do painel
                       </p>
                     </div>
 
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-bold">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                      <span>{destaquesAtivos.pico.badge}</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {filtroHorario && (
+                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-500/20 border border-cyan-400/60 text-cyan-300 text-xs font-bold shadow-[0_0_16px_rgba(6,182,212,0.35)] animate-in fade-in">
+                          <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>
+                            {filtroHorario.dia ? `${DIAS_NOMES[filtroHorario.dia]} às ` : "Faixa das "}
+                            {filtroHorario.hora}h
+                            {filtroHorario.count !== undefined ? ` (${filtroHorario.count} entradas)` : ""}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFiltroHorario(null);
+                              toast.info("Filtro de horário removido. Exibindo todos os horários.");
+                            }}
+                            className="p-0.5 rounded-full hover:bg-white/20 text-cyan-200 hover:text-white transition-colors cursor-pointer"
+                            title="Limpar filtro de horário"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-bold">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{destaquesExibidos.pico.badge}</span>
+                      </div>
                     </div>
                   </div>
 
@@ -1252,11 +1701,24 @@ export default function PreviewRecepcaoPage() {
                       <div className="flex items-center text-[10px] font-mono text-slate-300">
                         <div className="w-12 text-right pr-3 font-bold">Dia</div>
                         <div className="grid flex-1 grid-cols-10 gap-1.5">
-                          {HORAS_HEATMAP.map((h) => (
-                            <div key={h} className="text-center font-bold">
-                              {h}h
-                            </div>
-                          ))}
+                          {HORAS_HEATMAP.map((h) => {
+                            const isColSelected = filtroHorario?.hora === h && filtroHorario?.dia === null;
+                            return (
+                              <button
+                                key={h}
+                                type="button"
+                                onClick={() => handleToggleColunaHora(h)}
+                                title={`Clique para filtrar todas as entradas das ${h}h (todos os dias)`}
+                                className={`text-center font-bold py-1 px-0.5 rounded-md transition-all cursor-pointer ${
+                                  isColSelected
+                                    ? "bg-cyan-500/30 text-cyan-200 border border-cyan-400/70 shadow-[0_0_12px_rgba(6,182,212,0.5)] scale-105"
+                                    : "hover:bg-white/10 hover:text-white"
+                                }`}
+                              >
+                                {h}h
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
 
@@ -1269,12 +1731,26 @@ export default function PreviewRecepcaoPage() {
                           <div className="grid flex-1 grid-cols-10 gap-1.5">
                             {HORAS_HEATMAP.map((hora) => {
                               const cell = matrizHeatmapAtiva[dia.key]?.[hora] || { level: 0, count: 0 };
+                              const isSelected =
+                                filtroHorario !== null &&
+                                filtroHorario.hora === hora &&
+                                (filtroHorario.dia === null || filtroHorario.dia === dia.key);
+                              const isDimmed = filtroHorario !== null && !isSelected;
+
                               const colorClass = getCellColor(cell.level, cell.count);
+                              const interactiveClass = isSelected
+                                ? "ring-2 ring-cyan-400 scale-105 shadow-[0_0_20px_rgba(6,182,212,0.9)] z-20 brightness-125"
+                                : isDimmed
+                                ? "opacity-30 hover:opacity-85 hover:scale-105"
+                                : "hover:scale-105 hover:z-10";
+
                               return (
-                                <div
+                                <button
+                                  type="button"
                                   key={hora}
-                                  title={`${dia.label}, ${hora}h: ${cell.count} entradas no canal ${filtroCanal}`}
-                                  className={`h-9 rounded-md border flex items-center justify-center transition-all duration-200 cursor-pointer hover:scale-105 hover:z-10 group relative ${colorClass}`}
+                                  onClick={() => handleToggleHorario(dia.key, hora, cell.count)}
+                                  title={`${dia.label}, ${hora}h: ${cell.count} entradas no canal ${filtroCanal}. Clique para filtrar todos os cards.`}
+                                  className={`h-9 rounded-md border flex items-center justify-center transition-all duration-200 cursor-pointer group relative ${colorClass} ${interactiveClass}`}
                                 >
                                   {cell.count > 0 && (
                                     <span
@@ -1291,7 +1767,10 @@ export default function PreviewRecepcaoPage() {
                                       {cell.count}
                                     </span>
                                   )}
-                                </div>
+                                  {isSelected && (
+                                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                                  )}
+                                </button>
                               );
                             })}
                           </div>
@@ -1301,9 +1780,10 @@ export default function PreviewRecepcaoPage() {
                   </div>
 
                   {/* Legenda do Heatmap */}
-                  <div className="flex items-center justify-between pt-2 border-t border-white/8 text-xs text-slate-300">
-                    <div className="text-[11px] text-slate-400">
-                      * Mostrando horários operacionais do cartório (8h às 17h)
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-white/8 text-xs text-slate-300">
+                    <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                      <span>* Mostrando horários operacionais do cartório (8h às 17h)</span>
+                      <span className="text-cyan-400">· Clique em qualquer card de horário para filtrar o painel</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span>Menos</span>
@@ -1318,7 +1798,7 @@ export default function PreviewRecepcaoPage() {
                 </div>
 
                 {/* ───────────────────────────────────────────────────────── */}
-                {/* CARD: Tipos de andamentos (REAGEM AO CANAL SELECIONADO)   */}
+                {/* CARD: Tipos de andamentos (REAGEM AO CANAL E AO HORÁRIO)  */}
                 {/* ───────────────────────────────────────────────────────── */}
                 <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-xl space-y-4">
                   <div className="flex items-center justify-between">
@@ -1327,22 +1807,23 @@ export default function PreviewRecepcaoPage() {
                       <p className="text-xs text-slate-300">
                         Comparação direta do volume recebido no canal{" "}
                         <strong className="text-cyan-300 uppercase">{filtroCanal}</strong>
+                        {filtroHorario && (
+                          <span className="text-cyan-400 font-semibold">
+                            {" "}· Faixa das {filtroHorario.hora}h{filtroHorario.dia ? ` (${filtroHorario.dia})` : ""}
+                          </span>
+                        )}
                       </p>
                     </div>
                     <span className="text-xs font-mono text-slate-400">
                       Total no canal:{" "}
                       <strong className="text-white">
-                        {filtroCanal === "todos"
-                          ? "6.722"
-                          : filtroCanal === "digital"
-                          ? "4.549"
-                          : "2.173"}
+                        {totaisExibidos[filtroCanal === "todos" ? "total" : filtroCanal].toLocaleString("pt-BR")}
                       </strong>
                     </span>
                   </div>
 
                   <div className="space-y-4 pt-2">
-                    {andamentosAtivos.map((item) => (
+                    {andamentosExibidos.map((item) => (
                       <div key={item.nome} className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs">
                           <span className="font-semibold text-white">{item.nome}</span>
@@ -1372,6 +1853,11 @@ export default function PreviewRecepcaoPage() {
                       </h2>
                       <p className="text-xs text-slate-300">
                         Entradas por hora · curva estimada para {filtroCanal === "todos" ? "todos os canais" : `canal ${filtroCanal}`}
+                        {filtroHorario && (
+                          <span className="text-cyan-400 font-bold ml-1">
+                            (Foco na faixa das {filtroHorario.hora}h)
+                          </span>
+                        )}
                       </p>
                     </div>
 
@@ -1379,13 +1865,13 @@ export default function PreviewRecepcaoPage() {
                       <div className="flex items-center gap-1.5">
                         <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
                         <span className="text-slate-300">
-                          Certidões: <strong className="text-white">{volumesAtivos.certidoes}</strong>
+                          Certidões: <strong className="text-white">{volumesExibidos.certidoes}</strong>
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
                         <span className="text-slate-300">
-                          Títulos: <strong className="text-white">{volumesAtivos.titulos}</strong>
+                          Títulos: <strong className="text-white">{volumesExibidos.titulos}</strong>
                         </span>
                       </div>
                     </div>
@@ -1395,11 +1881,11 @@ export default function PreviewRecepcaoPage() {
                   <div className="h-44 w-full pt-4 relative">
                     <svg viewBox="0 0 500 120" className="w-full h-full overflow-visible">
                       <defs>
-                        <linearGradient id="gradCertidoes" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="gradCertidoesPreview" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.25" />
                           <stop offset="100%" stopColor="#38BDF8" stopOpacity="0" />
                         </linearGradient>
-                        <linearGradient id="gradTitulos" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="gradTitulosPreview" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#34D399" stopOpacity="0.25" />
                           <stop offset="100%" stopColor="#34D399" stopOpacity="0" />
                         </linearGradient>
@@ -1431,7 +1917,7 @@ export default function PreviewRecepcaoPage() {
                           />
                           <path
                             d="M 30 100 Q 100 95, 180 25 T 280 65 T 380 40 T 490 100 L 490 100 L 30 100 Z"
-                            fill="url(#gradCertidoes)"
+                            fill="url(#gradCertidoesPreview)"
                           />
 
                           <path
@@ -1442,7 +1928,7 @@ export default function PreviewRecepcaoPage() {
                           />
                           <path
                             d="M 30 100 Q 120 90, 180 50 T 290 55 T 390 75 T 490 100 L 490 100 L 30 100 Z"
-                            fill="url(#gradTitulos)"
+                            fill="url(#gradTitulosPreview)"
                           />
                         </>
                       ) : (
@@ -1456,7 +1942,7 @@ export default function PreviewRecepcaoPage() {
                           />
                           <path
                             d="M 30 100 Q 120 95, 170 30 T 260 85 T 350 50 T 490 98 L 490 100 L 30 100 Z"
-                            fill="url(#gradCertidoes)"
+                            fill="url(#gradCertidoesPreview)"
                           />
 
                           <path
@@ -1467,26 +1953,35 @@ export default function PreviewRecepcaoPage() {
                           />
                           <path
                             d="M 30 100 Q 140 98, 200 70 T 300 80 T 400 95 T 490 100 L 490 100 L 30 100 Z"
-                            fill="url(#gradTitulos)"
+                            fill="url(#gradTitulosPreview)"
                           />
                         </>
                       )}
                     </svg>
 
-                    {/* Marcadores do Eixo X */}
+                    {/* Marcadores do Eixo X com Destaque na Hora Filtrada */}
                     <div className="flex justify-between text-[10px] font-mono text-slate-300 px-6 pt-2">
-                      <span>08h</span>
-                      <span>10h</span>
-                      <span>12h</span>
-                      <span>14h</span>
-                      <span>16h</span>
-                      <span>17h</span>
+                      {[8, 10, 12, 14, 16, 17].map((h) => {
+                        const isFocado = filtroHorario?.hora === h;
+                        return (
+                          <span
+                            key={h}
+                            className={`transition-colors ${
+                              isFocado
+                                ? "text-cyan-300 font-extrabold px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/50"
+                                : ""
+                            }`}
+                          >
+                            {String(h).padStart(2, "0")}h
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
 
                 {/* ───────────────────────────────────────────────────────── */}
-                {/* CARD: Produtividade dos colaboradores (POR CANAL)        */}
+                {/* CARD: Produtividade dos colaboradores (POR CANAL E HORA) */}
                 {/* ───────────────────────────────────────────────────────── */}
                 <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-xl space-y-4">
                   <div className="flex items-center justify-between">
@@ -1496,17 +1991,23 @@ export default function PreviewRecepcaoPage() {
                       </h2>
                       <p className="text-xs text-slate-300">
                         Pessoas vinculadas ao canal{" "}
-                        <strong className="text-cyan-300 uppercase">{filtroCanal}</strong> · volume individual
+                        <strong className="text-cyan-300 uppercase">{filtroCanal}</strong>
+                        {filtroHorario && (
+                          <span className="text-cyan-400 font-semibold">
+                            {" "}· Faixa das {filtroHorario.hora}h
+                          </span>
+                        )}{" "}
+                        · volume individual
                       </p>
                     </div>
 
                     <span className="text-xs font-mono text-indigo-300 font-bold px-3 py-1 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
-                      {produtividadeAtiva.length} colaboradores
+                      {produtividadeExibida.length} colaboradores
                     </span>
                   </div>
 
                   <div className="space-y-4 pt-2">
-                    {produtividadeAtiva.map((pessoa) => (
+                    {produtividadeExibida.map((pessoa) => (
                       <div key={pessoa.nome} className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs">
                           <div className="flex items-center gap-2">
@@ -1536,7 +2037,7 @@ export default function PreviewRecepcaoPage() {
                 {/* Cabeçalho dinâmico baseado no canal */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h2 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                    <h2 className="text-lg font-bold text-white tracking-tight flex flex-wrap items-center gap-2">
                       <span>
                         {filtroCanal === "digital"
                           ? "Serviços digitais · ONR"
@@ -1547,15 +2048,40 @@ export default function PreviewRecepcaoPage() {
                       <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-300">
                         {servicosFiltrados.length} listados
                       </span>
+                      {filtroHorario && (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-mono px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 font-bold">
+                          <Clock className="w-3 h-3 text-cyan-400" />
+                          <span>
+                            Faixa das {filtroHorario.hora}h{filtroHorario.dia ? ` (${filtroHorario.dia})` : ""}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFiltroHorario(null);
+                              toast.info("Filtro de horário removido da tabela.");
+                            }}
+                            className="ml-1 hover:text-white"
+                            title="Limpar filtro de horário"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      )}
                     </h2>
                     <p className="text-xs text-slate-300">
+                      {filtroHorario ? (
+                        <span>
+                          Filtrando faixa das <strong className="text-cyan-300">{filtroHorario.hora}h</strong>
+                          {filtroHorario.dia ? ` em ${DIAS_NOMES[filtroHorario.dia] || filtroHorario.dia}` : " (todos os dias)"} ·{" "}
+                        </span>
+                      ) : null}
                       Entradas do canal selecionado ·{" "}
                       <strong className="text-cyan-300">
                         {filtroCanal === "digital"
-                          ? "Digital ONR selecionado · 4.549 serviços no período"
+                          ? `Digital ONR selecionado · ${totaisExibidos.digital.toLocaleString("pt-BR")} serviços no período`
                           : filtroCanal === "presencial"
-                          ? "Presencial selecionado · 2.173 serviços no período"
-                          : "Todos os canais selecionados · 6.722 serviços no período"}
+                          ? `Presencial selecionado · ${totaisExibidos.presencial.toLocaleString("pt-BR")} serviços no período`
+                          : `Todos os canais selecionados · ${totaisExibidos.total.toLocaleString("pt-BR")} serviços no período`}
                       </strong>
                     </p>
                   </div>
@@ -1646,6 +2172,11 @@ export default function PreviewRecepcaoPage() {
                   <div>
                     {servicosFiltrados.length} serviços ilustrativos exibidos ·{" "}
                     <span className="capitalize font-bold text-cyan-300">{filtroCanal}</span>
+                    {filtroHorario && (
+                      <span className="text-cyan-400 font-semibold ml-1">
+                        · Faixa das {filtroHorario.hora}h{filtroHorario.dia ? ` (${filtroHorario.dia})` : ""}
+                      </span>
+                    )}
                   </div>
                   <div className="font-medium text-slate-400">Prévia analítica dos serviços</div>
                 </div>
