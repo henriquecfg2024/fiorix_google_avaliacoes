@@ -118,6 +118,13 @@ export interface OperationsHealthSnapshot {
     successRatePercent: number | null;
     p95LatencyMs: number | null;
     avgBatchDurationMs?: number | null;
+    /** Base real do tempo de resposta e da disponibilidade (null = ainda sem amostras) */
+    measurement?: {
+      windowHours: number;
+      totalChecks: number;
+      successfulChecks: number;
+      since: string | null;
+    } | null;
     provenance: Provenance;
     note: string;
   };

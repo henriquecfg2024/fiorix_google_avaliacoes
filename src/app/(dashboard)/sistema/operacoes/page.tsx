@@ -51,10 +51,10 @@ const FALLBACK_SNAPSHOT: OperationsHealthSnapshot = {
   },
   externalIntegrations: [],
   metrics: {
-    availabilityPercent: 99.9,
+    availabilityPercent: null,
     syncOnTimePercent: 100,
     successRatePercent: 100,
-    p95LatencyMs: 185,
+    p95LatencyMs: null,
     avgBatchDurationMs: null,
     provenance: 'calculated',
     note: 'Métricas agregadas em contingência temporária',

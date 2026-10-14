@@ -87,7 +87,6 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
   const [health, setHealth] = useState<OperationsHealthSnapshot>(initialHealth);
   const [activeTab, setActiveTab] = useState<'overview' | 'audit' | 'alerts'>('overview');
   const [isPending, startTransition] = useTransition();
-  const [lastUpdated, setLastUpdated] = useState<string>(initialHealth.timestamp);
   const [secondsAgo, setSecondsAgo] = useState<number>(0);
 
   // Ticker de segundos desde a última checagem real
@@ -106,7 +105,6 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
       if (res.ok) {
         const data: OperationsHealthSnapshot = await res.json();
         setHealth(data);
-        setLastUpdated(data.timestamp);
         setSecondsAgo(0);
         if (showToast) {
           toast.success('Central de Operações atualizada', {
@@ -184,6 +182,35 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
   const availabilityDisplay = typeof availValue === 'number' && !isNaN(availValue)
     ? `${availValue.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
     : 'Sem dados';
+
+  // Legendas dos cards: base real da medição (verificações, falhas e período)
+  const medicao = health.metrics?.measurement ?? null;
+  const totalVerificacoes = medicao?.totalChecks ?? 0;
+  const janelaHoras = medicao?.windowHours ?? 24;
+  const inicioMedicaoMs = medicao?.since ? new Date(medicao.since).getTime() : null;
+  const observadoMs = new Date(health.observedAt || Date.now()).getTime();
+  // Enquanto a coleta não completa a janela, mostra desde quando está medindo
+  const periodoMedicao =
+    inicioMedicaoMs !== null && observadoMs - inicioMedicaoMs < (janelaHoras - 0.25) * 60 * 60 * 1000
+      ? `desde ${new Date(inicioMedicaoMs).toLocaleString('pt-BR', {
+          day: '2-digit',
+          month: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'America/Sao_Paulo',
+        })}`
+      : `nas últimas ${janelaHoras} h`;
+  const verificacoesTexto = `${totalVerificacoes.toLocaleString('pt-BR')} ${totalVerificacoes === 1 ? 'verificação' : 'verificações'}`;
+  const falhas = medicao ? Math.max(0, medicao.totalChecks - medicao.successfulChecks) : 0;
+
+  const p95Legenda = p95Display === 'Sem dados' || totalVerificacoes === 0
+    ? 'Aguardando as primeiras verificações'
+    : `Banco de dados · ${verificacoesTexto} ${periodoMedicao}`;
+  const availabilityLegenda = availabilityDisplay === 'Sem dados' || totalVerificacoes === 0
+    ? 'Aguardando as primeiras verificações'
+    : falhas === 0
+    ? `Sem falhas · ${verificacoesTexto} ${periodoMedicao}`
+    : `${falhas.toLocaleString('pt-BR')} ${falhas === 1 ? 'falha' : 'falhas'} em ${verificacoesTexto} ${periodoMedicao}`;
 
   return (
     <div className="min-h-screen bg-[#070A14] text-[#F1F5F9] selection:bg-emerald-500/20 relative overflow-hidden pb-16 font-sans">
@@ -293,7 +320,7 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
                 <span className="text-xs text-slate-400 font-medium">Tempo de resposta (95%)</span>
                 <InfoTooltip
                   id="tooltip-p95"
-                  text="95% das respostas medidas ocorreram em até este tempo. Os 5% restantes demoraram mais. Este valor não é uma média."
+                  text="95% das verificações do banco de dados no período responderam em até este tempo (os 5% restantes demoraram mais; não é uma média). As verificações acontecem a cada atualização desta tela e a cada sinal do conector do cartório."
                 />
               </div>
             </div>
@@ -303,7 +330,7 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
             </div>
 
             <div className="text-xs text-slate-400 font-sans">
-              Serviço e período não informados
+              {p95Legenda}
             </div>
           </div>
 
@@ -314,7 +341,7 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
                 <span className="text-xs text-slate-400 font-medium">Disponibilidade</span>
                 <InfoTooltip
                   id="tooltip-uptime"
-                  text="Percentual do período monitorado em que o serviço esteve disponível."
+                  text="Percentual das verificações do período em que o banco de dados respondeu. Arredondado para baixo: qualquer falha impede exibir 100%."
                 />
               </div>
             </div>
@@ -324,7 +351,7 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
             </div>
 
             <div className="text-xs text-slate-400 font-sans">
-              Serviço e período não informados
+              {availabilityLegenda}
             </div>
           </div>
         </section>

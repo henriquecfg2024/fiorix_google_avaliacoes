@@ -1,6 +1,12 @@
 import { prisma } from '@/lib/prisma';
 import { getLatestConnectorTelemetry } from '@/lib/alerts/alert-storage';
 import { dispatchAlert } from '@/lib/alerts/alert-dispatcher';
+import {
+  bufferHealthSample,
+  getHealthMeasurement,
+  recordHealthSample,
+  type HealthMeasurement,
+} from './health-samples';
 
 import type {
   Provenance,
@@ -408,8 +414,9 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
 
   if (dbProbeResult.error) {
     if (isDbActiveByDataQueries) {
+      // A sonda expirou, mas as consultas de dados responderam: banco disponível, tempo desconhecido
       dbStatus = 'operational';
-      dbLatencyMs = 240;
+      dbLatencyMs = null;
       dbReason = 'Conexão ativa e normal (validada pelas consultas do banco)';
     } else {
       const sanitized = sanitizeDatabaseError(dbProbeResult.error);
@@ -420,6 +427,24 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     const evalResult = evaluatePostgresStatus(dbLatencyMs, tenantId);
     dbStatus = evalResult.status;
     dbReason = evalResult.reason;
+  }
+
+  // Amostra real desta verificação (tempo de ida e volta ao banco + se houve resposta)
+  const dbRespondeu = !dbProbeResult.error || isDbActiveByDataQueries;
+  const amostraAtual = {
+    tenantId,
+    source: 'central' as const,
+    latencyMs: dbProbeResult.error ? null : dbProbeResult.latency,
+    success: dbRespondeu,
+    checkedAt: now,
+  };
+  let healthMeasurement: HealthMeasurement | null = null;
+  if (dbRespondeu) {
+    await recordHealthSample(amostraAtual);
+    healthMeasurement = await getHealthMeasurement(tenantId);
+  } else {
+    // Banco inacessível: guarda a falha em memória e grava quando ele voltar
+    bufferHealthSample(amostraAtual);
   }
 
   const isAmbiguous = activeConnectors.length > 1;
@@ -776,7 +801,6 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
 
   // E2. Consulta de Lotes Recentes para Métricas Reais e Incidentes Ativos
   let calculatedSuccessRate: number | null = null;
-  let calculatedP95: number | null = null;
   let calculatedAvgBatchDuration: number | null = null;
   let calculatedOnTimeRate: number | null = null;
   let realIncidents: OperationsHealthSnapshot['incidents'] = [];
@@ -805,10 +829,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
         calculatedAvgBatchDuration = Math.round(batchDurations.reduce((a, b) => a + b, 0) / batchDurations.length);
       }
 
-      // 2. Latência Web / SaaS: tempo nominal de resposta da aplicação (~120ms - 250ms)
-      calculatedP95 = dbLatencyMs ? Math.min(Math.max(dbLatencyMs * 2 + 60, 110), 280) : 185;
-
-      // 3. Agrupamento dos últimos lotes por fonte
+      // 2. Agrupamento dos últimos lotes por fonte
       recentBatches.forEach((b) => {
         if (recentBatchesGrouped[b.source] && recentBatchesGrouped[b.source].length < 10) {
           recentBatchesGrouped[b.source].push({
@@ -846,10 +867,11 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
 
   // Fallbacks operacionais determinísticos baseados na saúde da infraestrutura
   const isModulesAllOk = incrementalModules.every((m) => m.status === 'OK');
-  const finalAvailability = dbStatus === 'offline' ? 95.0 : 99.9;
   const finalOnTime = calculatedOnTimeRate ?? (isModulesAllOk ? 100 : 95.0);
   const finalSuccessRate = calculatedSuccessRate ?? (realIncidents.length === 0 ? 100 : 98.5);
-  const finalP95 = calculatedP95 ?? (dbLatencyMs ? Math.min(Math.max(dbLatencyMs * 2 + 60, 110), 280) : 185);
+  // Tempo de resposta e disponibilidade: somente valores medidos (null = ainda sem amostras)
+  const finalAvailability = healthMeasurement?.availabilityPercent ?? null;
+  const finalP95 = healthMeasurement?.p95LatencyMs ?? null;
 
   // G. Saúde das Integrações Externas (obtidas na Fase 1 paralela)
   const { integrations: externalIntegrations, incidents: integrationIncidents, alerts: integrationAlerts } = externalData;
@@ -886,6 +908,14 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       successRatePercent: finalSuccessRate,
       p95LatencyMs: finalP95,
       avgBatchDurationMs: calculatedAvgBatchDuration,
+      measurement: healthMeasurement
+        ? {
+            windowHours: healthMeasurement.windowHours,
+            totalChecks: healthMeasurement.totalChecks,
+            successfulChecks: healthMeasurement.successfulChecks,
+            since: healthMeasurement.since,
+          }
+        : null,
       provenance: 'calculated',
       note: 'Métricas agregadas consolidadas da infraestrutura e lotes operacionais',
     },

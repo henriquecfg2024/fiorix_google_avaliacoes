@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { recordConnectorTelemetry } from '@/lib/alerts/alert-storage';
 import { dispatchAlert } from '@/lib/alerts/alert-dispatcher';
+import { recordHealthSample } from '@/lib/health/health-samples';
 
 const sourceStateSchema = z.object({
   lastRunAt: z.string().nullable().optional(),
@@ -49,6 +50,7 @@ function jsonResponse(
 
 export async function POST(req: Request) {
   const requestId = randomUUID();
+  let tenantIdParaAmostra: string | null = null;
 
   try {
     const authHeader = req.headers.get('authorization');
@@ -88,6 +90,7 @@ export async function POST(req: Request) {
     }
 
     const tenantId = authResult.tenant.id;
+    tenantIdParaAmostra = tenantId;
     const resolvedConnectorId = authResult.connector.id;
 
     // Gravar snapshot de telemetria rica (RAM, Uptime, Filas SQLite)
@@ -121,6 +124,7 @@ export async function POST(req: Request) {
     // The payload timestamp is not authoritative. The server clock records
     // the heartbeat and prevents Connector clock skew.
     const receivedAt = new Date();
+    const inicioGravacao = performance.now();
     const updateResult = await prisma.connector.updateMany({
       where: {
         id: resolvedConnectorId,
@@ -132,6 +136,16 @@ export async function POST(req: Request) {
         status,
         version,
       },
+    });
+
+    // Amostra real de tempo de resposta/disponibilidade do banco (aguardada: no serverless,
+    // tarefas soltas após a resposta podem ser interrompidas; a função nunca lança erro)
+    await recordHealthSample({
+      tenantId,
+      source: 'heartbeat',
+      latencyMs: performance.now() - inicioGravacao,
+      success: true,
+      checkedAt: receivedAt,
     });
 
     if (updateResult.count !== 1) {
@@ -189,6 +203,14 @@ export async function POST(req: Request) {
     // Do not log the error object: Prisma/PostgreSQL messages may contain SQL,
     // endpoints, or internal infrastructure details.
     console.error('CONNECTOR_STATUS_ERROR', { requestId });
+    if (tenantIdParaAmostra) {
+      await recordHealthSample({
+        tenantId: tenantIdParaAmostra,
+        source: 'heartbeat',
+        latencyMs: null,
+        success: false,
+      });
+    }
     return jsonResponse(requestId, { error: 'Internal server error' }, 500);
   }
 }
