@@ -9,7 +9,7 @@ export async function GET() {
   try {
     const user = await requireTenant();
 
-    const rows: any[] = await prisma.$queryRaw(
+    const rows: Record<string, unknown>[] = await prisma.$queryRaw(
       Prisma.sql`
         SELECT 
           to_char("data", 'YYYY-MM-DD') as "DATA",
@@ -24,13 +24,13 @@ export async function GET() {
           "quantidade" as "QUANTIDADE"
         FROM public.fiorix_produtividade_dados
         WHERE tenant_id = ${user.tenantId}
-        ORDER BY "data" DESC
+        ORDER BY "data" DESC, "hora" DESC NULLS LAST
         LIMIT 200000;
       `
     );
 
     return NextResponse.json({ success: true, data: rows });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Erro ao buscar dados de produtividade:", error);
     return NextResponse.json(
       { success: false, error: "Erro ao consultar banco de dados" },

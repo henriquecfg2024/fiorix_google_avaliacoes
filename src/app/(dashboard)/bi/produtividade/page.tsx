@@ -51,15 +51,26 @@ export interface FiltroHorario {
   count?: number;
 }
 
-const DIA_KEY_TO_DB: Record<string, string> = {
-  Seg: "Segunda",
-  Ter: "Terça",
-  Qua: "Quarta",
-  Qui: "Quinta",
-  Sex: "Sexta",
-  Sáb: "Sábado",
-  Dom: "Domingo",
-};
+// Dia da semana indexado por Date#getUTCDay() (0 = domingo)
+const DIA_KEYS_POR_DOW = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+// Fallback textual quando a DATA não estiver disponível (aceita português e inglês)
+const DIA_ALIASES: Array<[string, string]> = [
+  ["segunda", "Seg"],
+  ["monday", "Seg"],
+  ["terca", "Ter"],
+  ["tuesday", "Ter"],
+  ["quarta", "Qua"],
+  ["wednesday", "Qua"],
+  ["quinta", "Qui"],
+  ["thursday", "Qui"],
+  ["sexta", "Sex"],
+  ["friday", "Sex"],
+  ["sabado", "Sáb"],
+  ["saturday", "Sáb"],
+  ["domingo", "Dom"],
+  ["sunday", "Dom"],
+];
 
 const DIAS_NOMES: Record<string, string> = {
   Seg: "Segunda-feira",
@@ -98,6 +109,16 @@ interface ServicoItem {
   tipoServico: string;
   tipoDetalhado: string;
 }
+
+// Registro pronto para filtros: dia/hora resolvidos e quantidade numérica
+interface RegistroNormalizado extends ServicoItem {
+  horaNum: number;
+  diaKey: string | null;
+  quantidade: number;
+}
+
+// Quantidade máxima de linhas renderizadas na tabela (a contagem e o CSV usam o total filtrado)
+const LIMITE_TABELA = 500;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DADOS DE BENCHMARK ILUSTRATIVO (REFERÊNCIA DE ALTA FIDELIDADE)
@@ -504,13 +525,187 @@ const VOLUMES_BENCHMARK = {
   presencial: { certidoes: "730", titulos: "1.443" },
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS DE NORMALIZAÇÃO E AGREGAÇÃO DOS DADOS REAIS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const formatarPct = (parte: number, total: number) =>
+  total > 0 ? `${((parte / total) * 100).toFixed(1).replace(".", ",")}%` : "0%";
+
+const formatarDataCurta = (iso: string) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+};
+
+/** Dia da semana pela data civil (YYYY-MM-DD do banco, já no calendário de São Paulo); o texto é só fallback. */
+const resolverDiaKey = (data: string, diaSemana: unknown): string | null => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(data);
+  if (m) {
+    const dow = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))).getUTCDay();
+    return DIA_KEYS_POR_DOW[dow] ?? null;
+  }
+  const texto = normalizeNome(String(diaSemana ?? ""));
+  if (!texto) return null;
+  for (const [alias, key] of DIA_ALIASES) {
+    if (texto.includes(alias)) return key;
+  }
+  return null;
+};
+
+const resolverHora = (r: RawProdutividadeRow): number => {
+  if (r.HORA_NUM !== undefined && r.HORA_NUM !== null) {
+    const n = Number(r.HORA_NUM);
+    if (Number.isFinite(n)) return n;
+  }
+  const m = /(\d{1,2}):(\d{2})/.exec(String(r.HORA ?? ""));
+  return m ? Number(m[1]) : -1;
+};
+
+const normalizarRegistro = (r: RawProdutividadeRow, idx: number): RegistroNormalizado => {
+  const nome = String(r.NOME || "").trim() || "Não informado";
+  const canalDigital = isDigital(nome);
+  const data = r.DATA ? String(r.DATA).slice(0, 10) : "";
+  const horaNum = resolverHora(r);
+  const horaMatch = /(\d{1,2}):(\d{2})/.exec(String(r.HORA ?? ""));
+  const hora = horaMatch
+    ? `${horaMatch[1].padStart(2, "0")}:${horaMatch[2]}`
+    : horaNum >= 0
+    ? `${String(horaNum).padStart(2, "0")}:00`
+    : "--:--";
+  const dataFormatada = data ? `${data.slice(8, 10)}/${data.slice(5, 7)}` : "--/--";
+
+  return {
+    id: String(idx + 1),
+    numero: String(r.PEDIDO ?? "").replace(/^#/, "").trim() || "—",
+    dataHora: `${dataFormatada} · ${hora}`,
+    data,
+    hora,
+    horaNum,
+    diaKey: resolverDiaKey(data, r.DIA_SEMANA),
+    diaSemana: undefined,
+    colaborador: nome,
+    canal: canalDigital ? "Digital ONR" : "Presencial",
+    tipo: String(r.TIPO || "").toUpperCase() === "CERTIDÃO" ? "CERTIDÃO" : "TÍTULO",
+    tipoServico: String(r.TIPO_PEDIDO || (canalDigital ? "Digital ONR" : "Presencial")),
+    tipoDetalhado: String(r.TIPO_DETALHADO || r.TIPO_PEDIDO || "Serviço cartorário"),
+    quantidade: Number(r.QUANTIDADE) > 0 ? Number(r.QUANTIDADE) : 1,
+  };
+};
+
+const pertenceAoCanal = (canal: RegistroNormalizado["canal"], filtro: CanalFiltro) =>
+  filtro === "todos" || (filtro === "digital" ? canal === "Digital ONR" : canal === "Presencial");
+
+const somarQuantidade = (lista: RegistroNormalizado[]) =>
+  lista.reduce((acc, r) => acc + r.quantidade, 0);
+
+const somarTotais = (lista: RegistroNormalizado[]) => {
+  let digital = 0;
+  let presencial = 0;
+  lista.forEach((r) => {
+    if (r.canal === "Digital ONR") digital += r.quantidade;
+    else presencial += r.quantidade;
+  });
+  const total = digital + presencial;
+  return {
+    total,
+    digital,
+    presencial,
+    digitalPct: formatarPct(digital, total),
+    presencialPct: formatarPct(presencial, total),
+  };
+};
+
+/** Agrupa somando quantidades e ordena do maior para o menor. */
+const agruparOrdenado = (
+  lista: RegistroNormalizado[],
+  chaveDe: (r: RegistroNormalizado) => string
+) => {
+  const grupos = new Map<string, { chave: string; total: number; amostra: RegistroNormalizado }>();
+  lista.forEach((r) => {
+    const chave = chaveDe(r);
+    const atual = grupos.get(chave);
+    if (atual) atual.total += r.quantidade;
+    else grupos.set(chave, { chave, total: r.quantidade, amostra: r });
+  });
+  return Array.from(grupos.values()).sort((a, b) => b.total - a.total);
+};
+
+/** Dia/hora com maior volume (considera todos os horários registrados). */
+const encontrarPico = (lista: RegistroNormalizado[]) => {
+  const contagem = new Map<string, { diaKey: string; hora: number; count: number }>();
+  lista.forEach((r) => {
+    if (!r.diaKey || r.horaNum < 0) return;
+    const chave = `${r.diaKey}|${r.horaNum}`;
+    const atual = contagem.get(chave);
+    if (atual) atual.count += r.quantidade;
+    else contagem.set(chave, { diaKey: r.diaKey, hora: r.horaNum, count: r.quantidade });
+  });
+  let pico: { diaKey: string; hora: number; count: number } | null = null;
+  contagem.forEach((c) => {
+    if (!pico || c.count > pico.count) pico = c;
+  });
+  return pico as { diaKey: string; hora: number; count: number } | null;
+};
+
+/** Matriz real do heatmap (dias x 8h–17h) com níveis relativos ao maior valor. */
+const montarMatrizReal = (lista: RegistroNormalizado[]) => {
+  const matriz: MatrizHeatmap = {};
+  DIAS_HEATMAP.forEach((d) => {
+    matriz[d.key] = {};
+    HORAS_HEATMAP.forEach((h) => {
+      matriz[d.key][h] = { level: 0, count: 0 };
+    });
+  });
+
+  let fora = 0;
+  lista.forEach((r) => {
+    const cell = r.diaKey ? matriz[r.diaKey]?.[r.horaNum] : undefined;
+    if (cell) cell.count += r.quantidade;
+    else fora += r.quantidade;
+  });
+
+  const celulas = Object.values(matriz).flatMap((linha) => Object.values(linha));
+  const max = Math.max(0, ...celulas.map((c) => c.count));
+  celulas.forEach((c) => {
+    if (c.count === 0) c.level = 0;
+    else if (c.count === max) c.level = 4;
+    else {
+      const razao = c.count / max;
+      c.level = razao >= 0.6 ? 3 : razao >= 0.3 ? 2 : 1;
+    }
+  });
+
+  return { matrizHeatmapAtiva: matriz, entradasForaDoMapa: fora };
+};
+
+// Geometria do gráfico "Volume ao longo do dia" (viewBox 500 x 120)
+const CURVA_X0 = 30;
+const CURVA_X1 = 490;
+const CURVA_Y_BASE = 100;
+const CURVA_ALTURA = 90;
+const xDaHora = (indice: number, total: number) =>
+  CURVA_X0 + (indice * (CURVA_X1 - CURVA_X0)) / Math.max(1, total - 1);
+
+const montarCurva = (valores: number[], max: number) => {
+  const pontos = valores.map((v, i) => [xDaHora(i, valores.length), CURVA_Y_BASE - (v / max) * CURVA_ALTURA]);
+  let linha = `M ${pontos[0][0].toFixed(1)} ${pontos[0][1].toFixed(1)}`;
+  for (let i = 1; i < pontos.length; i++) {
+    const [x0, y0] = pontos[i - 1];
+    const [x1, y1] = pontos[i];
+    const xm = ((x0 + x1) / 2).toFixed(1);
+    linha += ` C ${xm} ${y0.toFixed(1)}, ${xm} ${y1.toFixed(1)}, ${x1.toFixed(1)} ${y1.toFixed(1)}`;
+  }
+  return { linha, area: `${linha} L ${CURVA_X1} ${CURVA_Y_BASE} L ${CURVA_X0} ${CURVA_Y_BASE} Z` };
+};
+
 export default function ProdutividadePage() {
   // Estados da página
   const [activeTab, setActiveTab] = useState<AbaNavegacao>("visao_geral");
   const [filtroCanal, setFiltroCanal] = useState<CanalFiltro>("digital"); // Inicia em Digital ONR
   const [filtroHorario, setFiltroHorario] = useState<FiltroHorario | null>(null); // Filtro clicável no Heatmap
-  const [startDate, setStartDate] = useState("2026-10-01");
-  const [endDate, setEndDate] = useState("2026-10-13");
+  // Período preenchido a partir dos dados (mês da data mais recente); vazio = sem limite
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [buscaTabela, setBuscaTabela] = useState("");
   const [isMaisFiltrosOpen, setIsMaisFiltrosOpen] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState("TODOS");
@@ -583,8 +778,62 @@ export default function ProdutividadePage() {
     toast.success("Filtros complementares restaurados.");
   };
 
-  // Totais computados (Reais se disponíveis no banco ou Benchmark)
+  // Totais computados (reais se disponíveis no banco ou benchmark ilustrativo)
   const hasRealData = dbRows.length > 0;
+
+  // Registros normalizados: dia da semana derivado da DATA, hora numérica e canal resolvidos uma única vez
+  const registrosBase: RegistroNormalizado[] = useMemo(() => {
+    if (!hasRealData) {
+      return BENCHMARK_SERVICOS.map((s) => ({
+        ...s,
+        horaNum: parseInt(s.hora.split(":")[0], 10),
+        diaKey: s.diaSemana ?? null,
+        quantidade: 1,
+      }));
+    }
+    return dbRows.map(normalizarRegistro);
+  }, [hasRealData, dbRows]);
+
+  // Período (Data inicial / Data final) aplicado a todos os cards do painel
+  const registrosPeriodo = useMemo(() => {
+    if (!hasRealData) return registrosBase;
+    return registrosBase.filter((r) => {
+      if (startDate && (!r.data || r.data < startDate)) return false;
+      if (endDate && (!r.data || r.data > endDate)) return false;
+      return true;
+    });
+  }, [hasRealData, registrosBase, startDate, endDate]);
+
+  // Período + filtros secundários (tipo e colaborador): base comum de cards, heatmap e tabela
+  const registrosSegmentados = useMemo(
+    () =>
+      registrosPeriodo.filter(
+        (r) =>
+          (filtroTipo === "TODOS" || r.tipo === filtroTipo) &&
+          (filtroColaborador === "TODOS" || r.colaborador === filtroColaborador)
+      ),
+    [registrosPeriodo, filtroTipo, filtroColaborador]
+  );
+
+  // Registros do canal ativo
+  const registrosCanal = useMemo(
+    () => registrosSegmentados.filter((r) => pertenceAoCanal(r.canal, filtroCanal)),
+    [registrosSegmentados, filtroCanal]
+  );
+
+  // Regra única do filtro de horário (sem fallback para outros dias)
+  const correspondeHorario = useCallback(
+    (r: RegistroNormalizado) =>
+      !filtroHorario ||
+      (r.horaNum === filtroHorario.hora && (!filtroHorario.dia || r.diaKey === filtroHorario.dia)),
+    [filtroHorario]
+  );
+
+  // Registros do canal no horário selecionado: fonte única de destaques, andamentos, volumes e tabela
+  const registrosFoco = useMemo(
+    () => registrosCanal.filter(correspondeHorario),
+    [registrosCanal, correspondeHorario]
+  );
 
   const totaisGerais = useMemo(() => {
     if (!hasRealData) {
@@ -596,39 +845,22 @@ export default function ProdutividadePage() {
         presencialPct: "32,3%",
       };
     }
+    return somarTotais(registrosSegmentados);
+  }, [hasRealData, registrosSegmentados]);
 
-    let total = 0;
-    let digital = 0;
-    let presencial = 0;
-
-    dbRows.forEach((r) => {
-      const q = Number(r.QUANTIDADE || 1);
-      total += q;
-      if (isDigital(String(r.NOME || ""))) {
-        digital += q;
-      } else {
-        presencial += q;
-      }
-    });
-
-    const digPct = total > 0 ? `${((digital / total) * 100).toFixed(1).replace(".", ",")}%` : "0%";
-    const prePct = total > 0 ? `${((presencial / total) * 100).toFixed(1).replace(".", ",")}%` : "0%";
-
-    return {
-      total,
-      digital,
-      presencial,
-      digitalPct: digPct,
-      presencialPct: prePct,
-    };
-  }, [hasRealData, dbRows]);
-
-  // Heatmap Matriz Ativa pelo Canal
-  const matrizHeatmapAtiva = useMemo(() => {
-    if (filtroCanal === "digital") return MATRIZ_DIGITAL;
-    if (filtroCanal === "presencial") return MATRIZ_PRESENCIAL;
-    return MATRIZ_TODOS;
-  }, [filtroCanal]);
+  // Heatmap: contagem real por dia/hora no canal ativo (matrizes ilustrativas apenas sem dados)
+  const { matrizHeatmapAtiva, entradasForaDoMapa } = useMemo(() => {
+    if (!hasRealData) {
+      const matriz =
+        filtroCanal === "digital"
+          ? MATRIZ_DIGITAL
+          : filtroCanal === "presencial"
+          ? MATRIZ_PRESENCIAL
+          : MATRIZ_TODOS;
+      return { matrizHeatmapAtiva: matriz, entradasForaDoMapa: 0 };
+    }
+    return montarMatrizReal(registrosCanal);
+  }, [hasRealData, filtroCanal, registrosCanal]);
 
   // Manipulador de clique nos cards/células do Heatmap
   const handleToggleHorario = (diaKey: string, hora: number, count: number) => {
@@ -665,53 +897,14 @@ export default function ProdutividadePage() {
     }
   };
 
-  // Totais reativos ao filtro de horário (reagem dinamicamente quando o usuário clica em um card de hora)
+  // Totais reativos ao filtro de horário (mesma base do heatmap e da tabela)
   const totaisExibidos = useMemo(() => {
     if (!filtroHorario) {
       return totaisGerais;
     }
 
     if (hasRealData) {
-      let total = 0;
-      let digital = 0;
-      let presencial = 0;
-
-      const targetDia = filtroHorario.dia ? DIA_KEY_TO_DB[filtroHorario.dia] : null;
-
-      dbRows.forEach((r) => {
-        const horaNum = Number(
-          r.HORA_NUM !== undefined && r.HORA_NUM !== null
-            ? r.HORA_NUM
-            : r.HORA
-            ? parseInt(String(r.HORA).split(":")[0], 10)
-            : -1
-        );
-        if (horaNum !== filtroHorario.hora) return;
-
-        if (targetDia) {
-          const diaRow = String(r.DIA_SEMANA || "");
-          if (!diaRow.toLowerCase().includes(targetDia.toLowerCase())) return;
-        }
-
-        const q = Number(r.QUANTIDADE || 1);
-        total += q;
-        if (isDigital(String(r.NOME || ""))) {
-          digital += q;
-        } else {
-          presencial += q;
-        }
-      });
-
-      const digPct = total > 0 ? `${((digital / total) * 100).toFixed(1).replace(".", ",")}%` : "0%";
-      const prePct = total > 0 ? `${((presencial / total) * 100).toFixed(1).replace(".", ",")}%` : "0%";
-
-      return {
-        total,
-        digital,
-        presencial,
-        digitalPct: digPct,
-        presencialPct: prePct,
-      };
+      return somarTotais(registrosSegmentados.filter(correspondeHorario));
     }
 
     // Benchmark: calcular exatamente a partir das matrizes do heatmap
@@ -731,103 +924,42 @@ export default function ProdutividadePage() {
       });
     }
 
-    const digPct = total > 0 ? `${((digital / total) * 100).toFixed(1).replace(".", ",")}%` : "0%";
-    const prePct = total > 0 ? `${((presencial / total) * 100).toFixed(1).replace(".", ",")}%` : "0%";
-
     return {
       total,
       digital,
       presencial,
-      digitalPct: digPct,
-      presencialPct: prePct,
+      digitalPct: formatarPct(digital, total),
+      presencialPct: formatarPct(presencial, total),
     };
-  }, [filtroHorario, hasRealData, dbRows, totaisGerais]);
+  }, [filtroHorario, hasRealData, registrosSegmentados, correspondeHorario, totaisGerais]);
 
-  // Lista unificada de serviços
-  const listaServicosBase: ServicoItem[] = useMemo(() => {
-    if (!hasRealData) return BENCHMARK_SERVICOS;
+  // Volume do canal ativo no recorte atual (mesmo número da célula do heatmap e da tabela)
+  const volumeCanalExibido =
+    filtroCanal === "digital"
+      ? totaisExibidos.digital
+      : filtroCanal === "presencial"
+      ? totaisExibidos.presencial
+      : totaisExibidos.total;
 
-    return dbRows.slice(0, 300).map((r, idx) => {
-      const nomeColab = String(r.NOME || "Não informado").trim();
-      const canalDigital = isDigital(nomeColab);
-      const dataStr = String(r.DATA || "2026-10-13");
-      const horaStr = String(r.HORA || "12:00").substring(0, 5);
-      const dataFormatada = dataStr.includes("-")
-        ? `${dataStr.split("-")[2]}/${dataStr.split("-")[1]}`
-        : dataStr;
-
-      const diaSemanaRow = r.DIA_SEMANA ? String(r.DIA_SEMANA) : "";
-      let diaKey = "Sex";
-      for (const [key, val] of Object.entries(DIA_KEY_TO_DB)) {
-        if (diaSemanaRow.toLowerCase().includes(val.toLowerCase())) {
-          diaKey = key;
-          break;
-        }
-      }
-
-      return {
-        id: String(idx + 1),
-        numero: String(r.PEDIDO || `6${7440 - idx}`).replace(/^#/, ""),
-        dataHora: `${dataFormatada} · ${horaStr}`,
-        data: dataStr,
-        hora: horaStr,
-        diaSemana: diaKey,
-        colaborador: nomeColab,
-        canal: canalDigital ? "Digital ONR" : "Presencial",
-        tipo: String(r.TIPO || "TÍTULO").toUpperCase() === "CERTIDÃO" ? "CERTIDÃO" : "TÍTULO",
-        tipoServico: String(r.TIPO_PEDIDO || (canalDigital ? "Digital ONR" : "Presencial")),
-        tipoDetalhado: String(r.TIPO_DETALHADO || r.TIPO_PEDIDO || "Serviço Cartorário"),
-      };
-    });
-  }, [hasRealData, dbRows]);
-
-  // Destaques reativos ao canal e ao horário
+  // Destaques ilustrativos (usados apenas sem dados reais)
   const destaquesAtivos = DESTAQUES_BENCHMARK[filtroCanal];
   const andamentosAtivos = ANDAMENTOS_BENCHMARK[filtroCanal];
+  const volumesAtivos = VOLUMES_BENCHMARK[filtroCanal];
 
-  // Registros normalizados para a aba Produtividade (reais ou ilustrativos)
-  const registrosProdutividade: ProdutividadeRegistro[] = useMemo(() => {
-    if (!hasRealData) {
-      return BENCHMARK_SERVICOS.map((s) => ({
-        nome: s.colaborador,
-        canal: s.canal,
-        tipo: s.tipo,
-        hora: parseInt(s.hora.split(":")[0], 10),
-        diaKey: s.diaSemana ?? null,
-        data: s.data,
-        quantidade: 1,
-      }));
-    }
-
-    return dbRows.map((r) => {
-      const nome = String(r.NOME || "Não informado").trim() || "Não informado";
-      const horaNum =
-        r.HORA_NUM !== undefined && r.HORA_NUM !== null
-          ? Number(r.HORA_NUM)
-          : r.HORA
-          ? parseInt(String(r.HORA).split(":")[0], 10)
-          : -1;
-      const diaRow = String(r.DIA_SEMANA || "").toLowerCase();
-      let diaKey: string | null = null;
-      if (diaRow) {
-        for (const [key, val] of Object.entries(DIA_KEY_TO_DB)) {
-          if (diaRow.includes(val.toLowerCase())) {
-            diaKey = key;
-            break;
-          }
-        }
-      }
-      return {
-        nome,
-        canal: isDigital(nome) ? ("Digital ONR" as const) : ("Presencial" as const),
-        tipo: String(r.TIPO || "").toUpperCase() === "CERTIDÃO" ? ("CERTIDÃO" as const) : ("TÍTULO" as const),
-        hora: Number.isFinite(horaNum) ? horaNum : -1,
-        diaKey,
-        data: r.DATA ? String(r.DATA) : null,
-        quantidade: Number(r.QUANTIDADE || 1),
-      };
-    });
-  }, [hasRealData, dbRows]);
+  // Registros para a aba Produtividade (respeitam o período selecionado)
+  const registrosProdutividade: ProdutividadeRegistro[] = useMemo(
+    () =>
+      registrosPeriodo.map((r) => ({
+        nome: r.colaborador,
+        canal: r.canal,
+        tipo: r.tipo,
+        hora: r.horaNum,
+        diaKey: r.diaKey,
+        data: r.data || null,
+        quantidade: r.quantidade,
+      })),
+    [registrosPeriodo]
+  );
 
   // Colaboradores disponíveis no filtro "Mais filtros" (derivados dos registros, respeitando o canal)
   const colaboradoresDisponiveis = useMemo(() => {
@@ -850,156 +982,178 @@ export default function ProdutividadePage() {
       toast.success(`Colaborador selecionado: ${nome} · Tabela de serviços filtrada`);
     }
   };
-  const volumesAtivos = VOLUMES_BENCHMARK[filtroCanal];
 
   const destaquesExibidos = useMemo(() => {
-    if (!filtroHorario) return destaquesAtivos;
+    const diaNome = filtroHorario
+      ? filtroHorario.dia
+        ? DIAS_NOMES[filtroHorario.dia] || filtroHorario.dia
+        : "Todos os dias"
+      : "";
 
-    const diaNome = filtroHorario.dia ? (DIAS_NOMES[filtroHorario.dia] || filtroHorario.dia) : "Todos os dias";
-    const volCanal =
-      filtroCanal === "digital"
-        ? totaisExibidos.digital
-        : filtroCanal === "presencial"
-        ? totaisExibidos.presencial
-        : totaisExibidos.total;
+    if (!hasRealData) {
+      if (!filtroHorario) return destaquesAtivos;
+      const volCanal = volumeCanalExibido;
+      return {
+        pico: {
+          titulo: `${diaNome} · ${filtroHorario.hora}h00`,
+          detalhe: `${volCanal} entradas registradas neste horário (${formatarPct(volCanal, totaisExibidos.total)})`,
+          badge: `Horário ${filtroHorario.hora}h ativo`,
+        },
+        usuario: {
+          ...destaquesAtivos.usuario,
+          detalhe: `${Math.max(1, Math.round(volCanal * 0.42))} entradas às ${filtroHorario.hora}h (ilustrativo)`,
+        },
+        servico: {
+          ...destaquesAtivos.servico,
+          detalhe: `${Math.max(1, Math.round(volCanal * 0.45))} registros às ${filtroHorario.hora}h (ilustrativo)`,
+        },
+      };
+    }
 
-    const pctRelativa =
-      totaisExibidos.total > 0
-        ? `${((volCanal / Math.max(1, totaisExibidos.total)) * 100).toFixed(1).replace(".", ",")}%`
-        : "100%";
+    const rotuloCanal =
+      filtroCanal === "digital" ? "Digital ONR" : filtroCanal === "presencial" ? "Balcão presencial" : "Todos os canais";
+    const escopo = filtroCanal === "todos" ? "do total" : "do canal";
+    const sufixoHora = filtroHorario ? ` às ${filtroHorario.hora}h` : "";
+    const volFoco = somarQuantidade(registrosFoco);
 
-    const usuarioInfo =
-      filtroCanal === "presencial"
-        ? {
-            nome: "Mariana",
-            detalhe: `${Math.max(1, Math.round(volCanal * 0.42))} atendimentos às ${filtroHorario.hora}h`,
-            rotulo: "BALCÃO PRESENCIAL",
-          }
-        : filtroCanal === "digital"
-        ? {
-            nome: "eProtocolo",
-            detalhe: `${Math.max(1, Math.round(volCanal * 0.58))} autenticações às ${filtroHorario.hora}h`,
-            rotulo: "INTEGRAÇÃO ONR",
-          }
-        : {
-            nome: "eProtocolo",
-            detalhe: `${Math.max(1, Math.round(volCanal * 0.52))} autenticações às ${filtroHorario.hora}h`,
-            rotulo: "CANAL DIGITAL ONR",
-          };
-
-    const servicoInfo =
-      filtroCanal === "presencial"
-        ? {
-            nome: "Depósito de títulos balcão",
-            detalhe: `${Math.max(1, Math.round(volCanal * 0.45))} registros às ${filtroHorario.hora}h`,
-            rotulo: "TÍTULO PRESENCIAL",
-          }
-        : filtroCanal === "digital"
-        ? {
-            nome: "Consulta eletrônica (VM)",
-            detalhe: `${Math.max(1, Math.round(volCanal * 0.55))} registros às ${filtroHorario.hora}h`,
-            rotulo: "CERTIDÃO DIGITAL",
-          }
-        : {
-            nome: "Consulta eletrônica (VM)",
-            detalhe: `${Math.max(1, Math.round(volCanal * 0.48))} registros às ${filtroHorario.hora}h`,
-            rotulo: "CERTIDÃO DIGITAL",
-          };
-
-    return {
-      pico: {
+    let pico: { titulo: string; detalhe: string; badge: string };
+    if (filtroHorario) {
+      pico = {
         titulo: `${diaNome} · ${filtroHorario.hora}h00`,
-        detalhe: `${volCanal} entradas registradas neste horário (${pctRelativa})`,
+        detalhe: `${volumeCanalExibido.toLocaleString("pt-BR")} entradas registradas neste horário (${formatarPct(volumeCanalExibido, totaisExibidos.total)} do total)`,
         badge: `Horário ${filtroHorario.hora}h ativo`,
-      },
-      usuario: usuarioInfo,
-      servico: servicoInfo,
-    };
-  }, [filtroHorario, destaquesAtivos, filtroCanal, totaisExibidos]);
+      };
+    } else {
+      const picoReal = encontrarPico(registrosCanal);
+      pico = picoReal
+        ? {
+            titulo: `${DIAS_NOMES[picoReal.diaKey] || picoReal.diaKey} · ${picoReal.hora}h00`,
+            detalhe: `${picoReal.count.toLocaleString("pt-BR")} entradas no pico · ${rotuloCanal}`,
+            badge: `Pico às ${picoReal.hora}h`,
+          }
+        : {
+            titulo: "Sem entradas no período",
+            detalhe: "Ajuste o período, o canal ou os filtros",
+            badge: "Sem dados",
+          };
+    }
+
+    const topUsuario = agruparOrdenado(registrosFoco, (r) => r.colaborador)[0];
+    const usuario = topUsuario
+      ? {
+          nome: topUsuario.chave,
+          detalhe: `${topUsuario.total.toLocaleString("pt-BR")} entradas${sufixoHora} · ${formatarPct(topUsuario.total, volFoco)} ${escopo}`,
+          rotulo: topUsuario.amostra.canal === "Digital ONR" ? "CANAL DIGITAL ONR" : "ATENDENTE DE BALCÃO",
+        }
+      : { nome: "—", detalhe: "Nenhuma entrada para os filtros atuais", rotulo: "SEM DADOS" };
+
+    const topServico = agruparOrdenado(registrosFoco, (r) => r.tipoDetalhado)[0];
+    const servico = topServico
+      ? {
+          nome: topServico.chave,
+          detalhe: `${topServico.total.toLocaleString("pt-BR")} registros${sufixoHora} · ${formatarPct(topServico.total, volFoco)} ${escopo}`,
+          rotulo: `${topServico.amostra.tipo === "CERTIDÃO" ? "CERTIDÃO" : "TÍTULO"} ${
+            topServico.amostra.canal === "Digital ONR" ? "DIGITAL" : "PRESENCIAL"
+          }`,
+        }
+      : { nome: "—", detalhe: "Nenhum serviço para os filtros atuais", rotulo: "SEM DADOS" };
+
+    return { pico, usuario, servico };
+  }, [
+    filtroHorario,
+    hasRealData,
+    destaquesAtivos,
+    volumeCanalExibido,
+    totaisExibidos,
+    filtroCanal,
+    registrosFoco,
+    registrosCanal,
+  ]);
 
   const andamentosExibidos = useMemo(() => {
-    if (!filtroHorario) return andamentosAtivos;
+    if (!hasRealData) {
+      if (!filtroHorario) return andamentosAtivos;
+      const volCanal = volumeCanalExibido;
+      const pesos = [0.42, 0.3, 0.18, 0.1];
+      const maxVol = Math.max(1, Math.round(volCanal * pesos[0]));
+      return andamentosAtivos.map((item, idx) => {
+        const volNum = Math.max(1, Math.round(volCanal * (pesos[idx] || 0.1)));
+        return {
+          nome: item.nome,
+          volume: volNum.toLocaleString("pt-BR"),
+          pct: volCanal > 0 ? formatarPct(volNum, volCanal) : item.pct,
+          barPct: idx === 0 ? "100%" : `${Math.min(100, Math.round((volNum / maxVol) * 100))}%`,
+        };
+      });
+    }
 
-    const volCanal =
-      filtroCanal === "digital"
-        ? totaisExibidos.digital
-        : filtroCanal === "presencial"
-        ? totaisExibidos.presencial
-        : totaisExibidos.total;
+    const volFoco = somarQuantidade(registrosFoco);
+    const grupos = agruparOrdenado(registrosFoco, (r) => r.tipoDetalhado);
+    const principais: Array<{ chave: string; total: number }> = grupos.slice(0, 4);
+    const restante = grupos.slice(4).reduce((acc, g) => acc + g.total, 0);
+    if (restante > 0) principais.push({ chave: "Outros serviços", total: restante });
+    const maxVol = Math.max(1, ...principais.map((g) => g.total));
 
-    const pesos = [0.42, 0.30, 0.18, 0.10];
-    const maxVol = Math.max(1, Math.round(volCanal * pesos[0]));
-
-    return andamentosAtivos.map((item, idx) => {
-      const peso = pesos[idx] || 0.1;
-      const volNum = Math.max(1, Math.round(volCanal * peso));
-      const pct = volCanal > 0 ? `${((volNum / volCanal) * 100).toFixed(1).replace(".", ",")}%` : item.pct;
-      const barPct = idx === 0 ? "100%" : `${Math.min(100, Math.round((volNum / maxVol) * 100))}%`;
-      return {
-        nome: item.nome,
-        volume: volNum.toLocaleString("pt-BR"),
-        pct,
-        barPct,
-      };
-    });
-  }, [filtroHorario, andamentosAtivos, filtroCanal, totaisExibidos]);
+    return principais.map((g) => ({
+      nome: g.chave,
+      volume: g.total.toLocaleString("pt-BR"),
+      pct: formatarPct(g.total, volFoco),
+      barPct: `${Math.min(100, Math.max(2, Math.round((g.total / maxVol) * 100)))}%`,
+    }));
+  }, [hasRealData, filtroHorario, andamentosAtivos, volumeCanalExibido, registrosFoco]);
 
   const volumesExibidos = useMemo(() => {
-    if (!filtroHorario) return volumesAtivos;
+    if (!hasRealData) {
+      if (!filtroHorario) return volumesAtivos;
+      const cert = Math.max(1, Math.round(volumeCanalExibido * 0.48));
+      const tit = Math.max(1, volumeCanalExibido - cert);
+      return { certidoes: cert.toLocaleString("pt-BR"), titulos: tit.toLocaleString("pt-BR") };
+    }
 
-    const volCanal =
-      filtroCanal === "digital"
-        ? totaisExibidos.digital
-        : filtroCanal === "presencial"
-        ? totaisExibidos.presencial
-        : totaisExibidos.total;
-
-    const cert = Math.max(1, Math.round(volCanal * 0.48));
-    const tit = Math.max(1, volCanal - cert);
-
-    return {
-      certidoes: cert.toLocaleString("pt-BR"),
-      titulos: tit.toLocaleString("pt-BR"),
-    };
-  }, [filtroHorario, volumesAtivos, filtroCanal, totaisExibidos]);
-
-  // Filtragem inteligente da tabela de serviços com suporte a horário e canal
-  const servicosFiltrados = useMemo(() => {
-    return listaServicosBase.filter((item) => {
-      if (filtroCanal === "digital" && item.canal !== "Digital ONR") return false;
-      if (filtroCanal === "presencial" && item.canal !== "Presencial") return false;
-
-      if (filtroTipo !== "TODOS" && item.tipo !== filtroTipo) return false;
-      if (filtroColaborador !== "TODOS" && item.colaborador !== filtroColaborador) return false;
-
-      if (filtroHorario !== null) {
-        const itemHora = parseInt(item.hora.split(":")[0], 10);
-        if (itemHora !== filtroHorario.hora) return false;
-        if (filtroHorario.dia && item.diaSemana && item.diaSemana !== filtroHorario.dia) {
-          // Se houver serviços específicos deste dia e horário, filtra estritamente
-          const temItemDiaHora = listaServicosBase.some(
-            (s) =>
-              s.diaSemana === filtroHorario.dia &&
-              parseInt(s.hora.split(":")[0], 10) === filtroHorario.hora &&
-              (filtroCanal === "todos" || (filtroCanal === "digital" ? s.canal === "Digital ONR" : s.canal === "Presencial"))
-          );
-          if (temItemDiaHora) return false;
-        }
-      }
-
-      if (buscaTabela.trim()) {
-        const query = buscaTabela.toLowerCase();
-        return (
-          item.numero.toLowerCase().includes(query) ||
-          item.colaborador.toLowerCase().includes(query) ||
-          item.tipoDetalhado.toLowerCase().includes(query) ||
-          item.canal.toLowerCase().includes(query)
-        );
-      }
-
-      return true;
+    let certidoes = 0;
+    let titulos = 0;
+    registrosFoco.forEach((r) => {
+      if (r.tipo === "CERTIDÃO") certidoes += r.quantidade;
+      else titulos += r.quantidade;
     });
-  }, [listaServicosBase, filtroCanal, filtroTipo, filtroColaborador, filtroHorario, buscaTabela]);
+    return { certidoes: certidoes.toLocaleString("pt-BR"), titulos: titulos.toLocaleString("pt-BR") };
+  }, [hasRealData, filtroHorario, volumesAtivos, volumeCanalExibido, registrosFoco]);
+
+  // Curva real de volume por hora (8h às 17h); com dia selecionado mostra o perfil daquele dia
+  const curvaVolume = useMemo(() => {
+    if (!hasRealData) return null;
+    const base = filtroHorario?.dia
+      ? registrosCanal.filter((r) => r.diaKey === filtroHorario.dia)
+      : registrosCanal;
+    const cert = HORAS_HEATMAP.map(() => 0);
+    const tit = HORAS_HEATMAP.map(() => 0);
+    base.forEach((r) => {
+      const i = HORAS_HEATMAP.indexOf(r.horaNum);
+      if (i < 0) return;
+      if (r.tipo === "CERTIDÃO") cert[i] += r.quantidade;
+      else tit[i] += r.quantidade;
+    });
+    const max = Math.max(1, ...cert, ...tit);
+    return { certidoes: montarCurva(cert, max), titulos: montarCurva(tit, max), max };
+  }, [hasRealData, filtroHorario, registrosCanal]);
+
+  // Tabela de serviços: filtra sobre todos os registros do recorte e só depois limita a exibição
+  const servicosFiltrados = useMemo(() => {
+    const query = buscaTabela.trim().toLowerCase();
+    if (!query) return registrosFoco;
+    return registrosFoco.filter(
+      (item) =>
+        item.numero.toLowerCase().includes(query) ||
+        item.colaborador.toLowerCase().includes(query) ||
+        item.tipoDetalhado.toLowerCase().includes(query) ||
+        item.canal.toLowerCase().includes(query)
+    );
+  }, [registrosFoco, buscaTabela]);
+
+  const servicosVisiveis = useMemo(
+    () => servicosFiltrados.slice(0, LIMITE_TABELA),
+    [servicosFiltrados]
+  );
 
   // Exportar CSV
   const handleExportCSV = () => {
@@ -1169,7 +1323,7 @@ export default function ProdutividadePage() {
                   <strong>
                     {filtroHorario.dia ? `${DIAS_NOMES[filtroHorario.dia]} ` : ""}às {filtroHorario.hora}h
                   </strong>
-                  {filtroHorario.count !== undefined ? ` (${filtroHorario.count})` : ""}
+                  {` (${volumeCanalExibido.toLocaleString("pt-BR")})`}
                 </span>
                 <button
                   type="button"
@@ -1655,7 +1809,7 @@ export default function ProdutividadePage() {
                       <span>
                         {filtroHorario.dia ? `${DIAS_NOMES[filtroHorario.dia]} às ` : "Faixa das "}
                         {filtroHorario.hora}h
-                        {filtroHorario.count !== undefined ? ` (${filtroHorario.count} entradas)` : ""}
+                        {` (${volumeCanalExibido.toLocaleString("pt-BR")} entradas)`}
                       </span>
                       <button
                         type="button"
@@ -1763,8 +1917,20 @@ export default function ProdutividadePage() {
 
               {/* Legenda do Heatmap */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-white/8 text-xs text-slate-300">
-                <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                <div className="text-[11px] text-slate-400 flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span>* Mostrando horários operacionais do cartório (8h às 17h)</span>
+                  {hasRealData && (startDate || endDate) && (
+                    <span>
+                      · Período: {startDate ? formatarDataCurta(startDate) : "início"} a{" "}
+                      {endDate ? formatarDataCurta(endDate) : "hoje"}
+                    </span>
+                  )}
+                  {entradasForaDoMapa > 0 && (
+                    <span className="text-amber-300/90">
+                      · {entradasForaDoMapa.toLocaleString("pt-BR")} entradas fora das 8h–17h não aparecem no mapa
+                    </span>
+                  )}
+                  {!hasRealData && <span className="text-amber-300/90">· Dados ilustrativos</span>}
                   <span className="text-cyan-400">· Clique em qualquer card de horário para filtrar o painel</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1805,6 +1971,11 @@ export default function ProdutividadePage() {
               </div>
 
               <div className="space-y-4 pt-2">
+                {andamentosExibidos.length === 0 && (
+                  <p className="text-xs text-slate-400 py-4 text-center">
+                    Nenhum andamento registrado para o período e os filtros selecionados.
+                  </p>
+                )}
                 {andamentosExibidos.map((item) => (
                   <div key={item.nome} className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
@@ -1834,7 +2005,10 @@ export default function ProdutividadePage() {
                     Volume ao longo do dia
                   </h2>
                   <p className="text-xs text-slate-300">
-                    Entradas por hora · curva estimada para {filtroCanal === "todos" ? "todos os canais" : `canal ${filtroCanal}`}
+                    Entradas por hora ·{" "}
+                    {curvaVolume ? "dados reais do período" : "curva ilustrativa"} para{" "}
+                    {filtroCanal === "todos" ? "todos os canais" : `canal ${filtroCanal}`}
+                    {curvaVolume && filtroHorario?.dia ? ` · ${DIAS_NOMES[filtroHorario.dia] || filtroHorario.dia}` : ""}
                     {filtroHorario && (
                       <span className="text-cyan-400 font-bold ml-1">
                         (Foco na faixa das {filtroHorario.hora}h)
@@ -1878,14 +2052,45 @@ export default function ProdutividadePage() {
                   <line x1="30" y1="100" x2="490" y2="100" stroke="rgba(255,255,255,0.08)" />
 
                   <text x="5" y="14" fill="#94A3B8" fontSize="9" fontFamily="monospace">
-                    {filtroCanal === "presencial" ? "80" : "200"}
+                    {curvaVolume ? curvaVolume.max : filtroCanal === "presencial" ? "80" : "200"}
                   </text>
                   <text x="5" y="59" fill="#94A3B8" fontSize="9" fontFamily="monospace">
-                    {filtroCanal === "presencial" ? "40" : "100"}
+                    {curvaVolume ? Math.round(curvaVolume.max / 2) : filtroCanal === "presencial" ? "40" : "100"}
                   </text>
                   <text x="15" y="104" fill="#94A3B8" fontSize="9" fontFamily="monospace">0</text>
 
-                  {filtroCanal === "presencial" ? (
+                  {curvaVolume ? (
+                    <>
+                      {filtroHorario && HORAS_HEATMAP.includes(filtroHorario.hora) && (
+                        <line
+                          x1={xDaHora(HORAS_HEATMAP.indexOf(filtroHorario.hora), HORAS_HEATMAP.length)}
+                          x2={xDaHora(HORAS_HEATMAP.indexOf(filtroHorario.hora), HORAS_HEATMAP.length)}
+                          y1="6"
+                          y2="100"
+                          stroke="rgba(34,211,238,0.55)"
+                          strokeDasharray="3 3"
+                        />
+                      )}
+                      <path d={curvaVolume.certidoes.linha} fill="none" stroke="#38BDF8" strokeWidth="2.5" />
+                      <path d={curvaVolume.certidoes.area} fill="url(#gradCertidoesOficial)" />
+                      <path d={curvaVolume.titulos.linha} fill="none" stroke="#34D399" strokeWidth="2.5" />
+                      <path d={curvaVolume.titulos.area} fill="url(#gradTitulosOficial)" />
+                      {HORAS_HEATMAP.map((h, i) => (
+                        <text
+                          key={h}
+                          x={xDaHora(i, HORAS_HEATMAP.length)}
+                          y="116"
+                          textAnchor="middle"
+                          fontSize="9"
+                          fontFamily="monospace"
+                          fill={filtroHorario?.hora === h ? "#67E8F9" : "#94A3B8"}
+                          fontWeight={filtroHorario?.hora === h ? 800 : 400}
+                        >
+                          {String(h).padStart(2, "0")}h
+                        </text>
+                      ))}
+                    </>
+                  ) : filtroCanal === "presencial" ? (
                     <>
                       <path
                         d="M 30 100 Q 100 95, 180 25 T 280 65 T 380 40 T 490 100"
@@ -1936,6 +2141,7 @@ export default function ProdutividadePage() {
                   )}
                 </svg>
 
+                {!curvaVolume && (
                 <div className="flex justify-between text-[10px] font-mono text-slate-300 px-6 pt-2">
                   {[8, 10, 12, 14, 16, 17].map((h) => {
                     const isFocado = filtroHorario?.hora === h;
@@ -1953,6 +2159,7 @@ export default function ProdutividadePage() {
                     );
                   })}
                 </div>
+                )}
               </div>
             </div>
           </div>
@@ -2065,8 +2272,8 @@ export default function ProdutividadePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/6">
-                  {servicosFiltrados.length > 0 ? (
-                    servicosFiltrados.map((item) => (
+                  {servicosVisiveis.length > 0 ? (
+                    servicosVisiveis.map((item) => (
                       <tr
                         key={item.id}
                         className="hover:bg-white/[0.03] transition-colors text-slate-300"
@@ -2112,7 +2319,12 @@ export default function ProdutividadePage() {
             {/* Rodapé da Tabela */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-3 border-t border-white/8 text-xs text-slate-300">
               <div>
-                {servicosFiltrados.length} serviços ilustrativos exibidos ·{" "}
+                {hasRealData
+                  ? servicosFiltrados.length > servicosVisiveis.length
+                    ? `Mostrando os ${servicosVisiveis.length.toLocaleString("pt-BR")} mais recentes de ${servicosFiltrados.length.toLocaleString("pt-BR")} serviços (o CSV exporta todos)`
+                    : `${servicosFiltrados.length.toLocaleString("pt-BR")} serviços exibidos`
+                  : `${servicosFiltrados.length} serviços ilustrativos exibidos`}{" "}
+                ·{" "}
                 <span className="capitalize font-bold text-cyan-300">{filtroCanal}</span>
                 {filtroHorario && (
                   <span className="text-cyan-400 font-semibold ml-1">
