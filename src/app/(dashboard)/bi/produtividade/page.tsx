@@ -15,7 +15,6 @@ import {
   FileText,
   BarChart3,
   Layers,
-  HelpCircle,
   Users,
   ArrowRight,
   X,
@@ -23,6 +22,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { FiorixSkeleton } from "@/components/fiorix/FiorixSkeleton";
+import {
+  ProdutividadeEquipePanel,
+  type ProdutividadeRegistro,
+} from "@/components/bi/ProdutividadeEquipePanel";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIGURAÇÕES DE REGRAS DE NEGÓCIO E CLASSIFICAÇÃO DE CANAL
@@ -495,29 +498,6 @@ const ANDAMENTOS_BENCHMARK = {
   ],
 };
 
-const PRODUTIVIDADE_BENCHMARK = {
-  todos: [
-    { nome: "Gabriel", total: "1.240", perfil: "Operador Digital", barPct: "100%" },
-    { nome: "Mariana", total: "842", perfil: "Atendente Balcão", barPct: "68%" },
-    { nome: "Antônio", total: "680", perfil: "Operador Digital", barPct: "55%" },
-    { nome: "Carlos", total: "615", perfil: "Atendente Balcão", barPct: "50%" },
-    { nome: "Fernanda", total: "436", perfil: "Atendente Balcão", barPct: "35%" },
-    { nome: "Vinícius", total: "310", perfil: "Operador Digital", barPct: "25%" },
-  ],
-  digital: [
-    { nome: "Gabriel", total: "1.240", perfil: "Operador ONR Digital", barPct: "100%" },
-    { nome: "Antônio", total: "680", perfil: "Operador ONR Digital", barPct: "55%" },
-    { nome: "Vinícius", total: "310", perfil: "Operador ONR Digital", barPct: "25%" },
-    { nome: "Rafael", total: "260", perfil: "Operador ONR Digital", barPct: "21%" },
-  ],
-  presencial: [
-    { nome: "Mariana", total: "842", perfil: "Atendente Balcão Presencial", barPct: "100%" },
-    { nome: "Carlos", total: "615", perfil: "Atendente Balcão Presencial", barPct: "73%" },
-    { nome: "Fernanda", total: "436", perfil: "Atendente Balcão Presencial", barPct: "52%" },
-    { nome: "Juliana", total: "280", perfil: "Atendente Balcão Presencial", barPct: "33%" },
-  ],
-};
-
 const VOLUMES_BENCHMARK = {
   todos: { certidoes: "3.240", titulos: "3.482" },
   digital: { certidoes: "2.510", titulos: "2.039" },
@@ -804,7 +784,72 @@ export default function ProdutividadePage() {
   // Destaques reativos ao canal e ao horário
   const destaquesAtivos = DESTAQUES_BENCHMARK[filtroCanal];
   const andamentosAtivos = ANDAMENTOS_BENCHMARK[filtroCanal];
-  const produtividadeAtiva = PRODUTIVIDADE_BENCHMARK[filtroCanal];
+
+  // Registros normalizados para a aba Produtividade (reais ou ilustrativos)
+  const registrosProdutividade: ProdutividadeRegistro[] = useMemo(() => {
+    if (!hasRealData) {
+      return BENCHMARK_SERVICOS.map((s) => ({
+        nome: s.colaborador,
+        canal: s.canal,
+        tipo: s.tipo,
+        hora: parseInt(s.hora.split(":")[0], 10),
+        diaKey: s.diaSemana ?? null,
+        data: s.data,
+        quantidade: 1,
+      }));
+    }
+
+    return dbRows.map((r) => {
+      const nome = String(r.NOME || "Não informado").trim() || "Não informado";
+      const horaNum =
+        r.HORA_NUM !== undefined && r.HORA_NUM !== null
+          ? Number(r.HORA_NUM)
+          : r.HORA
+          ? parseInt(String(r.HORA).split(":")[0], 10)
+          : -1;
+      const diaRow = String(r.DIA_SEMANA || "").toLowerCase();
+      let diaKey: string | null = null;
+      if (diaRow) {
+        for (const [key, val] of Object.entries(DIA_KEY_TO_DB)) {
+          if (diaRow.includes(val.toLowerCase())) {
+            diaKey = key;
+            break;
+          }
+        }
+      }
+      return {
+        nome,
+        canal: isDigital(nome) ? ("Digital ONR" as const) : ("Presencial" as const),
+        tipo: String(r.TIPO || "").toUpperCase() === "CERTIDÃO" ? ("CERTIDÃO" as const) : ("TÍTULO" as const),
+        hora: Number.isFinite(horaNum) ? horaNum : -1,
+        diaKey,
+        data: r.DATA ? String(r.DATA) : null,
+        quantidade: Number(r.QUANTIDADE || 1),
+      };
+    });
+  }, [hasRealData, dbRows]);
+
+  // Colaboradores disponíveis no filtro "Mais filtros" (derivados dos registros, respeitando o canal)
+  const colaboradoresDisponiveis = useMemo(() => {
+    const nomes = new Map<string, "Digital ONR" | "Presencial">();
+    registrosProdutividade.forEach((r) => {
+      if (filtroCanal === "digital" && r.canal !== "Digital ONR") return;
+      if (filtroCanal === "presencial" && r.canal !== "Presencial") return;
+      if (!nomes.has(r.nome)) nomes.set(r.nome, r.canal);
+    });
+    return Array.from(nomes.entries()).sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
+  }, [registrosProdutividade, filtroCanal]);
+
+  // Seleção de colaborador a partir do ranking (alterna seleção e sincroniza com a tabela)
+  const handleSelecionarColaborador = (nome: string) => {
+    if (filtroColaborador === nome) {
+      setFiltroColaborador("TODOS");
+      toast.info("Seleção de colaborador removida.");
+    } else {
+      setFiltroColaborador(nome);
+      toast.success(`Colaborador selecionado: ${nome} · Tabela de serviços filtrada`);
+    }
+  };
   const volumesAtivos = VOLUMES_BENCHMARK[filtroCanal];
 
   const destaquesExibidos = useMemo(() => {
@@ -898,30 +943,6 @@ export default function ProdutividadePage() {
       };
     });
   }, [filtroHorario, andamentosAtivos, filtroCanal, totaisExibidos]);
-
-  const produtividadeExibida = useMemo(() => {
-    if (!filtroHorario) return produtividadeAtiva;
-
-    const volCanal =
-      filtroCanal === "digital"
-        ? totaisExibidos.digital
-        : filtroCanal === "presencial"
-        ? totaisExibidos.presencial
-        : totaisExibidos.total;
-
-    const maxTotal = Math.max(1, Math.round(volCanal * 0.35));
-
-    return produtividadeAtiva.map((pessoa, idx) => {
-      const peso = Math.max(0.08, 0.35 - idx * 0.05);
-      const volPessoa = Math.max(1, Math.round(volCanal * peso));
-      const barPct = `${Math.min(100, Math.round((volPessoa / maxTotal) * 100))}%`;
-      return {
-        ...pessoa,
-        total: volPessoa.toLocaleString("pt-BR"),
-        barPct,
-      };
-    });
-  }, [filtroHorario, produtividadeAtiva, filtroCanal, totaisExibidos]);
 
   const volumesExibidos = useMemo(() => {
     if (!filtroHorario) return volumesAtivos;
@@ -1514,23 +1535,15 @@ export default function ProdutividadePage() {
                   className="w-full rounded-xl bg-[#080D1A] border border-white/15 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400/80 cursor-pointer"
                 >
                   <option value="TODOS">Todos os colaboradores</option>
-                  {filtroCanal !== "presencial" && (
-                    <>
-                      <option value="Gabriel">Gabriel (Digital)</option>
-                      <option value="Antônio">Antônio (Digital)</option>
-                      <option value="Vinícius">Vinícius (Digital)</option>
-                      <option value="Rafael">Rafael (Digital)</option>
-                      <option value="eProtocolo">eProtocolo (Digital)</option>
-                    </>
-                  )}
-                  {filtroCanal !== "digital" && (
-                    <>
-                      <option value="Mariana">Mariana (Balcão)</option>
-                      <option value="Carlos">Carlos (Balcão)</option>
-                      <option value="Fernanda">Fernanda (Balcão)</option>
-                      <option value="Juliana">Juliana (Balcão)</option>
-                    </>
-                  )}
+                  {filtroColaborador !== "TODOS" &&
+                    !colaboradoresDisponiveis.some(([nome]) => nome === filtroColaborador) && (
+                      <option value={filtroColaborador}>{filtroColaborador}</option>
+                    )}
+                  {colaboradoresDisponiveis.map(([nome, canal]) => (
+                    <option key={nome} value={nome}>
+                      {nome} ({canal === "Digital ONR" ? "Digital" : "Balcão"})
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -1610,9 +1623,9 @@ export default function ProdutividadePage() {
         {loading && <FiorixSkeleton />}
 
         {/* ───────────────────────────────────────────────────────────── */}
-        {/* SEÇÕES ANALÍTICAS (VISÃO GERAL E PRODUTIVIDADE)               */}
+        {/* SEÇÕES ANALÍTICAS DA VISÃO GERAL (FLUXO DE ENTRADAS)          */}
         {/* ───────────────────────────────────────────────────────────── */}
-        {!loading && (activeTab === "visao_geral" || activeTab === "produtividade") && (
+        {!loading && activeTab === "visao_geral" && (
           <div className="space-y-6 animate-in fade-in duration-300">
             {/* ───────────────────────────────────────────────────────── */}
             {/* CARD HEATMAP: ENTRADA DE CERTIDÕES e TÍTULOS             */}
@@ -1942,54 +1955,22 @@ export default function ProdutividadePage() {
                 </div>
               </div>
             </div>
-
-            {/* ───────────────────────────────────────────────────────── */}
-            {/* CARD: Produtividade dos colaboradores (POR CANAL)        */}
-            {/* ───────────────────────────────────────────────────────── */}
-            <div className="rounded-[24px] border border-white/10 bg-[#0B1020]/90 backdrop-blur-xl p-6 shadow-xl space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-base font-bold text-white tracking-tight">
-                    Produtividade da equipe
-                  </h2>
-                  <p className="text-xs text-slate-300">
-                    Pessoas vinculadas ao canal{" "}
-                    <strong className="text-cyan-300 uppercase">{filtroCanal}</strong>
-                    {filtroHorario && (
-                      <span className="text-cyan-400 font-semibold">
-                        {" "}· Faixa das {filtroHorario.hora}h
-                      </span>
-                    )}{" "}
-                    · volume individual
-                  </p>
-                </div>
-
-                <span className="text-xs font-mono text-indigo-300 font-bold px-3 py-1 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
-                  {produtividadeExibida.length} colaboradores
-                </span>
-              </div>
-
-              <div className="space-y-4 pt-2">
-                {produtividadeExibida.map((pessoa) => (
-                  <div key={pessoa.nome} className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-white">{pessoa.nome}</span>
-                        <span className="text-[10px] font-mono text-slate-400">({pessoa.perfil})</span>
-                      </div>
-                      <span className="font-mono font-bold text-cyan-300">{pessoa.total} serviços</span>
-                    </div>
-                    <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-500"
-                        style={{ width: pessoa.barPct }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
+        )}
+
+        {/* ───────────────────────────────────────────────────────────── */}
+        {/* ABA PRODUTIVIDADE: INDICADORES, RANKING E PERFIL DA EQUIPE    */}
+        {/* ───────────────────────────────────────────────────────────── */}
+        {!loading && activeTab === "produtividade" && (
+          <ProdutividadeEquipePanel
+            registros={registrosProdutividade}
+            filtroCanal={filtroCanal}
+            filtroHorario={filtroHorario}
+            filtroTipo={filtroTipo}
+            colaboradorSelecionado={filtroColaborador}
+            onSelecionarColaborador={handleSelecionarColaborador}
+            isIlustrativo={!hasRealData}
+          />
         )}
 
         {/* ───────────────────────────────────────────────────────────── */}
