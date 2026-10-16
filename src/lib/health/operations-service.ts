@@ -119,41 +119,87 @@ function pruneCache() {
     if (oldestKey) snapshotCache.delete(oldestKey);
   }
 }
-function checkBusinessHoursState(now: Date): { isBusinessHours: boolean; isMorningGracePeriod: boolean } {
+export function getSaoPauloDateDetails(d: Date) {
   try {
-    const formatterStr = now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' });
-    const localDate = new Date(formatterStr);
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: false,
+    }).formatToParts(d);
 
-    const dayOfWeek = localDate.getDay(); // 0 = Domingo, 1 = Segunda ... 6 = Sábado
-    const hour = localDate.getHours();    // 0 a 23
-    const minute = localDate.getMinutes();
+    let year = 1970, month = 1, day = 1, hour = 0, minute = 0, second = 0;
+    for (const p of parts) {
+      if (p.type === 'year') year = parseInt(p.value, 10);
+      else if (p.type === 'month') month = parseInt(p.value, 10);
+      else if (p.type === 'day') day = parseInt(p.value, 10);
+      else if (p.type === 'hour') {
+        const h = parseInt(p.value, 10);
+        hour = h === 24 ? 0 : h;
+      } else if (p.type === 'minute') minute = parseInt(p.value, 10);
+      else if (p.type === 'second') second = parseInt(p.value, 10);
+    }
 
-    const isWorkDay = dayOfWeek >= 1 && dayOfWeek <= 6;
-    const isWorkHour = hour >= 7 && hour < 19;
-    const isBusinessHours = isWorkDay && isWorkHour;
-
-    // Tolerância no início do dia (07:00 às 07:30 de Seg-Sáb)
-    const isMorningGracePeriod = isWorkDay && hour === 7 && minute < 30;
-
-    return { isBusinessHours, isMorningGracePeriod };
+    const dayOfWeek = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+    return { year, month, day, hour, minute, second, dayOfWeek };
   } catch {
-    const dayOfWeek = now.getDay();
-    const hour = now.getHours();
-    const minute = now.getMinutes();
-    const isWorkDay = dayOfWeek >= 1 && dayOfWeek <= 6;
-    const isWorkHour = hour >= 7 && hour < 19;
-    return {
-      isBusinessHours: isWorkDay && isWorkHour,
-      isMorningGracePeriod: isWorkDay && hour === 7 && minute < 30,
-    };
+    const dayOfWeek = d.getDay();
+    const hour = d.getHours();
+    const minute = d.getMinutes();
+    const second = d.getSeconds();
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1;
+    const day = d.getDate();
+    return { year, month, day, hour, minute, second, dayOfWeek };
   }
+}
+
+export function makeSaoPauloDate(year: number, month: number, day: number, hour: number, minute: number, second = 0): Date {
+  const y = String(year).padStart(4, '0');
+  const m = String(month).padStart(2, '0');
+  const d = String(day).padStart(2, '0');
+  const h = String(hour).padStart(2, '0');
+  const min = String(minute).padStart(2, '0');
+  const s = String(second).padStart(2, '0');
+  return new Date(`${y}-${m}-${d}T${h}:${min}:${s}-03:00`);
+}
+
+export function getNextBusinessDay(year: number, month: number, day: number, dayOfWeek: number) {
+  // 6 = Sábado -> +2 dias (Segunda-feira)
+  // 0 = Domingo -> +1 dia (Segunda-feira)
+  // 1..5 = Seg a Sex -> +1 dia
+  const daysToAdd = dayOfWeek === 6 ? 2 : 1;
+  const dt = new Date(Date.UTC(year, month - 1, day));
+  dt.setUTCDate(dt.getUTCDate() + daysToAdd);
+  const nextDayOfWeek = dt.getUTCDay();
+  if (nextDayOfWeek === 0) {
+    dt.setUTCDate(dt.getUTCDate() + 1);
+  }
+  return {
+    year: dt.getUTCFullYear(),
+    month: dt.getUTCMonth() + 1,
+    day: dt.getUTCDate(),
+  };
+}
+
+export function checkBusinessHoursState(now: Date): { isBusinessHours: boolean; isMorningGracePeriod: boolean } {
+  const sp = getSaoPauloDateDetails(now);
+  const isWorkDay = sp.dayOfWeek >= 1 && sp.dayOfWeek <= 6; // Seg a Sáb
+  const isWorkHour = sp.hour >= 7 && sp.hour < 19;          // 07h00 às 18h59
+  const isBusinessHours = isWorkDay && isWorkHour;
+  const isMorningGracePeriod = isWorkDay && sp.hour === 7 && sp.minute < 30;
+  return { isBusinessHours, isMorningGracePeriod };
 }
 
 /**
  * Calcula a próxima execução esperada considerando a janela de expediente (Seg-Sáb, 07h-19h)
  * e o escalonamento dos ciclos (a cada 15 min).
  */
-function computeNextExpectedDate(
+export function computeNextExpectedDate(
   lastSyncDate: Date,
   intervalSeconds: number,
   moduleKey: string,
@@ -163,73 +209,86 @@ function computeNextExpectedDate(
   const morningOffsetsMinutes: Record<string, number> = {
     bi: 0,             // 07:00:00
     produtividade: 15, // 07:15:00
-    metas: 30,         // 07:30:00
-    tarefas: 45,       // 07:45:00
     retornos: 20,      // 07:20:00
     impressoes: 25,    // 07:25:00
+    metas: 30,         // 07:30:00
+    tarefas: 45,       // 07:45:00
   };
 
   const offsetMinutes = morningOffsetsMinutes[moduleKey] ?? 0;
   const candidate = new Date(lastSyncDate.getTime() + intervalSeconds * 1000);
 
-  const getSpDetails = (d: Date) => {
-    try {
-      const spStr = d.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' });
-      const dt = new Date(spStr);
+  const lastSyncSp = getSaoPauloDateDetails(lastSyncDate);
+  const candSp = getSaoPauloDateDetails(candidate);
+  const nowSp = getSaoPauloDateDetails(now);
+
+  const syncedToday =
+    lastSyncSp.year === nowSp.year &&
+    lastSyncSp.month === nowSp.month &&
+    lastSyncSp.day === nowSp.day;
+
+  if (syncedToday) {
+    const candidateIsToday =
+      candSp.year === nowSp.year &&
+      candSp.month === nowSp.month &&
+      candSp.day === nowSp.day;
+
+    // Se o candidato ainda é hoje e antes do encerramento das 19h
+    if (candidateIsToday && candSp.hour < 19) {
       return {
-        day: dt.getDay(),
-        hour: dt.getHours(),
-        minute: dt.getMinutes(),
-        year: dt.getFullYear(),
-        month: dt.getMonth(),
-        date: dt.getDate(),
-      };
-    } catch {
-      return {
-        day: d.getDay(),
-        hour: d.getHours(),
-        minute: d.getMinutes(),
-        year: d.getFullYear(),
-        month: d.getMonth(),
-        date: d.getDate(),
+        nextExpectedDate: candidate,
+        isPendingFirstCycleToday: false,
       };
     }
-  };
 
-  const candSp = getSpDetails(candidate);
-  const nowSp = getSpDetails(now);
-
-  const isDifferentDay =
-    candSp.date !== nowSp.date || candSp.month !== nowSp.month || candSp.year !== nowSp.year;
-  const isAfterHours = candSp.hour >= 19 || candSp.hour < 7 || candSp.day === 0;
-
-  if (isAfterHours || isDifferentDay) {
-    const targetSp = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
-
-    if (nowSp.hour >= 19 || nowSp.day === 0) {
-      const daysToAdd = nowSp.day === 6 ? 2 : 1;
-      targetSp.setDate(targetSp.getDate() + daysToAdd);
-    }
-
-    targetSp.setHours(7, offsetMinutes, 0, 0);
-
-    const y = targetSp.getFullYear();
-    const m = String(targetSp.getMonth() + 1).padStart(2, '0');
-    const d = String(targetSp.getDate()).padStart(2, '0');
-    const h = String(targetSp.getHours()).padStart(2, '0');
-    const min = String(targetSp.getMinutes()).padStart(2, '0');
-    const adjustedIso = `${y}-${m}-${d}T${h}:${min}:00-03:00`;
-    const nextExpected = new Date(adjustedIso);
-
+    // Se o candidato é >= 19h ou virou o dia, os ciclos de hoje se encerraram com sucesso!
+    // A próxima execução é no próximo dia útil às 07h + offset
+    const nextWork = getNextBusinessDay(nowSp.year, nowSp.month, nowSp.day, nowSp.dayOfWeek);
+    const nextExpected = makeSaoPauloDate(nextWork.year, nextWork.month, nextWork.day, 7, offsetMinutes, 0);
     return {
       nextExpectedDate: nextExpected,
-      isPendingFirstCycleToday: isDifferentDay && nowSp.hour < 8,
+      isPendingFirstCycleToday: false,
     };
   }
 
+  // Não sincronizou hoje (último sync foi ontem ou antes)
+  const isSunday = nowSp.dayOfWeek === 0;
+
+  if (isSunday) {
+    const nextWork = getNextBusinessDay(nowSp.year, nowSp.month, nowSp.day, nowSp.dayOfWeek);
+    const nextExpected = makeSaoPauloDate(nextWork.year, nextWork.month, nextWork.day, 7, offsetMinutes, 0);
+    return {
+      nextExpectedDate: nextExpected,
+      isPendingFirstCycleToday: false,
+    };
+  }
+
+  // Hoje é dia útil (Seg-Sáb)
+  if (nowSp.hour < 7) {
+    // Antes da abertura do expediente hoje
+    const nextExpected = makeSaoPauloDate(nowSp.year, nowSp.month, nowSp.day, 7, offsetMinutes, 0);
+    return {
+      nextExpectedDate: nextExpected,
+      isPendingFirstCycleToday: true,
+    };
+  }
+
+  if (nowSp.hour >= 19) {
+    // Após o expediente hoje, próximo é amanhã
+    const nextWork = getNextBusinessDay(nowSp.year, nowSp.month, nowSp.day, nowSp.dayOfWeek);
+    const nextExpected = makeSaoPauloDate(nextWork.year, nextWork.month, nextWork.day, 7, offsetMinutes, 0);
+    return {
+      nextExpectedDate: nextExpected,
+      isPendingFirstCycleToday: false,
+    };
+  }
+
+  // Durante o expediente hoje (07h às 19h), era esperado ter começado às 07h + offset
+  const nextExpected = makeSaoPauloDate(nowSp.year, nowSp.month, nowSp.day, 7, offsetMinutes, 0);
+  const isGrace = nowSp.hour === 7 && nowSp.minute < (offsetMinutes + 15);
   return {
-    nextExpectedDate: candidate,
-    isPendingFirstCycleToday: false,
+    nextExpectedDate: nextExpected,
+    isPendingFirstCycleToday: isGrace,
   };
 }
 
@@ -585,6 +644,13 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       now
     );
 
+    const nextExpectedSp = getSaoPauloDateDetails(nextExpectedDate);
+    const nowSp = getSaoPauloDateDetails(now);
+    const isNextDay =
+      nextExpectedSp.day !== nowSp.day ||
+      nextExpectedSp.month !== nowSp.month ||
+      nextExpectedSp.year !== nowSp.year;
+
     const elapsedSeconds = Math.max(0, Math.floor((now.getTime() - lastSyncDate.getTime()) / 1000));
     const warningThreshold = cfg.expectedIntervalSeconds * 1.5;
     const errorThreshold = cfg.expectedIntervalSeconds * 3.0;
@@ -598,6 +664,11 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     } else if (isPendingFirstCycleToday || isMorningGracePeriod) {
       status = 'OK';
       statusNote = 'Início do expediente — aguardando ciclo escalonado da manhã';
+    } else if (now.getTime() <= nextExpectedDate.getTime()) {
+      status = 'OK';
+      statusNote = isNextDay
+        ? 'Ciclos de hoje concluídos com sucesso · Próxima execução no próximo expediente'
+        : 'Sincronizado dentro da janela esperada';
     } else if (!isConnectorOnline) {
       status = 'WARNING';
       statusNote = 'Conector pausado ou offline — aguardando ciclo do serviço local';
@@ -615,13 +686,28 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       statusNote = `Sincronização com atraso moderado (${mins} min)`;
     }
 
-    // Atraso exato em segundos: 0 durante folga, pausa noturna ou carência matinal
+    // Atraso exato em segundos: 0 durante folga, pausa noturna, carência matinal ou se próxima execução é futura
     let delaySeconds = 0;
     if (isWorkHours && !isPendingFirstCycleToday && !isMorningGracePeriod && now.getTime() > nextExpectedDate.getTime()) {
       delaySeconds = Math.max(0, Math.floor((now.getTime() - nextExpectedDate.getTime()) / 1000));
     }
 
     const records = lastBatch?.recordsReceived ?? statusEntry?.recordsLastSync ?? null;
+
+    const formattedNextTime = nextExpectedDate.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZone: 'America/Sao_Paulo',
+    });
+
+    const nextExpectedAt = !isWorkHours
+      ? `${formattedNextTime} (Próx. expediente)`
+      : isNextDay
+      ? (nextExpectedSp.dayOfWeek === 1 && nowSp.dayOfWeek === 6
+          ? `${formattedNextTime} (Segunda)`
+          : `${formattedNextTime} (Amanhã)`)
+      : formattedNextTime;
 
     incrementalModules.push({
       module: cfg.module,
@@ -633,14 +719,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
         second: '2-digit',
         timeZone: 'America/Sao_Paulo',
       }),
-      nextExpectedAt: !isWorkHours
-        ? '07:00 (Próximo expediente)'
-        : nextExpectedDate.toLocaleTimeString('pt-BR', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            timeZone: 'America/Sao_Paulo',
-          }),
+      nextExpectedAt,
       delaySeconds,
       recordsCount: records,
       isIncremental: true,
