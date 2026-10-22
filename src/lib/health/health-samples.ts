@@ -15,6 +15,17 @@ export interface HealthSample {
   latencyMs: number | null;
   success: boolean;
   checkedAt?: Date;
+  /** Motivo resumido e seguro da falha (sem detalhes de infraestrutura) */
+  detail?: string | null;
+}
+
+export interface HealthFailure {
+  id: string;
+  source: HealthSampleSource;
+  checkedAt: string;
+  detail: string;
+  resolved: boolean;
+  resolvedAt: string | null;
 }
 
 export interface HealthMeasurement {
@@ -33,6 +44,11 @@ const MAX_PENDING_SAMPLES = 500;
 // Amostras que não puderam ser gravadas (ex.: banco fora do ar) aguardam o próximo envio bem-sucedido
 const pendingSamples: Array<Required<HealthSample>> = [];
 
+const DETALHE_PADRAO: Record<HealthSampleSource, string> = {
+  central: 'Banco de dados sem resposta durante a verificação da Central',
+  heartbeat: 'Falha ao registrar o sinal (heartbeat) do conector',
+};
+
 let tableReady: Promise<boolean> | null = null;
 
 function ensureHealthSamplesTable(): Promise<boolean> {
@@ -48,6 +64,9 @@ function ensureHealthSamplesTable(): Promise<boolean> {
             success BOOLEAN NOT NULL,
             checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           );
+        `);
+        await prisma.$executeRawUnsafe(`
+          ALTER TABLE public.fiorix_operations_health_samples ADD COLUMN IF NOT EXISTS detail TEXT;
         `);
         await prisma.$executeRawUnsafe(`
           CREATE INDEX IF NOT EXISTS idx_health_samples_tenant_checked
@@ -74,12 +93,20 @@ function bufferSamples(samples: Array<Required<HealthSample>>) {
 
 /** Guarda a amostra apenas em memória (usado quando o banco está inacessível). */
 export function bufferHealthSample(sample: HealthSample) {
-  bufferSamples([{ ...sample, checkedAt: sample.checkedAt ?? new Date() }]);
+  bufferSamples([{
+    ...sample,
+    checkedAt: sample.checkedAt ?? new Date(),
+    detail: sample.success ? null : (sample.detail ?? DETALHE_PADRAO[sample.source]),
+  }]);
 }
 
 /** Grava a amostra (e as pendentes, com seus horários originais). Nunca lança erro. */
 export async function recordHealthSample(sample: HealthSample): Promise<void> {
-  const item: Required<HealthSample> = { ...sample, checkedAt: sample.checkedAt ?? new Date() };
+  const item: Required<HealthSample> = {
+    ...sample,
+    checkedAt: sample.checkedAt ?? new Date(),
+    detail: sample.success ? null : (sample.detail ?? DETALHE_PADRAO[sample.source]),
+  };
 
   if (!(await ensureHealthSamplesTable())) {
     bufferSamples([item]);
@@ -92,8 +119,8 @@ export async function recordHealthSample(sample: HealthSample): Promise<void> {
     for (const s of lote) {
       const latencia = s.latencyMs === null ? null : Math.round(s.latencyMs);
       await prisma.$executeRaw`
-        INSERT INTO public.fiorix_operations_health_samples (tenant_id, source, latency_ms, success, checked_at)
-        VALUES (${s.tenantId}, ${s.source}, ${latencia}::int, ${s.success}, ${s.checkedAt})
+        INSERT INTO public.fiorix_operations_health_samples (tenant_id, source, latency_ms, success, checked_at, detail)
+        VALUES (${s.tenantId}, ${s.source}, ${latencia}::int, ${s.success}, ${s.checkedAt}, ${s.detail})
       `;
       gravadas++;
     }
@@ -108,6 +135,46 @@ export async function recordHealthSample(sample: HealthSample): Promise<void> {
   } catch {
     bufferSamples(lote.slice(gravadas));
     console.warn('[Health Samples] Falha ao gravar amostras; mantidas em memória para nova tentativa.');
+  }
+}
+
+/**
+ * Falhas das últimas 24 h, da mais recente para a mais antiga. Uma falha é
+ * considerada solucionada quando houve uma verificação bem-sucedida da mesma
+ * origem depois dela.
+ */
+export async function getRecentHealthFailures(tenantId: string, limit = 20): Promise<HealthFailure[]> {
+  if (!(await ensureHealthSamplesTable())) return [];
+
+  const inicioJanela = new Date(Date.now() - HEALTH_WINDOW_HOURS * 60 * 60 * 1000);
+  try {
+    const rows = await prisma.$queryRaw<
+      Array<{ id: bigint; source: string; checked_at: Date; detail: string | null; resolved_at: Date | null }>
+    >`
+      SELECT f.id, f.source, f.checked_at, f.detail,
+        (SELECT MIN(s.checked_at)
+           FROM public.fiorix_operations_health_samples s
+          WHERE s.tenant_id = f.tenant_id AND s.source = f.source
+            AND s.success AND s.checked_at > f.checked_at) AS resolved_at
+      FROM public.fiorix_operations_health_samples f
+      WHERE f.tenant_id = ${tenantId} AND NOT f.success AND f.checked_at >= ${inicioJanela}
+      ORDER BY f.checked_at DESC
+      LIMIT ${limit}
+    `;
+    return rows.map((r) => {
+      const source: HealthSampleSource = r.source === 'heartbeat' ? 'heartbeat' : 'central';
+      return {
+        id: String(r.id),
+        source,
+        checkedAt: new Date(r.checked_at).toISOString(),
+        detail: r.detail || DETALHE_PADRAO[source],
+        resolved: r.resolved_at !== null,
+        resolvedAt: r.resolved_at ? new Date(r.resolved_at).toISOString() : null,
+      };
+    });
+  } catch {
+    console.warn('[Health Samples] Falha ao listar as falhas recentes.');
+    return [];
   }
 }
 

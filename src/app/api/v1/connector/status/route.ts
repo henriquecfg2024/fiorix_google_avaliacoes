@@ -209,6 +209,7 @@ export async function POST(req: Request) {
         source: 'heartbeat',
         latencyMs: null,
         success: false,
+        detail: 'Erro interno ao processar o sinal do conector (HTTP 500)',
       });
     }
     return jsonResponse(requestId, { error: 'Internal server error' }, 500);

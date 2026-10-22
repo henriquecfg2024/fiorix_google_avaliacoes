@@ -125,6 +125,15 @@ export interface OperationsHealthSnapshot {
       successfulChecks: number;
       since: string | null;
     } | null;
+    /** Falhas recentes (últimas 24 h) com situação de solução */
+    failures?: Array<{
+      id: string;
+      source: 'central' | 'heartbeat';
+      checkedAt: string;
+      detail: string;
+      resolved: boolean;
+      resolvedAt: string | null;
+    }>;
     provenance: Provenance;
     note: string;
   };

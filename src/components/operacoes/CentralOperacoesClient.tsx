@@ -88,6 +88,7 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
   const [activeTab, setActiveTab] = useState<'overview' | 'audit' | 'alerts'>('overview');
   const [isPending, startTransition] = useTransition();
   const [secondsAgo, setSecondsAgo] = useState<number>(0);
+  const [showFailures, setShowFailures] = useState(false);
 
   // Ticker de segundos desde a última checagem real
   useEffect(() => {
@@ -202,6 +203,23 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
       : `nas últimas ${janelaHoras} h`;
   const verificacoesTexto = `${totalVerificacoes.toLocaleString('pt-BR')} ${totalVerificacoes === 1 ? 'verificação' : 'verificações'}`;
   const falhas = medicao ? Math.max(0, medicao.totalChecks - medicao.successfulChecks) : 0;
+  const listaFalhas = health.metrics?.failures ?? [];
+  const falhasAbertas = listaFalhas.filter((f) => !f.resolved).length;
+  const formatarHora = (iso: string) =>
+    new Date(iso).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZone: 'America/Sao_Paulo',
+    });
+  const duracaoEntre = (a: string, b: string) => {
+    const s = Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 1000));
+    if (s < 60) return `${s} s`;
+    if (s < 3600) return `${Math.round(s / 60)} min`;
+    return `${(s / 3600).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h`;
+  };
 
   const p95Legenda = p95Display === 'Sem dados' || totalVerificacoes === 0
     ? 'Aguardando as primeiras verificações'
@@ -353,6 +371,63 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
             <div className="text-xs text-slate-400 font-sans">
               {availabilityLegenda}
             </div>
+
+            {falhas > 0 && (
+              <div className="pt-1">
+                <button
+                  type="button"
+                  id="btn-detalhes-falhas"
+                  aria-expanded={showFailures}
+                  onClick={() => setShowFailures((v) => !v)}
+                  className="inline-flex items-center gap-2 text-xs font-semibold text-cyan-400 hover:text-cyan-300 cursor-pointer focus:outline-none"
+                >
+                  <span>{showFailures ? 'Ocultar detalhes' : 'Ver detalhes das falhas'}</span>
+                  <span className={falhasAbertas === 0 ? 'text-emerald-400' : 'text-amber-400'}>
+                    {falhasAbertas === 0
+                      ? '· todas solucionadas'
+                      : `· ${falhasAbertas} sem solução`}
+                  </span>
+                </button>
+
+                {showFailures && (
+                  <ul id="lista-falhas" className="mt-3 space-y-2">
+                    {listaFalhas.length === 0 && (
+                      <li className="text-xs text-slate-500">
+                        Detalhes indisponíveis para as falhas registradas antes desta atualização.
+                      </li>
+                    )}
+                    {listaFalhas.map((f) => (
+                      <li
+                        key={f.id}
+                        className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs space-y-1"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-white">
+                            {f.source === 'heartbeat' ? 'Sinal do conector' : 'Verificação da Central'}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-md border text-[10px] font-bold ${
+                              f.resolved
+                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                                : 'border-amber-500/30 bg-amber-500/10 text-amber-400'
+                            }`}
+                          >
+                            {f.resolved ? 'Solucionada' : 'Sem solução'}
+                          </span>
+                        </div>
+                        <div className="text-slate-300">{f.detail}</div>
+                        <div className="text-slate-500">
+                          Ocorreu em {formatarHora(f.checkedAt)}
+                          {f.resolved && f.resolvedAt
+                            ? ` · normalizada em ${formatarHora(f.resolvedAt)} (${duracaoEntre(f.checkedAt, f.resolvedAt)})`
+                            : ''}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
         </section>
 

@@ -4,7 +4,9 @@ import { dispatchAlert } from '@/lib/alerts/alert-dispatcher';
 import {
   bufferHealthSample,
   getHealthMeasurement,
+  getRecentHealthFailures,
   recordHealthSample,
+  type HealthFailure,
   type HealthMeasurement,
 } from './health-samples';
 
@@ -496,11 +498,16 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     latencyMs: dbProbeResult.error ? null : dbProbeResult.latency,
     success: dbRespondeu,
     checkedAt: now,
+    detail: dbProbeResult.error ? sanitizeDatabaseError(dbProbeResult.error).message : null,
   };
   let healthMeasurement: HealthMeasurement | null = null;
+  let healthFailures: HealthFailure[] = [];
   if (dbRespondeu) {
     await recordHealthSample(amostraAtual);
-    healthMeasurement = await getHealthMeasurement(tenantId);
+    [healthMeasurement, healthFailures] = await Promise.all([
+      getHealthMeasurement(tenantId),
+      getRecentHealthFailures(tenantId),
+    ]);
   } else {
     // Banco inacessível: guarda a falha em memória e grava quando ele voltar
     bufferHealthSample(amostraAtual);
@@ -995,6 +1002,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
             since: healthMeasurement.since,
           }
         : null,
+      failures: healthFailures,
       provenance: 'calculated',
       note: 'Métricas agregadas consolidadas da infraestrutura e lotes operacionais',
     },
