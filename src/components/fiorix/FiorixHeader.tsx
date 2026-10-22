@@ -139,14 +139,20 @@ export function FiorixHeader() {
         <div className="flex items-center gap-6">
           <Link
             href={homeRoute}
-            className="flex items-center gap-2 transition-opacity hover:opacity-90"
+            className="flex items-center gap-2.5 transition-opacity hover:opacity-90"
+            title="FIORIX Gestão & Qualidade"
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#6366f1] to-[#a855f7] text-white font-extrabold shadow-md shadow-indigo-500/20">
               F
             </div>
-            <span className="font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-white to-white/80 text-lg">
-              FIORIX
-            </span>
+            <div className="flex flex-col min-w-0">
+              <span className="font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-white to-white/80 text-base leading-tight">
+                FIORIX
+              </span>
+              <span className="text-[10px] font-bold text-indigo-400 tracking-tight whitespace-nowrap">
+                Gestão &amp; Qualidade
+              </span>
+            </div>
           </Link>
 
           {/* Navegação Desktop (>1024px) */}
@@ -390,7 +396,7 @@ export function FiorixHeader() {
                       </div>
                       <div>
                         <span className="font-extrabold text-white text-base tracking-tight block">
-                          FIORIX
+                          FIORIX Gestão &amp; Qualidade
                         </span>
                         <span className="text-[10px] font-semibold text-white/50 flex items-center gap-1">
                           <Building2 className="w-3 h-3 text-indigo-400" />

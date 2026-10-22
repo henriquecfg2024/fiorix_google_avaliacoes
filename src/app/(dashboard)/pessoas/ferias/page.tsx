@@ -6,7 +6,7 @@ import { EscalaItem, PublicacaoStatus } from "@/lib/ferias/ferias-repository";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Férias | FIORIX",
+  title: "Férias | FIORIX Gestão & Qualidade",
 };
 
 export default async function FeriasPage() {

@@ -6,7 +6,7 @@ import { InstrucoesTrabalhoClient } from "@/components/its/InstrucoesTrabalhoCli
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Gestão de ITs | FIORIX",
+  title: "Gestão de ITs | FIORIX Gestão & Qualidade",
   description: "Gestão de ITs — Acompanhe, revise e aprove novas Instruções de Trabalho.",
 };
 

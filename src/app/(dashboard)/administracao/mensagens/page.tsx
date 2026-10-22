@@ -6,7 +6,7 @@ import { GestaoMensagensClient } from '@/components/mensagens/admin/GestaoMensag
 import { MessageCircle, ShieldCheck } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Gestão de Mensagens | FIORIX',
+  title: 'Gestão de Mensagens | FIORIX Gestão & Qualidade',
   description: 'Governança, Políticas e Métricas de Mensageria Corporativa',
 };
 

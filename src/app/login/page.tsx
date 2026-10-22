@@ -171,7 +171,12 @@ export default function LoginPage() {
         <div className="login-header">
           <div className="login-brand">
             <div className="brand-icon">F</div>
-            <span className="brand-text">FIORIX</span>
+            <div className="flex flex-col items-start leading-tight">
+              <span className="brand-text">FIORIX</span>
+              <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
+                Gestão &amp; Qualidade
+              </span>
+            </div>
           </div>
           <h1 className="login-title">Bem-vindo de volta</h1>
           <p className="login-subtitle">Faça login para acessar o painel do seu cartório.</p>
@@ -348,7 +353,7 @@ export default function LoginPage() {
 
       {/* Rodapé Institucional Seguro */}
       <footer className="login-footer">
-        © 2026 FIORIX • Sistema de Gestão Cartorária
+        © 2026 FIORIX Gestão &amp; Qualidade • Sistema de Gestão Cartorária
       </footer>
 
       <style jsx>{`

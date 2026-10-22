@@ -22,7 +22,7 @@ const MinhaItCleanClient = nextDynamic(
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Minhas Instruções de Trabalho • Responsável Técnico | FIORIX',
+  title: 'Minhas Instruções de Trabalho • Responsável Técnico | FIORIX Gestão & Qualidade',
   description: 'Controle de versão e gestão das instruções de trabalho sob responsabilidade técnica oficial.',
 };
 

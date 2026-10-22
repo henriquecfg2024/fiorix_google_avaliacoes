@@ -21,7 +21,7 @@ export function flashDocumentTitle(messageSender: string) {
   let showNew = true;
   titleFlashTimer = setInterval(() => {
     if (document.hidden) {
-      document.title = showNew ? `🔔 Nova mensagem de ${messageSender}` : (originalTitle || 'FIORIX');
+      document.title = showNew ? `🔔 Nova mensagem de ${messageSender}` : (originalTitle || 'FIORIX Gestão & Qualidade');
       showNew = !showNew;
     } else {
       if (titleFlashTimer) clearInterval(titleFlashTimer);

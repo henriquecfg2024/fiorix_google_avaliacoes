@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Mensagens SaaS | Master FIORIX',
+  title: 'Mensagens SaaS | Master FIORIX Gestão & Qualidade',
   description: 'Visão Agregada de Telemetria e Mensageria Multi-Tenant',
 };
 

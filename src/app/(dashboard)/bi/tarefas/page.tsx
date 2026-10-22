@@ -1,7 +1,7 @@
 import { TarefasDashboardClient } from "@/components/bi/TarefasDashboardClient";
 
 export const metadata = {
-  title: "Tarefas - Previsão de Carga Operacional | FIORIX",
+  title: "Tarefas - Previsão de Carga Operacional | FIORIX Gestão & Qualidade",
 };
 
 export default function TarefasPage() {

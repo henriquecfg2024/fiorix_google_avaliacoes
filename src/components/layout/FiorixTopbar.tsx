@@ -135,7 +135,7 @@ export function FiorixTopbar() {
                       </div>
                       <div>
                         <span className="font-extrabold text-white text-base tracking-tight block">
-                          FIORIX
+                          FIORIX Gestão &amp; Qualidade
                         </span>
                         <span className="text-[10px] font-semibold text-white/50 flex items-center gap-1">
                           <Building2 className="w-3 h-3 text-indigo-400" />

@@ -129,16 +129,26 @@ export function FiorixSidebar() {
       >
         {/* Logo & Toggle Section */}
         <div className="flex items-center justify-between h-14 px-3.5 border-b border-white/8 shrink-0 overflow-hidden">
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#6366f1] to-[#a855f7] text-white font-extrabold shadow-md shrink-0">
+          <Link
+            href={homeRoute}
+            onClick={() => handleNavClick(homeRoute)}
+            className="flex items-center gap-2.5 overflow-hidden group cursor-pointer"
+            title="FIORIX Gestão & Qualidade"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#6366f1] to-[#a855f7] text-white font-extrabold shadow-md shrink-0 group-hover:scale-105 transition-transform">
               F
             </div>
             {!isCollapsed && (
-              <span className="font-black tracking-wider text-slate-900 dark:text-white text-lg whitespace-nowrap transition-opacity duration-300">
-                FIORIX
-              </span>
+              <div className="flex flex-col min-w-0 transition-opacity duration-300">
+                <span className="font-black tracking-wider text-slate-900 dark:text-white text-base leading-tight whitespace-nowrap">
+                  FIORIX
+                </span>
+                <span className="text-[10px] font-bold text-indigo-400 dark:text-indigo-400 tracking-tight whitespace-nowrap">
+                  Gestão &amp; Qualidade
+                </span>
+              </div>
             )}
-          </div>
+          </Link>
 
           <button
             onClick={toggleCollapse}

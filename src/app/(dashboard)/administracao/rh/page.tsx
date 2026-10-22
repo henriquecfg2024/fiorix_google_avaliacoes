@@ -5,7 +5,7 @@ import { PainelRHClient } from "@/components/sistema/PainelRHClient";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Painel de RH | FIORIX",
+  title: "Painel de RH | FIORIX Gestão & Qualidade",
   description: "Gestão de Comunicados Internos, Holerites e Planejamento de Férias 2027",
 };
 

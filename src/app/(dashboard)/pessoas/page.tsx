@@ -11,7 +11,7 @@ import { Briefcase, Upload, Send, ShieldCheck } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Minha Central | FIORIX PESSOAS",
+  title: "Minha Central | FIORIX Gestão & Qualidade",
 };
 
 export default async function PessoasDashboard() {

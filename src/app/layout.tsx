@@ -14,8 +14,8 @@ export const viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "FIORIX - 7º Registro de Imóveis de SP",
-  description: "Gestão de Avaliações do Google e Módulo BI de Prazos do 7º Registro de Imóveis de SP",
+  title: "FIORIX Gestão & Qualidade - 7º Registro de Imóveis de SP",
+  description: "FIORIX Gestão & Qualidade — Plataforma de Gestão, Qualidade, Avaliações e BI de Prazos do 7º Registro de Imóveis de SP",
   manifest: "/manifest.json",
   other: {
     "mobile-web-app-capable": "yes",

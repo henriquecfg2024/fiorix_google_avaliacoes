@@ -5,7 +5,7 @@ import { maskIp } from "@/lib/security/requestIp";
 import { VerificaHashClient } from "./VerificaHashClient";
 
 export const metadata: Metadata = {
-  title: "Verificação de Autenticidade e Ciência — FIORIX",
+  title: "Verificação de Autenticidade e Ciência — FIORIX Gestão & Qualidade",
   description: "Validação pública de integridade criptográfica SHA-256 e auditoria de comunicados do 7º Registro de Imóveis de São Paulo.",
   robots: {
     index: false,
