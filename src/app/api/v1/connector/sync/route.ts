@@ -263,9 +263,11 @@ export async function POST(req: Request) {
     }
 
     // Descarrega registros em tempo real diretamente para as tabelas de dashboard
-    unpackLiveRecords({ tenantId, source, records }).catch((err) => {
+    try {
+      await unpackLiveRecords({ tenantId, source, records });
+    } catch (err) {
       console.error('LIVE_UNPACK_ERROR:', err);
-    });
+    }
 
     const now = new Date();
     const completed = result.batch.status === 'completed';
