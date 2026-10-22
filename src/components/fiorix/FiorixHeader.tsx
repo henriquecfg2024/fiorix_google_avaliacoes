@@ -139,20 +139,15 @@ export function FiorixHeader() {
         <div className="flex items-center gap-6">
           <Link
             href={homeRoute}
-            className="flex items-center gap-2.5 transition-opacity hover:opacity-90"
+            className="flex items-center transition-opacity hover:opacity-90"
             title="FIORIX Gestão & Qualidade"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#6366f1] to-[#a855f7] text-white font-extrabold shadow-md shadow-indigo-500/20">
-              F
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span className="font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-white to-white/80 text-base leading-tight">
-                FIORIX
-              </span>
-              <span className="text-[10px] font-bold text-indigo-400 tracking-tight whitespace-nowrap">
-                Gestão &amp; Qualidade
-              </span>
-            </div>
+            <img
+              src="/logo-fiorix.png"
+              alt="FIORIX Gestão & Qualidade"
+              className="h-8 w-auto max-w-[175px] object-contain select-none"
+              draggable={false}
+            />
           </Link>
 
           {/* Navegação Desktop (>1024px) */}
@@ -390,10 +385,13 @@ export function FiorixHeader() {
               <div>
                 <SheetHeader className="p-5 border-b border-white/10">
                   <SheetTitle className="text-white flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#6366f1] to-[#a855f7] text-white font-extrabold shadow-md shadow-indigo-500/20">
-                        F
-                      </div>
+                    <div className="flex items-center gap-3">
+                      <img
+                        src="/icon-fiorix.png"
+                        alt="FIORIX"
+                        className="h-9 w-9 object-contain select-none shrink-0"
+                        draggable={false}
+                      />
                       <div>
                         <span className="font-extrabold text-white text-base tracking-tight block">
                           FIORIX Gestão &amp; Qualidade

@@ -52,9 +52,12 @@ export default function PreviewVisaoConsolidadaPage() {
         <div className="max-w-7xl mx-auto h-full flex items-center justify-between px-4 lg:px-8">
           {/* Logo e Contexto */}
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#6366f1] to-[#a855f7] text-white font-extrabold shadow-md shadow-indigo-500/20">
-              F
-            </div>
+            <img
+              src="/icon-fiorix.png"
+              alt="FIORIX"
+              className="h-8 w-8 object-contain select-none shrink-0"
+              draggable={false}
+            />
             <div>
               <span className="font-extrabold text-slate-900 dark:text-white text-base tracking-tight block">
                 FIORIX Gestão &amp; Qualidade

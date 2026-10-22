@@ -16,6 +16,7 @@ import {
   type NavigationStats,
 } from "@/lib/navigation/client-data";
 import { getUserNavPermissionsAction } from "@/app/actions/nav-permissions";
+import { FiorixLogoIcon } from "@/components/layout/FiorixLogoIcon";
 
 export function FiorixTopbar() {
   const router = useRouter();
@@ -129,20 +130,18 @@ export function FiorixTopbar() {
               <div className="flex-1 overflow-y-auto">
                 <SheetHeader className="p-5 border-b border-slate-200 dark:border-white/10 text-left">
                   <SheetTitle className="text-slate-900 dark:text-white flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#6366f1] to-[#a855f7] text-white font-extrabold shadow-md shadow-indigo-500/20">
-                        F
-                      </div>
-                      <div>
-                        <span className="font-extrabold text-white text-base tracking-tight block">
-                          FIORIX Gestão &amp; Qualidade
-                        </span>
-                        <span className="text-[10px] font-semibold text-white/50 flex items-center gap-1">
-                          <Building2 className="w-3 h-3 text-indigo-400" />
-                          7º RI São Paulo
-                        </span>
-                      </div>
-                    </div>
+                    <Link
+                      href={homeRoute}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center"
+                    >
+                      <img
+                        src="/logo-fiorix.png"
+                        alt="FIORIX Gestão & Qualidade"
+                        className="h-9 w-auto max-w-[200px] object-contain select-none"
+                        draggable={false}
+                      />
+                    </Link>
                   </SheetTitle>
                 </SheetHeader>
 

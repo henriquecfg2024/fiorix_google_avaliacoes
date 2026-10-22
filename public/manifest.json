@@ -1,24 +1,30 @@
 {
-  "name": "FIORIX Gestão & Qualidade - 7º Registro de Imóveis de SP",
-  "short_name": "FIORIX Gestão & Qualidade",
+  "name": "FIORIX - Gestão & Qualidade",
+  "short_name": "FIORIX - Gestão & Qualidade",
   "description": "FIORIX Gestão & Qualidade — Plataforma de Gestão, Qualidade, Avaliações e BI de Prazos do 7º Registro de Imóveis de SP",
   "start_url": "/dashboard",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#002B49",
-  "theme_color": "#002B49",
+  "background_color": "#080A12",
+  "theme_color": "#080A12",
   "icons": [
     {
-      "src": "/icon-192.svg",
+      "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-512.svg",
+      "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-fiorix.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }

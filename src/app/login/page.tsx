@@ -170,13 +170,12 @@ export default function LoginPage() {
         {/* Logo e Cabeçalho */}
         <div className="login-header">
           <div className="login-brand">
-            <div className="brand-icon">F</div>
-            <div className="flex flex-col items-start leading-tight">
-              <span className="brand-text">FIORIX</span>
-              <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
-                Gestão &amp; Qualidade
-              </span>
-            </div>
+            <img
+              src="/logo-fiorix.png"
+              alt="FIORIX Gestão & Qualidade"
+              className="h-14 w-auto max-w-[280px] object-contain select-none filter drop-shadow-[0_8px_24px_rgba(79,70,229,0.25)]"
+              draggable={false}
+            />
           </div>
           <h1 className="login-title">Bem-vindo de volta</h1>
           <p className="login-subtitle">Faça login para acessar o painel do seu cartório.</p>

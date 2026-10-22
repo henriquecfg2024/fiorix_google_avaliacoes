@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { getUserNavPermissionsAction } from "@/app/actions/nav-permissions";
+import { FiorixLogoIcon } from "@/components/layout/FiorixLogoIcon";
 
 export function FiorixSidebar() {
   const pathname = usePathname();
@@ -128,35 +129,51 @@ export function FiorixSidebar() {
         }`}
       >
         {/* Logo & Toggle Section */}
-        <div className="flex items-center justify-between h-14 px-3.5 border-b border-white/8 shrink-0 overflow-hidden">
-          <Link
-            href={homeRoute}
-            onClick={() => handleNavClick(homeRoute)}
-            className="flex items-center gap-2.5 overflow-hidden group cursor-pointer"
-            title="FIORIX Gestão & Qualidade"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#6366f1] to-[#a855f7] text-white font-extrabold shadow-md shrink-0 group-hover:scale-105 transition-transform">
-              F
-            </div>
-            {!isCollapsed && (
-              <div className="flex flex-col min-w-0 transition-opacity duration-300">
-                <span className="font-black tracking-wider text-slate-900 dark:text-white text-base leading-tight whitespace-nowrap">
-                  FIORIX
-                </span>
-                <span className="text-[10px] font-bold text-indigo-400 dark:text-indigo-400 tracking-tight whitespace-nowrap">
-                  Gestão &amp; Qualidade
-                </span>
-              </div>
-            )}
-          </Link>
+        <div
+          className={`flex items-center h-16 border-b border-white/8 shrink-0 transition-all ${
+            isCollapsed ? "justify-center px-2" : "justify-between px-3.5"
+          }`}
+        >
+          {isCollapsed ? (
+            <Tooltip>
+              {/* @ts-expect-error Radix UI asChild type mismatch */}
+              <TooltipTrigger asChild>
+                <button
+                  onClick={toggleCollapse}
+                  className="flex items-center justify-center p-1.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group"
+                  title="Expandir menu (FIORIX - Gestão & Qualidade)"
+                  aria-label="Expandir menu"
+                >
+                  <FiorixLogoIcon className="w-[38px] h-[38px] shrink-0 group-hover:scale-110 transition-transform" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Expandir menu (FIORIX - Gestão &amp; Qualidade)</TooltipContent>
+            </Tooltip>
+          ) : (
+            <>
+              <Link
+                href={homeRoute}
+                onClick={() => handleNavClick(homeRoute)}
+                className="flex items-center overflow-hidden group cursor-pointer min-w-0"
+                title="FIORIX - Gestão & Qualidade"
+              >
+                <img
+                  src="/logo-fiorix.png"
+                  alt="FIORIX Gestão & Qualidade"
+                  className="h-9 w-auto max-w-[185px] object-contain select-none group-hover:scale-[1.02] transition-transform"
+                  draggable={false}
+                />
+              </Link>
 
-          <button
-            onClick={toggleCollapse}
-            title={isCollapsed ? "Expandir menu" : "Recolher menu"}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 dark:text-white/50 dark:hover:text-white dark:hover:bg-white/5 transition-colors cursor-pointer shrink-0"
-          >
-            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </button>
+              <button
+                onClick={toggleCollapse}
+                title="Recolher menu"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 dark:text-white/50 dark:hover:text-white dark:hover:bg-white/5 transition-colors cursor-pointer shrink-0 ml-auto"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            </>
+          )}
         </div>
 
         {/* Navigation Section */}
