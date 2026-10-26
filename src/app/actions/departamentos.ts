@@ -281,3 +281,68 @@ export async function listarNomesDepartamentos(): Promise<string[]> {
 
   return rows.map((r) => r.nome);
 }
+
+/**
+ * Renomeia um setor a partir do nome atual (usado na Gestão de ITs).
+ * Propaga para o cadastro de departamentos, ITs e usuários do tenant.
+ */
+export async function renomearSetor(
+  nomeAtual: string,
+  novoNome: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const currentUser = await requireRole('ADMIN', 'MASTER');
+    const tenantId = currentUser.tenantId;
+
+    const antigo = (nomeAtual || '').trim();
+    const novo = (novoNome || '').trim().replace(/\s+/g, ' ');
+    if (!antigo) return { success: false, error: 'Setor inválido.' };
+    if (novo.length < 2) return { success: false, error: 'Informe um nome com pelo menos 2 caracteres.' };
+    if (novo.length > 60) return { success: false, error: 'O nome pode ter no máximo 60 caracteres.' };
+    if (novo === antigo) return { success: false, error: 'O novo nome é igual ao atual.' };
+
+    const dup = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id FROM public.fiorix_departamentos
+       WHERE tenant_id = $1 AND LOWER(nome) = LOWER($2) AND LOWER(nome) <> LOWER($3)`,
+      tenantId, novo, antigo
+    );
+    if (dup.length > 0) return { success: false, error: 'Já existe um setor com este nome.' };
+
+    const dep = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id::text FROM public.fiorix_departamentos WHERE tenant_id = $1 AND LOWER(nome) = LOWER($2) LIMIT 1`,
+      tenantId, antigo
+    );
+
+    if (dep.length > 0) {
+      // Atualiza cadastro + propaga para Users e ITs
+      await atualizarDepartamento(dep[0].id, { nome: novo });
+    }
+    // Garante a propagação mesmo sem cadastro formal ou com diferença de caixa
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_its SET departamento = $1 WHERE tenant_id = $2 AND LOWER(departamento) = LOWER($3)`,
+      novo, tenantId, antigo
+    );
+    await prisma.$executeRawUnsafe(
+      `UPDATE public."User" SET departamento = $1 WHERE "tenantId" = $2 AND LOWER(departamento) = LOWER($3)`,
+      novo, tenantId, antigo
+    );
+
+    if (dep.length === 0) {
+      await recordAuditLog({
+        modulo: 'DEPARTAMENTOS',
+        acao: 'ALTERACAO',
+        registroId: antigo,
+        registroDescricao: `Setor "${antigo}" renomeado para "${novo}"`,
+        detalhes: { oldNome: antigo, nome: novo },
+        userOverride: currentUser,
+      });
+    }
+
+    revalidatePath('/administracao/its');
+    revalidatePath('/minha-it');
+    revalidatePath('/configuracoes/departamentos');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao renomear setor.' };
+  }
+}

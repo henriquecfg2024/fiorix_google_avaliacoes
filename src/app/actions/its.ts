@@ -1281,9 +1281,47 @@ export async function getGovernancaRhData() {
     tenantId
   ))[0];
 
-  const totalCiencias = Number(cienciasAgg?.total || 0);
-  const totalCientes = Number(cienciasAgg?.cientes || 0);
-  const totalPendentes = Number(cienciasAgg?.pendentes || 0);
+  let totalCiencias = Number(cienciasAgg?.total || 0);
+  let totalCientes = Number(cienciasAgg?.cientes || 0);
+  let totalPendentes = Number(cienciasAgg?.pendentes || 0);
+
+  // Taxa real: esperado = cada colaborador com acesso (participantes ativos + responsável técnico)
+  // a cada IT publicada; lido = possui ciência 'ciente' da VERSÃO vigente.
+  // (Contar só linhas de fiorix_its_ciencias ignora quem nunca abriu a IT e infla a taxa.)
+  try {
+    const esperado = (await prisma.$queryRawUnsafe<any[]>(
+      `WITH pares AS (
+         SELECT i.id AS it_id, i.versao, p.usuario_id::text AS usuario_id
+         FROM public.fiorix_its_participants p
+         JOIN public.fiorix_its i ON i.id = p.it_id
+         WHERE p.tenant_id = $1 AND p.status = 'ativo'
+           AND i.tenant_id = $1 AND i.deleted_at IS NULL
+           AND i.status IN ('vigente', 'ativa', 'publicada')
+         UNION
+         SELECT i.id, i.versao, i.responsavel_tecnico_id::text
+         FROM public.fiorix_its i
+         WHERE i.tenant_id = $1 AND i.deleted_at IS NULL
+           AND i.status IN ('vigente', 'ativa', 'publicada')
+           AND i.responsavel_tecnico_id IS NOT NULL
+       )
+       SELECT count(*)::int AS total,
+              count(*) FILTER (WHERE EXISTS (
+                SELECT 1 FROM public.fiorix_its_ciencias c
+                WHERE c.it_id = pr.it_id AND c.usuario_id::text = pr.usuario_id
+                  AND c.versao = pr.versao AND c.status = 'ciente'
+              ))::int AS cientes
+       FROM pares pr`,
+      tenantId
+    ))[0];
+    if (esperado && Number(esperado.total) > 0) {
+      totalCiencias = Number(esperado.total);
+      totalCientes = Number(esperado.cientes);
+      totalPendentes = totalCiencias - totalCientes;
+    }
+  } catch (err) {
+    console.warn('Aviso ao calcular taxa de leituras por participantes (usando agregado de ciências):', err);
+  }
+
   const taxaConformidade = totalCiencias > 0 ? Math.round((totalCientes / totalCiencias) * 100) : 100;
 
   // 2. Timeline de Auditoria (Últimos 50 logs WORM)

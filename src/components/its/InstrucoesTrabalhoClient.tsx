@@ -43,6 +43,7 @@ import {
   ItPendenteAprovacaoDetalhe,
   HistoricoVersoesData,
 } from '@/app/actions/its';
+import { renomearSetor } from '@/app/actions/departamentos';
 import { GerenciarResponsaveisModal } from './GerenciarResponsaveisModal';
 
 // ═══════════════════════════════════════════════
@@ -610,6 +611,8 @@ export function InstrucoesTrabalhoClient({
   const [activeTab, setActiveTab] = useState<'catalogo' | 'fiscalizacao'>(initialTab);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSetor, setFilterSetor] = useState('TODOS');
+  const [renomearSetorModal, setRenomearSetorModal] = useState<string | null>(null);
+  const podeRenomearSetor = ['ADMIN', 'MASTER'].includes(currentUser.role);
   const [viewItModal, setViewItModal] = useState<ITItem | null>(null);
   const [pessoasModal, setPessoasModal] = useState<ConformidadeItem | null>(null);
   const [analisarModal, setAnalisarModal] = useState<ItPendenteResumo | null>(null);
@@ -824,6 +827,17 @@ export function InstrucoesTrabalhoClient({
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
 
+              {podeRenomearSetor && filterSetor !== 'TODOS' && (
+                <button
+                  onClick={() => setRenomearSetorModal(filterSetor)}
+                  className="flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl border border-purple-400/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-200 text-xs font-bold transition-all shrink-0 cursor-pointer"
+                  title={`Renomear o setor "${filterSetor}"`}
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  <span>Renomear setor</span>
+                </button>
+              )}
+
               {isGestao && (
                 <button className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-bold transition-all shadow-lg shadow-purple-900/30 shrink-0">
                   <Plus className="w-4 h-4" />
@@ -853,7 +867,11 @@ export function InstrucoesTrabalhoClient({
                       className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4.5 hover:bg-white/[0.03] transition-all group first:rounded-t-[24px] last:rounded-b-[24px]"
                     >
                       <div className="flex flex-1 min-w-0 flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                        <span className="shrink-0 sm:w-40 text-center truncate text-xs font-semibold text-slate-300 dark:text-white/80 bg-white/[0.05] border border-white/15 px-3 py-1 rounded-full self-start sm:self-auto" title={it.departamento}>
+                        <span
+                          onClick={podeRenomearSetor ? () => setRenomearSetorModal(it.departamento) : undefined}
+                          className={`shrink-0 sm:w-44 text-center truncate text-[11px] font-extrabold uppercase tracking-wider text-purple-200 bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-400/40 shadow-[0_0_14px_rgba(168,85,247,0.18)] px-3 py-1.5 rounded-full self-start sm:self-auto group-hover:border-purple-300/70 group-hover:text-white transition-all ${podeRenomearSetor ? 'cursor-pointer hover:bg-purple-500/30' : ''}`}
+                          title={podeRenomearSetor ? `${it.departamento} — clique para renomear o setor` : it.departamento}
+                        >
                           {it.departamento}
                         </span>
                         <p className="font-bold text-white text-sm sm:text-base group-hover:text-purple-300 transition-colors truncate">
@@ -1216,6 +1234,16 @@ export function InstrucoesTrabalhoClient({
           onActioned={handleActioned}
         />
       )}
+      {renomearSetorModal && (
+        <RenomearSetorModal
+          setor={renomearSetorModal}
+          onClose={() => setRenomearSetorModal(null)}
+          onActioned={(novo) => {
+            if (filterSetor === renomearSetorModal) setFilterSetor(novo);
+            handleActioned();
+          }}
+        />
+      )}
       {renomearModal && (
         <RenomearItModal
           it={renomearModal}
@@ -1243,6 +1271,97 @@ export function InstrucoesTrabalhoClient({
           onActioned={handleActioned}
         />
       )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════
+// MODAL — RENOMEAR SETOR
+// ═══════════════════════════════════════════════
+
+function RenomearSetorModal({
+  setor,
+  onClose,
+  onActioned,
+}: {
+  setor: string;
+  onClose: () => void;
+  onActioned: (novoNome: string) => void;
+}) {
+  const [nome, setNome] = useState(setor);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  const alterado = nome.trim().length >= 2 && nome.trim() !== setor;
+
+  function handleSalvar() {
+    if (!alterado) return;
+    setError('');
+    startTransition(async () => {
+      const res = await renomearSetor(setor, nome);
+      if (res.success) {
+        setSuccess(true);
+        setTimeout(() => { onActioned(nome.trim().replace(/\s+/g, ' ')); onClose(); }, 900);
+      } else {
+        setError(res.error || 'Erro ao renomear setor.');
+      }
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={() => !pending && onClose()} />
+      <div className="relative w-full max-w-md rounded-[24px] border border-white/20 bg-[#0B1020]/95 shadow-2xl backdrop-blur-xl overflow-hidden">
+        <div className="flex items-start justify-between p-6 border-b border-white/10">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Pencil className="w-4 h-4 text-purple-400" />
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Renomear setor</p>
+            </div>
+            <p className="text-xs text-slate-300">Setor atual: <span className="font-bold text-purple-200">{setor}</span></p>
+          </div>
+          <button onClick={() => !pending && onClose()} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Novo nome do setor *</label>
+            <input
+              autoFocus
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !pending && !success) handleSalvar(); }}
+              maxLength={60}
+              disabled={pending || success}
+              className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white focus:outline-none focus:border-purple-400 transition-all disabled:opacity-50"
+            />
+            <p className="text-[11px] text-slate-500 mt-1.5">O novo nome será aplicado a todas as ITs e usuários deste setor.</p>
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+              <AlertCircle className="w-4 h-4 shrink-0" />{error}
+            </div>
+          )}
+          {success && (
+            <div className="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />Setor renomeado com sucesso.
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-3 p-6 border-t border-white/10 bg-white/[0.02]">
+          <button onClick={() => !pending && onClose()} disabled={pending || success}
+            className="flex-1 px-4 py-2.5 rounded-xl border border-white/15 bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all disabled:opacity-50">
+            Cancelar
+          </button>
+          <button onClick={handleSalvar} disabled={pending || success || !alterado}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold transition-all shadow-sm disabled:opacity-50">
+            {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
+            Salvar nome
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
