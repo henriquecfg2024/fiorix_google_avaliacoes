@@ -1103,25 +1103,41 @@ async function resolveExternalIntegrationsHealth(
 
   // 2. Google Avaliações / Google Meu Negócio
   try {
-    const [googleConn, recentSyncLogs, pendingReviewsCount, totalReviewsCount] = await Promise.all([
+    // Pool do Prisma no Vercel é pequeno (connection_limit=3): rodar as consultas em sequência
+    // evita "Timed out fetching a new connection from the connection pool" (P2024).
+    const withPoolRetry = async <T,>(fn: () => Promise<T>): Promise<T> => {
+      try {
+        return await fn();
+      } catch (e: any) {
+        if (['P2024', 'P1001', 'P1002', 'P1017'].includes(e?.code)) {
+          await new Promise((r) => setTimeout(r, 400));
+          return fn();
+        }
+        throw e;
+      }
+    };
+
+    const googleConn = await withPoolRetry(() =>
       prisma.googleConnection.findFirst({
         where: { tenantId },
         orderBy: { createdAt: 'desc' },
-      }),
+      })
+    );
+    const recentSyncLogs = await withPoolRetry(() =>
       prisma.syncLog.findMany({
         where: { tenantId },
         orderBy: { createdAt: 'desc' },
         take: 10,
-      }),
-      prisma.review.count({
-        where: {
-          tenantId,
-          status: 'PENDING',
-          deletedFromGoogle: false,
-        },
-      }).catch(() => 0),
-      prisma.review.count({ where: { tenantId } }).catch(() => 0),
-    ]);
+      })
+    );
+    const pendingReviewsCount = await prisma.review.count({
+      where: {
+        tenantId,
+        status: 'PENDING',
+        deletedFromGoogle: false,
+      },
+    }).catch(() => 0);
+    const totalReviewsCount = await prisma.review.count({ where: { tenantId } }).catch(() => 0);
 
     if (googleConn) {
       const hasRefreshToken = Boolean(googleConn.refreshToken);
