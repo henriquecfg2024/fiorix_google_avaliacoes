@@ -816,11 +816,11 @@ export function InstrucoesTrabalhoClient({
                 <select
                   value={filterSetor}
                   onChange={(e) => setFilterSetor(e.target.value)}
-                  className="appearance-none w-full sm:w-52 pl-4 pr-9 py-2.5 rounded-xl border border-white/20 bg-[#0B1020]/90 text-sm text-white backdrop-blur-xl focus:outline-none focus:border-purple-400 transition-all cursor-pointer"
+                  className="appearance-none w-full sm:w-80 pl-4 pr-9 py-2.5 rounded-xl border border-white/20 bg-[#0B1020]/90 text-sm font-bold uppercase text-white backdrop-blur-xl focus:outline-none focus:border-purple-400 transition-all cursor-pointer"
                 >
                   {setores.map((s) => (
-                    <option key={s} value={s} className="bg-[#0B1020] text-white">
-                      {s === 'TODOS' ? 'Todos os setores' : s}
+                    <option key={s} value={s} className="bg-[#0B1020] text-white font-bold uppercase">
+                      {s === 'TODOS' ? 'TODOS OS SETORES' : s.toUpperCase()}
                     </option>
                   ))}
                 </select>
@@ -869,7 +869,7 @@ export function InstrucoesTrabalhoClient({
                       <div className="flex flex-1 min-w-0 flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                         <span
                           onClick={podeRenomearSetor ? () => setRenomearSetorModal(it.departamento) : undefined}
-                          className={`shrink-0 sm:w-44 text-center truncate text-xs font-semibold tracking-wide text-slate-100 bg-white/[0.06] border border-white/20 px-3 py-1.5 rounded-full self-start sm:self-auto group-hover:border-purple-400/50 transition-all ${podeRenomearSetor ? 'cursor-pointer hover:bg-white/[0.12] hover:text-white' : ''}`}
+                          className={`shrink-0 sm:w-48 flex items-center justify-center text-center whitespace-normal break-words leading-tight text-[11px] font-bold uppercase tracking-wide text-slate-100 bg-white/[0.06] border border-white/20 px-3 py-1.5 rounded-2xl self-start sm:self-auto group-hover:border-purple-400/50 transition-all ${podeRenomearSetor ? 'cursor-pointer hover:bg-white/[0.12] hover:text-white' : ''}`}
                           title={podeRenomearSetor ? `${it.departamento} — clique para renomear o setor` : it.departamento}
                         >
                           {it.departamento}
