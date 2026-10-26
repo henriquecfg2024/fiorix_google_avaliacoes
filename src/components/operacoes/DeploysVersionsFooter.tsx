@@ -42,7 +42,7 @@ export function DeploysVersionsFooter({ deploys }: Props) {
         </div>
       </div>
       <div className="text-[11px] text-[#64748B] font-mono">
-        FIORIX Gestão &amp; Qualidade • 7º Registro de Imóveis de SP
+        FIORIX Gestão de Qualidade • 7º Registro de Imóveis de SP
       </div>
     </footer>
   );

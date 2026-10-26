@@ -1,7 +1,7 @@
 {
-  "name": "FIORIX - Gestão & Qualidade",
-  "short_name": "FIORIX - Gestão & Qualidade",
-  "description": "FIORIX Gestão & Qualidade — Plataforma de Gestão, Qualidade, Avaliações e BI de Prazos do 7º Registro de Imóveis de SP",
+  "name": "FIORIX - Gestão de Qualidade",
+  "short_name": "FIORIX - Gestão de Qualidade",
+  "description": "FIORIX Gestão de Qualidade — Plataforma de Gestão, Qualidade, Avaliações e BI de Prazos do 7º Registro de Imóveis de SP",
   "start_url": "/dashboard",
   "display": "standalone",
   "orientation": "portrait",

@@ -3,7 +3,7 @@ import { Metadata } from 'next';
 import { ControleImpressoesClient } from '@/components/controle-impressoes/ControleImpressoesClient';
 
 export const metadata: Metadata = {
-  title: 'Impressões | FIORIX Gestão & Qualidade',
+  title: 'Impressões | FIORIX Gestão de Qualidade',
   description: 'Painel de produtividade das impressões com base na data do último registro e data das impressões realizadas.',
 };
 

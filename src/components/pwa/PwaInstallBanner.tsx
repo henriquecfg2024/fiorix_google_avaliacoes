@@ -91,7 +91,7 @@ export function PwaInstallBanner() {
         </div>
         <div>
           <span style={{ fontWeight: 700 }}>
-            Instale o FIORIX Gestão &amp; Qualidade no seu celular!
+            Instale o FIORIX Gestão de Qualidade no seu celular!
           </span>
           <span style={{ fontSize: '11px', color: '#93c5fd', marginLeft: '8px', display: 'inline-block' }}>
             Acesso nativo sem barra de navegação
@@ -156,7 +156,7 @@ export function PwaInstallBanner() {
           <ol style={{ margin: '6px 0 0 18px', padding: 0 }}>
             <li>Toque no botão <b>Compartilhar 📤</b> na barra inferior do Safari.</li>
             <li>Role para baixo e selecione <b>"Adicionar à Tela de Início ➕"</b>.</li>
-            <li>Pronto! O FIORIX Gestão &amp; Qualidade abrirá em tela cheia como aplicativo nativo.</li>
+            <li>Pronto! O FIORIX Gestão de Qualidade abrirá em tela cheia como aplicativo nativo.</li>
           </ol>
         </div>
       )}

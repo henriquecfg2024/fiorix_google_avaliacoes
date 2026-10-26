@@ -927,7 +927,7 @@ export default function PreviewRecepcaoPage() {
             {!sidebarCollapsed && (
               <div className="flex flex-col">
                 <span className="font-extrabold tracking-wider text-sm text-white">FIORIX</span>
-                <span className="text-[9px] font-mono text-cyan-400 tracking-wider">GESTÃO &amp; QUALIDADE</span>
+                <span className="text-[9px] font-mono text-cyan-400 tracking-wider">GESTÃO de Qualidade</span>
               </div>
             )}
           </div>

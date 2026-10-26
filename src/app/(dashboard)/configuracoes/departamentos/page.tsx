@@ -6,7 +6,7 @@ import { requireRole } from '@/lib/auth-helpers';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Departamentos | FIORIX Gestão & Qualidade',
+  title: 'Departamentos | FIORIX Gestão de Qualidade',
   description: 'Gestão de departamentos da organização',
 };
 

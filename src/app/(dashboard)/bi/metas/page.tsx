@@ -1,7 +1,7 @@
 import { MetasDashboardClient } from "@/components/bi/MetasDashboardClient";
 
 export const metadata = {
-  title: "Metas | FIORIX Gestão & Qualidade",
+  title: "Metas | FIORIX Gestão de Qualidade",
 };
 
 export default function MetasPage() {

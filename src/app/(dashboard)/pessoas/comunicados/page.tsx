@@ -7,7 +7,7 @@ import { PessoasRepository } from "@/lib/pessoas/repository";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Comunicados Internos | FIORIX Gestão & Qualidade",
+  title: "Comunicados Internos | FIORIX Gestão de Qualidade",
 };
 
 export default async function ComunicadosPage() {

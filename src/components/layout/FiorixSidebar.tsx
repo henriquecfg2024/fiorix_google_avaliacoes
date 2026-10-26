@@ -141,13 +141,13 @@ export function FiorixSidebar() {
                 <button
                   onClick={toggleCollapse}
                   className="flex items-center justify-center p-1.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group"
-                  title="Expandir menu (FIORIX - Gestão & Qualidade)"
+                  title="Expandir menu (FIORIX - Gestão de Qualidade)"
                   aria-label="Expandir menu"
                 >
                   <FiorixLogoIcon className="w-[38px] h-[38px] shrink-0 group-hover:scale-110 transition-transform" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="right">Expandir menu (FIORIX - Gestão &amp; Qualidade)</TooltipContent>
+              <TooltipContent side="right">Expandir menu (FIORIX - Gestão de Qualidade)</TooltipContent>
             </Tooltip>
           ) : (
             <>
@@ -155,11 +155,11 @@ export function FiorixSidebar() {
                 href={homeRoute}
                 onClick={() => handleNavClick(homeRoute)}
                 className="flex items-center overflow-hidden group cursor-pointer min-w-0"
-                title="FIORIX - Gestão & Qualidade"
+                title="FIORIX - Gestão de Qualidade"
               >
                 <img
                   src="/logo-fiorix.png"
-                  alt="FIORIX Gestão & Qualidade"
+                  alt="FIORIX Gestão de Qualidade"
                   className="h-9 w-auto max-w-[185px] object-contain select-none group-hover:scale-[1.02] transition-transform"
                   draggable={false}
                 />

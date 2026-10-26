@@ -140,11 +140,11 @@ export function FiorixHeader() {
           <Link
             href={homeRoute}
             className="flex items-center transition-opacity hover:opacity-90"
-            title="FIORIX Gestão & Qualidade"
+            title="FIORIX Gestão de Qualidade"
           >
             <img
               src="/logo-fiorix.png"
-              alt="FIORIX Gestão & Qualidade"
+              alt="FIORIX Gestão de Qualidade"
               className="h-8 w-auto max-w-[175px] object-contain select-none"
               draggable={false}
             />
@@ -394,7 +394,7 @@ export function FiorixHeader() {
                       />
                       <div>
                         <span className="font-extrabold text-white text-base tracking-tight block">
-                          FIORIX Gestão &amp; Qualidade
+                          FIORIX Gestão de Qualidade
                         </span>
                         <span className="text-[10px] font-semibold text-white/50 flex items-center gap-1">
                           <Building2 className="w-3 h-3 text-indigo-400" />

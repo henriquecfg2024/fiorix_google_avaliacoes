@@ -8,7 +8,7 @@ import { getIndicadoresRH, IndicadoresRH } from "@/app/actions/rh";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Painel de RH | FIORIX Gestão & Qualidade",
+  title: "Painel de RH | FIORIX Gestão de Qualidade",
 };
 
 export default async function PainelRHPage() {

@@ -137,7 +137,7 @@ export function FiorixTopbar() {
                     >
                       <img
                         src="/logo-fiorix.png"
-                        alt="FIORIX Gestão & Qualidade"
+                        alt="FIORIX Gestão de Qualidade"
                         className="h-9 w-auto max-w-[200px] object-contain select-none"
                         draggable={false}
                       />

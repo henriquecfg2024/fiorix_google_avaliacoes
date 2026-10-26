@@ -9,7 +9,7 @@ export function FiorixLogoIcon({ className = "w-9 h-9", size }: FiorixLogoIconPr
   return (
     <img
       src="/icon-fiorix.png"
-      alt="FIORIX Gestão & Qualidade"
+      alt="FIORIX Gestão de Qualidade"
       className={`object-contain select-none shrink-0 ${className}`}
       style={size ? { width: size, height: size } : undefined}
       draggable={false}

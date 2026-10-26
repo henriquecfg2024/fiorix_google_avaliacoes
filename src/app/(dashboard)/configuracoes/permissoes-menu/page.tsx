@@ -5,7 +5,7 @@ import { isNavPermissionsFeatureEnabled } from '@/lib/nav-permissions/service';
 import { PermissoesMenuClient } from '@/components/configuracoes/PermissoesMenuClient';
 
 export const metadata = {
-  title: 'Permissões de Menu | FIORIX Gestão & Qualidade',
+  title: 'Permissões de Menu | FIORIX Gestão de Qualidade',
   description: 'Gerenciamento avançado de permissões de navegação por perfil e colaborador.',
 };
 

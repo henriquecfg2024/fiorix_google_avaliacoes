@@ -19,7 +19,7 @@ export function FiorixLogo({
     return (
       <img
         src="/icon-fiorix.png"
-        alt="FIORIX Gestão & Qualidade"
+        alt="FIORIX Gestão de Qualidade"
         className={`object-contain select-none shrink-0 ${className || "w-9 h-9"}`}
         style={size ? { width: size, height: size } : undefined}
         draggable={false}
@@ -31,7 +31,7 @@ export function FiorixLogo({
     return (
       <img
         src="/logo-fiorix.png"
-        alt="FIORIX Gestão & Qualidade"
+        alt="FIORIX Gestão de Qualidade"
         className={`object-contain select-none shrink-0 ${className || "h-9 w-auto"}`}
         style={{
           height: height || (size ? size : undefined),
@@ -74,8 +74,8 @@ export function FiorixLogo({
             marginTop: "2px",
           }}
         >
-          <span style={{ color: "#E2E8F0" }}>Gestão &amp; </span>
-          <span style={{ color: "#00C975" }}>Qualidade</span>
+          <span style={{ color: "#E2E8F0" }}>Gestão </span>
+          <span style={{ color: "#00C975" }}>de Qualidade</span>
         </span>
       </div>
     </div>

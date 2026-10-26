@@ -3,7 +3,7 @@ import { Metadata } from "next";
 import { RetornosDashboardClient } from "@/components/bi/RetornosDashboardClient";
 
 export const metadata: Metadata = {
-  title: "Retornos — Gestão de Prazos | FIORIX Gestão & Qualidade",
+  title: "Retornos — Gestão de Prazos | FIORIX Gestão de Qualidade",
   description: "Consulte os retornos, responsáveis e observações dos títulos.",
 };
 

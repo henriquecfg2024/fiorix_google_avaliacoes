@@ -172,7 +172,7 @@ export default function LoginPage() {
           <div className="login-brand">
             <img
               src="/logo-fiorix.png"
-              alt="FIORIX Gestão & Qualidade"
+              alt="FIORIX Gestão de Qualidade"
               className="h-14 w-auto max-w-[280px] object-contain select-none filter drop-shadow-[0_8px_24px_rgba(79,70,229,0.25)]"
               draggable={false}
             />
@@ -352,7 +352,7 @@ export default function LoginPage() {
 
       {/* Rodapé Institucional Seguro */}
       <footer className="login-footer">
-        © 2026 FIORIX Gestão &amp; Qualidade • Sistema de Gestão Cartorária
+        © 2026 FIORIX Gestão de Qualidade • Sistema de Gestão Cartorária
       </footer>
 
       <style jsx>{`

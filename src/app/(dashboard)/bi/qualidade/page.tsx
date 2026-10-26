@@ -3,7 +3,7 @@ import { Metadata } from "next";
 import { QualidadeDashboardClient } from "@/components/bi/QualidadeDashboardClient";
 
 export const metadata: Metadata = {
-  title: "Qualidade — Gestão de Prazos | FIORIX Gestão & Qualidade",
+  title: "Qualidade — Gestão de Prazos | FIORIX Gestão de Qualidade",
   description: "Controle de qualidade, retornos internos e limites de erro.",
 };
 

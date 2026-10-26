@@ -6,7 +6,7 @@ import { getConversations } from '@/app/actions/mensagens';
 import { MensagensClient } from '@/components/mensagens/MensagensClient';
 
 export const metadata: Metadata = {
-  title: 'Mensagens | FIORIX Gestão & Qualidade',
+  title: 'Mensagens | FIORIX Gestão de Qualidade',
   description: 'Mensageria Corporativa e Comunicação Interna Segura',
 };
 

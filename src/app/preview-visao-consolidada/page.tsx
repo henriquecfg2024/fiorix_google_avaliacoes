@@ -60,7 +60,7 @@ export default function PreviewVisaoConsolidadaPage() {
             />
             <div>
               <span className="font-extrabold text-slate-900 dark:text-white text-base tracking-tight block">
-                FIORIX Gestão &amp; Qualidade
+                FIORIX Gestão de Qualidade
               </span>
               <span className="text-[10px] font-semibold text-slate-500 dark:text-white/50 flex items-center gap-1">
                 <Building2 className="w-3 h-3 text-indigo-500 dark:text-indigo-400" />

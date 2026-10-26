@@ -6,7 +6,7 @@ import { isRedirectError } from 'next/dist/client/components/redirect';
 import { TrajetoriaClient } from '@/components/trajetoria/TrajetoriaClient';
 
 export const metadata: Metadata = {
-  title: 'Rastreio • FIORIX Gestão & Qualidade',
+  title: 'Rastreio • FIORIX Gestão de Qualidade',
   description:
     'Consulte a situação e a última localização conhecida de um protocolo no Cartório.',
 };

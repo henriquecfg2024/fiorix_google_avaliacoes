@@ -14,8 +14,8 @@ export const viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "FIORIX - Gestão & Qualidade",
-  description: "FIORIX Gestão & Qualidade — Plataforma de Gestão, Qualidade, Avaliações e BI de Prazos do 7º Registro de Imóveis de SP",
+  title: "FIORIX - Gestão de Qualidade",
+  description: "FIORIX Gestão de Qualidade — Plataforma de Gestão, Qualidade, Avaliações e BI de Prazos do 7º Registro de Imóveis de SP",
   manifest: "/manifest.json",
   icons: {
     icon: [
