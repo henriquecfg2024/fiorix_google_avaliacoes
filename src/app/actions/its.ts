@@ -2582,6 +2582,95 @@ export async function arquivarItPublicada(
 }
 
 /**
+ * Renomeia uma IT (altera apenas o título; código, versão e histórico permanecem).
+ * Requer: ADMIN, SUBSTITUTO ou MASTER. Título é gravado em maiúsculas (padrão do catálogo).
+ */
+export async function renomearIt(
+  itId: string,
+  novoTitulo: string
+): Promise<{ success: boolean; titulo?: string; error?: string }> {
+  try {
+    const currentUser = await requireRole('ADMIN', 'SUBSTITUTO', 'MASTER');
+    const tenantId = currentUser.tenantId;
+
+    const titulo = (novoTitulo || '').trim().replace(/\s+/g, ' ').toUpperCase();
+    if (titulo.length < 3) {
+      return { success: false, error: 'Informe um nome com pelo menos 3 caracteres.' };
+    }
+    if (titulo.length > 200) {
+      return { success: false, error: 'O nome pode ter no máximo 200 caracteres.' };
+    }
+
+    const rows = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT id::text, codigo, titulo, versao
+       FROM public.fiorix_its
+       WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+       LIMIT 1`,
+      itId, tenantId
+    );
+    if (!rows.length) return { success: false, error: 'IT não encontrada.' };
+    const it = rows[0];
+
+    if (String(it.titulo) === titulo) {
+      return { success: false, error: 'O novo nome é igual ao atual.' };
+    }
+
+    const dup = await prisma.$queryRawUnsafe<any[]>(
+      `SELECT 1 FROM public.fiorix_its
+       WHERE tenant_id = $1 AND deleted_at IS NULL AND id <> $2::uuid
+         AND UPPER(titulo) = $3
+       LIMIT 1`,
+      tenantId, itId, titulo
+    );
+    if (dup.length) {
+      return { success: false, error: 'Já existe outra IT com este nome.' };
+    }
+
+    await prisma.$executeRawUnsafe(
+      `UPDATE public.fiorix_its
+       SET titulo = $1, updated_at = NOW()
+       WHERE id = $2::uuid AND tenant_id = $3`,
+      titulo, itId, tenantId
+    );
+
+    const hash = crypto.createHash('sha256').update(
+      JSON.stringify({ itId, de: it.titulo, para: titulo, autor: currentUser.id, acao: 'RENOMEACAO', timestamp: new Date().toISOString() })
+    ).digest('hex');
+
+    try {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO public.fiorix_its_audit_log (
+           tenant_id, it_id, versao_anterior, versao_nova, autor_id, motivo, diff_snapshot, hash_sha256, created_at
+         ) VALUES (
+           $1, $2::uuid, $3, $3, $4, $5, $6::jsonb, $7, NOW()
+         )`,
+        tenantId, itId, it.versao || '1.0', currentUser.id,
+        `Título alterado de "${it.titulo}" para "${titulo}"`,
+        JSON.stringify({ acao: 'renomeacao', tituloAnterior: it.titulo, tituloNovo: titulo, autor: currentUser.name }),
+        hash
+      );
+    } catch (auditErr) {
+      console.warn('Aviso ao registrar fiorix_its_audit_log (renomearIt):', auditErr);
+    }
+
+    await recordAuditLog({
+      modulo: 'ITS',
+      acao: 'REVISAO',
+      registroId: itId,
+      registroDescricao: `IT "${it.codigo}" renomeada de "${it.titulo}" para "${titulo}"`,
+      detalhes: { tituloAnterior: it.titulo, tituloNovo: titulo, tipoAcao: 'RENOMEACAO' },
+      userOverride: currentUser,
+    });
+
+    revalidatePath('/administracao/its');
+    revalidatePath('/minha-it');
+    return { success: true, titulo };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Erro ao renomear IT.' };
+  }
+}
+
+/**
  * Exclusão permanente — SOMENTE MASTER.
  * Realiza soft-delete definitivo com flag no audit_log (preserva integridade referencial).
  * Exige: senha, código da IT digitado corretamente, motivo (mín. 20 chars).

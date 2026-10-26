@@ -161,11 +161,6 @@ export default function LoginPage() {
       <div className="login-ambient-amber" />
 
       <div className="login-card">
-        {/* Badge de Segurança */}
-        <div className="login-badge">
-          <ShieldCheck className="badge-icon" />
-          <span>Acesso seguro ao painel do cartório</span>
-        </div>
 
         {/* Logo e Cabeçalho */}
         <div className="login-header">
@@ -352,7 +347,7 @@ export default function LoginPage() {
 
       {/* Rodapé Institucional Seguro */}
       <footer className="login-footer">
-        © 2026 FIORIX Gestão de Qualidade • Sistema de Gestão Cartorária
+        © 2026 FIORIX Gestão de Qualidade
       </footer>
 
       <style jsx>{`

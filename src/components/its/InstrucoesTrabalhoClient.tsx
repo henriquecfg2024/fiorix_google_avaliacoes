@@ -28,6 +28,7 @@ import {
   GitBranch,
   Hash,
 } from 'lucide-react';
+import { Pencil } from 'lucide-react';
 import { ITItem } from '@/app/actions/its';
 import {
   analisarItColaborador,
@@ -36,6 +37,7 @@ import {
   solicitarCorrecaoIt,
   rejeitarItColaborador,
   arquivarItPublicada,
+  renomearIt,
   excluirPermanenteIt,
   getHistoricoVersoes,
   ItPendenteAprovacaoDetalhe,
@@ -615,6 +617,7 @@ export function InstrucoesTrabalhoClient({
 
   // Estados dos novos modais de ciclo de vida
   const [arquivarModal, setArquivarModal] = useState<ITItem | null>(null);
+  const [renomearModal, setRenomearModal] = useState<ITItem | null>(null);
   const [historicoModal, setHistoricoModal] = useState<ITItem | null>(null);
   const [excluirPermanenteModal, setExcluirPermanenteModal] = useState<ITItem | null>(null);
   const [acessosModalIt, setAcessosModalIt] = useState<ITItem | null>(null);
@@ -844,27 +847,21 @@ export function InstrucoesTrabalhoClient({
             ) : (
               <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 divide-y divide-white/8 shadow-sm backdrop-blur-xl overflow-hidden">
                 {itsFiltradas.map((it) => {
-                  const revisao = getStatusRevisao(it.diasSemRevisao);
                   return (
                     <div
                       key={it.id}
                       className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4.5 hover:bg-white/[0.03] transition-all group first:rounded-t-[24px] last:rounded-b-[24px]"
                     >
-                      <div className="flex-1 min-w-0">
+                      <div className="flex flex-1 min-w-0 flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                        <span className="shrink-0 sm:w-40 text-center truncate text-xs font-semibold text-slate-300 dark:text-white/80 bg-white/[0.05] border border-white/15 px-3 py-1 rounded-full self-start sm:self-auto" title={it.departamento}>
+                          {it.departamento}
+                        </span>
                         <p className="font-bold text-white text-sm sm:text-base group-hover:text-purple-300 transition-colors truncate">
                           {it.titulo}
                         </p>
                       </div>
 
                       <div className="flex items-center gap-3 shrink-0 flex-wrap sm:flex-nowrap">
-                        <span className="shrink-0 text-xs font-semibold text-slate-300 dark:text-white/80 bg-white/[0.05] border border-white/15 px-3 py-1 rounded-full">
-                          {it.departamento}
-                        </span>
-
-                        {/* Badge de revisão — Padrão FIORIX */}
-                        <span className={`shrink-0 text-xs font-bold px-3 py-1 rounded-full border ${revisao.bg} ${revisao.color}`}>
-                          {revisao.label}
-                        </span>
 
                         <button
                           onClick={() => setViewItModal(it)}
@@ -905,6 +902,12 @@ export function InstrucoesTrabalhoClient({
                                   className="flex items-center gap-2.5 w-full px-3.5 py-2 rounded-xl text-xs font-medium text-indigo-300 hover:bg-indigo-500/15 transition-all text-left cursor-pointer"
                                 >
                                   <Users className="w-4 h-4 text-indigo-400" /> Permissões de leitura
+                                </button>
+                                <button
+                                  onClick={() => { setMenuAberto(null); setRenomearModal(it); }}
+                                  className="flex items-center gap-2.5 w-full px-3.5 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-white/[0.08] hover:text-white transition-all text-left cursor-pointer"
+                                >
+                                  <Pencil className="w-4 h-4 text-purple-400" /> Renomear IT
                                 </button>
                                 <button
                                   onClick={() => { setMenuAberto(null); setHistoricoModal(it); }}
@@ -1213,6 +1216,13 @@ export function InstrucoesTrabalhoClient({
           onActioned={handleActioned}
         />
       )}
+      {renomearModal && (
+        <RenomearItModal
+          it={renomearModal}
+          onClose={() => setRenomearModal(null)}
+          onActioned={handleActioned}
+        />
+      )}
       {arquivarModal && (
         <ArquivarItModal
           it={arquivarModal}
@@ -1233,6 +1243,97 @@ export function InstrucoesTrabalhoClient({
           onActioned={handleActioned}
         />
       )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════
+// MODAL — RENOMEAR IT
+// ═══════════════════════════════════════════════
+
+function RenomearItModal({
+  it,
+  onClose,
+  onActioned,
+}: {
+  it: ITItem;
+  onClose: () => void;
+  onActioned: () => void;
+}) {
+  const [titulo, setTitulo] = useState(it.titulo);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  const alterado = titulo.trim().toUpperCase() !== it.titulo.trim().toUpperCase();
+
+  function handleSalvar() {
+    if (titulo.trim().length < 3) { setError('Informe um nome com pelo menos 3 caracteres.'); return; }
+    setError('');
+    startTransition(async () => {
+      const res = await renomearIt(it.id, titulo);
+      if (res.success) {
+        setSuccess(true);
+        setTimeout(() => { onActioned(); onClose(); }, 900);
+      } else {
+        setError(res.error || 'Erro ao renomear.');
+      }
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-md" onClick={() => !pending && onClose()} />
+      <div className="relative w-full max-w-lg rounded-[24px] border border-white/20 bg-[#0B1020]/95 shadow-2xl backdrop-blur-xl overflow-hidden">
+        <div className="flex items-start justify-between p-6 border-b border-white/10">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Pencil className="w-4 h-4 text-purple-400" />
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Renomear IT</p>
+            </div>
+            <p className="text-xs text-slate-300">{it.codigo} • v{it.versao}</p>
+          </div>
+          <button onClick={() => !pending && onClose()} className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-slate-400 mb-1.5 block">Novo nome da IT *</label>
+            <input
+              autoFocus
+              value={titulo}
+              onChange={(e) => setTitulo(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && alterado && !pending && !success) handleSalvar(); }}
+              maxLength={200}
+              disabled={pending || success}
+              className="w-full px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-sm text-white uppercase placeholder-slate-500 focus:outline-none focus:border-purple-400 transition-all disabled:opacity-50"
+            />
+            <p className="text-[11px] text-slate-500 mt-1.5">Altera apenas o nome. Código, versão, PDF e histórico são mantidos.</p>
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+              <AlertCircle className="w-4 h-4 shrink-0" />{error}
+            </div>
+          )}
+          {success && (
+            <div className="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />IT renomeada com sucesso.
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-3 p-6 border-t border-white/10 bg-white/[0.02]">
+          <button onClick={() => !pending && onClose()} disabled={pending || success}
+            className="flex-1 px-4 py-2.5 rounded-xl border border-white/15 bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all disabled:opacity-50">
+            Cancelar
+          </button>
+          <button onClick={handleSalvar} disabled={pending || success || !alterado || titulo.trim().length < 3}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold transition-all shadow-sm disabled:opacity-50">
+            {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
+            Salvar nome
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
