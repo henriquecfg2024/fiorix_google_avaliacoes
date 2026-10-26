@@ -845,7 +845,7 @@ export function InstrucoesTrabalhoClient({
                 <p className="text-xs text-slate-400 dark:text-white/40 mt-1">Tente outro termo ou setor.</p>
               </div>
             ) : (
-              <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 divide-y divide-white/8 shadow-sm backdrop-blur-xl overflow-hidden">
+              <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 divide-y divide-white/8 shadow-sm backdrop-blur-xl">
                 {itsFiltradas.map((it) => {
                   return (
                     <div
