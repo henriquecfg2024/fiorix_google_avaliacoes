@@ -869,7 +869,7 @@ export function InstrucoesTrabalhoClient({
                       <div className="flex flex-1 min-w-0 flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                         <span
                           onClick={podeRenomearSetor ? () => setRenomearSetorModal(it.departamento) : undefined}
-                          className={`shrink-0 sm:w-48 flex items-center justify-center text-center whitespace-normal break-words leading-tight text-[11px] font-bold uppercase tracking-wide text-slate-100 bg-white/[0.06] border border-white/20 px-3 py-1.5 rounded-2xl self-start sm:self-auto group-hover:border-purple-400/50 transition-all ${podeRenomearSetor ? 'cursor-pointer hover:bg-white/[0.12] hover:text-white' : ''}`}
+                          className={`shrink-0 sm:w-60 lg:w-[22rem] flex items-center justify-center text-center whitespace-normal break-words leading-tight text-xs font-bold uppercase tracking-wide text-slate-100 bg-white/[0.06] border border-white/20 px-4 py-1.5 rounded-2xl self-start sm:self-auto group-hover:border-purple-400/50 transition-all ${podeRenomearSetor ? 'cursor-pointer hover:bg-white/[0.12] hover:text-white' : ''}`}
                           title={podeRenomearSetor ? `${it.departamento} — clique para renomear o setor` : it.departamento}
                         >
                           {it.departamento}
