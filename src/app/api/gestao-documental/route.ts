@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireDocumentAccess, DocumentAccessError } from '@/lib/documental/access';
-import { searchInput } from '@/lib/documental/contracts';
-import { createSearch, readSearch } from '@/lib/documental/store';
+import { documentJobInput } from '@/lib/documental/contracts';
+import { createJob, readSearch } from '@/lib/documental/store';
 
 export const dynamic = 'force-dynamic';
 const reply = (value: unknown, status = 200) => NextResponse.json(value, { status, headers: { 'Cache-Control': 'private, no-store' } });
@@ -34,17 +34,31 @@ export async function POST(req: Request) {
     if (req.headers.get('origin') !== new URL(req.url).origin) return reply({ error: 'Origem inválida.' }, 403);
     const user = await requireDocumentAccess();
     const raw = await req.text();
-    if (raw.length > 2048) return reply({ error: 'Pesquisa inválida.' }, 400);
+    if (raw.length > 4096) return reply({ error: 'Requisição inválida.' }, 400);
     let body: unknown;
-    try { body = JSON.parse(raw); } catch { return reply({ error: 'Pesquisa inválida.' }, 400); }
-    const parsed = searchInput.safeParse(body);
-    if (!parsed.success) return reply({ error: 'Informe de 2 a 120 caracteres.' }, 400);
+    try { body = JSON.parse(raw); } catch { return reply({ error: 'Requisição inválida.' }, 400); }
+    const parsed = documentJobInput.safeParse(body);
+    if (!parsed.success) return reply({ error: 'Parâmetros de requisição inválidos.' }, 400);
+    const jobData = parsed.data;
     const connector = await prisma.connector.findFirst({
-      where: { id: parsed.data.connectorId, tenantId: user.tenantId, enabled: true },
+      where: { id: jobData.connectorId, tenantId: user.tenantId, enabled: true },
       select: { id: true, lastSeenAt: true },
     });
     if (!connector?.lastSeenAt || Date.now() - connector.lastSeenAt.getTime() > 120000) return reply({ error: 'Connector sem sinal recente.' }, 409);
-    const id = await createSearch(user.tenantId, user.id, connector.id, parsed.data.query);
-    return id ? reply({ id }, 202) : reply({ error: 'Aguarde a pesquisa anterior terminar ou expirar.' }, 429);
+    
+    let id: string | null = null;
+    if (jobData.type === 'extract_petition' || jobData.type === 'analyze_signatures') {
+      id = await createJob(user.tenantId, user.id, connector.id, {
+        type: jobData.type,
+        rootId: jobData.rootId,
+        relativePath: jobData.relativePath,
+      });
+    } else {
+      id = await createJob(user.tenantId, user.id, connector.id, {
+        type: 'search',
+        query: jobData.query,
+      });
+    }
+    return id ? reply({ id }, 202) : reply({ error: 'Aguarde a operação anterior terminar ou expirar.' }, 429);
   } catch (error) { return errorResponse(error); }
 }
