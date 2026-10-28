@@ -8,6 +8,7 @@ export const searchInput = z.object({
   connectorId: z.string().min(1).max(128),
   type: z.literal('search').optional().default('search'),
   query: z.string().trim().min(2).max(120),
+  forceFresh: z.boolean().optional(),
 }).strict();
 
 export const extractPetitionInput = z.object({
@@ -15,6 +16,7 @@ export const extractPetitionInput = z.object({
   type: z.literal('extract_petition'),
   rootId: z.string().regex(/^[a-z0-9_-]{1,32}$/),
   relativePath: relativePathSchema,
+  forceFresh: z.boolean().optional(),
 }).strict();
 
 export const analyzeSignaturesInput = z.object({
@@ -22,6 +24,7 @@ export const analyzeSignaturesInput = z.object({
   type: z.literal('analyze_signatures'),
   rootId: z.string().regex(/^[a-z0-9_-]{1,32}$/),
   relativePath: relativePathSchema,
+  forceFresh: z.boolean().optional(),
 }).strict();
 
 export const documentJobInput = z.union([

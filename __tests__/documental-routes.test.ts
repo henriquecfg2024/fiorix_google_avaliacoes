@@ -8,7 +8,7 @@ vi.mock('@/lib/documental/access', () => ({
   DocumentAccessError: class extends Error { constructor(public status: number, message: string) { super(message); } },
 }));
 vi.mock('@/lib/prisma', () => ({ prisma: { connector: { findFirst: mocks.findFirst, findMany: mocks.findMany } } }));
-vi.mock('@/lib/documental/store', () => ({ createSearch: mocks.create, readSearch: mocks.read, claimSearch: mocks.claim, finishSearch: mocks.finish }));
+vi.mock('@/lib/documental/store', () => ({ createJob: mocks.create, createSearch: mocks.create, readSearch: mocks.read, claimSearch: mocks.claim, finishSearch: mocks.finish }));
 vi.mock('@/lib/connectorAuth', () => ({ authenticateConnector: mocks.auth }));
 import { POST, GET } from '../src/app/api/gestao-documental/route';
 import { POST as connectorPost } from '../src/app/api/v1/connector/documentos/route';
@@ -31,7 +31,7 @@ describe('browser authorization boundaries', () => {
   it('derives tenant/user exclusively from session and filters connector by tenant', async () => {
     expect((await POST(browserRequest({ connectorId: 'connector-a', query: 'ficticio' }))).status).toBe(202);
     expect(mocks.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'connector-a', tenantId: 'tenant-a', enabled: true } }));
-    expect(mocks.create).toHaveBeenCalledWith('tenant-a', 'user-a', 'connector-a', 'ficticio');
+    expect(mocks.create).toHaveBeenCalledWith('tenant-a', 'user-a', 'connector-a', { type: 'search', query: 'ficticio' });
   });
   it('does not queue a connector belonging to another tenant', async () => {
     mocks.findFirst.mockResolvedValue(null);

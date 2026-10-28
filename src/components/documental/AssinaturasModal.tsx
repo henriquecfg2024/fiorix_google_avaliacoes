@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ShieldCheck, ShieldAlert, FileSignature, Copy, CheckCircle2, AlertTriangle, FileText } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { ShieldCheck, ShieldAlert, FileSignature, Copy, CheckCircle2, AlertTriangle, FileText, Maximize2, Minimize2 } from 'lucide-react';
 
 export interface DetalheAssinaturaPdf {
   signatario: string;
@@ -42,6 +43,17 @@ export function AssinaturasModal({
   onClose: () => void;
 }) {
   const [copiado, setCopiado] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    const origOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = origOverflow;
+    };
+  }, []);
 
   const copiarNota = () => {
     navigator.clipboard.writeText(analise.texto_nota_devolucao);
@@ -52,46 +64,72 @@ export function AssinaturasModal({
   const isValida = analise.status_validade === 'VALIDA_ICP_OU_HOMOLOGADA';
   const isSemCripto = analise.status_validade === 'SEM_CRIPTOGRAFIA_IMAGENS_OU_IMPRESSO';
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm overflow-y-auto">
-      <div className="relative my-8 flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden">
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-2 sm:p-4 md:p-6 backdrop-blur-md overflow-y-auto">
+      <div className={`relative my-auto flex flex-col rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden transition-all duration-200 ${
+        isMaximized
+          ? 'fixed inset-2 sm:inset-3 w-[calc(100vw-1rem)] sm:w-[calc(100vw-1.5rem)] h-[calc(100vh-1rem)] sm:h-[calc(100vh-1.5rem)] max-w-none max-h-none z-[110]'
+          : 'max-h-[92vh] w-full max-w-3xl xl:max-w-4xl 2xl:max-w-5xl'
+      }`}>
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-6 py-4">
+        <div className="flex flex-wrap items-center justify-between border-b border-slate-800 bg-slate-950 px-4 sm:px-6 py-3.5 sm:py-4 gap-3">
           <div className="flex items-center gap-3">
             <div
-              className={`flex h-10 w-10 items-center justify-center rounded-xl border ${
+              className={`flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl border shrink-0 ${
                 isValida
                   ? 'bg-emerald-950 text-emerald-400 border-emerald-800/60'
                   : 'bg-rose-950 text-rose-400 border-rose-800/60'
               }`}
             >
-              {isValida ? <ShieldCheck className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
+              {isValida ? <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6" /> : <ShieldAlert className="h-5 w-5 sm:h-6 sm:w-6" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs text-slate-400 truncate max-w-sm">
+                <span className="font-mono text-xs sm:text-sm text-slate-400 truncate max-w-sm">
                   {nomeArquivo}
                 </span>
               </div>
-              <h3 className="text-base font-semibold text-slate-100">
+              <h3 className="text-base sm:text-lg xl:text-xl font-semibold text-slate-100">
                 Auditoria de Assinaturas Eletrônicas e Criptografia (PAdES)
               </h3>
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsMaximized(!isMaximized)}
+              title={isMaximized ? 'Restaurar tamanho' : 'Maximizar tela'}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition"
+            >
+              {isMaximized ? (
+                <>
+                  <Minimize2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Restaurar</span>
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Maximizar</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={onClose}
+              className="ml-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-5">
           {/* Status Banner */}
           <div
-            className={`rounded-xl border p-4 ${
+            className={`rounded-xl border p-4 sm:p-5 ${
               isValida
                 ? 'border-emerald-800/60 bg-emerald-950/40 text-emerald-200'
                 : 'border-rose-800/60 bg-rose-950/40 text-rose-200'
@@ -99,19 +137,19 @@ export function AssinaturasModal({
           >
             <div className="flex items-start gap-3">
               {isValida ? (
-                <ShieldCheck className="h-5 w-5 text-emerald-400 mt-0.5" />
+                <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-400 mt-0.5 shrink-0" />
               ) : (
-                <AlertTriangle className="h-5 w-5 text-rose-400 mt-0.5" />
+                <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-rose-400 mt-0.5 shrink-0" />
               )}
               <div>
-                <h4 className="text-sm font-semibold">
+                <h4 className="text-sm sm:text-base font-semibold">
                   {isValida
                     ? 'Assinatura Eletrônica Qualificada / Homologada Detectada'
                     : isSemCripto
                     ? 'Arquivo Sem Estrutura Criptográfica Ativa (Impresso em PDF)'
                     : 'Assinatura Inválida ou Não Homologada'}
                 </h4>
-                <p className="mt-1 text-xs opacity-90">
+                <p className="mt-1 text-xs sm:text-sm opacity-90">
                   {analise.padrao_detectado || 'Padrão criptográfico auditado pelo motor documental.'}
                 </p>
               </div>
@@ -172,6 +210,7 @@ export function AssinaturasModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

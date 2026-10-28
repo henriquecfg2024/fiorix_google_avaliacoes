@@ -46,19 +46,36 @@ export async function POST(req: Request) {
     });
     if (!connector?.lastSeenAt || Date.now() - connector.lastSeenAt.getTime() > 120000) return reply({ error: 'Connector sem sinal recente.' }, 409);
     
-    let id: string | null = null;
+    let jobResult: any = null;
     if (jobData.type === 'extract_petition' || jobData.type === 'analyze_signatures') {
-      id = await createJob(user.tenantId, user.id, connector.id, {
+      jobResult = await createJob(user.tenantId, user.id, connector.id, {
         type: jobData.type,
         rootId: jobData.rootId,
         relativePath: jobData.relativePath,
+        forceFresh: jobData.forceFresh,
       });
     } else {
-      id = await createJob(user.tenantId, user.id, connector.id, {
+      jobResult = await createJob(user.tenantId, user.id, connector.id, {
         type: 'search',
         query: jobData.query,
+        forceFresh: jobData.forceFresh,
       });
     }
-    return id ? reply({ id }, 202) : reply({ error: 'Aguarde a operação anterior terminar ou expirar.' }, 429);
+    if (!jobResult) return reply({ error: 'Aguarde a operação anterior terminar ou expirar.' }, 429);
+
+    if (typeof jobResult === 'string') {
+      return reply({ id: jobResult }, 202);
+    }
+
+    if (jobResult.status === 'complete') {
+      return reply({
+        id: jobResult.id,
+        status: 'complete',
+        result: jobResult.result,
+        cached: true,
+      }, 200);
+    }
+
+    return reply({ id: jobResult.id, status: 'queued' }, 202);
   } catch (error) { return errorResponse(error); }
 }

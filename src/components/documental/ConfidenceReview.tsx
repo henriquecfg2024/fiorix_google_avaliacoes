@@ -41,17 +41,17 @@ export function ConfidenceReview({ campos, onVerPagina }: ConfidenceReviewProps)
   });
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-4 shadow-sm">
+    <div className="rounded-2xl border border-slate-700 bg-slate-900/95 p-5 sm:p-6 shadow-xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-950 text-cyan-400 border border-cyan-800/50">
-            <FileText className="h-4 w-4" />
+          <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl bg-cyan-950 text-cyan-400 border border-cyan-800/60 shadow-sm shrink-0">
+            <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-slate-100">
+            <h4 className="text-sm sm:text-base xl:text-lg font-bold text-white">
               Conferência de Origem e Nível de Confiança
             </h4>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs sm:text-sm text-slate-300">
               {campos.length} campos mapeados automaticamente no texto do PDF
             </p>
           </div>
@@ -59,20 +59,20 @@ export function ConfidenceReview({ campos, onVerPagina }: ConfidenceReviewProps)
 
         <div className="flex items-center gap-2">
           {cont.alta > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-950/70 px-2 py-0.5 text-xs font-medium text-emerald-400 border border-emerald-800/50">
-              <CheckCircle2 className="h-3 w-3" />
+            <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/20 px-2.5 sm:px-3 py-1 text-xs sm:text-sm font-bold text-emerald-300 border border-emerald-500/50">
+              <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               {cont.alta} Alta
             </span>
           )}
           {cont.media > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-amber-950/70 px-2 py-0.5 text-xs font-medium text-amber-400 border border-amber-800/50">
-              <AlertTriangle className="h-3 w-3" />
+            <span className="inline-flex items-center gap-1 rounded-lg bg-amber-500/20 px-2.5 sm:px-3 py-1 text-xs sm:text-sm font-bold text-amber-300 border border-amber-500/50">
+              <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               {cont.media} Média
             </span>
           )}
           {cont.baixa > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-rose-950/70 px-2 py-0.5 text-xs font-medium text-rose-400 border border-rose-800/50">
-              <AlertCircle className="h-3 w-3" />
+            <span className="inline-flex items-center gap-1 rounded-lg bg-rose-500/20 px-2.5 sm:px-3 py-1 text-xs sm:text-sm font-bold text-rose-300 border border-rose-500/50">
+              <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               {cont.baixa} Baixa
             </span>
           )}
@@ -80,16 +80,16 @@ export function ConfidenceReview({ campos, onVerPagina }: ConfidenceReviewProps)
           <button
             type="button"
             onClick={() => setColapsado(!colapsado)}
-            className="ml-2 inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs text-slate-200 hover:bg-slate-700 transition"
+            className="ml-2 inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800 px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-slate-100 hover:bg-slate-700 transition"
           >
             {colapsado ? (
               <>
-                <ChevronDown className="h-3.5 w-3.5" />
+                <ChevronDown className="h-4 w-4" />
                 Expandir
               </>
             ) : (
               <>
-                <ChevronUp className="h-3.5 w-3.5" />
+                <ChevronUp className="h-4 w-4" />
                 Recolher
               </>
             )}
@@ -98,7 +98,7 @@ export function ConfidenceReview({ campos, onVerPagina }: ConfidenceReviewProps)
       </div>
 
       {!colapsado && (
-        <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-5 grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {campos.map((c, i) => {
             const label = NOMES[c.campo] || c.campo;
             const isAlta = c.confianca === 'alta';
@@ -107,18 +107,20 @@ export function ConfidenceReview({ campos, onVerPagina }: ConfidenceReviewProps)
             return (
               <div
                 key={i}
-                className="flex flex-col justify-between rounded-lg border border-slate-800/90 bg-slate-950/60 p-3 text-xs"
+                className="flex flex-col justify-between rounded-xl border border-slate-700/80 bg-slate-950 p-4 sm:p-5 shadow-md hover:border-cyan-500/60 transition group"
               >
                 <div>
-                  <div className="flex items-center justify-between gap-1 mb-1.5">
-                    <span className="font-semibold text-slate-200 truncate">{label}</span>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="font-bold text-slate-100 text-xs sm:text-sm truncate group-hover:text-cyan-300 transition">
+                      {label}
+                    </span>
                     <span
-                      className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 font-medium ${
+                      className={`inline-flex items-center gap-1 rounded-full px-2 sm:px-2.5 py-0.5 font-bold text-[10px] sm:text-xs uppercase tracking-wider ${
                         isAlta
-                          ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40'
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                           : isMedia
-                          ? 'bg-amber-950 text-amber-400 border border-amber-800/40'
-                          : 'bg-rose-950 text-rose-400 border border-rose-800/40'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                          : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                       }`}
                     >
                       {c.confianca}
@@ -126,21 +128,27 @@ export function ConfidenceReview({ campos, onVerPagina }: ConfidenceReviewProps)
                   </div>
 
                   {c.trecho ? (
-                    <p className="line-clamp-2 text-slate-400 italic font-mono text-[11px] bg-slate-900/80 p-1.5 rounded border border-slate-800/60">
-                      "{c.trecho}"
-                    </p>
+                    <div className="rounded-lg bg-slate-900/90 border border-slate-800 p-2.5 sm:p-3 my-1">
+                      <p className="line-clamp-4 text-slate-200 font-mono text-[11px] sm:text-xs leading-relaxed select-text">
+                        "{c.trecho}"
+                      </p>
+                    </div>
                   ) : (
-                    <p className="text-slate-500 italic text-[11px]">Nenhum trecho associado</p>
+                    <div className="rounded-lg bg-slate-900/40 border border-slate-800/60 p-2.5 sm:p-3 my-1">
+                      <p className="text-slate-500 italic text-[11px] sm:text-xs">Nenhum trecho associado</p>
+                    </div>
                   )}
                 </div>
 
-                <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
-                  <span>Página {c.pagina > 0 ? c.pagina : 'não especificada'}</span>
+                <div className="mt-3 flex items-center justify-between text-[11px] sm:text-xs">
+                  <span className="inline-flex items-center gap-1 rounded bg-slate-900 px-2 py-0.5 text-cyan-300 font-mono font-medium border border-slate-800">
+                    Página {c.pagina > 0 ? c.pagina : '—'}
+                  </span>
                   {c.pagina > 0 && onVerPagina && (
                     <button
                       type="button"
                       onClick={() => onVerPagina(c.pagina)}
-                      className="text-cyan-400 hover:underline"
+                      className="text-cyan-400 font-semibold hover:underline"
                     >
                       Ver página
                     </button>
