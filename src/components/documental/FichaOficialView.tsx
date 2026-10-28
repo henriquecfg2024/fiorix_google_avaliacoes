@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Copy,
@@ -23,8 +23,10 @@ import {
   Image as ImageIcon,
   Loader2,
   Check,
+  Wand2,
 } from 'lucide-react';
 import { ConfidenceReview, OrigemCampoUI } from './ConfidenceReview';
+import { ValidacaoAutenticidadeView } from './ValidacaoAutenticidadeView';
 
 export interface DadosManifestacao {
   id_ficha: string;
@@ -69,11 +71,234 @@ export const SUBDISTRITOS_7RI = [
   { nome: 'TATUAPÉ', cartorioSugerido: '3º Oficial de Registro de Imóveis da Capital', competencia: '23 de dezembro de 1.938' },
   { nome: 'ITAQUERA', cartorioSugerido: '9º Oficial de Registro de Imóveis da Capital', competencia: '23 de dezembro de 1.938' },
   { nome: 'GUAIANAZES', cartorioSugerido: '9º Oficial de Registro de Imóveis da Capital', competencia: '23 de dezembro de 1.938' },
-  { nome: 'SÃO MIGUEL PAULISTA', cartorioSugerido: '12º Oficial de Registro de Imóveis da Capital', competencia: '23 de dezembro de 1.938' },
-  { nome: 'ERMELINO MATARAZZO', cartorioSugerido: '12º Oficial de Registro de Imóveis da Capital', competencia: '23 de dezembro de 1.938' },
+  { nome: 'SÃO MIGUEL PAULISTA', cartorioSugerido: '12º Oficial de Registro de Imóveis da Capital', competencia: 'Circunscrição atribuída ao 12º Registro de Imóveis da Capital' },
+  { nome: 'ERMELINO MATARAZZO', cartorioSugerido: '12º Oficial de Registro de Imóveis da Capital', competencia: 'Circunscrição atribuída ao 12º Registro de Imóveis da Capital' },
+  { nome: 'CANGAÍBA', cartorioSugerido: '12º Oficial de Registro de Imóveis da Capital', competencia: 'Circunscrição atribuída ao 12º Registro de Imóveis da Capital' },
+  { nome: 'PENHA DE FRANÇA', cartorioSugerido: '12º Oficial de Registro de Imóveis da Capital', competencia: '23 de dezembro de 1.938' },
+  { nome: 'VILA PRUDENTE', cartorioSugerido: '6º Oficial de Registro de Imóveis da Capital', competencia: '23 de dezembro de 1.938' },
+  { nome: 'VILA FORMOSA', cartorioSugerido: '3º Oficial de Registro de Imóveis da Capital', competencia: '23 de dezembro de 1.938' },
+  { nome: 'VILA MATILDE', cartorioSugerido: '12º Oficial de Registro de Imóveis da Capital', competencia: '23 de dezembro de 1.938' },
 ];
 
 export const ESCREVENTES_USUCAPIAO = ['CFALANGA', 'Bruno', 'DIEGO', 'LUCAS', 'TATIANA', 'YULLI'];
+
+export interface SugestaoCampo {
+  valor: string;
+  motivo: string;
+  sugerido: boolean;
+  confianca: 'alta' | 'media';
+}
+
+export interface ConjuntoSugestoes {
+  escrevente: SugestaoCampo;
+  subdistrito: SugestaoCampo;
+  resultadoBuscas: SugestaoCampo;
+  cartorioEncaminhamento: SugestaoCampo;
+  dataCompetencia: string;
+}
+
+export function inferirSugestoesInteligentes(
+  dados: DadosManifestacao,
+  arquivoOrigem?: { name: string; relativePath: string } | null
+): ConjuntoSugestoes {
+  const normalizar = (txt: string) =>
+    (txt || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\w\s]/g, ' ')
+      .replace(/\s+/g, ' ');
+
+  const textoImovelNorm = normalizar(dados.imovel || '');
+  const textoGeralNorm = normalizar([
+    dados.imovel,
+    dados.rua_olhar_confrontacao,
+    dados.anotacoes_ficha_oficial,
+    dados.matricula_transcricao,
+    dados.cartorio_origem,
+    dados.titular_origem,
+    dados.requerente,
+    ...(dados.origem_campos || []).map(o => o.trecho || ''),
+    arquivoOrigem?.name,
+    arquivoOrigem?.relativePath,
+  ].filter(Boolean).join(' '));
+
+  // --- 1. SUBDISTRITO TERRITORIAL ---
+  let subdistritoFinal = 'ALTO DA MOÓCA';
+  let subdistritoMotivo = 'Padrão da 7ª Circunscrição Imobiliária';
+  let subdistritoConfianca: 'alta' | 'media' = 'media';
+  let subdistritoSugerido = false;
+
+  const regrasSubdistrito = [
+    { nome: 'GUAIANAZES', termos: ['guaianazes', 'guaianases', 'guianazes'] },
+    { nome: 'ITAQUERA', termos: ['itaquera'] },
+    { nome: 'ALTO DA MOÓCA', termos: ['alto da mooca', 'alto mooca', 'alto de mooca'] },
+    { nome: 'BELENZINHO', termos: ['belenzinho', 'belem'] },
+    { nome: 'MOÓCA', termos: ['mooca'] },
+    { nome: 'BRÁS', termos: ['bras'] },
+    { nome: 'PARI', termos: ['pari'] },
+    { nome: 'TATUAPÉ', termos: ['tatuape'] },
+    { nome: 'SÃO MIGUEL PAULISTA', termos: ['sao miguel paulista', 'sao miguel', 'miguei paulista'] },
+    { nome: 'ERMELINO MATARAZZO', termos: ['ermelino matarazzo', 'ermelino'] },
+    { nome: 'CANGAÍBA', termos: ['cangaiba'] },
+    { nome: 'PENHA DE FRANÇA', termos: ['penha de franca', 'penha de frança', 'penha'] },
+    { nome: 'VILA PRUDENTE', termos: ['vila prudente'] },
+    { nome: 'VILA FORMOSA', termos: ['vila formosa'] },
+    { nome: 'VILA MATILDE', termos: ['vila matilde'] },
+  ];
+
+  let achouSub = false;
+  for (const reg of regrasSubdistrito) {
+    for (const termo of reg.termos) {
+      const regex = new RegExp(`\\b${termo}\\b`, 'i');
+      if (regex.test(textoImovelNorm)) {
+        subdistritoFinal = reg.nome;
+        subdistritoMotivo = `Detectado no imóvel: "${termo}"`;
+        subdistritoConfianca = 'alta';
+        subdistritoSugerido = true;
+        achouSub = true;
+        break;
+      }
+    }
+    if (achouSub) break;
+  }
+
+  if (!achouSub) {
+    for (const reg of regrasSubdistrito) {
+      for (const termo of reg.termos) {
+        const regex = new RegExp(`\\b${termo}\\b`, 'i');
+        if (regex.test(textoGeralNorm)) {
+          subdistritoFinal = reg.nome;
+          subdistritoMotivo = `Detectado no texto da petição/certidão (OCR)`;
+          subdistritoConfianca = 'alta';
+          subdistritoSugerido = true;
+          achouSub = true;
+          break;
+        }
+      }
+      if (achouSub) break;
+    }
+  }
+
+  if (!achouSub && dados.subdistrito && dados.subdistrito !== 'ALTO DA MOÓCA') {
+    subdistritoFinal = dados.subdistrito;
+    subdistritoMotivo = 'Mantido conforme dados existentes';
+    subdistritoConfianca = 'media';
+  }
+
+  const dadosSub = SUBDISTRITOS_7RI.find(s => s.nome.toUpperCase() === subdistritoFinal.toUpperCase());
+  const cartorioCompetenciaHistorica = dadosSub?.cartorioSugerido || '3º Oficial de Registro de Imóveis da Capital';
+  const dataCompetenciaFinal = dadosSub?.competencia || '23 de dezembro de 1.938';
+
+  // --- 2. CARTÓRIO DE ENCAMINHAMENTO ---
+  let cartorioFinal = cartorioCompetenciaHistorica;
+  let cartorioMotivo = `Circunscrição histórica sobre ${subdistritoFinal} antes de 1938`;
+  let cartorioConfianca: 'alta' | 'media' = 'alta';
+  let cartorioSugerido = true;
+
+  const matchCartorio = (dados.cartorio_origem || dados.cartorio_encaminhamento || '') + ' ' + textoGeralNorm;
+  const matchNum = matchCartorio.match(/(?:digno\s+)?(\d{1,2})[ºoªa°]?\s*(?:oficial|oficio|cartorio|registro\s+de\s+imoveis|cri|ri)\b/i);
+  if (matchNum && matchNum[1]) {
+    const num = matchNum[1];
+    if (num === '7') {
+      cartorioFinal = '7º Cartório de Registro de Imóveis da Capital';
+      cartorioMotivo = 'Imóvel com assento originário na 7ª Circunscrição';
+    } else {
+      cartorioFinal = `${num}º Oficial de Registro de Imóveis da Capital`;
+      cartorioMotivo = `Cartório ${num}º expressamente citado nos autos`;
+    }
+  } else if (
+    dados.matricula_transcricao &&
+    /7[ºoªa°]?\s*(?:oficial|cri|cartorio)/i.test(dados.matricula_transcricao)
+  ) {
+    cartorioFinal = '7º Cartório de Registro de Imóveis da Capital';
+    cartorioMotivo = 'Matrícula com assento principal na 7ª Circunscrição';
+  }
+
+  // --- 3. RESULTADO DAS BUSCAS ---
+  let resultadoFinal = 'NEGATIVAS';
+  let resultadoMotivo = 'Buscas no 7º RI negativas (área de serventia anterior)';
+  let resultadoConfianca: 'alta' | 'media' = 'alta';
+  let resultadoSugerido = true;
+
+  if (/\b(?:negativas?|nao consta registro|nenhum registro|pesquisa negativa)\b/i.test(textoGeralNorm)) {
+    resultadoFinal = 'NEGATIVAS';
+    resultadoMotivo = 'Confirmado nos autos (Indicador Real e Pessoal sem registro no 7º)';
+    resultadoConfianca = 'alta';
+  } else if (/\b(?:positivas?|matricula ativa no 7|buscas resultaram positivas)\b/i.test(textoGeralNorm)) {
+    resultadoFinal = 'POSITIVAS';
+    resultadoMotivo = 'Registro imobiliário ativo localizado no 7º RI';
+    resultadoConfianca = 'alta';
+  } else if (cartorioFinal === '7º Cartório de Registro de Imóveis da Capital') {
+    resultadoFinal = 'POSITIVAS';
+    resultadoMotivo = 'Imóvel sob assento da própria 7ª Serventia (buscas positivas)';
+    resultadoConfianca = 'media';
+  }
+
+  // --- 4. ESCREVENTE RESPONSÁVEL ---
+  let escreventeFinal = 'CFALANGA';
+  let escreventeMotivo = 'Escrevente de Usucapião';
+  let escreventeConfianca: 'alta' | 'media' = 'media';
+  let escreventeSugerido = false;
+
+  const caminhoCompleto = (arquivoOrigem?.relativePath || '') + ' ' + (arquivoOrigem?.name || '');
+  for (const esc of ESCREVENTES_USUCAPIAO) {
+    const regex = new RegExp(`[\\\\/\\s_]${esc}[\\\\/\\s_]`, 'i');
+    if (regex.test(caminhoCompleto) || caminhoCompleto.toLowerCase().startsWith(esc.toLowerCase())) {
+      escreventeFinal = esc;
+      escreventeMotivo = `Pasta de trabalho do escrevente no servidor ("${esc}")`;
+      escreventeConfianca = 'alta';
+      escreventeSugerido = true;
+      break;
+    }
+  }
+
+  if (!escreventeSugerido) {
+    for (const esc of ESCREVENTES_USUCAPIAO) {
+      const regex = new RegExp(`(?:escrevente|autor|conferido por)[^\\n\\r]{0,30}\\b${esc}\\b`, 'i');
+      if (regex.test(textoGeralNorm) || new RegExp(`\\b${esc}\\b`, 'i').test(dados.escrevente_pasta || '')) {
+        escreventeFinal = esc;
+        escreventeMotivo = `Detectado na assinatura / autoria da manifestação ("${esc}")`;
+        escreventeConfianca = 'alta';
+        escreventeSugerido = true;
+        break;
+      }
+    }
+  }
+
+  if (!escreventeSugerido && dados.escrevente_pasta && ESCREVENTES_USUCAPIAO.includes(dados.escrevente_pasta)) {
+    escreventeFinal = dados.escrevente_pasta;
+    escreventeMotivo = 'Definido na ficha técnica';
+  }
+
+  return {
+    subdistrito: {
+      valor: subdistritoFinal,
+      motivo: subdistritoMotivo,
+      sugerido: subdistritoSugerido,
+      confianca: subdistritoConfianca,
+    },
+    cartorioEncaminhamento: {
+      valor: cartorioFinal,
+      motivo: cartorioMotivo,
+      sugerido: cartorioSugerido,
+      confianca: cartorioConfianca,
+    },
+    resultadoBuscas: {
+      valor: resultadoFinal,
+      motivo: resultadoMotivo,
+      sugerido: resultadoSugerido,
+      confianca: resultadoConfianca,
+    },
+    escrevente: {
+      valor: escreventeFinal,
+      motivo: escreventeMotivo,
+      sugerido: escreventeSugerido,
+      confianca: escreventeConfianca,
+    },
+    dataCompetencia: dataCompetenciaFinal,
+  };
+}
 
 function obterDataPorExtenso(): string {
   const agora = new Date();
@@ -95,6 +320,7 @@ export interface Livro2Match {
 export function FichaOficialView({
   dadosIniciais,
   connectorId,
+  arquivoOrigem,
   onClose,
   onReextrair,
   onBuscarMatriculaNaLista,
@@ -102,13 +328,55 @@ export function FichaOficialView({
 }: {
   dadosIniciais: DadosManifestacao;
   connectorId?: string;
+  arquivoOrigem?: { name: string; relativePath: string; rootId?: string } | null;
   onClose: () => void;
   onReextrair?: () => void;
   onBuscarMatriculaNaLista?: (matricula: string) => void;
   onVisualizarDocumento?: (file: Livro2Match) => void;
 }) {
-  const [dados, setDados] = useState<DadosManifestacao>(dadosIniciais);
-  const [abaAtiva, setAbaAtiva] = useState<'formulario' | 'manifestacao' | 'origem'>('formulario');
+  // Inicialização inteligente: se a inferência do OCR identificou um subdistrito, escrevente ou cartório, preenche automaticamente
+  const [dados, setDados] = useState<DadosManifestacao>(() => {
+    const sug = inferirSugestoesInteligentes(dadosIniciais, arquivoOrigem);
+    return {
+      ...dadosIniciais,
+      subdistrito: (dadosIniciais.subdistrito && dadosIniciais.subdistrito !== 'ALTO DA MOÓCA')
+        ? dadosIniciais.subdistrito
+        : sug.subdistrito.valor,
+      data_competencia_subdistrito: (dadosIniciais.data_competencia_subdistrito && dadosIniciais.data_competencia_subdistrito !== '23 de dezembro de 1.938')
+        ? dadosIniciais.data_competencia_subdistrito
+        : sug.dataCompetencia,
+      cartorio_encaminhamento: dadosIniciais.cartorio_encaminhamento || sug.cartorioEncaminhamento.valor,
+      cartorio_origem: dadosIniciais.cartorio_origem || sug.cartorioEncaminhamento.valor,
+      resultado_buscas: dadosIniciais.resultado_buscas || sug.resultadoBuscas.valor,
+      escrevente_pasta: (dadosIniciais.escrevente_pasta && ESCREVENTES_USUCAPIAO.includes(dadosIniciais.escrevente_pasta))
+        ? dadosIniciais.escrevente_pasta
+        : sug.escrevente.valor,
+    };
+  });
+
+  const [toastSugestao, setToastSugestao] = useState<string | null>(null);
+
+  // Calcula sugestões em tempo real com base no estado atual
+  const sugestoes = useMemo(() => {
+    return inferirSugestoesInteligentes(dados, arquivoOrigem);
+  }, [dados, arquivoOrigem]);
+
+  const reaplicarSugestoes = () => {
+    const sug = inferirSugestoesInteligentes(dados, arquivoOrigem);
+    setDados(prev => ({
+      ...prev,
+      subdistrito: sug.subdistrito.valor,
+      data_competencia_subdistrito: sug.dataCompetencia,
+      cartorio_encaminhamento: sug.cartorioEncaminhamento.valor,
+      cartorio_origem: sug.cartorioEncaminhamento.valor,
+      resultado_buscas: sug.resultadoBuscas.valor,
+      escrevente_pasta: sug.escrevente.valor,
+    }));
+    setToastSugestao(`Sugestões aplicadas: Subdistrito ${sug.subdistrito.valor} • Remessa ${sug.cartorioEncaminhamento.valor} • Buscas ${sug.resultadoBuscas.valor} • Escrevente ${sug.escrevente.valor}`);
+    setTimeout(() => setToastSugestao(null), 5000);
+  };
+
+  const [abaAtiva, setAbaAtiva] = useState<'formulario' | 'manifestacao' | 'origem' | 'autenticidade'>('formulario');
   const [copiado, setCopiado] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [mostrarGuiaCards, setMostrarGuiaCards] = useState(false);
@@ -374,24 +642,84 @@ Ademar Fioranelli
               {dados.origem_campos?.length || 0}
             </span>
           </button>
+
+          <button
+            onClick={() => setAbaAtiva('autenticidade')}
+            className={`flex items-center gap-2 rounded-t-xl px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm xl:text-base font-bold transition border-b-2 whitespace-nowrap ${
+              abaAtiva === 'autenticidade'
+                ? 'border-emerald-400 bg-slate-800 text-white shadow-sm'
+                : 'border-transparent text-slate-300 hover:bg-slate-900 hover:text-white'
+            }`}
+          >
+            <ShieldCheck className="h-4 w-4 text-emerald-400" />
+            <span>Validação de Autenticidade (APIs Oficiais)</span>
+            <span className="rounded-full bg-emerald-950 border border-emerald-800 px-2 py-0.5 text-xs text-emerald-300 font-bold">
+              TJSP • PMSP • ONR • ICP
+            </span>
+          </button>
         </div>
 
         {/* Main Content Area */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-5">
-          {/* Header da Barra de Edição com Botão de Ajuda Contextual */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-              <span>Barra de Despacho & Competência Registral</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => setMostrarGuiaCards(!mostrarGuiaCards)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-[11px] font-medium text-cyan-300 hover:bg-slate-700 hover:text-cyan-200 transition"
-            >
-              <HelpCircle className="h-3.5 w-3.5 text-cyan-400" />
-              <span>{mostrarGuiaCards ? 'Ocultar guia dos cards' : 'Para que servem estes 4 cards?'}</span>
-            </button>
+          {/* Header da Barra de Edição com Ações de Sugestão Automática e Ajuda */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <span>Barra de Despacho & Competência Registral</span>
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-cyan-950/70 border border-cyan-800/80 text-[11px] font-medium text-cyan-300">
+                <Sparkles className="w-3 h-3 text-cyan-400 animate-pulse" />
+                <span>Preenchimento Sugerido via OCR / Matrícula</span>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setAbaAtiva('autenticidade')}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/50 bg-emerald-950/40 hover:bg-emerald-900/60 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 transition shadow-sm"
+                title="Consultar validação e baixar comprovantes emitidos perante as APIs oficiais dos órgãos"
+              >
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Comprovantes de Autenticidade</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={reaplicarSugestoes}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/50 bg-cyan-950/40 hover:bg-cyan-900/60 px-2.5 py-1 text-[11px] font-semibold text-cyan-200 transition shadow-sm"
+                title="Reavaliar o endereço e os dados do processo e reaplicar as sugestões inteligentes"
+              >
+                <Wand2 className="h-3.5 w-3.5 text-cyan-400" />
+                <span>Reaplicar Sugestões do OCR</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMostrarGuiaCards(!mostrarGuiaCards)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition"
+              >
+                <HelpCircle className="h-3.5 w-3.5 text-slate-400" />
+                <span>{mostrarGuiaCards ? 'Ocultar guia' : 'Para que servem estes 4 cards?'}</span>
+              </button>
+            </div>
           </div>
+
+          {toastSugestao && (
+            <div className="rounded-xl border border-emerald-500/50 bg-emerald-950/60 p-3 text-xs text-emerald-200 flex items-center justify-between shadow-md animate-in fade-in duration-200">
+              <div className="flex items-center gap-2 font-medium">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                <span>{toastSugestao}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setToastSugestao(null)}
+                className="text-emerald-400 hover:text-emerald-100 font-bold px-1.5 py-0.5 rounded"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           {mostrarGuiaCards && (
             <div className="rounded-xl border border-cyan-500/40 bg-cyan-950/40 p-4 text-xs text-slate-300 space-y-2.5 animate-in slide-in-from-top-1 duration-200 shadow-md">
@@ -420,14 +748,20 @@ Ademar Fioranelli
             </div>
           )}
 
-          {/* Quick Edit Bar com breves explicações contextuais */}
+          {/* Quick Edit Bar com Sugestões Inteligentes do OCR / Matrícula */}
           <div className="grid grid-cols-1 gap-3.5 rounded-xl border border-slate-700 bg-slate-950 p-4 sm:p-5 sm:grid-cols-2 lg:grid-cols-4 text-xs sm:text-sm shadow-md">
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-slate-200 font-semibold text-xs sm:text-sm">Escrevente Responsável</label>
-                <span className="text-[10px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded">
-                  Autoria
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-1.5 py-0.5 rounded flex items-center gap-1">
+                    <Sparkles className="w-2.5 h-2.5" />
+                    Sugerido
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded">
+                    Autoria
+                  </span>
+                </div>
               </div>
               <select
                 value={dados.escrevente_pasta}
@@ -443,14 +777,24 @@ Ademar Fioranelli
               <p className="text-[11px] text-slate-400 mt-1.5 leading-snug">
                 Identifica o escrevente responsável pelo exame formal dos autos.
               </p>
+              <div className="mt-1 flex items-start gap-1 text-[10.5px] text-cyan-300/90 font-mono leading-tight">
+                <Sparkles className="w-3 h-3 text-cyan-400 shrink-0 mt-0.5" />
+                <span>{sugestoes.escrevente.motivo}</span>
+              </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-slate-200 font-semibold text-xs sm:text-sm">Subdistrito Territorial</label>
-                <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-1.5 py-0.5 rounded">
-                  Competência
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-1.5 py-0.5 rounded flex items-center gap-1">
+                    <Sparkles className="w-2.5 h-2.5" />
+                    Sugerido
+                  </span>
+                  <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-1.5 py-0.5 rounded">
+                    Competência
+                  </span>
+                </div>
               </div>
               <select
                 value={dados.subdistrito}
@@ -466,14 +810,24 @@ Ademar Fioranelli
               <p className="text-[11px] text-slate-400 mt-1.5 leading-snug">
                 Define e preenche a data de competência histórica registral.
               </p>
+              <div className="mt-1 flex items-start gap-1 text-[10.5px] text-cyan-300/90 font-mono leading-tight">
+                <Sparkles className="w-3 h-3 text-cyan-400 shrink-0 mt-0.5" />
+                <span>{sugestoes.subdistrito.motivo}</span>
+              </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-slate-200 font-semibold text-xs sm:text-sm">Resultado das Buscas</label>
-                <span className="text-[10px] font-mono text-amber-400 bg-amber-950/60 border border-amber-800/60 px-1.5 py-0.5 rounded">
-                  Indicadores
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] font-mono text-amber-400 bg-amber-950/60 border border-amber-800/60 px-1.5 py-0.5 rounded flex items-center gap-1">
+                    <Sparkles className="w-2.5 h-2.5" />
+                    Sugerido
+                  </span>
+                  <span className="text-[10px] font-mono text-amber-400 bg-amber-950/60 border border-amber-800/60 px-1.5 py-0.5 rounded">
+                    Indicadores
+                  </span>
+                </div>
               </div>
               <select
                 value={dados.resultado_buscas}
@@ -486,14 +840,24 @@ Ademar Fioranelli
               <p className="text-[11px] text-slate-400 mt-1.5 leading-snug">
                 Pesquisa no Indicador Real (SQL) e Pessoal. Altera o texto do ofício judicial.
               </p>
+              <div className="mt-1 flex items-start gap-1 text-[10.5px] text-amber-300/90 font-mono leading-tight">
+                <Sparkles className="w-3 h-3 text-amber-400 shrink-0 mt-0.5" />
+                <span>{sugestoes.resultadoBuscas.motivo}</span>
+              </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-slate-200 font-semibold text-xs sm:text-sm">Cartório de Encaminhamento</label>
-                <span className="text-[10px] font-mono text-sky-400 bg-sky-950/60 border border-sky-800/60 px-1.5 py-0.5 rounded">
-                  Remessa
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] font-mono text-sky-400 bg-sky-950/60 border border-sky-800/60 px-1.5 py-0.5 rounded flex items-center gap-1">
+                    <Sparkles className="w-2.5 h-2.5" />
+                    Sugerido
+                  </span>
+                  <span className="text-[10px] font-mono text-sky-400 bg-sky-950/60 border border-sky-800/60 px-1.5 py-0.5 rounded">
+                    Remessa
+                  </span>
+                </div>
               </div>
               <input
                 type="text"
@@ -504,6 +868,10 @@ Ademar Fioranelli
               <p className="text-[11px] text-slate-400 mt-1.5 leading-snug">
                 Serventia indicada ao Juiz para validar a transcrição de origem.
               </p>
+              <div className="mt-1 flex items-start gap-1 text-[10.5px] text-sky-300/90 font-mono leading-tight">
+                <Sparkles className="w-3 h-3 text-sky-400 shrink-0 mt-0.5" />
+                <span>{sugestoes.cartorioEncaminhamento.motivo}</span>
+              </div>
             </div>
           </div>
 
@@ -879,6 +1247,11 @@ Ademar Fioranelli
                 requerente={dados.requerente}
               />
             </div>
+          )}
+
+          {/* Tab 4: Validação de Autenticidade em Órgãos Públicos via API */}
+          {abaAtiva === 'autenticidade' && (
+            <ValidacaoAutenticidadeView dados={dados} />
           )}
         </div>
       </div>

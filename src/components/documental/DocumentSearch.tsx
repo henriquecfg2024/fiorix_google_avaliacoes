@@ -1196,6 +1196,7 @@ export function DocumentSearch() {
       {fichaAberta && (
         <FichaOficialView
           dadosIniciais={fichaAberta}
+          arquivoOrigem={fichaAbertaFile}
           connectorId={connectorId}
           onClose={() => {
             setFichaAberta(null);
