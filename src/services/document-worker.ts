@@ -5,6 +5,7 @@ import {
   executeDocumentCli,
   isAllowedDocumentApiUrl,
   parseDocumentRoots,
+  readDocumentText,
   resolveAuthorizedFile,
   searchDocuments,
 } from './document-search.js';
@@ -15,6 +16,8 @@ interface ClaimedJob {
   query?: string | null;
   rootId?: string | null;
   relativePath?: string | null;
+  pageStart?: number | null;
+  pageEnd?: number | null;
 }
 
 export function startDocumentWorker(): () => void {
@@ -44,7 +47,14 @@ export function startDocumentWorker(): () => void {
             if (!job.rootId || !job.relativePath) throw new Error('Parâmetros inválidos.');
             const targetPath = await resolveAuthorizedFile(authorizedRoots, job.rootId, job.relativePath);
             const cmd = job.type === 'extract_petition' ? 'extrair-peticao' : 'analisar-assinaturas';
-            result = await executeDocumentCli(cmd, targetPath);
+            result = await executeDocumentCli(cmd, targetPath, {
+              pageStart: job.pageStart ?? undefined,
+              pageEnd: job.pageEnd ?? undefined,
+            });
+          } else if (job.type === 'read_document_text') {
+            if (!job.rootId || !job.relativePath) throw new Error('Parâmetros inválidos.');
+            const targetPath = await resolveAuthorizedFile(authorizedRoots, job.rootId, job.relativePath);
+            result = await readDocumentText(targetPath);
           } else {
             result = await searchDocuments(authorizedRoots, job.query || '');
           }

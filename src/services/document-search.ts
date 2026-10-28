@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import mammoth from 'mammoth';
 
 const execFileAsync = promisify(execFile);
 
@@ -119,5 +120,49 @@ export async function searchDocuments(
     }
   }
   return result;
+}
+
+export async function readDocumentText(filePath: string): Promise<{
+  fileName: string;
+  extension: string;
+  html: string;
+  text: string;
+  size: number;
+}> {
+  const stat = await fs.stat(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+  const fileName = path.basename(filePath);
+
+  if (ext === '.docx' || ext === '.doc') {
+    try {
+      const htmlResult = await mammoth.convertToHtml({ path: filePath });
+      const textResult = await mammoth.extractRawText({ path: filePath });
+      return {
+        fileName,
+        extension: ext,
+        html: htmlResult.value || '<p>Documento sem texto detectável.</p>',
+        text: textResult.value || '',
+        size: stat.size,
+      };
+    } catch {
+      const raw = await fs.readFile(filePath, 'utf8').catch(() => '');
+      return {
+        fileName,
+        extension: ext,
+        html: `<p>${raw.replace(/\n/g, '<br/>')}</p>`,
+        text: raw,
+        size: stat.size,
+      };
+    }
+  }
+
+  const raw = await fs.readFile(filePath, 'utf8').catch(() => '');
+  return {
+    fileName,
+    extension: ext,
+    html: `<pre style="white-space: pre-wrap; font-family: inherit;">${raw}</pre>`,
+    text: raw,
+    size: stat.size,
+  };
 }
 

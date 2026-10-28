@@ -7,6 +7,7 @@ import {
   isAllowedDocumentApiUrl,
   isWithinRoot,
   parseDocumentRoots,
+  readDocumentText,
   resolveAuthorizedFile,
   searchDocuments,
 } from '../src/services/document-search.js';
@@ -83,6 +84,19 @@ describe('document search', () => {
 
     // Throws if file does not exist
     await expect(resolveAuthorizedFile(roots, 'usucapiao', 'nao-existe.pdf')).rejects.toThrow();
+  });
+
+  it('reads document text and html safely via readDocumentText', async () => {
+    const dir = await fixture();
+    const filePath = path.join(dir, 'minuta.txt');
+    await fs.writeFile(filePath, '7º Oficial de Registro de Imóveis\nManifestação Fictícia');
+
+    const result = await readDocumentText(filePath);
+    expect(result.fileName).toBe('minuta.txt');
+    expect(result.extension).toBe('.txt');
+    expect(result.text).toContain('7º Oficial de Registro de Imóveis');
+    expect(result.html).toContain('7º Oficial de Registro de Imóveis');
+    expect(result.size).toBeGreaterThan(0);
   });
 });
 
