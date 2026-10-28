@@ -544,15 +544,16 @@ export function DocumentSearch() {
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60 shadow">
-              <table className="min-w-[950px] w-full text-left text-xs sm:text-sm">
-                <thead className="bg-slate-950/80 text-slate-300 font-semibold border-b border-slate-800">
+              <table className="w-full text-left text-xs sm:text-sm border-collapse">
+                <thead className="bg-slate-950/90 text-slate-300 font-semibold border-b border-slate-800">
                   <tr>
-                    <th className="p-3.5 sm:p-4 min-w-[240px]">Arquivo</th>
-                    <th className="p-3.5 sm:p-4 w-32 whitespace-nowrap">Pasta Autorizada</th>
-                    <th className="p-3.5 sm:p-4 min-w-[280px]">Caminho Relativo</th>
-                    <th className="p-3.5 sm:p-4 w-24 whitespace-nowrap">Tamanho</th>
+                    <th className="p-3.5 sm:p-4 min-w-[200px]">Arquivo / Caminho</th>
+                    <th className="p-3.5 sm:p-4 w-28 whitespace-nowrap">Pasta</th>
+                    <th className="p-3.5 sm:p-4 w-20 whitespace-nowrap">Tamanho</th>
                     <th className="p-3.5 sm:p-4 w-28 whitespace-nowrap">Modificado</th>
-                    <th className="p-3.5 sm:p-4 min-w-[260px] text-right whitespace-nowrap">Ações Documentais</th>
+                    <th className="sticky right-0 bg-slate-950 p-3.5 sm:p-4 min-w-[260px] text-right whitespace-nowrap z-20 border-l border-slate-800 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.6)]">
+                      Ações Documentais
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
@@ -564,13 +565,18 @@ export function DocumentSearch() {
                     const jaAuditado = !!getCachedAssinatura(fileKey);
 
                     return (
-                      <tr key={fileKey} className="hover:bg-slate-800/40 transition">
+                      <tr key={fileKey} className="group hover:bg-slate-800/40 transition">
                         <td className="p-3.5 sm:p-4 font-medium text-slate-100">
-                          <div className="flex items-center gap-2.5">
-                            <FileText className={`h-4 w-4 sm:h-5 sm:w-5 shrink-0 ${isPdf ? 'text-rose-400' : 'text-slate-400'}`} />
-                            <span className="truncate max-w-xs sm:max-w-sm text-xs sm:text-sm" title={file.name}>
-                              {file.name}
-                            </span>
+                          <div className="flex items-start gap-2.5">
+                            <FileText className={`h-4 w-4 sm:h-5 sm:w-5 shrink-0 mt-0.5 ${isPdf ? 'text-rose-400' : 'text-slate-400'}`} />
+                            <div className="min-w-0 max-w-xs sm:max-w-md lg:max-w-lg">
+                              <span className="truncate block font-semibold text-slate-100 text-xs sm:text-sm" title={file.name}>
+                                {file.name}
+                              </span>
+                              <span className="truncate block font-mono text-[11px] text-slate-400 mt-0.5" title={file.relativePath}>
+                                {file.relativePath}
+                              </span>
+                            </div>
                           </div>
                         </td>
                         <td className="p-3.5 sm:p-4 whitespace-nowrap">
@@ -578,17 +584,14 @@ export function DocumentSearch() {
                             {file.rootId}
                           </span>
                         </td>
-                        <td className="p-3.5 sm:p-4 text-slate-300 font-mono text-[11px] sm:text-xs max-w-xs sm:max-w-md truncate" title={file.relativePath}>
-                          {file.relativePath}
-                        </td>
                         <td className="p-3.5 sm:p-4 text-slate-300 text-xs sm:text-sm whitespace-nowrap">
                           {Math.ceil(file.size / 1024)} KB
                         </td>
                         <td className="p-3.5 sm:p-4 text-slate-300 text-xs sm:text-sm whitespace-nowrap">
                           {new Date(file.modifiedAt).toLocaleDateString('pt-BR')}
                         </td>
-                        <td className="p-3.5 sm:p-4 text-right whitespace-nowrap space-x-2">
-                          {isPdf && (
+                        <td className="sticky right-0 bg-slate-900 group-hover:bg-slate-800 p-3.5 sm:p-4 text-right whitespace-nowrap z-10 border-l border-slate-800/80 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.6)] space-x-2">
+                          {isPdf ? (
                             <>
                               <div className="inline-flex items-center gap-1">
                                 <button
@@ -690,6 +693,10 @@ export function DocumentSearch() {
                                 )}
                               </div>
                             </>
+                          ) : (
+                            <span className="text-[11px] text-slate-500 italic pr-2">
+                              Ações para PDF
+                            </span>
                           )}
                         </td>
                       </tr>
