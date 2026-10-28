@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { ConfidenceReview, OrigemCampoUI } from './ConfidenceReview';
 import { ValidacaoAutenticidadeView } from './ValidacaoAutenticidadeView';
+import { extrairConfrontacoes, ConfrontacoesExtraidas } from '@/lib/confrontacoes';
 
 export interface DadosManifestacao {
   id_ficha: string;
@@ -95,6 +96,7 @@ export interface ConjuntoSugestoes {
   resultadoBuscas: SugestaoCampo;
   cartorioEncaminhamento: SugestaoCampo;
   dataCompetencia: string;
+  confrontacoes: ConfrontacoesExtraidas;
 }
 
 export function inferirSugestoesInteligentes(
@@ -110,7 +112,7 @@ export function inferirSugestoesInteligentes(
       .replace(/\s+/g, ' ');
 
   const textoImovelNorm = normalizar(dados.imovel || '');
-  const textoGeralNorm = normalizar([
+  const textoGeral = [
     dados.imovel,
     dados.rua_olhar_confrontacao,
     dados.anotacoes_ficha_oficial,
@@ -121,7 +123,11 @@ export function inferirSugestoesInteligentes(
     ...(dados.origem_campos || []).map(o => o.trecho || ''),
     arquivoOrigem?.name,
     arquivoOrigem?.relativePath,
-  ].filter(Boolean).join(' '));
+  ].filter(Boolean).join('\n');
+  const textoGeralNorm = normalizar(textoGeral);
+
+  // Extrai confrontações perimetrais do conjunto documental disponível
+  const confrontacoesExtraidas = extrairConfrontacoes(textoGeral);
 
   // --- 1. SUBDISTRITO TERRITORIAL ---
   let subdistritoFinal = 'ALTO DA MOÓCA';
@@ -297,6 +303,7 @@ export function inferirSugestoesInteligentes(
       confianca: escreventeConfianca,
     },
     dataCompetencia: dataCompetenciaFinal,
+    confrontacoes: confrontacoesExtraidas,
   };
 }
 
@@ -334,7 +341,7 @@ export function FichaOficialView({
   onBuscarMatriculaNaLista?: (matricula: string) => void;
   onVisualizarDocumento?: (file: Livro2Match) => void;
 }) {
-  // Inicialização inteligente: se a inferência do OCR identificou um subdistrito, escrevente ou cartório, preenche automaticamente
+  // Inicialização inteligente: se a inferência do OCR identificou um subdistrito, escrevente, cartório ou confrontações, preenche automaticamente
   const [dados, setDados] = useState<DadosManifestacao>(() => {
     const sug = inferirSugestoesInteligentes(dadosIniciais, arquivoOrigem);
     return {
@@ -351,10 +358,20 @@ export function FichaOficialView({
       escrevente_pasta: (dadosIniciais.escrevente_pasta && ESCREVENTES_USUCAPIAO.includes(dadosIniciais.escrevente_pasta))
         ? dadosIniciais.escrevente_pasta
         : sug.escrevente.valor,
+      confrontante_lado_direito: (dadosIniciais.confrontante_lado_direito && dadosIniciais.confrontante_lado_direito !== 'conforme apuração nos autos')
+        ? dadosIniciais.confrontante_lado_direito
+        : (sug.confrontacoes.ladoDireito || dadosIniciais.confrontante_lado_direito || ''),
+      confrontante_lado_esquerdo: (dadosIniciais.confrontante_lado_esquerdo && dadosIniciais.confrontante_lado_esquerdo !== 'conforme apuração nos autos')
+        ? dadosIniciais.confrontante_lado_esquerdo
+        : (sug.confrontacoes.ladoEsquerdo || dadosIniciais.confrontante_lado_esquerdo || ''),
+      confrontante_fundos: (dadosIniciais.confrontante_fundos && dadosIniciais.confrontante_fundos !== 'conforme apuração nos autos')
+        ? dadosIniciais.confrontante_fundos
+        : (sug.confrontacoes.fundos || dadosIniciais.confrontante_fundos || ''),
     };
   });
 
   const [toastSugestao, setToastSugestao] = useState<string | null>(null);
+  const [lendoMatriculaConfrontacoes, setLendoMatriculaConfrontacoes] = useState(false);
 
   // Calcula sugestões em tempo real com base no estado atual
   const sugestoes = useMemo(() => {
@@ -371,10 +388,81 @@ export function FichaOficialView({
       cartorio_origem: sug.cartorioEncaminhamento.valor,
       resultado_buscas: sug.resultadoBuscas.valor,
       escrevente_pasta: sug.escrevente.valor,
+      confrontante_lado_direito: sug.confrontacoes.ladoDireito || prev.confrontante_lado_direito,
+      confrontante_lado_esquerdo: sug.confrontacoes.ladoEsquerdo || prev.confrontante_lado_esquerdo,
+      confrontante_fundos: sug.confrontacoes.fundos || prev.confrontante_fundos,
     }));
-    setToastSugestao(`Sugestões aplicadas: Subdistrito ${sug.subdistrito.valor} • Remessa ${sug.cartorioEncaminhamento.valor} • Buscas ${sug.resultadoBuscas.valor} • Escrevente ${sug.escrevente.valor}`);
-    setTimeout(() => setToastSugestao(null), 5000);
+    const confMsg = sug.confrontacoes.ladoDireito || sug.confrontacoes.ladoEsquerdo || sug.confrontacoes.fundos
+      ? ` • Confrontações Atualizadas (D: ${sug.confrontacoes.ladoDireito || '—'} | E: ${sug.confrontacoes.ladoEsquerdo || '—'} | F: ${sug.confrontacoes.fundos || '—'})`
+      : '';
+    setToastSugestao(`Sugestões aplicadas: Subdistrito ${sug.subdistrito.valor} • Remessa ${sug.cartorioEncaminhamento.valor} • Buscas ${sug.resultadoBuscas.valor} • Escrevente ${sug.escrevente.valor}${confMsg}`);
+    setTimeout(() => setToastSugestao(null), 6000);
   };
+
+  async function lerMatriculaEPreencherConfrontacoes(fileAlvo?: Livro2Match) {
+    setLendoMatriculaConfrontacoes(true);
+    try {
+      let textoParaAnalise = [
+        dados.imovel,
+        dados.rua_olhar_confrontacao,
+        dados.anotacoes_ficha_oficial,
+        ...(dados.origem_campos || []).map(o => o.trecho || ''),
+      ].filter(Boolean).join('\n');
+
+      let nomeFonte = 'Autos do Processo';
+
+      const arquivoParaLer = fileAlvo || (arquivosLivro2 && arquivosLivro2.length > 0 ? arquivosLivro2[0] : null);
+
+      if (arquivoParaLer) {
+        nomeFonte = `Matrícula ${arquivoParaLer.name}`;
+        const response = await fetch('/api/gestao-documental', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            connectorId: connectorId || '',
+            type: 'read_document_text',
+            rootId: arquivoParaLer.rootId,
+            relativePath: arquivoParaLer.relativePath,
+          }),
+        });
+        const body = await response.json();
+        if (response.ok && body.id) {
+          const deadline = Date.now() + 30000;
+          while (Date.now() < deadline) {
+            await new Promise(r => setTimeout(r, 600));
+            const res = await fetch('/api/gestao-documental?id=' + encodeURIComponent(body.id), { cache: 'no-store' });
+            const state = await res.json();
+            if (state.status === 'complete' && state.result?.text) {
+              textoParaAnalise = state.result.text + '\n' + textoParaAnalise;
+              break;
+            }
+            if (state.status === 'failed') break;
+          }
+        }
+      }
+
+      const conf = extrairConfrontacoes(textoParaAnalise);
+
+      if (conf.ladoDireito || conf.ladoEsquerdo || conf.fundos) {
+        setDados(prev => ({
+          ...prev,
+          confrontante_lado_direito: conf.ladoDireito || prev.confrontante_lado_direito,
+          confrontante_lado_esquerdo: conf.ladoEsquerdo || prev.confrontante_lado_esquerdo,
+          confrontante_fundos: conf.fundos || prev.confrontante_fundos,
+        }));
+        setToastSugestao(`✨ Confrontações extraídas com sucesso (${nomeFonte}): D: ${conf.ladoDireito || '—'} | E: ${conf.ladoEsquerdo || '—'} | Fundos: ${conf.fundos || '—'}`);
+        setTimeout(() => setToastSugestao(null), 6000);
+      } else {
+        setToastSugestao('Nenhuma confrontação identificável foi localizada no texto. Você pode preencher diretamente nos campos pontilhados.');
+        setTimeout(() => setToastSugestao(null), 5000);
+      }
+    } catch {
+      setToastSugestao('Erro ao ler a matrícula para extração de confrontações.');
+      setTimeout(() => setToastSugestao(null), 4000);
+    } finally {
+      setLendoMatriculaConfrontacoes(false);
+    }
+  }
 
   const [abaAtiva, setAbaAtiva] = useState<'formulario' | 'manifestacao' | 'origem' | 'autenticidade'>('formulario');
   const [copiado, setCopiado] = useState(false);
@@ -1071,6 +1159,21 @@ Ademar Fioranelli
                                   <span>Visualizar</span>
                                 </button>
                               )}
+
+                              <button
+                                type="button"
+                                disabled={lendoMatriculaConfrontacoes}
+                                onClick={() => lerMatriculaEPreencherConfrontacoes(file)}
+                                className="inline-flex items-center gap-1 rounded-md border border-cyan-600 bg-cyan-950 px-2.5 py-1 text-[11px] font-semibold text-cyan-200 hover:bg-cyan-900 transition disabled:opacity-50"
+                                title="Ler esta imagem/matrícula e preencher automaticamente as confrontações na minuta"
+                              >
+                                {lendoMatriculaConfrontacoes ? (
+                                  <Loader2 className="h-3 w-3 animate-spin text-cyan-400" />
+                                ) : (
+                                  <Wand2 className="h-3 w-3 text-cyan-400" />
+                                )}
+                                <span>Ler Confrontações</span>
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -1078,6 +1181,79 @@ Ademar Fioranelli
                     )}
                   </div>
                 )}
+
+                {/* Confrontações Perimetrais do Imóvel */}
+                <div className="mt-4 pt-3 border-t border-dotted border-gray-400 font-sans">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900 text-xs sm:text-sm font-serif">Confrontações do Imóvel (Planta / Matrícula):</span>
+                      {(dados.confrontante_lado_direito || dados.confrontante_lado_esquerdo || dados.confrontante_fundos) && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-300 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span>Preenchido</span>
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={lendoMatriculaConfrontacoes}
+                      onClick={() => lerMatriculaEPreencherConfrontacoes()}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-600 bg-cyan-950 px-2.5 py-1 text-xs font-semibold text-cyan-200 hover:bg-cyan-900 transition shadow-sm disabled:opacity-50"
+                      title="Ler matrícula ou texto dos autos e preencher automaticamente as confrontações"
+                    >
+                      {lendoMatriculaConfrontacoes ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400 shrink-0" />
+                          <span>Lendo Matrícula...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                          <span>Ler Matrícula e Preencher Confrontações</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        – do lado direito:
+                      </label>
+                      <input
+                        type="text"
+                        value={dados.confrontante_lado_direito}
+                        onChange={e => atualizarCampo('confrontante_lado_direito', e.target.value)}
+                        placeholder="conforme apuração nos autos"
+                        className="w-full bg-transparent text-slate-950 font-semibold border-b-2 border-dotted border-slate-400 hover:border-slate-800 py-1 text-xs sm:text-sm focus:bg-amber-100/70 focus:outline-none px-1 transition placeholder:text-slate-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        – do lado esquerdo:
+                      </label>
+                      <input
+                        type="text"
+                        value={dados.confrontante_lado_esquerdo}
+                        onChange={e => atualizarCampo('confrontante_lado_esquerdo', e.target.value)}
+                        placeholder="conforme apuração nos autos"
+                        className="w-full bg-transparent text-slate-950 font-semibold border-b-2 border-dotted border-slate-400 hover:border-slate-800 py-1 text-xs sm:text-sm focus:bg-amber-100/70 focus:outline-none px-1 transition placeholder:text-slate-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        – nos fundos:
+                      </label>
+                      <input
+                        type="text"
+                        value={dados.confrontante_fundos}
+                        onChange={e => atualizarCampo('confrontante_fundos', e.target.value)}
+                        placeholder="conforme apuração nos autos"
+                        className="w-full bg-transparent text-slate-950 font-semibold border-b-2 border-dotted border-slate-400 hover:border-slate-800 py-1 text-xs sm:text-sm focus:bg-amber-100/70 focus:outline-none px-1 transition placeholder:text-slate-400"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Linha Divisória */}
@@ -1161,38 +1337,80 @@ Ademar Fioranelli
                   de fls. {dados.fls_certidao_origem || '30/32'}.
                 </p>
 
-                <p className="indent-8">
-                  Pela planta de Setor Fiscal Municipal do imóvel usucapiendo, verifica-se que o mesmo confronta:
-                </p>
-                <div className="ml-6 sm:ml-12 space-y-1.5">
-                  <div>
-                    – do lado direito:{' '}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="indent-8">
+                    Pela planta de Setor Fiscal Municipal do imóvel usucapiendo, verifica-se que o mesmo confronta:
+                  </p>
+                  <div className="inline-flex items-center gap-2 not-italic">
+                    <button
+                      type="button"
+                      disabled={lendoMatriculaConfrontacoes}
+                      onClick={() => lerMatriculaEPreencherConfrontacoes()}
+                      title="Ler matrícula ou autos do processo e preencher automaticamente as confrontações na minuta"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-600 bg-cyan-950 px-2.5 py-1 text-xs font-sans font-semibold text-cyan-200 hover:bg-cyan-900 transition shadow-sm disabled:opacity-50"
+                    >
+                      {lendoMatriculaConfrontacoes ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400 shrink-0" />
+                          <span>Lendo Matrícula...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                          <span>Ler Matrícula e Preencher Confrontações</span>
+                        </>
+                      )}
+                    </button>
+                    {(dados.confrontante_lado_direito || dados.confrontante_lado_esquerdo || dados.confrontante_fundos) && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 text-[11px] font-sans font-bold text-emerald-800">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                        <span>Preenchido automaticamente</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="ml-6 sm:ml-12 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-serif shrink-0">– do lado direito:</span>{' '}
                     <input
                       type="text"
                       value={dados.confrontante_lado_direito}
                       onChange={e => atualizarCampo('confrontante_lado_direito', e.target.value)}
                       placeholder="conforme apuração nos autos"
-                      className="bg-transparent text-slate-950 font-semibold border-b border-dotted border-slate-500 hover:border-slate-800 font-sans text-xs sm:text-sm xl:text-base focus:bg-amber-100/70 focus:outline-none w-72 sm:w-96 px-1 placeholder:text-slate-400 transition"
+                      className={`bg-transparent font-sans text-xs sm:text-sm xl:text-base border-b-2 font-semibold px-2 py-0.5 focus:outline-none transition w-80 sm:w-[450px] ${
+                        dados.confrontante_lado_direito
+                          ? 'border-cyan-600 text-slate-950 bg-cyan-50/60 focus:bg-cyan-100/70'
+                          : 'border-dotted border-slate-500 text-slate-800 focus:bg-amber-100/70 placeholder:text-slate-400'
+                      }`}
                     />
                   </div>
-                  <div>
-                    – do lado esquerdo:{' '}
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-serif shrink-0">– do lado esquerdo:</span>{' '}
                     <input
                       type="text"
                       value={dados.confrontante_lado_esquerdo}
                       onChange={e => atualizarCampo('confrontante_lado_esquerdo', e.target.value)}
                       placeholder="conforme apuração nos autos"
-                      className="bg-transparent text-slate-950 font-semibold border-b border-dotted border-slate-500 hover:border-slate-800 font-sans text-xs sm:text-sm xl:text-base focus:bg-amber-100/70 focus:outline-none w-72 sm:w-96 px-1 placeholder:text-slate-400 transition"
+                      className={`bg-transparent font-sans text-xs sm:text-sm xl:text-base border-b-2 font-semibold px-2 py-0.5 focus:outline-none transition w-80 sm:w-[450px] ${
+                        dados.confrontante_lado_esquerdo
+                          ? 'border-cyan-600 text-slate-950 bg-cyan-50/60 focus:bg-cyan-100/70'
+                          : 'border-dotted border-slate-500 text-slate-800 focus:bg-amber-100/70 placeholder:text-slate-400'
+                      }`}
                     />
                   </div>
-                  <div>
-                    – nos fundos:{' '}
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-serif shrink-0">– nos fundos:</span>{' '}
                     <input
                       type="text"
                       value={dados.confrontante_fundos}
                       onChange={e => atualizarCampo('confrontante_fundos', e.target.value)}
                       placeholder="conforme apuração nos autos"
-                      className="bg-transparent text-slate-950 font-semibold border-b border-dotted border-slate-500 hover:border-slate-800 font-sans text-xs sm:text-sm xl:text-base focus:bg-amber-100/70 focus:outline-none w-72 sm:w-96 px-1 placeholder:text-slate-400 transition"
+                      className={`bg-transparent font-sans text-xs sm:text-sm xl:text-base border-b-2 font-semibold px-2 py-0.5 focus:outline-none transition w-80 sm:w-[450px] ${
+                        dados.confrontante_fundos
+                          ? 'border-cyan-600 text-slate-950 bg-cyan-50/60 focus:bg-cyan-100/70'
+                          : 'border-dotted border-slate-500 text-slate-800 focus:bg-amber-100/70 placeholder:text-slate-400'
+                      }`}
                     />
                   </div>
                 </div>
