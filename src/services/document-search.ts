@@ -23,7 +23,7 @@ export interface DocumentSearchResult {
   matriculaDetectada?: string;
   matriculas?: string[];
 }
-const extensions = new Set(['.pdf', '.doc', '.docx', '.tif', '.tiff', '.txt', '.rtf']);
+const extensions = new Set(['.pdf', '.doc', '.docx', '.tif', '.tiff', '.txt', '.rtf', '.ken']);
 const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 export function parseDocumentRoots(raw: string): DocumentRoot[] {
@@ -105,7 +105,7 @@ export function extrairNumeroMatricula(textoOuNome: string): string | null {
     }
   }
 
-  const fileNumMatch = textoOuNome.match(/(?:^|[\\/_\-\s])0*([1-9][0-9]{2,7})(?:\.pdf|\.tif|\.tiff|\.docx?|$)/i);
+  const fileNumMatch = textoOuNome.match(/(?:^|[\\/_\-\s])0*([1-9][0-9]{2,7})(?:\.pdf|\.tif|\.tiff|\.ken|\.docx?|$)/i);
   if (fileNumMatch) {
     const digits = fileNumMatch[1];
     if (digits.length >= 3 && digits.length <= 7) {
@@ -251,6 +251,27 @@ export async function readDocumentText(filePath: string): Promise<{
   const stat = await fs.stat(filePath);
   const ext = path.extname(filePath).toLowerCase();
   const fileName = path.basename(filePath);
+
+  if (ext === '.ken' || ext === '.tif' || ext === '.tiff') {
+    return {
+      fileName,
+      extension: ext,
+      html: `<div style="text-align: center; padding: 30px; font-family: sans-serif;">
+        <div style="font-size: 16px; font-weight: bold; margin-bottom: 8px; color: #0284c7;">
+          Imagem Digitalizada da Matrícula (Livro 2 – Registro Geral)
+        </div>
+        <div style="font-family: monospace; font-size: 14px; color: #334155; margin-bottom: 12px;">
+          ${fileName} &bull; ${Math.round(stat.size / 1024)} KB
+        </div>
+        <div style="font-size: 12px; color: #64748b; max-width: 500px; margin: 0 auto; line-height: 1.5;">
+          Arquivo no padrão oficial de imagens <strong>Wang TIFF / Kenta (.KEN)</strong>.<br/>
+          Armazenado no servidor do cartório em <code>K:\\IMAGENS\\LV2</code>.
+        </div>
+      </div>`,
+      text: `[Imagem Digitalizada da Matrícula: ${fileName} (Formato Wang TIFF/KEN)]`,
+      size: stat.size,
+    };
+  }
 
   if (ext === '.docx' || ext === '.doc') {
     try {
