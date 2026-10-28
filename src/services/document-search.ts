@@ -173,6 +173,74 @@ export async function readDocumentText(filePath: string): Promise<{
   };
 }
 
+export interface ConfrontacoesExtraidas {
+  ladoDireito: string;
+  ladoEsquerdo: string;
+  fundos: string;
+}
+
+export function limparConfrontante(valor: string): string {
+  if (!valor) return '';
+  let limpo = valor.trim();
+
+  // Remove pontuações iniciais e traços
+  limpo = limpo.replace(/^[\s\-–—:;.]+|[\s\-–—:;.]+$/g, '').trim();
+
+  // Remove prefixos direcionais redundantes caso venham no texto capturado
+  limpo = limpo.replace(/^(?:pelo\s+lado\s+direito|do\s+lado\s+direito|lado\s+direito|à\s+direita|a\s+direita|direita)\s*(?:com)?/i, '');
+  limpo = limpo.replace(/^(?:pelo\s+lado\s+esquerdo|do\s+lado\s+esquerdo|lado\s+esquerdo|à\s+esquerda|a\s+esquerda|esquerda)\s*(?:com)?/i, '');
+  limpo = limpo.replace(/^(?:e\s+aos\s+fundos|aos\s+fundos|e\s+nos\s+fundos|nos\s+fundos|e\s+pelos\s+fundos|pelos\s+fundos|e\s+fundos|fundos)\s*(?:com)?/i, '');
+  limpo = limpo.replace(/^[:\s\-–—]+/, '').trim();
+
+  // Remove menções subsequentes a outras direções que possam ter sido engolidas pela captura
+  limpo = limpo.replace(/\s+(?:,\s*)?(?:pelo\s+lado|do\s+lado|lado|e\s+aos\s+fundos|aos\s+fundos|e\s+nos\s+fundos|nos\s+fundos|e\s+pelos\s+fundos|e\s+fundos|\bfundos\b|esquerdo|direito|à\s+esquerda|à\s+direita).*$/i, '').trim();
+
+  // Remove traços ou pontuações finais remanescentes
+  limpo = limpo.replace(/[\s\-–—:;.,]+$/, '').trim();
+
+  if (!limpo) return '';
+
+  // Padroniza com 'com ' se não iniciar com 'com '
+  if (!/^com\b/i.test(limpo)) {
+    limpo = `com ${limpo}`;
+  }
+  return limpo;
+}
+
+export function extrairConfrontacoes(texto: string): ConfrontacoesExtraidas {
+  if (!texto) return { ladoDireito: '', ladoEsquerdo: '', fundos: '' };
+
+  let ladoDireito = '';
+  let ladoEsquerdo = '';
+  let fundos = '';
+
+  // 1. Lado Direito
+  const matchDir = texto.match(
+    /(?:pelo\s+lado\s+direito|do\s+lado\s+direito|lado\s+direito|à\s+direita|a\s+direita|\bdireito\b)\s*(?:mede\s+[0-9.,]+[a-z]*[,\s]+confrontando\s+com|confronta(?:ndo)?(?:\s+com)?|confina(?:\s+com)?|com|:)?\s*([^\n\r;]{2,100}?)(?=(?:,\s*(?:pelo\s+lado|do\s+lado|e\s+aos|aos\s+fundos|e\s+pelos|e\s+nos|lado\s+esquerdo|esquerdo|à\s+esquerda)|;\s*|\n|\r|$))/i
+  );
+  if (matchDir) {
+    ladoDireito = limparConfrontante(matchDir[1] || matchDir[0]);
+  }
+
+  // 2. Lado Esquerdo
+  const matchEsq = texto.match(
+    /(?:pelo\s+lado\s+esquerdo|do\s+lado\s+esquerdo|lado\s+esquerdo|à\s+esquerda|a\s+esquerda|\besquerdo\b)\s*(?:mede\s+[0-9.,]+[a-z]*[,\s]+confrontando\s+com|confronta(?:ndo)?(?:\s+com)?|confina(?:\s+com)?|com|:)?\s*([^\n\r;]{2,100}?)(?=(?:,\s*(?:pelo\s+lado|do\s+lado|e\s+aos|aos\s+fundos|e\s+pelos|e\s+nos|e\s+fundos|fundos)|;\s*|\s+e\s+(?:aos\s+|nos\s+|pelos\s+)?fundos|\n|\r|$))/i
+  );
+  if (matchEsq) {
+    ladoEsquerdo = limparConfrontante(matchEsq[1] || matchEsq[0]);
+  }
+
+  // 3. Fundos
+  const matchFundos = texto.match(
+    /(?:e\s+aos\s+fundos|aos\s+fundos|e\s+nos\s+fundos|nos\s+fundos|e\s+pelos\s+fundos|pelos\s+fundos|e\s+fundos|\bfundos\b)\s*(?:mede\s+[0-9.,]+[a-z]*[,\s]+confrontando\s+com|confronta(?:ndo)?(?:\s+com)?|confina(?:\s+com)?|com|:)?\s*([^\n\r;]{2,100}?)(?=(?:;\s*|\.|\n|\r|$))/i
+  );
+  if (matchFundos) {
+    fundos = limparConfrontante(matchFundos[1] || matchFundos[0]);
+  }
+
+  return { ladoDireito, ladoEsquerdo, fundos };
+}
+
 export function enrichPetitionData(data: Record<string, any>, relativePath?: string): Record<string, any> {
   const result = { ...data };
   const rawText = [
@@ -253,6 +321,18 @@ export function enrichPetitionData(data: Record<string, any>, relativePath?: str
     result.escrevente_pasta = 'CFALANGA';
   }
 
+  // Confrontações do Imóvel (Lado direito, esquerdo e fundos)
+  const conf = extrairConfrontacoes(rawText);
+  if (!result.confrontante_lado_direito || result.confrontante_lado_direito === 'conforme apuração nos autos') {
+    result.confrontante_lado_direito = conf.ladoDireito || result.confrontante_lado_direito || '';
+  }
+  if (!result.confrontante_lado_esquerdo || result.confrontante_lado_esquerdo === 'conforme apuração nos autos') {
+    result.confrontante_lado_esquerdo = conf.ladoEsquerdo || result.confrontante_lado_esquerdo || '';
+  }
+  if (!result.confrontante_fundos || result.confrontante_fundos === 'conforme apuração nos autos') {
+    result.confrontante_fundos = conf.fundos || result.confrontante_fundos || '';
+  }
+
   return result;
 }
 
@@ -271,9 +351,7 @@ export async function extractDocxPetition(filePath: string, relativePath: string
   const flsInicial = text.match(/fls\.?\s*(\d+(?:\/\d+)?)/i)?.[1] || '';
   const flsLaudo = text.match(/(?:laudo|memorial)[^\n\r]{0,30}fls\.?\s*(\d+(?:\/\d+)?)/i)?.[1] || '';
 
-  const confDir = text.match(/(?:lado\s+direito|direita)[^\n\r,;]+/i)?.[0]?.trim() || '';
-  const confEsq = text.match(/(?:lado\s+esquerdo|esquerda)[^\n\r,;]+/i)?.[0]?.trim() || '';
-  const confFundos = text.match(/(?:aos\s+fundos|fundos)[^\n\r,;.]+/i)?.[0]?.trim() || '';
+  const conf = extrairConfrontacoes(text);
 
   const escTextMatch = text.match(/Escrevente(?:\s+Autor)?:\s*([A-Za-z0-9_-]+)/i);
   const escrevente = escTextMatch ? escTextMatch[1].toUpperCase() : 'CFALANGA';
@@ -298,9 +376,9 @@ export async function extractDocxPetition(filePath: string, relativePath: string
     resultado_buscas: 'NEGATIVAS',
     subdistrito: '',
     data_competencia_subdistrito: '23 de dezembro de 1.938',
-    confrontante_lado_direito: confDir,
-    confrontante_lado_esquerdo: confEsq,
-    confrontante_fundos: confFundos,
+    confrontante_lado_direito: conf.ladoDireito,
+    confrontante_lado_esquerdo: conf.ladoEsquerdo,
+    confrontante_fundos: conf.fundos,
     transcricoes_anexas: 'a conferir na certidão',
     matriculas_anexas: matricula,
     cartorio_encaminhamento: '',

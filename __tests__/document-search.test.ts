@@ -5,6 +5,7 @@ import path from 'node:path';
 import {
   enrichPetitionData,
   executeDocumentCli,
+  extrairConfrontacoes,
   isAllowedDocumentApiUrl,
   isWithinRoot,
   parseDocumentRoots,
@@ -132,6 +133,37 @@ describe('document search', () => {
     expect(enriched3.subdistrito).toBe('BRÁS');
     expect(enriched3.resultado_buscas).toBe('POSITIVAS');
     expect(enriched3.escrevente_pasta).toBe('DIEGO');
+  });
+
+  it('extracts and cleans confrontations from matrícula and petition texts', () => {
+    // 1. Text from plant / standard usucapiao minuta
+    const textPlant = 'Pela planta do Setor Fiscal Municipal do imóvel usucapiendo, verifica-se que o mesmo confronta pelo lado direito com o nº 1405, pelo lado esquerdo com o nº 1421 e aos fundos com área municipal.';
+    const conf1 = extrairConfrontacoes(textPlant);
+    expect(conf1.ladoDireito).toBe('com o nº 1405');
+    expect(conf1.ladoEsquerdo).toBe('com o nº 1421');
+    expect(conf1.fundos).toBe('com área municipal');
+
+    // 2. Text from petition
+    const textPetition = 'Confrontantes: do lado direito com Pedro Silveira, esquerdo com Ana Clara Lima e fundos com área municipal.';
+    const conf2 = extrairConfrontacoes(textPetition);
+    expect(conf2.ladoDireito).toBe('com Pedro Silveira');
+    expect(conf2.ladoEsquerdo).toBe('com Ana Clara Lima');
+    expect(conf2.fundos).toBe('com área municipal');
+
+    // 3. Tabular / multi-line matrícula format
+    const textMatricula = 'Matrícula nº 123.456 - Confrontações:\n- Lado direito: com o imóvel transcrito sob nº 45.123;\n- Lado esquerdo: com a Rua B;\n- Fundos: com espólio de João Silva.';
+    const conf3 = extrairConfrontacoes(textMatricula);
+    expect(conf3.ladoDireito).toBe('com o imóvel transcrito sob nº 45.123');
+    expect(conf3.ladoEsquerdo).toBe('com a Rua B');
+    expect(conf3.fundos).toBe('com espólio de João Silva');
+
+    // 4. enrichPetitionData automatically populates confrontations
+    const enriched = enrichPetitionData({
+      imovel: 'Rua Evaldo Calabrez, nº 1413, confronta pelo lado direito com o nº 1405, pelo lado esquerdo com o nº 1421 e aos fundos com área municipal',
+    });
+    expect(enriched.confrontante_lado_direito).toBe('com o nº 1405');
+    expect(enriched.confrontante_lado_esquerdo).toBe('com o nº 1421');
+    expect(enriched.confrontante_fundos).toBe('com área municipal');
   });
 });
 
