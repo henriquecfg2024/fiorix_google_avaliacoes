@@ -17,6 +17,8 @@ import {
   Maximize2,
   Minimize2,
   RotateCw,
+  HelpCircle,
+  Info,
 } from 'lucide-react';
 import { ConfidenceReview, OrigemCampoUI } from './ConfidenceReview';
 
@@ -91,6 +93,7 @@ export function FichaOficialView({
   const [abaAtiva, setAbaAtiva] = useState<'formulario' | 'manifestacao' | 'origem'>('formulario');
   const [copiado, setCopiado] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [mostrarGuiaCards, setMostrarGuiaCards] = useState(false);
 
   const atualizarCampo = (campo: keyof DadosManifestacao, valor: any) => {
     setDados(prev => {
@@ -296,7 +299,49 @@ Ademar Fioranelli
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-5">
+          {/* Header da Barra de Edição com Botão de Ajuda Contextual */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <span>Barra de Despacho & Competência Registral</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setMostrarGuiaCards(!mostrarGuiaCards)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-[11px] font-medium text-cyan-300 hover:bg-slate-700 hover:text-cyan-200 transition"
+            >
+              <HelpCircle className="h-3.5 w-3.5 text-cyan-400" />
+              <span>{mostrarGuiaCards ? 'Ocultar guia dos cards' : 'Para que servem estes 4 cards?'}</span>
+            </button>
+          </div>
+
+          {mostrarGuiaCards && (
+            <div className="rounded-xl border border-cyan-500/40 bg-cyan-950/40 p-4 text-xs text-slate-300 space-y-2.5 animate-in slide-in-from-top-1 duration-200 shadow-md">
+              <div className="flex items-center gap-2 font-semibold text-cyan-200 text-xs sm:text-sm">
+                <Info className="h-4 w-4 text-cyan-400 shrink-0" />
+                <span>Guia Prático da Barra de Despacho (Padrão 7º RI de São Paulo)</span>
+              </div>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-[12px] leading-relaxed">
+                <li className="rounded-lg bg-slate-900/80 border border-slate-800 p-2.5">
+                  <strong className="text-slate-100 block mb-0.5">1. Escrevente Responsável:</strong>
+                  Identifica o escrevente que fez a análise do processo, planta e certidões, vinculando a autoria funcional do exame.
+                </li>
+                <li className="rounded-lg bg-slate-900/80 border border-slate-800 p-2.5">
+                  <strong className="text-cyan-200 block mb-0.5">2. Subdistrito Territorial:</strong>
+                  Cada subdistrito da Capital tem uma data de competência histórica territorial (ex.: Alto da Moóca = 23/12/1938). O sistema preenche essa data automaticamente na manifestação.
+                </li>
+                <li className="rounded-lg bg-slate-900/80 border border-slate-800 p-2.5">
+                  <strong className="text-amber-200 block mb-0.5">3. Resultado das Buscas:</strong>
+                  Indica se o imóvel tem matrícula ativa nesta 7ª Circunscrição (POSITIVAS) ou se não há registro local (NEGATIVAS). Isso altera a redação jurídica enviada ao Magistrado.
+                </li>
+                <li className="rounded-lg bg-slate-900/80 border border-slate-800 p-2.5">
+                  <strong className="text-sky-200 block mb-0.5">4. Cartório de Encaminhamento:</strong>
+                  Quando as buscas apontam que a transcrição de origem pertence a outra serventia anterior (ex.: 3º RI), sugere formalmente ao Juiz a remessa dos autos àquele cartório.
+                </li>
+              </ul>
+            </div>
+          )}
+
           {/* Quick Edit Bar com breves explicações contextuais */}
           <div className="grid grid-cols-1 gap-3.5 rounded-xl border border-slate-700 bg-slate-950 p-4 sm:p-5 sm:grid-cols-2 lg:grid-cols-4 text-xs sm:text-sm shadow-md">
             <div>
