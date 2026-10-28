@@ -19,6 +19,10 @@ import {
   RotateCw,
   HelpCircle,
   Info,
+  Search,
+  Image as ImageIcon,
+  Loader2,
+  Check,
 } from 'lucide-react';
 import { ConfidenceReview, OrigemCampoUI } from './ConfidenceReview';
 
@@ -80,20 +84,94 @@ function obterDataPorExtenso(): string {
   return `${agora.getDate()} de ${meses[agora.getMonth()]} de ${agora.getFullYear()}`;
 }
 
+export interface Livro2Match {
+  rootId: string;
+  relativePath: string;
+  name: string;
+  size: number;
+  modifiedAt: string;
+}
+
 export function FichaOficialView({
   dadosIniciais,
+  connectorId,
   onClose,
   onReextrair,
+  onBuscarMatriculaNaLista,
+  onVisualizarDocumento,
 }: {
   dadosIniciais: DadosManifestacao;
+  connectorId?: string;
   onClose: () => void;
   onReextrair?: () => void;
+  onBuscarMatriculaNaLista?: (matricula: string) => void;
+  onVisualizarDocumento?: (file: Livro2Match) => void;
 }) {
   const [dados, setDados] = useState<DadosManifestacao>(dadosIniciais);
   const [abaAtiva, setAbaAtiva] = useState<'formulario' | 'manifestacao' | 'origem'>('formulario');
   const [copiado, setCopiado] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [mostrarGuiaCards, setMostrarGuiaCards] = useState(false);
+
+  // Estados da Busca de Imagem no Livro 2 (K:\IMAGENS\LV2)
+  const [buscandoLivro2, setBuscandoLivro2] = useState(false);
+  const [arquivosLivro2, setArquivosLivro2] = useState<Livro2Match[] | null>(null);
+  const [termoBuscadoLivro2, setTermoBuscadoLivro2] = useState<string | null>(null);
+  const [caminhoCopiadoLivro2, setCaminhoCopiadoLivro2] = useState<string | null>(null);
+  const [erroLivro2, setErroLivro2] = useState<string | null>(null);
+
+  async function localizarNoLivro2(matriculaCustom?: string) {
+    const raw = matriculaCustom || dados.matricula_transcricao || '';
+    const numeros = raw.replace(/[^\d]/g, '');
+    const queryBusca = numeros && numeros.length >= 2 ? numeros : raw.trim();
+
+    if (!queryBusca || queryBusca.length < 2) {
+      setErroLivro2('Informe ou extraia ao menos 2 dígitos da matrícula para pesquisar.');
+      return;
+    }
+
+    setBuscandoLivro2(true);
+    setErroLivro2(null);
+    setTermoBuscadoLivro2(queryBusca);
+
+    try {
+      const response = await fetch('/api/gestao-documental', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          connectorId: connectorId || '',
+          type: 'search',
+          query: queryBusca,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error);
+
+      const deadline = Date.now() + 45000;
+      while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 800));
+        const res = await fetch('/api/gestao-documental?id=' + encodeURIComponent(body.id), { cache: 'no-store' });
+        const state = await res.json();
+        if (!res.ok) throw new Error(state.error);
+        if (state.status === 'complete' && state.result) {
+          const files: Livro2Match[] = state.result.files || [];
+          const imagensLv2 = files.filter(f =>
+            f.rootId.toLowerCase().includes('imagem') ||
+            f.relativePath.toLowerCase().includes('lv2') ||
+            f.relativePath.toLowerCase().includes('imagem')
+          );
+          setArquivosLivro2(imagensLv2.length > 0 ? imagensLv2 : files);
+          return;
+        }
+        if (state.status === 'failed') throw new Error('Falha na busca da matrícula no servidor local.');
+      }
+      throw new Error('Tempo limite excedido na busca do Livro 2.');
+    } catch (err) {
+      setErroLivro2(err instanceof Error ? err.message : 'Falha ao buscar matrícula em K:\\IMAGENS\\LV2.');
+    } finally {
+      setBuscandoLivro2(false);
+    }
+  }
 
   const atualizarCampo = (campo: keyof DadosManifestacao, valor: any) => {
     setDados(prev => {
@@ -495,7 +573,28 @@ Ademar Fioranelli
 
               {/* Matrícula e Titular */}
               <div className="mb-4 sm:mb-6 text-xs sm:text-sm xl:text-base font-serif">
-                <div className="font-bold text-slate-900 mb-1">Matrícula / Transcrição de Origem:</div>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                  <div className="font-bold text-slate-900">Matrícula / Transcrição de Origem:</div>
+                  <button
+                    type="button"
+                    disabled={buscandoLivro2 || !dados.matricula_transcricao?.trim()}
+                    onClick={() => localizarNoLivro2()}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-sky-600 bg-sky-950 px-3 py-1 text-xs font-sans font-semibold text-sky-200 hover:bg-sky-900 hover:text-white transition shadow-sm disabled:opacity-40"
+                    title="Pesquisar automaticamente este número no acervo de imagens do Livro 2 (K:\IMAGENS\LV2)"
+                  >
+                    {buscandoLivro2 ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-400 shrink-0" />
+                        <span>Buscando no Livro 2...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Search className="h-3.5 w-3.5 text-sky-400 shrink-0" />
+                        <span>Localizar Imagem no Livro 2 (K:)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-1.5">
                   <input
                     type="text"
@@ -512,6 +611,105 @@ Ademar Fioranelli
                     className="bg-transparent text-slate-950 font-semibold border-b-2 border-dotted border-slate-400 hover:border-slate-800 py-1.5 sm:py-2 font-sans text-xs sm:text-sm xl:text-base focus:bg-amber-100/70 focus:outline-none px-1.5 transition placeholder:text-slate-400"
                   />
                 </div>
+
+                {/* Card de Imagem do Livro 2 Localizada */}
+                {(buscandoLivro2 || arquivosLivro2 || erroLivro2) && (
+                  <div className="mt-3 rounded-xl border border-sky-600/50 bg-slate-950 text-slate-200 p-3 sm:p-4 font-sans text-xs shadow-lg animate-in fade-in duration-200">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800">
+                      <div className="flex items-center gap-2">
+                        <ImageIcon className="h-4 w-4 text-sky-400 shrink-0" />
+                        <span className="font-semibold text-slate-100">
+                          Livro 2 • Termo: <strong className="text-cyan-300 font-mono">"{termoBuscadoLivro2}"</strong>
+                        </span>
+                      </div>
+                      {arquivosLivro2 && (
+                        <span className="rounded bg-sky-950 border border-sky-800/80 px-2 py-0.5 text-[11px] font-bold text-sky-300">
+                          {arquivosLivro2.length} imagem(ns) localizada(s)
+                        </span>
+                      )}
+                    </div>
+
+                    {buscandoLivro2 && (
+                      <div className="flex items-center gap-2 py-3 text-sky-300">
+                        <Loader2 className="h-4 w-4 animate-spin text-sky-400 shrink-0" />
+                        <span>Varrendo blocos de matrículas em K:\IMAGENS\LV2…</span>
+                      </div>
+                    )}
+
+                    {erroLivro2 && (
+                      <div className="py-2 text-rose-300">
+                        {erroLivro2}
+                      </div>
+                    )}
+
+                    {arquivosLivro2 && arquivosLivro2.length === 0 && !buscandoLivro2 && (
+                      <p className="py-2 text-slate-400">
+                        Nenhuma imagem contendo o número <strong className="text-slate-200 font-mono">"{termoBuscadoLivro2}"</strong> foi localizada em K:\IMAGENS\LV2.
+                      </p>
+                    )}
+
+                    {arquivosLivro2 && arquivosLivro2.length > 0 && !buscandoLivro2 && (
+                      <div className="mt-2.5 space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {arquivosLivro2.map(file => (
+                          <div
+                            key={`${file.rootId}:${file.relativePath}`}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-900 p-2.5 hover:border-sky-500/50 transition"
+                          >
+                            <div className="min-w-0 max-w-md">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-slate-100 truncate block" title={file.name}>
+                                  {file.name}
+                                </span>
+                                <span className="rounded bg-sky-950 px-1.5 py-0.2 text-[10px] font-mono text-sky-300 border border-sky-800/60">
+                                  {file.rootId}
+                                </span>
+                              </div>
+                              <span className="font-mono text-[11px] text-slate-400 truncate block mt-0.5" title={file.relativePath}>
+                                {file.relativePath}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const textToCopy = `[${file.rootId}] ${file.relativePath}`;
+                                  navigator.clipboard.writeText(textToCopy);
+                                  setCaminhoCopiadoLivro2(file.relativePath);
+                                  setTimeout(() => setCaminhoCopiadoLivro2(null), 2500);
+                                }}
+                                className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-200 hover:bg-slate-700 transition"
+                              >
+                                {caminhoCopiadoLivro2 === file.relativePath ? (
+                                  <>
+                                    <Check className="h-3 w-3 text-emerald-400" />
+                                    <span className="text-emerald-400">Copiado</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="h-3 w-3 text-slate-400" />
+                                    <span>Copiar Caminho</span>
+                                  </>
+                                )}
+                              </button>
+
+                              {onVisualizarDocumento && (
+                                <button
+                                  type="button"
+                                  onClick={() => onVisualizarDocumento(file)}
+                                  className="inline-flex items-center gap-1 rounded-md border border-sky-600 bg-sky-950 px-2.5 py-1 text-[11px] font-semibold text-sky-200 hover:bg-sky-900 transition"
+                                >
+                                  <FileText className="h-3 w-3" />
+                                  <span>Visualizar</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Linha Divisória */}

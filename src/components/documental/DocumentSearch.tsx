@@ -1196,6 +1196,7 @@ export function DocumentSearch() {
       {fichaAberta && (
         <FichaOficialView
           dadosIniciais={fichaAberta}
+          connectorId={connectorId}
           onClose={() => {
             setFichaAberta(null);
             setFichaAbertaFile(null);
@@ -1206,6 +1207,17 @@ export function DocumentSearch() {
             setFichaAbertaFile(null);
             extrairPeticao(targetFile, true);
           } : undefined}
+          onBuscarMatriculaNaLista={(matricula) => {
+            setSearchMode('cruzada');
+            setCruzadaMatricula(matricula);
+            setQuery(matricula);
+            executeSearch(matricula);
+            setFichaAberta(null);
+            setFichaAbertaFile(null);
+          }}
+          onVisualizarDocumento={(file) => {
+            visualizarDocumento(file);
+          }}
         />
       )}
 
