@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
+  enrichPetitionData,
   executeDocumentCli,
   isAllowedDocumentApiUrl,
   isWithinRoot,
@@ -97,6 +98,40 @@ describe('document search', () => {
     expect(result.text).toContain('7º Oficial de Registro de Imóveis');
     expect(result.html).toContain('7º Oficial de Registro de Imóveis');
     expect(result.size).toBeGreaterThan(0);
+  });
+
+  it('infers and auto-suggests subdistrito, cartório, escrevente and buscas via enrichPetitionData', () => {
+    // 1. Property in Guaianazes in CFALANGA folder
+    const dataGuaianazes = {
+      imovel: 'Rua Evaldo Calabrez, nº 1413, Guaianazes, São Paulo/SP',
+      matricula_transcricao: 'Matrícula nº 123.456',
+    };
+    const enriched1 = enrichPetitionData(dataGuaianazes, 'CFALANGA/0000001-00.2099.docx');
+    expect(enriched1.subdistrito).toBe('GUAIANAZES');
+    expect(enriched1.cartorio_encaminhamento).toBe('9º Oficial de Registro de Imóveis da Capital');
+    expect(enriched1.resultado_buscas).toBe('NEGATIVAS');
+    expect(enriched1.escrevente_pasta).toBe('CFALANGA');
+
+    // 2. Property in Mooca with explicit 3º CRI mention in text
+    const dataMooca = {
+      imovel: 'Rua da Mooca, nº 500, Mooca',
+      anotacoes_ficha_oficial: 'Conforme certidão expedida pelo 3º Oficial de Registro de Imóveis',
+    };
+    const enriched2 = enrichPetitionData(dataMooca, 'Bruno/processo-mooca.pdf');
+    expect(enriched2.subdistrito).toBe('MOÓCA');
+    expect(enriched2.cartorio_encaminhamento).toBe('3º Oficial de Registro de Imóveis da Capital');
+    expect(enriched2.resultado_buscas).toBe('NEGATIVAS');
+    expect(enriched2.escrevente_pasta).toBe('BRUNO');
+
+    // 3. Property with positive buscas and 7º RI registration
+    const data7RI = {
+      imovel: 'Rua Cavalheiro, nº 200, Brás',
+      anotacoes_ficha_oficial: 'buscas resultaram positivas com matrícula ativa no 7º',
+    };
+    const enriched3 = enrichPetitionData(data7RI, 'DIEGO/usucapiao-bras.docx');
+    expect(enriched3.subdistrito).toBe('BRÁS');
+    expect(enriched3.resultado_buscas).toBe('POSITIVAS');
+    expect(enriched3.escrevente_pasta).toBe('DIEGO');
   });
 });
 

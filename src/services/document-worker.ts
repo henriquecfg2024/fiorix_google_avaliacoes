@@ -1,8 +1,11 @@
+import path from 'node:path';
 import { env, connectorEnv } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 import { postDocumentMessage } from './api.js';
 import {
+  enrichPetitionData,
   executeDocumentCli,
+  extractDocxPetition,
   isAllowedDocumentApiUrl,
   parseDocumentRoots,
   readDocumentText,
@@ -43,14 +46,23 @@ export function startDocumentWorker(): () => void {
       if (job && !stopped) {
         try {
           let result: unknown;
-          if (job.type === 'extract_petition' || job.type === 'analyze_signatures') {
+          if (job.type === 'extract_petition') {
             if (!job.rootId || !job.relativePath) throw new Error('Parâmetros inválidos.');
             const targetPath = await resolveAuthorizedFile(authorizedRoots, job.rootId, job.relativePath);
-            const cmd = job.type === 'extract_petition' ? 'extrair-peticao' : 'analisar-assinaturas';
-            result = await executeDocumentCli(cmd, targetPath, {
-              pageStart: job.pageStart ?? undefined,
-              pageEnd: job.pageEnd ?? undefined,
-            });
+            const ext = path.extname(targetPath).toLowerCase();
+            if (ext === '.docx' || ext === '.doc') {
+              result = await extractDocxPetition(targetPath, job.relativePath);
+            } else {
+              const cliResult = await executeDocumentCli('extrair-peticao', targetPath, {
+                pageStart: job.pageStart ?? undefined,
+                pageEnd: job.pageEnd ?? undefined,
+              }) as Record<string, any>;
+              result = enrichPetitionData(cliResult, job.relativePath);
+            }
+          } else if (job.type === 'analyze_signatures') {
+            if (!job.rootId || !job.relativePath) throw new Error('Parâmetros inválidos.');
+            const targetPath = await resolveAuthorizedFile(authorizedRoots, job.rootId, job.relativePath);
+            result = await executeDocumentCli('analisar-assinaturas', targetPath);
           } else if (job.type === 'read_document_text') {
             if (!job.rootId || !job.relativePath) throw new Error('Parâmetros inválidos.');
             const targetPath = await resolveAuthorizedFile(authorizedRoots, job.rootId, job.relativePath);

@@ -173,3 +173,151 @@ export async function readDocumentText(filePath: string): Promise<{
   };
 }
 
+export function enrichPetitionData(data: Record<string, any>, relativePath?: string): Record<string, any> {
+  const result = { ...data };
+  const rawText = [
+    result.imovel,
+    result.rua_olhar_confrontacao,
+    result.anotacoes_ficha_oficial,
+    result.matricula_transcricao,
+    result.titular_origem,
+    result.requerente,
+    relativePath,
+  ].filter(Boolean).join(' ');
+
+  const normalizado = rawText.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  // Subdistrito Territorial
+  let subdistrito = result.subdistrito;
+  if (!subdistrito || subdistrito === 'ALTO DA MOÓCA' || subdistrito === 'Subdistrito') {
+    if (/gu[ai]+anaz/i.test(normalizado)) subdistrito = 'GUAIANAZES';
+    else if (/itaquera/i.test(normalizado)) subdistrito = 'ITAQUERA';
+    else if (/alto da mooca/i.test(normalizado)) subdistrito = 'ALTO DA MOÓCA';
+    else if (/belenzinho|belem/i.test(normalizado)) subdistrito = 'BELENZINHO';
+    else if (/mooca/i.test(normalizado)) subdistrito = 'MOÓCA';
+    else if (/bras/i.test(normalizado)) subdistrito = 'BRÁS';
+    else if (/pari/i.test(normalizado)) subdistrito = 'PARI';
+    else if (/tatuape/i.test(normalizado)) subdistrito = 'TATUAPÉ';
+    else if (/sao miguel/i.test(normalizado)) subdistrito = 'SÃO MIGUEL PAULISTA';
+    else if (/ermelino/i.test(normalizado)) subdistrito = 'ERMELINO MATARAZZO';
+    else subdistrito = 'ALTO DA MOÓCA';
+  }
+  result.subdistrito = subdistrito;
+  result.data_competencia_subdistrito = subdistrito === 'SÃO MIGUEL PAULISTA' || subdistrito === 'ERMELINO MATARAZZO'
+    ? 'Circunscrição atribuída ao 12º Registro de Imóveis da Capital'
+    : '23 de dezembro de 1.938';
+
+  // Cartório de Encaminhamento
+  let cartorioEncaminhamento = result.cartorio_encaminhamento || result.cartorio_origem;
+  if (!cartorioEncaminhamento || cartorioEncaminhamento.trim() === '') {
+    if (subdistrito === 'GUAIANAZES' || subdistrito === 'ITAQUERA') {
+      cartorioEncaminhamento = '9º Oficial de Registro de Imóveis da Capital';
+    } else if (subdistrito === 'SÃO MIGUEL PAULISTA' || subdistrito === 'ERMELINO MATARAZZO') {
+      cartorioEncaminhamento = '12º Oficial de Registro de Imóveis da Capital';
+    } else {
+      cartorioEncaminhamento = '3º Oficial de Registro de Imóveis da Capital';
+    }
+  }
+  // Verificar se o texto menciona expressamente um cartório
+  const cartMatch = normalizado.match(/(?:digno\s+)?(\d{1,2})[ºoªa°]?\s*(?:oficial|oficio|cartorio|registro de imoveis|cri|ri)\b/i);
+  if (cartMatch && cartMatch[1]) {
+    cartorioEncaminhamento = cartMatch[1] === '7'
+      ? '7º Cartório de Registro de Imóveis da Capital'
+      : `${cartMatch[1]}º Oficial de Registro de Imóveis da Capital`;
+  }
+  result.cartorio_encaminhamento = cartorioEncaminhamento;
+  if (!result.cartorio_origem || result.cartorio_origem.trim() === '') {
+    result.cartorio_origem = cartorioEncaminhamento;
+  }
+
+  // Resultado das Buscas
+  if (/positivas?|matricula ativa no 7/i.test(normalizado)) {
+    result.resultado_buscas = 'POSITIVAS';
+  } else if (/negativas?|nao consta registro|nenhum registro/i.test(normalizado)) {
+    result.resultado_buscas = 'NEGATIVAS';
+  } else if (cartorioEncaminhamento && !cartorioEncaminhamento.includes('7º')) {
+    result.resultado_buscas = 'NEGATIVAS';
+  } else {
+    result.resultado_buscas = result.resultado_buscas || 'NEGATIVAS';
+  }
+
+  // Escrevente Responsável
+  if (relativePath) {
+    const escMatch = relativePath.match(/[\\/](CFALANGA|Bruno|DIEGO|LUCAS|TATIANA|YULLI)[\\/]/i)
+      || relativePath.match(/^(CFALANGA|Bruno|DIEGO|LUCAS|TATIANA|YULLI)[\\/]/i);
+    if (escMatch) {
+      result.escrevente_pasta = escMatch[1].toUpperCase();
+    }
+  }
+  if (!result.escrevente_pasta || result.escrevente_pasta.trim() === '') {
+    result.escrevente_pasta = 'CFALANGA';
+  }
+
+  return result;
+}
+
+export async function extractDocxPetition(filePath: string, relativePath: string): Promise<Record<string, any>> {
+  const { value: text } = await mammoth.extractRawText({ path: filePath });
+
+  const numProcesso = text.match(/(?:processo(?:\s+digital)?(?:\s+n[ºo°]?)?|proc\.?)\s*[:.\s]*([0-9.\-]{15,25})/i)?.[1]?.trim() || '';
+  const vara = text.match(/(\d+ª?\s*Vara(?:\s+de\s+Registros\s+P[úu]blicos)?)/i)?.[1]?.trim() || '1ª Vara de Registros Públicos da Capital';
+  const requerente = text.match(/Requerente\s*:\s*([^\n\r]+)/i)?.[1]?.trim() || '';
+  const sql = text.match(/(?:contribuinte(?:\s+sql|\s+iptu)?|sql)\s*[:.\s]*([0-9.\-]{10,20})/i)?.[1]?.trim() || '';
+  const matriculaMatch = text.match(/(?:matr[ií]cula|transcri[çc][ãa]o)\s*(?:n[ºo°]?)?\s*([0-9.\-]+)/i);
+  const matricula = matriculaMatch ? matriculaMatch[0].trim() : '';
+  const titular = text.match(/em\s+nome\s+de\s+([^\n\r,.;]+)/i)?.[1]?.trim() || '';
+  const imovelMatch = text.match(/(?:im[óo]vel(?:\s+usucapiendo)?|situado\s+[aà])\s*[:.\s]*([^\n\r.]+)/i);
+  const imovel = imovelMatch ? imovelMatch[0].trim() : '';
+  const flsInicial = text.match(/fls\.?\s*(\d+(?:\/\d+)?)/i)?.[1] || '';
+  const flsLaudo = text.match(/(?:laudo|memorial)[^\n\r]{0,30}fls\.?\s*(\d+(?:\/\d+)?)/i)?.[1] || '';
+
+  const confDir = text.match(/(?:lado\s+direito|direita)[^\n\r,;]+/i)?.[0]?.trim() || '';
+  const confEsq = text.match(/(?:lado\s+esquerdo|esquerda)[^\n\r,;]+/i)?.[0]?.trim() || '';
+  const confFundos = text.match(/(?:aos\s+fundos|fundos)[^\n\r,;.]+/i)?.[0]?.trim() || '';
+
+  const escTextMatch = text.match(/Escrevente(?:\s+Autor)?:\s*([A-Za-z0-9_-]+)/i);
+  const escrevente = escTextMatch ? escTextMatch[1].toUpperCase() : 'CFALANGA';
+
+  const rawData: Record<string, any> = {
+    id_ficha: `FICHA-${Date.now()}`,
+    buscas_feitas_em: new Date().toLocaleDateString('pt-BR'),
+    tipo_processo: 'USUCAPIÃO',
+    numero_processo: numProcesso,
+    vara: vara,
+    data_chegada: '',
+    requerente: requerente,
+    imovel: imovel,
+    rua_olhar_confrontacao: text.match(/(?:Rua|Avenida|Al\.|Travessa)\s+([^\n\r,]+)/i)?.[0] || '',
+    contribuinte_sql: sql,
+    fls_inicial: flsInicial,
+    fls_laudo: flsLaudo,
+    matricula_transcricao: matricula,
+    cartorio_origem: '',
+    fls_certidao_origem: '',
+    titular_origem: titular,
+    resultado_buscas: 'NEGATIVAS',
+    subdistrito: '',
+    data_competencia_subdistrito: '23 de dezembro de 1.938',
+    confrontante_lado_direito: confDir,
+    confrontante_lado_esquerdo: confEsq,
+    confrontante_fundos: confFundos,
+    transcricoes_anexas: 'a conferir na certidão',
+    matriculas_anexas: matricula,
+    cartorio_encaminhamento: '',
+    anotacoes_ficha_oficial: text.substring(0, 300),
+    escrevente_pasta: escrevente,
+    pagina_inicial_detectada: 1,
+    pagina_final_detectada: 1,
+    total_paginas_pdf: 1,
+    origem_campos: [
+      { campo: 'processo', pagina: 1, trecho: numProcesso, confianca: 'alta' },
+      { campo: 'requerente', pagina: 1, trecho: requerente, confianca: 'alta' },
+      { campo: 'imovel', pagina: 1, trecho: imovel, confianca: 'alta' },
+      { campo: 'matricula_transcricao', pagina: 1, trecho: matricula, confianca: 'alta' },
+      { campo: 'titular_origem', pagina: 1, trecho: titular, confianca: 'alta' },
+    ],
+  };
+
+  return enrichPetitionData(rawData, relativePath);
+}
+
