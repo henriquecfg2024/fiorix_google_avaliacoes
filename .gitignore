@@ -1,0 +1,23 @@
+node_modules/
+dist/
+coverage/
+logs/
+
+# Segredos e configuração por ambiente (manter apenas o exemplo)
+.env
+.env.*
+!.env.example
+
+# Filas locais SQLite e backups (contêm dados de produção)
+*.db
+*.db.*
+*.db-journal
+*.db-wal
+*.db-shm
+*.backup
+
+# Arquivos de trava de instância em execução
+fiorix-connector-*.lock
+
+# Código-fonte extraído do NSSM (apenas referência local)
+tools/nssm/extracted/
