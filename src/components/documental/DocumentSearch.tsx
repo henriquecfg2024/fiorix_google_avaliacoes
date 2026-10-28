@@ -1,9 +1,26 @@
 'use client';
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { FileText, ShieldCheck, Loader2, Sparkles, AlertCircle, HardDrive, CheckCircle2, Zap, RotateCw } from 'lucide-react';
+import {
+  FileText,
+  ShieldCheck,
+  Loader2,
+  Sparkles,
+  AlertCircle,
+  HardDrive,
+  CheckCircle2,
+  Zap,
+  RotateCw,
+  Search,
+  SlidersHorizontal,
+  Layers,
+  Copy,
+  Check,
+  FileCode,
+} from 'lucide-react';
 import { FichaOficialView, DadosManifestacao } from './FichaOficialView';
 import { AssinaturasModal, AnaliseAssinaturaPdf } from './AssinaturasModal';
+import { DocumentPreviewModal, DocumentTextResult } from './DocumentPreviewModal';
 
 interface Connector { id: string; name: string; lastSeenAt: string | null }
 interface Match { rootId: string; relativePath: string; name: string; size: number; modifiedAt: string }
@@ -17,13 +34,35 @@ export function DocumentSearch() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  // Estados para Extração e Assinaturas
-  const [processandoAcao, setProcessandoAcao] = useState<{ id: string; tipo: 'extracao' | 'assinatura'; fileName: string } | null>(null);
+  // Modo de Busca: Simples ou Cruzada
+  const [searchMode, setSearchMode] = useState<'simples' | 'cruzada'>('simples');
+  const [cruzadaProcesso, setCruzadaProcesso] = useState('');
+  const [cruzadaMatricula, setCruzadaMatricula] = useState('');
+  const [cruzadaContribuinte, setCruzadaContribuinte] = useState('');
+  const [cruzadaRequerente, setCruzadaRequerente] = useState('');
+
+  // Opções de Intervalo de Páginas do OCR
+  const [ocrModoPagina, setOcrModoPagina] = useState<'padrao' | 'personalizado' | 'todas'>('padrao');
+  const [ocrPaginaInicio, setOcrPaginaInicio] = useState(1);
+  const [ocrPaginaFim, setOcrPaginaFim] = useState(15);
+  const [mostrarOpcoesOcr, setMostrarOpcoesOcr] = useState(false);
+
+  // Estados para Extração, Assinaturas e Leitura de DOCX
+  const [processandoAcao, setProcessandoAcao] = useState<{
+    id: string;
+    tipo: 'extracao' | 'assinatura' | 'leitura';
+    fileName: string;
+  } | null>(null);
   const [fichaAberta, setFichaAberta] = useState<DadosManifestacao | null>(null);
   const [fichaAbertaFile, setFichaAbertaFile] = useState<Match | null>(null);
   const [assinaturaAberta, setAssinaturaAberta] = useState<{ nome: string; analise: AnaliseAssinaturaPdf } | null>(null);
+  const [documentoAberto, setDocumentoAberto] = useState<DocumentTextResult | null>(null);
+  const [documentoAbertoFile, setDocumentoAbertoFile] = useState<Match | null>(null);
 
-  // Cronômetro de tempo decorrido e tempo restante estimado
+  // Feedback de cópia do caminho
+  const [caminhoCopiado, setCaminhoCopiado] = useState<string | null>(null);
+
+  // Cronômetro de tempo decorrido e tempo restante estimado para ações pesadas
   const [tempoDecorrido, setTempoDecorrido] = useState(0);
   const [tempoEstimado, setTempoEstimado] = useState(12);
 
@@ -73,11 +112,11 @@ export function DocumentSearch() {
   const searchCacheRef = useRef<Map<string, SearchState>>(new Map());
   const extrairCacheRef = useRef<Map<string, DadosManifestacao>>(new Map());
   const assinaturasCacheRef = useRef<Map<string, { nome: string; analise: AnaliseAssinaturaPdf }>>(new Map());
+  const leituraCacheRef = useRef<Map<string, DocumentTextResult>>(new Map());
   const [isCacheHit, setIsCacheHit] = useState(false);
 
   function isExtracaoValida(data: DadosManifestacao | null | undefined): boolean {
     if (!data) return false;
-    // Se nenhum campo essencial foi preenchido, é um resultado de stub vazio anterior
     return !!(data.requerente || data.imovel || data.contribuinte_sql || data.matricula_transcricao || data.titular_origem);
   }
 
@@ -154,6 +193,37 @@ export function DocumentSearch() {
     } catch {}
   }
 
+  function getCachedLeitura(fileKey: string): DocumentTextResult | null {
+    if (leituraCacheRef.current.has(fileKey)) {
+      return leituraCacheRef.current.get(fileKey)!;
+    }
+    try {
+      const sess = sessionStorage.getItem('fiorix_doc_' + fileKey);
+      if (sess) {
+        const parsed = JSON.parse(sess);
+        leituraCacheRef.current.set(fileKey, parsed);
+        return parsed;
+      }
+      const loc = localStorage.getItem('fiorix_doc_' + fileKey);
+      if (loc) {
+        const parsed = JSON.parse(loc);
+        if (parsed.data && Date.now() - parsed.savedAt < 7 * 24 * 3600 * 1000) {
+          leituraCacheRef.current.set(fileKey, parsed.data);
+          return parsed.data;
+        }
+      }
+    } catch {}
+    return null;
+  }
+
+  function setCachedLeitura(fileKey: string, data: DocumentTextResult) {
+    leituraCacheRef.current.set(fileKey, data);
+    try {
+      sessionStorage.setItem('fiorix_doc_' + fileKey, JSON.stringify(data));
+      localStorage.setItem('fiorix_doc_' + fileKey, JSON.stringify({ data, savedAt: Date.now() }));
+    } catch {}
+  }
+
   const abort = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -168,11 +238,15 @@ export function DocumentSearch() {
     return () => { controller.abort(); abort.current?.abort(); };
   }, []);
 
-  async function search(event?: FormEvent, forceFresh = false) {
-    if (event) event.preventDefault();
-    abort.current?.abort();
+  async function executeSearch(termoBusca: string, forceFresh = false) {
+    const trimmed = termoBusca.trim();
+    if (!trimmed || trimmed.length < 2) {
+      setError('Informe um termo de busca com no mínimo 2 caracteres.');
+      return;
+    }
 
-    const cacheKey = `${connectorId}:${query.trim().toLowerCase()}`;
+    abort.current?.abort();
+    const cacheKey = `${connectorId}:${trimmed.toLowerCase()}`;
     if (!forceFresh && searchCacheRef.current.has(cacheKey)) {
       const cached = searchCacheRef.current.get(cacheKey)!;
       setJob(cached);
@@ -189,7 +263,7 @@ export function DocumentSearch() {
     try {
       const response = await fetch('/api/gestao-documental', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ connectorId, type: 'search', query }), signal: controller.signal,
+        body: JSON.stringify({ connectorId, type: 'search', query: trimmed }), signal: controller.signal,
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error);
@@ -217,6 +291,29 @@ export function DocumentSearch() {
     } finally { if (!controller.signal.aborted) setBusy(false); }
   }
 
+  function handleSearchSimples(event: FormEvent) {
+    event.preventDefault();
+    executeSearch(query);
+  }
+
+  function handleSearchCruzada(event: FormEvent) {
+    event.preventDefault();
+    const termos = [
+      cruzadaProcesso.trim(),
+      cruzadaMatricula.trim(),
+      cruzadaContribuinte.trim(),
+      cruzadaRequerente.trim(),
+    ].filter(Boolean);
+
+    if (termos.length === 0) {
+      setError('Preencha ao menos um dos campos da Busca Cruzada (Processo, Matrícula, SQL ou Requerente).');
+      return;
+    }
+    const combinedQuery = termos.join(' ');
+    setQuery(combinedQuery);
+    executeSearch(combinedQuery);
+  }
+
   async function extrairPeticao(file: Match, forceFresh = false) {
     const fileKey = `${file.rootId}:${file.relativePath}`;
     if (!forceFresh) {
@@ -233,6 +330,18 @@ export function DocumentSearch() {
         localStorage.removeItem('fiorix_ext_' + fileKey);
       } catch {}
     }
+
+    // Configuração de intervalo de páginas para OCR
+    let pageStart: number | undefined = undefined;
+    let pageEnd: number | undefined = undefined;
+    if (ocrModoPagina === 'padrao') {
+      pageStart = 1;
+      pageEnd = 15;
+    } else if (ocrModoPagina === 'personalizado') {
+      pageStart = Math.max(1, ocrPaginaInicio);
+      pageEnd = Math.max(pageStart, ocrPaginaFim);
+    } // 'todas' deixa undefined para ler o arquivo inteiro
+
     setTempoEstimado(12);
     setProcessandoAcao({ id: fileKey, tipo: 'extracao', fileName: file.name });
     setError('');
@@ -245,13 +354,14 @@ export function DocumentSearch() {
           type: 'extract_petition',
           rootId: file.rootId,
           relativePath: file.relativePath,
+          pageStart,
+          pageEnd,
           forceFresh,
         }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error);
 
-      // Resposta imediata se o servidor já possuir em cache no banco
       if (body.status === 'complete' && body.result) {
         setCachedExtracao(fileKey, body.result);
         setFichaAberta(body.result);
@@ -318,7 +428,6 @@ export function DocumentSearch() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.error);
 
-      // Resposta imediata se o servidor já possuir em cache no banco
       if (body.status === 'complete' && body.result) {
         const item = { nome: file.name, analise: body.result };
         setCachedAssinatura(fileKey, item);
@@ -352,63 +461,339 @@ export function DocumentSearch() {
     }
   }
 
+  async function visualizarDocumento(file: Match, forceFresh = false) {
+    const fileKey = `${file.rootId}:${file.relativePath}`;
+    if (!forceFresh) {
+      const cached = getCachedLeitura(fileKey);
+      if (cached) {
+        setDocumentoAberto(cached);
+        setDocumentoAbertoFile(file);
+        return;
+      }
+    } else {
+      leituraCacheRef.current.delete(fileKey);
+      try {
+        sessionStorage.removeItem('fiorix_doc_' + fileKey);
+        localStorage.removeItem('fiorix_doc_' + fileKey);
+      } catch {}
+    }
+    setTempoEstimado(5);
+    setProcessandoAcao({ id: fileKey, tipo: 'leitura', fileName: file.name });
+    setError('');
+    try {
+      const response = await fetch('/api/gestao-documental', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          connectorId,
+          type: 'read_document_text',
+          rootId: file.rootId,
+          relativePath: file.relativePath,
+          forceFresh,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error);
+
+      if (body.status === 'complete' && body.result) {
+        setCachedLeitura(fileKey, body.result);
+        setDocumentoAberto(body.result);
+        setDocumentoAbertoFile(file);
+        return;
+      }
+
+      const deadline = Date.now() + 60000;
+      let tentativa = 0;
+      while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, tentativa === 0 ? 300 : 800));
+        tentativa++;
+        const res = await fetch('/api/gestao-documental?id=' + encodeURIComponent(body.id), { cache: 'no-store' });
+        const state = await res.json();
+        if (!res.ok) throw new Error(state.error);
+        if (state.status === 'complete' && state.result) {
+          setCachedLeitura(fileKey, state.result);
+          setDocumentoAberto(state.result);
+          setDocumentoAbertoFile(file);
+          return;
+        }
+        if (state.status === 'failed') {
+          throw new Error('Falha ao processar a leitura do documento no servidor local.');
+        }
+      }
+      throw new Error('Tempo limite excedido na leitura do documento.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao ler o documento.');
+    } finally {
+      setProcessandoAcao(null);
+    }
+  }
+
+  function copiarCaminho(file: Match) {
+    const textToCopy = `[${file.rootId}] ${file.relativePath}`;
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      setCaminhoCopiado(file.relativePath);
+      setTimeout(() => setCaminhoCopiado(null), 2500);
+    });
+  }
+
   return (
     <section className="space-y-6">
-      <form onSubmit={search} className="flex flex-wrap items-end gap-3.5 rounded-2xl border border-slate-800 bg-slate-900/90 p-5 sm:p-6 shadow-lg">
-        <label className="space-y-1.5 text-xs sm:text-sm font-semibold text-slate-300">
-          Servidor do cartório
-          <select
-            value={connectorId}
-            onChange={event => setConnectorId(event.target.value)}
-            disabled={busy || !!processandoAcao}
-            className="block w-56 sm:w-64 rounded-lg border border-slate-700 bg-slate-950 p-2.5 sm:p-3 text-xs sm:text-sm text-slate-200 focus:border-cyan-500 focus:outline-none"
-          >
-            {connectors.map(connector => (
-              <option key={connector.id} value={connector.id}>
-                {connector.name}
-              </option>
-            ))}
-          </select>
-        </label>
+      {/* Card Principal de Pesquisa */}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 sm:p-6 shadow-xl backdrop-blur">
+        {/* Cabeçalho do Card: Seletor de Conector + Abas de Tipo de Busca */}
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800/80 mb-5">
+          <label className="flex items-center gap-2.5 text-xs sm:text-sm font-semibold text-slate-300">
+            <span className="text-slate-400">Servidor do cartório:</span>
+            <select
+              value={connectorId}
+              onChange={event => setConnectorId(event.target.value)}
+              disabled={busy || !!processandoAcao}
+              className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs sm:text-sm text-slate-200 focus:border-cyan-500 focus:outline-none"
+            >
+              {connectors.map(connector => (
+                <option key={connector.id} value={connector.id}>
+                  {connector.name}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="flex-1 space-y-1.5 text-xs sm:text-sm font-semibold text-slate-300 min-w-[280px]">
-          Pesquisar processo, matrícula ou nome de arquivo
-          <input
-            value={query}
-            onChange={event => setQuery(event.target.value)}
-            minLength={2}
-            maxLength={120}
-            placeholder="Ex.: 1035968, Basilio, Usucapião ou 123.456"
-            required
-            disabled={busy || !!processandoAcao}
-            className="block w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 sm:p-3 text-xs sm:text-sm text-slate-200 focus:border-cyan-500 focus:outline-none placeholder:text-slate-500"
-          />
-        </label>
+          {/* Abas: Busca Simples vs Busca Cruzada */}
+          <div className="inline-flex rounded-xl border border-slate-800 bg-slate-950 p-1">
+            <button
+              type="button"
+              onClick={() => setSearchMode('simples')}
+              className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition ${
+                searchMode === 'simples'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Search className="h-3.5 w-3.5" />
+              <span>Busca Simples</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSearchMode('cruzada')}
+              className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition ${
+                searchMode === 'cruzada'
+                  ? 'bg-cyan-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Layers className="h-3.5 w-3.5 text-amber-300" />
+              <span>Busca Cruzada (Multi-Critérios)</span>
+            </button>
+          </div>
+        </div>
 
-        <button
-          disabled={busy || !connectorId || !!processandoAcao}
-          className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50 transition"
-        >
-          {busy ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin text-white" />
-              <span className="font-mono">
-                Pesquisando {formatTempoMMSS(tempoBuscaDecorrido)}
-                <span className="text-[11px] sm:text-xs opacity-80 ml-1 font-normal">
-                  (restam {tempoBuscaRestante > 0 ? `~${formatTempoMMSS(tempoBuscaRestante)}` : '...'})
-                </span>
+        {/* Formulário: Busca Simples */}
+        {searchMode === 'simples' && (
+          <form onSubmit={handleSearchSimples} className="space-y-4">
+            <div className="flex flex-wrap items-end gap-3.5">
+              <label className="flex-1 space-y-1.5 text-xs sm:text-sm font-semibold text-slate-300 min-w-[280px]">
+                Pesquisar processo, matrícula ou nome de arquivo
+                <input
+                  value={query}
+                  onChange={event => setQuery(event.target.value)}
+                  minLength={2}
+                  maxLength={120}
+                  placeholder="Ex.: 1035968, Basilio, Usucapião ou 123.456"
+                  required
+                  disabled={busy || !!processandoAcao}
+                  className="block w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 sm:p-3 text-xs sm:text-sm text-slate-200 focus:border-cyan-500 focus:outline-none placeholder:text-slate-500"
+                />
+              </label>
+
+              <button
+                type="submit"
+                disabled={busy || !connectorId || !!processandoAcao}
+                className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50 transition"
+              >
+                {busy ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin text-white" />
+                    <span className="font-mono">
+                      Pesquisando {formatTempoMMSS(tempoBuscaDecorrido)}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Search className="h-4 w-4" />
+                    <span>Pesquisar</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Formulário: Busca Cruzada Multi-Critérios */}
+        {searchMode === 'cruzada' && (
+          <form onSubmit={handleSearchCruzada} className="space-y-4 animate-in fade-in duration-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              <label className="space-y-1.5 text-xs font-semibold text-slate-300">
+                <span>Processo Judicial / CNJ</span>
+                <input
+                  value={cruzadaProcesso}
+                  onChange={event => setCruzadaProcesso(event.target.value)}
+                  placeholder="Ex.: 1035968-12 ou 0000001"
+                  disabled={busy || !!processandoAcao}
+                  className="block w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none placeholder:text-slate-600"
+                />
+              </label>
+
+              <label className="space-y-1.5 text-xs font-semibold text-slate-300">
+                <span>Matrícula ou Transcrição</span>
+                <input
+                  value={cruzadaMatricula}
+                  onChange={event => setCruzadaMatricula(event.target.value)}
+                  placeholder="Ex.: 123.456 ou 45.890"
+                  disabled={busy || !!processandoAcao}
+                  className="block w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none placeholder:text-slate-600"
+                />
+              </label>
+
+              <label className="space-y-1.5 text-xs font-semibold text-slate-300">
+                <span>Contribuinte (SQL / IPTU)</span>
+                <input
+                  value={cruzadaContribuinte}
+                  onChange={event => setCruzadaContribuinte(event.target.value)}
+                  placeholder="Ex.: 012.345.6789-1"
+                  disabled={busy || !!processandoAcao}
+                  className="block w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none placeholder:text-slate-600"
+                />
+              </label>
+
+              <label className="space-y-1.5 text-xs font-semibold text-slate-300">
+                <span>Requerente ou Parte</span>
+                <input
+                  value={cruzadaRequerente}
+                  onChange={event => setCruzadaRequerente(event.target.value)}
+                  placeholder="Ex.: Basilio, Ficticia, etc."
+                  disabled={busy || !!processandoAcao}
+                  className="block w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none placeholder:text-slate-600"
+                />
+              </label>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              <p className="text-[11px] text-slate-400">
+                💡 <strong className="text-cyan-300">Busca Cruzada:</strong> cruza os termos especificados em nome de arquivo e diretórios para localizar expedientes conexos.
+              </p>
+              <button
+                type="submit"
+                disabled={busy || !connectorId || !!processandoAcao}
+                className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-6 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50 transition"
+              >
+                {busy ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin text-white" />
+                    <span>Pesquisando…</span>
+                  </>
+                ) : (
+                  <>
+                    <Layers className="h-4 w-4 text-amber-300" />
+                    <span>Executar Busca Cruzada</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Barra de Opções de Extração / OCR (Intervalo de Páginas) */}
+        <div className="mt-4 pt-4 border-t border-slate-800/60">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setMostrarOpcoesOcr(!mostrarOpcoesOcr)}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-cyan-300 transition"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5 text-cyan-400" />
+              <span>Intervalo de Páginas do OCR para PDFs</span>
+              <span className="rounded bg-slate-800 px-2 py-0.5 font-mono text-[10px] text-cyan-300 border border-slate-700">
+                {ocrModoPagina === 'padrao'
+                  ? 'Págs 1 a 15 (Recomendado)'
+                  : ocrModoPagina === 'personalizado'
+                  ? `Págs ${ocrPaginaInicio} a ${ocrPaginaFim}`
+                  : 'Todas as páginas'}
               </span>
-            </>
-          ) : (
-            'Pesquisar'
+            </button>
+          </div>
+
+          {mostrarOpcoesOcr && (
+            <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/80 p-3.5 animate-in slide-in-from-top-1 duration-200">
+              <div className="flex flex-wrap items-center gap-4 text-xs">
+                <span className="font-semibold text-slate-300">Modo de Leitura:</span>
+                <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-300">
+                  <input
+                    type="radio"
+                    name="ocrModo"
+                    value="padrao"
+                    checked={ocrModoPagina === 'padrao'}
+                    onChange={() => setOcrModoPagina('padrao')}
+                    className="text-cyan-500 focus:ring-0"
+                  />
+                  <span>Primeiras 15 páginas (Rápido)</span>
+                </label>
+
+                <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-300">
+                  <input
+                    type="radio"
+                    name="ocrModo"
+                    value="personalizado"
+                    checked={ocrModoPagina === 'personalizado'}
+                    onChange={() => setOcrModoPagina('personalizado')}
+                    className="text-cyan-500 focus:ring-0"
+                  />
+                  <span>Intervalo personalizado</span>
+                </label>
+
+                <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-300">
+                  <input
+                    type="radio"
+                    name="ocrModo"
+                    value="todas"
+                    checked={ocrModoPagina === 'todas'}
+                    onChange={() => setOcrModoPagina('todas')}
+                    className="text-cyan-500 focus:ring-0"
+                  />
+                  <span>Arquivo completo</span>
+                </label>
+
+                {ocrModoPagina === 'personalizado' && (
+                  <div className="inline-flex items-center gap-2 pl-3 border-l border-slate-800">
+                    <span className="text-slate-400">De pág:</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={9999}
+                      value={ocrPaginaInicio}
+                      onChange={e => setOcrPaginaInicio(parseInt(e.target.value) || 1)}
+                      className="w-16 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-center font-mono text-xs text-slate-200 focus:border-cyan-500 focus:outline-none"
+                    />
+                    <span className="text-slate-400">até:</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={9999}
+                      value={ocrPaginaFim}
+                      onChange={e => setOcrPaginaFim(parseInt(e.target.value) || 1)}
+                      className="w-16 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-center font-mono text-xs text-slate-200 focus:border-cyan-500 focus:outline-none"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
           )}
-        </button>
-      </form>
+        </div>
+      </div>
 
       <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-400">
         <HardDrive className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-400 shrink-0" />
         <span>
-          Busca pontual e análise local via motor Rust/CLI integrado. Nenhum arquivo original deixa a rede interna do cartório.
+          Busca pontual e análise local via motor Rust/CLI e Mammoth integrado. Nenhum arquivo original deixa a rede interna do cartório.
         </span>
       </div>
 
@@ -420,6 +805,7 @@ export function DocumentSearch() {
       )}
 
       <div aria-live="polite" className="space-y-4">
+        {/* Barra de Progresso da Busca */}
         {busy && (
           <div className="rounded-xl border border-cyan-500/50 bg-slate-900/95 p-4 shadow-xl backdrop-blur transition">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -437,7 +823,6 @@ export function DocumentSearch() {
                 </div>
               </div>
 
-              {/* Contadores da Busca */}
               <div className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-950/80 px-3.5 py-2 font-mono text-xs">
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-400 text-[11px]">Tempo decorrido:</span>
@@ -453,7 +838,6 @@ export function DocumentSearch() {
               </div>
             </div>
 
-            {/* Barra de Progresso da Busca */}
             <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-800">
               <div
                 className="h-full bg-gradient-to-r from-cyan-500 via-sky-400 to-emerald-400 transition-all duration-300 ease-out"
@@ -465,7 +849,7 @@ export function DocumentSearch() {
           </div>
         )}
 
-        {/* Card de Progresso com Contadores de Tempo Decorrido e Tempo Restante */}
+        {/* Card de Progresso de Extração / Assinaturas / Leitura */}
         {processandoAcao && (
           <div className="rounded-xl border border-cyan-500/50 bg-slate-900/95 p-4 shadow-xl backdrop-blur transition">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -477,7 +861,9 @@ export function DocumentSearch() {
                   <h4 className="text-xs font-semibold text-cyan-200">
                     {processandoAcao.tipo === 'extracao'
                       ? 'Extraindo Ficha do Oficial via CLI Rust local…'
-                      : 'Auditando assinaturas eletrônicas PAdES via CLI Rust…'}
+                      : processandoAcao.tipo === 'assinatura'
+                      ? 'Auditando assinaturas eletrônicas PAdES via CLI Rust…'
+                      : 'Carregando minuta / documento via Mammoth…'}
                   </h4>
                   <p className="text-[11px] font-mono text-slate-400 truncate max-w-md">
                     {processandoAcao.fileName}
@@ -485,7 +871,6 @@ export function DocumentSearch() {
                 </div>
               </div>
 
-              {/* Contadores em destaque */}
               <div className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-950/80 px-3.5 py-2 font-mono text-xs">
                 <div className="flex items-center gap-1.5">
                   <span className="text-slate-400 text-[11px]">Tempo decorrido:</span>
@@ -501,7 +886,6 @@ export function DocumentSearch() {
               </div>
             </div>
 
-            {/* Barra de Progresso Animada */}
             <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-800">
               <div
                 className="h-full bg-gradient-to-r from-cyan-500 via-sky-400 to-emerald-400 transition-all duration-300 ease-out"
@@ -513,6 +897,7 @@ export function DocumentSearch() {
           </div>
         )}
 
+        {/* Tabela de Resultados */}
         {job?.status === 'complete' && job.result && (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between text-xs text-slate-300 gap-2">
@@ -531,7 +916,7 @@ export function DocumentSearch() {
                 {isCacheHit && (
                   <button
                     type="button"
-                    onClick={() => search(undefined, true)}
+                    onClick={() => executeSearch(query, true)}
                     className="text-[11px] text-cyan-400 hover:text-cyan-300 underline font-semibold transition"
                   >
                     Buscar novamente no disco
@@ -551,24 +936,32 @@ export function DocumentSearch() {
                     <th className="p-3.5 sm:p-4 w-28 whitespace-nowrap">Pasta</th>
                     <th className="p-3.5 sm:p-4 w-20 whitespace-nowrap">Tamanho</th>
                     <th className="p-3.5 sm:p-4 w-28 whitespace-nowrap">Modificado</th>
-                    <th className="sticky right-0 bg-slate-950 p-3.5 sm:p-4 min-w-[260px] text-right whitespace-nowrap z-20 border-l border-slate-800 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.6)]">
+                    <th className="sticky right-0 bg-slate-950 p-3.5 sm:p-4 w-[320px] min-w-[320px] max-w-[320px] text-right whitespace-nowrap z-20 border-l border-slate-800 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.6)]">
                       Ações Documentais
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
                   {job.result.files.map(file => {
-                    const isPdf = file.name.toLowerCase().endsWith('.pdf');
+                    const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+                    const isPdf = ext === '.pdf';
+                    const isDocx = ext === '.docx' || ext === '.doc' || ext === '.rtf' || ext === '.txt';
                     const fileKey = `${file.rootId}:${file.relativePath}`;
                     const emProcessamento = processandoAcao?.id === fileKey;
                     const jaExtraido = !!getCachedExtracao(fileKey);
                     const jaAuditado = !!getCachedAssinatura(fileKey);
+                    const jaLido = !!getCachedLeitura(fileKey);
+                    const pathFoiCopiado = caminhoCopiado === file.relativePath;
 
                     return (
                       <tr key={fileKey} className="group hover:bg-slate-800/40 transition">
                         <td className="p-3.5 sm:p-4 font-medium text-slate-100">
                           <div className="flex items-start gap-2.5">
-                            <FileText className={`h-4 w-4 sm:h-5 sm:w-5 shrink-0 mt-0.5 ${isPdf ? 'text-rose-400' : 'text-slate-400'}`} />
+                            <FileText
+                              className={`h-4 w-4 sm:h-5 sm:w-5 shrink-0 mt-0.5 ${
+                                isPdf ? 'text-rose-400' : isDocx ? 'text-sky-400' : 'text-slate-400'
+                              }`}
+                            />
                             <div className="min-w-0 max-w-xs sm:max-w-md lg:max-w-lg">
                               <span className="truncate block font-semibold text-slate-100 text-xs sm:text-sm" title={file.name}>
                                 {file.name}
@@ -590,114 +983,204 @@ export function DocumentSearch() {
                         <td className="p-3.5 sm:p-4 text-slate-300 text-xs sm:text-sm whitespace-nowrap">
                           {new Date(file.modifiedAt).toLocaleDateString('pt-BR')}
                         </td>
-                        <td className="sticky right-0 bg-slate-900 group-hover:bg-slate-800 p-3.5 sm:p-4 text-right whitespace-nowrap z-10 border-l border-slate-800/80 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.6)] space-x-2">
-                          {isPdf ? (
-                            <>
-                              <div className="inline-flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  disabled={!!processandoAcao}
-                                  onClick={() => extrairPeticao(file)}
-                                  title={jaExtraido ? "Ficha em cache pronta para visualização instantânea (0ms)" : "Extrair dados estruturados e gerar Ficha de Conferência do Oficial"}
-                                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-semibold transition disabled:opacity-50 ${
-                                    jaExtraido
-                                      ? 'border-cyan-500/80 bg-cyan-950 text-cyan-200 hover:bg-cyan-900 shadow-sm'
-                                      : 'border-cyan-800/60 bg-cyan-950/60 text-cyan-300 hover:bg-cyan-900/80'
-                                  }`}
-                                >
-                                  {emProcessamento && processandoAcao?.tipo === 'extracao' ? (
-                                    <>
-                                      <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400" />
-                                      <span className="font-mono text-xs">
-                                        {formatTempoMMSS(tempoDecorrido)}
-                                        <span className="text-[10px] text-cyan-400/80 ml-1">
-                                          (restam {tempoRestante > 0 ? `~${formatTempoMMSS(tempoRestante)}` : '...'})
-                                        </span>
-                                      </span>
-                                    </>
-                                  ) : jaExtraido ? (
-                                    <>
-                                      <Zap className="h-3.5 w-3.5 text-amber-300 fill-amber-300/30" />
-                                      <span>Ver Ficha</span>
-                                      <span className="rounded bg-cyan-900/80 px-1 py-0.2 text-[9px] font-bold text-cyan-200">
-                                        0ms
-                                      </span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-                                      <span>Extrair Ficha</span>
-                                    </>
-                                  )}
-                                </button>
-                                {jaExtraido && (
-                                  <button
-                                    type="button"
-                                    disabled={!!processandoAcao}
-                                    onClick={() => extrairPeticao(file, true)}
-                                    title="Re-extrair dados do PDF no servidor do cartório (descartar cache e ler novamente)"
-                                    className="rounded-lg border border-slate-700 bg-slate-800/80 p-1.5 text-slate-400 hover:text-amber-300 hover:border-amber-500/60 hover:bg-slate-800 transition disabled:opacity-50"
-                                  >
-                                    <RotateCw className="h-3.5 w-3.5" />
-                                  </button>
-                                )}
-                              </div>
 
-                              <div className="inline-flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  disabled={!!processandoAcao}
-                                  onClick={() => analisarAssinaturas(file)}
-                                  title={jaAuditado ? "Auditoria em cache pronta para visualização instantânea (0ms)" : "Verificar assinaturas eletrônicas PAdES/ICP-Brasil"}
-                                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-semibold transition disabled:opacity-50 ${
-                                    jaAuditado
-                                      ? 'border-emerald-600/80 bg-emerald-950 text-emerald-200 hover:bg-emerald-900 shadow-sm'
-                                      : 'border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700'
-                                  }`}
-                                >
-                                  {emProcessamento && processandoAcao?.tipo === 'assinatura' ? (
-                                    <>
-                                      <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400" />
-                                      <span className="font-mono text-xs">
-                                        {formatTempoMMSS(tempoDecorrido)}
-                                        <span className="text-[10px] text-emerald-400/80 ml-1">
-                                          (restam {tempoRestante > 0 ? `~${formatTempoMMSS(tempoRestante)}` : '...'})
-                                        </span>
-                                      </span>
-                                    </>
-                                  ) : jaAuditado ? (
-                                    <>
-                                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
-                                      <span>Ver Assinaturas</span>
-                                      <span className="rounded bg-emerald-900/80 px-1 py-0.2 text-[9px] font-bold text-emerald-200">
-                                        0ms
-                                      </span>
-                                    </>
+                        {/* Coluna de Ações com Alinhamento Estrito em 2 Slots de Largura Fixa */}
+                        <td className="sticky right-0 bg-slate-900 group-hover:bg-slate-800 p-3.5 sm:p-4 text-right whitespace-nowrap z-10 border-l border-slate-800/80 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.6)] w-[320px] min-w-[320px] max-w-[320px]">
+                          <div className="flex items-center justify-end gap-2">
+                            {isPdf ? (
+                              <>
+                                {/* Slot 1: Extração de Ficha (Largura fixa exata: 145px, altura: h-8) */}
+                                <div className="w-[145px] shrink-0 flex items-center justify-end">
+                                  {jaExtraido ? (
+                                    <div className="w-full h-8 flex items-stretch rounded-lg border border-cyan-500/80 bg-cyan-950 overflow-hidden shadow-sm">
+                                      <button
+                                        type="button"
+                                        disabled={!!processandoAcao}
+                                        onClick={() => extrairPeticao(file)}
+                                        title="Ver Ficha do Oficial pronta em cache (0ms)"
+                                        className="flex-1 inline-flex items-center justify-center gap-1 px-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-900 transition disabled:opacity-50"
+                                      >
+                                        <Zap className="h-3.5 w-3.5 text-amber-300 fill-amber-300/30 shrink-0" />
+                                        <span>Ver Ficha</span>
+                                        <span className="rounded bg-cyan-900 px-1 text-[9px] font-bold text-cyan-300">0ms</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={!!processandoAcao}
+                                        onClick={() => extrairPeticao(file, true)}
+                                        title="Re-extrair dados do PDF (descartar cache e ler novamente)"
+                                        className="w-7 border-l border-cyan-700/60 flex items-center justify-center text-cyan-400 hover:bg-cyan-900 hover:text-amber-300 transition disabled:opacity-50"
+                                      >
+                                        <RotateCw className="h-3 w-3" />
+                                      </button>
+                                    </div>
                                   ) : (
-                                    <>
-                                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                                      <span>Assinaturas</span>
-                                    </>
+                                    <button
+                                      type="button"
+                                      disabled={!!processandoAcao}
+                                      onClick={() => extrairPeticao(file)}
+                                      title="Extrair dados estruturados e gerar Ficha de Conferência do Oficial"
+                                      className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-cyan-800/60 bg-cyan-950/60 px-2.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-900/80 transition disabled:opacity-50"
+                                    >
+                                      {emProcessamento && processandoAcao?.tipo === 'extracao' ? (
+                                        <>
+                                          <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400 shrink-0" />
+                                          <span className="font-mono text-xs">{formatTempoMMSS(tempoDecorrido)}</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Sparkles className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                                          <span>Extrair Ficha</span>
+                                        </>
+                                      )}
+                                    </button>
                                   )}
-                                </button>
-                                {jaAuditado && (
+                                </div>
+
+                                {/* Slot 2: Assinaturas (Largura fixa exata: 155px, altura: h-8) */}
+                                <div className="w-[155px] shrink-0 flex items-center justify-end">
+                                  {jaAuditado ? (
+                                    <div className="w-full h-8 flex items-stretch rounded-lg border border-emerald-600/80 bg-emerald-950 overflow-hidden shadow-sm">
+                                      <button
+                                        type="button"
+                                        disabled={!!processandoAcao}
+                                        onClick={() => analisarAssinaturas(file)}
+                                        title="Auditoria de assinaturas pronta em cache (0ms)"
+                                        className="flex-1 inline-flex items-center justify-center gap-1 px-2 text-xs font-semibold text-emerald-200 hover:bg-emerald-900 transition disabled:opacity-50"
+                                      >
+                                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-300 shrink-0" />
+                                        <span>Assinaturas</span>
+                                        <span className="rounded bg-emerald-900 px-1 text-[9px] font-bold text-emerald-300">0ms</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={!!processandoAcao}
+                                        onClick={() => analisarAssinaturas(file, true)}
+                                        title="Re-auditar assinaturas eletrônicas no servidor (descartar cache)"
+                                        className="w-7 border-l border-emerald-700/60 flex items-center justify-center text-emerald-400 hover:bg-emerald-900 hover:text-amber-300 transition disabled:opacity-50"
+                                      >
+                                        <RotateCw className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      disabled={!!processandoAcao}
+                                      onClick={() => analisarAssinaturas(file)}
+                                      title="Verificar assinaturas eletrônicas PAdES/ICP-Brasil"
+                                      className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition disabled:opacity-50"
+                                    >
+                                      {emProcessamento && processandoAcao?.tipo === 'assinatura' ? (
+                                        <>
+                                          <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400 shrink-0" />
+                                          <span className="font-mono text-xs">{formatTempoMMSS(tempoDecorrido)}</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                                          <span>Assinaturas</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+                              </>
+                            ) : isDocx ? (
+                              <>
+                                {/* Slot 1: Leitura do DOCX / Minuta (Largura fixa: 145px, altura: h-8) */}
+                                <div className="w-[145px] shrink-0 flex items-center justify-end">
+                                  {jaLido ? (
+                                    <div className="w-full h-8 flex items-stretch rounded-lg border border-sky-500/80 bg-sky-950 overflow-hidden shadow-sm">
+                                      <button
+                                        type="button"
+                                        disabled={!!processandoAcao}
+                                        onClick={() => visualizarDocumento(file)}
+                                        title="Visualizar minuta .docx pronta em cache (0ms)"
+                                        className="flex-1 inline-flex items-center justify-center gap-1 px-2 text-xs font-semibold text-sky-200 hover:bg-sky-900 transition disabled:opacity-50"
+                                      >
+                                        <Zap className="h-3.5 w-3.5 text-amber-300 fill-amber-300/30 shrink-0" />
+                                        <span>Ver Minuta</span>
+                                        <span className="rounded bg-sky-900 px-1 text-[9px] font-bold text-sky-300">0ms</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={!!processandoAcao}
+                                        onClick={() => visualizarDocumento(file, true)}
+                                        title="Re-ler documento do disco no servidor (descartar cache)"
+                                        className="w-7 border-l border-sky-700/60 flex items-center justify-center text-sky-400 hover:bg-sky-900 hover:text-amber-300 transition disabled:opacity-50"
+                                      >
+                                        <RotateCw className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      disabled={!!processandoAcao}
+                                      onClick={() => visualizarDocumento(file)}
+                                      title="Ler e visualizar o conteúdo da minuta .docx no navegador"
+                                      className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-600/80 bg-sky-950/80 px-2.5 text-xs font-semibold text-sky-200 hover:bg-sky-900 shadow-sm transition disabled:opacity-50"
+                                    >
+                                      {emProcessamento && processandoAcao?.tipo === 'leitura' ? (
+                                        <>
+                                          <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-400 shrink-0" />
+                                          <span className="font-mono text-xs">{formatTempoMMSS(tempoDecorrido)}</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <FileText className="h-3.5 w-3.5 text-sky-400 shrink-0" />
+                                          <span>Ler Minuta</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Slot 2: Copiar Caminho do Arquivo (Largura fixa: 155px, altura: h-8) */}
+                                <div className="w-[155px] shrink-0 flex items-center justify-end">
                                   <button
                                     type="button"
-                                    disabled={!!processandoAcao}
-                                    onClick={() => analisarAssinaturas(file, true)}
-                                    title="Re-auditar assinaturas eletrônicas no servidor do cartório (descartar cache)"
-                                    className="rounded-lg border border-slate-700 bg-slate-800/80 p-1.5 text-slate-400 hover:text-amber-300 hover:border-amber-500/60 hover:bg-slate-800 transition disabled:opacity-50"
+                                    onClick={() => copiarCaminho(file)}
+                                    title="Copiar caminho relativo do arquivo no cartório"
+                                    className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition"
                                   >
-                                    <RotateCw className="h-3.5 w-3.5" />
+                                    {pathFoiCopiado ? (
+                                      <>
+                                        <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                                        <span className="text-emerald-400 font-semibold">Copiado!</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                        <span>Copiar Caminho</span>
+                                      </>
+                                    )}
                                   </button>
-                                )}
-                              </div>
-                            </>
-                          ) : (
-                            <span className="text-[11px] text-slate-500 italic pr-2">
-                              Ações para PDF
-                            </span>
-                          )}
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="w-[145px] shrink-0 flex items-center justify-end">
+                                  <span className="text-[11px] text-slate-500 italic">Arquivo genérico</span>
+                                </div>
+                                <div className="w-[155px] shrink-0 flex items-center justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => copiarCaminho(file)}
+                                    className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2 text-xs text-slate-300 hover:bg-slate-700 transition"
+                                  >
+                                    {pathFoiCopiado ? (
+                                      <span className="text-emerald-400 font-semibold">Copiado!</span>
+                                    ) : (
+                                      <>
+                                        <Copy className="h-3.5 w-3.5 text-slate-400" />
+                                        <span>Copiar Caminho</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -734,7 +1217,19 @@ export function DocumentSearch() {
           onClose={() => setAssinaturaAberta(null)}
         />
       )}
+
+      {/* Modal Visualizador de DOCX / Minuta */}
+      {documentoAberto && (
+        <DocumentPreviewModal
+          documento={documentoAberto}
+          relativePath={documentoAbertoFile?.relativePath}
+          rootId={documentoAbertoFile?.rootId}
+          onClose={() => {
+            setDocumentoAberto(null);
+            setDocumentoAbertoFile(null);
+          }}
+        />
+      )}
     </section>
   );
 }
-

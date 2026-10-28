@@ -8,6 +8,8 @@ export interface SearchJob {
   query: string | null;
   rootId?: string | null;
   relativePath?: string | null;
+  pageStart?: number | null;
+  pageEnd?: number | null;
   status: 'queued' | 'running' | 'complete' | 'failed';
   result: Prisma.JsonValue | null;
   expiresAt: Date;
@@ -25,6 +27,8 @@ export interface CreateJobOptions {
   query?: string | null;
   rootId?: string | null;
   relativePath?: string | null;
+  pageStart?: number | null;
+  pageEnd?: number | null;
   forceFresh?: boolean;
 }
 
@@ -33,6 +37,8 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
   const query = options.query ?? null;
   const rootId = options.rootId ?? null;
   const relativePath = options.relativePath ?? null;
+  const pageStart = options.pageStart ?? null;
+  const pageEnd = options.pageEnd ?? null;
   const forceFresh = !!options.forceFresh;
 
   return prisma.$transaction(async tx => {
@@ -46,7 +52,7 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
         await tx.$executeRaw`DELETE FROM "DocumentSearchRequest"
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
             AND type = 'search' AND query = ${query}`;
-      } else if ((type === 'extract_petition' || type === 'analyze_signatures') && rootId && relativePath) {
+      } else if ((type === 'extract_petition' || type === 'analyze_signatures' || type === 'read_document_text') && rootId && relativePath) {
         await tx.$executeRaw`DELETE FROM "DocumentSearchRequest"
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
             AND type = ${type} AND "rootId" = ${rootId} AND "relativePath" = ${relativePath}`;
@@ -64,7 +70,7 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
           ORDER BY "createdAt" DESC LIMIT 1
         `;
         if (recent.length) return { id: recent[0].id, status: 'complete', result: recent[0].result, cached: true };
-      } else if ((type === 'extract_petition' || type === 'analyze_signatures') && rootId && relativePath) {
+      } else if ((type === 'extract_petition' || type === 'analyze_signatures' || type === 'read_document_text') && rootId && relativePath) {
         const recent = await tx.$queryRaw<Array<{ id: string; result: Prisma.JsonValue }>>`
           SELECT id, result FROM "DocumentSearchRequest"
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
@@ -89,8 +95,8 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
       WHERE "tenantId" = ${tenantId} AND "userId" = ${userId} AND status IN ('queued', 'running') LIMIT 1`;
     if (active.length) return null;
     const id = randomUUID();
-    await tx.$executeRaw`INSERT INTO "DocumentSearchRequest" (id, "tenantId", "userId", "connectorId", type, query, "rootId", "relativePath", "expiresAt")
-      VALUES (${id}, ${tenantId}, ${userId}, ${connectorId}, ${type}, ${query}, ${rootId}, ${relativePath}, NOW() + INTERVAL '2 minutes')`;
+    await tx.$executeRaw`INSERT INTO "DocumentSearchRequest" (id, "tenantId", "userId", "connectorId", type, query, "rootId", "relativePath", "pageStart", "pageEnd", "expiresAt")
+      VALUES (${id}, ${tenantId}, ${userId}, ${connectorId}, ${type}, ${query}, ${rootId}, ${relativePath}, ${pageStart}, ${pageEnd}, NOW() + INTERVAL '2 minutes')`;
     return { id, status: 'queued', cached: false };
   });
 }
@@ -101,19 +107,19 @@ export async function createSearch(tenantId: string, userId: string, connectorId
 }
 
 export async function readSearch(id: string, tenantId: string, userId?: string) {
-  const rows = await prisma.$queryRaw<SearchJob[]>`SELECT id, type, query, "rootId", "relativePath", status, result, "expiresAt" FROM "DocumentSearchRequest"
+  const rows = await prisma.$queryRaw<SearchJob[]>`SELECT id, type, query, "rootId", "relativePath", "pageStart", "pageEnd", status, result, "expiresAt" FROM "DocumentSearchRequest"
     WHERE id = ${id} AND "tenantId" = ${tenantId} AND "expiresAt" > NOW()`;
   return rows[0] || null;
 }
 
 export async function claimSearch(tenantId: string, connectorId: string) {
   await prisma.$executeRaw`DELETE FROM "DocumentSearchRequest" WHERE "tenantId" = ${tenantId} AND "expiresAt" <= NOW()`;
-  const rows = await prisma.$queryRaw<Array<{ id: string; type: string; query: string | null; rootId: string | null; relativePath: string | null }>>`
+  const rows = await prisma.$queryRaw<Array<{ id: string; type: string; query: string | null; rootId: string | null; relativePath: string | null; pageStart: number | null; pageEnd: number | null }>>`
     UPDATE "DocumentSearchRequest" SET status = 'running'
     WHERE id = (SELECT id FROM "DocumentSearchRequest" WHERE "tenantId" = ${tenantId}
       AND "connectorId" = ${connectorId} AND status = 'queued' AND "expiresAt" > NOW()
       ORDER BY "createdAt" FOR UPDATE SKIP LOCKED LIMIT 1)
-    RETURNING id, type, query, "rootId", "relativePath"`;
+    RETURNING id, type, query, "rootId", "relativePath", "pageStart", "pageEnd"`;
   return rows[0] || null;
 }
 

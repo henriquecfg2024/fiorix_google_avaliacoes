@@ -16,6 +16,8 @@ export const extractPetitionInput = z.object({
   type: z.literal('extract_petition'),
   rootId: z.string().regex(/^[a-z0-9_-]{1,32}$/),
   relativePath: relativePathSchema,
+  pageStart: z.number().int().min(1).max(9999).optional().nullable(),
+  pageEnd: z.number().int().min(1).max(9999).optional().nullable(),
   forceFresh: z.boolean().optional(),
 }).strict();
 
@@ -27,10 +29,19 @@ export const analyzeSignaturesInput = z.object({
   forceFresh: z.boolean().optional(),
 }).strict();
 
+export const readDocumentTextInput = z.object({
+  connectorId: z.string().min(1).max(128),
+  type: z.literal('read_document_text'),
+  rootId: z.string().regex(/^[a-z0-9_-]{1,32}$/),
+  relativePath: relativePathSchema,
+  forceFresh: z.boolean().optional(),
+}).strict();
+
 export const documentJobInput = z.union([
   searchInput,
   extractPetitionInput,
   analyzeSignaturesInput,
+  readDocumentTextInput,
 ]);
 
 export const documentResult = z.object({
@@ -47,7 +58,7 @@ export const documentResult = z.object({
 
 export const connectorMessage = z.discriminatedUnion('action', [
   z.object({ action: z.literal('claim'), connectorId: z.string().min(1).max(128) }).strict(),
-  z.object({ action: z.literal('complete'), connectorId: z.string().min(1).max(128), id: z.string().uuid(), result: z.union([documentResult, z.record(z.any()), z.array(z.any())]) }).strict(),
+  z.object({ action: z.literal('complete'), connectorId: z.string().min(1).max(128), id: z.string().uuid(), result: z.union([documentResult, z.record(z.string(), z.any()), z.array(z.any())]) }).strict(),
   z.object({ action: z.literal('fail'), connectorId: z.string().min(1).max(128), id: z.string().uuid() }).strict(),
 ]);
 
