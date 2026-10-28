@@ -297,14 +297,19 @@ Ademar Fioranelli
 
         {/* Main Content Area */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
-          {/* Quick Edit Bar */}
+          {/* Quick Edit Bar com breves explicações contextuais */}
           <div className="grid grid-cols-1 gap-3.5 rounded-xl border border-slate-700 bg-slate-950 p-4 sm:p-5 sm:grid-cols-2 lg:grid-cols-4 text-xs sm:text-sm shadow-md">
             <div>
-              <label className="text-slate-200 font-semibold block mb-1.5 text-xs sm:text-sm">Escrevente Responsável</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-slate-200 font-semibold text-xs sm:text-sm">Escrevente Responsável</label>
+                <span className="text-[10px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded">
+                  Autoria
+                </span>
+              </div>
               <select
                 value={dados.escrevente_pasta}
                 onChange={e => atualizarCampo('escrevente_pasta', e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 focus:outline-none"
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs sm:text-sm font-medium text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 focus:outline-none"
               >
                 {ESCREVENTES_USUCAPIAO.map(e => (
                   <option key={e} value={e}>
@@ -312,14 +317,22 @@ Ademar Fioranelli
                   </option>
                 ))}
               </select>
+              <p className="text-[11px] text-slate-400 mt-1.5 leading-snug">
+                Identifica o escrevente responsável pelo exame formal dos autos.
+              </p>
             </div>
 
             <div>
-              <label className="text-slate-200 font-semibold block mb-1.5 text-xs sm:text-sm">Subdistrito Territorial</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-slate-200 font-semibold text-xs sm:text-sm">Subdistrito Territorial</label>
+                <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/60 px-1.5 py-0.5 rounded">
+                  Competência
+                </span>
+              </div>
               <select
                 value={dados.subdistrito}
                 onChange={e => atualizarCampo('subdistrito', e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 focus:outline-none"
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs sm:text-sm font-medium text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 focus:outline-none"
               >
                 {SUBDISTRITOS_7RI.map(s => (
                   <option key={s.nome} value={s.nome}>
@@ -327,28 +340,47 @@ Ademar Fioranelli
                   </option>
                 ))}
               </select>
+              <p className="text-[11px] text-slate-400 mt-1.5 leading-snug">
+                Define e preenche a data de competência histórica registral.
+              </p>
             </div>
 
             <div>
-              <label className="text-slate-200 font-semibold block mb-1.5 text-xs sm:text-sm">Resultado das Buscas</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-slate-200 font-semibold text-xs sm:text-sm">Resultado das Buscas</label>
+                <span className="text-[10px] font-mono text-amber-400 bg-amber-950/60 border border-amber-800/60 px-1.5 py-0.5 rounded">
+                  Indicadores
+                </span>
+              </div>
               <select
                 value={dados.resultado_buscas}
                 onChange={e => atualizarCampo('resultado_buscas', e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 focus:outline-none"
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs sm:text-sm font-medium text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 focus:outline-none"
               >
                 <option value="NEGATIVAS">NEGATIVAS</option>
                 <option value="POSITIVAS">POSITIVAS</option>
               </select>
+              <p className="text-[11px] text-slate-400 mt-1.5 leading-snug">
+                Pesquisa no Indicador Real (SQL) e Pessoal. Altera o texto do ofício judicial.
+              </p>
             </div>
 
             <div>
-              <label className="text-slate-200 font-semibold block mb-1.5 text-xs sm:text-sm">Cartório de Encaminhamento</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-slate-200 font-semibold text-xs sm:text-sm">Cartório de Encaminhamento</label>
+                <span className="text-[10px] font-mono text-sky-400 bg-sky-950/60 border border-sky-800/60 px-1.5 py-0.5 rounded">
+                  Remessa
+                </span>
+              </div>
               <input
                 type="text"
                 value={dados.cartorio_encaminhamento}
                 onChange={e => atualizarCampo('cartorio_encaminhamento', e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 focus:outline-none"
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs sm:text-sm font-medium text-white focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 focus:outline-none"
               />
+              <p className="text-[11px] text-slate-400 mt-1.5 leading-snug">
+                Serventia indicada ao Juiz para validar a transcrição de origem.
+              </p>
             </div>
           </div>
 
