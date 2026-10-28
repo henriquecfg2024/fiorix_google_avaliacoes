@@ -165,5 +165,22 @@ describe('document search', () => {
     expect(enriched.confrontante_lado_esquerdo).toBe('com o nº 1421');
     expect(enriched.confrontante_fundos).toBe('com área municipal');
   });
+
+  it('detects and brings matricula automatically in search results', async () => {
+    const dir = await fixture();
+    const filePath = path.join(dir, 'Usucapiao 0000001-00.2099 manifestacao FICTICIA.txt');
+    await fs.writeFile(
+      filePath,
+      'Processo 0000001-00.2099\nO imóvel usucapiendo encontra-se registrado sob a Matrícula nº 123.456 em nome de PESSOA INCERTA.'
+    );
+
+    const roots = [{ id: 'usucapiao', path: dir }];
+    const result = await searchDocuments(roots, '0000001');
+
+    expect(result.files).toHaveLength(1);
+    expect(result.files[0].matricula).toBe('Matrícula nº 123.456');
+    expect(result.matriculaDetectada).toBe('Matrícula nº 123.456');
+    expect(result.matriculas).toContain('Matrícula nº 123.456');
+  });
 });
 

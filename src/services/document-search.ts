@@ -2,13 +2,27 @@ import { execFile } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import zlib from 'node:zlib';
 import mammoth from 'mammoth';
 
 const execFileAsync = promisify(execFile);
 
 export interface DocumentRoot { id: string; path: string }
-export interface DocumentMatch { rootId: string; relativePath: string; name: string; size: number; modifiedAt: string }
-export interface DocumentSearchResult { files: DocumentMatch[]; partial: boolean; unavailableRoots: string[] }
+export interface DocumentMatch {
+  rootId: string;
+  relativePath: string;
+  name: string;
+  size: number;
+  modifiedAt: string;
+  matricula?: string;
+}
+export interface DocumentSearchResult {
+  files: DocumentMatch[];
+  partial: boolean;
+  unavailableRoots: string[];
+  matriculaDetectada?: string;
+  matriculas?: string[];
+}
 const extensions = new Set(['.pdf', '.doc', '.docx', '.tif', '.tiff', '.txt', '.rtf']);
 const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
@@ -80,6 +94,74 @@ export function isAllowedDocumentApiUrl(
   return url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
 }
 
+export function extrairNumeroMatricula(textoOuNome: string): string | null {
+  if (!textoOuNome) return null;
+  const match = textoOuNome.match(/(?:matr[ií]cula|transcri[çc][ãa]o)\s*(?:n[ºo°]?)?\s*[:.\s]*([0-9.\-]+)/i);
+  if (match) {
+    const rawNum = match[1].trim().replace(/[.\-]+$/, '');
+    if (rawNum.length >= 2) {
+      const rotulo = /transcri/i.test(match[0]) ? 'Transcrição' : 'Matrícula';
+      return `${rotulo} nº ${rawNum}`;
+    }
+  }
+
+  const fileNumMatch = textoOuNome.match(/(?:^|[\\/_\-\s])0*([1-9][0-9]{2,7})(?:\.pdf|\.tif|\.tiff|\.docx?|$)/i);
+  if (fileNumMatch) {
+    const digits = fileNumMatch[1];
+    if (digits.length >= 3 && digits.length <= 7) {
+      return `Matrícula nº ${digits}`;
+    }
+  }
+
+  return null;
+}
+
+export async function detectarMatriculaEmArquivo(filePath: string): Promise<string | null> {
+  const fileName = path.basename(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+
+  const nameMatch = extrairNumeroMatricula(fileName);
+  if (nameMatch) return nameMatch;
+
+  if (ext === '.docx' || ext === '.doc') {
+    try {
+      const { value: text } = await mammoth.extractRawText({ path: filePath });
+      const docMatch = extrairNumeroMatricula(text);
+      if (docMatch) return docMatch;
+    } catch {}
+  } else if (ext === '.txt' || ext === '.rtf') {
+    try {
+      const content = await fs.readFile(filePath, 'utf8');
+      const txtMatch = extrairNumeroMatricula(content);
+      if (txtMatch) return txtMatch;
+    } catch {}
+  } else if (ext === '.pdf') {
+    try {
+      const handle = await fs.open(filePath, 'r');
+      const buf = Buffer.alloc(65536);
+      const { bytesRead } = await handle.read(buf, 0, 65536, 0);
+      await handle.close();
+      const slice = buf.subarray(0, bytesRead);
+
+      let text = slice.toString('latin1');
+      const streamRegex = /stream\r?\n([\s\S]*?)endstream/g;
+      let m;
+      let count = 0;
+      while ((m = streamRegex.exec(text)) !== null && count < 6) {
+        count++;
+        try {
+          const decomp = zlib.inflateSync(Buffer.from(m[1], 'binary')).toString('latin1');
+          text += ' ' + decomp;
+        } catch {}
+      }
+      const pdfMatch = extrairNumeroMatricula(text);
+      if (pdfMatch) return pdfMatch;
+    } catch {}
+  }
+
+  return null;
+}
+
 // No path supplied by a browser is accepted. Only locally configured roots are traversed.
 // Symlinks/junctions are skipped and each directory/file is checked against the canonical root.
 export async function searchDocuments(
@@ -97,13 +179,13 @@ export async function searchDocuments(
     catch { result.unavailableRoots.push(root.id); result.partial = true; continue; }
     const pending = [canonical];
     while (pending.length) {
-      if (Date.now() >= deadline || visited >= budget.maxEntries || result.files.length >= limit) { result.partial = true; return result; }
+      if (Date.now() >= deadline || visited >= budget.maxEntries || result.files.length >= limit) { result.partial = true; break; }
       const directory = pending.pop()!;
       try {
         if (!isWithinRoot(canonical, await fs.realpath(directory))) { result.partial = true; continue; }
         const handle = await fs.opendir(directory);
         for await (const entry of handle) {
-          if (++visited > budget.maxEntries || Date.now() >= deadline || result.files.length >= limit) { result.partial = true; return result; }
+          if (++visited > budget.maxEntries || Date.now() >= deadline || result.files.length >= limit) { result.partial = true; break; }
           if (entry.isSymbolicLink()) continue;
           const filePath = path.join(directory, entry.name);
           const info = await fs.lstat(filePath);
@@ -126,6 +208,36 @@ export async function searchDocuments(
       } catch { result.partial = true; }
     }
   }
+
+  // Enriquecer os resultados identificando matrículas vinculadas aos arquivos encontrados
+  if (result.files.length > 0) {
+    const matriculasEncontradas = new Set<string>();
+    let matriculaPrincipal: string | undefined;
+
+    const filesToInspect = result.files.slice(0, 20);
+    await Promise.all(
+      filesToInspect.map(async file => {
+        try {
+          const canonicalTarget = await resolveAuthorizedFile(roots, file.rootId, file.relativePath);
+          const mat = await detectarMatriculaEmArquivo(canonicalTarget);
+          if (mat) {
+            file.matricula = mat;
+            matriculasEncontradas.add(mat);
+            const lower = file.name.toLowerCase();
+            if (!matriculaPrincipal || lower.includes('manifestacao') || lower.includes('peticao') || lower.includes('usucapiao')) {
+              matriculaPrincipal = mat;
+            }
+          }
+        } catch {}
+      })
+    );
+
+    if (matriculasEncontradas.size > 0) {
+      result.matriculaDetectada = matriculaPrincipal || Array.from(matriculasEncontradas)[0];
+      result.matriculas = Array.from(matriculasEncontradas);
+    }
+  }
+
   return result;
 }
 
