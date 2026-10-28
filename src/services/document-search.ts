@@ -162,6 +162,87 @@ export async function detectarMatriculaEmArquivo(filePath: string): Promise<stri
   return null;
 }
 
+// Localização direta e ultrarrápida de imagens de matrículas no padrão do 7º RI (K:\IMAGENS\LV2).
+// Todas as matrículas no acervo do Livro 2 são arquivos .KEN de 8 dígitos divididos em blocos de 1.000.
+export async function checkDirectMatriculaFiles(
+  canonicalRoot: string,
+  rootId: string,
+  query: string,
+): Promise<DocumentMatch[]> {
+  const matches: DocumentMatch[] = [];
+  const numbersToTry = new Set<number>();
+
+  // 1. Extrai número completo desconsiderando pontos e traços (ex: "123.456" -> 123456, "45.890" -> 45890)
+  const fullDigits = query.replace(/[^\d]/g, '');
+  if (fullDigits.length >= 2 && fullDigits.length <= 8) {
+    numbersToTry.add(parseInt(fullDigits, 10));
+  }
+
+  // 2. Extrai sequências isoladas de 3 a 8 dígitos caso a consulta contenha outros termos
+  const digitMatches = query.match(/\b\d{3,8}\b/g);
+  if (digitMatches) {
+    for (const d of digitMatches) numbersToTry.add(parseInt(d, 10));
+  }
+
+  const seenPaths = new Set<string>();
+
+  for (const num of numbersToTry) {
+    if (isNaN(num) || num <= 0) continue;
+
+    // Padrão do 7º RI: K:\IMAGENS\LV2\00123000\00123456.KEN (sempre 8 dígitos com extensão .KEN)
+    const pad8 = String(num).padStart(8, '0');
+    const pad6 = String(num).padStart(6, '0');
+    const rawStr = String(num);
+
+    const block1000 = String(Math.floor(num / 1000) * 1000).padStart(8, '0');
+    const block10000 = String(Math.floor(num / 10000) * 10000).padStart(8, '0');
+
+    // Pastas do cartório no acervo de imagens (LV2 = Livro 2 / Registro Geral das matrículas)
+    const candidateLivros = ['LV2', 'LV3', 'LV1', ''];
+    const candidateBlocks = [block1000, block10000, ''];
+    // Matrículas em K:\IMAGENS\LV2 são estritamente arquivos .KEN
+    const candidateNames = [
+      `${pad8}.KEN`,
+      `${pad8}.ken`,
+      `${pad6}.KEN`,
+      `${rawStr}.KEN`,
+      `${pad8}.TIF`,
+      `${pad8}.tif`,
+    ];
+
+    for (const livro of candidateLivros) {
+      for (const block of candidateBlocks) {
+        for (const name of candidateNames) {
+          const rel = livro
+            ? (block ? path.join(livro, block, name) : path.join(livro, name))
+            : (block ? path.join(block, name) : name);
+
+          const lowerRel = rel.toLowerCase();
+          if (seenPaths.has(lowerRel)) continue;
+          seenPaths.add(lowerRel);
+
+          const fullPath = path.join(canonicalRoot, rel);
+          try {
+            const stat = await fs.stat(fullPath);
+            if (stat.isFile()) {
+              matches.push({
+                rootId,
+                relativePath: rel,
+                name: path.basename(rel),
+                size: stat.size,
+                modifiedAt: stat.mtime.toISOString(),
+                matricula: `Matrícula nº ${num}`,
+              });
+            }
+          } catch {}
+        }
+      }
+    }
+  }
+
+  return matches;
+}
+
 // No path supplied by a browser is accepted. Only locally configured roots are traversed.
 // Symlinks/junctions are skipped and each directory/file is checked against the canonical root.
 export async function searchDocuments(
@@ -177,6 +258,24 @@ export async function searchDocuments(
     let canonical: string;
     try { canonical = await fs.realpath(root.path); }
     catch { result.unavailableRoots.push(root.id); result.partial = true; continue; }
+
+    // 1. Busca direta ultrarrápida para matrículas .KEN (resolve K:\IMAGENS\LV2 em poucos ms)
+    try {
+      const directMatches = await checkDirectMatriculaFiles(canonical, root.id, query);
+      for (const m of directMatches) {
+        if (!result.files.some(f => f.rootId === m.rootId && f.relativePath.toLowerCase() === m.relativePath.toLowerCase())) {
+          result.files.push(m);
+        }
+      }
+    } catch {}
+
+    // Se a query for estritamente um número de matrícula e já localizamos arquivos diretos .KEN no Livro 2,
+    // evitamos varredura pesada de 50.000 diretórios na rede SMB
+    const isPureMatriculaQuery = /^(?:matr[ií]cula\s*)?[0-9.\-\s]+$/i.test(query.trim());
+    if (isPureMatriculaQuery && result.files.length > 0) {
+      continue;
+    }
+
     const pending = [canonical];
     while (pending.length) {
       if (Date.now() >= deadline || visited >= budget.maxEntries || result.files.length >= limit) { result.partial = true; break; }
@@ -218,6 +317,18 @@ export async function searchDocuments(
     await Promise.all(
       filesToInspect.map(async file => {
         try {
+          if (file.matricula) {
+            matriculasEncontradas.add(file.matricula);
+            if (!matriculaPrincipal) matriculaPrincipal = file.matricula;
+            return;
+          }
+          const nameMat = extrairNumeroMatricula(file.name);
+          if (nameMat) {
+            file.matricula = nameMat;
+            matriculasEncontradas.add(nameMat);
+            if (!matriculaPrincipal) matriculaPrincipal = nameMat;
+            return;
+          }
           const canonicalTarget = await resolveAuthorizedFile(roots, file.rootId, file.relativePath);
           const mat = await detectarMatriculaEmArquivo(canonicalTarget);
           if (mat) {
