@@ -5,6 +5,9 @@ import { NavCatalogGroup, NavCatalogItem } from './types';
  * Mantém exatamente os mesmos hrefs, labels e hierarquias da Sidebar real.
  */
 export const NAV_CATALOG_GROUPS: NavCatalogGroup[] = [
+  { id: 'documental', label: 'GESTÃO DOCUMENTAL', items: [
+    { id: 'gestao_documental', structuralRoles: ['ADMIN', 'MASTER', 'SUBSTITUTO'], label: 'Pesquisa documental', href: '/gestao-documental', groupId: 'documental', groupLabel: 'GESTÃO DOCUMENTAL', description: 'Pesquisa de arquivos locais pelo Connector' },
+  ] },
   {
     id: 'gestao',
     label: 'PRESENÇA NO GOOGLE',

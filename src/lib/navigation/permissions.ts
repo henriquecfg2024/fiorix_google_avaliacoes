@@ -16,6 +16,7 @@ export function filterNavigationByRole(
 
     for (const [key, group] of Object.entries(navigationGroups)) {
       if (key === "master" && !isMaster) continue;
+      if (key === "documental" && !["ADMIN", "MASTER", "SUBSTITUTO"].includes(role)) continue;
 
       const visibleItems = group.items.filter((item: any) => {
         if (!item.id) return false;
@@ -47,6 +48,7 @@ export function filterNavigationByRole(
   for (const [key, group] of Object.entries(navigationGroups)) {
     // MASTER: Apenas o MASTER vê o grupo 'master'
     if (key === "master" && role !== "MASTER") continue;
+    if (key === "documental" && !["ADMIN", "MASTER", "SUBSTITUTO"].includes(role)) continue;
 
     // COLABORADOR: vê 'pessoas' (Férias+Holerites) e 'trabalho' (Comunicados+MinhaIT+Trajetória)
     // Colaborador vê 'pessoas', 'trabalho' e 'operacional' (filtrado para Rastreio e Impressões)

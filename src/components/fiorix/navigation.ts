@@ -26,6 +26,11 @@ import {
 } from "lucide-react";
 
 export const navigationGroups = {
+  documental: {
+    label: "GESTÃO DOCUMENTAL",
+    icon: FileText,
+    items: [{ id: "gestao_documental", label: "Pesquisa documental", href: "/gestao-documental", icon: FileText }],
+  },
   gestao: {
     label: "PRESENÇA NO GOOGLE",
     icon: PieChart,

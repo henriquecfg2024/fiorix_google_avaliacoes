@@ -8,6 +8,7 @@ export const authConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const isOnDashboard = nextUrl.pathname.startsWith('/dashboard') ||
+        nextUrl.pathname.startsWith('/gestao-documental') ||
         nextUrl.pathname.startsWith('/avaliacoes') ||
         nextUrl.pathname.startsWith('/estatisticas') ||
         nextUrl.pathname.startsWith('/relatorios') ||
@@ -28,6 +29,10 @@ export const authConfig = {
       if (isOnDashboard) {
         if (!isLoggedIn) return false;
         const role = auth.user.role || 'USER';
+
+        if (nextUrl.pathname.startsWith('/gestao-documental') && !['ADMIN', 'MASTER', 'SUBSTITUTO'].includes(role)) {
+          return Response.redirect(new URL('/dashboard', nextUrl));
+        }
 
         // MASTER tem acesso irrestrito
         if (role === 'MASTER') return true;
@@ -74,6 +79,7 @@ export const authConfig = {
         // Regras para perfil SUBSTITUTO: governança de ITs, operacional, BI, espaço pessoal e gestão de pessoas/comunicados
         if (role === 'SUBSTITUTO') {
           if (
+            nextUrl.pathname.startsWith('/gestao-documental') ||
             nextUrl.pathname.startsWith('/pessoas') ||
             nextUrl.pathname.startsWith('/sistema/pessoas') ||
             nextUrl.pathname === '/minha-conta' ||
