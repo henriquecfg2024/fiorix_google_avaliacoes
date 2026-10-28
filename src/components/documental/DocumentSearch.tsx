@@ -23,8 +23,26 @@ import { AssinaturasModal, AnaliseAssinaturaPdf } from './AssinaturasModal';
 import { DocumentPreviewModal, DocumentTextResult } from './DocumentPreviewModal';
 
 interface Connector { id: string; name: string; lastSeenAt: string | null }
-interface Match { rootId: string; relativePath: string; name: string; size: number; modifiedAt: string }
-interface SearchState { id: string; status: string; expiresAt: string; result: { files: Match[]; partial: boolean; unavailableRoots: string[] } | null }
+interface Match {
+  rootId: string;
+  relativePath: string;
+  name: string;
+  size: number;
+  modifiedAt: string;
+  matricula?: string;
+}
+interface SearchState {
+  id: string;
+  status: string;
+  expiresAt: string;
+  result: {
+    files: Match[];
+    partial: boolean;
+    unavailableRoots: string[];
+    matriculaDetectada?: string;
+    matriculas?: string[];
+  } | null;
+}
 
 export function DocumentSearch() {
   const [connectors, setConnectors] = useState<Connector[]>([]);
@@ -312,6 +330,15 @@ export function DocumentSearch() {
     const combinedQuery = termos.join(' ');
     setQuery(combinedQuery);
     executeSearch(combinedQuery);
+  }
+
+  function buscarMatriculaNoLivro2(termoMatricula: string) {
+    const numeros = termoMatricula.replace(/[^\d]/g, '');
+    const queryBusca = numeros && numeros.length >= 2 ? numeros : termoMatricula.trim();
+    if (!queryBusca || queryBusca.length < 2) return;
+    setQuery(queryBusca);
+    setSearchMode('simples');
+    executeSearch(queryBusca);
   }
 
   async function extrairPeticao(file: Match, forceFresh = false) {
@@ -928,6 +955,66 @@ export function DocumentSearch() {
               </div>
             </div>
 
+            {/* Destaque da Matrícula Vinculada aos Autos */}
+            {(() => {
+              const matriculaProcesso =
+                job.result.matriculaDetectada ||
+                job.result.files.find(f => f.matricula)?.matricula ||
+                job.result.files
+                  .map(f => getCachedExtracao(`${f.rootId}:${f.relativePath}`)?.matricula_transcricao)
+                  .find(Boolean);
+
+              const arquivoOrigemMatricula =
+                job.result.files.find(f => f.matricula)?.name ||
+                job.result.files.find(f => getCachedExtracao(`${f.rootId}:${f.relativePath}`)?.matricula_transcricao)?.name;
+
+              if (!matriculaProcesso) return null;
+
+              return (
+                <div className="rounded-xl border border-sky-500/60 bg-gradient-to-r from-sky-950/90 via-slate-900/95 to-slate-950/95 p-4 shadow-xl backdrop-blur">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/20 text-sky-400 border border-sky-400/40 shrink-0 shadow-inner">
+                        <FileText className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-md bg-sky-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-300 border border-sky-500/40">
+                            Matrícula do Processo Identificada
+                          </span>
+                          {arquivoOrigemMatricula && (
+                            <span className="text-[11px] text-slate-400">
+                              Origem: <strong className="text-slate-200">{arquivoOrigemMatricula}</strong>
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap items-baseline gap-2">
+                          <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                            {matriculaProcesso}
+                          </h3>
+                          <span className="text-xs text-sky-300/80 font-mono">
+                            (Livro 2 – Registro Geral)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => buscarMatriculaNoLivro2(matriculaProcesso)}
+                        title="Buscar imagem digitalizada da matrícula em K:\IMAGENS\LV2"
+                        className="inline-flex items-center gap-2 rounded-lg border border-sky-400 bg-sky-600 hover:bg-sky-500 px-3.5 py-2 text-xs sm:text-sm font-bold text-white shadow-lg transition"
+                      >
+                        <Search className="h-4 w-4" />
+                        <span>Localizar Imagem no Livro 2 (K:\IMAGENS\LV2)</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60 shadow">
               <table className="w-full text-left text-xs sm:text-sm border-collapse">
                 <thead className="bg-slate-950/90 text-slate-300 font-semibold border-b border-slate-800">
@@ -969,6 +1056,33 @@ export function DocumentSearch() {
                               <span className="truncate block font-mono text-[11px] text-slate-400 mt-0.5" title={file.relativePath}>
                                 {file.relativePath}
                               </span>
+
+                              {(() => {
+                                const fileMatricula =
+                                  file.matricula ||
+                                  getCachedExtracao(fileKey)?.matricula_transcricao ||
+                                  (file.name.match(/(?:matr[ií]cula|transcri[çc][ãa]o)\s*(?:n[ºo°]?)?\s*([0-9.\-]+)/i)?.[0]);
+
+                                if (!fileMatricula) return null;
+
+                                return (
+                                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                                    <span className="inline-flex items-center gap-1 rounded bg-sky-950/90 border border-sky-600/70 px-2 py-0.5 text-[11px] font-semibold text-sky-200 shadow-sm">
+                                      <FileText className="h-3 w-3 text-sky-400 shrink-0" />
+                                      <span>{fileMatricula}</span>
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => buscarMatriculaNoLivro2(fileMatricula)}
+                                      className="inline-flex items-center gap-1 text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline transition"
+                                      title="Pesquisar imagem desta matrícula em K:\IMAGENS\LV2"
+                                    >
+                                      <Search className="h-3 w-3 text-cyan-400" />
+                                      <span>Localizar no Livro 2 (K:)</span>
+                                    </button>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </div>
                         </td>

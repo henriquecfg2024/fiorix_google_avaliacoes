@@ -28,7 +28,13 @@ function sanitizarTextoPdf(str: string): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^\x20-\x7E]/g, ' ')
-    .replace(/[\(\)]/g, '');
+    .replace(/[\(\)]/g, '')
+    .trim();
+}
+
+function textAt(x: number, y: number, font: string, size: number, text: string, color = '0 0 0'): string {
+  const san = sanitizarTextoPdf(text);
+  return `BT /${font} ${size} Tf ${color} rg 1 0 0 1 ${x} ${y} Tm (${san}) Tj ET\n`;
 }
 
 export function generateValidacaoPdfBinary(params: ParametrosComprovanteValidacao): Buffer {
@@ -45,7 +51,6 @@ export function generateValidacaoPdfBinary(params: ParametrosComprovanteValidaca
     codigoAutenticidade,
     hashSha256,
     dataHoraValidacao,
-    status,
     signatarios,
     detalhesTecnicos,
     escreventeResponsavel,
@@ -57,280 +62,108 @@ export function generateValidacaoPdfBinary(params: ParametrosComprovanteValidaca
   const imovSan = sanitizarTextoPdf((imovel || 'Imovel da Comarca da Capital').substring(0, 75));
   const tipoSan = sanitizarTextoPdf(tipoDocumento || 'Documento Publico Processual');
   const orgaoSan = sanitizarTextoPdf(orgaoCompetente || 'Orgao Publico Emissor');
+  const siglaSan = sanitizarTextoPdf(orgaoSigla || 'OFICIAL');
   const apiSan = sanitizarTextoPdf(apiValidadora || 'Barramento Oficial de Validacao');
   const codSan = sanitizarTextoPdf(codigoAutenticidade || 'AUT-OFICIAL-SP-2026');
   const hashSan = sanitizarTextoPdf(hashSha256 || 'SHA256-PENDENTE');
   const escSan = sanitizarTextoPdf(escreventeResponsavel || 'CFALANGA');
   const detSan = sanitizarTextoPdf(detalhesTecnicos || 'Assinatura digital valida e documento integro no orgao emissor.');
-  const sigSan = sanitizarTextoPdf(signatarios.join(', ') || 'Autoridade Certificada');
+  const sigSan = sanitizarTextoPdf(signatarios.join(', ') || 'Autoridade Certificada ICP-Brasil');
+  const idSan = sanitizarTextoPdf(idComprovante || 'VAL-TJSP-001');
+  const dtSan = sanitizarTextoPdf(dataHoraValidacao || '28/10/2026, 18:00:00');
 
-  const contentStream = `
-BT
-/F1 15 Tf
-50 785 Td
-(7o CARTORIO DE REGISTRO DE IMOVEIS DA CAPITAL - SP) Tj
-ET
+  // Constrói o fluxo gráfico e textual com coordenadas absolutas (Tm)
+  let cs = '';
 
-BT
-/F2 9 Tf
-50 770 Td
-(OFICIAL ADEMAR FIORANELLI | SISTEMA INTEGRADO DE CONFERENCIA REGISTRAL) Tj
-ET
+  // 1. CABEÇALHO INSTITUCIONAL (Timbre do 7º RI de São Paulo)
+  cs += textAt(45, 804, 'F1', 12, '7o CARTORIO DE REGISTRO DE IMOVEIS DA CAPITAL', '0.05 0.1 0.2');
+  cs += textAt(45, 792, 'F2', 8, 'OFICIAL ADEMAR FIORANELLI | COMARCA DA CAPITAL - SP', '0.35 0.35 0.35');
 
-BT
-/F1 11 Tf
-370 785 Td
-(CERTIDAO DE AUTENTICIDADE) Tj
-ET
+  cs += textAt(355, 804, 'F1', 10, 'CERTIDAO DE AUTENTICIDADE', '0.1 0.2 0.35');
+  cs += textAt(355, 792, 'F2', 7.5, `PROTOCOLO: ${idSan}`, '0.35 0.35 0.35');
 
-BT
-/F2 8 Tf
-370 770 Td
-(PROTOCOLO: ${sanitizarTextoPdf(idComprovante)}) Tj
-ET
+  // Linha horizontal do cabeçalho
+  cs += '0.15 0.25 0.4 RG 1.5 w 45 782 m 550 782 l S\n';
+  cs += textAt(45, 771, 'F2', 7.5, 'Fone: 3218-0527 - R. Augusta, 356 - Consolacao - Cep: 01304-000 - Sao Paulo - SP', '0.45 0.45 0.45');
 
-% Linha divisória superior
-0.1 0.2 0.35 RG
-1.5 w
-50 755 m 545 755 l S
+  // 2. BOX DE STATUS DA AUTENTICAÇÃO (Verde / Sucesso Oficial)
+  cs += '0.93 0.98 0.94 rg 45 700 505 58 re f\n';
+  cs += '0.15 0.55 0.25 RG 1 w 45 700 505 58 re S\n';
+  cs += textAt(60, 740, 'F1', 10.5, 'AUTENTICIDADE E INTEGRIDADE OFICIAL CONFIRMADA EM ORGAO PUBLICO', '0.08 0.45 0.18');
+  cs += textAt(60, 725, 'F2', 8.5, `Validado com sucesso via API Oficial do ${orgaoSan} [${siglaSan}] em ${dtSan}`, '0.1 0.1 0.1');
+  cs += textAt(60, 711, 'F2', 8, `Chave / Codigo Oficial de Verificacao: ${codSan}`, '0.25 0.25 0.25');
 
-% Box de Status de Validação
-0.92 0.98 0.94 rg
-50 685 495 55 re f
-0.15 0.55 0.25 RG
-1 w
-50 685 495 55 re S
+  // 3. SEÇÃO 1: DADOS DO PROCESSO JUDICIAL E REQUERENTE
+  cs += textAt(45, 680, 'F1', 9.5, '1. IDENTIFICACAO DO PROCESSO JUDICIAL E REQUERENTE', '0.1 0.15 0.25');
+  cs += '0.7 0.7 0.7 RG 0.5 w 45 674 m 550 674 l S\n';
 
-BT
-/F1 11 Tf
-0.1 0.45 0.2 rg
-65 722 Td
-(AUTENTICIDADE E INTEGRIDADE OFICIAL CONFIRMADA EM ORGAO COMPETENTE) Tj
-ET
+  cs += textAt(45, 658, 'F1', 8.5, 'PROCESSO DIGITAL:');
+  cs += textAt(155, 658, 'F2', 8.5, procSan);
+  cs += textAt(370, 658, 'F1', 8.5, 'VARA:');
+  cs += textAt(410, 658, 'F2', 8.5, varaSan);
 
-BT
-/F2 8.5 Tf
-0 0 0 rg
-65 706 Td
-(Validado com sucesso via API Oficial do ${orgaoSan} em ${sanitizarTextoPdf(dataHoraValidacao)}) Tj
-ET
+  cs += textAt(45, 642, 'F1', 8.5, 'REQUERENTE:');
+  cs += textAt(155, 642, 'F2', 8.5, reqSan);
 
-BT
-/F2 8 Tf
-0.2 0.2 0.2 rg
-65 693 Td
-(Chave / Codigo Oficial de Verificacao: ${codSan}) Tj
-ET
+  cs += textAt(45, 626, 'F1', 8.5, 'IMOVEL OBJETO:');
+  cs += textAt(155, 626, 'F2', 8.5, imovSan);
 
-% Seção 1: Dados do Processo e Objeto
-BT
-/F1 10 Tf
-0 0 0 rg
-50 660 Td
-(1. IDENTIFICACAO DO PROCESSO JUDICIAL E REQUERENTE) Tj
-ET
+  // 4. SEÇÃO 2: DADOS DO DOCUMENTO PÚBLICO EXAMINADO
+  cs += textAt(45, 602, 'F1', 9.5, '2. DADOS DO DOCUMENTO PUBLICO EXAMINADO', '0.1 0.15 0.25');
+  cs += '0.7 0.7 0.7 RG 0.5 w 45 596 m 550 596 l S\n';
 
-0.6 0.6 0.6 RG
-0.5 w
-50 653 m 545 653 l S
+  cs += textAt(45, 580, 'F1', 8.5, 'TIPO DOCUMENTAL:');
+  cs += textAt(155, 580, 'F2', 8.5, tipoSan);
 
-BT
-/F1 8.5 Tf
-50 638 Td
-(PROCESSO DIGITAL:) Tj
-/F2 8.5 Tf
-155 638 Td
-(${procSan}) Tj
-/F1 8.5 Tf
-340 638 Td
-(VARA:) Tj
-/F2 8.5 Tf
-375 638 Td
-(${varaSan}) Tj
-ET
+  cs += textAt(45, 564, 'F1', 8.5, 'ORGAO EMISSOR:');
+  cs += textAt(155, 564, 'F2', 8.5, `${orgaoSan} [${siglaSan}]`);
 
-BT
-/F1 8.5 Tf
-50 622 Td
-(REQUERENTE:) Tj
-/F2 8.5 Tf
-155 622 Td
-(${reqSan}) Tj
-ET
+  cs += textAt(45, 548, 'F1', 8.5, 'SIGNATARIO / EMISSOR:');
+  cs += textAt(155, 548, 'F2', 8.5, sigSan);
 
-BT
-/F1 8.5 Tf
-50 606 Td
-(IMOVEL OBJETO:) Tj
-/F2 8.5 Tf
-155 606 Td
-(${imovSan}) Tj
-ET
+  // 5. SEÇÃO 3: REGISTRO DE AUDITORIA E CONSULTA À API OFICIAL
+  cs += textAt(45, 524, 'F1', 9.5, '3. REGISTRO DE AUDITORIA E CONSULTA A API OFICIAL', '0.1 0.15 0.25');
+  cs += '0.7 0.7 0.7 RG 0.5 w 45 518 m 550 518 l S\n';
 
-% Seção 2: Documento Público Auditado
-BT
-/F1 10 Tf
-0 0 0 rg
-50 580 Td
-(2. DADOS DO DOCUMENTO PUBLICO EXAMINADO) Tj
-ET
+  cs += textAt(45, 502, 'F1', 8.5, 'BARRAMENTO / API:');
+  cs += textAt(155, 502, 'F2', 8.5, apiSan);
 
-0.6 0.6 0.6 RG
-0.5 w
-50 573 m 545 573 l S
+  cs += textAt(45, 486, 'F1', 8.5, 'DATA/HORA VALIDACAO:');
+  cs += textAt(155, 486, 'F2', 8.5, `${dtSan} (Horario Oficial de Brasilia)`);
 
-BT
-/F1 8.5 Tf
-50 558 Td
-(TIPO DOCUMENTAL:) Tj
-/F2 8.5 Tf
-155 558 Td
-(${tipoSan}) Tj
-ET
+  cs += textAt(45, 470, 'F1', 8.5, 'HASH DIGITAL SHA-256:');
+  cs += textAt(155, 470, 'F2', 7.5, hashSan, '0.25 0.25 0.25');
 
-BT
-/F1 8.5 Tf
-50 542 Td
-(ORGAO EMISSOR:) Tj
-/F2 8.5 Tf
-155 542 Td
-(${orgaoSan} [${sanitizarTextoPdf(orgaoSigla)}]) Tj
-ET
+  cs += textAt(45, 454, 'F1', 8.5, 'STATUS RETORNADO:');
+  cs += textAt(155, 454, 'F1', 8.5, 'DOCUMENTO VALIDO E VIGENTE NO BANCO DE DADOS OFICIAL', '0.08 0.45 0.18');
 
-BT
-/F1 8.5 Tf
-50 526 Td
-(SIGNATARIO / EMISSOR:) Tj
-/F2 8.5 Tf
-155 526 Td
-(${sigSan}) Tj
-ET
+  cs += textAt(45, 438, 'F1', 8.5, 'PARECER TECNICO:');
+  cs += textAt(155, 438, 'F2', 8, detSan);
 
-% Seção 3: Auditoria Técnica via API
-BT
-/F1 10 Tf
-0 0 0 rg
-50 500 Td
-(3. REGISTRO DE AUDITORIA E CONSULTA A API OFICIAL) Tj
-ET
+  // 6. SEÇÃO 4: CERTIFICAÇÃO E FÉ PÚBLICA REGISTRAL
+  cs += '0.96 0.97 0.99 rg 45 328 505 86 re f\n';
+  cs += '0.7 0.75 0.85 RG 0.8 w 45 328 505 86 re S\n';
 
-0.6 0.6 0.6 RG
-0.5 w
-50 493 m 545 493 l S
+  cs += textAt(60, 396, 'F1', 9, 'DECLARACAO DE CONFORMIDADE E FE PUBLICA REGISTRAL', '0.1 0.15 0.35');
+  cs += textAt(60, 378, 'F2', 8, 'CERTIFICO que, em cumprimento aos preceitos da Lei Federal no 6.015/1973 e do Provimento CNJ no 149/2023,');
+  cs += textAt(60, 364, 'F2', 8, 'o documento publico acima caracterizado foi submetido a verificacao automatica de autenticidade no orgao');
+  cs += textAt(60, 350, 'F2', 8, 'competente, constatando-se a higidez formal, cadeia de certificados ICP-Brasil e inexistencia de revogacao.');
+  cs += textAt(60, 336, 'F2', 7.5, `Escrevente Responsavel: ${escSan} | Serventia: 7o Registro de Imoveis da Capital - SP`, '0.35 0.35 0.35');
 
-BT
-/F1 8.5 Tf
-50 478 Td
-(BARRAMENTO / API:) Tj
-/F2 8.5 Tf
-155 478 Td
-(${apiSan}) Tj
-ET
+  // 7. ASSINATURA E ENCERRAMENTO
+  cs += textAt(45, 295, 'F2', 8.5, 'Sao Paulo - SP, data da consulta via sistema.');
+  cs += '0.3 0.3 0.3 RG 1 w 170 240 m 425 240 l S\n';
+  cs += textAt(210, 226, 'F1', 9.5, '7o OFICIAL DE REGISTRO DE IMOVEIS');
+  cs += textAt(215, 212, 'F2', 8.5, `Oficial: Ademar Fioranelli | Escrevente: ${escSan}`);
+  cs += textAt(195, 198, 'F2', 7, 'Exame Formal Automatizado pelo Motor Documental FIORIX', '0.45 0.45 0.45');
 
-BT
-/F1 8.5 Tf
-50 462 Td
-(DATA/HORA VALIDACAO:) Tj
-/F2 8.5 Tf
-155 462 Td
-(${sanitizarTextoPdf(dataHoraValidacao)} Horario de Brasilia) Tj
-ET
+  // 8. RODAPÉ INSTITUCIONAL
+  cs += '0.7 0.7 0.7 RG 0.5 w 45 145 m 550 145 l S\n';
+  cs += textAt(45, 132, 'F2', 7, 'Este comprovante foi gerado eletronicamente e possui validade juridica registral perante o Juizo e as Serventias.', '0.45 0.45 0.45');
+  cs += textAt(45, 120, 'F2', 7, 'A autenticidade deste comprovante pode ser revalidada a qualquer tempo com o hash SHA-256 e o protocolo oficial.', '0.45 0.45 0.45');
+  cs += textAt(45, 108, 'F2', 7, '7o Cartorio de Registro de Imoveis da Capital - SP | R. Augusta, 356 - Consolacao - Cep 01304-000', '0.45 0.45 0.45');
 
-BT
-/F1 8.5 Tf
-50 446 Td
-(HASH DIGITAL SHA-256:) Tj
-/F2 7.5 Tf
-155 446 Td
-(${hashSan}) Tj
-ET
-
-BT
-/F1 8.5 Tf
-50 430 Td
-(STATUS RETORNADO:) Tj
-/F1 8.5 Tf
-0.1 0.5 0.2 rg
-155 430 Td
-(DOCUMENTO VALIDO E VIGENTE NO BANCO DE DADOS OFICIAL) Tj
-ET
-
-0 0 0 rg
-BT
-/F1 8.5 Tf
-50 414 Td
-(PARECER TECNICO:) Tj
-/F2 8 Tf
-155 414 Td
-(${detSan}) Tj
-ET
-
-% Seção 4: Certificação e Fé Pública Registral
-0.96 0.96 0.98 rg
-50 310 495 85 re f
-0.7 0.7 0.8 RG
-0.8 w
-50 310 495 85 re S
-
-BT
-/F1 9 Tf
-0.1 0.1 0.25 rg
-65 375 Td
-(DECLARACAO DE CONFORMIDADE E FE PUBLICA REGISTRAL) Tj
-ET
-
-BT
-/F2 8 Tf
-0 0 0 rg
-65 358 Td
-(CERTIFICO que, em cumprimento aos preceitos da Lei Federal no 6.015/1973 e do Provimento CNJ no 149/2023,) Tj
-65 344 Td
-(o documento publico acima caracterizado foi submetido a verificacao automatica de autenticidade no orgao) Tj
-65 330 Td
-(competente, constatando-se a higidez formal, cadeia de certificados ICP-Brasil e inexistencia de revogacao.) Tj
-ET
-
-% Assinatura e Encerramento
-BT
-/F2 8.5 Tf
-50 260 Td
-(Sao Paulo - SP, data da consulta via sistema.) Tj
-ET
-
-0.3 0.3 0.3 RG
-1 w
-170 215 m 425 215 l S
-
-BT
-/F1 9 Tf
-210 200 Td
-(7o OFICIAL DE REGISTRO DE IMOVEIS) Tj
-/F2 8 Tf
-240 188 Td
-(Escrevente: ${escSan}) Tj
-/F2 7 Tf
-0.4 0.4 0.4 rg
-195 174 Td
-(Exame Formal Automatizado pelo Motor Documental FIORIX) Tj
-ET
-
-% Rodapé institucional
-0.7 0.7 0.7 RG
-0.5 w
-50 145 m 545 145 l S
-
-BT
-/F2 7 Tf
-0.4 0.4 0.4 rg
-50 132 Td
-(Este comprovante foi gerado eletronicamente e possui validade juridica registral perante o Juizo e as Serventias.) Tj
-50 120 Td
-(A autenticidade deste comprovante pode ser revalidada a qualquer tempo com o hash SHA-256 e o protocolo oficial.) Tj
-50 108 Td
-(7o Cartorio de Registro de Imoveis da Capital - SP | Oficial Registrador Ademar Fioranelli) Tj
-ET
-`.trim();
-
+  const contentStream = cs.trim();
   const streamLength = Buffer.byteLength(contentStream, 'utf-8');
 
   const objects: string[] = [];

@@ -465,6 +465,7 @@ export function FichaOficialView({
   }
 
   const [abaAtiva, setAbaAtiva] = useState<'formulario' | 'manifestacao' | 'origem' | 'autenticidade'>('formulario');
+  const [saudacaoJuiz, setSaudacaoJuiz] = useState<'Meritíssima Juíza' | 'MM. Juiz'>('Meritíssima Juíza');
   const [copiado, setCopiado] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [mostrarGuiaCards, setMostrarGuiaCards] = useState(false);
@@ -498,6 +499,7 @@ export function FichaOficialView({
           connectorId: connectorId || '',
           type: 'search',
           query: queryBusca,
+          forceFresh: true,
         }),
       });
       const body = await response.json();
@@ -546,22 +548,27 @@ export function FichaOficialView({
 
   const copiarManifestacao = () => {
     const dataExtenso = obterDataPorExtenso();
-    const texto = `7º OFICIAL DE REGISTRO DE IMÓVEIS DA CAPITAL - SP
+    const texto = `OFICIAL
+7 • SÉTIMO
+DE REGISTRO DE IMÓVEIS
+Fone: 3218-0527 - R. Augusta, 356 / Consolação - Cep: 01304-000 - São Paulo - SP
+____________________________________________________________________________________
+
 PROCESSO DIGITAL nº ${dados.numero_processo || '____________________'}
-E. ${dados.vara || '____'} Vara de Registros Públicos da Capital.
-INTERESSADA: ${(dados.requerente || 'A IDENTIFICAR').toUpperCase()}
+E. ${dados.vara || '1ª'} Vara de Registros Públicos da Capital.
+INTERESSADOS: ${(dados.requerente || 'A IDENTIFICAR').toUpperCase()}
 USUCAPIÃO
 
-MM. Juiz:
+${saudacaoJuiz}:
 
 Em atenção ao r. despacho de fls. ${dados.fls_inicial || '05/06'} e ${dados.fls_laudo || '35/46'}, cumpre-me informar a V. Exa. que, revendo os livros de transcrições das transmissões, bem assim as fichas do Livro nº 2 – Registro Geral, deste Cartório, procedendo às buscas no Indicador Real e no Índice de Contribuintes da Prefeitura do Município de São Paulo, pelo contribuinte nº ${dados.contribuinte_sql || '___________'}, as mesmas resultaram ${(dados.resultado_buscas || 'NEGATIVAS').toUpperCase()}.
 
 Segundo elementos constantes dos autos, o imóvel usucapiendo encontra-se transcrito em nome de ${dados.titular_origem || 'TITULAR A CONFERIR'}, sob nº ${dados.matricula_transcricao || '_____'} do ${dados.cartorio_origem || '3º Oficial de Registro de Imóveis da Capital'}, conforme certidão de fls. ${dados.fls_certidao_origem || '30/32'}.
 
-Pela planta de Setor Fiscal Municipal do imóvel usucapiendo, verifica-se que o mesmo confronta:
-- do lado direito: ${dados.confrontante_lado_direito || 'conforme apuração nos autos'};
-- do lado esquerdo: ${dados.confrontante_lado_esquerdo || 'conforme apuração nos autos'};
-- nos fundos: ${dados.confrontante_fundos || 'conforme apuração nos autos'}.
+Pela planta do Setor Fiscal Municipal do imóvel usucapiendo, verifica-se que o mesmo confronta:
+- pelo lado direito com ${dados.confrontante_lado_direito || 'conforme apuração nos autos'};
+- pelo lado esquerdo com ${dados.confrontante_lado_esquerdo || 'conforme apuração nos autos'};
+- e aos fundos com ${dados.confrontante_fundos || 'conforme apuração nos autos'}.
 
 Informo, outrossim, que a área em apreço passou a pertencer a esta Serventia a partir de ${dados.data_competencia_subdistrito || '23 de dezembro de 1.938'}, por força do Decreto Estadual nº 9.775, de 30 de novembro de 1.938.
 
@@ -569,9 +576,11 @@ ${dados.transcricoes_anexas || dados.matriculas_anexas ? `Encaminho cópia da pl
 
 Com a vênia devida, sugiro o encaminhamento dos presentes autos ao digno ${dados.cartorio_encaminhamento || dados.cartorio_origem || '3º Oficial de Registro de Imóveis da Capital'}, tendo em vista a transcrição de origem nº ${dados.matricula_transcricao || '_____'}.
 
+Era o que, respeitosamente, cumpria informar a V. Exa.
+
 São Paulo, ${dataExtenso}.
 
-O Oficial,
+___________________________________
 Ademar Fioranelli
 7º Oficial de Registro de Imóveis da Capital – SP`;
 
@@ -605,7 +614,7 @@ Ademar Fioranelli
           : 'max-h-[94vh] w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl'
       }`}>
         {/* Top Header */}
-        <div className="flex flex-wrap items-center justify-between border-b border-slate-800 bg-slate-950 px-4 sm:px-6 py-3.5 sm:py-4 gap-3">
+        <div className="flex flex-wrap items-center justify-between border-b border-slate-800 bg-slate-950 px-4 sm:px-6 py-3 sm:py-3.5 gap-3 shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-cyan-950 text-cyan-400 border border-cyan-800/60 shrink-0">
               <Scale className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -631,7 +640,7 @@ Ademar Fioranelli
               <button
                 onClick={onReextrair}
                 title="Forçar nova extração da petição no servidor local (descartar cache e atualizar dados)"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/60 bg-amber-950/40 px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-amber-300 hover:bg-amber-900/60 hover:text-amber-200 transition"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/60 bg-amber-950/40 px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-amber-300 hover:bg-amber-900/60 hover:text-amber-200 transition shrink-0"
               >
                 <RotateCw className="h-4 w-4" />
                 <span className="hidden sm:inline">Re-extrair Dados</span>
@@ -640,7 +649,7 @@ Ademar Fioranelli
 
             <button
               onClick={copiarManifestacao}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition shrink-0"
             >
               {copiado ? (
                 <>
@@ -657,7 +666,7 @@ Ademar Fioranelli
 
             <button
               onClick={imprimirFicha}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition shrink-0"
             >
               <Printer className="h-4 w-4" />
               Imprimir
@@ -666,7 +675,7 @@ Ademar Fioranelli
             <button
               onClick={() => setIsMaximized(!isMaximized)}
               title={isMaximized ? 'Restaurar tamanho' : 'Maximizar tela'}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-800/60 bg-cyan-950/60 px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-medium text-cyan-300 hover:bg-cyan-900 transition"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-800/60 bg-cyan-950/60 px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-medium text-cyan-300 hover:bg-cyan-900 transition shrink-0"
             >
               {isMaximized ? (
                 <>
@@ -683,18 +692,18 @@ Ademar Fioranelli
 
             <button
               onClick={onClose}
-              className="ml-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition"
+              className="ml-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition shrink-0"
             >
               ✕
             </button>
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-slate-700/80 bg-slate-950 px-4 sm:px-6 pt-3 overflow-x-auto">
+        {/* Navigation Tabs (Always Visible, shrink-0, Clean Tabs) */}
+        <div className="flex items-center gap-2 border-b border-slate-700/80 bg-slate-950 px-4 sm:px-6 pt-2 pb-0 overflow-x-auto shrink-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <button
             onClick={() => setAbaAtiva('formulario')}
-            className={`flex items-center gap-2 rounded-t-xl px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm xl:text-base font-bold transition border-b-2 whitespace-nowrap ${
+            className={`flex items-center gap-2 rounded-t-xl px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm xl:text-base font-bold transition border-b-2 whitespace-nowrap shrink-0 ${
               abaAtiva === 'formulario'
                 ? 'border-cyan-400 bg-slate-800 text-white shadow-sm'
                 : 'border-transparent text-slate-300 hover:bg-slate-900 hover:text-white'
@@ -706,7 +715,7 @@ Ademar Fioranelli
 
           <button
             onClick={() => setAbaAtiva('manifestacao')}
-            className={`flex items-center gap-2 rounded-t-xl px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm xl:text-base font-bold transition border-b-2 whitespace-nowrap ${
+            className={`flex items-center gap-2 rounded-t-xl px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm xl:text-base font-bold transition border-b-2 whitespace-nowrap shrink-0 ${
               abaAtiva === 'manifestacao'
                 ? 'border-cyan-400 bg-slate-800 text-white shadow-sm'
                 : 'border-transparent text-slate-300 hover:bg-slate-900 hover:text-white'
@@ -718,7 +727,7 @@ Ademar Fioranelli
 
           <button
             onClick={() => setAbaAtiva('origem')}
-            className={`flex items-center gap-2 rounded-t-xl px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm xl:text-base font-bold transition border-b-2 whitespace-nowrap ${
+            className={`flex items-center gap-2 rounded-t-xl px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm xl:text-base font-bold transition border-b-2 whitespace-nowrap shrink-0 ${
               abaAtiva === 'origem'
                 ? 'border-cyan-400 bg-slate-800 text-white shadow-sm'
                 : 'border-transparent text-slate-300 hover:bg-slate-900 hover:text-white'
@@ -733,7 +742,7 @@ Ademar Fioranelli
 
           <button
             onClick={() => setAbaAtiva('autenticidade')}
-            className={`flex items-center gap-2 rounded-t-xl px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm xl:text-base font-bold transition border-b-2 whitespace-nowrap ${
+            className={`flex items-center gap-2 rounded-t-xl px-4 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm xl:text-base font-bold transition border-b-2 whitespace-nowrap shrink-0 ${
               abaAtiva === 'autenticidade'
                 ? 'border-emerald-400 bg-slate-800 text-white shadow-sm'
                 : 'border-transparent text-slate-300 hover:bg-slate-900 hover:text-white'
@@ -1099,9 +1108,18 @@ Ademar Fioranelli
                     )}
 
                     {arquivosLivro2 && arquivosLivro2.length === 0 && !buscandoLivro2 && (
-                      <p className="py-2 text-slate-400">
-                        Nenhuma imagem contendo o número <strong className="text-slate-200 font-mono">"{termoBuscadoLivro2}"</strong> foi localizada em K:\IMAGENS\LV2.
-                      </p>
+                      <div className="py-2 flex flex-wrap items-center justify-between gap-2 text-slate-400">
+                        <span>
+                          Nenhuma imagem contendo o número <strong className="text-slate-200 font-mono">"{termoBuscadoLivro2}"</strong> foi localizada em K:\IMAGENS\LV2.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => localizarNoLivro2(termoBuscadoLivro2 || undefined)}
+                          className="text-xs text-sky-400 hover:text-sky-300 underline font-semibold transition"
+                        >
+                          Buscar novamente no disco
+                        </button>
+                      </div>
                     )}
 
                     {arquivosLivro2 && arquivosLivro2.length > 0 && !buscandoLivro2 && (
@@ -1280,45 +1298,63 @@ Ademar Fioranelli
             </div>
           )}
 
-          {/* Tab 2: Minuta de Manifestação Judicial */}
+          {/* Tab 2: Minuta de Manifestação Judicial (Padrão Oficial 7º RI) */}
           {abaAtiva === 'manifestacao' && (
-            <div className="rounded-xl border border-slate-700 bg-white p-6 sm:p-8 xl:p-12 2xl:p-16 text-black shadow-lg font-serif">
-              {/* Timbre 7º RI */}
-              <div className="border-b-2 border-black pb-3 sm:pb-4 mb-6 flex flex-wrap justify-between items-end gap-2">
-                <div>
-                  <div className="text-base sm:text-lg xl:text-xl 2xl:text-2xl font-bold tracking-wide">
-                    7º · SÉTIMO OFICIAL DE REGISTRO DE IMÓVEIS
+            <div className="rounded-xl border border-slate-700 bg-white p-6 sm:p-8 xl:p-12 2xl:p-16 text-black shadow-lg font-sans">
+              {/* Timbre Oficial Padrão 7º RI */}
+              <div className="border-b border-black pb-2 mb-6">
+                <div className="flex flex-col items-end text-right">
+                  <div className="text-[12px] tracking-wider text-slate-800 font-sans font-medium uppercase">
+                    OFICIAL
                   </div>
-                  <div className="text-[10px] sm:text-xs xl:text-sm text-gray-700">
-                    Fone: 3218-0527 — R. Augusta, 356 / Consolação — Cep: 01304-000 — São Paulo — SP
+                  <div className="flex items-center gap-1.5 leading-none my-0.5">
+                    <span className="text-3xl font-serif italic font-bold text-slate-900">7</span>
+                    <span className="text-lg text-slate-600 font-bold">•</span>
+                    <span className="text-xl font-sans font-bold tracking-tight text-slate-900">SÉTIMO</span>
+                  </div>
+                  <div className="text-[11px] font-sans font-semibold tracking-wide text-slate-800 uppercase">
+                    DE REGISTRO DE IMÓVEIS
                   </div>
                 </div>
-                <div className="text-xs sm:text-sm xl:text-base text-gray-500 italic">Portaria Conjunta nº 1/26</div>
+                <div className="h-[1px] bg-slate-900 w-full mt-1.5 mb-1" />
+                <div className="text-[11px] text-slate-600 italic text-right font-sans">
+                  Fone: 3218-0527 — R. Augusta, 356 / Consolação — Cep: 01304-000 — São Paulo — SP
+                </div>
               </div>
 
-              {/* Dados Processuais */}
-              <div className="mb-4 sm:mb-6 text-xs sm:text-sm xl:text-base space-y-1 sm:space-y-1.5">
+              {/* Dados Processuais Alinhados à Esquerda */}
+              <div className="mb-6 space-y-1 text-xs sm:text-sm font-sans text-slate-900 leading-snug">
                 <div>
                   <strong>PROCESSO DIGITAL nº</strong> {dados.numero_processo || '____________________'}
                 </div>
                 <div>
-                  <strong>E. {dados.vara || '____'} Vara de Registros Públicos da Capital.</strong>
+                  <strong>E. {dados.vara || '1ª'} Vara de Registros Públicos da Capital.</strong>
                 </div>
                 <div>
-                  <strong>INTERESSADA:</strong>{' '}
+                  <strong>INTERESSADOS:</strong>{' '}
                   <span className="font-bold underline">{(dados.requerente || 'A IDENTIFICAR').toUpperCase()}</span>
                 </div>
-                <div className="font-bold tracking-widest text-center my-4 text-xs sm:text-sm xl:text-base">
+                <div className="pt-2 font-bold tracking-wider text-xs sm:text-sm uppercase">
                   USUCAPIÃO
                 </div>
               </div>
 
-              {/* Saudação */}
-              <div className="mb-3 sm:mb-4 font-bold text-xs sm:text-sm xl:text-base">MM. Juiz:</div>
+              {/* Saudação com Toggle Amigável */}
+              <div className="mb-4 flex items-center gap-2 font-bold text-xs sm:text-sm font-sans">
+                <span>{saudacaoJuiz}:</span>
+                <button
+                  type="button"
+                  onClick={() => setSaudacaoJuiz(s => s === 'Meritíssima Juíza' ? 'MM. Juiz' : 'Meritíssima Juíza')}
+                  className="text-[10px] text-cyan-700 hover:text-cyan-900 underline font-normal not-italic px-1"
+                  title="Alternar entre Meritíssima Juíza / MM. Juiz"
+                >
+                  (alternar para {saudacaoJuiz === 'Meritíssima Juíza' ? 'MM. Juiz' : 'Meritíssima Juíza'})
+                </button>
+              </div>
 
-              {/* Corpo */}
-              <div className="text-xs sm:text-sm xl:text-base 2xl:text-lg leading-relaxed space-y-4 xl:space-y-6 text-justify">
-                <p className="indent-8">
+              {/* Corpo da Manifestação */}
+              <div className="text-xs sm:text-sm xl:text-base leading-relaxed space-y-4 text-justify font-sans text-slate-950">
+                <p className="indent-12">
                   Em atenção ao r. despacho de fls. {dados.fls_inicial || '05/06'} e{' '}
                   {dados.fls_laudo || '35/46'}, cumpre-me informar a V. Exa. que, revendo os livros de
                   transcrições das transmissões, bem assim as fichas do Livro nº 2 – Registro Geral, deste
@@ -1327,7 +1363,7 @@ Ademar Fioranelli
                   mesmas resultaram <span className="font-bold underline">{(dados.resultado_buscas || 'NEGATIVAS').toUpperCase()}</span>.
                 </p>
 
-                <p className="indent-8">
+                <p className="indent-12">
                   Segundo elementos constantes dos autos, o imóvel usucapiendo encontra-se transcrito em nome de{' '}
                   <span className="font-bold underline">{dados.titular_origem || 'TITULAR A CONFERIR'}</span>, sob nº{' '}
                   <u>
@@ -1337,99 +1373,104 @@ Ademar Fioranelli
                   de fls. {dados.fls_certidao_origem || '30/32'}.
                 </p>
 
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="indent-8">
-                    Pela planta de Setor Fiscal Municipal do imóvel usucapiendo, verifica-se que o mesmo confronta:
-                  </p>
-                  <div className="inline-flex items-center gap-2 not-italic">
-                    <button
-                      type="button"
-                      disabled={lendoMatriculaConfrontacoes}
-                      onClick={() => lerMatriculaEPreencherConfrontacoes()}
-                      title="Ler matrícula ou autos do processo e preencher automaticamente as confrontações na minuta"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-600 bg-cyan-950 px-2.5 py-1 text-xs font-sans font-semibold text-cyan-200 hover:bg-cyan-900 transition shadow-sm disabled:opacity-50"
-                    >
-                      {lendoMatriculaConfrontacoes ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400 shrink-0" />
-                          <span>Lendo Matrícula...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Wand2 className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
-                          <span>Ler Matrícula e Preencher Confrontações</span>
-                        </>
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="indent-12">
+                      Pela planta do Setor Fiscal Municipal do imóvel usucapiendo, verifica-se que o mesmo confronta:
+                    </p>
+                    <div className="inline-flex items-center gap-2 not-italic">
+                      <button
+                        type="button"
+                        disabled={lendoMatriculaConfrontacoes}
+                        onClick={() => lerMatriculaEPreencherConfrontacoes()}
+                        title="Ler matrícula ou autos do processo e preencher automaticamente as confrontações na minuta"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-600 bg-cyan-950 px-2.5 py-1 text-xs font-sans font-semibold text-cyan-200 hover:bg-cyan-900 transition shadow-sm disabled:opacity-50"
+                      >
+                        {lendoMatriculaConfrontacoes ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400 shrink-0" />
+                            <span>Lendo Matrícula...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Wand2 className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                            <span>Ler Matrícula e Preencher Confrontações</span>
+                          </>
+                        )}
+                      </button>
+                      {(dados.confrontante_lado_direito || dados.confrontante_lado_esquerdo || dados.confrontante_fundos) && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 text-[11px] font-sans font-bold text-emerald-800">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span>Preenchido automaticamente</span>
+                        </span>
                       )}
-                    </button>
-                    {(dados.confrontante_lado_direito || dados.confrontante_lado_esquerdo || dados.confrontante_fundos) && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 text-[11px] font-sans font-bold text-emerald-800">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                        <span>Preenchido automaticamente</span>
-                      </span>
-                    )}
+                    </div>
+                  </div>
+
+                  <div className="ml-12 mt-2 space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="shrink-0">– pelo lado direito com</span>{' '}
+                      <input
+                        type="text"
+                        value={dados.confrontante_lado_direito}
+                        onChange={e => atualizarCampo('confrontante_lado_direito', e.target.value)}
+                        placeholder="conforme apuração nos autos"
+                        className={`bg-transparent font-sans text-xs sm:text-sm border-b-2 font-semibold px-2 py-0.5 focus:outline-none transition w-80 sm:w-[450px] ${
+                          dados.confrontante_lado_direito
+                            ? 'border-cyan-600 text-slate-950 bg-cyan-50/60 focus:bg-cyan-100/70'
+                            : 'border-dotted border-slate-500 text-slate-800 focus:bg-amber-100/70 placeholder:text-slate-400'
+                        }`}
+                      />
+                      <span>;</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="shrink-0">– pelo lado esquerdo com</span>{' '}
+                      <input
+                        type="text"
+                        value={dados.confrontante_lado_esquerdo}
+                        onChange={e => atualizarCampo('confrontante_lado_esquerdo', e.target.value)}
+                        placeholder="conforme apuração nos autos"
+                        className={`bg-transparent font-sans text-xs sm:text-sm border-b-2 font-semibold px-2 py-0.5 focus:outline-none transition w-80 sm:w-[450px] ${
+                          dados.confrontante_lado_esquerdo
+                            ? 'border-cyan-600 text-slate-950 bg-cyan-50/60 focus:bg-cyan-100/70'
+                            : 'border-dotted border-slate-500 text-slate-800 focus:bg-amber-100/70 placeholder:text-slate-400'
+                        }`}
+                      />
+                      <span>;</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="shrink-0">– e aos fundos com</span>{' '}
+                      <input
+                        type="text"
+                        value={dados.confrontante_fundos}
+                        onChange={e => atualizarCampo('confrontante_fundos', e.target.value)}
+                        placeholder="conforme apuração nos autos"
+                        className={`bg-transparent font-sans text-xs sm:text-sm border-b-2 font-semibold px-2 py-0.5 focus:outline-none transition w-80 sm:w-[450px] ${
+                          dados.confrontante_fundos
+                            ? 'border-cyan-600 text-slate-950 bg-cyan-50/60 focus:bg-cyan-100/70'
+                            : 'border-dotted border-slate-500 text-slate-800 focus:bg-amber-100/70 placeholder:text-slate-400'
+                        }`}
+                      />
+                      <span>.</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="ml-6 sm:ml-12 space-y-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-serif shrink-0">– do lado direito:</span>{' '}
-                    <input
-                      type="text"
-                      value={dados.confrontante_lado_direito}
-                      onChange={e => atualizarCampo('confrontante_lado_direito', e.target.value)}
-                      placeholder="conforme apuração nos autos"
-                      className={`bg-transparent font-sans text-xs sm:text-sm xl:text-base border-b-2 font-semibold px-2 py-0.5 focus:outline-none transition w-80 sm:w-[450px] ${
-                        dados.confrontante_lado_direito
-                          ? 'border-cyan-600 text-slate-950 bg-cyan-50/60 focus:bg-cyan-100/70'
-                          : 'border-dotted border-slate-500 text-slate-800 focus:bg-amber-100/70 placeholder:text-slate-400'
-                      }`}
-                    />
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-serif shrink-0">– do lado esquerdo:</span>{' '}
-                    <input
-                      type="text"
-                      value={dados.confrontante_lado_esquerdo}
-                      onChange={e => atualizarCampo('confrontante_lado_esquerdo', e.target.value)}
-                      placeholder="conforme apuração nos autos"
-                      className={`bg-transparent font-sans text-xs sm:text-sm xl:text-base border-b-2 font-semibold px-2 py-0.5 focus:outline-none transition w-80 sm:w-[450px] ${
-                        dados.confrontante_lado_esquerdo
-                          ? 'border-cyan-600 text-slate-950 bg-cyan-50/60 focus:bg-cyan-100/70'
-                          : 'border-dotted border-slate-500 text-slate-800 focus:bg-amber-100/70 placeholder:text-slate-400'
-                      }`}
-                    />
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-serif shrink-0">– nos fundos:</span>{' '}
-                    <input
-                      type="text"
-                      value={dados.confrontante_fundos}
-                      onChange={e => atualizarCampo('confrontante_fundos', e.target.value)}
-                      placeholder="conforme apuração nos autos"
-                      className={`bg-transparent font-sans text-xs sm:text-sm xl:text-base border-b-2 font-semibold px-2 py-0.5 focus:outline-none transition w-80 sm:w-[450px] ${
-                        dados.confrontante_fundos
-                          ? 'border-cyan-600 text-slate-950 bg-cyan-50/60 focus:bg-cyan-100/70'
-                          : 'border-dotted border-slate-500 text-slate-800 focus:bg-amber-100/70 placeholder:text-slate-400'
-                      }`}
-                    />
-                  </div>
-                </div>
-
-                <p className="indent-8">
+                <p className="indent-12">
                   Informo, outrossim, que a área em apreço passou a pertencer a esta Serventia a partir de{' '}
                   {dados.data_competencia_subdistrito || '23 de dezembro de 1.938'}, por força do Decreto
                   Estadual nº 9.775, de 30 de novembro de 1.938.
                 </p>
 
-                <p className="indent-8">
+                <p className="indent-12">
                   {dados.transcricoes_anexas || dados.matriculas_anexas
-                    ? `Encaminho cópia da planta de Setor Fiscal Municipal, certidões das transcrições nºs ${
+                    ? `Encaminho cópia da planta do Setor Fiscal Municipal, certidões das transcrições nºs ${
                         dados.transcricoes_anexas || '—'
                       } e matrículas nºs ${dados.matriculas_anexas || '—'}, para que acompanhe a presente.`
-                    : 'Encaminho cópia da planta de Setor Fiscal Municipal, para que acompanhe a presente.'}
+                    : 'Encaminho cópia da planta do Setor Fiscal Municipal, para que acompanhe a presente.'}
                 </p>
 
-                <p className="indent-8">
+                <p className="indent-12">
                   Com a vênia devida, sugiro o encaminhamento dos presentes autos ao digno{' '}
                   {dados.cartorio_encaminhamento ||
                     dados.cartorio_origem ||
@@ -1440,17 +1481,20 @@ Ademar Fioranelli
                   </u>
                   .
                 </p>
+
+                <p className="indent-12 pt-2">
+                  Era o que, respeitosamente, cumpria informar a V. Exa.
+                </p>
               </div>
 
-              {/* Fechamento */}
-              <div className="mt-8 text-right text-xs sm:text-sm xl:text-base">São Paulo, {obterDataPorExtenso()}.</div>
+              {/* Fechamento Oficial */}
+              <div className="mt-8 text-right text-xs sm:text-sm font-sans">São Paulo, {obterDataPorExtenso()}.</div>
 
-              <div className="mt-6 text-center text-xs sm:text-sm xl:text-base">
-                <div className="mb-8">O Oficial,</div>
-                <div className="border-t border-black w-64 mx-auto pt-1 font-bold">
+              <div className="mt-8 text-center text-xs sm:text-sm font-sans">
+                <div className="border-t border-black w-72 mx-auto pt-1 font-bold">
                   Ademar Fioranelli
                 </div>
-                <div className="text-[10px] sm:text-xs text-gray-600">
+                <div className="text-[11px] text-gray-700">
                   7º Oficial de Registro de Imóveis da Capital – SP
                 </div>
               </div>
