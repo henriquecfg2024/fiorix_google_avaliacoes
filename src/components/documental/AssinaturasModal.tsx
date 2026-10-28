@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ShieldCheck, ShieldAlert, FileSignature, Copy, CheckCircle2, AlertTriangle, FileText, Maximize2, Minimize2 } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, FileSignature, Copy, CheckCircle2, AlertTriangle, FileText, Maximize2, Minimize2, ArrowLeft, X } from 'lucide-react';
 
 export interface DetalheAssinaturaPdf {
   signatario: string;
@@ -118,9 +118,19 @@ export function AssinaturasModal({
 
             <button
               onClick={onClose}
-              className="ml-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition"
+              title="Voltar para a tela anterior"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/90 hover:bg-slate-700 px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-bold text-slate-200 hover:text-white transition shadow-sm active:scale-95 shrink-0"
             >
-              ✕
+              <ArrowLeft className="h-4 w-4 text-cyan-400" />
+              <span>Voltar</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="ml-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition"
+              title="Fechar (Esc)"
+            >
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -207,6 +217,28 @@ export function AssinaturasModal({
                 {analise.texto_nota_devolucao}
               </div>
             </div>
+          )}
+        </div>
+
+        {/* Footer com Botão Voltar */}
+        <div className="flex items-center justify-between border-t border-slate-800 bg-slate-950 px-4 sm:px-6 py-3 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/90 hover:bg-slate-700 px-4 py-2 text-xs sm:text-sm font-bold text-slate-200 hover:text-white transition shadow active:scale-95"
+          >
+            <ArrowLeft className="h-4 w-4 text-cyan-400" />
+            <span>Voltar para tela anterior</span>
+          </button>
+          {analise.texto_nota_devolucao && (
+            <button
+              type="button"
+              onClick={copiarNota}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition"
+            >
+              <Copy className="h-4 w-4" />
+              <span>Copiar Nota de Exigência</span>
+            </button>
           )}
         </div>
       </div>

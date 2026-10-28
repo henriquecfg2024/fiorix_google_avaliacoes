@@ -17,6 +17,8 @@ import {
   Eye,
   AlertCircle,
   FileCheck2,
+  ArrowLeft,
+  X,
 } from 'lucide-react';
 import { DadosManifestacao } from './FichaOficialView';
 
@@ -355,9 +357,20 @@ export function ValidacaoAutenticidadeView({
                 <button
                   type="button"
                   onClick={() => setVisualizandoPdfId(null)}
-                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/90 hover:bg-slate-700 px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-bold text-slate-200 hover:text-white transition shadow-sm active:scale-95 shrink-0"
+                  title="Voltar para a tela anterior"
                 >
-                  ✕
+                  <ArrowLeft className="w-4 h-4 text-cyan-400" />
+                  <span>Voltar</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setVisualizandoPdfId(null)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+                  title="Fechar visualizador"
+                >
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -369,6 +382,26 @@ export function ValidacaoAutenticidadeView({
                 className="w-full h-full border-none"
                 title="Certidão Registral de Autenticidade"
               />
+            </div>
+
+            {/* Rodapé do Visualizador com Botão Voltar */}
+            <div className="flex items-center justify-between border-t border-slate-800 bg-slate-950 px-5 py-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setVisualizandoPdfId(null)}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/90 hover:bg-slate-700 px-4 py-1.5 text-xs sm:text-sm font-bold text-slate-200 hover:text-white transition shadow active:scale-95"
+              >
+                <ArrowLeft className="w-4 h-4 text-cyan-400" />
+                <span>Voltar para certidões</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => baixarComprovantePdf(visualizandoPdfId)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 text-xs font-bold transition shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Baixar Certidão (PDF)</span>
+              </button>
             </div>
           </div>
         </div>

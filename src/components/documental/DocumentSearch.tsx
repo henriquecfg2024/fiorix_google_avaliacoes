@@ -17,6 +17,9 @@ import {
   Copy,
   Check,
   FileCode,
+  ArrowLeft,
+  History,
+  X,
 } from 'lucide-react';
 import { FichaOficialView, DadosManifestacao } from './FichaOficialView';
 import { AssinaturasModal, AnaliseAssinaturaPdf } from './AssinaturasModal';
@@ -44,6 +47,21 @@ interface SearchState {
   } | null;
 }
 
+interface HistoricoNavegacao {
+  query: string;
+  job: SearchState | null;
+  searchMode: 'simples' | 'cruzada';
+  cruzadaParams?: {
+    processo: string;
+    matricula: string;
+    contribuinte: string;
+    requerente: string;
+  };
+  origemTitulo?: string;
+  totalDocumentos?: number;
+  timestamp: number;
+}
+
 export function DocumentSearch() {
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [connectorId, setConnectorId] = useState('');
@@ -51,6 +69,7 @@ export function DocumentSearch() {
   const [job, setJob] = useState<SearchState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [historicoBuscas, setHistoricoBuscas] = useState<HistoricoNavegacao[]>([]);
 
   // Modo de Busca: Simples ou Cruzada
   const [searchMode, setSearchMode] = useState<'simples' | 'cruzada'>('simples');
@@ -309,9 +328,43 @@ export function DocumentSearch() {
     } finally { if (!controller.signal.aborted) setBusy(false); }
   }
 
+  function salvarHistoricoAtual(origemTitulo?: string) {
+    if (!query && !job) return;
+    setHistoricoBuscas(prev => {
+      if (prev.length > 0 && prev[prev.length - 1].query === query) {
+        return prev;
+      }
+      return [
+        ...prev,
+        {
+          query,
+          job,
+          searchMode,
+          cruzadaParams: searchMode === 'cruzada' ? {
+            processo: cruzadaProcesso,
+            matricula: cruzadaMatricula,
+            contribuinte: cruzadaContribuinte,
+            requerente: cruzadaRequerente,
+          } : undefined,
+          origemTitulo: origemTitulo || `Processo / Termo "${query}"`,
+          totalDocumentos: job?.result?.files?.length ?? 0,
+          timestamp: Date.now(),
+        }
+      ];
+    });
+  }
+
   function handleSearchSimples(event: FormEvent) {
     event.preventDefault();
-    executeSearch(query);
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    if (job?.status === 'complete' && job.result) {
+      const topoQuery = historicoBuscas[historicoBuscas.length - 1]?.query;
+      if (query && query !== trimmed && query !== topoQuery) {
+        salvarHistoricoAtual(`Pesquisa "${query}"`);
+      }
+    }
+    executeSearch(trimmed);
   }
 
   function handleSearchCruzada(event: FormEvent) {
@@ -328,17 +381,77 @@ export function DocumentSearch() {
       return;
     }
     const combinedQuery = termos.join(' ');
+    if (job?.status === 'complete' && job.result && query && query !== combinedQuery) {
+      salvarHistoricoAtual(`Busca "${query}"`);
+    }
     setQuery(combinedQuery);
     executeSearch(combinedQuery);
   }
 
-  function buscarMatriculaNoLivro2(termoMatricula: string) {
+  function buscarMatriculaNoLivro2(termoMatricula: string, tituloOrigem?: string) {
     const numeros = termoMatricula.replace(/[^\d]/g, '');
     const queryBusca = numeros && numeros.length >= 2 ? numeros : termoMatricula.trim();
     if (!queryBusca || queryBusca.length < 2) return;
+
+    if (query && query !== queryBusca) {
+      salvarHistoricoAtual(tituloOrigem || (query ? `Processo / Termo "${query}"` : 'Pesquisa anterior'));
+    }
+
     setQuery(queryBusca);
     setSearchMode('simples');
     executeSearch(queryBusca);
+  }
+
+  function voltarTelaAnterior() {
+    if (historicoBuscas.length === 0) return;
+    const novoHistorico = [...historicoBuscas];
+    const anterior = novoHistorico.pop()!;
+    setHistoricoBuscas(novoHistorico);
+
+    setQuery(anterior.query);
+    setSearchMode(anterior.searchMode);
+    if (anterior.cruzadaParams) {
+      setCruzadaProcesso(anterior.cruzadaParams.processo);
+      setCruzadaMatricula(anterior.cruzadaParams.matricula);
+      setCruzadaContribuinte(anterior.cruzadaParams.contribuinte);
+      setCruzadaRequerente(anterior.cruzadaParams.requerente);
+    }
+    if (anterior.job) {
+      setJob(anterior.job);
+      setIsCacheHit(true);
+      setError('');
+      setBusy(false);
+    } else {
+      executeSearch(anterior.query);
+    }
+  }
+
+  function voltarParaIndiceHistorico(index: number) {
+    if (index < 0 || index >= historicoBuscas.length) return;
+    const alvo = historicoBuscas[index];
+    const novoHistorico = historicoBuscas.slice(0, index);
+    setHistoricoBuscas(novoHistorico);
+
+    setQuery(alvo.query);
+    setSearchMode(alvo.searchMode);
+    if (alvo.cruzadaParams) {
+      setCruzadaProcesso(alvo.cruzadaParams.processo);
+      setCruzadaMatricula(alvo.cruzadaParams.matricula);
+      setCruzadaContribuinte(alvo.cruzadaParams.contribuinte);
+      setCruzadaRequerente(alvo.cruzadaParams.requerente);
+    }
+    if (alvo.job) {
+      setJob(alvo.job);
+      setIsCacheHit(true);
+      setError('');
+      setBusy(false);
+    } else {
+      executeSearch(alvo.query);
+    }
+  }
+
+  function limparHistoricoNavegacao() {
+    setHistoricoBuscas([]);
   }
 
   async function extrairPeticao(file: Match, forceFresh = false) {
@@ -632,25 +745,38 @@ export function DocumentSearch() {
                 />
               </label>
 
-              <button
-                type="submit"
-                disabled={busy || !connectorId || !!processandoAcao}
-                className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50 transition"
-              >
-                {busy ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin text-white" />
-                    <span className="font-mono">
-                      Pesquisando {formatTempoMMSS(tempoBuscaDecorrido)}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Search className="h-4 w-4" />
-                    <span>Pesquisar</span>
-                  </>
+              <div className="flex items-center gap-2">
+                {historicoBuscas.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={voltarTelaAnterior}
+                    title={`Voltar para tela anterior: ${historicoBuscas[historicoBuscas.length - 1].query}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-200 hover:text-white transition shadow-sm active:scale-95"
+                  >
+                    <ArrowLeft className="h-4 w-4 text-cyan-400" />
+                    <span>Voltar</span>
+                  </button>
                 )}
-              </button>
+                <button
+                  type="submit"
+                  disabled={busy || !connectorId || !!processandoAcao}
+                  className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50 transition"
+                >
+                  {busy ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-white" />
+                      <span className="font-mono">
+                        Pesquisando {formatTempoMMSS(tempoBuscaDecorrido)}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Search className="h-4 w-4" />
+                      <span>Pesquisar</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </form>
         )}
@@ -708,23 +834,36 @@ export function DocumentSearch() {
               <p className="text-[11px] text-slate-400">
                 💡 <strong className="text-cyan-300">Busca Cruzada:</strong> cruza os termos especificados em nome de arquivo e diretórios para localizar expedientes conexos.
               </p>
-              <button
-                type="submit"
-                disabled={busy || !connectorId || !!processandoAcao}
-                className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-6 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50 transition"
-              >
-                {busy ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin text-white" />
-                    <span>Pesquisando…</span>
-                  </>
-                ) : (
-                  <>
-                    <Layers className="h-4 w-4 text-amber-300" />
-                    <span>Executar Busca Cruzada</span>
-                  </>
+              <div className="flex items-center gap-2">
+                {historicoBuscas.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={voltarTelaAnterior}
+                    title={`Voltar para tela anterior: ${historicoBuscas[historicoBuscas.length - 1].query}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-200 hover:text-white transition shadow-sm active:scale-95"
+                  >
+                    <ArrowLeft className="h-4 w-4 text-cyan-400" />
+                    <span>Voltar</span>
+                  </button>
                 )}
-              </button>
+                <button
+                  type="submit"
+                  disabled={busy || !connectorId || !!processandoAcao}
+                  className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-6 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50 transition"
+                >
+                  {busy ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-white" />
+                      <span>Pesquisando…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Layers className="h-4 w-4 text-amber-300" />
+                      <span>Executar Busca Cruzada</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </form>
         )}
@@ -955,6 +1094,92 @@ export function DocumentSearch() {
               </div>
             </div>
 
+            {/* Card: Voltar para Tela Anterior */}
+            {historicoBuscas.length > 0 && (() => {
+              const telaAnterior = historicoBuscas[historicoBuscas.length - 1];
+              const totalDocs = telaAnterior.totalDocumentos ?? telaAnterior.job?.result?.files?.length ?? 0;
+
+              return (
+                <div className="rounded-xl border border-cyan-500/60 bg-gradient-to-r from-cyan-950/90 via-slate-900/95 to-slate-950/95 p-4 shadow-xl backdrop-blur transition-all duration-200 hover:border-cyan-400">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-400/40 shrink-0 shadow-inner">
+                        <ArrowLeft className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300 border border-cyan-500/40">
+                            <History className="h-3 w-3" />
+                            Tela Anterior
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            Origem:{' '}
+                            <strong className="text-slate-200 font-mono">
+                              {telaAnterior.origemTitulo || `"${telaAnterior.query}"`}
+                            </strong>
+                          </span>
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap items-baseline gap-2">
+                          <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                            Voltar para tela anterior ({telaAnterior.query})
+                          </h3>
+                          <span className="text-xs text-cyan-300/80 font-mono">
+                            ({totalDocs} documento{totalDocs !== 1 ? 's' : ''} nos autos)
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={voltarTelaAnterior}
+                        title={`Retornar imediatamente à pesquisa anterior (${telaAnterior.query})`}
+                        className="inline-flex items-center gap-2 rounded-lg border border-cyan-400 bg-cyan-600 hover:bg-cyan-500 px-4 py-2 text-xs sm:text-sm font-bold text-white shadow-lg transition active:scale-95"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                        <span>Voltar para tela anterior</span>
+                      </button>
+
+                      {historicoBuscas.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={limparHistoricoNavegacao}
+                          title="Limpar histórico de navegação"
+                          className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Trilha de Navegação (se houver mais de 1 nível de histórico) */}
+                  {historicoBuscas.length > 1 && (
+                    <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
+                      <span className="text-slate-500 font-semibold">Trilha de navegação:</span>
+                      {historicoBuscas.map((item, idx) => (
+                        <span key={item.timestamp + '-' + idx} className="inline-flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => voltarParaIndiceHistorico(idx)}
+                            className="text-cyan-400 hover:text-cyan-300 hover:underline font-mono"
+                            title={`Ir diretamente para "${item.query}"`}
+                          >
+                            {item.query}
+                          </button>
+                          <span className="text-slate-600">→</span>
+                        </span>
+                      ))}
+                      <span className="text-white font-mono font-semibold bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700/60">
+                        {query} (atual)
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Destaque da Matrícula Vinculada aos Autos */}
             {(() => {
               const matriculaProcesso =
@@ -1033,6 +1258,7 @@ export function DocumentSearch() {
                     const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
                     const isPdf = ext === '.pdf';
                     const isDocx = ext === '.docx' || ext === '.doc' || ext === '.rtf' || ext === '.txt';
+                    const isKenOrTif = ext === '.ken' || ext === '.tif' || ext === '.tiff';
                     const fileKey = `${file.rootId}:${file.relativePath}`;
                     const emProcessamento = processandoAcao?.id === fileKey;
                     const jaExtraido = !!getCachedExtracao(fileKey);
@@ -1046,7 +1272,7 @@ export function DocumentSearch() {
                           <div className="flex items-start gap-2.5">
                             <FileText
                               className={`h-4 w-4 sm:h-5 sm:w-5 shrink-0 mt-0.5 ${
-                                isPdf ? 'text-rose-400' : isDocx ? 'text-sky-400' : 'text-slate-400'
+                                isPdf ? 'text-rose-400' : isDocx ? 'text-sky-400' : isKenOrTif ? 'text-amber-400' : 'text-slate-400'
                               }`}
                             />
                             <div className="min-w-0 max-w-xs sm:max-w-md lg:max-w-lg">
@@ -1271,6 +1497,41 @@ export function DocumentSearch() {
                                   </button>
                                 </div>
                               </>
+                            ) : isKenOrTif ? (
+                              <>
+                                {/* Slot 1: Ver Matrícula (.KEN / TIFF) */}
+                                <div className="w-[145px] shrink-0 flex items-center justify-end">
+                                  <button
+                                    type="button"
+                                    disabled={!!processandoAcao}
+                                    onClick={() => visualizarDocumento(file)}
+                                    title="Visualizar informações da matrícula digitalizada (.KEN / TIFF)"
+                                    className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/80 bg-amber-950/80 px-2 text-xs font-semibold text-amber-200 hover:bg-amber-900 shadow-sm transition disabled:opacity-50"
+                                  >
+                                    <FileText className="h-3.5 w-3.5 text-amber-400" />
+                                    <span>Ver Matrícula</span>
+                                  </button>
+                                </div>
+
+                                {/* Slot 2: Copiar Caminho */}
+                                <div className="w-[155px] shrink-0 flex items-center justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => copiarCaminho(file)}
+                                    title="Copiar caminho relativo do arquivo da matrícula"
+                                    className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2 text-xs text-slate-300 hover:bg-slate-700 transition"
+                                  >
+                                    {pathFoiCopiado ? (
+                                      <span className="text-emerald-400 font-semibold">Copiado!</span>
+                                    ) : (
+                                      <>
+                                        <Copy className="h-3.5 w-3.5 text-slate-400" />
+                                        <span>Copiar Caminho</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </>
                             ) : (
                               <>
                                 <div className="w-[145px] shrink-0 flex items-center justify-end">
@@ -1323,6 +1584,7 @@ export function DocumentSearch() {
             extrairPeticao(targetFile, true);
           } : undefined}
           onBuscarMatriculaNaLista={(matricula) => {
+            salvarHistoricoAtual(`Ficha de Conferência / ${fichaAbertaFile?.name || 'Processo'}`);
             setSearchMode('cruzada');
             setCruzadaMatricula(matricula);
             setQuery(matricula);

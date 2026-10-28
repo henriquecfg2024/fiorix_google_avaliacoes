@@ -24,6 +24,8 @@ import {
   Loader2,
   Check,
   Wand2,
+  ArrowLeft,
+  X,
 } from 'lucide-react';
 import { ConfidenceReview, OrigemCampoUI } from './ConfidenceReview';
 import { ValidacaoAutenticidadeView } from './ValidacaoAutenticidadeView';
@@ -692,9 +694,19 @@ Ademar Fioranelli
 
             <button
               onClick={onClose}
-              className="ml-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition shrink-0"
+              title="Voltar para a tela anterior (Pesquisa Documental)"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/90 hover:bg-slate-700 px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-bold text-slate-200 hover:text-white transition shadow-sm active:scale-95 shrink-0"
             >
-              ✕
+              <ArrowLeft className="h-4 w-4 text-cyan-400" />
+              <span>Voltar</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="ml-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition shrink-0"
+              title="Fechar (Esc)"
+            >
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -1515,6 +1527,36 @@ Ademar Fioranelli
           {abaAtiva === 'autenticidade' && (
             <ValidacaoAutenticidadeView dados={dados} />
           )}
+        </div>
+
+        {/* Barra Inferior com Botão Voltar */}
+        <div className="flex items-center justify-between border-t border-slate-800 bg-slate-950 px-4 sm:px-6 py-3 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/90 hover:bg-slate-700 px-4 py-2 text-xs sm:text-sm font-bold text-slate-200 hover:text-white transition shadow active:scale-95"
+          >
+            <ArrowLeft className="h-4 w-4 text-cyan-400" />
+            <span>Voltar para tela anterior</span>
+          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={copiarManifestacao}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition"
+            >
+              <Copy className="h-4 w-4" />
+              <span>Copiar Minuta</span>
+            </button>
+            <button
+              type="button"
+              onClick={imprimirFicha}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition"
+            >
+              <Printer className="h-4 w-4" />
+              <span>Imprimir</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>,
