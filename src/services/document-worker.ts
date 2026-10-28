@@ -1,11 +1,15 @@
-import { env } from '../config/env.js';
+import { env, connectorEnv } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 import { postDocumentMessage } from './api.js';
-import { parseDocumentRoots, searchDocuments } from './document-search.js';
+import { isAllowedDocumentApiUrl, parseDocumentRoots, searchDocuments } from './document-search.js';
 
 export function startDocumentWorker(): () => void {
   if (process.env.DOCUMENTAL_ENABLED !== 'true') return () => {};
-  if (env.SHADOW_MODE || !env.FIORIX_API_URL.startsWith('https://')) {
+  const secureTarget = isAllowedDocumentApiUrl(env.FIORIX_API_URL, {
+    allowInsecureLocalhost: process.env.DOCUMENTAL_ALLOW_INSECURE_LOCALHOST === 'true',
+    environment: connectorEnv,
+  });
+  if (env.SHADOW_MODE || !secureTarget) {
     logger.warn('DOCUMENTAL: desativado em shadow mode ou sem HTTPS.');
     return () => {};
   }

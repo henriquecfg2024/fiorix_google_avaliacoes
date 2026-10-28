@@ -26,6 +26,19 @@ export function isWithinRoot(root: string, target: string): boolean {
   return relative === '' || (!path.isAbsolute(relative) && relative !== '..' && !relative.startsWith('..' + path.sep));
 }
 
+// HTTPS is always required, except plain HTTP to the local loopback when explicitly
+// allowed for local testing (never in production). Prevents credentials over the network.
+export function isAllowedDocumentApiUrl(
+  rawUrl: string,
+  options: { allowInsecureLocalhost: boolean; environment: string },
+): boolean {
+  let url: URL;
+  try { url = new URL(rawUrl); } catch { return false; }
+  if (url.protocol === 'https:') return true;
+  if (!options.allowInsecureLocalhost || options.environment === 'production') return false;
+  return url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+}
+
 // No path supplied by a browser is accepted. Only locally configured roots are traversed.
 // Symlinks/junctions are skipped and each directory/file is checked against the canonical root.
 export async function searchDocuments(

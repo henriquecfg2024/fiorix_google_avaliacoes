@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { isWithinRoot, parseDocumentRoots, searchDocuments } from '../src/services/document-search.js';
+import { isAllowedDocumentApiUrl, isWithinRoot, parseDocumentRoots, searchDocuments } from '../src/services/document-search.js';
 
 const temporary: string[] = [];
 async function fixture() { const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'fiorix-doc-')); temporary.push(dir); return dir; }
@@ -45,5 +45,17 @@ describe('document search', () => {
     const dir = await fixture();
     expect(() => parseDocumentRoots(JSON.stringify([{ id: 'same', path: dir }, { id: 'same', path: dir }]))).toThrow();
     await expect(searchDocuments([{ id: 'root', path: dir }], 'a')).rejects.toThrow();
+  });
+  it('requires HTTPS except explicit loopback HTTP outside production', () => {
+    const allow = { allowInsecureLocalhost: true, environment: 'homolog' };
+    const deny = { allowInsecureLocalhost: false, environment: 'homolog' };
+    expect(isAllowedDocumentApiUrl('https://fiorix.app/api/v1/connector/sync', deny)).toBe(true);
+    expect(isAllowedDocumentApiUrl('http://localhost:3000/api/v1/connector/sync', deny)).toBe(false);
+    expect(isAllowedDocumentApiUrl('http://localhost:3000/api/v1/connector/sync', allow)).toBe(true);
+    expect(isAllowedDocumentApiUrl('http://127.0.0.1:3000/x', allow)).toBe(true);
+    expect(isAllowedDocumentApiUrl('http://localhost:3000/x', { ...allow, environment: 'production' })).toBe(false);
+    expect(isAllowedDocumentApiUrl('http://192.168.0.10:3000/x', allow)).toBe(false);
+    expect(isAllowedDocumentApiUrl('http://localhost.evil.com/x', allow)).toBe(false);
+    expect(isAllowedDocumentApiUrl('not a url', allow)).toBe(false);
   });
 });
