@@ -18,9 +18,35 @@ export function DocumentSearch() {
   const [error, setError] = useState('');
 
   // Estados para Extração e Assinaturas
-  const [processandoAcao, setProcessandoAcao] = useState<{ id: string; tipo: 'extracao' | 'assinatura' } | null>(null);
+  const [processandoAcao, setProcessandoAcao] = useState<{ id: string; tipo: 'extracao' | 'assinatura'; fileName: string } | null>(null);
   const [fichaAberta, setFichaAberta] = useState<DadosManifestacao | null>(null);
   const [assinaturaAberta, setAssinaturaAberta] = useState<{ nome: string; analise: AnaliseAssinaturaPdf } | null>(null);
+
+  // Cronômetro de tempo decorrido e tempo restante estimado
+  const [tempoDecorrido, setTempoDecorrido] = useState(0);
+  const [tempoEstimado, setTempoEstimado] = useState(12);
+
+  useEffect(() => {
+    if (!processandoAcao) {
+      setTempoDecorrido(0);
+      return;
+    }
+    const inicio = Date.now();
+    const interval = setInterval(() => {
+      const segundos = Math.floor((Date.now() - inicio) / 1000);
+      setTempoDecorrido(segundos);
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [processandoAcao]);
+
+  const tempoRestante = Math.max(0, tempoEstimado - tempoDecorrido);
+
+  function formatTempoMMSS(segundos: number): string {
+    const m = Math.floor(segundos / 60);
+    const s = segundos % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
 
   const abort = useRef<AbortController | null>(null);
 
@@ -72,7 +98,8 @@ export function DocumentSearch() {
 
   async function extrairPeticao(file: Match) {
     const fileKey = `${file.rootId}:${file.relativePath}`;
-    setProcessandoAcao({ id: fileKey, tipo: 'extracao' });
+    setTempoEstimado(12);
+    setProcessandoAcao({ id: fileKey, tipo: 'extracao', fileName: file.name });
     setError('');
     try {
       const response = await fetch('/api/gestao-documental', {
@@ -112,7 +139,8 @@ export function DocumentSearch() {
 
   async function analisarAssinaturas(file: Match) {
     const fileKey = `${file.rootId}:${file.relativePath}`;
-    setProcessandoAcao({ id: fileKey, tipo: 'assinatura' });
+    setTempoEstimado(8);
+    setProcessandoAcao({ id: fileKey, tipo: 'assinatura', fileName: file.name });
     setError('');
     try {
       const response = await fetch('/api/gestao-documental', {
@@ -212,8 +240,61 @@ export function DocumentSearch() {
         </div>
       )}
 
-      <div aria-live="polite">
-        {busy && <p className="text-xs text-slate-300">Aguardando a busca nos discos autorizados do servidor local…</p>}
+      <div aria-live="polite" className="space-y-4">
+        {busy && (
+          <div className="flex items-center gap-2.5 rounded-xl border border-slate-800 bg-slate-900/60 p-4 text-xs text-slate-300">
+            <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
+            <span>Aguardando a busca nos discos autorizados do servidor local…</span>
+          </div>
+        )}
+
+        {/* Card de Progresso com Contadores de Tempo Decorrido e Tempo Restante */}
+        {processandoAcao && (
+          <div className="rounded-xl border border-cyan-500/50 bg-slate-900/95 p-4 shadow-xl backdrop-blur transition">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-950/90 border border-cyan-500/40">
+                  <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-semibold text-cyan-200">
+                    {processandoAcao.tipo === 'extracao'
+                      ? 'Extraindo Ficha do Oficial via CLI Rust local…'
+                      : 'Auditando assinaturas eletrônicas PAdES via CLI Rust…'}
+                  </h4>
+                  <p className="text-[11px] font-mono text-slate-400 truncate max-w-md">
+                    {processandoAcao.fileName}
+                  </p>
+                </div>
+              </div>
+
+              {/* Contadores em destaque */}
+              <div className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-950/80 px-3.5 py-2 font-mono text-xs">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 text-[11px]">Tempo decorrido:</span>
+                  <strong className="text-cyan-300 font-semibold">{formatTempoMMSS(tempoDecorrido)}</strong>
+                </div>
+                <span className="text-slate-700">|</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400 text-[11px]">Tempo restante estimado:</span>
+                  <strong className={tempoRestante > 0 ? 'text-amber-300 font-semibold' : 'text-emerald-400 font-semibold'}>
+                    {tempoRestante > 0 ? `~${formatTempoMMSS(tempoRestante)}` : 'Finalizando…'}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Barra de Progresso Animada */}
+            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-800">
+              <div
+                className="h-full bg-gradient-to-r from-cyan-500 via-sky-400 to-emerald-400 transition-all duration-300 ease-out"
+                style={{
+                  width: `${Math.min(95, Math.max(8, Math.round((tempoDecorrido / tempoEstimado) * 100)))}%`
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {job?.status === 'complete' && job.result && (
           <div className="space-y-3">
@@ -276,11 +357,21 @@ export function DocumentSearch() {
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-800/60 bg-cyan-950/60 px-2.5 py-1 text-[11px] font-semibold text-cyan-300 hover:bg-cyan-900/80 disabled:opacity-50 transition"
                               >
                                 {emProcessamento && processandoAcao?.tipo === 'extracao' ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  <>
+                                    <Loader2 className="h-3 w-3 animate-spin text-cyan-400" />
+                                    <span className="font-mono">
+                                      {formatTempoMMSS(tempoDecorrido)}
+                                      <span className="text-[10px] text-cyan-400/80 ml-1">
+                                        (restam {tempoRestante > 0 ? `~${formatTempoMMSS(tempoRestante)}` : '...'})
+                                      </span>
+                                    </span>
+                                  </>
                                 ) : (
-                                  <Sparkles className="h-3 w-3 text-cyan-400" />
+                                  <>
+                                    <Sparkles className="h-3 w-3 text-cyan-400" />
+                                    <span>Extrair Ficha</span>
+                                  </>
                                 )}
-                                Extrair Ficha
                               </button>
 
                               <button
@@ -291,11 +382,21 @@ export function DocumentSearch() {
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:bg-slate-700 disabled:opacity-50 transition"
                               >
                                 {emProcessamento && processandoAcao?.tipo === 'assinatura' ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  <>
+                                    <Loader2 className="h-3 w-3 animate-spin text-emerald-400" />
+                                    <span className="font-mono">
+                                      {formatTempoMMSS(tempoDecorrido)}
+                                      <span className="text-[10px] text-emerald-400/80 ml-1">
+                                        (restam {tempoRestante > 0 ? `~${formatTempoMMSS(tempoRestante)}` : '...'})
+                                      </span>
+                                    </span>
+                                  </>
                                 ) : (
-                                  <ShieldCheck className="h-3 w-3 text-emerald-400" />
+                                  <>
+                                    <ShieldCheck className="h-3 w-3 text-emerald-400" />
+                                    <span>Assinaturas</span>
+                                  </>
                                 )}
-                                Assinaturas
                               </button>
                             </>
                           )}
