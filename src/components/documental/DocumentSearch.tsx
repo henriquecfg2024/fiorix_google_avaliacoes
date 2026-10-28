@@ -678,20 +678,20 @@ export function DocumentSearch() {
 
   return (
     <section className="space-y-6">
-      {/* Card Principal de Pesquisa */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 sm:p-6 shadow-xl backdrop-blur">
+      {/* Card Principal de Pesquisa (Padrão FIORIX) */}
+      <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-5 sm:p-6 text-white shadow-sm backdrop-blur-xl">
         {/* Cabeçalho do Card: Seletor de Conector + Abas de Tipo de Busca */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-800/80 mb-5">
-          <label className="flex items-center gap-2.5 text-xs sm:text-sm font-semibold text-slate-300">
-            <span className="text-slate-400">Servidor do cartório:</span>
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-white/10 mb-5">
+          <label className="flex items-center gap-2.5 text-xs sm:text-sm font-semibold text-slate-200">
+            <span className="text-white/60">Servidor do cartório:</span>
             <select
               value={connectorId}
               onChange={event => setConnectorId(event.target.value)}
               disabled={busy || !!processandoAcao}
-              className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs sm:text-sm text-slate-200 focus:border-cyan-500 focus:outline-none"
+              className="rounded-xl border border-white/20 bg-[#080D1A] px-3.5 py-2 text-xs sm:text-sm text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
             >
               {connectors.map(connector => (
-                <option key={connector.id} value={connector.id}>
+                <option key={connector.id} value={connector.id} className="bg-[#0B1020] text-white">
                   {connector.name}
                 </option>
               ))}
@@ -699,14 +699,14 @@ export function DocumentSearch() {
           </label>
 
           {/* Abas: Busca Simples vs Busca Cruzada */}
-          <div className="inline-flex rounded-xl border border-slate-800 bg-slate-950 p-1">
+          <div className="inline-flex rounded-xl border border-white/15 bg-[#080D1A] p-1">
             <button
               type="button"
               onClick={() => setSearchMode('simples')}
               className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition ${
                 searchMode === 'simples'
                   ? 'bg-cyan-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
               <Search className="h-3.5 w-3.5" />
@@ -718,7 +718,7 @@ export function DocumentSearch() {
               className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition ${
                 searchMode === 'cruzada'
                   ? 'bg-cyan-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
               <Layers className="h-3.5 w-3.5 text-amber-300" />
@@ -731,7 +731,7 @@ export function DocumentSearch() {
         {searchMode === 'simples' && (
           <form onSubmit={handleSearchSimples} className="space-y-4">
             <div className="flex flex-wrap items-end gap-3.5">
-              <label className="flex-1 space-y-1.5 text-xs sm:text-sm font-semibold text-slate-300 min-w-[280px]">
+              <label className="flex-1 space-y-1.5 text-xs sm:text-sm font-semibold text-slate-200 min-w-[280px]">
                 Pesquisar processo, matrícula ou nome de arquivo
                 <input
                   value={query}
@@ -741,7 +741,7 @@ export function DocumentSearch() {
                   placeholder="Ex.: 1035968, Basilio, Usucapião ou 123.456"
                   required
                   disabled={busy || !!processandoAcao}
-                  className="block w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 sm:p-3 text-xs sm:text-sm text-slate-200 focus:border-cyan-500 focus:outline-none placeholder:text-slate-500"
+                  className="block w-full rounded-xl border border-white/20 bg-[#080D1A] p-2.5 sm:p-3 text-xs sm:text-sm text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/40 shadow-xs"
                 />
               </label>
 
@@ -751,7 +751,7 @@ export function DocumentSearch() {
                     type="button"
                     onClick={voltarTelaAnterior}
                     title={`Voltar para tela anterior: ${historicoBuscas[historicoBuscas.length - 1].query}`}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-200 hover:text-white transition shadow-sm active:scale-95"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/[0.06] hover:bg-white/[0.12] px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-slate-200 hover:text-white transition shadow-sm active:scale-95"
                   >
                     <ArrowLeft className="h-4 w-4 text-cyan-400" />
                     <span>Voltar</span>
@@ -760,7 +760,7 @@ export function DocumentSearch() {
                 <button
                   type="submit"
                   disabled={busy || !connectorId || !!processandoAcao}
-                  className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50 transition"
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-white shadow-md shadow-cyan-500/20 disabled:opacity-50 transition active:scale-95"
                 >
                   {busy ? (
                     <>
@@ -785,53 +785,53 @@ export function DocumentSearch() {
         {searchMode === 'cruzada' && (
           <form onSubmit={handleSearchCruzada} className="space-y-4 animate-in fade-in duration-200">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-              <label className="space-y-1.5 text-xs font-semibold text-slate-300">
+              <label className="space-y-1.5 text-xs font-semibold text-slate-200">
                 <span>Processo Judicial / CNJ</span>
                 <input
                   value={cruzadaProcesso}
                   onChange={event => setCruzadaProcesso(event.target.value)}
                   placeholder="Ex.: 1035968-12 ou 0000001"
                   disabled={busy || !!processandoAcao}
-                  className="block w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none placeholder:text-slate-600"
+                  className="block w-full rounded-xl border border-white/20 bg-[#080D1A] p-2.5 text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/40 shadow-xs"
                 />
               </label>
 
-              <label className="space-y-1.5 text-xs font-semibold text-slate-300">
+              <label className="space-y-1.5 text-xs font-semibold text-slate-200">
                 <span>Matrícula ou Transcrição</span>
                 <input
                   value={cruzadaMatricula}
                   onChange={event => setCruzadaMatricula(event.target.value)}
                   placeholder="Ex.: 123.456 ou 45.890"
                   disabled={busy || !!processandoAcao}
-                  className="block w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none placeholder:text-slate-600"
+                  className="block w-full rounded-xl border border-white/20 bg-[#080D1A] p-2.5 text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/40 shadow-xs"
                 />
               </label>
 
-              <label className="space-y-1.5 text-xs font-semibold text-slate-300">
+              <label className="space-y-1.5 text-xs font-semibold text-slate-200">
                 <span>Contribuinte (SQL / IPTU)</span>
                 <input
                   value={cruzadaContribuinte}
                   onChange={event => setCruzadaContribuinte(event.target.value)}
                   placeholder="Ex.: 012.345.6789-1"
                   disabled={busy || !!processandoAcao}
-                  className="block w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none placeholder:text-slate-600"
+                  className="block w-full rounded-xl border border-white/20 bg-[#080D1A] p-2.5 text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/40 shadow-xs"
                 />
               </label>
 
-              <label className="space-y-1.5 text-xs font-semibold text-slate-300">
+              <label className="space-y-1.5 text-xs font-semibold text-slate-200">
                 <span>Requerente ou Parte</span>
                 <input
                   value={cruzadaRequerente}
                   onChange={event => setCruzadaRequerente(event.target.value)}
                   placeholder="Ex.: Basilio, Ficticia, etc."
                   disabled={busy || !!processandoAcao}
-                  className="block w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none placeholder:text-slate-600"
+                  className="block w-full rounded-xl border border-white/20 bg-[#080D1A] p-2.5 text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/40 shadow-xs"
                 />
               </label>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-white/60">
                 💡 <strong className="text-cyan-300">Busca Cruzada:</strong> cruza os termos especificados em nome de arquivo e diretórios para localizar expedientes conexos.
               </p>
               <div className="flex items-center gap-2">
@@ -840,7 +840,7 @@ export function DocumentSearch() {
                     type="button"
                     onClick={voltarTelaAnterior}
                     title={`Voltar para tela anterior: ${historicoBuscas[historicoBuscas.length - 1].query}`}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-200 hover:text-white transition shadow-sm active:scale-95"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/[0.06] hover:bg-white/[0.12] px-4 py-2.5 text-xs sm:text-sm font-bold text-slate-200 hover:text-white transition shadow-sm active:scale-95"
                   >
                     <ArrowLeft className="h-4 w-4 text-cyan-400" />
                     <span>Voltar</span>
@@ -849,7 +849,7 @@ export function DocumentSearch() {
                 <button
                   type="submit"
                   disabled={busy || !connectorId || !!processandoAcao}
-                  className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-6 py-2.5 text-xs sm:text-sm font-semibold text-white hover:bg-cyan-500 disabled:opacity-50 transition"
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 px-6 py-2.5 text-xs sm:text-sm font-bold text-white shadow-md shadow-cyan-500/20 disabled:opacity-50 transition active:scale-95"
                 >
                   {busy ? (
                     <>
@@ -869,16 +869,16 @@ export function DocumentSearch() {
         )}
 
         {/* Barra de Opções de Extração / OCR (Intervalo de Páginas) */}
-        <div className="mt-4 pt-4 border-t border-slate-800/60">
+        <div className="mt-4 pt-4 border-t border-white/10">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
               type="button"
               onClick={() => setMostrarOpcoesOcr(!mostrarOpcoesOcr)}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-cyan-300 transition"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-white/60 hover:text-cyan-300 transition"
             >
               <SlidersHorizontal className="h-3.5 w-3.5 text-cyan-400" />
               <span>Intervalo de Páginas do OCR para PDFs</span>
-              <span className="rounded bg-slate-800 px-2 py-0.5 font-mono text-[10px] text-cyan-300 border border-slate-700">
+              <span className="rounded-lg bg-[#080D1A] px-2 py-0.5 font-mono text-[10px] text-cyan-300 border border-white/15">
                 {ocrModoPagina === 'padrao'
                   ? 'Págs 1 a 15 (Recomendado)'
                   : ocrModoPagina === 'personalizado'
@@ -889,9 +889,9 @@ export function DocumentSearch() {
           </div>
 
           {mostrarOpcoesOcr && (
-            <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/80 p-3.5 animate-in slide-in-from-top-1 duration-200">
+            <div className="mt-3 rounded-xl border border-white/15 bg-[#080D1A] p-4 animate-in slide-in-from-top-1 duration-200">
               <div className="flex flex-wrap items-center gap-4 text-xs">
-                <span className="font-semibold text-slate-300">Modo de Leitura:</span>
+                <span className="font-semibold text-white/80">Modo de Leitura:</span>
                 <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-300">
                   <input
                     type="radio"
@@ -929,24 +929,24 @@ export function DocumentSearch() {
                 </label>
 
                 {ocrModoPagina === 'personalizado' && (
-                  <div className="inline-flex items-center gap-2 pl-3 border-l border-slate-800">
-                    <span className="text-slate-400">De pág:</span>
+                  <div className="inline-flex items-center gap-2 pl-3 border-l border-white/15">
+                    <span className="text-white/50">De pág:</span>
                     <input
                       type="number"
                       min={1}
                       max={9999}
                       value={ocrPaginaInicio}
                       onChange={e => setOcrPaginaInicio(parseInt(e.target.value) || 1)}
-                      className="w-16 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-center font-mono text-xs text-slate-200 focus:border-cyan-500 focus:outline-none"
+                      className="w-16 rounded-lg border border-white/20 bg-[#0B1020] px-2 py-1 text-center font-mono text-xs text-white focus:border-cyan-500 focus:outline-none"
                     />
-                    <span className="text-slate-400">até:</span>
+                    <span className="text-white/50">até:</span>
                     <input
                       type="number"
                       min={1}
                       max={9999}
                       value={ocrPaginaFim}
                       onChange={e => setOcrPaginaFim(parseInt(e.target.value) || 1)}
-                      className="w-16 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-center font-mono text-xs text-slate-200 focus:border-cyan-500 focus:outline-none"
+                      className="w-16 rounded-lg border border-white/20 bg-[#0B1020] px-2 py-1 text-center font-mono text-xs text-white focus:border-cyan-500 focus:outline-none"
                     />
                   </div>
                 )}
@@ -956,7 +956,7 @@ export function DocumentSearch() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-400">
+      <div className="flex items-center gap-2.5 rounded-xl border border-cyan-500/20 bg-cyan-500/[0.05] p-3 text-xs text-cyan-200/90 backdrop-blur-sm">
         <HardDrive className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-400 shrink-0" />
         <span>
           Busca pontual e análise local via motor Rust/CLI e Mammoth integrado. Nenhum arquivo original deixa a rede interna do cartório.
@@ -964,7 +964,7 @@ export function DocumentSearch() {
       </div>
 
       {error && (
-        <div role="alert" className="flex items-center gap-3 rounded-xl border border-rose-800/60 bg-rose-950/40 p-4 text-xs text-rose-200">
+        <div role="alert" className="flex items-center gap-3 rounded-2xl border border-rose-500/30 bg-[#0B1020]/95 p-4 text-xs text-rose-200 shadow-sm backdrop-blur-xl">
           <AlertCircle className="h-5 w-5 text-rose-400 shrink-0" />
           <span>{error}</span>
         </div>
@@ -973,30 +973,30 @@ export function DocumentSearch() {
       <div aria-live="polite" className="space-y-4">
         {/* Barra de Progresso da Busca */}
         {busy && (
-          <div className="rounded-xl border border-cyan-500/50 bg-slate-900/95 p-4 shadow-xl backdrop-blur transition">
+          <div className="rounded-[24px] border border-cyan-500/30 bg-[#0B1020]/95 p-5 sm:p-6 text-white shadow-sm backdrop-blur-xl transition">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-950/90 border border-cyan-500/40">
-                  <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-300">
+                  <Loader2 className="h-5 w-5 animate-spin text-cyan-400" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-semibold text-cyan-200">
+                  <h4 className="text-xs sm:text-sm font-semibold text-cyan-200">
                     Pesquisando documentos nos discos autorizados do servidor local…
                   </h4>
-                  <p className="text-[11px] font-mono text-slate-400">
-                    Termo: <strong className="text-slate-200 font-semibold">"{query}"</strong>
+                  <p className="text-[11px] font-mono text-white/50">
+                    Termo: <strong className="text-white font-semibold">"{query}"</strong>
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-950/80 px-3.5 py-2 font-mono text-xs">
+              <div className="flex items-center gap-3 rounded-xl border border-white/15 bg-[#080D1A] px-3.5 py-2 font-mono text-xs">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-slate-400 text-[11px]">Tempo decorrido:</span>
+                  <span className="text-white/50 text-[11px]">Tempo decorrido:</span>
                   <strong className="text-cyan-300 font-semibold">{formatTempoMMSS(tempoBuscaDecorrido)}</strong>
                 </div>
-                <span className="text-slate-700">|</span>
+                <span className="text-white/20">|</span>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-slate-400 text-[11px]">Tempo restante estimado:</span>
+                  <span className="text-white/50 text-[11px]">Tempo restante estimado:</span>
                   <strong className={tempoBuscaRestante > 0 ? 'text-amber-300 font-semibold' : 'text-emerald-400 font-semibold'}>
                     {tempoBuscaRestante > 0 ? `~${formatTempoMMSS(tempoBuscaRestante)}` : 'Finalizando…'}
                   </strong>
@@ -1004,7 +1004,7 @@ export function DocumentSearch() {
               </div>
             </div>
 
-            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-800">
+            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10">
               <div
                 className="h-full bg-gradient-to-r from-cyan-500 via-sky-400 to-emerald-400 transition-all duration-300 ease-out"
                 style={{
@@ -1017,34 +1017,34 @@ export function DocumentSearch() {
 
         {/* Card de Progresso de Extração / Assinaturas / Leitura */}
         {processandoAcao && (
-          <div className="rounded-xl border border-cyan-500/50 bg-slate-900/95 p-4 shadow-xl backdrop-blur transition">
+          <div className="rounded-[24px] border border-cyan-500/30 bg-[#0B1020]/95 p-5 sm:p-6 text-white shadow-sm backdrop-blur-xl transition">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-950/90 border border-cyan-500/40">
-                  <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-300">
+                  <Loader2 className="h-5 w-5 animate-spin text-cyan-400" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-semibold text-cyan-200">
+                  <h4 className="text-xs sm:text-sm font-semibold text-cyan-200">
                     {processandoAcao.tipo === 'extracao'
                       ? 'Extraindo Ficha do Oficial via CLI Rust local…'
                       : processandoAcao.tipo === 'assinatura'
                       ? 'Auditando assinaturas eletrônicas PAdES via CLI Rust…'
                       : 'Carregando minuta / documento via Mammoth…'}
                   </h4>
-                  <p className="text-[11px] font-mono text-slate-400 truncate max-w-md">
+                  <p className="text-[11px] font-mono text-white/50 truncate max-w-md">
                     {processandoAcao.fileName}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-950/80 px-3.5 py-2 font-mono text-xs">
+              <div className="flex items-center gap-3 rounded-xl border border-white/15 bg-[#080D1A] px-3.5 py-2 font-mono text-xs">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-slate-400 text-[11px]">Tempo decorrido:</span>
+                  <span className="text-white/50 text-[11px]">Tempo decorrido:</span>
                   <strong className="text-cyan-300 font-semibold">{formatTempoMMSS(tempoDecorrido)}</strong>
                 </div>
-                <span className="text-slate-700">|</span>
+                <span className="text-white/20">|</span>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-slate-400 text-[11px]">Tempo restante estimado:</span>
+                  <span className="text-white/50 text-[11px]">Tempo restante estimado:</span>
                   <strong className={tempoRestante > 0 ? 'text-amber-300 font-semibold' : 'text-emerald-400 font-semibold'}>
                     {tempoRestante > 0 ? `~${formatTempoMMSS(tempoRestante)}` : 'Finalizando…'}
                   </strong>
@@ -1052,7 +1052,7 @@ export function DocumentSearch() {
               </div>
             </div>
 
-            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-800">
+            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10">
               <div
                 className="h-full bg-gradient-to-r from-cyan-500 via-sky-400 to-emerald-400 transition-all duration-300 ease-out"
                 style={{
@@ -1065,15 +1065,15 @@ export function DocumentSearch() {
 
         {/* Tabela de Resultados */}
         {job?.status === 'complete' && job.result && (
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between text-xs text-slate-300 gap-2">
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between text-xs text-white/70 gap-2">
               <div className="flex items-center gap-2">
                 <span>
-                  <strong>{job.result.files.length}</strong> documento(s) localizado(s)
+                  <strong className="text-white">{job.result.files.length}</strong> documento(s) localizado(s)
                   {job.result.partial && ' (resultado parcial devido a limite de pesquisa)'}.
                 </span>
                 {isCacheHit && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-cyan-950/90 border border-cyan-500/50 px-2 py-0.5 text-[10px] font-bold text-cyan-300">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-cyan-950/90 border border-cyan-500/50 px-2.5 py-0.5 text-[10px] font-bold text-cyan-300">
                     ⚡ Resposta instantânea (Cache em memória)
                   </span>
                 )}
@@ -1094,16 +1094,16 @@ export function DocumentSearch() {
               </div>
             </div>
 
-            {/* Card: Voltar para Tela Anterior */}
+            {/* Card: Voltar para Tela Anterior (Padrão FIORIX) */}
             {historicoBuscas.length > 0 && (() => {
               const telaAnterior = historicoBuscas[historicoBuscas.length - 1];
               const totalDocs = telaAnterior.totalDocumentos ?? telaAnterior.job?.result?.files?.length ?? 0;
 
               return (
-                <div className="rounded-xl border border-cyan-500/60 bg-gradient-to-r from-cyan-950/90 via-slate-900/95 to-slate-950/95 p-4 shadow-xl backdrop-blur transition-all duration-200 hover:border-cyan-400">
+                <div className="rounded-[24px] border border-cyan-400/40 bg-gradient-to-r from-[#071926]/95 via-[#0B1020]/95 to-[#071926]/95 p-5 shadow-lg backdrop-blur-xl transition-all duration-200 hover:border-cyan-300">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-400/40 shrink-0 shadow-inner">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-400/40 shrink-0 shadow-inner">
                         <ArrowLeft className="h-5 w-5" />
                       </div>
                       <div>
@@ -1112,9 +1112,9 @@ export function DocumentSearch() {
                             <History className="h-3 w-3" />
                             Tela Anterior
                           </span>
-                          <span className="text-[11px] text-slate-400">
+                          <span className="text-[11px] text-white/50">
                             Origem:{' '}
-                            <strong className="text-slate-200 font-mono">
+                            <strong className="text-white font-mono">
                               {telaAnterior.origemTitulo || `"${telaAnterior.query}"`}
                             </strong>
                           </span>
@@ -1135,7 +1135,7 @@ export function DocumentSearch() {
                         type="button"
                         onClick={voltarTelaAnterior}
                         title={`Retornar imediatamente à pesquisa anterior (${telaAnterior.query})`}
-                        className="inline-flex items-center gap-2 rounded-lg border border-cyan-400 bg-cyan-600 hover:bg-cyan-500 px-4 py-2 text-xs sm:text-sm font-bold text-white shadow-lg transition active:scale-95"
+                        className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/50 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-md shadow-cyan-500/25 transition active:scale-95"
                       >
                         <ArrowLeft className="h-4 w-4" />
                         <span>Voltar para tela anterior</span>
@@ -1146,7 +1146,7 @@ export function DocumentSearch() {
                           type="button"
                           onClick={limparHistoricoNavegacao}
                           title="Limpar histórico de navegação"
-                          className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
+                          className="rounded-xl border border-white/15 bg-white/[0.05] p-2.5 text-white/60 hover:bg-white/[0.1] hover:text-white transition"
                         >
                           <X className="h-4 w-4" />
                         </button>
@@ -1156,8 +1156,8 @@ export function DocumentSearch() {
 
                   {/* Trilha de Navegação (se houver mais de 1 nível de histórico) */}
                   {historicoBuscas.length > 1 && (
-                    <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
-                      <span className="text-slate-500 font-semibold">Trilha de navegação:</span>
+                    <div className="mt-3.5 pt-3 border-t border-white/10 flex flex-wrap items-center gap-1.5 text-[11px] text-white/60">
+                      <span className="text-white/40 font-semibold">Trilha de navegação:</span>
                       {historicoBuscas.map((item, idx) => (
                         <span key={item.timestamp + '-' + idx} className="inline-flex items-center gap-1">
                           <button
@@ -1168,10 +1168,10 @@ export function DocumentSearch() {
                           >
                             {item.query}
                           </button>
-                          <span className="text-slate-600">→</span>
+                          <span className="text-white/30">→</span>
                         </span>
                       ))}
-                      <span className="text-white font-mono font-semibold bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700/60">
+                      <span className="text-white font-mono font-semibold bg-[#080D1A] px-2 py-0.5 rounded-lg border border-white/15">
                         {query} (atual)
                       </span>
                     </div>
@@ -1180,7 +1180,7 @@ export function DocumentSearch() {
               );
             })()}
 
-            {/* Destaque da Matrícula Vinculada aos Autos */}
+            {/* Destaque da Matrícula Vinculada aos Autos (Padrão FIORIX) */}
             {(() => {
               const matriculaProcesso =
                 job.result.matriculaDetectada ||
@@ -1195,21 +1195,36 @@ export function DocumentSearch() {
 
               if (!matriculaProcesso) return null;
 
+              // Se a consulta atual já for a própria matrícula ou os arquivos encontrados já forem imagens do Livro 2 (.KEN / .TIF),
+              // não exibir o card repetido para localizar no Livro 2 (evita excesso e redundância)
+              const queryDigits = query.replace(/\D/g, '');
+              const matDigits = matriculaProcesso.replace(/\D/g, '');
+              const apenasImagensMatricula =
+                job.result.files.length > 0 &&
+                job.result.files.every(f => {
+                  const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
+                  return ext === '.ken' || ext === '.tif' || ext === '.tiff';
+                });
+
+              if (apenasImagensMatricula || (queryDigits && matDigits && (queryDigits === matDigits || matDigits.endsWith(queryDigits) || queryDigits.endsWith(matDigits)))) {
+                return null;
+              }
+
               return (
-                <div className="rounded-xl border border-sky-500/60 bg-gradient-to-r from-sky-950/90 via-slate-900/95 to-slate-950/95 p-4 shadow-xl backdrop-blur">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="rounded-[24px] border border-cyan-500/40 bg-gradient-to-r from-cyan-950/40 via-[#0B1020]/95 to-blue-950/30 p-5 shadow-lg backdrop-blur-xl">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/20 text-sky-400 border border-sky-400/40 shrink-0 shadow-inner">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-400/40 shrink-0 shadow-inner">
                         <FileText className="h-5 w-5" />
                       </div>
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-md bg-sky-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-300 border border-sky-500/40">
+                          <span className="rounded-md bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300 border border-cyan-500/40">
                             Matrícula do Processo Identificada
                           </span>
                           {arquivoOrigemMatricula && (
-                            <span className="text-[11px] text-slate-400">
-                              Origem: <strong className="text-slate-200">{arquivoOrigemMatricula}</strong>
+                            <span className="text-[11px] text-white/60">
+                              Origem: <strong className="text-white font-mono">{arquivoOrigemMatricula}</strong>
                             </span>
                           )}
                         </div>
@@ -1217,7 +1232,7 @@ export function DocumentSearch() {
                           <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
                             {matriculaProcesso}
                           </h3>
-                          <span className="text-xs text-sky-300/80 font-mono">
+                          <span className="text-xs text-cyan-300/80 font-mono">
                             (Livro 2 – Registro Geral)
                           </span>
                         </div>
@@ -1229,7 +1244,7 @@ export function DocumentSearch() {
                         type="button"
                         onClick={() => buscarMatriculaNoLivro2(matriculaProcesso)}
                         title="Buscar imagem digitalizada da matrícula em K:\IMAGENS\LV2"
-                        className="inline-flex items-center gap-2 rounded-lg border border-sky-400 bg-sky-600 hover:bg-sky-500 px-3.5 py-2 text-xs sm:text-sm font-bold text-white shadow-lg transition"
+                        className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/50 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-md shadow-cyan-500/25 transition active:scale-95"
                       >
                         <Search className="h-4 w-4" />
                         <span>Localizar Imagem no Livro 2 (K:\IMAGENS\LV2)</span>
@@ -1240,329 +1255,336 @@ export function DocumentSearch() {
               );
             })()}
 
-            <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60 shadow">
-              <table className="w-full text-left text-xs sm:text-sm border-collapse">
-                <thead className="bg-slate-950/90 text-slate-300 font-semibold border-b border-slate-800">
-                  <tr>
-                    <th className="p-3.5 sm:p-4 min-w-[200px]">Arquivo / Caminho</th>
-                    <th className="p-3.5 sm:p-4 w-28 whitespace-nowrap">Pasta</th>
-                    <th className="p-3.5 sm:p-4 w-20 whitespace-nowrap">Tamanho</th>
-                    <th className="p-3.5 sm:p-4 w-28 whitespace-nowrap">Modificado</th>
-                    <th className="sticky right-0 bg-slate-950 p-3.5 sm:p-4 w-[320px] min-w-[320px] max-w-[320px] text-right whitespace-nowrap z-20 border-l border-slate-800 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.6)]">
-                      Ações Documentais
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {job.result.files.map(file => {
-                    const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
-                    const isPdf = ext === '.pdf';
-                    const isDocx = ext === '.docx' || ext === '.doc' || ext === '.rtf' || ext === '.txt';
-                    const isKenOrTif = ext === '.ken' || ext === '.tif' || ext === '.tiff';
-                    const fileKey = `${file.rootId}:${file.relativePath}`;
-                    const emProcessamento = processandoAcao?.id === fileKey;
-                    const jaExtraido = !!getCachedExtracao(fileKey);
-                    const jaAuditado = !!getCachedAssinatura(fileKey);
-                    const jaLido = !!getCachedLeitura(fileKey);
-                    const pathFoiCopiado = caminhoCopiado === file.relativePath;
+            {job.result.files.length === 0 ? (
+              <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-8 sm:p-12 text-center text-white/60 shadow-sm backdrop-blur-xl">
+                <FileText className="mx-auto h-12 w-12 text-white/30" />
+                <h4 className="mt-3 text-base font-bold text-white">Nenhum documento localizado</h4>
+                <p className="mt-1 text-xs text-white/50 max-w-md mx-auto">
+                  Não encontramos arquivos para os termos pesquisados. Verifique se o termo está correto ou tente a Busca Cruzada.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-[24px] border border-white/20 bg-[#0B1020]/90 text-white shadow-sm backdrop-blur-xl">
+                <table className="w-full text-left text-xs sm:text-sm border-collapse">
+                  <thead className="bg-[#080D1A] text-white/70 font-semibold border-b border-white/10 text-[11px] sm:text-xs">
+                    <tr>
+                      <th className="p-3.5 sm:p-4 min-w-[200px]">Arquivo / Caminho</th>
+                      <th className="p-3.5 sm:p-4 w-28 whitespace-nowrap">Pasta</th>
+                      <th className="p-3.5 sm:p-4 w-20 whitespace-nowrap">Tamanho</th>
+                      <th className="p-3.5 sm:p-4 w-28 whitespace-nowrap">Modificado</th>
+                      <th className="sticky right-0 bg-[#080D1A] p-3.5 sm:p-4 w-[320px] min-w-[320px] max-w-[320px] text-right whitespace-nowrap z-20 border-l border-white/10 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.6)]">
+                        Ações Documentais
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {job.result.files.map(file => {
+                      const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+                      const isPdf = ext === '.pdf';
+                      const isDocx = ext === '.docx' || ext === '.doc' || ext === '.rtf' || ext === '.txt';
+                      const isKenOrTif = ext === '.ken' || ext === '.tif' || ext === '.tiff';
+                      const fileKey = `${file.rootId}:${file.relativePath}`;
+                      const emProcessamento = processandoAcao?.id === fileKey;
+                      const jaExtraido = !!getCachedExtracao(fileKey);
+                      const jaAuditado = !!getCachedAssinatura(fileKey);
+                      const jaLido = !!getCachedLeitura(fileKey);
+                      const pathFoiCopiado = caminhoCopiado === file.relativePath;
 
-                    return (
-                      <tr key={fileKey} className="group hover:bg-slate-800/40 transition">
-                        <td className="p-3.5 sm:p-4 font-medium text-slate-100">
-                          <div className="flex items-start gap-2.5">
-                            <FileText
-                              className={`h-4 w-4 sm:h-5 sm:w-5 shrink-0 mt-0.5 ${
-                                isPdf ? 'text-rose-400' : isDocx ? 'text-sky-400' : isKenOrTif ? 'text-amber-400' : 'text-slate-400'
-                              }`}
-                            />
-                            <div className="min-w-0 max-w-xs sm:max-w-md lg:max-w-lg">
-                              <span className="truncate block font-semibold text-slate-100 text-xs sm:text-sm" title={file.name}>
-                                {file.name}
-                              </span>
-                              <span className="truncate block font-mono text-[11px] text-slate-400 mt-0.5" title={file.relativePath}>
-                                {file.relativePath}
-                              </span>
+                      return (
+                        <tr key={fileKey} className="group hover:bg-white/[0.04] transition">
+                          <td className="p-3.5 sm:p-4 font-medium text-white">
+                            <div className="flex items-start gap-2.5">
+                              <FileText
+                                className={`h-4 w-4 sm:h-5 sm:w-5 shrink-0 mt-0.5 ${
+                                  isPdf ? 'text-rose-400' : isDocx ? 'text-sky-400' : isKenOrTif ? 'text-amber-400' : 'text-slate-400'
+                                }`}
+                              />
+                              <div className="min-w-0 max-w-xs sm:max-w-md lg:max-w-lg">
+                                <span className="truncate block font-semibold text-white text-xs sm:text-sm" title={file.name}>
+                                  {file.name}
+                                </span>
+                                <span className="truncate block font-mono text-[11px] text-white/50 mt-0.5" title={file.relativePath}>
+                                  {file.relativePath}
+                                </span>
 
-                              {(() => {
-                                const fileMatricula =
-                                  file.matricula ||
-                                  getCachedExtracao(fileKey)?.matricula_transcricao ||
-                                  (file.name.match(/(?:matr[ií]cula|transcri[çc][ãa]o)\s*(?:n[ºo°]?)?\s*([0-9.\-]+)/i)?.[0]);
+                                {(() => {
+                                  // Arquivos de imagem de matrícula (.KEN / .TIF) já são o documento final do Livro 2
+                                  if (isKenOrTif) return null;
 
-                                if (!fileMatricula) return null;
+                                  const fileMatricula =
+                                    file.matricula ||
+                                    getCachedExtracao(fileKey)?.matricula_transcricao ||
+                                    (file.name.match(/(?:matr[ií]cula|transcri[çc][ãa]o)\s*(?:n[ºo°]?)?\s*([0-9.\-]+)/i)?.[0]);
 
-                                return (
-                                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                                    <span className="inline-flex items-center gap-1 rounded bg-sky-950/90 border border-sky-600/70 px-2 py-0.5 text-[11px] font-semibold text-sky-200 shadow-sm">
-                                      <FileText className="h-3 w-3 text-sky-400 shrink-0" />
-                                      <span>{fileMatricula}</span>
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => buscarMatriculaNoLivro2(fileMatricula)}
-                                      className="inline-flex items-center gap-1 text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline transition"
-                                      title="Pesquisar imagem desta matrícula em K:\IMAGENS\LV2"
-                                    >
-                                      <Search className="h-3 w-3 text-cyan-400" />
-                                      <span>Localizar no Livro 2 (K:)</span>
-                                    </button>
-                                  </div>
-                                );
-                              })()}
+                                  if (!fileMatricula) return null;
+
+                                  return (
+                                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                                      <span
+                                        className="inline-flex items-center gap-1 rounded-md bg-cyan-950/80 border border-cyan-500/40 px-2 py-0.5 text-[11px] font-semibold text-cyan-200 shadow-sm"
+                                        title={`Matrícula identificada neste documento: ${fileMatricula}`}
+                                      >
+                                        <FileText className="h-3 w-3 text-cyan-400 shrink-0" />
+                                        <span>{fileMatricula}</span>
+                                      </span>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="p-3.5 sm:p-4 whitespace-nowrap">
-                          <span className="rounded bg-slate-800 px-2.5 py-1 font-mono text-[11px] sm:text-xs text-cyan-300 border border-slate-700/60">
-                            {file.rootId}
-                          </span>
-                        </td>
-                        <td className="p-3.5 sm:p-4 text-slate-300 text-xs sm:text-sm whitespace-nowrap">
-                          {Math.ceil(file.size / 1024)} KB
-                        </td>
-                        <td className="p-3.5 sm:p-4 text-slate-300 text-xs sm:text-sm whitespace-nowrap">
-                          {new Date(file.modifiedAt).toLocaleDateString('pt-BR')}
-                        </td>
+                          </td>
+                          <td className="p-3.5 sm:p-4 whitespace-nowrap">
+                            <span className="rounded-lg bg-[#080D1A] px-2.5 py-1 font-mono text-[11px] sm:text-xs text-cyan-300 border border-white/15">
+                              {file.rootId}
+                            </span>
+                          </td>
+                          <td className="p-3.5 sm:p-4 text-white/70 text-xs sm:text-sm whitespace-nowrap">
+                            {Math.ceil(file.size / 1024)} KB
+                          </td>
+                          <td className="p-3.5 sm:p-4 text-white/70 text-xs sm:text-sm whitespace-nowrap">
+                            {new Date(file.modifiedAt).toLocaleDateString('pt-BR')}
+                          </td>
 
-                        {/* Coluna de Ações com Alinhamento Estrito em 2 Slots de Largura Fixa */}
-                        <td className="sticky right-0 bg-slate-900 group-hover:bg-slate-800 p-3.5 sm:p-4 text-right whitespace-nowrap z-10 border-l border-slate-800/80 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.6)] w-[320px] min-w-[320px] max-w-[320px]">
-                          <div className="flex items-center justify-end gap-2">
-                            {isPdf ? (
-                              <>
-                                {/* Slot 1: Extração de Ficha (Largura fixa exata: 145px, altura: h-8) */}
-                                <div className="w-[145px] shrink-0 flex items-center justify-end">
-                                  {jaExtraido ? (
-                                    <div className="w-full h-8 flex items-stretch rounded-lg border border-cyan-500/80 bg-cyan-950 overflow-hidden shadow-sm">
+                          {/* Coluna de Ações com Alinhamento Estrito em 2 Slots de Largura Fixa */}
+                          <td className="sticky right-0 bg-[#0B1020] group-hover:bg-[#0E1528] p-3.5 sm:p-4 text-right whitespace-nowrap z-10 border-l border-white/10 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.6)] w-[320px] min-w-[320px] max-w-[320px]">
+                            <div className="flex items-center justify-end gap-2">
+                              {isPdf ? (
+                                <>
+                                  {/* Slot 1: Extração de Ficha (Largura fixa exata: 145px, altura: h-8) */}
+                                  <div className="w-[145px] shrink-0 flex items-center justify-end">
+                                    {jaExtraido ? (
+                                      <div className="w-full h-8 flex items-stretch rounded-lg border border-cyan-500/80 bg-cyan-950/90 overflow-hidden shadow-sm">
+                                        <button
+                                          type="button"
+                                          disabled={!!processandoAcao}
+                                          onClick={() => extrairPeticao(file)}
+                                          title="Ver Ficha do Oficial pronta em cache (0ms)"
+                                          className="flex-1 inline-flex items-center justify-center gap-1 px-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-900/80 transition disabled:opacity-50"
+                                        >
+                                          <Zap className="h-3.5 w-3.5 text-amber-300 fill-amber-300/30 shrink-0" />
+                                          <span>Ver Ficha</span>
+                                          <span className="rounded bg-cyan-900/90 px-1 text-[9px] font-bold text-cyan-300">0ms</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={!!processandoAcao}
+                                          onClick={() => extrairPeticao(file, true)}
+                                          title="Re-extrair dados do PDF (descartar cache e ler novamente)"
+                                          className="w-7 border-l border-cyan-700/60 flex items-center justify-center text-cyan-400 hover:bg-cyan-900/80 hover:text-amber-300 transition disabled:opacity-50"
+                                        >
+                                          <RotateCw className="h-3 w-3" />
+                                        </button>
+                                      </div>
+                                    ) : (
                                       <button
                                         type="button"
                                         disabled={!!processandoAcao}
                                         onClick={() => extrairPeticao(file)}
-                                        title="Ver Ficha do Oficial pronta em cache (0ms)"
-                                        className="flex-1 inline-flex items-center justify-center gap-1 px-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-900 transition disabled:opacity-50"
+                                        title="Extrair dados estruturados e gerar Ficha de Conferência do Oficial"
+                                        className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition disabled:opacity-50"
                                       >
-                                        <Zap className="h-3.5 w-3.5 text-amber-300 fill-amber-300/30 shrink-0" />
-                                        <span>Ver Ficha</span>
-                                        <span className="rounded bg-cyan-900 px-1 text-[9px] font-bold text-cyan-300">0ms</span>
+                                        {emProcessamento && processandoAcao?.tipo === 'extracao' ? (
+                                          <>
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400 shrink-0" />
+                                            <span className="font-mono text-xs">{formatTempoMMSS(tempoDecorrido)}</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Sparkles className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                                            <span>Extrair Ficha</span>
+                                          </>
+                                        )}
                                       </button>
-                                      <button
-                                        type="button"
-                                        disabled={!!processandoAcao}
-                                        onClick={() => extrairPeticao(file, true)}
-                                        title="Re-extrair dados do PDF (descartar cache e ler novamente)"
-                                        className="w-7 border-l border-cyan-700/60 flex items-center justify-center text-cyan-400 hover:bg-cyan-900 hover:text-amber-300 transition disabled:opacity-50"
-                                      >
-                                        <RotateCw className="h-3 w-3" />
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      disabled={!!processandoAcao}
-                                      onClick={() => extrairPeticao(file)}
-                                      title="Extrair dados estruturados e gerar Ficha de Conferência do Oficial"
-                                      className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-cyan-800/60 bg-cyan-950/60 px-2.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-900/80 transition disabled:opacity-50"
-                                    >
-                                      {emProcessamento && processandoAcao?.tipo === 'extracao' ? (
-                                        <>
-                                          <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400 shrink-0" />
-                                          <span className="font-mono text-xs">{formatTempoMMSS(tempoDecorrido)}</span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Sparkles className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
-                                          <span>Extrair Ficha</span>
-                                        </>
-                                      )}
-                                    </button>
-                                  )}
-                                </div>
+                                    )}
+                                  </div>
 
-                                {/* Slot 2: Assinaturas (Largura fixa exata: 155px, altura: h-8) */}
-                                <div className="w-[155px] shrink-0 flex items-center justify-end">
-                                  {jaAuditado ? (
-                                    <div className="w-full h-8 flex items-stretch rounded-lg border border-emerald-600/80 bg-emerald-950 overflow-hidden shadow-sm">
+                                  {/* Slot 2: Assinaturas (Largura fixa exata: 155px, altura: h-8) */}
+                                  <div className="w-[155px] shrink-0 flex items-center justify-end">
+                                    {jaAuditado ? (
+                                      <div className="w-full h-8 flex items-stretch rounded-lg border border-emerald-500/80 bg-emerald-950/90 overflow-hidden shadow-sm">
+                                        <button
+                                          type="button"
+                                          disabled={!!processandoAcao}
+                                          onClick={() => analisarAssinaturas(file)}
+                                          title="Auditoria de assinaturas pronta em cache (0ms)"
+                                          className="flex-1 inline-flex items-center justify-center gap-1 px-2 text-xs font-semibold text-emerald-200 hover:bg-emerald-900/80 transition disabled:opacity-50"
+                                        >
+                                          <ShieldCheck className="h-3.5 w-3.5 text-emerald-300 shrink-0" />
+                                          <span>Assinaturas</span>
+                                          <span className="rounded bg-emerald-900/90 px-1 text-[9px] font-bold text-emerald-300">0ms</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={!!processandoAcao}
+                                          onClick={() => analisarAssinaturas(file, true)}
+                                          title="Re-auditar assinaturas eletrônicas no servidor (descartar cache)"
+                                          className="w-7 border-l border-emerald-700/60 flex items-center justify-center text-emerald-400 hover:bg-emerald-900/80 hover:text-amber-300 transition disabled:opacity-50"
+                                        >
+                                          <RotateCw className="h-3 w-3" />
+                                        </button>
+                                      </div>
+                                    ) : (
                                       <button
                                         type="button"
                                         disabled={!!processandoAcao}
                                         onClick={() => analisarAssinaturas(file)}
-                                        title="Auditoria de assinaturas pronta em cache (0ms)"
-                                        className="flex-1 inline-flex items-center justify-center gap-1 px-2 text-xs font-semibold text-emerald-200 hover:bg-emerald-900 transition disabled:opacity-50"
+                                        title="Verificar assinaturas eletrônicas PAdES/ICP-Brasil"
+                                        className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.06] px-2.5 text-xs font-semibold text-white/80 hover:bg-white/[0.12] hover:text-white transition disabled:opacity-50"
                                       >
-                                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-300 shrink-0" />
-                                        <span>Assinaturas</span>
-                                        <span className="rounded bg-emerald-900 px-1 text-[9px] font-bold text-emerald-300">0ms</span>
+                                        {emProcessamento && processandoAcao?.tipo === 'assinatura' ? (
+                                          <>
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400 shrink-0" />
+                                            <span className="font-mono text-xs">{formatTempoMMSS(tempoDecorrido)}</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                                            <span>Assinaturas</span>
+                                          </>
+                                        )}
                                       </button>
-                                      <button
-                                        type="button"
-                                        disabled={!!processandoAcao}
-                                        onClick={() => analisarAssinaturas(file, true)}
-                                        title="Re-auditar assinaturas eletrônicas no servidor (descartar cache)"
-                                        className="w-7 border-l border-emerald-700/60 flex items-center justify-center text-emerald-400 hover:bg-emerald-900 hover:text-amber-300 transition disabled:opacity-50"
-                                      >
-                                        <RotateCw className="h-3 w-3" />
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      disabled={!!processandoAcao}
-                                      onClick={() => analisarAssinaturas(file)}
-                                      title="Verificar assinaturas eletrônicas PAdES/ICP-Brasil"
-                                      className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition disabled:opacity-50"
-                                    >
-                                      {emProcessamento && processandoAcao?.tipo === 'assinatura' ? (
-                                        <>
-                                          <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400 shrink-0" />
-                                          <span className="font-mono text-xs">{formatTempoMMSS(tempoDecorrido)}</span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                                          <span>Assinaturas</span>
-                                        </>
-                                      )}
-                                    </button>
-                                  )}
-                                </div>
-                              </>
-                            ) : isDocx ? (
-                              <>
-                                {/* Slot 1: Leitura do DOCX / Minuta (Largura fixa: 145px, altura: h-8) */}
-                                <div className="w-[145px] shrink-0 flex items-center justify-end">
-                                  {jaLido ? (
-                                    <div className="w-full h-8 flex items-stretch rounded-lg border border-sky-500/80 bg-sky-950 overflow-hidden shadow-sm">
+                                    )}
+                                  </div>
+                                </>
+                              ) : isDocx ? (
+                                <>
+                                  {/* Slot 1: Leitura do DOCX / Minuta (Largura fixa: 145px, altura: h-8) */}
+                                  <div className="w-[145px] shrink-0 flex items-center justify-end">
+                                    {jaLido ? (
+                                      <div className="w-full h-8 flex items-stretch rounded-lg border border-sky-500/80 bg-sky-950/90 overflow-hidden shadow-sm">
+                                        <button
+                                          type="button"
+                                          disabled={!!processandoAcao}
+                                          onClick={() => visualizarDocumento(file)}
+                                          title="Visualizar minuta .docx pronta em cache (0ms)"
+                                          className="flex-1 inline-flex items-center justify-center gap-1 px-2 text-xs font-semibold text-sky-200 hover:bg-sky-900/80 transition disabled:opacity-50"
+                                        >
+                                          <Zap className="h-3.5 w-3.5 text-amber-300 fill-amber-300/30 shrink-0" />
+                                          <span>Ver Minuta</span>
+                                          <span className="rounded bg-sky-900/90 px-1 text-[9px] font-bold text-sky-300">0ms</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={!!processandoAcao}
+                                          onClick={() => visualizarDocumento(file, true)}
+                                          title="Re-ler documento do disco no servidor (descartar cache)"
+                                          className="w-7 border-l border-sky-700/60 flex items-center justify-center text-sky-400 hover:bg-sky-900/80 hover:text-amber-300 transition disabled:opacity-50"
+                                        >
+                                          <RotateCw className="h-3 w-3" />
+                                        </button>
+                                      </div>
+                                    ) : (
                                       <button
                                         type="button"
                                         disabled={!!processandoAcao}
                                         onClick={() => visualizarDocumento(file)}
-                                        title="Visualizar minuta .docx pronta em cache (0ms)"
-                                        className="flex-1 inline-flex items-center justify-center gap-1 px-2 text-xs font-semibold text-sky-200 hover:bg-sky-900 transition disabled:opacity-50"
+                                        title="Ler e visualizar o conteúdo da minuta .docx no navegador"
+                                        className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 px-2.5 text-xs font-semibold text-sky-200 hover:bg-sky-500/20 shadow-sm transition disabled:opacity-50"
                                       >
-                                        <Zap className="h-3.5 w-3.5 text-amber-300 fill-amber-300/30 shrink-0" />
-                                        <span>Ver Minuta</span>
-                                        <span className="rounded bg-sky-900 px-1 text-[9px] font-bold text-sky-300">0ms</span>
+                                        {emProcessamento && processandoAcao?.tipo === 'leitura' ? (
+                                          <>
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-400 shrink-0" />
+                                            <span className="font-mono text-xs">{formatTempoMMSS(tempoDecorrido)}</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <FileText className="h-3.5 w-3.5 text-sky-400 shrink-0" />
+                                            <span>Ler Minuta</span>
+                                          </>
+                                        )}
                                       </button>
-                                      <button
-                                        type="button"
-                                        disabled={!!processandoAcao}
-                                        onClick={() => visualizarDocumento(file, true)}
-                                        title="Re-ler documento do disco no servidor (descartar cache)"
-                                        className="w-7 border-l border-sky-700/60 flex items-center justify-center text-sky-400 hover:bg-sky-900 hover:text-amber-300 transition disabled:opacity-50"
-                                      >
-                                        <RotateCw className="h-3 w-3" />
-                                      </button>
-                                    </div>
-                                  ) : (
+                                    )}
+                                  </div>
+
+                                  {/* Slot 2: Copiar Caminho do Arquivo (Largura fixa: 155px, altura: h-8) */}
+                                  <div className="w-[155px] shrink-0 flex items-center justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => copiarCaminho(file)}
+                                      title="Copiar caminho relativo do arquivo no cartório"
+                                      className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.06] px-2 text-xs font-medium text-white/80 hover:bg-white/[0.12] hover:text-white transition"
+                                    >
+                                      {pathFoiCopiado ? (
+                                        <>
+                                          <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                                          <span className="text-emerald-400 font-semibold">Copiado!</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Copy className="h-3.5 w-3.5 text-white/40 shrink-0" />
+                                          <span>Copiar Caminho</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                </>
+                              ) : isKenOrTif ? (
+                                <>
+                                  {/* Slot 1: Ver Matrícula (.KEN / TIFF) */}
+                                  <div className="w-[145px] shrink-0 flex items-center justify-end">
                                     <button
                                       type="button"
                                       disabled={!!processandoAcao}
                                       onClick={() => visualizarDocumento(file)}
-                                      title="Ler e visualizar o conteúdo da minuta .docx no navegador"
-                                      className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-sky-600/80 bg-sky-950/80 px-2.5 text-xs font-semibold text-sky-200 hover:bg-sky-900 shadow-sm transition disabled:opacity-50"
+                                      title="Visualizar informações da matrícula digitalizada (.KEN / TIFF)"
+                                      className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/60 bg-amber-950/60 px-2 text-xs font-semibold text-amber-200 hover:bg-amber-900/80 shadow-sm transition disabled:opacity-50"
                                     >
-                                      {emProcessamento && processandoAcao?.tipo === 'leitura' ? (
-                                        <>
-                                          <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-400 shrink-0" />
-                                          <span className="font-mono text-xs">{formatTempoMMSS(tempoDecorrido)}</span>
-                                        </>
+                                      <FileText className="h-3.5 w-3.5 text-amber-400" />
+                                      <span>Ver Matrícula</span>
+                                    </button>
+                                  </div>
+
+                                  {/* Slot 2: Copiar Caminho */}
+                                  <div className="w-[155px] shrink-0 flex items-center justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => copiarCaminho(file)}
+                                      title="Copiar caminho relativo do arquivo da matrícula"
+                                      className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.06] px-2 text-xs text-white/80 hover:bg-white/[0.12] hover:text-white transition"
+                                    >
+                                      {pathFoiCopiado ? (
+                                        <span className="text-emerald-400 font-semibold">Copiado!</span>
                                       ) : (
                                         <>
-                                          <FileText className="h-3.5 w-3.5 text-sky-400 shrink-0" />
-                                          <span>Ler Minuta</span>
+                                          <Copy className="h-3.5 w-3.5 text-white/40" />
+                                          <span>Copiar Caminho</span>
                                         </>
                                       )}
                                     </button>
-                                  )}
-                                </div>
-
-                                {/* Slot 2: Copiar Caminho do Arquivo (Largura fixa: 155px, altura: h-8) */}
-                                <div className="w-[155px] shrink-0 flex items-center justify-end">
-                                  <button
-                                    type="button"
-                                    onClick={() => copiarCaminho(file)}
-                                    title="Copiar caminho relativo do arquivo no cartório"
-                                    className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition"
-                                  >
-                                    {pathFoiCopiado ? (
-                                      <>
-                                        <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="w-[145px] shrink-0 flex items-center justify-end">
+                                    <span className="text-[11px] text-white/40 italic">Arquivo genérico</span>
+                                  </div>
+                                  <div className="w-[155px] shrink-0 flex items-center justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => copiarCaminho(file)}
+                                      className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.06] px-2 text-xs text-white/80 hover:bg-white/[0.12] hover:text-white transition"
+                                    >
+                                      {pathFoiCopiado ? (
                                         <span className="text-emerald-400 font-semibold">Copiado!</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Copy className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                        <span>Copiar Caminho</span>
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                              </>
-                            ) : isKenOrTif ? (
-                              <>
-                                {/* Slot 1: Ver Matrícula (.KEN / TIFF) */}
-                                <div className="w-[145px] shrink-0 flex items-center justify-end">
-                                  <button
-                                    type="button"
-                                    disabled={!!processandoAcao}
-                                    onClick={() => visualizarDocumento(file)}
-                                    title="Visualizar informações da matrícula digitalizada (.KEN / TIFF)"
-                                    className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/80 bg-amber-950/80 px-2 text-xs font-semibold text-amber-200 hover:bg-amber-900 shadow-sm transition disabled:opacity-50"
-                                  >
-                                    <FileText className="h-3.5 w-3.5 text-amber-400" />
-                                    <span>Ver Matrícula</span>
-                                  </button>
-                                </div>
-
-                                {/* Slot 2: Copiar Caminho */}
-                                <div className="w-[155px] shrink-0 flex items-center justify-end">
-                                  <button
-                                    type="button"
-                                    onClick={() => copiarCaminho(file)}
-                                    title="Copiar caminho relativo do arquivo da matrícula"
-                                    className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2 text-xs text-slate-300 hover:bg-slate-700 transition"
-                                  >
-                                    {pathFoiCopiado ? (
-                                      <span className="text-emerald-400 font-semibold">Copiado!</span>
-                                    ) : (
-                                      <>
-                                        <Copy className="h-3.5 w-3.5 text-slate-400" />
-                                        <span>Copiar Caminho</span>
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                <div className="w-[145px] shrink-0 flex items-center justify-end">
-                                  <span className="text-[11px] text-slate-500 italic">Arquivo genérico</span>
-                                </div>
-                                <div className="w-[155px] shrink-0 flex items-center justify-end">
-                                  <button
-                                    type="button"
-                                    onClick={() => copiarCaminho(file)}
-                                    className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2 text-xs text-slate-300 hover:bg-slate-700 transition"
-                                  >
-                                    {pathFoiCopiado ? (
-                                      <span className="text-emerald-400 font-semibold">Copiado!</span>
-                                    ) : (
-                                      <>
-                                        <Copy className="h-3.5 w-3.5 text-slate-400" />
-                                        <span>Copiar Caminho</span>
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                                      ) : (
+                                        <>
+                                          <Copy className="h-3.5 w-3.5 text-white/40" />
+                                          <span>Copiar Caminho</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>
