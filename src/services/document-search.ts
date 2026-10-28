@@ -113,7 +113,14 @@ export async function searchDocuments(
           if (info.isDirectory()) { pending.push(filePath); continue; }
           if (!info.isFile() || !extensions.has(path.extname(entry.name).toLowerCase())) continue;
           const relativePath = path.relative(canonical, filePath);
-          if (!terms.every(term => normalize(relativePath).includes(term))) continue;
+          const normRel = normalize(relativePath);
+          const cleanRel = normRel.replace(/[.\-/]/g, '');
+          const matches = terms.every(term => {
+            if (normRel.includes(term)) return true;
+            const cleanTerm = term.replace(/[.\-/]/g, '');
+            return cleanTerm.length >= 2 && cleanRel.includes(cleanTerm);
+          });
+          if (!matches) continue;
           result.files.push({ rootId: root.id, relativePath, name: entry.name, size: info.size, modifiedAt: info.mtime.toISOString() });
         }
       } catch { result.partial = true; }
