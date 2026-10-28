@@ -1,7 +1,21 @@
 import { env, connectorEnv } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 import { postDocumentMessage } from './api.js';
-import { isAllowedDocumentApiUrl, parseDocumentRoots, searchDocuments } from './document-search.js';
+import {
+  executeDocumentCli,
+  isAllowedDocumentApiUrl,
+  parseDocumentRoots,
+  resolveAuthorizedFile,
+  searchDocuments,
+} from './document-search.js';
+
+interface ClaimedJob {
+  id: string;
+  type?: string;
+  query?: string | null;
+  rootId?: string | null;
+  relativePath?: string | null;
+}
 
 export function startDocumentWorker(): () => void {
   if (process.env.DOCUMENTAL_ENABLED !== 'true') return () => {};
@@ -22,10 +36,18 @@ export function startDocumentWorker(): () => void {
   async function tick() {
     try {
       const response = await postDocumentMessage({ action: 'claim' });
-      const job = response.data.job as { id: string; query: string } | null;
+      const job = response.data.job as ClaimedJob | null;
       if (job && !stopped) {
         try {
-          const result = await searchDocuments(authorizedRoots, job.query);
+          let result: unknown;
+          if (job.type === 'extract_petition' || job.type === 'analyze_signatures') {
+            if (!job.rootId || !job.relativePath) throw new Error('Parâmetros inválidos.');
+            const targetPath = await resolveAuthorizedFile(authorizedRoots, job.rootId, job.relativePath);
+            const cmd = job.type === 'extract_petition' ? 'extrair-peticao' : 'analisar-assinaturas';
+            result = await executeDocumentCli(cmd, targetPath);
+          } else {
+            result = await searchDocuments(authorizedRoots, job.query || '');
+          }
           if (!stopped) await postDocumentMessage({ action: 'complete', id: job.id, result });
         } catch {
           if (!stopped) await postDocumentMessage({ action: 'fail', id: job.id });
@@ -41,3 +63,4 @@ export function startDocumentWorker(): () => void {
   void tick();
   return () => { stopped = true; if (timer) clearTimeout(timer); };
 }
+

@@ -1,5 +1,9 @@
+import { execFile } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 export interface DocumentRoot { id: string; path: string }
 export interface DocumentMatch { rootId: string; relativePath: string; name: string; size: number; modifiedAt: string }
@@ -24,6 +28,42 @@ export function parseDocumentRoots(raw: string): DocumentRoot[] {
 export function isWithinRoot(root: string, target: string): boolean {
   const relative = path.relative(root, target);
   return relative === '' || (!path.isAbsolute(relative) && relative !== '..' && !relative.startsWith('..' + path.sep));
+}
+
+export async function resolveAuthorizedFile(
+  roots: DocumentRoot[],
+  rootId: string,
+  relativePath: string,
+): Promise<string> {
+  const root = roots.find(r => r.id === rootId);
+  if (!root) throw new Error('Pasta não autorizada.');
+  const canonicalRoot = await fs.realpath(root.path);
+  const target = path.resolve(canonicalRoot, relativePath);
+  const canonicalTarget = await fs.realpath(target);
+  if (!isWithinRoot(canonicalRoot, canonicalTarget)) {
+    throw new Error('Acesso fora da pasta autorizada negado.');
+  }
+  return canonicalTarget;
+}
+
+export async function executeDocumentCli(
+  command: 'extrair-peticao' | 'analisar-assinaturas',
+  filePath: string,
+  options?: { pageStart?: number; pageEnd?: number },
+): Promise<unknown> {
+  const defaultBin = 'B:\\henrique-dev\\app-biblioteca\\src-tauri\\target\\debug\\fiorix-gd-cli.exe';
+  const cliPath = process.env.FIORIX_GD_CLI_PATH || defaultBin;
+  const args = [command, filePath];
+  if (options?.pageStart) args.push('--inicio', String(options.pageStart));
+  if (options?.pageEnd) args.push('--fim', String(options.pageEnd));
+
+  const { stdout } = await execFileAsync(cliPath, args, {
+    timeout: 30000,
+    maxBuffer: 10 * 1024 * 1024,
+    windowsHide: true,
+  });
+
+  return JSON.parse(stdout);
 }
 
 // HTTPS is always required, except plain HTTP to the local loopback when explicitly
@@ -80,3 +120,4 @@ export async function searchDocuments(
   }
   return result;
 }
+

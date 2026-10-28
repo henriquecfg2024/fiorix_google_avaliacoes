@@ -2,7 +2,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { isAllowedDocumentApiUrl, isWithinRoot, parseDocumentRoots, searchDocuments } from '../src/services/document-search.js';
+import {
+  executeDocumentCli,
+  isAllowedDocumentApiUrl,
+  isWithinRoot,
+  parseDocumentRoots,
+  resolveAuthorizedFile,
+  searchDocuments,
+} from '../src/services/document-search.js';
 
 const temporary: string[] = [];
 async function fixture() { const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'fiorix-doc-')); temporary.push(dir); return dir; }
@@ -58,4 +65,24 @@ describe('document search', () => {
     expect(isAllowedDocumentApiUrl('http://localhost.evil.com/x', allow)).toBe(false);
     expect(isAllowedDocumentApiUrl('not a url', allow)).toBe(false);
   });
+  it('resolves authorized file paths strictly within configured roots', async () => {
+    const dir = await fixture();
+    const filePath = path.join(dir, 'sub', 'doc.pdf');
+    await fs.mkdir(path.join(dir, 'sub'));
+    await fs.writeFile(filePath, 'dummy');
+    const roots = [{ id: 'usucapiao', path: dir }];
+
+    const resolved = await resolveAuthorizedFile(roots, 'usucapiao', 'sub/doc.pdf');
+    expect(resolved.toLowerCase()).toBe(path.resolve(filePath).toLowerCase());
+
+    // Throws on unknown root
+    await expect(resolveAuthorizedFile(roots, 'inexistente', 'sub/doc.pdf')).rejects.toThrow();
+
+    // Throws on escape attempt
+    await expect(resolveAuthorizedFile(roots, 'usucapiao', '../other.pdf')).rejects.toThrow();
+
+    // Throws if file does not exist
+    await expect(resolveAuthorizedFile(roots, 'usucapiao', 'nao-existe.pdf')).rejects.toThrow();
+  });
 });
+
