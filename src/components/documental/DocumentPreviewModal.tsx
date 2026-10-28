@@ -253,13 +253,21 @@ export function DocumentPreviewModal({
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 bg-slate-900/60 px-5 py-2 text-[11px] text-slate-400">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-            <span>Processado internamente pelo Connector via Mammoth OpenXML. Nenhum dado transferido para nuvem pública.</span>
+            <span>
+              {documento.extension === '.ken' || documento.extension === '.tif' || documento.extension === '.tiff'
+                ? 'Acervo oficial de imagens digitalizadas do 7º RI (Wang TIFF / Kenta .KEN). Armazenamento local seguro em K:\\IMAGENS\\LV2.'
+                : 'Processado internamente pelo Connector via Mammoth OpenXML. Nenhum dado transferido para nuvem pública.'}
+            </span>
           </div>
           <div className="flex items-center gap-3 font-mono text-[10px] text-slate-400">
-            <span>{wordCount.toLocaleString('pt-BR')} palavras</span>
-            <span>•</span>
-            <span>{charCount.toLocaleString('pt-BR')} caracteres</span>
-            <span>•</span>
+            {documento.extension !== '.ken' && documento.extension !== '.tif' && (
+              <>
+                <span>{wordCount.toLocaleString('pt-BR')} palavras</span>
+                <span>•</span>
+                <span>{charCount.toLocaleString('pt-BR')} caracteres</span>
+                <span>•</span>
+              </>
+            )}
             <span>{Math.ceil(documento.size / 1024)} KB</span>
           </div>
         </div>
@@ -276,7 +284,9 @@ export function DocumentPreviewModal({
                 </h4>
               </div>
               <p className="font-sans text-[11px] text-slate-500">
-                Visualização Local de Minuta / Manifestação Documental • {documento.fileName}
+                {documento.extension === '.ken' || documento.extension === '.tif' || documento.extension === '.tiff'
+                  ? `Matrícula Digitalizada (Livro 2 – Registro Geral) • ${documento.fileName}`
+                  : `Visualização Local de Minuta / Manifestação Documental • ${documento.fileName}`}
               </p>
             </div>
 
