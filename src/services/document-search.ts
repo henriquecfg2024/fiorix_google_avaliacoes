@@ -172,16 +172,29 @@ export async function checkDirectMatriculaFiles(
   const matches: DocumentMatch[] = [];
   const numbersToTry = new Set<number>();
 
-  // 1. Extrai número completo desconsiderando pontos e traços (ex: "123.456" -> 123456, "45.890" -> 45890)
+  // 1. Se contiver número formatado com pontos (ex: "123.456", "45.890"), extrai o número unificado sem quebrar nos pontos
+  const formattedMatches = query.match(/\b\d{1,3}(?:\.\d{3})+(?:-\d+)?\b/g);
+  if (formattedMatches) {
+    for (const f of formattedMatches) {
+      const num = parseInt(f.replace(/[^\d]/g, ''), 10);
+      if (!isNaN(num) && num > 0) numbersToTry.add(num);
+    }
+  }
+
+  // 2. Extrai número completo desconsiderando pontos e traços (ex: "123.456" -> 123456, "45.890" -> 45890)
   const fullDigits = query.replace(/[^\d]/g, '');
   if (fullDigits.length >= 2 && fullDigits.length <= 8) {
     numbersToTry.add(parseInt(fullDigits, 10));
   }
 
-  // 2. Extrai sequências isoladas de 3 a 8 dígitos caso a consulta contenha outros termos
-  const digitMatches = query.match(/\b\d{3,8}\b/g);
+  // 3. Extrai sequências isoladas de 3 a 8 dígitos caso a consulta contenha outros termos NÃO separados por pontos
+  const unpunctQuery = query.replace(/\b\d{1,3}(?:\.\d{3})+\b/g, ' ');
+  const digitMatches = unpunctQuery.match(/\b\d{3,8}\b/g);
   if (digitMatches) {
-    for (const d of digitMatches) numbersToTry.add(parseInt(d, 10));
+    for (const d of digitMatches) {
+      const num = parseInt(d, 10);
+      if (!isNaN(num) && num > 0) numbersToTry.add(num);
+    }
   }
 
   const seenPaths = new Set<string>();
@@ -263,7 +276,8 @@ export async function searchDocuments(
     try {
       const directMatches = await checkDirectMatriculaFiles(canonical, root.id, query);
       for (const m of directMatches) {
-        if (!result.files.some(f => f.rootId === m.rootId && f.relativePath.toLowerCase() === m.relativePath.toLowerCase())) {
+        const key = `${m.rootId}:${m.relativePath.toLowerCase()}`;
+        if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
           result.files.push(m);
         }
       }
@@ -300,9 +314,19 @@ export async function searchDocuments(
             if (normRel.includes(term)) return true;
             const cleanTerm = term.replace(/[.\-/]/g, '');
             return cleanTerm.length >= 2 && cleanRel.includes(cleanTerm);
-          });
+          }) || (terms.length > 1 && terms.some(term => {
+            if (term.length >= 3) {
+              if (normRel.includes(term)) return true;
+              const cleanTerm = term.replace(/[.\-/]/g, '');
+              return cleanTerm.length >= 3 && cleanRel.includes(cleanTerm);
+            }
+            return false;
+          }));
           if (!matches) continue;
-          result.files.push({ rootId: root.id, relativePath, name: entry.name, size: info.size, modifiedAt: info.mtime.toISOString() });
+          const key = `${root.id}:${relativePath.toLowerCase()}`;
+          if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
+            result.files.push({ rootId: root.id, relativePath, name: entry.name, size: info.size, modifiedAt: info.mtime.toISOString() });
+          }
         }
       } catch { result.partial = true; }
     }
@@ -311,14 +335,23 @@ export async function searchDocuments(
   // Enriquecer os resultados identificando matrículas vinculadas aos arquivos encontrados
   if (result.files.length > 0) {
     const matriculasEncontradas = new Set<string>();
+    const matriculasDosProcessos = new Set<string>();
+    let matriculaPrincipalProcesso: string | undefined;
     let matriculaPrincipal: string | undefined;
 
     const filesToInspect = result.files.slice(0, 20);
     await Promise.all(
       filesToInspect.map(async file => {
         try {
+          const ext = path.extname(file.name).toLowerCase();
+          const isImageFile = ext === '.ken' || ext === '.tif' || ext === '.tiff';
+
           if (file.matricula) {
             matriculasEncontradas.add(file.matricula);
+            if (!isImageFile) {
+              matriculasDosProcessos.add(file.matricula);
+              if (!matriculaPrincipalProcesso) matriculaPrincipalProcesso = file.matricula;
+            }
             if (!matriculaPrincipal) matriculaPrincipal = file.matricula;
             return;
           }
@@ -326,6 +359,10 @@ export async function searchDocuments(
           if (nameMat) {
             file.matricula = nameMat;
             matriculasEncontradas.add(nameMat);
+            if (!isImageFile) {
+              matriculasDosProcessos.add(nameMat);
+              if (!matriculaPrincipalProcesso) matriculaPrincipalProcesso = nameMat;
+            }
             if (!matriculaPrincipal) matriculaPrincipal = nameMat;
             return;
           }
@@ -334,18 +371,89 @@ export async function searchDocuments(
           if (mat) {
             file.matricula = mat;
             matriculasEncontradas.add(mat);
+            matriculasDosProcessos.add(mat);
             const lower = file.name.toLowerCase();
-            if (!matriculaPrincipal || lower.includes('manifestacao') || lower.includes('peticao') || lower.includes('usucapiao')) {
-              matriculaPrincipal = mat;
+            if (!matriculaPrincipalProcesso || lower.includes('manifestacao') || lower.includes('peticao') || lower.includes('usucapiao')) {
+              matriculaPrincipalProcesso = mat;
             }
+            matriculaPrincipal = matriculaPrincipalProcesso || mat;
           }
         } catch {}
       })
     );
 
-    if (matriculasEncontradas.size > 0) {
-      result.matriculaDetectada = matriculaPrincipal || Array.from(matriculasEncontradas)[0];
-      result.matriculas = Array.from(matriculasEncontradas);
+    const matriculaFinal = matriculaPrincipalProcesso || matriculaPrincipal || Array.from(matriculasEncontradas)[0];
+    if (matriculaFinal) {
+      result.matriculaDetectada = matriculaFinal;
+      result.matriculas = Array.from(new Set([matriculaFinal, ...matriculasDosProcessos, ...matriculasEncontradas]));
+    }
+
+    // -------------------------------------------------------------
+    // REGRA DE BUSCA CRUZADA AUTOMÁTICA COM O LIVRO 2 (K:\IMAGENS\LV2):
+    // Se a busca encontrou documentos de processo (PDF, DOCX) e detectou a matrícula
+    // a eles vinculada (ex: Matrícula nº 123.456), realizamos o cruzamento automático
+    // para localizar a imagem digitalizada (.KEN) dessa matrícula no acervo do Livro 2
+    // e incluí-la diretamente no resultado da busca!
+    // -------------------------------------------------------------
+    const matriculasParaCruzar = new Set<string>();
+    if (result.matriculaDetectada) matriculasParaCruzar.add(result.matriculaDetectada);
+    for (const m of matriculasDosProcessos) matriculasParaCruzar.add(m);
+
+    const temDocumentosProcesso = result.files.some(f => {
+      const ext = path.extname(f.name).toLowerCase();
+      return ext !== '.ken' && ext !== '.tif' && ext !== '.tiff';
+    });
+
+    if (matriculasParaCruzar.size > 0 && temDocumentosProcesso) {
+      const numerosEsperados = new Set<string>();
+      for (const m of matriculasParaCruzar) {
+        const d = m.replace(/[^\d]/g, '');
+        if (d) numerosEsperados.add(d);
+      }
+
+      // 1. Buscar arquivos .KEN no acervo para cada matrícula detectada
+      const arquivosCruzados: DocumentMatch[] = [];
+      for (const mat of matriculasParaCruzar) {
+        for (const root of roots) {
+          try {
+            const canonical = await fs.realpath(root.path);
+            const directMatches = await checkDirectMatriculaFiles(canonical, root.id, mat);
+            for (const match of directMatches) {
+              const key = `${match.rootId}:${match.relativePath.toLowerCase()}`;
+              if (!arquivosCruzados.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
+                arquivosCruzados.push(match);
+              }
+            }
+          } catch {}
+        }
+      }
+
+      // 2. Se temos documentos do processo e encontramos a matrícula dele (ex: 123.456),
+      // remover falsos positivos de arquivos de imagem (.KEN) que vieram apenas por colisão
+      // de substring com o termo do processo (ex: "00000001.KEN" não pertence ao processo 00001 cuja matrícula é 123.456)
+      result.files = result.files.filter(f => {
+        const ext = path.extname(f.name).toLowerCase();
+        const isImg = ext === '.ken' || ext === '.tif' || ext === '.tiff';
+        if (!isImg) return true; // Preserva todos os arquivos de processo (PDF, DOCX, TXT, etc.)
+
+        const fNum = parseInt(f.name.replace(/[^\d]/g, ''), 10);
+        return Array.from(numerosEsperados).some(numStr => {
+          const num = parseInt(numStr, 10);
+          return !isNaN(fNum) && !isNaN(num) && fNum === num;
+        });
+      });
+
+      // 3. Adicionar os arquivos .KEN encontrados pela busca cruzada
+      for (const cruzado of arquivosCruzados) {
+        const key = `${cruzado.rootId}:${cruzado.relativePath.toLowerCase()}`;
+        if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
+          result.files.push(cruzado);
+        }
+      }
+
+      // Atualizar lista final de matrículas
+      result.matriculas = Array.from(new Set([...matriculasParaCruzar]));
+      result.matriculaDetectada = matriculaPrincipalProcesso || result.matriculaDetectada;
     }
   }
 

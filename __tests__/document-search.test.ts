@@ -182,5 +182,49 @@ describe('document search', () => {
     expect(result.matriculaDetectada).toBe('Matrícula nº 123.456');
     expect(result.matriculas).toContain('Matrícula nº 123.456');
   });
+
+  it('automatically cross-searches Livro 2 and brings 00123456.KEN when process 00001 is searched', async () => {
+    const dirUsucapiao = await fixture();
+    const dirImagens = await fixture();
+
+    // 1. Process document mentioning Matrícula nº 123.456
+    await fs.writeFile(
+      path.join(dirUsucapiao, 'PLANILHA 0000001-00.2099 FICTICIA.txt'),
+      'Processo 0000001-00.2099\nAutos de Usucapião referente ao imóvel da Matrícula nº 123.456 do 7º Registro de Imóveis.'
+    );
+
+    // 2. LV2 files in imagens: 00123456.KEN (matches matrícula) and 00000001.KEN (false positive from '00001')
+    const dirBlock123 = path.join(dirImagens, 'LV2', '00123000');
+    const dirBlock000 = path.join(dirImagens, 'LV2', '00000000');
+    await fs.mkdir(dirBlock123, { recursive: true });
+    await fs.mkdir(dirBlock000, { recursive: true });
+
+    await fs.writeFile(path.join(dirBlock123, '00123456.KEN'), 'CONTEUDO_KEN_123456');
+    await fs.writeFile(path.join(dirBlock000, '00000001.KEN'), 'CONTEUDO_KEN_00000001');
+
+    const roots = [
+      { id: 'usucapiao', path: dirUsucapiao },
+      { id: 'imagens', path: dirImagens },
+    ];
+
+    // Busca pelo processo "00001"
+    const result = await searchDocuments(roots, '00001');
+
+    // O arquivo .KEN nº 123456 DEVE vir nos resultados
+    const ken123456 = result.files.find(f => f.name.toLowerCase() === '00123456.ken');
+    expect(ken123456).toBeDefined();
+    expect(ken123456?.rootId).toBe('imagens');
+
+    // O arquivo do processo DEVE vir nos resultados
+    const processoDoc = result.files.find(f => f.name.includes('PLANILHA'));
+    expect(processoDoc).toBeDefined();
+
+    // O falso positivo 00000001.KEN NÃO deve vir nos resultados do processo 00001
+    const kenFalso = result.files.find(f => f.name.toLowerCase() === '00000001.ken');
+    expect(kenFalso).toBeUndefined();
+
+    // A matrícula detectada deve ser 123.456
+    expect(result.matriculaDetectada).toBe('Matrícula nº 123.456');
+  });
 });
 
