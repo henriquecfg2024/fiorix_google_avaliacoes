@@ -1210,6 +1210,14 @@ export function DocumentSearch() {
                 return null;
               }
 
+              const arquivoKenLocalizado = job.result.files.find(f => {
+                const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
+                if (ext !== '.ken' && ext !== '.tif' && ext !== '.tiff') return false;
+                const fNum = f.name.replace(/[^\d]/g, '');
+                const mNum = matriculaProcesso.replace(/[^\d]/g, '');
+                return fNum.endsWith(mNum) || mNum.endsWith(fNum);
+              });
+
               return (
                 <div className="rounded-[24px] border border-cyan-500/40 bg-gradient-to-r from-cyan-950/40 via-[#0B1020]/95 to-blue-950/30 p-5 shadow-lg backdrop-blur-xl">
                   <div className="flex flex-wrap items-center justify-between gap-4">
@@ -1222,6 +1230,11 @@ export function DocumentSearch() {
                           <span className="rounded-md bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-300 border border-cyan-500/40">
                             Matrícula do Processo Identificada
                           </span>
+                          {arquivoKenLocalizado ? (
+                            <span className="rounded-md bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300 border border-emerald-500/40">
+                              ✓ Imagem Localizada ({arquivoKenLocalizado.name})
+                            </span>
+                          ) : null}
                           {arquivoOrigemMatricula && (
                             <span className="text-[11px] text-white/60">
                               Origem: <strong className="text-white font-mono">{arquivoOrigemMatricula}</strong>
@@ -1240,15 +1253,27 @@ export function DocumentSearch() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => buscarMatriculaNoLivro2(matriculaProcesso)}
-                        title="Buscar imagem digitalizada da matrícula em K:\IMAGENS\LV2"
-                        className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/50 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-md shadow-cyan-500/25 transition active:scale-95"
-                      >
-                        <Search className="h-4 w-4" />
-                        <span>Localizar Imagem no Livro 2 (K:\IMAGENS\LV2)</span>
-                      </button>
+                      {arquivoKenLocalizado ? (
+                        <button
+                          type="button"
+                          onClick={() => visualizarDocumento(arquivoKenLocalizado)}
+                          title={`Visualizar imagem digitalizada da matrícula ${matriculaProcesso} (${arquivoKenLocalizado.name})`}
+                          className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/50 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-md shadow-emerald-500/25 transition active:scale-95"
+                        >
+                          <FileText className="h-4 w-4 text-emerald-200" />
+                          <span>Ver Matrícula ({arquivoKenLocalizado.name})</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => buscarMatriculaNoLivro2(matriculaProcesso)}
+                          title="Buscar imagem digitalizada da matrícula em K:\IMAGENS\LV2"
+                          className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/50 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-md shadow-cyan-500/25 transition active:scale-95"
+                        >
+                          <Search className="h-4 w-4" />
+                          <span>Localizar Imagem no Livro 2 (K:\IMAGENS\LV2)</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
