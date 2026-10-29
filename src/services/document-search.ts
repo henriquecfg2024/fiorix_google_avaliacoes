@@ -273,40 +273,41 @@ export async function searchDocuments(
     catch { result.unavailableRoots.push(root.id); result.partial = true; continue; }
 
     // 1. Busca direta ultrarrápida para matrículas .KEN (resolve K:\IMAGENS\LV2 em poucos ms)
+    let directCount = 0;
     try {
       const directMatches = await checkDirectMatriculaFiles(canonical, root.id, query);
       for (const m of directMatches) {
         const key = `${m.rootId}:${m.relativePath.toLowerCase()}`;
         if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
           result.files.push(m);
+          directCount++;
         }
       }
     } catch {}
 
-    // Se a query for estritamente um número de matrícula e já localizamos arquivos diretos .KEN no Livro 2,
+    // Se este root for o acervo de imagens e já localizamos arquivos diretos .KEN no Livro 2,
     // evitamos varredura pesada de 50.000 diretórios na rede SMB
-    const isPureMatriculaQuery = /^(?:matr[ií]cula\s*)?[0-9.\-\s]+$/i.test(query.trim());
-    if (isPureMatriculaQuery && result.files.length > 0) {
+    if (directCount > 0 && (root.id === 'imagens' || root.id === 'livro2')) {
       continue;
     }
 
-    const pending = [canonical];
-    while (pending.length) {
+    const queue: string[] = [canonical];
+    let queueHead = 0;
+    while (queueHead < queue.length) {
       if (Date.now() >= deadline || visited >= budget.maxEntries || result.files.length >= limit) { result.partial = true; break; }
-      const directory = pending.pop()!;
+      const directory = queue[queueHead++];
       try {
-        if (!isWithinRoot(canonical, await fs.realpath(directory))) { result.partial = true; continue; }
         const handle = await fs.opendir(directory);
         for await (const entry of handle) {
           if (++visited > budget.maxEntries || Date.now() >= deadline || result.files.length >= limit) { result.partial = true; break; }
           if (entry.isSymbolicLink()) continue;
           const filePath = path.join(directory, entry.name);
-          const info = await fs.lstat(filePath);
-          if (info.isSymbolicLink()) continue;
-          const resolved = await fs.realpath(filePath);
-          if (!isWithinRoot(canonical, resolved)) continue;
-          if (info.isDirectory()) { pending.push(filePath); continue; }
-          if (!info.isFile() || !extensions.has(path.extname(entry.name).toLowerCase())) continue;
+          if (!isWithinRoot(canonical, filePath)) continue;
+          if (entry.isDirectory()) {
+            queue.push(filePath);
+            continue;
+          }
+          if (!entry.isFile() || !extensions.has(path.extname(entry.name).toLowerCase())) continue;
           const relativePath = path.relative(canonical, filePath);
           const normRel = normalize(relativePath);
           const cleanRel = normRel.replace(/[.\-/]/g, '');
@@ -323,6 +324,12 @@ export async function searchDocuments(
             return false;
           }));
           if (!matches) continue;
+
+          // Validação canônica e stat apenas para arquivos que realmente correspondem aos filtros
+          const resolved = await fs.realpath(filePath);
+          if (!isWithinRoot(canonical, resolved)) continue;
+          const info = await fs.stat(filePath);
+
           const key = `${root.id}:${relativePath.toLowerCase()}`;
           if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
             result.files.push({ rootId: root.id, relativePath, name: entry.name, size: info.size, modifiedAt: info.mtime.toISOString() });
