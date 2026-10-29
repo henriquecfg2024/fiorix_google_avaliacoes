@@ -21,9 +21,12 @@
     "dotenv": "^16.4.5",
     "mammoth": "^1.13.0",
     "mssql": "^10.0.2",
+    "upng-js": "^2.1.0",
+    "utif": "^3.1.0",
     "uuid": "^9.0.1",
     "winston": "^3.13.0",
     "winston-daily-rotate-file": "^5.0.0",
+    "word-extractor": "^1.0.4",
     "zod": "^3.22.4"
   },
   "devDependencies": {

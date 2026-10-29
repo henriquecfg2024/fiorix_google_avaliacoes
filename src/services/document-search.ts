@@ -3,7 +3,13 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import zlib from 'node:zlib';
+import { createRequire } from 'node:module';
 import mammoth from 'mammoth';
+
+const require = createRequire(import.meta.url);
+const UTIF = require('utif');
+const UPNG = require('upng-js');
+const WordExtractor = require('word-extractor');
 
 const execFileAsync = promisify(execFile);
 
@@ -467,39 +473,103 @@ export async function searchDocuments(
   return result;
 }
 
-export async function readDocumentText(filePath: string): Promise<{
+export interface DocumentVisualPayload {
   fileName: string;
   extension: string;
+  size: number;
   html: string;
   text: string;
-  size: number;
-}> {
+  pdfDataUrl?: string;
+  pages?: string[];
+  pageCount?: number;
+}
+
+export async function readDocumentText(filePath: string): Promise<DocumentVisualPayload> {
   const stat = await fs.stat(filePath);
   const ext = path.extname(filePath).toLowerCase();
   const fileName = path.basename(filePath);
 
+  // 1. Imagens de Matrícula (Wang TIFF / Kenta .KEN / TIFF)
   if (ext === '.ken' || ext === '.tif' || ext === '.tiff') {
-    return {
-      fileName,
-      extension: ext,
-      html: `<div style="text-align: center; padding: 30px; font-family: sans-serif;">
-        <div style="font-size: 16px; font-weight: bold; margin-bottom: 8px; color: #0284c7;">
-          Imagem Digitalizada da Matrícula (Livro 2 – Registro Geral)
+    try {
+      const buf = await fs.readFile(filePath);
+      const ifds = UTIF.decode(buf);
+      const pages: string[] = [];
+      for (let i = 0; i < ifds.length; i++) {
+        const page = ifds[i];
+        UTIF.decodeImage(buf, page);
+        const rgba = UTIF.toRGBA8(page);
+        const pngBuf = Buffer.from(UPNG.encode([rgba.buffer], page.width, page.height, 0));
+        pages.push(`data:image/png;base64,${pngBuf.toString('base64')}`);
+      }
+
+      const html = `
+        <div style="font-family: sans-serif; text-align: center;">
+          <div style="margin-bottom: 20px; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; display: inline-block;">
+            <span style="font-size: 13px; font-weight: bold; color: #0369a1;">
+              7º Registro de Imóveis • Matrícula Digitalizada (${pages.length} folha${pages.length > 1 ? 's' : ''})
+            </span>
+          </div>
+          ${pages.map((p, idx) => `
+            <div style="margin-bottom: 30px; text-align: center;">
+              <div style="font-size: 12px; font-weight: bold; color: #64748b; margin-bottom: 8px;">
+                Folha / Ficha ${idx + 1} de ${pages.length}
+              </div>
+              <img src="${p}" style="max-width: 100%; height: auto; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.12);" alt="Ficha ${idx + 1}" />
+            </div>
+          `).join('')}
         </div>
-        <div style="font-family: monospace; font-size: 14px; color: #334155; margin-bottom: 12px;">
-          ${fileName} &bull; ${Math.round(stat.size / 1024)} KB
-        </div>
-        <div style="font-size: 12px; color: #64748b; max-width: 500px; margin: 0 auto; line-height: 1.5;">
-          Arquivo no padrão oficial de imagens <strong>Wang TIFF / Kenta (.KEN)</strong>.<br/>
-          Armazenado no servidor do cartório em <code>K:\\IMAGENS\\LV2</code>.
-        </div>
-      </div>`,
-      text: `[Imagem Digitalizada da Matrícula: ${fileName} (Formato Wang TIFF/KEN)]`,
-      size: stat.size,
-    };
+      `;
+
+      return {
+        fileName,
+        extension: ext,
+        size: stat.size,
+        pages,
+        pageCount: pages.length,
+        html,
+        text: `[Imagem Digitalizada da Matrícula: ${fileName} - ${pages.length} folha(s) no Livro 2 (Registro Geral)]`,
+      };
+    } catch {
+      return {
+        fileName,
+        extension: ext,
+        size: stat.size,
+        html: `<p>Não foi possível decodificar visualmente as páginas do arquivo de imagem ${fileName}.</p>`,
+        text: `[Erro ao decodificar imagem ${fileName}]`,
+      };
+    }
   }
 
-  if (ext === '.docx' || ext === '.doc') {
+  // 2. Arquivos PDF (Petições, laudos, certidões)
+  if (ext === '.pdf') {
+    try {
+      const buf = await fs.readFile(filePath);
+      const pdfBase64 = buf.toString('base64');
+      const pdfDataUrl = `data:application/pdf;base64,${pdfBase64}`;
+      const html = `<iframe src="${pdfDataUrl}" width="100%" height="800px" style="border: none; border-radius: 8px;" title="${fileName}"></iframe>`;
+
+      return {
+        fileName,
+        extension: ext,
+        size: stat.size,
+        pdfDataUrl,
+        html,
+        text: `[Documento PDF: ${fileName} • ${Math.round(stat.size / 1024)} KB]`,
+      };
+    } catch {
+      return {
+        fileName,
+        extension: ext,
+        size: stat.size,
+        html: `<p>Não foi possível carregar o arquivo PDF ${fileName}.</p>`,
+        text: `[Erro ao carregar PDF ${fileName}]`,
+      };
+    }
+  }
+
+  // 3. Minutas em Word DOCX (.docx)
+  if (ext === '.docx') {
     try {
       const htmlResult = await mammoth.convertToHtml({ path: filePath });
       const textResult = await mammoth.extractRawText({ path: filePath });
@@ -522,6 +592,46 @@ export async function readDocumentText(filePath: string): Promise<{
     }
   }
 
+  // 4. Minutas em Word DOC (.doc clássico)
+  if (ext === '.doc') {
+    try {
+      const extractor = new WordExtractor();
+      const extracted = await extractor.extract(filePath);
+      const text = extracted.getBody() || '';
+      const html = `<div style="font-family: inherit; line-height: 1.6;">${text.split('\n\n').filter(Boolean).map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`).join('')}</div>`;
+      return {
+        fileName,
+        extension: ext,
+        html: html || '<p>Documento Word sem texto detectável.</p>',
+        text: text || '',
+        size: stat.size,
+      };
+    } catch {
+      try {
+        const htmlResult = await mammoth.convertToHtml({ path: filePath });
+        const textResult = await mammoth.extractRawText({ path: filePath });
+        return {
+          fileName,
+          extension: ext,
+          html: htmlResult.value || '<p>Documento sem texto detectável.</p>',
+          text: textResult.value || '',
+          size: stat.size,
+        };
+      } catch {
+        const raw = await fs.readFile(filePath, 'latin1').catch(() => '');
+        const clean = raw.replace(/[^\x20-\x7E\xA0-\xFF\n\r\t]/g, ' ').replace(/\s+/g, ' ');
+        return {
+          fileName,
+          extension: ext,
+          html: `<p>${clean}</p>`,
+          text: clean,
+          size: stat.size,
+        };
+      }
+    }
+  }
+
+  // 5. Demais formatos de texto (.txt, .rtf)
   const raw = await fs.readFile(filePath, 'utf8').catch(() => '');
   return {
     fileName,

@@ -174,9 +174,12 @@ export async function sendHeartbeat(telemetryOrVersion: HeartbeatTelemetryPayloa
 }
 
 
-// Reuse proxy, authentication and fallback policy from the existing client.
 export async function postDocumentMessage(message: Record<string, unknown>) {
   const url = env.FIORIX_API_URL.replace(/\/sync\/?$/, '/documentos');
   if (url === env.FIORIX_API_URL) throw new Error('Endpoint de sincronização inválido.');
-  return postWithFallback(url, { ...message, connectorId: env.CONNECTOR_ID }, { timeout: 15000 });
+  return postWithFallback(url, { ...message, connectorId: env.CONNECTOR_ID }, {
+    timeout: 30000,
+    maxBodyLength: Infinity,
+    maxContentLength: Infinity,
+  });
 }

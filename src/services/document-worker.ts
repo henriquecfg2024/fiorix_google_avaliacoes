@@ -71,7 +71,8 @@ export function startDocumentWorker(): () => void {
             result = await searchDocuments(authorizedRoots, job.query || '');
           }
           if (!stopped) await postDocumentMessage({ action: 'complete', id: job.id, result });
-        } catch {
+        } catch (jobErr: any) {
+          logger.error(`DOCUMENTAL: erro ao processar job ${job.id} (${job.type || 'search'}): ${jobErr?.message || jobErr}`);
           if (!stopped) await postDocumentMessage({ action: 'fail', id: job.id });
         }
       }
