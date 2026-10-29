@@ -22,7 +22,7 @@ Backups do banco seguem a retenção operacional do SaaS.
    O usuário de banco do servidor precisa ter acesso à tabela; não conceder acesso a anon/authenticated.
 2. Configurar DOCUMENTAL_ENABLED=true no SaaS e no Connector.
 3. Configurar DOCUMENTAL_ROOTS_JSON no ambiente do Connector com JSON de pastas autorizadas, por exemplo:
-   [{"id":"judicial","path":"H:\\USUCAPIAO"},{"id":"modelos","path":"W:\\MODELOS"}]
+   [{"id":"processos","path":"H:\\PROCESSOS - ENVIADOS POR E-MAIL"},{"id":"imagens","path":"K:\\IMAGENS"}]
    O exemplo ilustra o formato JSON; substituir pelos caminhos reais e validar seu escape no arquivo de ambiente.
    Preferir caminhos UNC: serviços Windows podem não enxergar unidades mapeadas na sessão do usuário.
 4. Usar credencial existente do Connector, vinculada ao cartório correto. Não expor o secret ao navegador.
