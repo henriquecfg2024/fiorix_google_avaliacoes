@@ -63,6 +63,66 @@ interface HistoricoNavegacao {
   timestamp: number;
 }
 
+export interface RootConfigDisplay {
+  label: string;
+  drive: string;
+  fullName: string;
+  pathDisplay: string;
+  badgeClass: string;
+  dotClass: string;
+}
+
+export function getRootInfo(rootId: string): RootConfigDisplay {
+  const norm = (rootId || '').toLowerCase().trim();
+  if (norm === 'minutas' || norm === 'usucapiao') {
+    return {
+      label: 'Minutas (W:)',
+      drive: 'W:',
+      fullName: 'Minutas de Usucapião (Escreventes)',
+      pathDisplay: 'W:\\USUCAPIAO',
+      badgeClass: 'bg-violet-950/70 text-violet-300 border-violet-500/40 shadow-violet-500/10 hover:bg-violet-900/60',
+      dotClass: 'bg-violet-400',
+    };
+  }
+  if (norm === 'processos' || norm === 'processos-email' || norm === 'email') {
+    return {
+      label: 'Processos (H:)',
+      drive: 'H:',
+      fullName: 'Processos da Vara (Enviados por E-mail)',
+      pathDisplay: 'H:\\PROCESSOS - ENVIADOS POR E-MAIL',
+      badgeClass: 'bg-emerald-950/70 text-emerald-300 border-emerald-500/40 shadow-emerald-500/10 hover:bg-emerald-900/60',
+      dotClass: 'bg-emerald-400',
+    };
+  }
+  if (norm === 'livro2' || norm === 'imagens') {
+    return {
+      label: 'Livro 2 (K:)',
+      drive: 'K:',
+      fullName: 'Matrículas Digitalizadas do Livro 2 (Registro Geral)',
+      pathDisplay: 'K:\\IMAGENS\\LV2',
+      badgeClass: 'bg-amber-950/70 text-amber-300 border-amber-500/40 shadow-amber-500/10 hover:bg-amber-900/60',
+      dotClass: 'bg-amber-400',
+    };
+  }
+  return {
+    label: rootId || 'Local',
+    drive: '',
+    fullName: rootId,
+    pathDisplay: rootId,
+    badgeClass: 'bg-[#080D1A] text-cyan-300 border-white/15',
+    dotClass: 'bg-cyan-400',
+  };
+}
+
+export function formatCartorioPath(rootId: string, relativePath: string): string {
+  const info = getRootInfo(rootId);
+  const rel = (relativePath || '').replace(/^[\\/]+/, '');
+  if (info.pathDisplay.endsWith('\\LV2') && rel.toLowerCase().startsWith('lv2\\')) {
+    return `${info.pathDisplay}\\${rel.slice(4)}`;
+  }
+  return `${info.pathDisplay}\\${rel}`;
+}
+
 export function DocumentSearch() {
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [connectorId, setConnectorId] = useState('');
@@ -688,9 +748,11 @@ export function DocumentSearch() {
     }
   }
 
+
+
   function copiarCaminho(file: Match) {
-    const textToCopy = `[${file.rootId}] ${file.relativePath}`;
-    navigator.clipboard.writeText(textToCopy).then(() => {
+    const fullPath = formatCartorioPath(file.rootId, file.relativePath);
+    navigator.clipboard.writeText(fullPath).then(() => {
       setCaminhoCopiado(file.relativePath);
       setTimeout(() => setCaminhoCopiado(null), 2500);
     });
@@ -1354,8 +1416,11 @@ export function DocumentSearch() {
                                   <span className="hover:underline">{file.name}</span>
                                   <Eye className="h-3 w-3 text-white/40 group-hover/fn:text-cyan-400 opacity-60 group-hover/fn:opacity-100 shrink-0 transition" />
                                 </button>
-                                <span className="truncate block font-mono text-[11px] text-white/50 mt-0.5" title={file.relativePath}>
-                                  {file.relativePath}
+                                <span
+                                  className="truncate block font-mono text-[11px] text-white/50 mt-0.5"
+                                  title={formatCartorioPath(file.rootId, file.relativePath)}
+                                >
+                                  {formatCartorioPath(file.rootId, file.relativePath)}
                                 </span>
 
                                 {(() => {
@@ -1385,9 +1450,18 @@ export function DocumentSearch() {
                             </div>
                           </td>
                           <td className="p-3.5 sm:p-4 whitespace-nowrap">
-                            <span className="rounded-lg bg-[#080D1A] px-2.5 py-1 font-mono text-[11px] sm:text-xs text-cyan-300 border border-white/15">
-                              {file.rootId}
-                            </span>
+                            {(() => {
+                              const rootInfo = getRootInfo(file.rootId);
+                              return (
+                                <span
+                                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold border transition shadow-sm ${rootInfo.badgeClass}`}
+                                  title={`${rootInfo.fullName} • ${rootInfo.pathDisplay}`}
+                                >
+                                  <span className={`h-1.5 w-1.5 rounded-full ${rootInfo.dotClass}`} />
+                                  <span>{rootInfo.label}</span>
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="p-3.5 sm:p-4 text-white/70 text-xs sm:text-sm whitespace-nowrap">
                             {Math.ceil(file.size / 1024)} KB

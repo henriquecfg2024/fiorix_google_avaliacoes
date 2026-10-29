@@ -23,6 +23,7 @@ import {
   Eye,
   Layers,
 } from 'lucide-react';
+import { formatCartorioPath } from './DocumentSearch';
 
 export interface DocumentTextResult {
   fileName: string;
@@ -275,8 +276,11 @@ export function DocumentPreviewModal({
                   {documento.extension.replace('.', '') || (isKenOrTif ? 'KEN' : isPdf ? 'PDF' : 'DOCX')}
                 </span>
               </div>
-              <p className="truncate text-xs font-mono text-slate-400 mt-0.5">
-                {relativePath ? `${rootId ? `[${rootId}] ` : ''}${relativePath}` : `${Math.ceil(documento.size / 1024)} KB`}
+              <p
+                className="truncate text-xs font-mono text-slate-400 mt-0.5"
+                title={relativePath ? formatCartorioPath(rootId || '', relativePath) : undefined}
+              >
+                {relativePath ? formatCartorioPath(rootId || '', relativePath) : `${Math.ceil(documento.size / 1024)} KB`}
                 {isKenOrTif && pages.length > 0 && ` • ${pages.length} folha(s) digitalizada(s)`}
               </p>
             </div>
@@ -501,10 +505,10 @@ export function DocumentPreviewModal({
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
             <span>
               {isKenOrTif
-                ? 'Acervo oficial de imagens digitalizadas do 7º RI (Wang TIFF / Kenta .KEN). Armazenamento local seguro em K:\\IMAGENS\\LV2.'
-                : isPdf
-                  ? 'Arquivo PDF processado localmente no cartório para conferência visual direta do escrevente.'
-                  : 'Processado internamente pelo Connector via Mammoth OpenXML. Nenhum dado transferido para nuvem pública.'}
+                ? 'Acervo oficial de imagens digitalizadas do 7º RI (Livro 2 – Registro Geral). Armazenamento local seguro em K:\\IMAGENS\\LV2.'
+                : isDoc
+                  ? 'Minuta oficial de Usucapião elaborada pelos escreventes do 7º RI. Armazenamento local seguro em W:\\USUCAPIAO.'
+                  : 'Processo oficial recebido da Vara de Registros Públicos via e-mail. Armazenamento local seguro em H:\\PROCESSOS - ENVIADOS POR E-MAIL.'}
             </span>
           </div>
           <div className="flex items-center gap-3 font-mono text-[10px] text-slate-400">
