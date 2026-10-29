@@ -26,6 +26,7 @@ import {
   Wand2,
   ArrowLeft,
   X,
+  Eye,
 } from 'lucide-react';
 import { ConfidenceReview, OrigemCampoUI } from './ConfidenceReview';
 import { ValidacaoAutenticidadeView } from './ValidacaoAutenticidadeView';
@@ -638,6 +639,24 @@ Ademar Fioranelli
           </div>
 
           <div className="flex items-center gap-2">
+            {arquivoOrigem && onVisualizarDocumento && (
+              <button
+                type="button"
+                onClick={() => onVisualizarDocumento({
+                  rootId: arquivoOrigem.rootId || 'processos',
+                  relativePath: arquivoOrigem.relativePath,
+                  name: arquivoOrigem.name,
+                  size: 0,
+                  modifiedAt: new Date().toISOString(),
+                })}
+                title={`Visualizar arquivo original para conferência: ${arquivoOrigem.name}`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/50 bg-rose-950/40 px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-rose-300 hover:bg-rose-900/60 hover:text-rose-200 transition shrink-0 shadow-sm"
+              >
+                <Eye className="h-4 w-4 text-rose-400" />
+                <span className="hidden sm:inline">Visualizar PDF Original</span>
+              </button>
+            )}
+
             {onReextrair && (
               <button
                 onClick={onReextrair}

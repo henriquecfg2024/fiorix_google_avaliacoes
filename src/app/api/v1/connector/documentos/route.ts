@@ -11,7 +11,8 @@ export async function POST(req: Request) {
   if (!secret) return reply({ error: 'Não autorizado.' }, 401);
   try {
     const raw = await req.text();
-    if (raw.length > 262144) return reply({ error: 'Limite excedido.' }, 413);
+    // Permite até 15MB para suporte a documentos digitalizados de alta resolução (.KEN e .PDF)
+    if (raw.length > 15 * 1024 * 1024) return reply({ error: 'Limite excedido.' }, 413);
     let body: unknown;
     try { body = JSON.parse(raw); } catch { return reply({ error: 'JSON inválido.' }, 400); }
     const parsed = connectorMessage.safeParse(body);

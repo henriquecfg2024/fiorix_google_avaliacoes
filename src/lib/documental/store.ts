@@ -80,10 +80,19 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
         `;
         if (recent.length) {
           const res = recent[0].result as Record<string, unknown> | null;
-          // Se for extração e estiver totalmente vazia (stub de teste anterior), não serve do cache
-          const ehValido = type === 'extract_petition'
-            ? !!(res?.requerente || res?.imovel || res?.contribuinte_sql || res?.matricula_transcricao || res?.titular_origem)
-            : true;
+          let ehValido = true;
+          if (type === 'extract_petition') {
+            ehValido = !!(res?.requerente || res?.imovel || res?.contribuinte_sql || res?.matricula_transcricao || res?.titular_origem);
+          } else if (type === 'read_document_text') {
+            const relLower = (relativePath || '').toLowerCase();
+            const isKen = relLower.endsWith('.ken') || relLower.endsWith('.tif') || relLower.endsWith('.tiff');
+            const isPdf = relLower.endsWith('.pdf');
+            if (isKen && (!Array.isArray(res?.pages) || res.pages.length === 0)) {
+              ehValido = false;
+            } else if (isPdf && !res?.pdfDataUrl) {
+              ehValido = false;
+            }
+          }
           if (ehValido) {
             return { id: recent[0].id, status: 'complete', result: recent[0].result, cached: true };
           }
