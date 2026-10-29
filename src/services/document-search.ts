@@ -56,7 +56,11 @@ export async function resolveAuthorizedFile(
   rootId: string,
   relativePath: string,
 ): Promise<string> {
-  const root = roots.find(r => r.id === rootId);
+  const root = roots.find(r => r.id === rootId)
+    || (rootId === 'livro2' ? roots.find(r => r.id === 'imagens') : undefined)
+    || (rootId === 'imagens' ? roots.find(r => r.id === 'livro2') : undefined)
+    || (rootId === 'minutas' ? roots.find(r => r.id === 'usucapiao') : undefined)
+    || (rootId === 'usucapiao' ? roots.find(r => r.id === 'minutas') : undefined);
   if (!root) throw new Error('Pasta não autorizada.');
   const canonicalRoot = await fs.realpath(root.path);
   const target = path.resolve(canonicalRoot, relativePath);

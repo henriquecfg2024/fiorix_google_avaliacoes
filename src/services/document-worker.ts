@@ -1,4 +1,5 @@
 import path from 'node:path';
+import fsSync from 'node:fs';
 import { env, connectorEnv } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 import { postDocumentMessage } from './api.js';
@@ -34,8 +35,30 @@ export function startDocumentWorker(): () => void {
     return () => {};
   }
   let roots;
-  try { roots = parseDocumentRoots(process.env.DOCUMENTAL_ROOTS_JSON || '[]'); }
-  catch { logger.error('DOCUMENTAL: configuração de pastas inválida; worker desativado.'); return () => {}; }
+  try {
+    const rawRoots = process.env.DOCUMENTAL_ROOTS_JSON?.trim();
+    if (rawRoots && rawRoots !== '[]') {
+      roots = parseDocumentRoots(rawRoots);
+    } else {
+      // Configuração padrão das 3 pastas oficiais do 7º RI
+      const defaults = [];
+      if (fsSync.existsSync('W:\\USUCAPIAO')) {
+        defaults.push({ id: 'minutas', path: 'W:\\USUCAPIAO' });
+      }
+      if (fsSync.existsSync('H:\\PROCESSOS - ENVIADOS POR E-MAIL')) {
+        defaults.push({ id: 'processos', path: 'H:\\PROCESSOS - ENVIADOS POR E-MAIL' });
+      }
+      if (fsSync.existsSync('K:\\IMAGENS\\LV2')) {
+        defaults.push({ id: 'livro2', path: 'K:\\IMAGENS\\LV2' });
+      } else if (fsSync.existsSync('K:\\IMAGENS')) {
+        defaults.push({ id: 'livro2', path: 'K:\\IMAGENS' });
+      }
+      roots = defaults.length > 0 ? defaults : parseDocumentRoots('[]');
+    }
+  } catch {
+    logger.error('DOCUMENTAL: configuração de pastas inválida; worker desativado.');
+    return () => {};
+  }
   const authorizedRoots = roots;
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
