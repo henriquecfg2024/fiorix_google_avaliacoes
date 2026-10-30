@@ -89,8 +89,11 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
             const isPdf = relLower.endsWith('.pdf');
             if (isKen && (!Array.isArray(res?.pages) || res.pages.length === 0)) {
               ehValido = false;
-            } else if (isPdf && !res?.pdfDataUrl) {
-              ehValido = false;
+            } else if (isPdf) {
+              // PDF servido pelo Connector na rede interna: o ticket expira (15 min)
+              const expira = typeof res?.localUrlExpiresAt === 'string' ? Date.parse(res.localUrlExpiresAt) : NaN;
+              const linkLocalValido = !!res?.localUrl && Number.isFinite(expira) && expira - Date.now() > 60_000;
+              if (!res?.pdfDataUrl && !linkLocalValido) ehValido = false;
             }
           }
           if (ehValido) {
@@ -100,9 +103,20 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
       }
     }
 
-    const active = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM "DocumentSearchRequest"
-      WHERE "tenantId" = ${tenantId} AND "userId" = ${userId} AND status IN ('queued', 'running') LIMIT 1`;
-    if (active.length) return null;
+    const active = await tx.$queryRaw<Array<{ id: string; type: string; query: string | null; rootId: string | null; relativePath: string | null }>>`
+      SELECT id, type, query, "rootId", "relativePath" FROM "DocumentSearchRequest"
+      WHERE "tenantId" = ${tenantId} AND "userId" = ${userId} AND status IN ('queued', 'running')
+      ORDER BY "createdAt" DESC LIMIT 1
+    `;
+    if (active.length) {
+      const a = active[0];
+      // Se for a mesma requisição exata, reaproveita o job em andamento sem erro
+      if (a.type === type && a.query === query && a.rootId === rootId && a.relativePath === relativePath) {
+        return { id: a.id, status: 'queued', cached: false };
+      }
+      // Se o usuário clicou em outro arquivo/pasta, substitui o anterior para não travar
+      await tx.$executeRaw`DELETE FROM "DocumentSearchRequest" WHERE id = ${a.id}`;
+    }
     const id = randomUUID();
     await tx.$executeRaw`INSERT INTO "DocumentSearchRequest" (id, "tenantId", "userId", "connectorId", type, query, "rootId", "relativePath", "pageStart", "pageEnd", "expiresAt")
       VALUES (${id}, ${tenantId}, ${userId}, ${connectorId}, ${type}, ${query}, ${rootId}, ${relativePath}, ${pageStart}, ${pageEnd}, NOW() + INTERVAL '2 minutes')`;

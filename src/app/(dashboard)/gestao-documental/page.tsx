@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { DocumentSearch } from '@/components/documental/DocumentSearch';
+import { GestaoDocumentalAbas } from '@/components/documental/GestaoDocumentalAbas';
 import { requireDocumentAccess, DocumentAccessError } from '@/lib/documental/access';
 
 export const dynamic = 'force-dynamic';
@@ -28,13 +29,19 @@ export default async function DocumentalPage() {
 
       <div className="relative mx-auto max-w-[1600px] p-4 md:p-6 lg:p-8 space-y-6">
         {/* BARRA DE NAVEGAÇÃO COMPACTA EM LINHA ÚNICA (PADRÃO FIORIX) */}
-        <div className="flex items-center justify-between gap-2 px-1 pt-1 pb-3 border-b border-white/8">
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <span className="text-slate-400 tracking-wider">GESTÃO DE QUALIDADE</span>
-            <span className="text-slate-600">/</span>
-            <span className="text-cyan-400 font-extrabold tracking-wider">GESTÃO DOCUMENTAL</span>
-            <h1 className="sr-only">Gestão Documental</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3 px-1 pt-1 pb-3 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-xs font-mono">
+              <span className="text-slate-400 tracking-wider">GESTÃO DOCUMENTAL</span>
+              <span className="text-slate-600">/</span>
+              <span className="text-cyan-400 font-extrabold tracking-wider">MANIFESTAÇÕES</span>
+              <h1 className="sr-only">Manifestações</h1>
+            </div>
+
+            {/* Alternador de Submenus */}
+            <GestaoDocumentalAbas ativa="manifestacoes" />
           </div>
+
           <Link
             href="/"
             className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/[0.05] hover:bg-white/[0.1] px-3.5 py-1.5 text-xs font-semibold text-slate-200 hover:text-white transition shadow-sm active:scale-95"

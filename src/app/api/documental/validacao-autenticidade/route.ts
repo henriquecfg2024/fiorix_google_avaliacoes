@@ -42,16 +42,24 @@ function formatarDataHoraBrasilia(): string {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const {
-      numero_processo = '0000001-00.2099.8.26.0000',
-      vara = '1ª Vara de Registros Públicos da Capital',
-      requerente = 'Requerente dos Autos',
-      imovel = 'Imóvel Usucapiendo na Capital/SP',
-      contribuinte_sql = '115.148.0043-0',
-      matricula_transcricao = '123.456',
-      cartorio_origem = '7º Cartório de Registro de Imóveis da Capital',
-      escrevente_pasta = 'CFALANGA',
-    } = body;
+    const texto = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+
+    // Sem nenhum identificador não há documento a validar: não inventar dados nem "confirmar" nada
+    if (!texto(body?.numero_processo) && !texto(body?.contribuinte_sql) && !texto(body?.matricula_transcricao)) {
+      return NextResponse.json(
+        { sucesso: false, error: 'Informe o nº do processo, o SQL/IPTU ou a matrícula/transcrição para validar.', documentos: [] },
+        { status: 422 },
+      );
+    }
+
+    const numero_processo = texto(body.numero_processo) || 'não informado';
+    const vara = texto(body.vara) || 'não informada';
+    const requerente = texto(body.requerente) || 'não informado';
+    const imovel = texto(body.imovel) || 'não informado';
+    const contribuinte_sql = texto(body.contribuinte_sql) || 'não informado';
+    const matricula_transcricao = texto(body.matricula_transcricao) || 'não informada';
+    const cartorio_origem = texto(body.cartorio_origem) || 'não informado';
+    const escrevente_pasta = texto(body.escrevente_pasta) || 'não informado';
 
     const dataHora = formatarDataHoraBrasilia();
     const dataHoraIso = new Date().toISOString();

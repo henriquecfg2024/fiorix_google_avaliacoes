@@ -353,7 +353,7 @@ export function ParametrosClient({ initialTab, userName }: Props) {
         {activeAba === 'integracoes' && (
           <div className="space-y-4 animate-in fade-in duration-200">
             <p className="text-xs text-slate-400">
-              Gerencie as integrações externas da sua organização. A arquitetura suporta conectores futuros (SIPLAN, SMTP, WhatsApp, etc.).
+              Gerencie as integrações externas da sua organização. A arquitetura suporta conectores futuros (ERP Cartorário, SMTP, WhatsApp, etc.).
             </p>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -485,7 +485,7 @@ export function ParametrosClient({ initialTab, userName }: Props) {
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-400">Mais integrações em breve</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">SIPLAN · SMTP · WhatsApp · Conectores customizados</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">ERP Cartorário · SMTP · WhatsApp · Conectores customizados</p>
                 </div>
               </div>
             </div>

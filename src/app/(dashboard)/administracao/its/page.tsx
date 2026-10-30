@@ -49,6 +49,7 @@ export default async function InstrucoesTrabalhoPage({ searchParams }: PageProps
           kpis: governancaData.kpis,
           conformidadePorIt: governancaData.conformidadePorIt,
           itsPendentesAprovacao: governancaData.itsPendentesAprovacao,
+          colaboradoresTenant: governancaData.colaboradoresTenant,
         }}
         initialTab={initialTab}
       />

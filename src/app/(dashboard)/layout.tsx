@@ -19,6 +19,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     document.body.classList.remove('t1', 't2', 't3', 't4');
   }, [pathname]);
 
+  if (pathname?.includes('visualizador')) {
+    return <div className="h-screen w-screen overflow-hidden bg-[#EAEAEA]">{children}</div>;
+  }
+
   return (
     <div className="flex h-screen bg-[#070A12] text-white overflow-hidden print:h-auto print:overflow-visible print:bg-white print:block">
       {/* Barra de progresso no topo (estilo YouTube) */}

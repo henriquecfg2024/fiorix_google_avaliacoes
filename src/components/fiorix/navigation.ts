@@ -23,13 +23,17 @@ import {
   RotateCcw,
   Clock3,
   ShieldCheck,
+  Eye,
 } from "lucide-react";
 
 export const navigationGroups = {
   documental: {
     label: "GESTÃO DOCUMENTAL",
     icon: FileText,
-    items: [{ id: "gestao_documental", label: "Pesquisa documental", href: "/gestao-documental", icon: FileText }],
+    items: [
+      { id: "gestao_documental", label: "Manifestações", href: "/gestao-documental", icon: FileText },
+      { id: "visualizador_documental", label: "Visualizador", href: "/gestao-documental/visualizador", icon: Eye },
+    ],
   },
   gestao: {
     label: "PRESENÇA NO GOOGLE",

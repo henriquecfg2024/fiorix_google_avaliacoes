@@ -45,6 +45,7 @@ import {
 } from '@/app/actions/its';
 import { renomearSetor } from '@/app/actions/departamentos';
 import { GerenciarResponsaveisModal } from './GerenciarResponsaveisModal';
+import { NovaItModal, ColaboradorOption } from './NovaItModal';
 
 // ═══════════════════════════════════════════════
 // TIPOS
@@ -99,6 +100,7 @@ interface InstrucoesTrabalhoData {
   };
   conformidadePorIt: ConformidadeItem[];
   itsPendentesAprovacao: ItPendenteResumo[];
+  colaboradoresTenant?: ColaboradorOption[];
 }
 
 interface InstrucoesTrabalhoClientProps {
@@ -624,6 +626,7 @@ export function InstrucoesTrabalhoClient({
   const [historicoModal, setHistoricoModal] = useState<ITItem | null>(null);
   const [excluirPermanenteModal, setExcluirPermanenteModal] = useState<ITItem | null>(null);
   const [acessosModalIt, setAcessosModalIt] = useState<ITItem | null>(null);
+  const [novaItModalOpen, setNovaItModalOpen] = useState(false);
   const [menuAberto, setMenuAberto] = useState<string | null>(null); // id da IT com menu aberto
 
   const handleActioned = useCallback(() => {
@@ -839,7 +842,12 @@ export function InstrucoesTrabalhoClient({
               )}
 
               {isGestao && (
-                <button className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-bold transition-all shadow-lg shadow-purple-900/30 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setNovaItModalOpen(true)}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-bold transition-all shadow-lg shadow-purple-900/30 shrink-0 cursor-pointer"
+                  title="Criar nova Instrução de Trabalho"
+                >
                   <Plus className="w-4 h-4" />
                   <span>Nova IT</span>
                 </button>
@@ -1271,6 +1279,19 @@ export function InstrucoesTrabalhoClient({
           onActioned={handleActioned}
         />
       )}
+
+      {/* Modal de Criação de Nova IT */}
+      <NovaItModal
+        isOpen={novaItModalOpen}
+        onClose={() => setNovaItModalOpen(false)}
+        onSuccess={handleActioned}
+        setoresDisponiveis={setores}
+        setorInicial={filterSetor !== 'TODOS' ? filterSetor : undefined}
+        colaboradores={initialData.colaboradoresTenant}
+        currentUserId={currentUser.id}
+        currentUserName={currentUser.name}
+        itsExistentes={its}
+      />
     </div>
   );
 }

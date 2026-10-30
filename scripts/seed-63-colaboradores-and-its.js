@@ -100,7 +100,7 @@ const ITS_12 = [
     passos: [
       { ordem: 1, titulo: 'Conferir Qualificação do Apresentante', desc: 'Identificar CPF/CNPJ, documento oficial com foto e endereço.' },
       { ordem: 2, titulo: 'Checar Complementaridade do Título', desc: 'Verificar se constam certidões exigíveis por Lei e comprovante de recolhimento de emolumentos.' },
-      { ordem: 3, titulo: 'Gerar Protocolo de Prenotação', desc: 'Emitir comprovante no SIPLAN com carimbo de data, hora e número sequencial.' },
+      { ordem: 3, titulo: 'Gerar Protocolo de Prenotação', desc: 'Emitir comprovante no Sistema Registral com carimbo de data, hora e número sequencial.' },
       { ordem: 4, titulo: 'Encaminhamento Interno', desc: 'Destinar a pasta de protocolo para a triagem técnica de exame e cálculo.' },
     ],
   },
@@ -123,7 +123,7 @@ const ITS_12 = [
     titulo: 'Cadastro e Diferenciação de Apresentante',
     departamento: 'Atendimento',
     tempo: 8,
-    objetivo: 'Evitar duplicidade ou confusão cadastral entre apresentante e parte interessada no SIPLAN.',
+    objetivo: 'Evitar duplicidade ou confusão cadastral entre apresentante e parte interessada no Sistema Registral.',
     quandoUsar: 'No cadastramento de novos títulos ou solicitações de certidão.',
     raci: { R: 'Atendente', A: 'Henrique Cesar (TI)', C: 'Registro', I: 'Sistemas' },
     passos: [

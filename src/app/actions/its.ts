@@ -2181,6 +2181,8 @@ export async function criarItRapida(data: {
   titulo: string;
   departamento: string;
   guardiaoId?: string;
+  objetivo?: string;
+  tempoLeituraMin?: number;
   pdfOriginalUrl?: string;
   pdfPath?: string;
 }) {
@@ -2205,23 +2207,31 @@ export async function criarItRapida(data: {
     JSON.stringify({ tenantId, ...data, timestamp: new Date().toISOString() })
   ).digest('hex');
 
+  const tempoLeitura = typeof data.tempoLeituraMin === 'number' && data.tempoLeituraMin > 0 ? data.tempoLeituraMin : 5;
+  const objetivoTxt = data.objetivo?.trim() || 'Instrução de Trabalho';
+  const guardiao = data.guardiaoId || currentUser.id;
+
   let result: any[];
   try {
     result = await prisma.$queryRawUnsafe<any[]>(
       `INSERT INTO public.fiorix_its (
-         tenant_id, codigo, titulo, departamento, versao, tempo_leitura_min, 
-         objetivo, hash_versao, autor_id, guardiao_id, pdf_original_url, pdf_path
+         tenant_id, codigo, titulo, departamento, versao, status, tempo_leitura_min, 
+         objetivo, hash_versao, autor_id, guardiao_id, responsavel_tecnico_id, pdf_original_url, pdf_path,
+         created_at, updated_at
        ) VALUES (
-         $1, $2, $3, $4, '1.0', 5, 'Instrução de Trabalho', $5, $6, $7, $8, $9
+         $1, $2, $3, $4, '1.0', 'ativa', $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW()
        )
        RETURNING id::text`,
       tenantId,
-      data.codigo.trim(),
+      data.codigo.trim().toUpperCase(),
       data.titulo.toUpperCase().trim(),
-      data.departamento,
+      data.departamento.trim(),
+      tempoLeitura,
+      objetivoTxt,
       hashVersao,
       currentUser.id,
-      data.guardiaoId || currentUser.id,
+      guardiao,
+      guardiao,
       data.pdfOriginalUrl || null,
       data.pdfPath || null
     );
@@ -2236,18 +2246,39 @@ export async function criarItRapida(data: {
   }
 
   if (result.length > 0) {
+    const itId = result[0].id;
+
     // Registra versão inicial
     await prisma.$queryRawUnsafe(
       `INSERT INTO public.fiorix_its_versoes (
          it_id, versao, conteudo_snapshot, alteracoes, autor_id, hash_versao
        ) VALUES (
-         $1::uuid, '1.0', $2::jsonb, 'Criação rápida via Governança', $3, $4
+         $1::uuid, '1.0', $2::jsonb, 'Criação inicial da IT', $3, $4
        )`,
-      result[0].id,
+      itId,
       JSON.stringify(data),
       currentUser.id,
       hashVersao
     );
+
+    // Registra o guardião como RESPONSAVEL_PRINCIPAL em participants
+    try {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO public.fiorix_its_participants (
+           tenant_id, it_id, usuario_id, papel, status, incluido_por,
+           pode_colaborar_rascunho, created_at, updated_at
+         ) VALUES (
+           $1, $2::uuid, $3, 'RESPONSAVEL_PRINCIPAL', 'ativo', $4, true, NOW(), NOW()
+         )
+         ON CONFLICT DO NOTHING`,
+        tenantId,
+        itId,
+        guardiao,
+        currentUser.id
+      );
+    } catch (e) {
+      console.warn('Aviso ao registrar responsavel_principal em participants:', e);
+    }
 
     // Gera ciência pendente para o departamento
     const deptoUsers = await prisma.$queryRawUnsafe<any[]>(
@@ -2262,7 +2293,7 @@ export async function criarItRapida(data: {
          VALUES ($1, $2::uuid, $3, '1.0', 'pendente', NOW())
          ON CONFLICT (tenant_id, it_id, usuario_id, versao) DO NOTHING`,
         tenantId,
-        result[0].id,
+        itId,
         user.id
       );
     }
@@ -2270,6 +2301,7 @@ export async function criarItRapida(data: {
 
   revalidatePath('/gestao/rh/instrucoes-trabalho-monitoramento');
   revalidatePath('/administracao/its');
+  revalidatePath('/minha-it');
   return { success: true, id: result[0]?.id };
 }
 

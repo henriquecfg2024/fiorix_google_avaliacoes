@@ -47,7 +47,14 @@ export async function POST(req: Request) {
     if (!connector?.lastSeenAt || Date.now() - connector.lastSeenAt.getTime() > 120000) return reply({ error: 'Connector sem sinal recente.' }, 409);
     
     let jobResult: any = null;
-    if (jobData.type === 'extract_petition' || jobData.type === 'analyze_signatures' || jobData.type === 'read_document_text') {
+    if (jobData.type === 'list_directory') {
+      // Sem cache no servidor: a listagem precisa refletir o disco no momento da navegação
+      jobResult = await createJob(user.tenantId, user.id, connector.id, {
+        type: 'list_directory',
+        rootId: jobData.rootId,
+        relativePath: jobData.relativePath,
+      });
+    } else if (jobData.type === 'extract_petition' || jobData.type === 'analyze_signatures' || jobData.type === 'read_document_text') {
       jobResult = await createJob(user.tenantId, user.id, connector.id, {
         type: jobData.type,
         rootId: jobData.rootId,

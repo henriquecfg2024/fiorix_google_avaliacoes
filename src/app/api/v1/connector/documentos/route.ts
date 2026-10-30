@@ -8,7 +8,7 @@ const reply = (value: unknown, status = 200) => NextResponse.json(value, { statu
 export async function POST(req: Request) {
   if (process.env.DOCUMENTAL_ENABLED !== 'true') return reply({ error: 'Módulo desabilitado.' }, 503);
   const secret = req.headers.get('authorization')?.match(/^Bearer (.+)$/)?.[1];
-  if (!secret) return reply({ error: 'Não autorizado.' }, 401);
+  if (!secret) return reply({ error: 'Não autorizado: secret ausente no header.' }, 401);
   try {
     const raw = await req.text();
     // Permite até 15MB para suporte a documentos digitalizados de alta resolução (.KEN e .PDF)
@@ -16,10 +16,13 @@ export async function POST(req: Request) {
     let body: unknown;
     try { body = JSON.parse(raw); } catch { return reply({ error: 'JSON inválido.' }, 400); }
     const parsed = connectorMessage.safeParse(body);
-    if (!parsed.success) return reply({ error: 'Mensagem inválida.' }, 400);
+    if (!parsed.success) return reply({ error: 'Mensagem inválida.', details: parsed.error.issues }, 400);
     const message = parsed.data;
     const auth = await authenticateConnector(message.connectorId, secret);
-    if (!auth.success || !auth.connector || !auth.tenant) return reply({ error: 'Não autorizado.' }, 401);
+    if (!auth.success || !auth.connector || !auth.tenant) {
+      console.log('[DOCUMENTOS] Falha de autenticacao do conector:', { connectorId: message.connectorId, auth });
+      return reply({ error: `Não autorizado: ${auth.error || 'falha de conector ou tenant'}` }, 401);
+    }
     const tenantId = auth.tenant.id;
     const connectorId = auth.connector.id;
     if (message.action === 'claim') return reply({ job: await claimSearch(tenantId, connectorId) });

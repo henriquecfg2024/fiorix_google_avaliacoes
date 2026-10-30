@@ -27,6 +27,7 @@ describe('FIORIX — Padronização da Nomenclatura do Menu Principal', () => {
   it('preserva a ordem e as chaves canônicas de navegação', () => {
     const keys = Object.keys(navigationGroups);
     expect(keys).toEqual([
+      'documental',
       'gestao',
       'operacional',
       'rhGestao',
@@ -141,6 +142,7 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
     const groupKeys = Object.keys(groups);
 
     expect(groupKeys).toEqual([
+      'documental',
       'gestao',
       'operacional',
       'governancaIts',
@@ -155,6 +157,7 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
     const groupKeys = Object.keys(groups);
 
     expect(groupKeys).toEqual([
+      'documental',
       'gestao',
       'operacional',
       'rhGestao',
@@ -171,6 +174,7 @@ describe('FIORIX — Validação de RBAC e Permissões por Perfil', () => {
     const groupKeys = Object.keys(groups);
 
     expect(groupKeys).toEqual([
+      'documental',
       'gestao',
       'operacional',
       'rhGestao',

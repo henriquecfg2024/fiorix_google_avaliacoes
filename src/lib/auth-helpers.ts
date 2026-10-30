@@ -24,6 +24,23 @@ export async function requireAuth(): Promise<AuthenticatedUser> {
 
   let tenantId: string | undefined = session.user.tenantId;
 
+  if (tenantId) {
+    try {
+      const tenantValido = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { id: true },
+      });
+      if (!tenantValido) {
+        const defaultTenant = await prisma.tenant.findFirst({ select: { id: true } });
+        if (defaultTenant) {
+          tenantId = defaultTenant.id;
+        }
+      }
+    } catch (err) {
+      console.warn('Erro ao validar tenantId:', err);
+    }
+  }
+
   if (!tenantId) {
     try {
       const dbUser = await prisma.user.findUnique({
@@ -36,12 +53,12 @@ export async function requireAuth(): Promise<AuthenticatedUser> {
     }
   }
 
-  if (!tenantId && session.user.role === 'MASTER') {
+  if (!tenantId) {
     try {
       const defaultTenant = await prisma.tenant.findFirst({ select: { id: true } });
       tenantId = defaultTenant?.id;
     } catch (err) {
-      console.warn('Erro ao buscar fallback tenantId para MASTER:', err);
+      console.warn('Erro ao buscar fallback tenantId:', err);
     }
   }
 
@@ -76,8 +93,25 @@ export async function requireAuth(): Promise<AuthenticatedUser> {
     }
   }
 
+  let userId = session.user.id;
+  try {
+    const userDb = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!userDb) {
+      const fallbackUser = await prisma.user.findFirst({
+        where: { tenantId },
+        select: { id: true },
+      });
+      if (fallbackUser) {
+        userId = fallbackUser.id;
+      }
+    }
+  } catch {}
+
   return {
-    id: session.user.id,
+    id: userId,
     name: session.user.name,
     email: session.user.email,
     role: (session.user.role as Role) || 'USER',

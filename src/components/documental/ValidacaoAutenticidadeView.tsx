@@ -50,7 +50,17 @@ export function ValidacaoAutenticidadeView({
   const [copiadoId, setCopiadoId] = useState<string | null>(null);
   const [visualizandoPdfId, setVisualizandoPdfId] = useState<string | null>(null);
 
+  // Só há o que validar se a ficha tiver ao menos um identificador do processo/imóvel
+  const temDadosParaValidar = Boolean(
+    dados.numero_processo?.trim() || dados.contribuinte_sql?.trim() || dados.matricula_transcricao?.trim()
+  );
+
   const executarValidacaoAutomatica = async () => {
+    if (!temDadosParaValidar) {
+      setValidacoes([]);
+      setErro(null);
+      return;
+    }
     setCarregando(true);
     setErro(null);
     try {
@@ -101,6 +111,22 @@ export function ValidacaoAutenticidadeView({
       }, idx * 400);
     });
   };
+
+  const totalConfirmados = validacoes.filter(v => v.status === 'AUTENTICIDADE_CONFIRMADA').length;
+  const percentualConfirmado = validacoes.length > 0 ? Math.round((totalConfirmados / validacoes.length) * 100) : 0;
+
+  if (!temDadosParaValidar) {
+    return (
+      <div className="rounded-2xl border border-slate-700/80 bg-slate-950/90 p-6 text-center">
+        <ShieldAlert className="mx-auto h-8 w-8 text-slate-500" />
+        <h3 className="mt-2 text-sm font-bold text-white">Nenhum documento para validar</h3>
+        <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-slate-400">
+          O formulário está vazio. Preencha o nº do processo, o SQL/IPTU ou a matrícula/transcrição
+          (ou extraia os dados de uma petição inicial) para executar a validação de autenticidade.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -164,7 +190,7 @@ export function ValidacaoAutenticidadeView({
           <div className="rounded-xl bg-slate-900/80 border border-slate-800 p-3">
             <span className="text-[11px] text-emerald-400 font-medium">Autenticidade Confirmada</span>
             <div className="text-base sm:text-lg font-bold text-emerald-300 mt-0.5">
-              {validacoes.filter(v => v.status === 'AUTENTICIDADE_CONFIRMADA').length} de {validacoes.length} (100%)
+              {totalConfirmados} de {validacoes.length} ({percentualConfirmado}%)
             </div>
           </div>
           <div className="rounded-xl bg-slate-900/80 border border-slate-800 p-3">

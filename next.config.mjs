@@ -19,6 +19,9 @@ const nextConfig = {
     const cspScriptSrc = isDev
       ? "script-src 'self' 'unsafe-inline' 'unsafe-eval';"
       : "script-src 'self' 'unsafe-inline';";
+    // Servidor de arquivos do FIORIX Connector (rede interna) — PDFs grandes vão direto ao navegador
+    const documentalFileOrigins = (process.env.DOCUMENTAL_FILE_SERVER_CSP_ORIGINS || 'http://localhost:8765 http://127.0.0.1:8765')
+      .split(/[\s,]+/).filter(Boolean).join(' ');
 
     return [
       {
@@ -46,7 +49,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: `default-src 'self'; ${cspScriptSrc} style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleapis.com https://*.gstatic.com https://*.supabase.co https://uvieekfizuzujpwfbjww.supabase.co; font-src 'self' data:; connect-src 'self' https://*.googleapis.com https://api.openai.com https://*.supabase.co https://uvieekfizuzujpwfbjww.supabase.co wss://*.supabase.co; frame-src 'self' blob: data: https://*.supabase.co; frame-ancestors 'self'; object-src 'self' blob: data:; base-uri 'self';`,
+            value: `default-src 'self'; ${cspScriptSrc} style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleapis.com https://*.gstatic.com https://*.supabase.co https://uvieekfizuzujpwfbjww.supabase.co; font-src 'self' data:; connect-src 'self' https://*.googleapis.com https://api.openai.com https://*.supabase.co https://uvieekfizuzujpwfbjww.supabase.co wss://*.supabase.co ${documentalFileOrigins}; frame-src 'self' blob: data: https://*.supabase.co; frame-ancestors 'self'; object-src 'self' blob: data:; base-uri 'self';`,
           },
         ],
       },

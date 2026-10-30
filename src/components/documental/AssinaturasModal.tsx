@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ShieldCheck, ShieldAlert, FileSignature, Copy, CheckCircle2, AlertTriangle, FileText, Maximize2, Minimize2, ArrowLeft, X } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, FileSignature, Copy, CheckCircle2, AlertTriangle, FileText, Maximize2, Minimize2, ArrowLeft, X, Printer } from 'lucide-react';
 
 export interface DetalheAssinaturaPdf {
   signatario: string;
@@ -63,6 +63,103 @@ export function AssinaturasModal({
 
   const isValida = analise.status_validade === 'VALIDA_ICP_OU_HOMOLOGADA';
   const isSemCripto = analise.status_validade === 'SEM_CRIPTOGRAFIA_IMAGENS_OU_IMPRESSO';
+  // Assinatura qualificada/homologada não gera exigência: a minuta só existe para os casos não conformes
+  const exibirNota = !isValida && !!analise.texto_nota_devolucao;
+
+  const imprimirRelatorio = () => {
+    const dataHora = new Date().toLocaleString('pt-BR');
+    const statusTexto = isValida
+      ? 'CONFORME — Assinatura Eletrônica Qualificada / Homologada Detectada'
+      : isSemCripto
+      ? 'NÃO CONFORME — Arquivo sem Assinatura Digital'
+      : 'NÃO CONFORME — Assinatura Inválida ou Não Homologada';
+
+    const statusCor = isValida ? '#065f46' : '#991b1b';
+    const signatariosHtml = analise.signatarios_detectados && analise.signatarios_detectados.length > 0
+      ? analise.signatarios_detectados.map(s => `<li>• ${s}</li>`).join('')
+      : '<li>Nenhum certificado digital embutido detectado no arquivo.</li>';
+
+    const minutaHtml = exibirNota
+      ? `<div style="margin-top:16px;border:1px solid #cbd5e1;border-radius:6px;padding:12px;background:#f8fafc;">
+          <h3 style="margin:0 0 8px 0;font-size:12px;text-transform:uppercase;color:#334155;letter-spacing:0.5px;">Minuta Registral Sugerida para Nota de Devolução (CNJ / ITI)</h3>
+          <pre style="margin:0;font-family:monospace;font-size:11px;line-height:1.5;white-space:pre-wrap;color:#0f172a;">${analise.texto_nota_devolucao.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+        </div>`
+      : '';
+
+    const htmlImpressao = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Auditoria PAdES — ${nomeArquivo}</title>
+  <style>
+    @page { size: A4; margin: 15mm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #0f172a; margin: 0; padding: 0; font-size: 12px; line-height: 1.45; }
+    .header { border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 14px; }
+    .cartorio { font-size: 14px; font-weight: bold; text-transform: uppercase; color: #0f172a; }
+    .subtitulo { font-size: 11px; color: #475569; margin-top: 2px; }
+    .titulo { font-size: 16px; font-weight: bold; margin: 12px 0 4px 0; color: #0f172a; }
+    .meta-box { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; margin-bottom: 14px; font-size: 11px; }
+    .status-box { border-left: 4px solid ${statusCor}; background: #fafafa; border: 1px solid #e2e8f0; border-left-width: 4px; border-left-color: ${statusCor}; border-radius: 6px; padding: 12px; margin-bottom: 14px; }
+    .status-titulo { font-size: 13px; font-weight: bold; color: ${statusCor}; margin: 0 0 4px 0; }
+    .status-padrao { font-size: 11px; color: #334155; margin: 0; }
+    .secao { margin-top: 14px; }
+    .secao-titulo { font-size: 11px; font-weight: bold; text-transform: uppercase; color: #475569; letter-spacing: 0.5px; margin-bottom: 6px; }
+    ul { margin: 0; padding-left: 14px; font-size: 11px; color: #1e293b; list-style: none; }
+    li { margin-bottom: 4px; }
+    .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #64748b; display: flex; justify-content: space-between; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="cartorio">7º Oficial de Registro de Imóveis de São Paulo</div>
+    <div class="subtitulo">FIORIX — Sistema de Gestão da Qualidade e Qualificação Registral</div>
+  </div>
+
+  <div class="titulo">Relatório de Auditoria de Assinaturas Eletrônicas e Criptografia (PAdES)</div>
+
+  <div class="meta-box">
+    <strong>Arquivo auditado:</strong> ${nomeArquivo}<br />
+    <strong>Emissão do laudo:</strong> ${dataHora}<br />
+    <strong>Motor de conformidade:</strong> CLI PAdES / Lei Federal nº 14.063/2020 e Provimento CNJ nº 149/2023
+  </div>
+
+  <div class="status-box">
+    <div class="status-titulo">${statusTexto}</div>
+    <div class="status-padrao">${analise.padrao_detectado || 'Padrão criptográfico auditado pelo motor documental.'}</div>
+  </div>
+
+  <div class="secao">
+    <div class="secao-titulo">Signatários / Certificados Detectados</div>
+    <ul>${signatariosHtml}</ul>
+  </div>
+
+  ${minutaHtml}
+
+  <div class="footer">
+    <span>Documento gerado para instrução do procedimento de qualificação registral.</span>
+    <span>Página 1 de 1</span>
+  </div>
+
+  <script>
+    window.addEventListener('load', () => {
+      window.print();
+    });
+  </script>
+</body>
+</html>`;
+
+    const printWin = window.open('', '_blank', 'width=800,height=900');
+    if (printWin) {
+      printWin.document.open();
+      printWin.document.write(htmlImpressao);
+      printWin.document.close();
+    } else {
+      window.print();
+    }
+  };
 
   if (!mounted) return null;
 
@@ -156,12 +253,17 @@ export function AssinaturasModal({
                   {isValida
                     ? 'Assinatura Eletrônica Qualificada / Homologada Detectada'
                     : isSemCripto
-                    ? 'Arquivo Sem Estrutura Criptográfica Ativa (Impresso em PDF)'
+                    ? 'Arquivo sem Assinatura Digital'
                     : 'Assinatura Inválida ou Não Homologada'}
                 </h4>
                 <p className="mt-1 text-xs sm:text-sm opacity-90">
                   {analise.padrao_detectado || 'Padrão criptográfico auditado pelo motor documental.'}
                 </p>
+                {isValida && (
+                  <p className="mt-2 text-[11px] sm:text-xs text-emerald-300/80">
+                    Sem nota de exigência para este item. Triagem automática: para confirmação oficial, valide o PDF em validar.iti.gov.br.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -186,7 +288,7 @@ export function AssinaturasModal({
           </div>
 
           {/* Nota de Devolução Registral Sugerida */}
-          {analise.texto_nota_devolucao && (
+          {exibirNota && (
             <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
               <div className="flex items-center justify-between mb-2">
                 <h5 className="text-xs font-semibold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -230,16 +332,27 @@ export function AssinaturasModal({
             <ArrowLeft className="h-4 w-4 text-cyan-400" />
             <span>Voltar para tela anterior</span>
           </button>
-          {analise.texto_nota_devolucao && (
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={copiarNota}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition"
+              onClick={imprimirRelatorio}
+              title="Imprimir relatório de auditoria (A4)"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-200 hover:text-white transition shadow"
             >
-              <Copy className="h-4 w-4" />
-              <span>Copiar Nota de Exigência</span>
+              <Printer className="h-4 w-4 text-cyan-400" />
+              <span>Imprimir</span>
             </button>
-          )}
+            {exibirNota && (
+              <button
+                type="button"
+                onClick={copiarNota}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition"
+              >
+                <Copy className="h-4 w-4" />
+                <span>Copiar Nota de Exigência</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>,
