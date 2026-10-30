@@ -665,30 +665,33 @@ export function InstrucoesTrabalhoClient({
     | { tipo: 'aguardando_analise' | 'correcao_solicitada' | 'aguardando_publicacao'; itPendente: ItPendenteResumo }
     | { tipo: 'revisao_vencida' | 'revisao_proxima' | 'ciencia_pendente'; item: ConformidadeItem };
 
-  const pendencias: Pendencia[] = [];
+  const pendenciasAprovacao: Array<{ tipo: 'aguardando_analise' | 'correcao_solicitada' | 'aguardando_publicacao'; itPendente: ItPendenteResumo }> = [];
+  const pendenciasLeitura: Array<{ tipo: 'revisao_vencida' | 'revisao_proxima' | 'ciencia_pendente'; item: ConformidadeItem }> = [];
 
-  // 1. ITs aguardando análise / correção / publicação
+  // 1. ITs aguardando análise / correção / publicação (Aprovação do Substituto)
   for (const p of itsPendentesAprovacao) {
     if (p.status === 'enviada_para_analise') {
-      pendencias.push({ tipo: 'aguardando_analise', itPendente: p });
+      pendenciasAprovacao.push({ tipo: 'aguardando_analise', itPendente: p });
     } else if (p.status === 'correcao_solicitada') {
-      pendencias.push({ tipo: 'correcao_solicitada', itPendente: p });
+      pendenciasAprovacao.push({ tipo: 'correcao_solicitada', itPendente: p });
     } else if (p.status === 'aprovada') {
-      pendencias.push({ tipo: 'aguardando_publicacao', itPendente: p });
+      pendenciasAprovacao.push({ tipo: 'aguardando_publicacao', itPendente: p });
     }
   }
 
-  // 2. Revisão e ciência das ITs publicadas
+  // 2. Revisão periódica e ciência das ITs já publicadas (Cobrança da equipe)
   for (const item of conformidadePorIt) {
     if (item.diasSemRevisao >= 120) {
-      pendencias.push({ tipo: 'revisao_vencida', item });
+      pendenciasLeitura.push({ tipo: 'revisao_vencida', item });
     } else if (item.diasSemRevisao >= 90) {
-      pendencias.push({ tipo: 'revisao_proxima', item });
+      pendenciasLeitura.push({ tipo: 'revisao_proxima', item });
     }
     if (item.pendentesCount > 0) {
-      pendencias.push({ tipo: 'ciencia_pendente', item });
+      pendenciasLeitura.push({ tipo: 'ciencia_pendente', item });
     }
   }
+
+  const pendencias = [...pendenciasAprovacao, ...pendenciasLeitura];
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#070A12] dark:text-white pb-16 font-sans relative overflow-hidden transition-colors">
@@ -729,7 +732,7 @@ export function InstrucoesTrabalhoClient({
                   : 'text-slate-400 dark:text-white/60 hover:text-white hover:bg-white/[0.04]'
               }`}
             >
-              <span>Aprovações</span>
+              <span>Fiscalização & Leituras</span>
               {pendencias.length > 0 && (
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                   activeTab === 'fiscalizacao' ? 'bg-white/20 text-white' : 'bg-rose-500 text-white'
@@ -1039,97 +1042,144 @@ export function InstrucoesTrabalhoClient({
               </div>
             </div>
 
-            {/* Pendências Card — Padrão FIORIX */}
-            <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 overflow-hidden shadow-sm backdrop-blur-xl divide-y divide-white/8">
-              <div className="px-6 py-4.5 border-b border-white/10">
-                <p className="text-xs font-bold text-slate-400 dark:text-white/80 uppercase tracking-wider">
-                  Pendências — resolva uma de cada vez
-                </p>
+            {/* ── SEÇÃO 1: ITs para Aprovar ────────────────── */}
+            <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 overflow-hidden shadow-sm backdrop-blur-xl">
+              <div className="px-6 py-4.5 border-b border-white/10 flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-purple-950/20 via-transparent to-transparent">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-purple-400" />
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                      ITs para Aprovar (Aprovação do Substituto / Supervisão)
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Novas Instruções de Trabalho ou revisões propostas por colaboradores que necessitam de homologação.
+                  </p>
+                </div>
+                <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
+                  pendenciasAprovacao.length > 0
+                    ? 'border-purple-500/40 bg-purple-500/15 text-purple-300'
+                    : 'border-white/10 bg-white/5 text-slate-400'
+                }`}>
+                  {pendenciasAprovacao.length} {pendenciasAprovacao.length === 1 ? 'aguardando aprovação' : 'aguardando aprovação'}
+                </span>
               </div>
 
-              {pendencias.length === 0 ? (
-                <div className="py-16 text-center">
-                  <CheckCircle2 className="mx-auto w-10 h-10 text-emerald-500/50 mb-3" />
-                  <p className="text-base font-semibold text-white">Tudo em dia</p>
-                  <p className="text-xs text-slate-400 dark:text-white/40 mt-1">Nenhuma pendência no momento.</p>
+              {pendenciasAprovacao.length === 0 ? (
+                <div className="py-10 px-6 text-center">
+                  <CheckCircle2 className="mx-auto w-8 h-8 text-emerald-400/60 mb-2" />
+                  <p className="text-sm font-semibold text-white">Nenhuma IT aguardando aprovação</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Todas as novas propostas submetidas por colaboradores já foram analisadas ou publicadas.
+                  </p>
                 </div>
               ) : (
                 <div className="divide-y divide-white/8">
-                  {pendencias.map((pendencia) => {
-                    // ── Pendências de aprovação ──
-                    if (
-                      pendencia.tipo === 'aguardando_analise' ||
-                      pendencia.tipo === 'correcao_solicitada' ||
-                      pendencia.tipo === 'aguardando_publicacao'
-                    ) {
-                      const p = pendencia.itPendente;
-                      const isAnalise = pendencia.tipo === 'aguardando_analise';
-                      const isCorrecao = pendencia.tipo === 'correcao_solicitada';
+                  {pendenciasAprovacao.map((pendencia) => {
+                    const p = pendencia.itPendente;
+                    const isAnalise = pendencia.tipo === 'aguardando_analise';
+                    const isCorrecao = pendencia.tipo === 'correcao_solicitada';
 
-                      let motivo = '';
-                      let badgeText = '';
-                      let badgeColor = '';
-                      let iconColor = '';
-                      let acaoLabel = '';
+                    let motivo = '';
+                    let badgeText = '';
+                    let badgeColor = '';
+                    let iconColor = '';
+                    let acaoLabel = '';
 
-                      if (isAnalise) {
-                        motivo = 'Nova IT aguardando análise';
-                        badgeText = 'Aguardando análise';
-                        badgeColor = 'bg-purple-500/15 text-purple-300 border-purple-500/30';
-                        iconColor = 'bg-purple-500/15';
-                        acaoLabel = 'Analisar';
-                      } else if (isCorrecao) {
-                        motivo = 'Correção solicitada — aguardando reenvio';
-                        badgeText = 'Correção solicitada';
-                        badgeColor = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
-                        iconColor = 'bg-amber-500/15';
-                        acaoLabel = 'Ver IT';
-                      } else {
-                        motivo = 'IT aprovada — aguardando publicação';
-                        badgeText = 'Aguardando publicação';
-                        badgeColor = 'bg-teal-500/15 text-teal-300 border-teal-500/30';
-                        iconColor = 'bg-teal-500/15';
-                        acaoLabel = 'Publicar';
-                      }
-
-                      return (
-                        <div
-                          key={`${p.id}-${pendencia.tipo}`}
-                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4.5 hover:bg-white/[0.03] transition-all"
-                        >
-                          <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                            <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${iconColor}`}>
-                              <FileText className={`w-4 h-4 ${isAnalise ? 'text-purple-400' : isCorrecao ? 'text-amber-400' : 'text-teal-400'}`} />
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold text-white text-sm sm:text-base truncate">{p.titulo}</p>
-                              <p className="text-xs text-slate-400 dark:text-white/40 mt-0.5">{p.codigo} • {motivo}</p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-3 shrink-0 flex-wrap sm:flex-nowrap">
-                            <span className="shrink-0 text-xs font-semibold text-slate-300 dark:text-white/80 bg-white/[0.05] border border-white/15 px-3 py-1 rounded-full">
-                              {p.departamento}
-                            </span>
-
-                            <span className={`shrink-0 text-xs font-bold px-3 py-1 rounded-full border ${badgeColor}`}>
-                              {badgeText}
-                            </span>
-
-                            <button
-                              onClick={() => setAnalisarModal(p)}
-                              className="shrink-0 px-4 py-1.5 rounded-xl border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] text-white text-xs font-semibold transition-all"
-                            >
-                              {acaoLabel}
-                            </button>
-                          </div>
-                        </div>
-                      );
+                    if (isAnalise) {
+                      motivo = 'Nova IT aguardando análise e aprovação do Oficial Substituto';
+                      badgeText = 'Aguardando análise';
+                      badgeColor = 'bg-purple-500/15 text-purple-300 border-purple-500/30';
+                      iconColor = 'bg-purple-500/15';
+                      acaoLabel = 'Analisar e Aprovar';
+                    } else if (isCorrecao) {
+                      motivo = 'Correção solicitada — aguardando reenvio pelo colaborador';
+                      badgeText = 'Correção solicitada';
+                      badgeColor = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+                      iconColor = 'bg-amber-500/15';
+                      acaoLabel = 'Ver IT';
+                    } else {
+                      motivo = 'IT aprovada — pronta para publicação';
+                      badgeText = 'Aguardando publicação';
+                      badgeColor = 'bg-teal-500/15 text-teal-300 border-teal-500/30';
+                      iconColor = 'bg-teal-500/15';
+                      acaoLabel = 'Publicar';
                     }
 
-                    // ── Pendências de revisão e ciência ──
-                    const item = (pendencia as { tipo: string; item: ConformidadeItem }).item;
+                    return (
+                      <div
+                        key={`${p.id}-${pendencia.tipo}`}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4.5 hover:bg-white/[0.03] transition-all"
+                      >
+                        <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                          <div className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${iconColor}`}>
+                            <FileText className={`w-4 h-4 ${isAnalise ? 'text-purple-400' : isCorrecao ? 'text-amber-400' : 'text-teal-400'}`} />
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-white text-sm sm:text-base truncate">{p.titulo}</p>
+                            <p className="text-xs text-slate-400 dark:text-white/40 mt-0.5">{p.codigo} • {motivo}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 shrink-0 flex-wrap sm:flex-nowrap">
+                          <span className="shrink-0 text-xs font-semibold text-slate-300 dark:text-white/80 bg-white/[0.05] border border-white/15 px-3 py-1 rounded-full">
+                            {p.departamento}
+                          </span>
+
+                          <span className={`shrink-0 text-xs font-bold px-3 py-1 rounded-full border ${badgeColor}`}>
+                            {badgeText}
+                          </span>
+
+                          <button
+                            onClick={() => setAnalisarModal(p)}
+                            className="shrink-0 px-4 py-1.5 rounded-xl border border-purple-500/40 bg-purple-600/30 hover:bg-purple-600/50 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
+                          >
+                            {acaoLabel}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ── SEÇÃO 2: Cobrança de Leitura da Equipe ─────── */}
+            <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 overflow-hidden shadow-sm backdrop-blur-xl">
+              <div className="px-6 py-4.5 border-b border-white/10 flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-blue-950/20 via-transparent to-transparent">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-cyan-400" />
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                      Cobrança de Leitura da Equipe (Ciência e Revisões das ITs Publicadas)
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Instruções já vigentes no cartório com colaboradores pendentes de confirmação de leitura ou revisão periódica vencida.
+                  </p>
+                </div>
+                <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
+                  pendenciasLeitura.length > 0
+                    ? 'border-rose-500/40 bg-rose-500/15 text-rose-300'
+                    : 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                }`}>
+                  {pendenciasLeitura.length} {pendenciasLeitura.length === 1 ? 'IT com leitura pendente' : 'ITs com leitura pendente'}
+                </span>
+              </div>
+
+              {pendenciasLeitura.length === 0 ? (
+                <div className="py-10 px-6 text-center">
+                  <CheckCircle2 className="mx-auto w-8 h-8 text-emerald-400/60 mb-2" />
+                  <p className="text-sm font-semibold text-white">Equipe 100% ciente e atualizada</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Todos os colaboradores confirmaram a leitura das ITs do seu setor e as revisões periódicas estão em dia.
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-white/8">
+                  {pendenciasLeitura.map((pendencia) => {
+                    const item = pendencia.item;
                     const isVencida = pendencia.tipo === 'revisao_vencida';
                     const isProxima = pendencia.tipo === 'revisao_proxima';
                     const isCiencia = pendencia.tipo === 'ciencia_pendente';
@@ -1140,18 +1190,18 @@ export function InstrucoesTrabalhoClient({
                     let acaoLabel2 = '';
 
                     if (isVencida) {
-                      motivo2 = 'Revisão vencida';
+                      motivo2 = 'Revisão periódica vencida — requer nova versão';
                       badgeText2 = `${item.diasSemRevisao - 120}d em atraso`;
                       badgeColor2 = 'bg-rose-500/15 text-rose-300 border-rose-500/30';
                       acaoLabel2 = 'Revisar';
                     } else if (isProxima) {
                       const diasRestantes = 120 - item.diasSemRevisao;
-                      motivo2 = 'Revisão próxima do vencimento';
+                      motivo2 = 'Revisão próxima do vencimento periódico';
                       badgeText2 = `${diasRestantes}d`;
                       badgeColor2 = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
                       acaoLabel2 = 'Revisar';
                     } else {
-                      motivo2 = `${item.pendentesCount} colaborador${item.pendentesCount !== 1 ? 'es' : ''} ainda não confirmaram a leitura`;
+                      motivo2 = `${item.pendentesCount} colaborador${item.pendentesCount !== 1 ? 'es' : ''} da equipe ainda não confirmaram a leitura`;
                       badgeText2 = `${item.pendentesCount} pendente${item.pendentesCount !== 1 ? 's' : ''}`;
                       badgeColor2 = 'bg-rose-500/15 text-rose-300 border-rose-500/30';
                       acaoLabel2 = 'Ver pessoas';
@@ -1174,7 +1224,7 @@ export function InstrucoesTrabalhoClient({
 
                           <div className="flex-1 min-w-0">
                             <p className="font-bold text-white text-sm sm:text-base truncate">{item.titulo}</p>
-                            <p className="text-xs text-slate-400 dark:text-white/40 mt-0.5">{motivo2}</p>
+                            <p className="text-xs text-slate-400 dark:text-white/40 mt-0.5">{item.codigo} • {motivo2}</p>
                           </div>
                         </div>
 
@@ -1189,7 +1239,7 @@ export function InstrucoesTrabalhoClient({
 
                           <button
                             onClick={() => { if (isCiencia) setPessoasModal(item); }}
-                            className="shrink-0 px-4 py-1.5 rounded-xl border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] text-white text-xs font-semibold transition-all"
+                            className="shrink-0 px-4 py-1.5 rounded-xl border border-white/15 bg-white/[0.04] hover:bg-white/[0.08] text-white text-xs font-semibold transition-all cursor-pointer"
                           >
                             {acaoLabel2}
                           </button>
