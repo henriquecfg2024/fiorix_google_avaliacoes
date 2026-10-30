@@ -175,8 +175,17 @@ export async function sendHeartbeat(telemetryOrVersion: HeartbeatTelemetryPayloa
 
 
 export async function postDocumentMessage(message: Record<string, unknown>) {
-  const url = env.FIORIX_API_URL.replace(/\/sync\/?$/, '/documentos');
-  if (url === env.FIORIX_API_URL) throw new Error('Endpoint de sincronização inválido.');
+  const url = process.env.DOCUMENTAL_API_URL || env.FIORIX_API_URL.replace(/\/sync\/?$/, '/documentos');
+  if (!process.env.DOCUMENTAL_API_URL && url === env.FIORIX_API_URL) throw new Error('Endpoint de sincronização inválido.');
+  const isLocal = url.includes('localhost') || url.includes('127.0.0.1');
+  if (isLocal) {
+    return directClient.post(url, { ...message, connectorId: env.CONNECTOR_ID }, {
+      timeout: 30000,
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+      proxy: false,
+    });
+  }
   return postWithFallback(url, { ...message, connectorId: env.CONNECTOR_ID }, {
     timeout: 30000,
     maxBodyLength: Infinity,

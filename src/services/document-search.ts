@@ -32,6 +32,15 @@ export interface DocumentSearchResult {
 const extensions = new Set(['.pdf', '.doc', '.docx', '.tif', '.tiff', '.txt', '.rtf', '.ken']);
 const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
+// Arquivo de bloqueio do Word ("owner file", 162 bytes, oculto/sistema) criado enquanto o documento está aberto.
+// Normalmente se chama "~$NOME.doc", mas em compartilhamentos SMB antigos o prefixo pode se perder
+// (ex.: "OCESSOS COM SENTENÇA.doc"). Nenhum .doc (OLE, mín. 1,5 KB) ou .docx (ZIP) real tem menos de 1 KB.
+const EXT_OFFICE = new Set(['.doc', '.docx']);
+const TAMANHO_MINIMO_OFFICE = 1024;
+export function isArquivoBloqueioOffice(name: string, size: number): boolean {
+  return EXT_OFFICE.has(path.extname(name).toLowerCase()) && size < TAMANHO_MINIMO_OFFICE;
+}
+
 export function parseDocumentRoots(raw: string): DocumentRoot[] {
   const value: unknown = JSON.parse(raw);
   if (!Array.isArray(value) || value.length < 1 || value.length > 10) throw new Error('Configure de 1 a 10 pastas.');
@@ -51,17 +60,22 @@ export function isWithinRoot(root: string, target: string): boolean {
   return relative === '' || (!path.isAbsolute(relative) && relative !== '..' && !relative.startsWith('..' + path.sep));
 }
 
-export async function resolveAuthorizedFile(
-  roots: DocumentRoot[],
-  rootId: string,
-  relativePath: string,
-): Promise<string> {
+function resolveAuthorizedRoot(roots: DocumentRoot[], rootId: string): DocumentRoot {
   const root = roots.find(r => r.id === rootId)
     || (rootId === 'livro2' ? roots.find(r => r.id === 'imagens') : undefined)
     || (rootId === 'imagens' ? roots.find(r => r.id === 'livro2') : undefined)
     || (rootId === 'minutas' ? roots.find(r => r.id === 'usucapiao') : undefined)
     || (rootId === 'usucapiao' ? roots.find(r => r.id === 'minutas') : undefined);
   if (!root) throw new Error('Pasta não autorizada.');
+  return root;
+}
+
+export async function resolveAuthorizedFile(
+  roots: DocumentRoot[],
+  rootId: string,
+  relativePath: string,
+): Promise<string> {
+  const root = resolveAuthorizedRoot(roots, rootId);
   const canonicalRoot = await fs.realpath(root.path);
   const target = path.resolve(canonicalRoot, relativePath);
   const canonicalTarget = await fs.realpath(target);
@@ -69,6 +83,89 @@ export async function resolveAuthorizedFile(
     throw new Error('Acesso fora da pasta autorizada negado.');
   }
   return canonicalTarget;
+}
+
+export interface DirectoryEntry {
+  name: string;
+  type: 'dir' | 'file';
+  relativePath: string;
+  size?: number;
+  modifiedAt?: string;
+}
+export interface DirectoryListing {
+  rootId: string;
+  relativePath: string;
+  entries: DirectoryEntry[];
+  total: number;
+  truncated: boolean;
+}
+
+const MAX_ENTRADAS_LISTAGEM = 3000;
+const MAX_ENTRADAS_CONTAGEM = 20000;
+const MAX_STAT_ARQUIVOS = 400;
+
+// Explorador de pastas do Visualizador: lista UMA pasta (sem recursão) dentro de uma raiz autorizada.
+// Mesmas garantias da leitura de arquivos: caminho canônico dentro da raiz, symlinks/junctions ignorados
+// e apenas extensões documentais conhecidas são expostas.
+export async function listDirectory(
+  roots: DocumentRoot[],
+  rootId: string,
+  relativePath: string,
+): Promise<DirectoryListing> {
+  const root = resolveAuthorizedRoot(roots, rootId);
+  const canonicalRoot = await fs.realpath(root.path);
+  const rel = relativePath === '.' ? '' : relativePath;
+  const canonicalTarget = await fs.realpath(path.resolve(canonicalRoot, rel));
+  if (!isWithinRoot(canonicalRoot, canonicalTarget)) {
+    throw new Error('Acesso fora da pasta autorizada negado.');
+  }
+  if (!(await fs.stat(canonicalTarget)).isDirectory()) throw new Error('O caminho informado não é uma pasta.');
+
+  const dirs: DirectoryEntry[] = [];
+  const files: DirectoryEntry[] = [];
+  let total = 0;
+  let truncated = false;
+  const handle = await fs.opendir(canonicalTarget);
+  for await (const entry of handle) {
+    if (entry.isSymbolicLink()) continue;
+    // Pastas de sistema ($RECYCLE.BIN etc.) e temporários do Office (~$arquivo.docx)
+    if (entry.name.startsWith('$') || entry.name.startsWith('~$')) continue;
+    const isDir = entry.isDirectory();
+    if (!isDir && !(entry.isFile() && extensions.has(path.extname(entry.name).toLowerCase()))) continue;
+    total++;
+    if (total > MAX_ENTRADAS_CONTAGEM) { truncated = true; break; }
+    if (dirs.length + files.length >= MAX_ENTRADAS_LISTAGEM) { truncated = true; continue; }
+    const entryRel = path.relative(canonicalRoot, path.join(canonicalTarget, entry.name));
+    (isDir ? dirs : files).push({ name: entry.name, type: isDir ? 'dir' : 'file', relativePath: entryRel });
+  }
+
+  // Tamanho/data só quando a pasta é pequena: em blocos do Livro 2 (1.000 .KEN) o stat via SMB ficaria lento.
+  // .doc/.docx são sempre verificados para descartar arquivos de bloqueio do Word.
+  const statTodos = files.length <= MAX_STAT_ARQUIVOS;
+  const paraStat = statTodos ? files : files.filter(f => EXT_OFFICE.has(path.extname(f.name).toLowerCase()));
+  for (let i = 0; i < paraStat.length; i += 50) {
+    await Promise.all(paraStat.slice(i, i + 50).map(async f => {
+      try {
+        const info = await fs.stat(path.join(canonicalRoot, f.relativePath));
+        f.size = info.size;
+        f.modifiedAt = info.mtime.toISOString();
+      } catch {}
+    }));
+  }
+  const arquivosValidos = files.filter(f => f.size === undefined || !isArquivoBloqueioOffice(f.name, f.size));
+  total -= files.length - arquivosValidos.length;
+  if (!statTodos) for (const f of arquivosValidos) { delete f.size; delete f.modifiedAt; }
+
+  const collator = new Intl.Collator('pt-BR', { numeric: true, sensitivity: 'base' });
+  dirs.sort((a, b) => collator.compare(a.name, b.name));
+  arquivosValidos.sort((a, b) => collator.compare(a.name, b.name));
+  return {
+    rootId,
+    relativePath: path.relative(canonicalRoot, canonicalTarget),
+    entries: [...dirs, ...arquivosValidos],
+    total: Math.min(total, MAX_ENTRADAS_CONTAGEM),
+    truncated,
+  };
 }
 
 export async function executeDocumentCli(
@@ -172,6 +269,18 @@ export async function detectarMatriculaEmArquivo(filePath: string): Promise<stri
   return null;
 }
 
+// Nº de processo CNJ completo ou parcial: 1162956-97 | 1162956-97.2024 | 1162956-97.2024.8.26.0100
+const REGEX_PROCESSO_CNJ = /\b\d{7}-\d{2}(?:\.\d{4}(?:\.\d(?:\.\d{2}(?:\.\d{4})?)?)?)?\b/g;
+
+export function removerNumerosDeProcesso(query: string): string {
+  return query.replace(REGEX_PROCESSO_CNJ, ' ');
+}
+
+/** A consulta contém nº de processo e nenhum outro número (ex.: "1162956-97.2024.8.26.0100") */
+export function consultaApenasProcesso(query: string): boolean {
+  return removerNumerosDeProcesso(query) !== query && !/\d/.test(removerNumerosDeProcesso(query));
+}
+
 // Localização direta e ultrarrápida de imagens de matrículas no padrão do 7º RI (K:\IMAGENS\LV2).
 // Todas as matrículas no acervo do Livro 2 são arquivos .KEN de 8 dígitos divididos em blocos de 1.000.
 export async function checkDirectMatriculaFiles(
@@ -182,8 +291,12 @@ export async function checkDirectMatriculaFiles(
   const matches: DocumentMatch[] = [];
   const numbersToTry = new Set<number>();
 
+  // Números de processo (CNJ: NNNNNNN-DD.AAAA.J.TR.OOOO, inclusive parciais) não são matrícula.
+  // Sem isso o ano de "1162956-97.2024" virava a matrícula 2.024 (00002024.KEN).
+  const consultaSemProcesso = removerNumerosDeProcesso(query);
+
   // 1. Se contiver número formatado com pontos (ex: "123.456", "45.890"), extrai o número unificado sem quebrar nos pontos
-  const formattedMatches = query.match(/\b\d{1,3}(?:\.\d{3})+(?:-\d+)?\b/g);
+  const formattedMatches = consultaSemProcesso.match(/\b\d{1,3}(?:\.\d{3})+(?:-\d+)?\b/g);
   if (formattedMatches) {
     for (const f of formattedMatches) {
       const num = parseInt(f.replace(/[^\d]/g, ''), 10);
@@ -192,13 +305,13 @@ export async function checkDirectMatriculaFiles(
   }
 
   // 2. Extrai número completo desconsiderando pontos e traços (ex: "123.456" -> 123456, "45.890" -> 45890)
-  const fullDigits = query.replace(/[^\d]/g, '');
+  const fullDigits = consultaSemProcesso.replace(/[^\d]/g, '');
   if (fullDigits.length >= 2 && fullDigits.length <= 8) {
     numbersToTry.add(parseInt(fullDigits, 10));
   }
 
   // 3. Extrai sequências isoladas de 3 a 8 dígitos caso a consulta contenha outros termos NÃO separados por pontos
-  const unpunctQuery = query.replace(/\b\d{1,3}(?:\.\d{3})+\b/g, ' ');
+  const unpunctQuery = consultaSemProcesso.replace(/\b\d{1,3}(?:\.\d{3})+\b/g, ' ');
   const digitMatches = unpunctQuery.match(/\b\d{3,8}\b/g);
   if (digitMatches) {
     for (const d of digitMatches) {
@@ -272,34 +385,71 @@ export async function searchDocuments(
   roots: DocumentRoot[], query: string, limit = 100,
   budget = { maxEntries: 50000, timeoutMs: 25000 },
 ): Promise<DocumentSearchResult> {
-  const terms = normalize(query).trim().split(/\s+/).filter(Boolean);
-  if (terms.join(' ').length < 2 || query.length > 120 || limit < 1 || limit > 100) throw new Error('Pesquisa inválida.');
+  // Busca Cruzada: os campos chegam separados por "|" (ex.: "1124837-38.2022.8.26.0100 | 7987").
+  // Cada campo é um critério independente: termos DENTRO do campo precisam casar juntos (E),
+  // e o resultado final é a UNIÃO dos critérios (OU). Antes todos os termos eram exigidos no mesmo
+  // caminho, então processo + matrícula nunca casavam com nenhum arquivo do processo.
+  const criterios = query.split('|')
+    .map(texto => ({ texto: texto.trim(), termos: normalize(texto).trim().split(/\s+/).filter(Boolean) }))
+    .filter(c => c.termos.join(' ').length >= 2);
+  const buscaCruzada = criterios.length > 1;
+  if (criterios.length === 0 || query.length > 200 || limit < 1 || limit > 100) throw new Error('Pesquisa inválida.');
+
+  const termoCasa = (term: string, normRel: string, cleanRel: string): boolean => {
+    if (buscaCruzada) {
+      // Na busca cruzada, nº curto (matrícula, SQL) precisa aparecer isolado no caminho:
+      // "7987" não pode casar com "1079875-..." de outro processo.
+      const digitos = /^\d{1,3}(?:\.\d{3})+$/.test(term) ? term.replace(/\./g, '') : term;
+      if (/^\d{1,8}$/.test(digitos)) {
+        const semZeros = digitos.replace(/^0+/, '') || '0';
+        return new RegExp(`(^|\\D)0*${semZeros}(\\D|$)`).test(normRel);
+      }
+    }
+    if (normRel.includes(term)) return true;
+    const cleanTerm = term.replace(/[.\-_/\s]/g, '');
+    return cleanTerm.length >= 2 && cleanRel.includes(cleanTerm);
+  };
+
   const result: DocumentSearchResult = { files: [], partial: false, unavailableRoots: [] };
+  // Imagens localizadas diretamente pelo nº digitado: o usuário pediu explicitamente, nunca são descartadas
+  const chavesExplicitas = new Set<string>();
   let visited = 0;
   const deadline = Date.now() + budget.timeoutMs;
   for (const root of roots) {
     let canonical: string;
     try { canonical = await fs.realpath(root.path); }
     catch { result.unavailableRoots.push(root.id); result.partial = true; continue; }
+    const ehAcervoImagens = root.id === 'imagens' || root.id === 'livro2';
 
     // 1. Busca direta ultrarrápida para matrículas .KEN (resolve K:\IMAGENS\LV2 em poucos ms)
-    let directCount = 0;
-    try {
-      const directMatches = await checkDirectMatriculaFiles(canonical, root.id, query);
-      for (const m of directMatches) {
-        const key = `${m.rootId}:${m.relativePath.toLowerCase()}`;
-        if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
-          result.files.push(m);
-          directCount++;
+    const criteriosResolvidosDireto = new Set<number>();
+    for (let i = 0; i < criterios.length; i++) {
+      try {
+        const directMatches = await checkDirectMatriculaFiles(canonical, root.id, criterios[i].texto);
+        for (const m of directMatches) {
+          const key = `${m.rootId}:${m.relativePath.toLowerCase()}`;
+          // Na busca simples o nº é ambíguo (pode ser processo); só o campo da busca cruzada é explícito
+          if (buscaCruzada) chavesExplicitas.add(key);
+          criteriosResolvidosDireto.add(i);
+          if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
+            result.files.push(m);
+          }
         }
-      }
-    } catch {}
-
-    // Se este root for o acervo de imagens e já localizamos arquivos diretos .KEN no Livro 2,
-    // evitamos varredura pesada de 50.000 diretórios na rede SMB
-    if (directCount > 0 && (root.id === 'imagens' || root.id === 'livro2')) {
-      continue;
+      } catch {}
     }
+
+    const criteriosParaVarrer = criterios.filter((c, i) => {
+      if (!ehAcervoImagens) return true;
+      // Já localizamos o .KEN direto no Livro 2: evita varredura pesada de 50.000 entradas na rede SMB
+      if (criteriosResolvidosDireto.has(i)) return false;
+      // As imagens do Livro 2 são nomeadas apenas pelo nº da matrícula: uma consulta que é só
+      // nº de processo (CNJ) nunca casa com elas, então não varremos o acervo K:\IMAGENS\LV2.
+      if (consultaApenasProcesso(c.texto)) return false;
+      // Na busca cruzada, campo sem número (ex.: nome do requerente) nunca casa com imagens numeradas
+      if (buscaCruzada && !/\d/.test(c.texto)) return false;
+      return true;
+    });
+    if (criteriosParaVarrer.length === 0) continue;
 
     const queue: string[] = [canonical];
     let queueHead = 0;
@@ -320,25 +470,17 @@ export async function searchDocuments(
           if (!entry.isFile() || !extensions.has(path.extname(entry.name).toLowerCase())) continue;
           const relativePath = path.relative(canonical, filePath);
           const normRel = normalize(relativePath);
-          const cleanRel = normRel.replace(/[.\-/]/g, '');
-          const matches = terms.every(term => {
-            if (normRel.includes(term)) return true;
-            const cleanTerm = term.replace(/[.\-/]/g, '');
-            return cleanTerm.length >= 2 && cleanRel.includes(cleanTerm);
-          }) || (terms.length > 1 && terms.some(term => {
-            if (term.length >= 3) {
-              if (normRel.includes(term)) return true;
-              const cleanTerm = term.replace(/[.\-/]/g, '');
-              return cleanTerm.length >= 3 && cleanRel.includes(cleanTerm);
-            }
-            return false;
-          }));
+          const cleanRel = normRel.replace(/[.\-_/\s]/g, '');
+          // Busca inteligente: cada termo do critério deve bater com o caminho (com pontuação ou dígitos limpos);
+          // basta um critério casar (busca cruzada = união dos campos)
+          const matches = criteriosParaVarrer.some(c => c.termos.every(term => termoCasa(term, normRel, cleanRel)));
           if (!matches) continue;
 
           // Validação canônica e stat apenas para arquivos que realmente correspondem aos filtros
           const resolved = await fs.realpath(filePath);
           if (!isWithinRoot(canonical, resolved)) continue;
           const info = await fs.stat(filePath);
+          if (isArquivoBloqueioOffice(entry.name, info.size)) continue;
 
           const key = `${root.id}:${relativePath.toLowerCase()}`;
           if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
@@ -452,6 +594,8 @@ export async function searchDocuments(
         const ext = path.extname(f.name).toLowerCase();
         const isImg = ext === '.ken' || ext === '.tif' || ext === '.tiff';
         if (!isImg) return true; // Preserva todos os arquivos de processo (PDF, DOCX, TXT, etc.)
+        // Matrícula digitada explicitamente (ex.: campo Matrícula da Busca Cruzada) sempre permanece
+        if (chavesExplicitas.has(`${f.rootId}:${f.relativePath.toLowerCase()}`)) return true;
 
         const fNum = parseInt(f.name.replace(/[^\d]/g, ''), 10);
         return Array.from(numerosEsperados).some(numStr => {
@@ -810,7 +954,31 @@ export function enrichPetitionData(data: Record<string, any>, relativePath?: str
 }
 
 export async function extractDocxPetition(filePath: string, relativePath: string): Promise<Record<string, any>> {
-  const { value: text } = await mammoth.extractRawText({ path: filePath });
+  let text = '';
+  const ext = path.extname(filePath).toLowerCase();
+
+  if (ext === '.doc') {
+    try {
+      const extractor = new WordExtractor();
+      const extracted = await extractor.extract(filePath);
+      text = extracted.getBody() || '';
+    } catch (docErr) {
+      console.error('Erro ao ler doc com word-extractor:', docErr);
+    }
+  }
+
+  if (!text) {
+    try {
+      const res = await mammoth.extractRawText({ path: filePath });
+      text = res.value || '';
+    } catch {
+      try {
+        const extractor = new WordExtractor();
+        const extracted = await extractor.extract(filePath);
+        text = extracted.getBody() || '';
+      } catch {}
+    }
+  }
 
   const numProcesso = text.match(/(?:processo(?:\s+digital)?(?:\s+n[ºo°]?)?|proc\.?)\s*[:.\s]*([0-9.\-]{15,25})/i)?.[1]?.trim() || '';
   const vara = text.match(/(\d+ª?\s*Vara(?:\s+de\s+Registros\s+P[úu]blicos)?)/i)?.[1]?.trim() || '1ª Vara de Registros Públicos da Capital';

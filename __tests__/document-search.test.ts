@@ -12,6 +12,9 @@ import {
   readDocumentText,
   resolveAuthorizedFile,
   searchDocuments,
+  consultaApenasProcesso,
+  removerNumerosDeProcesso,
+  listDirectory,
 } from '../src/services/document-search.js';
 
 const temporary: string[] = [];
@@ -225,6 +228,82 @@ describe('document search', () => {
 
     // A matrícula detectada deve ser 123.456
     expect(result.matriculaDetectada).toBe('Matrícula nº 123.456');
+  });
+
+  it('não confunde o ano do nº de processo CNJ com matrícula do Livro 2', async () => {
+    expect(consultaApenasProcesso('1162956-97.2024.8.26.0100')).toBe(true);
+    expect(consultaApenasProcesso('1162956-97.2024')).toBe(true);
+    expect(consultaApenasProcesso('123.456')).toBe(false);
+    expect(removerNumerosDeProcesso('1035968-36.2021 matrícula 123.456').trim()).toBe('matrícula 123.456');
+
+    const dir = await fixture();
+    await fs.mkdir(path.join(dir, '00002000'));
+    await fs.writeFile(path.join(dir, '00002000', '00002024.KEN'), 'fixture');
+    const result = await searchDocuments([{ id: 'livro2', path: dir }], '1162956-97.2024.8.26.0100');
+    expect(result.files.find(f => f.name === '00002024.KEN')).toBeUndefined();
+  });
+
+  it('busca cruzada une os arquivos do processo com a imagem da matrícula do Livro 2', async () => {
+    const dirProcessos = await fixture();
+    const dirLivro2 = await fixture();
+    await fs.mkdir(path.join(dirProcessos, 'PROCESSOS DIGITAIS 2022'), { recursive: true });
+    await fs.writeFile(path.join(dirProcessos, 'PROCESSOS DIGITAIS 2022', '1124837-38.2022.8.26.0100.pdf'), 'fixture');
+    await fs.writeFile(path.join(dirProcessos, '1124837-38.2022.8.26.0100 manifestacao.pdf'), 'fixture');
+    // Outro processo que contém "7987" dentro de um número maior: não pode entrar
+    await fs.writeFile(path.join(dirProcessos, '1079875-11.2023.8.26.0100.pdf'), 'fixture');
+    await fs.mkdir(path.join(dirLivro2, '00007000'));
+    await fs.writeFile(path.join(dirLivro2, '00007000', '00007987.KEN'), 'fixture');
+
+    const roots = [{ id: 'processos', path: dirProcessos }, { id: 'livro2', path: dirLivro2 }];
+    const result = await searchDocuments(roots, '1124837-38.2022.8.26.0100 | 7987');
+    const nomes = result.files.map(f => f.name).sort();
+
+    expect(nomes).toEqual([
+      '00007987.KEN',
+      '1124837-38.2022.8.26.0100 manifestacao.pdf',
+      '1124837-38.2022.8.26.0100.pdf',
+    ]);
+  });
+
+  it('lista uma pasta sem sair da raiz autorizada', async () => {
+    const dir = await fixture(), outside = await fixture();
+    await fs.mkdir(path.join(dir, '00010000'));
+    await fs.mkdir(path.join(dir, '00002000'));
+    await fs.writeFile(path.join(dir, '00002000', '00002024.KEN'), 'fixture');
+    await fs.writeFile(path.join(dir, 'leia-me.txt'), 'fixture');
+    await fs.writeFile(path.join(dir, 'programa.exe'), 'fixture');
+    await fs.writeFile(path.join(outside, 'segredo-ficticio.pdf'), 'fixture');
+    await fs.symlink(outside, path.join(dir, 'atalho'), process.platform === 'win32' ? 'junction' : 'dir');
+    const roots = [{ id: 'livro2', path: dir }];
+
+    const raiz = await listDirectory(roots, 'livro2', '.');
+    // Pastas primeiro em ordem numérica natural; sem .exe e sem o atalho para fora
+    expect(raiz.entries.map(e => `${e.type}:${e.name}`)).toEqual(['dir:00002000', 'dir:00010000', 'file:leia-me.txt']);
+    expect(raiz.entries[2].size).toBe(7);
+    expect(JSON.stringify(raiz)).not.toContain(dir);
+
+    const bloco = await listDirectory(roots, 'livro2', raiz.entries[0].relativePath);
+    expect(bloco.entries).toHaveLength(1);
+    expect(bloco.entries[0]).toMatchObject({ type: 'file', name: '00002024.KEN', relativePath: path.join('00002000', '00002024.KEN') });
+
+    await expect(listDirectory(roots, 'livro2', '..')).rejects.toThrow();
+    await expect(listDirectory(roots, 'livro2', 'atalho')).rejects.toThrow();
+    await expect(listDirectory(roots, 'outra', '.')).rejects.toThrow();
+  });
+
+  it('oculta arquivo de bloqueio do Word que perdeu o prefixo ~$ (listagem e busca)', async () => {
+    const dir = await fixture();
+    // "Owner file" do Word: 162 bytes com o nome do usuário (ANSI + UTF-16)
+    await fs.writeFile(path.join(dir, 'OCESSOS COM SENTENcA.doc'), Buffer.alloc(162, 0x41));
+    await fs.writeFile(path.join(dir, 'PROCESSOS COM SENTENCA.doc'), Buffer.alloc(9216, 0x41));
+    const roots = [{ id: 'minutas', path: dir }];
+
+    const lista = await listDirectory(roots, 'minutas', '.');
+    expect(lista.entries.map(e => e.name)).toEqual(['PROCESSOS COM SENTENCA.doc']);
+    expect(lista.total).toBe(1);
+
+    const busca = await searchDocuments(roots, 'SENTENCA');
+    expect(busca.files.map(f => f.name)).toEqual(['PROCESSOS COM SENTENCA.doc']);
   });
 });
 
