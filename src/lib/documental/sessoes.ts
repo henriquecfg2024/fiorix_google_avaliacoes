@@ -553,3 +553,20 @@ export function converterCaminhoUncLocal(caminho: string, preferirUnc = false): 
     return caminho;
   }
 }
+
+/**
+ * Mescla o catálogo estático padrão do Siplan com quaisquer sessões personalizadas
+ * cadastradas pelo cliente no banco de dados.
+ */
+export function mesclarSessoesComCustomizadas(customizadas: CadastroSessao[] = []): CadastroSessao[] {
+  if (!customizadas || customizadas.length === 0) return CADASTRO_SESSOES_COMPLETO;
+  const mapa = new Map<string, CadastroSessao>();
+  for (const s of CADASTRO_SESSOES_COMPLETO) {
+    mapa.set(s.id.toLowerCase(), s);
+  }
+  for (const c of customizadas) {
+    mapa.set(c.id.toLowerCase(), c);
+  }
+  return Array.from(mapa.values()).sort((a, b) => (a.sequencia ?? 0) - (b.sequencia ?? 0) || a.nome.localeCompare(b.nome));
+}
+

@@ -185,6 +185,31 @@ export default async function ConfiguracoesPage({
               </div>
             </section>
 
+            {['MASTER', 'ADMIN'].includes(userRole || '') && (
+              <section className="rounded-[24px] border border-cyan-500/30 bg-cyan-950/15 backdrop-blur-xl p-6 shadow-sm text-white space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-lg font-semibold text-cyan-300 flex items-center gap-2">
+                    📂 Cadastro de Sessões do Acervo (Exclusivo Master e Admin)
+                  </h2>
+                  <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-200">
+                    Siplan Oficial
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-cyan-100/80">
+                  Gerencie as sessões de documentos, caminhos de rede UNC (<code className="text-cyan-200 font-mono text-xs">\\SRVFILES\imagens\IMAGENS</code>), drive local mapeado e padrões de localização do acervo.
+                </p>
+
+                <div>
+                  <Link
+                    href="/configuracoes/sessoes"
+                    className="mt-2 inline-flex items-center gap-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-white transition-all shadow-md shadow-cyan-600/20"
+                  >
+                    Gerenciar Sessões →
+                  </Link>
+                </div>
+              </section>
+            )}
+
             {userRole === 'MASTER' && (
               <>
                 <section className="rounded-[24px] border border-amber-500/30 bg-amber-950/20 backdrop-blur-xl p-6 shadow-sm text-white space-y-4">
