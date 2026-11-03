@@ -201,10 +201,7 @@ export function ComunicadoAuditModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-[#0d0d18] border-t border-slate-200 dark:border-white/10 flex items-center justify-between">
-          <span className="text-xs text-slate-400 font-mono">
-            Prov. 213/2026 — Registro nominal retido por 5 anos
-          </span>
+        <div className="px-6 py-4 bg-[#0d0d18] border-t border-slate-200 dark:border-white/10 flex items-center justify-end">
           <Button
             onClick={onClose}
             className="bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl"
