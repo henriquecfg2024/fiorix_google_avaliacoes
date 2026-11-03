@@ -108,6 +108,11 @@ export class Scheduler {
       ? ':memory:'
       : (connectorEnv === 'production' ? 'queue_production.db' : 'queue.db');
     this.db = db || new DatabaseSync(dbName);
+    this.db.exec(`
+      PRAGMA journal_mode = WAL;
+      PRAGMA busy_timeout = 5000;
+      PRAGMA synchronous = NORMAL;
+    `);
     initializeCheckpointSchema(this.db);
     this.initializeStatusMap();
   }

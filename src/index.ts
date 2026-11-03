@@ -1,5 +1,6 @@
 import { startDocumentWorker } from './services/document-worker.js';
 import { Scheduler } from './services/scheduler.js';
+import { queueManager } from './db/queue.js';
 import { logger } from './utils/logger.js';
 import { env, connectorEnv } from './config/env.js';
 import { SingleInstanceLock } from './utils/instanceLock.js';
@@ -18,7 +19,7 @@ logger.info(`[FIORIX Connector] Source DB: ${env.SQL_SERVER_HOST}\\${env.SQL_SER
 logger.info(`[FIORIX Connector] Storage: ${connectorEnv === 'production' ? 'queue_production.db' : 'queue.db'}`);
 logger.info(`=======================================================`);
 
-const scheduler = new Scheduler();
+const scheduler = new Scheduler(queueManager.getDb());
 const stopDocumentWorker = startDocumentWorker();
 
 if (env.SCHEDULER_ENABLED) {

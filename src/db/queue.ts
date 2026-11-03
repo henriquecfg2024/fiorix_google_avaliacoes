@@ -31,6 +31,10 @@ class QueueManager {
 
   private init() {
     this.db.exec(`
+      PRAGMA journal_mode = WAL;
+      PRAGMA busy_timeout = 5000;
+      PRAGMA synchronous = NORMAL;
+
       CREATE TABLE IF NOT EXISTS sync_queue (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         source TEXT NOT NULL,
@@ -67,6 +71,10 @@ class QueueManager {
     logger.info('QueueManager: node:sqlite configurado e pronto.');
   }
 
+  public getDb(): DatabaseSync {
+    return this.db;
+  }
+
   public enqueue(batch: Omit<SyncBatch, 'id' | 'status' | 'attempts' | 'next_retry_at'>) {
     const stmt = this.db.prepare(`
       INSERT INTO sync_queue (source, batch_id, generated_at, payload, next_retry_at)
@@ -90,6 +98,13 @@ class QueueManager {
 
   public getPendingBatches(limit: number = 10): SyncBatch[] {
     const now = new Date().toISOString();
+    const twoMinutesAgo = new Date(Date.now() - 120000).toISOString();
+    this.db.prepare(`
+      UPDATE sync_queue
+      SET status = 'pending', next_retry_at = ?
+      WHERE status = 'sending' AND (next_retry_at <= ? OR created_at <= ?)
+    `).run(now, twoMinutesAgo, twoMinutesAgo);
+
     const stmt = this.db.prepare(`
       SELECT * FROM sync_queue 
       WHERE status IN ('pending', 'error') AND next_retry_at <= ?
