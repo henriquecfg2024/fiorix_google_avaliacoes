@@ -61,7 +61,7 @@ export async function POST(req: Request) {
         rootId: jobData.rootId,
         relativePath: jobData.relativePath,
         pageStart: jobData.offset,
-        pageEnd: jobData.length ?? 2516582,
+        pageEnd: jobData.length ?? 2097152,
         forceFresh: true,
       });
     } else if (jobData.type === 'extract_petition' || jobData.type === 'analyze_signatures' || jobData.type === 'read_document_text') {

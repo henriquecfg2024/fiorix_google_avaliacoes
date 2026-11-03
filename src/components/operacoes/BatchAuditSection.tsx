@@ -62,11 +62,12 @@ interface BatchesResponse {
 
 const MODULE_PROCEDURES: Record<string, string> = {
   bi: 'dbo.pr_Fiorix_BI_Incremental_v2',
-  produtividade: 'dbo.pr_Fiorix_Produtividade_Incremental_v2',
-  metas: 'dbo.pr_Fiorix_Metas_Incremental_v2',
-  tarefas: 'dbo.pr_Fiorix_Tarefas_Incremental_v2',
-  retornos: 'dbo.pr_Fiorix_Retornos_Incremental_v2',
-  impressoes: 'dbo.pr_Fiorix_Impressoes_Incremental_v2',
+  produtividade: 'dbo.pr_Fiorix_BI_Produtividade_Incremental',
+  metas: 'dbo.pr_Fiorix_BI_METAS',
+  tarefas: 'dbo.pr_Fiorix_BI_TAREFAS_Incremental_v2',
+  retornos: 'dbo.pr_Fiorix_BI_Retornos',
+  impressoes: 'dbo.pr_Fiorix_BI_Impressoes',
+  safras: 'dbo.pr_Fiorix_BI_Safras_Prenotacoes',
 };
 
 export function BatchAuditSection() {
@@ -205,6 +206,8 @@ export function BatchAuditSection() {
         return <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">Retornos</span>;
       case 'impressoes':
         return <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-orange-500/10 text-orange-400 border border-orange-500/20">Impressões</span>;
+      case 'safras':
+        return <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">Safras</span>;
       default:
         return <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-[#151A2C] text-[#94A3B8] border border-[#1E293B]">{source}</span>;
     }
@@ -355,6 +358,7 @@ export function BatchAuditSection() {
               <option value="tarefas">Tarefas</option>
               <option value="retornos">Retornos</option>
               <option value="impressoes">Impressões</option>
+              <option value="safras">Safras &amp; Prenotações</option>
             </select>
 
             {/* Filtro por Status */}

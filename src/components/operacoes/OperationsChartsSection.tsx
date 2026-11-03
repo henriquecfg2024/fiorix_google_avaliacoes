@@ -208,33 +208,43 @@ export function OperationsChartsSection() {
         <div className="p-3.5 rounded-xl bg-[#151A2C] border border-[#1E293B]">
           <span className="text-[10px] uppercase font-semibold text-[#64748B] tracking-wider block">Total Ingerido</span>
           <span className="text-xl font-bold font-mono text-[#F1F5F9] mt-1 block">
-            {data?.summary?.totalRecords ? data.summary.totalRecords.toLocaleString('pt-BR') : '3.683'}
+            {data?.summary ? data.summary.totalRecords.toLocaleString('pt-BR') : '—'}
           </span>
-          <span className="text-[10px] text-[#10B981] font-mono mt-0.5 block">+12% vs ciclo anterior</span>
+          <span className="text-[10px] text-[#64748B] font-mono mt-0.5 block">
+            {range === '24h' ? 'Últimas 24 horas' : range === '7d' ? 'Últimos 7 dias' : 'Últimos 30 dias'}
+          </span>
         </div>
 
         <div className="p-3.5 rounded-xl bg-[#151A2C] border border-[#1E293B]">
           <span className="text-[10px] uppercase font-semibold text-[#64748B] tracking-wider block">Lotes Processados</span>
           <span className="text-xl font-bold font-mono text-[#F1F5F9] mt-1 block">
-            {data?.summary?.totalBatches || 49}
+            {data?.summary ? data.summary.totalBatches.toLocaleString('pt-BR') : '—'}
           </span>
-          <span className="text-[10px] text-[#64748B] font-mono mt-0.5 block">100% recebidos</span>
+          <span className="text-[10px] text-[#64748B] font-mono mt-0.5 block">
+            {data?.summary && data.summary.totalBatches > 0 ? 'Auditados no PostgreSQL' : 'Sem lotes no período'}
+          </span>
         </div>
 
         <div className="p-3.5 rounded-xl bg-[#151A2C] border border-[#1E293B]">
           <span className="text-[10px] uppercase font-semibold text-[#64748B] tracking-wider block">Tempo Médio / Lote</span>
           <span className="text-xl font-bold font-mono text-cyan-400 mt-1 block">
-            {data?.summary?.avgDurationMs ? `${(data.summary.avgDurationMs / 1000).toFixed(1)}s` : '0.4s'}
+            {data?.summary?.avgDurationMs ? `${(data.summary.avgDurationMs / 1000).toFixed(1)}s` : '—'}
           </span>
-          <span className="text-[10px] text-[#10B981] font-mono mt-0.5 block">Dentro do SLA</span>
+          <span className="text-[10px] text-[#10B981] font-mono mt-0.5 block">
+            {data?.summary?.avgDurationMs ? `${data.summary.avgDurationMs} ms por lote` : 'Aguardando lotes'}
+          </span>
         </div>
 
         <div className="p-3.5 rounded-xl bg-[#151A2C] border border-[#1E293B]">
           <span className="text-[10px] uppercase font-semibold text-[#64748B] tracking-wider block">Taxa de Sucesso</span>
           <span className="text-xl font-bold font-mono text-[#10B981] mt-1 block">
-            {data?.summary?.successRatePercent ? `${data.summary.successRatePercent}%` : '100.0%'}
+            {data?.summary?.successRatePercent !== undefined ? `${data.summary.successRatePercent}%` : '100%'}
           </span>
-          <span className="text-[10px] text-[#10B981] font-mono mt-0.5 block">0 falhas registradas</span>
+          <span className="text-[10px] text-[#10B981] font-mono mt-0.5 block">
+            {data?.summary?.successRatePercent !== undefined && data.summary.successRatePercent < 100
+              ? 'Verifique histórico de lotes'
+              : '0 falhas registradas'}
+          </span>
         </div>
       </div>
 
@@ -243,8 +253,12 @@ export function OperationsChartsSection() {
         {/* Gráfico 1: Área - Fluxo de Ingestão */}
         <div className="p-4 rounded-xl bg-[#151A2C]/60 border border-[#1E293B] space-y-3">
           <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-[#F1F5F9]">Fluxo de Ingestão por Módulo (24h)</span>
-            <span className="text-[11px] font-mono text-[#64748B]">registros / hora</span>
+            <span className="font-semibold text-[#F1F5F9]">
+              Fluxo de Ingestão por Módulo ({range === '24h' ? '24h' : range === '7d' ? '7d' : '30d'})
+            </span>
+            <span className="text-[11px] font-mono text-[#64748B]">
+              {range === '24h' ? 'registros / hora' : 'registros / dia'}
+            </span>
           </div>
 
           <div className="h-44 w-full min-w-0" style={{ minWidth: 0, height: 176 }}>
@@ -299,7 +313,9 @@ export function OperationsChartsSection() {
         <div className="p-4 rounded-xl bg-[#151A2C]/60 border border-[#1E293B] space-y-3">
           <div className="flex items-center justify-between text-xs">
             <span className="font-semibold text-[#F1F5F9]">Duração Média dos Lotes (ms)</span>
-            <span className="text-[11px] font-mono text-[#10B981]">Média: 380 ms</span>
+            <span className="text-[11px] font-mono text-[#10B981]">
+              Média: {data?.summary?.avgDurationMs ? `${data.summary.avgDurationMs} ms` : '—'}
+            </span>
           </div>
 
           <div className="h-44 w-full min-w-0" style={{ minWidth: 0, height: 176 }}>

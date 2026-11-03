@@ -10,13 +10,14 @@ interface Props {
   recentBatches?: Record<string, BatchHistoryItem[]>;
 }
 
-const MODULE_PROCEDURES: Record<string, { proc: string; desc: string }> = {
-  bi: { proc: 'dbo.pr_Fiorix_BI_Incremental_v2', desc: 'Protocolos e títulos' },
-  produtividade: { proc: 'dbo.pr_Fiorix_Produtividade_Incremental_v2', desc: 'Produtividade escreventes' },
-  metas: { proc: 'dbo.pr_Fiorix_Metas_Incremental_v2', desc: 'Metas e reanotação' },
-  tarefas: { proc: 'dbo.pr_Fiorix_Tarefas_Incremental_v2', desc: 'Tarefas e prazos' },
-  retornos: { proc: 'dbo.pr_Fiorix_Retornos_Incremental_v2', desc: 'Retornos e notificações' },
-  impressoes: { proc: 'dbo.pr_Fiorix_Impressoes_Incremental_v2', desc: 'Impressões e certidões' },
+const MODULE_PROCEDURES: Record<string, { proc: string; desc: string; modeLabel: string }> = {
+  bi: { proc: 'dbo.pr_Fiorix_BI_Incremental_v2', desc: 'Protocolos e títulos', modeLabel: 'INCR' },
+  produtividade: { proc: 'dbo.pr_Fiorix_BI_Produtividade_Incremental', desc: 'Produtividade escreventes', modeLabel: 'INCR' },
+  metas: { proc: 'dbo.pr_Fiorix_BI_METAS', desc: 'Metas e reanotação', modeLabel: 'INCR' },
+  tarefas: { proc: 'dbo.pr_Fiorix_BI_TAREFAS_Incremental_v2', desc: 'Tarefas e prazos', modeLabel: 'INCR' },
+  retornos: { proc: 'dbo.pr_Fiorix_BI_Retornos', desc: 'Retornos (@CursorIdAndamento)', modeLabel: 'CURSOR' },
+  impressoes: { proc: 'dbo.pr_Fiorix_BI_Impressoes', desc: 'Impressões (@CursorIdAndamento)', modeLabel: 'CURSOR' },
+  safras: { proc: 'dbo.pr_Fiorix_BI_Safras_Prenotacoes', desc: 'Safras e prenotações (ciclo 60 min)', modeLabel: 'FULL' },
 };
 
 export function IncrementalSyncTable({ modules, recentBatches }: Props) {
@@ -33,7 +34,7 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
                 Sincronização incremental
               </h3>
               <p className="text-xs text-slate-400 mt-0.5 font-sans">
-                SQL Server WEBRI · ciclos de 60 min, escalonados a cada 15 min
+                SQL Server WEBRI · 7 procedures ativas · ciclos de 60 min escalonados a cada 15 min
               </p>
             </div>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#151A2C] border border-[#1E293B] text-xs text-slate-300 font-mono shrink-0">
@@ -68,8 +69,9 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
                   const delayColor = item.delaySeconds === 0 ? 'text-[#10B981] font-semibold' : 'text-[#F59E0B]';
                   
                   const procInfo = MODULE_PROCEDURES[item.key];
+                  const procedureName = item.procedureSql || procInfo?.proc;
                   const lastBatch = recentBatches?.[item.key]?.[0];
-                  const durationMs = lastBatch?.durationMs;
+                  const durationMs = item.lastDurationMs ?? lastBatch?.durationMs;
                   const durationDisplay = durationMs ? `${durationMs} ms` : '—';
 
                   return (
@@ -82,10 +84,15 @@ export function IncrementalSyncTable({ modules, recentBatches }: Props) {
                         <div className="flex items-center gap-2">
                           <span className={`h-2 w-2 rounded-full ${dotColor} shrink-0`} />
                           <span className="font-sans font-semibold text-[#F1F5F9]">{item.module}</span>
+                          {procInfo?.modeLabel && (
+                            <span className="px-1.5 py-0.5 rounded bg-[#151A2C] border border-[#1E293B] text-[9px] font-mono text-slate-400">
+                              {procInfo.modeLabel}
+                            </span>
+                          )}
                         </div>
-                        {procInfo && (
+                        {procedureName && (
                           <span className="font-mono text-[10px] text-[#64748B] block pl-4 group-hover:text-cyan-400/90 transition-colors">
-                            {procInfo.proc}
+                            {procedureName}
                           </span>
                         )}
                       </td>

@@ -14,9 +14,24 @@ export interface ServiceHealthItem {
   checkedAt?: string;
 }
 
+export type IncrementalModuleKey =
+  | 'bi'
+  | 'produtividade'
+  | 'metas'
+  | 'tarefas'
+  | 'retornos'
+  | 'impressoes'
+  | 'safras';
+
 export interface IncrementalModuleStatus {
   module: string;
-  key: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes';
+  key: IncrementalModuleKey;
+  procedureSql?: string;
+  syncMode?: 'incremental' | 'cursor' | 'full';
+  cursorValue?: string | null;
+  lastDurationMs?: number | null;
+  runsTotal?: number | null;
+  consecutiveFailures?: number | null;
   status: 'OK' | 'WARNING' | 'ERROR' | 'UNKNOWN';
   lastSyncAt: string | null;
   nextExpectedAt: string | null;
@@ -28,6 +43,120 @@ export interface IncrementalModuleStatus {
   statusNote?: string;
 }
 
+export interface ConnectorSmbRootTelemetry {
+  id: string;
+  label: string;
+  uncOrDrivePath: string;
+  exists: boolean | null;
+  accessible: boolean | null;
+  latencyMs: number | null;
+  indexedFilesCount: number | null;
+  error: string | null;
+  provenance: Provenance;
+}
+
+export interface ConnectorSubsystemsSnapshot {
+  provenance: Provenance;
+  documental: {
+    workerEnabled: boolean;
+    workerRunning: boolean;
+    disabledReason: string | null;
+    pollIntervalLabel: string;
+    lastPollAt: string | null;
+    lastJobAt: string | null;
+    lastError: string | null;
+    activeQueueCount: number;
+    jobs24hTotal: number;
+    jobs24hCompleted: number;
+    jobs24hFailed: number;
+    avgJobDurationMs: number | null;
+    jobsByType: {
+      search: number;
+      list_directory: number;
+      read_document_text: number;
+      read_document_chunk: number;
+      extract_petition: number;
+      analyze_signatures: number;
+    };
+    manifestacoes: {
+      conferencia: number;
+      finalizada: number;
+      total: number;
+    };
+  };
+  smbRoots: ConnectorSmbRootTelemetry[];
+  indexCache: {
+    indexedRootsCount: number;
+    totalIndexedFiles: number;
+    refreshingRootsCount: number;
+    ttlMs: number;
+    lastBuiltAt: string | null;
+    provenance: Provenance;
+  };
+  transferAndCli: {
+    fileServer: {
+      active: boolean | null;
+      protocol: 'HTTP' | 'HTTPS' | 'N/A';
+      port: number;
+      publicUrl: string | null;
+      activeTicketsCount: number;
+      ticketsIssuedTotal: number;
+      bytesServedTotal: number;
+      rangeRequestsTotal: number;
+      httpsChunks24h: number;
+      lastError: string | null;
+    };
+    rustCli: {
+      available: boolean | null;
+      binaryName: string;
+      petitionsExtractedTotal: number;
+      docxExtractedTotal: number;
+      signaturesAnalyzedTotal: number;
+      lastDurationMs: number | null;
+      lastError: string | null;
+    };
+  };
+  sqliteAndResilience: {
+    queue: {
+      pending: number;
+      sending: number;
+      failed: number;
+      quarantined: number;
+      completed: number;
+    };
+    chunks: {
+      activePlans: number;
+      pendingChunks: number;
+      confirmedChunks: number;
+      failedChunks: number;
+      chunkSizeLimit: number;
+    };
+    checkpoints: {
+      persistedCount: number;
+      stagedCandidates: number;
+      cursorsBySource: Record<string, { cursorValue: string; updatedAt: string | null }>;
+    };
+    governance: {
+      singleInstanceLock: boolean;
+      shadowMode: boolean;
+      schedulerEnabled: boolean;
+      autoSyncEnabled: boolean;
+      activeLocks: string[];
+      morningReconnectTime: string;
+      lastMorningReconnectAt: string | null;
+      lastMorningReconnectOk: boolean | null;
+      morningPingTime: string;
+      lastMorningPingDate: string | null;
+      startupCatchupCount: number;
+      proxyEnabled: boolean;
+      proxyFallbackCount: number;
+      lastProxyFallbackAt: string | null;
+      sqlConnected: boolean | null;
+      sqlLatencyMs: number | null;
+    };
+  };
+}
+
 export interface ConnectorTelemetry {
   status: 'ONLINE' | 'DEGRADED' | 'OFFLINE' | 'AMBIGUOUS' | 'UNKNOWN' | 'STANDBY';
   environment: 'Produção';
@@ -37,9 +166,17 @@ export interface ConnectorTelemetry {
   heartbeatAgoSeconds: number | null;
   cpuPercent: number | null;
   ramMb: number | null;
+  heapMb?: number | null;
   threads: number | null;
   handles: number | null;
   pendingQueue: number | null;
+  sendingQueue?: number | null;
+  failedQueue?: number | null;
+  quarantinedQueue?: number | null;
+  pid?: number | null;
+  hostname?: string | null;
+  nodeVersion?: string | null;
+  capabilities?: string[];
   lastError: string | null;
   lastSyncAgoSeconds: number | null;
   activeConnectorsCount: number;
@@ -47,6 +184,7 @@ export interface ConnectorTelemetry {
     telemetry: Provenance;
     heartbeat: Provenance;
   };
+  subsystems?: ConnectorSubsystemsSnapshot;
   note?: string;
 }
 
@@ -226,6 +364,9 @@ export interface TelemetryPoint {
   produtividade: number;
   metas: number;
   tarefas: number;
+  retornos?: number;
+  impressoes?: number;
+  safras?: number;
   totalRecords: number;
   batchCount: number;
   avgDurationMs: number;

@@ -14,7 +14,10 @@ import type {
   Provenance,
   DeliveryStatus,
   ServiceHealthItem,
+  IncrementalModuleKey,
   IncrementalModuleStatus,
+  ConnectorSmbRootTelemetry,
+  ConnectorSubsystemsSnapshot,
   ConnectorTelemetry,
   BatchHistoryItem,
   OperationsHealthSnapshot,
@@ -31,7 +34,10 @@ export type {
   Provenance,
   DeliveryStatus,
   ServiceHealthItem,
+  IncrementalModuleKey,
   IncrementalModuleStatus,
+  ConnectorSmbRootTelemetry,
+  ConnectorSubsystemsSnapshot,
   ConnectorTelemetry,
   BatchHistoryItem,
   OperationsHealthSnapshot,
@@ -215,6 +221,7 @@ export function computeNextExpectedDate(
     impressoes: 25,    // 07:25:00
     metas: 30,         // 07:30:00
     tarefas: 45,       // 07:45:00
+    safras: 50,        // 07:50:00
   };
 
   const offsetMinutes = morningOffsetsMinutes[moduleKey] ?? 0;
@@ -378,16 +385,20 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
   const sourceConfigs: Array<{
-    key: 'bi' | 'produtividade' | 'metas' | 'tarefas' | 'retornos' | 'impressoes';
+    key: IncrementalModuleKey;
     module: string;
+    procedureSql: string;
+    syncMode: 'incremental' | 'cursor' | 'full';
+    isIncremental: boolean;
     expectedIntervalSeconds: number;
   }> = [
-    { key: 'bi', module: 'Módulo BI', expectedIntervalSeconds: 3600 },
-    { key: 'produtividade', module: 'Produtividade', expectedIntervalSeconds: 3600 },
-    { key: 'metas', module: 'Metas', expectedIntervalSeconds: 3600 },
-    { key: 'tarefas', module: 'Tarefas', expectedIntervalSeconds: 3600 },
-    { key: 'retornos', module: 'Retornos', expectedIntervalSeconds: 3600 },
-    { key: 'impressoes', module: 'Impressões', expectedIntervalSeconds: 3600 },
+    { key: 'bi', module: 'Módulo BI', procedureSql: 'dbo.pr_Fiorix_BI_Incremental_v2', syncMode: 'incremental', isIncremental: true, expectedIntervalSeconds: 3600 },
+    { key: 'produtividade', module: 'Produtividade', procedureSql: 'dbo.pr_Fiorix_BI_Produtividade_Incremental', syncMode: 'incremental', isIncremental: true, expectedIntervalSeconds: 3600 },
+    { key: 'metas', module: 'Metas', procedureSql: 'dbo.pr_Fiorix_BI_METAS', syncMode: 'incremental', isIncremental: true, expectedIntervalSeconds: 3600 },
+    { key: 'tarefas', module: 'Tarefas', procedureSql: 'dbo.pr_Fiorix_BI_TAREFAS_Incremental_v2', syncMode: 'incremental', isIncremental: true, expectedIntervalSeconds: 3600 },
+    { key: 'retornos', module: 'Retornos', procedureSql: 'dbo.pr_Fiorix_BI_Retornos', syncMode: 'cursor', isIncremental: true, expectedIntervalSeconds: 3600 },
+    { key: 'impressoes', module: 'Impressões', procedureSql: 'dbo.pr_Fiorix_BI_Impressoes', syncMode: 'cursor', isIncremental: true, expectedIntervalSeconds: 3600 },
+    { key: 'safras', module: 'Safras & Prenotações', procedureSql: 'dbo.pr_Fiorix_BI_Safras_Prenotacoes', syncMode: 'full', isIncremental: false, expectedIntervalSeconds: 3600 },
   ];
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -548,7 +559,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   // FASE 2 (PARALELA): Status das Fontes e Telemetria
   // ─────────────────────────────────────────────────────────────────────────────
   // 1. Popula os lotes mais recentes diretamente de recentBatchesRaw (evita 6 queries redundantes ao banco)
-  const lastBatchesMap = new Map<string, { receivedAt: Date; recordsReceived: number | null; recordsInserted: number | null; recordsUpdated: number | null; status: string }>();
+  const lastBatchesMap = new Map<string, { receivedAt: Date; recordsReceived: number | null; recordsInserted: number | null; recordsUpdated: number | null; durationMs?: number | null; status: string }>();
   for (const b of recentBatchesRaw) {
     const key = b.source.toLowerCase();
     if (!lastBatchesMap.has(key)) {
@@ -557,6 +568,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
         recordsReceived: b.recordsReceived,
         recordsInserted: null,
         recordsUpdated: null,
+        durationMs: b.durationMs ?? null,
         status: b.status,
       });
     }
@@ -567,7 +579,65 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     ? sourceConfigs.filter((cfg) => !lastBatchesMap.has(cfg.key))
     : [];
 
-  const [sourceStatuses, latestTelemetry, ...missingBatchesResults] = await Promise.all([
+  const queryDocumentalStats = async () => {
+    try {
+      const docRows = await prisma.$queryRawUnsafe<
+        Array<{
+          active_queue: number | bigint;
+          total_24h: number | bigint;
+          completed_24h: number | bigint;
+          failed_24h: number | bigint;
+          type_search: number | bigint;
+          type_list_directory: number | bigint;
+          type_read_text: number | bigint;
+          type_read_chunk: number | bigint;
+          type_extract_petition: number | bigint;
+          type_analyze_signatures: number | bigint;
+          last_job_at: Date | null;
+        }>
+      >(
+        `SELECT
+          COUNT(*) FILTER (WHERE status IN ('queued', 'running'))::int AS active_queue,
+          COUNT(*) FILTER (WHERE "createdAt" >= $2)::int AS total_24h,
+          COUNT(*) FILTER (WHERE "createdAt" >= $2 AND status = 'complete')::int AS completed_24h,
+          COUNT(*) FILTER (WHERE "createdAt" >= $2 AND status = 'failed')::int AS failed_24h,
+          COUNT(*) FILTER (WHERE "createdAt" >= $2 AND type = 'search')::int AS type_search,
+          COUNT(*) FILTER (WHERE "createdAt" >= $2 AND type = 'list_directory')::int AS type_list_directory,
+          COUNT(*) FILTER (WHERE "createdAt" >= $2 AND type = 'read_document_text')::int AS type_read_text,
+          COUNT(*) FILTER (WHERE "createdAt" >= $2 AND type = 'read_document_chunk')::int AS type_read_chunk,
+          COUNT(*) FILTER (WHERE "createdAt" >= $2 AND type = 'extract_petition')::int AS type_extract_petition,
+          COUNT(*) FILTER (WHERE "createdAt" >= $2 AND type = 'analyze_signatures')::int AS type_analyze_signatures,
+          MAX("createdAt") AS last_job_at
+        FROM "DocumentSearchRequest"
+        WHERE "tenantId" = $1`,
+        tenantId,
+        oneDayAgo
+      ).catch(() => []);
+
+      const manifRows = await prisma.$queryRawUnsafe<
+        Array<{
+          conferencia_count: number | bigint;
+          finalizada_count: number | bigint;
+        }>
+      >(
+        `SELECT
+          COUNT(*) FILTER (WHERE "status" = 'conferencia')::int AS conferencia_count,
+          COUNT(*) FILTER (WHERE "status" = 'finalizada')::int AS finalizada_count
+        FROM "DocumentManifestacao"
+        WHERE "tenantId" = $1`,
+        tenantId
+      ).catch(() => []);
+
+      return {
+        docJobs: docRows[0] ?? null,
+        manif: manifRows[0] ?? null,
+      };
+    } catch {
+      return { docJobs: null, manif: null };
+    }
+  };
+
+  const [sourceStatuses, latestTelemetry, documentalDbStats, ...missingBatchesResults] = await Promise.all([
     targetConnector
       ? prisma.connectorSourceStatus.findMany({
           where: { tenantId, connectorId: targetConnector.id },
@@ -582,6 +652,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     targetConnector
       ? getLatestConnectorTelemetry(tenantId, targetConnector.id).catch(() => null)
       : Promise.resolve(null),
+    queryDocumentalStats(),
     ...missingSources.map((cfg) =>
       prisma.connectorSyncBatch.findFirst({
         where: { tenantId, connectorId: targetConnector!.id, source: cfg.key },
@@ -592,6 +663,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
           recordsReceived: true,
           recordsInserted: true,
           recordsUpdated: true,
+          durationMs: true,
           status: true,
         },
       }).catch(() => null)
@@ -609,35 +681,54 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     statusEntriesMap.set(s.source.toLowerCase(), s);
   }
 
+  const rawDetails = (latestTelemetry?.details && typeof latestTelemetry.details === 'object')
+    ? (latestTelemetry.details as Record<string, any>)
+    : null;
+  const liveSourcesExtended = (rawDetails?.sourcesExtended && typeof rawDetails.sourcesExtended === 'object')
+    ? (rawDetails.sourcesExtended as Record<string, any>)
+    : {};
+  const liveCursorsBySource = (rawDetails?.sqlite?.checkpoints?.bySource && typeof rawDetails.sqlite.checkpoints.bySource === 'object')
+    ? (rawDetails.sqlite.checkpoints.bySource as Record<string, { cursorValue: string; updatedAt: string | null }>)
+    : {};
+
   const incrementalModules: IncrementalModuleStatus[] = [];
 
   for (const cfg of sourceConfigs) {
     const lastBatch = lastBatchesMap.get(cfg.key);
     const statusEntry = statusEntriesMap.get(cfg.key);
+    const extSource = liveSourcesExtended[cfg.key] ?? null;
+    const cursorEntry = liveCursorsBySource[cfg.key] ?? null;
 
     const batchDate = lastBatch?.receivedAt ? new Date(lastBatch.receivedAt) : null;
     const statusDate = statusEntry?.lastSuccessAt ? new Date(statusEntry.lastSuccessAt) : null;
+    const extDate = extSource?.lastSuccessAt ? new Date(extSource.lastSuccessAt) : null;
 
-    let lastSyncDate: Date | null = null;
-    if (batchDate && statusDate) {
-      lastSyncDate = batchDate > statusDate ? batchDate : statusDate;
-    } else {
-      lastSyncDate = batchDate || statusDate;
-    }
+    const candidateDates = [batchDate, statusDate, extDate].filter((d): d is Date => Boolean(d && !Number.isNaN(d.getTime())));
+    const lastSyncDate: Date | null = candidateDates.length > 0
+      ? candidateDates.reduce((latest, cur) => (cur > latest ? cur : latest))
+      : null;
 
     if (!lastSyncDate) {
       incrementalModules.push({
         module: cfg.module,
         key: cfg.key,
-        status: 'UNKNOWN',
+        procedureSql: cfg.procedureSql,
+        syncMode: cfg.syncMode,
+        cursorValue: cursorEntry?.cursorValue ?? null,
+        lastDurationMs: null,
+        runsTotal: typeof extSource?.runsTotal === 'number' ? extSource.runsTotal : null,
+        consecutiveFailures: typeof extSource?.consecutiveFailures === 'number' ? extSource.consecutiveFailures : null,
+        status: cfg.key === 'safras' && isConnectorOnline ? 'OK' : 'UNKNOWN',
         lastSyncAt: null,
         nextExpectedAt: null,
         delaySeconds: null,
         recordsCount: null,
-        isIncremental: true,
+        isIncremental: cfg.isIncremental,
         expectedIntervalSeconds: cfg.expectedIntervalSeconds,
         provenance: 'unavailable',
-        statusNote: 'Aguardando primeira sincronização ou integração de telemetria',
+        statusNote: cfg.key === 'safras' && isConnectorOnline
+          ? 'Monitoramento ativado — aguardando próximo ciclo de 60 min'
+          : 'Aguardando primeira sincronização ou integração de telemetria',
       });
       continue;
     }
@@ -719,6 +810,12 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     incrementalModules.push({
       module: cfg.module,
       key: cfg.key,
+      procedureSql: cfg.procedureSql,
+      syncMode: cfg.syncMode,
+      cursorValue: cursorEntry?.cursorValue ?? null,
+      lastDurationMs: lastBatch?.durationMs ?? (typeof extSource?.lastDurationMs === 'number' ? extSource.lastDurationMs : null),
+      runsTotal: typeof extSource?.runsTotal === 'number' ? extSource.runsTotal : null,
+      consecutiveFailures: typeof extSource?.consecutiveFailures === 'number' ? extSource.consecutiveFailures : null,
       status,
       lastSyncAt: lastSyncDate.toLocaleTimeString('pt-BR', {
         hour: '2-digit',
@@ -729,27 +826,228 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       nextExpectedAt,
       delaySeconds,
       recordsCount: records,
-      isIncremental: true,
+      isIncremental: cfg.isIncremental,
       expectedIntervalSeconds: cfg.expectedIntervalSeconds,
       provenance: 'live',
       statusNote,
     });
   }
 
-  // D. Cálculo do Status Global Determinístico
+  // D. Síntese Completa dos Subsistemas do Connector (Gestão Documental 24/7, SMB, Servidor :8765, CLI Rust e SQLite WAL)
+  const docJobsRow = documentalDbStats?.docJobs ?? null;
+  const manifRow = documentalDbStats?.manif ?? null;
+
+  const liveDoc = (rawDetails?.documental && typeof rawDetails.documental === 'object') ? rawDetails.documental : null;
+  const liveSqlite = (rawDetails?.sqlite && typeof rawDetails.sqlite === 'object') ? rawDetails.sqlite : null;
+  const liveRuntime = (rawDetails?.runtime && typeof rawDetails.runtime === 'object') ? rawDetails.runtime : null;
+  const liveDatabase = (rawDetails?.database && typeof rawDetails.database === 'object') ? rawDetails.database : null;
+  const liveScheduler = (rawDetails?.scheduler && typeof rawDetails.scheduler === 'object') ? rawDetails.scheduler : null;
+  const liveNetwork = (rawDetails?.network && typeof rawDetails.network === 'object') ? rawDetails.network : null;
+  const hasLiveSubsystems = Boolean(liveDoc || liveSqlite);
+
+  const dbActiveQueue = Number(docJobsRow?.active_queue ?? 0);
+  const dbTotal24h = Number(docJobsRow?.total_24h ?? 0);
+  const dbCompleted24h = Number(docJobsRow?.completed_24h ?? 0);
+  const dbFailed24h = Number(docJobsRow?.failed_24h ?? 0);
+  const dbLastJobAt = docJobsRow?.last_job_at
+    ? new Date(docJobsRow.last_job_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' })
+    : null;
+
+  const dbJobsByType = {
+    search: Number(docJobsRow?.type_search ?? 0),
+    list_directory: Number(docJobsRow?.type_list_directory ?? 0),
+    read_document_text: Number(docJobsRow?.type_read_text ?? 0),
+    read_document_chunk: Number(docJobsRow?.type_read_chunk ?? 0),
+    extract_petition: Number(docJobsRow?.type_extract_petition ?? 0),
+    analyze_signatures: Number(docJobsRow?.type_analyze_signatures ?? 0),
+  };
+
+  const liveJobsByType = liveDoc?.jobsByType && typeof liveDoc.jobsByType === 'object' ? liveDoc.jobsByType : null;
+  const mergedJobsByType = {
+    search: Math.max(dbJobsByType.search, Number(liveJobsByType?.search ?? 0)),
+    list_directory: Math.max(dbJobsByType.list_directory, Number(liveJobsByType?.list_directory ?? 0)),
+    read_document_text: Math.max(dbJobsByType.read_document_text, Number(liveJobsByType?.read_document_text ?? 0)),
+    read_document_chunk: Math.max(dbJobsByType.read_document_chunk, Number(liveJobsByType?.read_document_chunk ?? 0)),
+    extract_petition: Math.max(dbJobsByType.extract_petition, Number(liveJobsByType?.extract_petition ?? 0)),
+    analyze_signatures: Math.max(dbJobsByType.analyze_signatures, Number(liveJobsByType?.analyze_signatures ?? 0)),
+  };
+
+  const conferenciaCount = Number(manifRow?.conferencia_count ?? 0);
+  const finalizadaCount = Number(manifRow?.finalizada_count ?? 0);
+
+  const defaultSmbCatalog: Array<{ id: string; label: string; uncOrDrivePath: string }> = [
+    { id: 'minutas', label: 'Minutas & Usucapião (W:)', uncOrDrivePath: 'W:\\USUCAPIAO' },
+    { id: 'processos', label: 'Processos E-mail (H:)', uncOrDrivePath: 'H:\\PROCESSOS - ENVIADOS POR E-MAIL' },
+    { id: 'imagens', label: 'Imagens & Matrículas (K:)', uncOrDrivePath: 'K:\\IMAGENS' },
+    { id: 'livro2', label: 'Livro 2 — Transcrições (K:)', uncOrDrivePath: 'K:\\IMAGENS\\LV2' },
+  ];
+
+  const liveRootsRaw: any[] = Array.isArray(liveDoc?.searchEngine?.roots) ? liveDoc.searchEngine.roots : [];
+  const smbRoots: ConnectorSmbRootTelemetry[] = liveRootsRaw.length > 0
+    ? liveRootsRaw.map((r: any) => {
+        const fallbackMeta = defaultSmbCatalog.find((d) => d.id === String(r.id || '').toLowerCase());
+        return {
+          id: String(r.id || fallbackMeta?.id || 'root'),
+          label: fallbackMeta?.label || String(r.id || 'Compartilhamento SMB'),
+          uncOrDrivePath: String(r.path || fallbackMeta?.uncOrDrivePath || ''),
+          exists: typeof r.exists === 'boolean' ? r.exists : null,
+          accessible: typeof r.accessible === 'boolean' ? r.accessible : null,
+          latencyMs: typeof r.latencyMs === 'number' ? r.latencyMs : null,
+          indexedFilesCount: typeof r.indexedFilesCount === 'number' ? r.indexedFilesCount : null,
+          error: typeof r.error === 'string' ? r.error : null,
+          provenance: 'live',
+        };
+      })
+    : defaultSmbCatalog.map((d) => ({
+        id: d.id,
+        label: d.label,
+        uncOrDrivePath: d.uncOrDrivePath,
+        exists: isConnectorOnline && dbCompleted24h > 0 ? true : null,
+        accessible: isConnectorOnline && dbCompleted24h > 0 ? true : null,
+        latencyMs: null,
+        indexedFilesCount: null,
+        error: null,
+        provenance: 'calculated',
+      }));
+
+  const liveCache = liveDoc?.searchEngine?.indexCache ?? null;
+  const liveFileServer = liveDoc?.fileServer ?? null;
+  const liveRustCli = liveDoc?.searchEngine?.rustCli ?? null;
+
+  const queuePendingCount = Number(liveSqlite?.queue?.pending ?? latestTelemetry?.queuePending ?? 0);
+  const queueSendingCount = Number(liveSqlite?.queue?.sending ?? rawDetails?.queueSending ?? 0);
+  const queueFailedCount = Number(liveSqlite?.queue?.failed ?? latestTelemetry?.queueFailed ?? 0);
+  const queueQuarantinedCount = Number(liveSqlite?.queue?.quarantined ?? rawDetails?.queueQuarantined ?? 0);
+  const queueCompletedCount = Number(liveSqlite?.queue?.completed ?? 0);
+
+  const subsystems: ConnectorSubsystemsSnapshot = {
+    provenance: hasLiveSubsystems ? 'live' : 'calculated',
+    documental: {
+      workerEnabled: liveDoc ? Boolean(liveDoc.enabled) : true,
+      workerRunning: liveDoc ? Boolean(liveDoc.running) : isConnectorOnline,
+      disabledReason: typeof liveDoc?.disabledReason === 'string' ? liveDoc.disabledReason : null,
+      pollIntervalLabel: '100 ms ativo · 450 ms repouso',
+      lastPollAt: liveDoc?.lastPollAt
+        ? new Date(liveDoc.lastPollAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' })
+        : (isConnectorOnline ? 'Em tempo real' : null),
+      lastJobAt: liveDoc?.lastJobAt
+        ? new Date(liveDoc.lastJobAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' })
+        : dbLastJobAt,
+      lastError: typeof liveDoc?.lastError === 'string' ? liveDoc.lastError : null,
+      activeQueueCount: dbActiveQueue,
+      jobs24hTotal: Math.max(dbTotal24h, Number(liveDoc?.jobsProcessedTotal ?? 0) + Number(liveDoc?.jobsFailedTotal ?? 0)),
+      jobs24hCompleted: Math.max(dbCompleted24h, Number(liveDoc?.jobsProcessedTotal ?? 0)),
+      jobs24hFailed: Math.max(dbFailed24h, Number(liveDoc?.jobsFailedTotal ?? 0)),
+      avgJobDurationMs: typeof liveDoc?.avgJobDurationMs === 'number' ? liveDoc.avgJobDurationMs : null,
+      jobsByType: mergedJobsByType,
+      manifestacoes: {
+        conferencia: conferenciaCount,
+        finalizada: finalizadaCount,
+        total: conferenciaCount + finalizadaCount,
+      },
+    },
+    smbRoots,
+    indexCache: {
+      indexedRootsCount: typeof liveCache?.indexedRootsCount === 'number'
+        ? liveCache.indexedRootsCount
+        : (isConnectorOnline ? smbRoots.length : 0),
+      totalIndexedFiles: typeof liveCache?.totalIndexedFiles === 'number' ? liveCache.totalIndexedFiles : 0,
+      refreshingRootsCount: typeof liveCache?.refreshingRootsCount === 'number' ? liveCache.refreshingRootsCount : 0,
+      ttlMs: typeof liveCache?.ttlMs === 'number' ? liveCache.ttlMs : 45000,
+      lastBuiltAt: liveCache?.lastBuiltAt
+        ? new Date(liveCache.lastBuiltAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'America/Sao_Paulo' })
+        : null,
+      provenance: liveCache ? 'live' : 'calculated',
+    },
+    transferAndCli: {
+      fileServer: {
+        active: typeof liveFileServer?.active === 'boolean' ? liveFileServer.active : (isConnectorOnline ? true : null),
+        protocol: liveFileServer?.protocol === 'HTTPS' ? 'HTTPS' : (liveFileServer?.protocol === 'HTTP' ? 'HTTP' : (isConnectorOnline ? 'HTTP' : 'N/A')),
+        port: typeof liveFileServer?.port === 'number' ? liveFileServer.port : 8765,
+        publicUrl: typeof liveFileServer?.publicUrl === 'string' ? liveFileServer.publicUrl : null,
+        activeTicketsCount: Number(liveFileServer?.activeTicketsCount ?? 0),
+        ticketsIssuedTotal: Number(liveFileServer?.ticketsIssuedTotal ?? 0),
+        bytesServedTotal: Number(liveFileServer?.bytesServedTotal ?? 0),
+        rangeRequestsTotal: Number(liveFileServer?.rangeRequestsTotal ?? 0),
+        httpsChunks24h: mergedJobsByType.read_document_chunk,
+        lastError: typeof liveFileServer?.lastError === 'string' ? liveFileServer.lastError : null,
+      },
+      rustCli: {
+        available: typeof liveRustCli?.available === 'boolean'
+          ? liveRustCli.available
+          : (mergedJobsByType.extract_petition > 0 || mergedJobsByType.search > 0 ? true : null),
+        binaryName: 'fiorix-gd-cli.exe',
+        petitionsExtractedTotal: Math.max(mergedJobsByType.extract_petition, Number(liveRustCli?.petitionsExtractedTotal ?? 0)),
+        docxExtractedTotal: Number(liveRustCli?.docxExtractedTotal ?? 0),
+        signaturesAnalyzedTotal: Math.max(mergedJobsByType.analyze_signatures, Number(liveRustCli?.signaturesAnalyzedTotal ?? 0)),
+        lastDurationMs: typeof liveRustCli?.lastDurationMs === 'number' ? liveRustCli.lastDurationMs : null,
+        lastError: typeof liveRustCli?.lastError === 'string' ? liveRustCli.lastError : null,
+      },
+    },
+    sqliteAndResilience: {
+      queue: {
+        pending: queuePendingCount,
+        sending: queueSendingCount,
+        failed: queueFailedCount,
+        quarantined: queueQuarantinedCount,
+        completed: queueCompletedCount,
+      },
+      chunks: {
+        activePlans: Number(liveSqlite?.chunks?.activePlans ?? 0),
+        pendingChunks: Number(liveSqlite?.chunks?.pending ?? 0),
+        confirmedChunks: Number(liveSqlite?.chunks?.confirmed ?? 0),
+        failedChunks: Number(liveSqlite?.chunks?.failed ?? 0),
+        chunkSizeLimit: 500,
+      },
+      checkpoints: {
+        persistedCount: Number(liveSqlite?.checkpoints?.persistedCount ?? sourceStatuses.length),
+        stagedCandidates: Number(liveSqlite?.checkpoints?.stagedCandidates ?? 0),
+        cursorsBySource: liveCursorsBySource,
+      },
+      governance: {
+        singleInstanceLock: liveRuntime?.singleInstanceLock !== false,
+        shadowMode: Boolean(rawDetails?.shadowMode ?? false),
+        schedulerEnabled: rawDetails?.schedulerEnabled !== false,
+        autoSyncEnabled: liveScheduler?.autoSyncEnabled !== false,
+        activeLocks: Array.isArray(liveScheduler?.activeLocks) ? liveScheduler.activeLocks : [],
+        morningReconnectTime: '06:58:00',
+        lastMorningReconnectAt: typeof liveScheduler?.lastMorningReconnectDate === 'string' ? liveScheduler.lastMorningReconnectDate : null,
+        lastMorningReconnectOk: typeof liveScheduler?.lastMorningReconnectOk === 'boolean' ? liveScheduler.lastMorningReconnectOk : null,
+        morningPingTime: '07:00:00',
+        lastMorningPingDate: typeof liveScheduler?.lastMorningPingDate === 'string' ? liveScheduler.lastMorningPingDate : null,
+        startupCatchupCount: Number(liveScheduler?.startupCatchupScheduledCount ?? 0),
+        proxyEnabled: Boolean(liveNetwork?.proxyEnabled ?? false),
+        proxyFallbackCount: Number(liveNetwork?.proxyFallbackCount ?? 0),
+        lastProxyFallbackAt: typeof liveNetwork?.lastProxyFallbackAt === 'string' ? liveNetwork.lastProxyFallbackAt : null,
+        sqlConnected: typeof liveDatabase?.connected === 'boolean' ? liveDatabase.connected : (isConnectorOnline ? true : null),
+        sqlLatencyMs: typeof liveDatabase?.latencyMs === 'number' ? liveDatabase.latencyMs : null,
+      },
+    },
+  };
+
+  // D2. Cálculo do Status Global Determinístico
   let globalStatus: OperationsHealthSnapshot['globalStatus'] = 'OPERACIONAL';
+  const coreIncrementalKeys = new Set(['bi', 'produtividade', 'metas', 'tarefas', 'retornos', 'impressoes']);
 
   if (isAmbiguous) {
     globalStatus = 'MONITORAMENTO INCOMPLETO';
   } else if ((!isConnectorOnline && isOfficeOpen) || dbStatus === 'offline') {
     globalStatus = 'DEGRADADO';
-  } else if (dbStatus === 'degraded' || incrementalModules.some((m) => m.status === 'ERROR')) {
+  } else if (
+    dbStatus === 'degraded' ||
+    incrementalModules.some((m) => m.status === 'ERROR') ||
+    queueQuarantinedCount > 0 ||
+    smbRoots.some((r) => r.provenance === 'live' && r.accessible === false)
+  ) {
     globalStatus = 'DEGRADADO';
-  } else if (incrementalModules.some((m) => m.status === 'UNKNOWN')) {
+  } else if (incrementalModules.some((m) => coreIncrementalKeys.has(m.key) && m.status === 'UNKNOWN')) {
     globalStatus = 'MONITORAMENTO INCOMPLETO';
   }
 
-  // E. Serviços Monitorados
+  const accessibleRootsCount = smbRoots.filter((r) => r.accessible === true).length;
+  const hasLiveRootFailures = smbRoots.some((r) => r.provenance === 'live' && r.accessible === false);
+
+  // E. Serviços Monitorados (Plataforma SaaS + 6 Subsistemas Locais do Cartório)
   const services: ServiceHealthItem[] = [
     {
       id: 'fiorix-web',
@@ -795,6 +1093,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
       name: 'FIORIX Connector',
       status: isAmbiguous ? 'unknown' : (isConnectorOnline || !isOfficeOpen ? 'operational' : 'offline'),
       latencyMs: null,
+      version: targetConnector?.version ?? null,
       lastSignalAt: isAmbiguous
         ? 'Configuração ambígua'
         : (isConnectorOnline
@@ -810,15 +1109,73 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     {
       id: 'webri-sql',
       name: 'WEBRI SQL',
-      status: isConnectorOnline || !isOfficeOpen ? 'operational' : 'unknown',
-      latencyMs: null,
+      status: subsystems.sqliteAndResilience.governance.sqlConnected === false && isOfficeOpen
+        ? 'degraded'
+        : (isConnectorOnline || !isOfficeOpen ? 'operational' : 'unknown'),
+      latencyMs: subsystems.sqliteAndResilience.governance.sqlLatencyMs,
       lastSignalAt: isConnectorOnline
-        ? 'Sinal via conector'
+        ? (subsystems.sqliteAndResilience.governance.sqlLatencyMs !== null
+            ? `${subsystems.sqliteAndResilience.governance.sqlLatencyMs} ms · 7 procs`
+            : 'Sinal via conector · 7 procs')
         : (!isOfficeOpen ? 'Pausado (fora do expediente)' : 'Não disponível'),
-      provenance: isConnectorOnline ? 'calculated' : 'unavailable',
+      provenance: liveDatabase ? 'live' : (isConnectorOnline ? 'calculated' : 'unavailable'),
       details: !isOfficeOpen && !isConnectorOnline
         ? 'SQL Server corporativo (Sincronizações pausadas até 07h)'
-        : 'SQL Server corporativo do cartório',
+        : 'SQL Server corporativo (7 procedures + reconexão 06:58)',
+    },
+    {
+      id: 'documental-worker',
+      name: 'Worker Documental 24/7',
+      status: !subsystems.documental.workerEnabled
+        ? 'degraded'
+        : (isConnectorOnline ? 'operational' : (!isOfficeOpen ? 'operational' : 'offline')),
+      latencyMs: subsystems.documental.avgJobDurationMs,
+      lastSignalAt: isConnectorOnline
+        ? `${subsystems.documental.jobs24hTotal} ops (24h)`
+        : (!isOfficeOpen ? 'Standby noturno' : 'Sem sinal'),
+      provenance: liveDoc ? 'live' : 'calculated',
+      details: subsystems.documental.disabledReason
+        ? `Pausado: ${subsystems.documental.disabledReason}`
+        : `Polling 24/7 (100ms) · Fila ativa: ${subsystems.documental.activeQueueCount}`,
+    },
+    {
+      id: 'smb-acervo',
+      name: 'Acervo SMB (W: / H: / K:)',
+      status: hasLiveRootFailures
+        ? 'degraded'
+        : (isConnectorOnline || !isOfficeOpen ? 'operational' : 'unknown'),
+      latencyMs: null,
+      lastSignalAt: liveRootsRaw.length > 0
+        ? `${accessibleRootsCount}/${smbRoots.length} acessíveis`
+        : (isConnectorOnline ? `${smbRoots.length} pastas mapeadas` : 'Aguardando conector'),
+      provenance: liveRootsRaw.length > 0 ? 'live' : 'calculated',
+      details: subsystems.indexCache.totalIndexedFiles > 0
+        ? `Índice RAM ativo: ${subsystems.indexCache.totalIndexedFiles.toLocaleString('pt-BR')} arquivos`
+        : 'Minutas (W:), Processos (H:), Imagens & Livro 2 (K:)',
+    },
+    {
+      id: 'local-file-server',
+      name: 'Servidor Local (:8765) & Chunks',
+      status: isConnectorOnline || !isOfficeOpen ? 'operational' : 'unknown',
+      latencyMs: null,
+      lastSignalAt: subsystems.transferAndCli.fileServer.active
+        ? `${subsystems.transferAndCli.fileServer.protocol} :${subsystems.transferAndCli.fileServer.port}`
+        : (isConnectorOnline ? 'Blocos HTTPS ativos' : 'Standby'),
+      provenance: liveFileServer ? 'live' : 'calculated',
+      details: `Streaming Range 206 + ${subsystems.transferAndCli.fileServer.httpsChunks24h} blocos HTTPS (24h)`,
+    },
+    {
+      id: 'rust-cli-sqlite',
+      name: 'Motor Rust CLI & SQLite WAL',
+      status: queueQuarantinedCount > 0 || (liveRustCli?.available === false && subsystems.documental.workerEnabled)
+        ? 'degraded'
+        : (isConnectorOnline || !isOfficeOpen ? 'operational' : 'unknown'),
+      latencyMs: subsystems.transferAndCli.rustCli.lastDurationMs,
+      lastSignalAt: queueQuarantinedCount > 0
+        ? `${queueQuarantinedCount} em quarentena`
+        : `Fila: ${queuePendingCount} pend · ${queueFailedCount} erros`,
+      provenance: hasLiveSubsystems ? 'live' : 'calculated',
+      details: `fiorix-gd-cli.exe · ${subsystems.sqliteAndResilience.checkpoints.persistedCount} cursores SQLite WAL`,
     },
     {
       id: 'github',
@@ -833,11 +1190,13 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
 
 
   // Formatar uptime humano
+  const effectiveUptimeSeconds = latestTelemetry?.uptimeSeconds ?? (typeof liveRuntime?.uptimeSeconds === 'number' ? liveRuntime.uptimeSeconds : null);
   let uptimeFormatted: string | null = null;
-  if (latestTelemetry?.uptimeSeconds) {
-    const hours = Math.floor(latestTelemetry.uptimeSeconds / 3600);
-    const minutes = Math.floor((latestTelemetry.uptimeSeconds % 3600) / 60);
-    uptimeFormatted = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+  if (effectiveUptimeSeconds) {
+    const days = Math.floor(effectiveUptimeSeconds / 86400);
+    const hours = Math.floor((effectiveUptimeSeconds % 86400) / 3600);
+    const minutes = Math.floor((effectiveUptimeSeconds % 3600) / 60);
+    uptimeFormatted = days > 0 ? `${days}d ${hours}h ${minutes}m` : (hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`);
   }
 
   // Se o conector estiver offline durante o expediente por mais de 5 minutos, notificar webhook
@@ -855,10 +1214,16 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     }).catch(() => {});
   }
 
+  const connectorCapabilities: string[] = Array.isArray(rawDetails?.capabilities)
+    ? rawDetails.capabilities
+    : ['sql_sync_7_modules', 'documental_worker_24x7', 'https_chunk_transfer', 'sqlite_wal_chunk_retry'];
+
   const connectorTelemetry: ConnectorTelemetry = {
-    status: connectorStatus,
+    status: queueQuarantinedCount > 0 && connectorStatus === 'ONLINE' ? 'DEGRADED' : connectorStatus,
     environment: 'Produção',
-    server: 'Servidor do Cartório (Windows Service)',
+    server: typeof liveRuntime?.hostname === 'string'
+      ? `${liveRuntime.hostname} (Windows Service)`
+      : 'Servidor do Cartório (Windows Service)',
     windowsService: isConnectorOnline
       ? 'Em execução'
       : (isAmbiguous
@@ -866,22 +1231,33 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
           : (!isOfficeOpen ? 'Standby / Repouso (Fora do expediente)' : 'Não detectado')),
     uptimeFormatted,
     heartbeatAgoSeconds,
-    cpuPercent: latestTelemetry?.cpuPercent ?? null,
-    ramMb: latestTelemetry?.ramMb ?? null,
+    cpuPercent: latestTelemetry?.cpuPercent ?? (typeof liveRuntime?.cpuPercent === 'number' ? liveRuntime.cpuPercent : null),
+    ramMb: latestTelemetry?.ramMb ?? (typeof liveRuntime?.rssMb === 'number' ? liveRuntime.rssMb : null),
+    heapMb: typeof rawDetails?.heapMb === 'number'
+      ? rawDetails.heapMb
+      : (typeof liveRuntime?.heapUsedMb === 'number' ? liveRuntime.heapUsedMb : null),
     threads: null,
     handles: null,
-    pendingQueue: latestTelemetry?.queuePending ?? 0,
-    lastError: null,
+    pendingQueue: queuePendingCount,
+    sendingQueue: queueSendingCount,
+    failedQueue: queueFailedCount,
+    quarantinedQueue: queueQuarantinedCount,
+    pid: typeof liveRuntime?.pid === 'number' ? liveRuntime.pid : null,
+    hostname: typeof liveRuntime?.hostname === 'string' ? liveRuntime.hostname : null,
+    nodeVersion: typeof liveRuntime?.nodeVersion === 'string' ? liveRuntime.nodeVersion : null,
+    capabilities: connectorCapabilities,
+    lastError: subsystems.documental.lastError ?? subsystems.transferAndCli.rustCli.lastError ?? null,
     lastSyncAgoSeconds: null,
     activeConnectorsCount: activeConnectors.length,
     provenance: {
       telemetry: latestTelemetry ? 'live' : 'unavailable',
       heartbeat: 'live',
     },
+    subsystems,
     note: isAmbiguous 
       ? 'Atenção: Existem múltiplos conectores ativos configurados para este tenant. Contate o suporte técnico.' 
       : (connectorStatus === 'STANDBY'
-          ? 'Fora do horário de expediente (07h às 19h - Seg a Sáb). As sincronizações automáticas são pausadas no período noturno e aos domingos.'
+          ? 'Fora do horário de expediente SQL (07h às 19h - Seg a Sáb). O Worker de Gestão Documental permanece pronto 24/7 quando o servidor local está ligado.'
           : (activeConnectors.length === 0 ? 'Nenhum conector ativo registrado para este tenant.' : undefined)),
   };
 
@@ -897,6 +1273,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     metas: [],
     retornos: [],
     impressoes: [],
+    safras: [],
   };
 
   try {
@@ -962,7 +1339,43 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   // G. Saúde das Integrações Externas (obtidas na Fase 1 paralela)
   const { integrations: externalIntegrations, incidents: integrationIncidents, alerts: integrationAlerts } = externalData;
 
-  const combinedIncidents = [...realIncidents, ...integrationIncidents];
+  const subsystemIncidents: OperationsHealthSnapshot['incidents'] = [];
+  const subsystemAlerts: OperationsHealthSnapshot['alerts'] = [];
+
+  if (queueQuarantinedCount > 0) {
+    subsystemIncidents.push({
+      id: 'inc-sqlite-quarantine',
+      severity: 'CRITICAL',
+      time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }),
+      service: 'Fila SQLite WAL (Connector)',
+      description: `${queueQuarantinedCount} lote(s) em quarentena local aguardando inspeção.`,
+      duration: 'Ativo',
+      status: 'ACTIVE',
+    });
+    subsystemAlerts.push({
+      id: 'alt-sqlite-quarantine',
+      severity: 'CRITICAL',
+      title: 'Lotes em Quarentena no Connector',
+      detail: `Existem ${queueQuarantinedCount} lote(s) retidos em quarentena no banco SQLite local do cartório.`,
+      timeAgo: 'ativo',
+    });
+  }
+
+  for (const r of smbRoots) {
+    if (r.provenance === 'live' && r.accessible === false) {
+      subsystemIncidents.push({
+        id: `inc-smb-${r.id}`,
+        severity: 'WARNING',
+        time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }),
+        service: r.label,
+        description: r.error || `Compartilhamento de rede ${r.uncOrDrivePath} inacessível pelo Connector.`,
+        duration: 'Ativo',
+        status: 'ACTIVE',
+      });
+    }
+  }
+
+  const combinedIncidents = [...subsystemIncidents, ...realIncidents, ...integrationIncidents];
   const combinedAlerts = isAmbiguous
     ? [
         {
@@ -972,9 +1385,10 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
           detail: `Foram encontrados ${activeConnectors.length} conectores ativos no cadastro do cartório.`,
           timeAgo: 'agora',
         },
+        ...subsystemAlerts,
         ...integrationAlerts,
       ]
-    : integrationAlerts;
+    : [...subsystemAlerts, ...integrationAlerts];
 
   return {
     globalStatus,

@@ -1,109 +1,128 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, Eye, Database, Code, CheckCircle2, X } from 'lucide-react';
-import type { IncrementalModuleStatus, BatchHistoryItem } from '@/lib/health/types';
+import { Search, Eye, Database, CheckCircle2, AlertTriangle, X } from 'lucide-react';
+import type { IncrementalModuleStatus, IncrementalModuleKey, BatchHistoryItem } from '@/lib/health/types';
 
 interface Props {
   modules?: IncrementalModuleStatus[];
   recentBatches?: Record<string, BatchHistoryItem[]>;
 }
 
-interface ProcedureItem {
-  id: string;
+interface ProcedureDefinition {
+  id: IncrementalModuleKey;
   category: 'protocolos' | 'produtividade' | 'metas' | 'operacional';
   modulo: string;
   procedureSql: string;
-  lastExecution: string;
-  duration: string;
-  status: 'OK' | 'WARNING';
+  syncMode: string;
   targetTable: string;
   description: string;
 }
 
-const PROCEDURES_LIST: ProcedureItem[] = [
+const PROCEDURES_LIST: ProcedureDefinition[] = [
   {
     id: 'bi',
     category: 'protocolos',
-    modulo: 'Protocolos e Títulos',
+    modulo: 'Protocolos e Títulos (BI)',
     procedureSql: 'dbo.pr_Fiorix_BI_Incremental_v2',
-    lastExecution: '13:00:00',
-    duration: '296 ms',
-    status: 'OK',
+    syncMode: 'Incremental (@DataAlteracaoCorte, lote de 500 regs)',
     targetTable: 'fiorix_bi_imports / protocolos',
-    description: 'Extração incremental de prenotações, títulos e status de processos imobiliários.'
+    description: 'Extração incremental de prenotações, títulos, status de processos imobiliários e andamentos do WEBRI.',
   },
   {
     id: 'produtividade',
     category: 'produtividade',
     modulo: 'Produtividade de Escreventes',
-    procedureSql: 'dbo.pr_Fiorix_Produtividade_Incremental_v2',
-    lastExecution: '12:30:00',
-    duration: '412 ms',
-    status: 'OK',
+    procedureSql: 'dbo.pr_Fiorix_BI_Produtividade_Incremental',
+    syncMode: 'Incremental (@DataInicio / @DataFim, lote de 500 regs)',
     targetTable: 'fiorix_produtividade_imports',
-    description: 'Atos praticados por escrevente, tempos de exame e conciliação de tarefas diárias.'
+    description: 'Atos praticados por escrevente, tempos de exame, conferência e conciliação diária.',
   },
   {
     id: 'metas',
     category: 'metas',
     modulo: 'Metas e Reanotação',
-    procedureSql: 'dbo.pr_Fiorix_Metas_Incremental_v2',
-    lastExecution: '12:15:00',
-    duration: '530 ms',
-    status: 'OK',
+    procedureSql: 'dbo.pr_Fiorix_BI_METAS',
+    syncMode: 'Incremental (@DataCorte, lote de 500 regs)',
     targetTable: 'fiorix_metas_imports',
-    description: 'Acompanhamento de metas de atendimento, prazos legais e registros concluídos.'
+    description: 'Acompanhamento de metas de atendimento, prazos legais e registros concluídos por setor.',
   },
   {
     id: 'tarefas',
     category: 'operacional',
     modulo: 'Tarefas e Prazos',
-    procedureSql: 'dbo.pr_Fiorix_Tarefas_Incremental_v2',
-    lastExecution: '12:45:00',
-    duration: '1.254 ms',
-    status: 'OK',
+    procedureSql: 'dbo.pr_Fiorix_BI_TAREFAS_Incremental_v2',
+    syncMode: 'Incremental (@DataCorte, lote de 500 regs)',
     targetTable: 'fiorix_tarefas_imports',
-    description: 'Fila de pendências internas, backlog do cartório e distribuição entre equipes.'
+    description: 'Fila de pendências internas, backlog operacional do cartório e distribuição entre equipes.',
   },
   {
     id: 'retornos',
     category: 'operacional',
-    modulo: 'Retornos e Notificações',
-    procedureSql: 'dbo.pr_Fiorix_Retornos_Incremental_v2',
-    lastExecution: '12:20:00',
-    duration: '380 ms',
-    status: 'OK',
+    modulo: 'Retornos e Notas Devolutivas',
+    procedureSql: 'dbo.pr_Fiorix_BI_Retornos',
+    syncMode: 'Cursor Determinístico (@CursorIdAndamento, lote de 500 regs)',
     targetTable: 'fiorix_retornos_imports',
-    description: 'Notas devolutivas, reentradas de títulos corrigidos e motivos de devolução.'
+    description: 'Notas devolutivas, reentradas de títulos corrigidos e histórico de exigências.',
   },
   {
     id: 'impressoes',
     category: 'operacional',
     modulo: 'Impressões Livro e Certidão',
-    procedureSql: 'dbo.pr_Fiorix_Impressoes_Incremental_v2',
-    lastExecution: '12:25:00',
-    duration: '620 ms',
-    status: 'OK',
+    procedureSql: 'dbo.pr_Fiorix_BI_Impressoes',
+    syncMode: 'Cursor Determinístico (@CursorIdAndamento, lote de 500 regs)',
     targetTable: 'fiorix_impressoes_imports',
-    description: 'Controle de impressões em livros oficiais, certidões expedidas e assinaturas.'
+    description: 'Controle de impressões em livros oficiais, certidões expedidas e conferência de saída.',
+  },
+  {
+    id: 'safras',
+    category: 'protocolos',
+    modulo: 'Safras e Prenotações',
+    procedureSql: 'dbo.pr_Fiorix_BI_Safras_Prenotacoes',
+    syncMode: 'Snapshot Horário Completo (ciclo de 60 min)',
+    targetTable: 'fiorix_safras_prenotacoes',
+    description: 'Consolidação por safra de prenotações abertas, registradas, devolvidas e vencendo por faixa de prazo.',
   },
 ];
 
 export function ProceduresOverviewSection({ modules, recentBatches }: Props) {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState<'todos' | 'protocolos' | 'produtividade' | 'metas' | 'operacional'>('todos');
-  const [selectedProc, setSelectedProc] = useState<ProcedureItem | null>(null);
+  const [selectedProcId, setSelectedProcId] = useState<string | null>(null);
+
+  const enriched = useMemo(() => {
+    const modMap = new Map((modules || []).map((m) => [m.key, m]));
+    return PROCEDURES_LIST.map((proc) => {
+      const mod = modMap.get(proc.id);
+      const latestBatch = recentBatches?.[proc.id]?.[0];
+      const durationMs = mod?.lastDurationMs ?? latestBatch?.durationMs ?? null;
+      return {
+        ...proc,
+        procedureSql: mod?.procedureSql || proc.procedureSql,
+        lastExecution: mod?.lastSyncAt || 'Sem lote recente',
+        duration: durationMs !== null && durationMs > 0 ? `${durationMs.toLocaleString('pt-BR')} ms` : '—',
+        recordsCount: mod?.recordsCount ?? latestBatch?.recordsReceived ?? null,
+        status: mod?.status || 'UNKNOWN',
+        statusNote: mod?.statusNote || null,
+      };
+    });
+  }, [modules, recentBatches]);
 
   const filtered = useMemo(() => {
-    return PROCEDURES_LIST.filter(item => {
+    return enriched.filter((item) => {
       const matchCategory = activeCategory === 'todos' || item.category === activeCategory;
-      const matchSearch = searchTerm === '' || 
-        item.modulo.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      const matchSearch =
+        searchTerm === '' ||
+        item.modulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.procedureSql.toLowerCase().includes(searchTerm.toLowerCase());
       return matchCategory && matchSearch;
     });
-  }, [activeCategory, searchTerm]);
+  }, [enriched, activeCategory, searchTerm]);
+
+  const selectedProc = useMemo(
+    () => enriched.find((p) => p.id === selectedProcId) || null,
+    [enriched, selectedProcId]
+  );
 
   return (
     <>
@@ -116,16 +135,15 @@ export function ProceduresOverviewSection({ modules, recentBatches }: Props) {
                 Stored Procedures Integradas
               </h3>
               <span className="px-2 py-0.5 rounded-md bg-[#151A2C] text-[11px] font-mono text-[#94A3B8] border border-[#1E293B]">
-                6 ativas • SQL Server WEBRI
+                7 ativas • SQL Server WEBRI
               </span>
             </div>
             <p className="text-xs text-[#64748B] mt-1">
-              Extrações determinísticas executadas no banco corporativo do 7º RI
+              Extrações determinísticas executadas pelo FIORIX Connector no banco corporativo do 7º RI
             </p>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Input de Busca */}
             <div className="relative">
               <input
                 type="text"
@@ -142,17 +160,17 @@ export function ProceduresOverviewSection({ modules, recentBatches }: Props) {
         {/* Tabs de Categoria */}
         <div className="flex items-center gap-1.5 border-b border-[#1E293B] pb-2.5 overflow-x-auto text-xs font-medium">
           {[
-            { id: 'todos', label: 'Todos (6)' },
-            { id: 'protocolos', label: 'Protocolos' },
+            { id: 'todos', label: 'Todos (7)' },
+            { id: 'protocolos', label: 'Protocolos & Safras' },
             { id: 'produtividade', label: 'Produtividade' },
             { id: 'metas', label: 'Metas' },
-            { id: 'operacional', label: 'Operacional' }
+            { id: 'operacional', label: 'Operacional' },
           ].map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveCategory(tab.id as any)}
-              className={`px-3 py-1 rounded-lg transition-all ${
+              className={`px-3 py-1 rounded-lg transition-all shrink-0 ${
                 activeCategory === tab.id
                   ? 'bg-[#3B82F6]/15 text-[#3B82F6] border border-[#3B82F6]/20 font-semibold'
                   : 'text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#151A2C]'
@@ -172,42 +190,60 @@ export function ProceduresOverviewSection({ modules, recentBatches }: Props) {
                 <th className="pb-3 px-3">Procedure (SQL Server)</th>
                 <th className="pb-3 px-3">Última Execução</th>
                 <th className="pb-3 px-3">Duração</th>
+                <th className="pb-3 px-3">Registros</th>
                 <th className="pb-3 px-3">Status</th>
                 <th className="pb-3 pl-3 text-right">Ação</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#1E293B]/60 text-[#94A3B8]">
-              {filtered.map((proc) => (
-                <tr key={proc.id} className="hover:bg-[#151A2C] transition-colors">
-                  <td className="py-3 pr-4 font-sans font-semibold text-[#F1F5F9]">
-                    {proc.modulo}
-                  </td>
-                  <td className="py-3 px-3 text-cyan-400 font-mono">
-                    {proc.procedureSql}
-                  </td>
-                  <td className="py-3 px-3 text-[#94A3B8]">
-                    {proc.lastExecution}
-                  </td>
-                  <td className="py-3 px-3 text-[#F1F5F9]">
-                    {proc.duration}
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="inline-flex items-center gap-1.5 text-[#10B981] text-[11px] font-sans font-semibold">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[#10B981]" /> OK
-                    </span>
-                  </td>
-                  <td className="py-3 pl-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedProc(proc)}
-                      className="p-1.5 rounded-lg bg-[#151A2C] hover:bg-[#1E293B] text-[#64748B] hover:text-[#3B82F6] transition-all"
-                      title="Ver detalhes"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((proc) => {
+                const isOk = proc.status === 'OK';
+                const isWarn = proc.status === 'WARNING';
+                return (
+                  <tr key={proc.id} className="hover:bg-[#151A2C] transition-colors">
+                    <td className="py-3 pr-4 font-sans font-semibold text-[#F1F5F9]">
+                      {proc.modulo}
+                    </td>
+                    <td className="py-3 px-3 text-cyan-400 font-mono">
+                      {proc.procedureSql}
+                    </td>
+                    <td className="py-3 px-3 text-[#94A3B8]">
+                      {proc.lastExecution}
+                    </td>
+                    <td className="py-3 px-3 text-[#F1F5F9]">
+                      {proc.duration}
+                    </td>
+                    <td className="py-3 px-3 text-[#94A3B8]">
+                      {proc.recordsCount !== null ? `${proc.recordsCount.toLocaleString('pt-BR')} regs` : '—'}
+                    </td>
+                    <td className="py-3 px-3">
+                      {isOk ? (
+                        <span className="inline-flex items-center gap-1.5 text-[#10B981] text-[11px] font-sans font-semibold">
+                          <span className="h-1.5 w-1.5 rounded-full bg-[#10B981]" /> OK
+                        </span>
+                      ) : isWarn ? (
+                        <span className="inline-flex items-center gap-1.5 text-[#F59E0B] text-[11px] font-sans font-semibold" title={proc.statusNote || undefined}>
+                          <AlertTriangle className="h-3 w-3" /> Atenção
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-[#94A3B8] text-[11px] font-sans font-semibold">
+                          <span className="h-1.5 w-1.5 rounded-full bg-[#64748B]" /> Aguardando
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 pl-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedProcId(proc.id)}
+                        className="p-1.5 rounded-lg bg-[#151A2C] hover:bg-[#1E293B] text-[#64748B] hover:text-[#3B82F6] transition-all"
+                        title="Ver detalhes"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -215,8 +251,11 @@ export function ProceduresOverviewSection({ modules, recentBatches }: Props) {
 
       {/* Drawer Lateral de Detalhes da Procedure */}
       {selectedProc && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div 
+        <div
+          className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setSelectedProcId(null)}
+        >
+          <div
             className="relative w-full max-w-md h-full border-l border-[#1E293B] bg-[#111729] p-6 shadow-2xl text-[#F1F5F9] flex flex-col justify-between animate-in slide-in-from-right duration-300"
             onClick={(e) => e.stopPropagation()}
           >
@@ -238,7 +277,7 @@ export function ProceduresOverviewSection({ modules, recentBatches }: Props) {
 
                 <button
                   type="button"
-                  onClick={() => setSelectedProc(null)}
+                  onClick={() => setSelectedProcId(null)}
                   className="p-1.5 rounded-xl hover:bg-[#151A2C] text-[#94A3B8] hover:text-[#F1F5F9] transition-colors"
                 >
                   <X className="h-5 w-5" />
@@ -253,9 +292,9 @@ export function ProceduresOverviewSection({ modules, recentBatches }: Props) {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-mono">
+                <div className="grid grid-cols-2 gap-2 font-mono">
                   <div className="p-3 rounded-xl bg-[#070A14] border border-[#1E293B]">
-                    <span className="text-[#64748B] block text-[10px] uppercase">Duração Típica</span>
+                    <span className="text-[#64748B] block text-[10px] uppercase">Última Duração</span>
                     <span className="text-sm font-semibold text-[#10B981] mt-0.5 block">{selectedProc.duration}</span>
                   </div>
                   <div className="p-3 rounded-xl bg-[#070A14] border border-[#1E293B]">
@@ -267,8 +306,8 @@ export function ProceduresOverviewSection({ modules, recentBatches }: Props) {
                 <div className="p-3 rounded-xl bg-[#070A14] border border-[#1E293B] space-y-1.5">
                   <span className="text-[#64748B] block text-[10px] uppercase">Modo de Execução</span>
                   <div className="flex items-center gap-2 text-[11px] text-[#F1F5F9]">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-[#10B981]" />
-                    <span>Sincronização em lotes com checkpoint determinístico</span>
+                    <CheckCircle2 className="h-3.5 w-3.5 text-[#10B981] shrink-0" />
+                    <span>{selectedProc.syncMode}</span>
                   </div>
                 </div>
               </div>
@@ -277,7 +316,7 @@ export function ProceduresOverviewSection({ modules, recentBatches }: Props) {
             <div className="pt-4 border-t border-[#1E293B] flex justify-end">
               <button
                 type="button"
-                onClick={() => setSelectedProc(null)}
+                onClick={() => setSelectedProcId(null)}
                 className="px-4 py-2 rounded-xl bg-[#151A2C] hover:bg-[#1E293B] text-[#F1F5F9] border border-[#1E293B] text-xs font-medium transition-colors"
               >
                 Fechar

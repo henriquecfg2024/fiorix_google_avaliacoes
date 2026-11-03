@@ -26,8 +26,13 @@ export async function POST(req: Request) {
     const tenantId = auth.tenant.id;
     const connectorId = auth.connector.id;
     if (message.action === 'claim') return reply({ job: await claimSearch(tenantId, connectorId) });
-    const count = await finishSearch(message.id, tenantId, connectorId,
-      message.action === 'complete' ? message.result : null, message.action === 'fail');
+    const payloadResult =
+      message.action === 'complete'
+        ? message.result
+        : message.error
+        ? { error: message.error }
+        : null;
+    const count = await finishSearch(message.id, tenantId, connectorId, payloadResult, message.action === 'fail');
     return count === 1 ? reply({ ok: true }) : reply({ error: 'Tarefa expirada ou indisponível.' }, 409);
   } catch { return reply({ error: 'Serviço documental indisponível.' }, 503); }
 }

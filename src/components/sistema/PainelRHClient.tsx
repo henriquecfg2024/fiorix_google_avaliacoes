@@ -44,7 +44,6 @@ import {
 } from "@/app/actions/ferias";
 import { PublicacaoStatus } from "@/lib/ferias/ferias-repository";
 import { DeleteConfirmModal } from "@/components/rh/DeleteConfirmModal";
-import { MOCK_COLABORADORES_45 } from "@/components/rh/mockColaboradores45";
 import {
   deleteComunicadoRH,
   criarComunicadoRH,
@@ -73,6 +72,7 @@ interface ComunicadoItem {
   conteudoHash?: string;
   ultimaAlteracaoPor?: string;
   dataUltimaAlteracao?: string;
+  auditorias?: AuditEntry[];
   anexos?: Array<{
     id: string;
     nomeOriginal: string;
@@ -167,7 +167,7 @@ export function PainelRHClient({
   const [filterStatusComunicados, setFilterStatusComunicados] = useState<string>("TODOS");
 
   // Modais de Comunicados
-  const [auditModalOpen, setAuditModalOpen] = useState(false);
+  const [auditComunicado, setAuditComunicado] = useState<ComunicadoItem | null>(null);
   const [novoModalOpen, setNovoModalOpen] = useState(false);
   const [viewComunicadoModal, setViewComunicadoModal] = useState<ComunicadoItem | null>(null);
   const [editComunicadoModal, setEditComunicadoModal] = useState<ComunicadoItem | null>(null);
@@ -227,19 +227,7 @@ export function PainelRHClient({
   const [deleteAvisoModal, setDeleteAvisoModal] = useState(false);
   const [avisoToDelete, setAvisoToDelete] = useState<AvisoEmitidoItem | null>(null);
 
-  // Mock de 45 auditorias de ciências para o modal de Comunicado
-  const mockAuditorias45: AuditEntry[] = MOCK_COLABORADORES_45.map((colab, idx) => ({
-    id: `aud-${colab.id}`,
-    colaboradorNome: colab.nome,
-    setor: colab.setor,
-    email: colab.email,
-    visualizou: true,
-    dataCiencia: idx < 32 ? `30/08/2026 09:${String(10 + (idx % 45)).padStart(2, "0")}:${String(15 + (idx % 40)).padStart(2, "0")}` : "Pendente",
-    comprovanteHash: `${colab.cpf.replace(/\D/g, "")}e9f28a7c1b4d001289fe871a5c62`,
-    ipMascarado: `189.40.${10 + (idx % 30)}.***`,
-    scrollPercent: idx < 32 ? 100 : 45,
-    qrLink: `https://fiorix.app/valida/${colab.id}`,
-  }));
+
 
   // Handlers
   const handlePublicar = async () => {
@@ -350,18 +338,18 @@ export function PainelRHClient({
         pdfAnexo: pdfAnexoData,
       });
 
+      const totalDestinatariosAtuais = initialStats?.totalColaboradores || comunicadosList[0]?.total || 60;
       const novoItem: ComunicadoItem = {
         id: res.id || `com-${Date.now()}`,
         titulo: novoTitulo,
         data: new Date().toLocaleString("pt-BR"),
         autor: `${userName} (${userRole === "RH" ? "RH" : "Gestão"})`,
-        destinatarios: "Todos (63 colaboradores)",
+        destinatarios: `Todos (${totalDestinatariosAtuais} ${totalDestinatariosAtuais === 1 ? "colaborador" : "colaboradores"})`,
         views: 0,
         ciencias: 0,
-        total: 63,
+        total: totalDestinatariosAtuais,
         status: "PUBLICADO",
         conteudo: novoConteudo,
-        conteudoHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         anexos: res.anexos && res.anexos.length > 0
           ? res.anexos
           : pdfAnexoData
@@ -381,8 +369,8 @@ export function PainelRHClient({
       setComunicadosList((prev) => [novoItem, ...prev]);
       toast.success(
         pdfAnexoData
-          ? "Comunicado com PDF e hash SHA-256 publicado com sucesso!"
-          : "Comunicado publicado com integridade SHA-256 gravada no banco de dados e na trilha de auditoria!"
+          ? "Comunicado com PDF anexo publicado com sucesso!"
+          : "Comunicado publicado com sucesso!"
       );
       setNovoModalOpen(false);
       setNovoTitulo("");
@@ -441,18 +429,19 @@ export function PainelRHClient({
     return matchSearch && matchStatus;
   });
 
-  // Cálculos dinâmicos dos KPIs de Comunicados
+  // Cálculos dinâmicos dos KPIs de Comunicados (estritamente sobre comunicados vigentes PUBLICADOS)
   const comunicadosAtivos = comunicadosList.filter((c) => c.status !== "EXCLUIDO");
-  const totalCiencias = comunicadosAtivos.reduce((acc, c) => acc + (c.ciencias || 0), 0);
-  const totalEsperado = comunicadosAtivos.reduce((acc, c) => acc + (c.total || 0), 0);
-  const taxaGeral = totalEsperado > 0 ? Math.round((totalCiencias / totalEsperado) * 100) : 0;
+  const comunicadosPublicados = comunicadosAtivos.filter((c) => c.status === "PUBLICADO");
+  const totalCiencias = comunicadosPublicados.reduce((acc, c) => acc + (c.ciencias || 0), 0);
+  const totalEsperado = comunicadosPublicados.reduce((acc, c) => acc + (c.total || 0), 0);
+  const totalVisualizacoes = comunicadosPublicados.reduce((acc, c) => acc + (c.views || 0), 0);
+  const taxaGeral =
+    totalEsperado > 0 ? Math.min(100, Math.round((totalCiencias / totalEsperado) * 100)) : 0;
 
-  const hashesValidosCount = comunicadosAtivos.filter((c) => Boolean(c.conteudoHash)).length;
-  const hashesPercent = comunicadosAtivos.length > 0 ? Math.round((hashesValidosCount / comunicadosAtivos.length) * 100) : 0;
-
-  const pendentesCriticos = comunicadosAtivos
-    .filter((c) => c.status === "PUBLICADO")
-    .reduce((acc, c) => acc + Math.max(0, (c.total || 0) - (c.ciencias || 0)), 0);
+  const pendentesCriticos = comunicadosPublicados.reduce(
+    (acc, c) => acc + Math.max(0, (c.total || 0) - (c.ciencias || 0)),
+    0
+  );
 
   // Estatísticas Reais de Holerites e Férias (Persistidas no Banco de Dados)
   const totalColaboradores = initialStats?.totalColaboradores || 0;
@@ -597,45 +586,92 @@ export function PainelRHClient({
         {/* 3. CARDS: COMUNICADOS */}
         {currentTab === "comunicados" && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="p-6 rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm shadow-sm">
+            <div className="p-6 rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Comunicados Ativos</span>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Comunicados Vigentes</span>
                 <FileText className="w-4 h-4 text-indigo-400" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-indigo-400">{comunicadosAtivos.length}</span>
-                <span className="text-xs text-slate-400 font-semibold">documentos vigentes</span>
+                <span className="text-3xl font-black text-indigo-400">{comunicadosPublicados.length}</span>
+                <span className="text-xs text-slate-400 font-semibold">
+                  {comunicadosPublicados.length === 1 ? "comunicado ativo" : "comunicados ativos"}
+                </span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-3.5">Assinatura digital e hash SHA-256</p>
+              <p className="text-[11px] text-slate-400 mt-3.5">
+                {comunicadosPublicados.length > 0
+                  ? `Publicados no mural oficial • ${totalVisualizacoes} ${totalVisualizacoes === 1 ? "visualização" : "visualizações"}`
+                  : "Nenhum comunicado publicado no momento"}
+              </p>
             </div>
 
-            <div className="p-6 rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm shadow-sm">
+            <div className="p-6 rounded-[24px] border border-white/20 bg-[#0B1020]/90 backdrop-blur-xl shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Taxa Geral de Ciência</span>
                 <CheckCircle2 className="w-4 h-4 text-[#06b6d4]" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
                 <span className="text-3xl font-black text-[#06b6d4]">{taxaGeral}%</span>
-                <span className="text-xs text-slate-400 font-semibold">{totalCiencias} / {totalEsperado} ciências</span>
+                <span className="text-xs text-slate-400 font-semibold">
+                  {totalCiencias} / {totalEsperado} {totalEsperado === 1 ? "ciência confirmada" : "ciências confirmadas"}
+                </span>
               </div>
               <div className="w-full bg-slate-800 h-1.5 rounded-full mt-3.5 overflow-hidden">
-                <div className="bg-gradient-to-r from-indigo-500 to-[#06b6d4] h-full transition-all duration-500" style={{ width: `${taxaGeral}%` }} />
+                <div
+                  className="bg-gradient-to-r from-indigo-500 to-[#06b6d4] h-full transition-all duration-500"
+                  style={{ width: `${taxaGeral}%` }}
+                />
               </div>
             </div>
 
-            <div className="p-6 rounded-[24px] border border-rose-500/35 bg-[#180a10]/80 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+            <div
+              className={`p-6 rounded-[24px] backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.22)] ${
+                pendentesCriticos > 0
+                  ? "border border-rose-500/35 bg-[#180a10]/80"
+                  : "border border-emerald-500/25 bg-[#0B1020]/90"
+              }`}
+            >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">Ciências Pendentes</span>
-                <AlertTriangle className="w-4 h-4 text-rose-400" />
+                <span
+                  className={`text-xs font-bold uppercase tracking-wider ${
+                    pendentesCriticos > 0 ? "text-rose-400" : "text-emerald-400"
+                  }`}
+                >
+                  Ciências Pendentes
+                </span>
+                {pendentesCriticos > 0 ? (
+                  <AlertTriangle className="w-4 h-4 text-rose-400" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                )}
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-3xl font-black text-[#ef4444]">{pendentesCriticos}</span>
-                <span className="text-xs text-[#ef4444]/80 font-semibold">
-                  {pendentesCriticos > 0 ? "Aguardando confirmação" : "Tudo em dia"}
+                <span
+                  className={`text-3xl font-black ${
+                    pendentesCriticos > 0 ? "text-[#ef4444]" : "text-emerald-400"
+                  }`}
+                >
+                  {pendentesCriticos}
+                </span>
+                <span
+                  className={`text-xs font-semibold ${
+                    pendentesCriticos > 0 ? "text-[#ef4444]/85" : "text-emerald-300/85"
+                  }`}
+                >
+                  {pendentesCriticos === 1
+                    ? "colaborador aguardando ciência"
+                    : pendentesCriticos > 1
+                    ? "aguardando confirmação"
+                    : "Tudo em dia"}
                 </span>
               </div>
-              <p className="text-[11px] text-[#ef4444]/80 mt-3.5">
-                {pendentesCriticos > 0 ? "Notificações automáticas ativas no mural" : "Nenhuma pendência crítica"}
+              <p
+                className={`text-[11px] mt-3.5 ${
+                  pendentesCriticos > 0 ? "text-[#ef4444]/80" : "text-slate-400"
+                }`}
+              >
+                {pendentesCriticos > 0
+                  ? "Disponível para leitura e confirmação no mural"
+                  : "Todos os destinatários confirmaram ciência"}
               </p>
             </div>
           </div>
@@ -668,8 +704,8 @@ export function PainelRHClient({
 
                   <div className="rounded-2xl border border-slate-200 dark:border-white/8 bg-slate-50 dark:bg-white/[0.03] p-4 space-y-2.5 backdrop-blur-sm">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400 font-medium">Total cadastrados:</span>
-                      <span className="font-bold text-slate-900 dark:text-white font-mono">{comunicadosAtivos.length}</span>
+                      <span className="text-slate-400 font-medium">Comunicados vigentes:</span>
+                      <span className="font-bold text-slate-900 dark:text-white font-mono">{comunicadosPublicados.length}</span>
                     </div>
                     <div className="h-px bg-white/[0.04]" />
                     <div className="flex items-center justify-between text-xs">
@@ -825,7 +861,7 @@ export function PainelRHClient({
                   Gestão de Comunicados Internos
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Monitore adesão, ciências nominais e trilhas criptográficas por documento (Prov. 213/2026)
+                  Monitore publicações, visualizações e ciências nominais por colaborador (Prov. 213/2026)
                 </p>
               </div>
 
@@ -873,7 +909,7 @@ export function PainelRHClient({
                     <th className="px-5 py-3.5">Destinatários</th>
                     <th className="px-5 py-3.5">Adesão / Ciências</th>
                     <th className="px-5 py-3.5">Status</th>
-                    <th className="px-5 py-3.5 text-right">Ações (Fix V3)</th>
+                    <th className="px-5 py-3.5 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 text-slate-200">
@@ -889,7 +925,7 @@ export function PainelRHClient({
                     </tr>
                   ) : (
                     filteredComunicados.map((item) => {
-                    const percent = Math.round((item.ciencias / item.total) * 100);
+                    const percent = item.total > 0 ? Math.min(100, Math.round((item.ciencias / item.total) * 100)) : 0;
                     const isExcluido = item.status === "EXCLUIDO";
 
                     return (
@@ -901,8 +937,15 @@ export function PainelRHClient({
                       >
                         <td className="px-5 py-3.5 font-bold text-slate-900 dark:text-white">
                           <div className="flex items-center gap-2">
-                            <FileText className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                            <span>{item.titulo}</span>
+                            <button
+                              type="button"
+                              onClick={() => setViewComunicadoModal(item)}
+                              title="Clique para visualizar este comunicado"
+                              className="inline-flex items-center gap-2 text-left font-bold text-slate-900 dark:text-white hover:text-cyan-400 transition-colors cursor-pointer group/comtitle"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-indigo-400 group-hover/comtitle:text-cyan-400 shrink-0 transition-colors" />
+                              <span className="group-hover/comtitle:underline">{item.titulo}</span>
+                            </button>
                             {item.anexos && item.anexos.length > 0 && (
                               <a
                                 href={`/api/comunicados/anexo/${item.anexos[0].id}`}
@@ -975,11 +1018,12 @@ export function PainelRHClient({
                               <Pencil className="w-4 h-4" />
                             </button>
 
-                            {/* ClipboardList / Shield (Auditoria) */}
+                            {/* Trilha de Auditoria Nominal Real */}
                             <button
-                              onClick={() => setAuditModalOpen(true)}
-                              title="Trilha de Auditoria e Ciências (45 Usuários)"
-                              className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-white/5 rounded-lg transition-colors"
+                              type="button"
+                              onClick={() => setAuditComunicado(item)}
+                              title={`Trilha de Auditoria e Ciências (${item.ciencias}/${item.total})`}
+                              className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
                             >
                               <ScrollText className="w-4 h-4" />
                             </button>
@@ -1235,7 +1279,7 @@ export function PainelRHClient({
                   <div className="truncate">
                     <p className="text-xs font-bold text-white truncate">{viewComunicadoModal.anexos[0].nomeOriginal}</p>
                     <p className="text-[10px] text-slate-400 font-mono">
-                      {(viewComunicadoModal.anexos[0].tamanhoBytes / 1024).toFixed(1)} KB • Custódia com Hash SHA-256
+                      {(viewComunicadoModal.anexos[0].tamanhoBytes / 1024).toFixed(1)} KB • Documento PDF oficial
                     </p>
                   </div>
                 </div>
@@ -1250,13 +1294,6 @@ export function PainelRHClient({
                 </a>
               </div>
             )}
-
-            <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl space-y-1 text-xs">
-              <span className="text-[10px] font-mono uppercase text-indigo-300">Hash SHA-256 da Portaria:</span>
-              <p className="font-mono text-[11px] text-cyan-300 break-all">
-                {viewComunicadoModal.conteudoHash || "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
-              </p>
-            </div>
 
             <div className="flex justify-end pt-2">
               <Button onClick={() => setViewComunicadoModal(null)} className="bg-white/10 hover:bg-white/20 text-xs">
@@ -1340,19 +1377,19 @@ export function PainelRHClient({
         </div>
       )}
 
-      {/* Modal Auditoria (45 Usuários, Export CSV, QR Link) */}
-      {auditModalOpen && (
+      {/* Modal Auditoria Nominal por Comunicado */}
+      {auditComunicado && (
         <ComunicadoAuditModal
-          comunicadoTitulo="Alteração de Horário - Plantão de Fim de Ano"
-          totalDestinatarios={45}
-          totalViews={40}
-          totalCiencias={32}
-          auditorias={mockAuditorias45}
-          onClose={() => setAuditModalOpen(false)}
+          comunicadoTitulo={auditComunicado.titulo}
+          totalDestinatarios={auditComunicado.total}
+          totalViews={auditComunicado.views}
+          totalCiencias={auditComunicado.ciencias}
+          auditorias={auditComunicado.auditorias || []}
+          onClose={() => setAuditComunicado(null)}
         />
       )}
 
-      {/* Modal Excluir Comunicado (Soft-delete WORM) */}
+      {/* Modal Excluir Comunicado */}
       {comunicadoToDelete && (
         <DeleteConfirmModal
           isOpen={deleteComunicadoModal}
@@ -1362,8 +1399,8 @@ export function PainelRHClient({
           }}
           onConfirm={confirmDeleteComunicado}
           title="Excluir Comunicado Interno"
-          itemDescription={`"${comunicadoToDelete.titulo}" (${comunicadoToDelete.ciencias} ciências registradas com hash)`}
-          wormWarning="32 ciências com hash válido. Por Provimento 213/2026 Art. 7, a exclusão não apaga a trilha de auditoria, apenas arquiva em custódia por 5 anos com hash imutável."
+          itemDescription={`"${comunicadoToDelete.titulo}" (${comunicadoToDelete.ciencias} ${comunicadoToDelete.ciencias === 1 ? "ciência registrada" : "ciências registradas"})`}
+          wormWarning={`${comunicadoToDelete.ciencias} ${comunicadoToDelete.ciencias === 1 ? "ciência registrada" : "ciências registradas"}. Por Provimento 213/2026 Art. 7, a exclusão preserva o histórico nominal de ciência por 5 anos.`}
         />
       )}
 

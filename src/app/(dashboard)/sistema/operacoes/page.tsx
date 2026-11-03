@@ -22,6 +22,10 @@ const FALLBACK_SNAPSHOT: OperationsHealthSnapshot = {
     { id: 'vercel', name: 'Vercel Edge & Serverless', status: 'unknown', latencyMs: null, lastSignalAt: 'Não disponível', provenance: 'unavailable', details: 'Hospedagem e computação em nuvem' },
     { id: 'connector', name: 'FIORIX Connector', status: 'unknown', latencyMs: null, lastSignalAt: 'Não disponível', provenance: 'unavailable', details: 'Serviço Windows no servidor do cartório' },
     { id: 'webri-sql', name: 'WEBRI SQL', status: 'unknown', latencyMs: null, lastSignalAt: 'Não disponível', provenance: 'unavailable', details: 'SQL Server corporativo do cartório' },
+    { id: 'connector-doc-worker', name: 'Worker Documental 24/7', status: 'unknown', latencyMs: null, lastSignalAt: 'Não disponível', provenance: 'unavailable', details: 'Fila de pesquisas, extração e assinaturas' },
+    { id: 'connector-smb-acervo', name: 'Acervo SMB (W: / H: / K:)', status: 'unknown', latencyMs: null, lastSignalAt: 'Não disponível', provenance: 'unavailable', details: 'Unidades mapeadas do acervo e índice em RAM' },
+    { id: 'connector-file-server', name: 'File Server LAN (:8765)', status: 'unknown', latencyMs: null, lastSignalAt: 'Não disponível', provenance: 'unavailable', details: 'Streaming HTTP Range 206 + blocos HTTPS' },
+    { id: 'connector-sqlite-wal', name: 'Buffer SQLite WAL & Rust CLI', status: 'unknown', latencyMs: null, lastSignalAt: 'Não disponível', provenance: 'unavailable', details: 'Persistência local anti-perda e motor nativo' },
     { id: 'github', name: 'GitHub CI/CD', status: 'unknown', latencyMs: null, lastSignalAt: 'Não disponível', provenance: 'unavailable', details: 'Pipeline de compilação e deploy contínuo' },
   ],
   incrementalModules: [
@@ -31,6 +35,7 @@ const FALLBACK_SNAPSHOT: OperationsHealthSnapshot = {
     { module: 'Tarefas', key: 'tarefas', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 3600, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
     { module: 'Retornos', key: 'retornos', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 3600, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
     { module: 'Impressões', key: 'impressoes', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: true, expectedIntervalSeconds: 3600, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
+    { module: 'Safras & Prenotações', key: 'safras', status: 'UNKNOWN', lastSyncAt: null, nextExpectedAt: null, delaySeconds: null, recordsCount: null, isIncremental: false, expectedIntervalSeconds: 3600, provenance: 'unavailable', statusNote: 'Aguardando telemetria' },
   ],
   connector: {
     status: 'UNKNOWN',
@@ -59,7 +64,7 @@ const FALLBACK_SNAPSHOT: OperationsHealthSnapshot = {
     provenance: 'calculated',
     note: 'Métricas agregadas em contingência temporária',
   },
-  recentBatches: { bi: [], produtividade: [], metas: [], tarefas: [], retornos: [], impressoes: [], andamentos: [] },
+  recentBatches: { bi: [], produtividade: [], metas: [], tarefas: [], retornos: [], impressoes: [], safras: [], andamentos: [] },
   incidents: [],
   alerts: [
     { id: 'err-1', severity: 'WARNING', title: 'Carregamento com dados de contingência', detail: 'O serviço de saúde encontrou uma oscilação na consulta inicial.', timeAgo: 'agora' },

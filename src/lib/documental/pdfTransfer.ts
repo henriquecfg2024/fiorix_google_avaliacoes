@@ -6,7 +6,7 @@
  * a partir de qualquer estação, Mac, tablet ou celular.
  */
 
-export const TAMANHO_BLOCO_PDF_HTTPS = 2_516_582; // 2,4 MB bruto (~3,2 MB em base64, abaixo do limite de 4,5 MB)
+export const TAMANHO_BLOCO_PDF_HTTPS = 2_097_152; // 2,0 MB bruto (~2,67 MB em base64, ágil em redes móveis e seguro abaixo de 4,5 MB)
 
 export class LinkLocalExpiradoError extends Error {
   constructor(msg = 'Link temporário do PDF expirado.') {
@@ -251,51 +251,86 @@ export async function baixarPdfEmBlocosViaHttps(opcoes: {
   const partes: Uint8Array[] = [];
   onProgress?.(0, total);
 
-  // Limite de segurança de 85 blocos (~204 MB)
-  for (let blocoIdx = 0; blocoIdx < 85; blocoIdx++) {
-    const postRes = await fetch('/api/gestao-documental', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        connectorId,
-        type: 'read_document_chunk',
-        rootId,
-        relativePath,
-        offset,
-        length: TAMANHO_BLOCO_PDF_HTTPS,
-      }),
-    });
-    const postBody = await postRes.json();
-    if (!postRes.ok) {
-      throw new Error(postBody.error || 'Falha ao solicitar bloco do PDF ao Connector.');
-    }
-
+  // Limite de segurança de 110 blocos (~220 MB)
+  for (let blocoIdx = 0; blocoIdx < 110; blocoIdx++) {
     let chunkData: ChunkJobPayload | null = null;
-    if (postBody.status === 'complete' && postBody.result) {
-      chunkData = postBody.result as ChunkJobPayload;
-    } else {
-      const deadline = Date.now() + 45000;
-      let tent = 0;
-      while (Date.now() < deadline) {
-        await new Promise(r => setTimeout(r, tent === 0 ? 160 : tent < 5 ? 300 : 480));
-        tent++;
-        const pollRes = await fetch('/api/gestao-documental?id=' + encodeURIComponent(postBody.id), {
-          cache: 'no-store',
+    let ultimoErroBloco: Error | null = null;
+
+    for (let tentativaBloco = 0; tentativaBloco < 3; tentativaBloco++) {
+      if (tentativaBloco > 0) {
+        await new Promise(r => setTimeout(r, 400 * tentativaBloco));
+      }
+      try {
+        const postRes = await fetch('/api/gestao-documental', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            connectorId,
+            type: 'read_document_chunk',
+            rootId,
+            relativePath,
+            offset,
+            length: TAMANHO_BLOCO_PDF_HTTPS,
+          }),
         });
-        const pollState = await pollRes.json();
-        if (!pollRes.ok) throw new Error(pollState.error || 'Erro ao baixar bloco do documento.');
-        if (pollState.status === 'complete' && pollState.result) {
-          chunkData = pollState.result as ChunkJobPayload;
+        const postBody = await postRes.json();
+        if (!postRes.ok) {
+          throw new Error(postBody.error || 'Falha ao solicitar bloco do PDF ao Connector.');
+        }
+
+        if (postBody.status === 'complete' && postBody.result) {
+          chunkData = postBody.result as ChunkJobPayload;
           break;
         }
-        if (pollState.status === 'failed') {
-          throw new Error('O Connector não conseguiu ler o arquivo PDF solicitado.');
+
+        const deadline = Date.now() + 45000;
+        let tent = 0;
+        let conectorDesatualizado = false;
+        while (Date.now() < deadline) {
+          await new Promise(r => setTimeout(r, tent === 0 ? 160 : tent < 5 ? 300 : 480));
+          tent++;
+          const pollRes = await fetch('/api/gestao-documental?id=' + encodeURIComponent(postBody.id), {
+            cache: 'no-store',
+          });
+          const pollState = await pollRes.json();
+          if (!pollRes.ok) throw new Error(pollState.error || 'Erro ao baixar bloco do documento.');
+          if (pollState.status === 'complete' && pollState.result) {
+            chunkData = pollState.result as ChunkJobPayload;
+            break;
+          }
+          if (pollState.status === 'failed') {
+            const detalheErro =
+              pollState.result && typeof pollState.result === 'object' && typeof (pollState.result as Record<string, unknown>).error === 'string'
+                ? String((pollState.result as Record<string, unknown>).error)
+                : '';
+            if (!detalheErro && blocoIdx === 0) {
+              conectorDesatualizado = true;
+              throw new Error(
+                'O serviço FIORIX Connector no servidor Windows precisa ser reiniciado uma vez ' +
+                  '(execute reiniciar-servico-connector.bat como Administrador) para liberar a transferência de PDFs grandes no iPhone/Safari.',
+              );
+            }
+            throw new Error(
+              detalheErro
+                ? `O Connector não conseguiu ler o arquivo PDF solicitado (${detalheErro}).`
+                : 'O Connector não conseguiu ler o arquivo PDF solicitado.',
+            );
+          }
+        }
+
+        if (chunkData) break;
+        if (conectorDesatualizado) break;
+        ultimoErroBloco = new Error('Tempo limite excedido durante a transferência de um bloco do PDF.');
+      } catch (err) {
+        ultimoErroBloco = err instanceof Error ? err : new Error('Falha ao transferir bloco do PDF.');
+        if (ultimoErroBloco.message.includes('reiniciar-servico-connector.bat')) {
+          throw ultimoErroBloco;
         }
       }
     }
 
     if (!chunkData) {
-      throw new Error('Tempo limite excedido durante a transferência do PDF.');
+      throw ultimoErroBloco || new Error('Tempo limite excedido durante a transferência do PDF.');
     }
 
     if (typeof chunkData.chunkBase64 !== 'string') {

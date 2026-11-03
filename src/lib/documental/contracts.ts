@@ -82,7 +82,7 @@ export const documentResult = z.object({
 export const connectorMessage = z.discriminatedUnion('action', [
   z.object({ action: z.literal('claim'), connectorId: z.string().min(1).max(128) }).strict(),
   z.object({ action: z.literal('complete'), connectorId: z.string().min(1).max(128), id: z.string().uuid(), result: z.union([documentResult, z.record(z.string(), z.any()), z.array(z.any())]) }).strict(),
-  z.object({ action: z.literal('fail'), connectorId: z.string().min(1).max(128), id: z.string().uuid() }).strict(),
+  z.object({ action: z.literal('fail'), connectorId: z.string().min(1).max(128), id: z.string().uuid(), error: z.string().max(300).optional() }).strict(),
 ]);
 
 // ─── Manifestações: fila de conferência e histórico ─────────────────────────

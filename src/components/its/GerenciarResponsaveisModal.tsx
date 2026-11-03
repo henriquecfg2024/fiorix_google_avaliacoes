@@ -8,6 +8,9 @@ import {
   BadgeCheck,
   Eye,
   UserMinus,
+  UserPlus,
+  ChevronDown,
+  ChevronUp,
   ArrowLeftRight,
   CheckCircle2,
   AlertCircle,
@@ -70,6 +73,9 @@ export function GerenciarResponsaveisModal({
   const [motivoRemocao, setMotivoRemocao] = useState('');
   const [removendo, setRemovendo] = useState(false);
 
+  // Seção "Conceder Acesso a Novo Colaborador" sempre oculta por padrão
+  const [concederAcessoAberto, setConcederAcessoAberto] = useState(false);
+
   // Transferência de responsabilidade principal
   const [transferirModal, setTransferirModal] = useState(false);
   const [transferirParaId, setTransferirParaId] = useState('');
@@ -93,6 +99,8 @@ export function GerenciarResponsaveisModal({
           setConfirmarRemocao(null);
         } else if (transferirModal) {
           setTransferirModal(false);
+        } else if (concederAcessoAberto) {
+          setConcederAcessoAberto(false);
         } else {
           onClose();
         }
@@ -100,7 +108,7 @@ export function GerenciarResponsaveisModal({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose, confirmarRemocao, transferirModal]);
+  }, [isOpen, onClose, confirmarRemocao, transferirModal, concederAcessoAberto]);
 
   // Função para buscar colaboradores
   async function carregarBusca(setor?: string, termo?: string) {
@@ -138,8 +146,10 @@ export function GerenciarResponsaveisModal({
       setModalError('');
       setModalSuccess('');
       setBuscaParticipante('');
+      setFiltroSetor('TODOS');
       setResultadosBusca([]);
       setConfirmarRemocao(null);
+      setConcederAcessoAberto(false);
       setTransferirModal(false);
 
       const res = await getParticipantesIt(itId!);
@@ -150,8 +160,6 @@ export function GerenciarResponsaveisModal({
           setModalError(res.error || 'Erro ao carregar participantes.');
         }
         setLoading(false);
-        // Pré-carrega colaboradores disponíveis
-        carregarBusca('TODOS', '');
       }
     }
 
@@ -469,126 +477,171 @@ export function GerenciarResponsaveisModal({
             )}
           </div>
 
-          {/* Conceder Acesso a Colaborador (Apenas para Responsável Principal ou Gestão/Substituto) */}
+          {/* Conceder Acesso a Colaborador (Sempre oculto por padrão; expansível sob demanda) */}
           {podeGerenciar && (
-            <div className="border-t border-white/10 pt-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                    Conceder Acesso a Novo Colaborador
-                  </h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Como {userRole === 'SUBSTITUTO' ? 'Oficial Substituto' : 'gestor'}, você pode conceder acesso de leitura a qualquer colaborador.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-2">
-                {/* Campo de Busca */}
-                <div className="relative flex-1">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Buscar por nome, e-mail ou cargo..."
-                    value={buscaParticipante}
-                    onChange={(e) => {
-                      setBuscaParticipante(e.target.value);
-                    }}
-                    onKeyDown={(e) => e.key === 'Enter' && carregarBusca(filtroSetor, buscaParticipante)}
-                    className="w-full pl-9 pr-4 py-2 rounded-xl border border-white/15 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-all"
-                  />
-                </div>
-
-                {/* Filtro por Setor */}
-                {setoresDisponiveis.length > 0 && (
-                  <div className="relative shrink-0 sm:w-44">
-                    <select
-                      value={filtroSetor}
-                      onChange={(e) => {
-                        const s = e.target.value;
-                        setFiltroSetor(s);
-                        carregarBusca(s, buscaParticipante);
-                      }}
-                      className="w-full px-3 py-2 rounded-xl border border-white/20 bg-[#0B1020]/90 text-xs text-slate-300 focus:outline-none focus:border-indigo-500/60 cursor-pointer"
-                    >
-                      <option value="TODOS">Todos os setores</option>
-                      {setoresDisponiveis.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
+            <div className="border-t border-white/10 pt-4">
+              {!concederAcessoAberto ? (
                 <button
                   type="button"
-                  onClick={() => carregarBusca(filtroSetor, buscaParticipante)}
-                  disabled={buscandoUser}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                  aria-expanded={false}
+                  onClick={() => {
+                    setConcederAcessoAberto(true);
+                    if (resultadosBusca.length === 0) {
+                      carregarBusca(filtroSetor, buscaParticipante);
+                    }
+                  }}
+                  className="w-full flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-indigo-500/10 hover:border-indigo-500/30 px-4 py-3 text-left transition-all cursor-pointer group"
                 >
-                  {buscandoUser ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-                  <span>{buscandoUser ? 'Buscando...' : 'Buscar'}</span>
-                </button>
-              </div>
-
-              {/* Resultados da Busca */}
-              {resultadosBusca.length > 0 ? (
-                <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-                  {resultadosBusca.map((u) => (
-                    <div
-                      key={u.id}
-                      className="flex items-center justify-between gap-3 bg-white/[0.03] rounded-xl p-3 border border-white/10 hover:border-white/20 transition-all"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-white truncate">{u.nome}</p>
-                        <p className="text-[10px] text-slate-400 truncate">
-                          {u.departamento}{u.cargo ? ` · ${u.cargo}` : ''}
-                        </p>
-                        {!u.mesmoSetor && !isGestao && (
-                          <p className="text-[10px] text-amber-400 mt-0.5">
-                            ⚠ Outro setor — requer aprovação administrativa
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex gap-1.5 shrink-0">
-                        {/* Botão Conceder Leitura (principal) */}
-                        <button
-                          type="button"
-                          onClick={() => handleAdicionar(u.id, 'LEITOR')}
-                          disabled={adicionandoId === u.id}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold transition-all disabled:opacity-50 cursor-pointer shadow-xs"
-                          title="Conceder acesso de leitura"
-                        >
-                          {adicionandoId === u.id ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : (
-                            <Eye className="w-3 h-3" />
-                          )}
-                          <span>+ Conceder Leitura</span>
-                        </button>
-
-                        {/* Botão Corresponsável */}
-                        <button
-                          type="button"
-                          onClick={() => handleAdicionar(u.id, 'CORRESPONSAVEL')}
-                          disabled={adicionandoId === u.id}
-                          className="px-2.5 py-1.5 rounded-lg bg-violet-600/70 hover:bg-violet-500 text-white text-[10px] font-semibold transition-colors disabled:opacity-50 cursor-pointer"
-                          title="Adicionar como corresponsável técnico"
-                        >
-                          + Corresponsável
-                        </button>
-                      </div>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center text-indigo-400 shrink-0 group-hover:bg-indigo-500/25 transition-colors">
+                      <UserPlus className="w-4 h-4" />
                     </div>
-                  ))}
-                </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-200 group-hover:text-white transition-colors">
+                        Conceder Acesso a Novo Colaborador
+                      </p>
+                      <p className="text-[11px] text-slate-400 truncate">
+                        Clique para exibir a busca e liberar leitura ou corresponsabilidade
+                      </p>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 group-hover:bg-indigo-600 group-hover:text-white text-xs font-semibold shrink-0 transition-all">
+                    <span>+ Conceder acesso</span>
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </span>
+                </button>
               ) : (
-                !buscandoUser && (
-                  <p className="text-[11px] text-slate-500 italic py-2">
-                    Nenhum outro colaborador disponível encontrado para os filtros selecionados.
-                  </p>
-                )
+                <div className="rounded-2xl border border-indigo-500/25 bg-white/[0.02] p-4 space-y-3 animate-in fade-in duration-150">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
+                        <UserPlus className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Conceder Acesso a Novo Colaborador</span>
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Como {userRole === 'SUBSTITUTO' ? 'Oficial Substituto' : 'gestor'}, você pode conceder acesso de leitura a qualquer colaborador.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      aria-expanded={true}
+                      onClick={() => setConcederAcessoAberto(false)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-[11px] font-semibold shrink-0 transition-colors cursor-pointer"
+                      title="Ocultar seção de concessão de acesso"
+                    >
+                      <span>Ocultar</span>
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    {/* Campo de Busca */}
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Buscar por nome, e-mail ou cargo..."
+                        value={buscaParticipante}
+                        onChange={(e) => {
+                          setBuscaParticipante(e.target.value);
+                        }}
+                        onKeyDown={(e) => e.key === 'Enter' && carregarBusca(filtroSetor, buscaParticipante)}
+                        className="w-full pl-9 pr-4 py-2 rounded-xl border border-white/15 bg-white/5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 transition-all"
+                      />
+                    </div>
+
+                    {/* Filtro por Setor */}
+                    {setoresDisponiveis.length > 0 && (
+                      <div className="relative shrink-0 sm:w-44">
+                        <select
+                          value={filtroSetor}
+                          onChange={(e) => {
+                            const s = e.target.value;
+                            setFiltroSetor(s);
+                            carregarBusca(s, buscaParticipante);
+                          }}
+                          className="w-full px-3 py-2 rounded-xl border border-white/20 bg-[#0B1020]/90 text-xs text-slate-300 focus:outline-none focus:border-indigo-500/60 cursor-pointer"
+                        >
+                          <option value="TODOS">Todos os setores</option>
+                          {setoresDisponiveis.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => carregarBusca(filtroSetor, buscaParticipante)}
+                      disabled={buscandoUser}
+                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                    >
+                      {buscandoUser ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                      <span>{buscandoUser ? 'Buscando...' : 'Buscar'}</span>
+                    </button>
+                  </div>
+
+                  {/* Resultados da Busca */}
+                  {resultadosBusca.length > 0 ? (
+                    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                      {resultadosBusca.map((u) => (
+                        <div
+                          key={u.id}
+                          className="flex items-center justify-between gap-3 bg-white/[0.03] rounded-xl p-3 border border-white/10 hover:border-white/20 transition-all"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-white truncate">{u.nome}</p>
+                            <p className="text-[10px] text-slate-400 truncate">
+                              {u.departamento}{u.cargo ? ` · ${u.cargo}` : ''}
+                            </p>
+                            {!u.mesmoSetor && !isGestao && (
+                              <p className="text-[10px] text-amber-400 mt-0.5">
+                                ⚠ Outro setor — requer aprovação administrativa
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex gap-1.5 shrink-0">
+                            {/* Botão Conceder Leitura (principal) */}
+                            <button
+                              type="button"
+                              onClick={() => handleAdicionar(u.id, 'LEITOR')}
+                              disabled={adicionandoId === u.id}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold transition-all disabled:opacity-50 cursor-pointer shadow-xs"
+                              title="Conceder acesso de leitura"
+                            >
+                              {adicionandoId === u.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Eye className="w-3 h-3" />
+                              )}
+                              <span>+ Conceder Leitura</span>
+                            </button>
+
+                            {/* Botão Corresponsável */}
+                            <button
+                              type="button"
+                              onClick={() => handleAdicionar(u.id, 'CORRESPONSAVEL')}
+                              disabled={adicionandoId === u.id}
+                              className="px-2.5 py-1.5 rounded-lg bg-violet-600/70 hover:bg-violet-500 text-white text-[10px] font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                              title="Adicionar como corresponsável técnico"
+                            >
+                              + Corresponsável
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    !buscandoUser && (
+                      <p className="text-[11px] text-slate-500 italic py-2">
+                        Nenhum outro colaborador disponível encontrado para os filtros selecionados.
+                      </p>
+                    )
+                  )}
+                </div>
               )}
             </div>
           )}

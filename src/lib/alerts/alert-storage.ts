@@ -68,10 +68,26 @@ export interface ConnectorTelemetryData {
   cpuPercent?: number | null;
   queuePending?: number | null;
   queueFailed?: number | null;
+  details?: Record<string, any> | null;
+  recordedAt?: string | null;
 }
 
 // As tabelas já existem no PostgreSQL em produção. Evita rodar 13 comandos DDL pesados em cada invocação serverless.
 let tablesInitialized = true;
+let detailsColumnInitialized = false;
+
+async function ensureConnectorDetailsColumn(): Promise<void> {
+  if (detailsColumnInitialized) return;
+  try {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE public.fiorix_connector_telemetry
+        ADD COLUMN IF NOT EXISTS details JSONB;
+    `);
+    detailsColumnInitialized = true;
+  } catch {
+    // Mantém operação resiliente caso a tabela ainda vá ser criada por ensureAlertTablesExist
+  }
+}
 
 export async function ensureAlertTablesExist(force = false): Promise<void> {
   if (tablesInitialized && !force) return;
@@ -393,26 +409,48 @@ export async function getRecentAlertLogs(tenantId: string, limit = 15): Promise<
 
 export async function recordConnectorTelemetry(data: ConnectorTelemetryData): Promise<void> {
   await ensureAlertTablesExist();
+  await ensureConnectorDetailsColumn();
 
   try {
     const id = randomUUID();
-    await prisma.$executeRawUnsafe(
-      `
-      INSERT INTO public.fiorix_connector_telemetry (
-        id, tenant_id, connector_id, uptime_seconds, ram_mb,
-        cpu_percent, queue_pending, queue_failed, created_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW());
-    `,
-      id,
-      data.tenantId,
-      data.connectorId,
-      data.uptimeSeconds ?? null,
-      data.ramMb ?? null,
-      data.cpuPercent ?? null,
-      data.queuePending ?? null,
-      data.queueFailed ?? null
-    );
+    if (data.details && typeof data.details === 'object') {
+      await prisma.$executeRawUnsafe(
+        `
+        INSERT INTO public.fiorix_connector_telemetry (
+          id, tenant_id, connector_id, uptime_seconds, ram_mb,
+          cpu_percent, queue_pending, queue_failed, details, created_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, NOW());
+      `,
+        id,
+        data.tenantId,
+        data.connectorId,
+        data.uptimeSeconds ?? null,
+        data.ramMb ?? null,
+        data.cpuPercent ?? null,
+        data.queuePending ?? null,
+        data.queueFailed ?? null,
+        JSON.stringify(data.details)
+      );
+    } else {
+      await prisma.$executeRawUnsafe(
+        `
+        INSERT INTO public.fiorix_connector_telemetry (
+          id, tenant_id, connector_id, uptime_seconds, ram_mb,
+          cpu_percent, queue_pending, queue_failed, created_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW());
+      `,
+        id,
+        data.tenantId,
+        data.connectorId,
+        data.uptimeSeconds ?? null,
+        data.ramMb ?? null,
+        data.cpuPercent ?? null,
+        data.queuePending ?? null,
+        data.queueFailed ?? null
+      );
+    }
   } catch (err) {
     console.warn('Erro ao gravar telemetria do conector:', err);
   }
@@ -423,6 +461,7 @@ export async function getLatestConnectorTelemetry(
   connectorId: string
 ): Promise<ConnectorTelemetryData | null> {
   await ensureAlertTablesExist();
+  await ensureConnectorDetailsColumn();
 
   try {
     const rows = await prisma.$queryRawUnsafe<any[]>(
@@ -432,7 +471,9 @@ export async function getLatestConnectorTelemetry(
         ram_mb as "ramMb",
         cpu_percent as "cpuPercent",
         queue_pending as "queuePending",
-        queue_failed as "queueFailed"
+        queue_failed as "queueFailed",
+        details,
+        created_at as "createdAt"
       FROM public.fiorix_connector_telemetry
       WHERE tenant_id = $1 AND connector_id = $2
       ORDER BY created_at DESC
@@ -445,6 +486,10 @@ export async function getLatestConnectorTelemetry(
     if (rows.length === 0) return null;
 
     const r = rows[0];
+    const parsedDetails = r.details
+      ? (typeof r.details === 'string' ? JSON.parse(r.details) : r.details)
+      : null;
+
     return {
       tenantId,
       connectorId,
@@ -453,6 +498,8 @@ export async function getLatestConnectorTelemetry(
       cpuPercent: r.cpuPercent,
       queuePending: r.queuePending,
       queueFailed: r.queueFailed,
+      details: parsedDetails,
+      recordedAt: r.createdAt ? new Date(r.createdAt).toISOString() : null,
     };
   } catch (err) {
     console.warn('Erro ao buscar telemetria mais recente:', err);

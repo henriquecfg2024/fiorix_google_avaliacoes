@@ -24,11 +24,16 @@ const statusPayloadSchema = z.object({
   status: z.enum(['online', 'degraded', 'offline']).optional(),
   uptimeSeconds: z.number().int().nonnegative().optional(),
   ramMb: z.number().int().nonnegative().optional(),
+  heapMb: z.number().int().nonnegative().optional(),
+  cpuPercent: z.number().nonnegative().max(100).nullable().optional(),
   shadowMode: z.boolean().optional(),
   queuePending: z.number().int().nonnegative().optional(),
+  queueSending: z.number().int().nonnegative().optional(),
   queueFailed: z.number().int().nonnegative().optional(),
+  queueQuarantined: z.number().int().nonnegative().optional(),
   schedulerEnabled: z.boolean().optional(),
   sources: z.record(z.string(), sourceStateSchema).optional(),
+  details: z.record(z.string(), z.unknown()).optional(),
 });
 
 function jsonResponse(
@@ -79,8 +84,15 @@ export async function POST(req: Request) {
       sources,
       uptimeSeconds,
       ramMb,
+      heapMb,
+      cpuPercent,
+      shadowMode,
+      schedulerEnabled,
       queuePending,
+      queueSending,
       queueFailed,
+      queueQuarantined,
+      details,
     } = parsed.data;
 
     // Authenticate connector and derive tenant from database authority
@@ -93,28 +105,47 @@ export async function POST(req: Request) {
     tenantIdParaAmostra = tenantId;
     const resolvedConnectorId = authResult.connector.id;
 
-    // Gravar snapshot de telemetria rica (RAM, Uptime, Filas SQLite)
+    const mergedDetails: Record<string, unknown> | null =
+      details || heapMb !== undefined || shadowMode !== undefined || schedulerEnabled !== undefined || queueSending !== undefined || queueQuarantined !== undefined
+        ? {
+            ...(details ?? {}),
+            ...(heapMb !== undefined ? { heapMb } : {}),
+            ...(shadowMode !== undefined ? { shadowMode } : {}),
+            ...(schedulerEnabled !== undefined ? { schedulerEnabled } : {}),
+            ...(queueSending !== undefined ? { queueSending } : {}),
+            ...(queueQuarantined !== undefined ? { queueQuarantined } : {}),
+          }
+        : null;
+
+    // Gravar snapshot de telemetria rica (CPU, RAM, Uptime, Filas SQLite e Subsistemas)
     recordConnectorTelemetry({
       tenantId,
       connectorId: resolvedConnectorId,
       uptimeSeconds,
       ramMb,
+      cpuPercent: cpuPercent ?? null,
       queuePending,
       queueFailed,
+      details: mergedDetails,
     }).catch((telemetryErr) => {
       console.warn('TELEMETRY_RECORD_WARN:', telemetryErr?.message);
     });
 
-    // Se houver falhas acumuladas na fila local, notificar webhook se configurado
-    if (queueFailed && queueFailed > 10) {
+    // Se houver falhas acumuladas ou itens em quarentena na fila local, notificar webhook se configurado
+    if ((queueFailed && queueFailed > 10) || (queueQuarantined && queueQuarantined > 0)) {
       dispatchAlert({
         tenantId,
         eventType: 'sync_failed',
-        title: 'Fila local de sincronizações com falha',
-        message: `O conector local no cartório possui ${queueFailed} pacotes com erro acumulados na fila local.`,
-        severity: 'WARNING',
+        title: queueQuarantined && queueQuarantined > 0
+          ? 'Lotes em quarentena na fila local do Connector'
+          : 'Fila local de sincronizações com falha',
+        message: queueQuarantined && queueQuarantined > 0
+          ? `O conector local possui ${queueQuarantined} lote(s) em quarentena e ${queueFailed ?? 0} pacote(s) com erro na fila SQLite.`
+          : `O conector local no cartório possui ${queueFailed} pacotes com erro acumulados na fila local.`,
+        severity: queueQuarantined && queueQuarantined > 0 ? 'CRITICAL' : 'WARNING',
         metadata: {
-          'Fila com Erros': queueFailed,
+          'Fila em Quarentena': queueQuarantined ?? 0,
+          'Fila com Erros': queueFailed ?? 0,
           'Fila Pendente': queuePending ?? 0,
           'Uptime': uptimeSeconds ? `${Math.round(uptimeSeconds / 60)} min` : 'Desconhecido',
         },
@@ -155,12 +186,14 @@ export async function POST(req: Request) {
 
     // Persistir estado das fontes (inclusive execuções vazias com 0 registros)
     if (sources && typeof sources === 'object') {
-      const allowedSources = ['bi', 'produtividade', 'metas', 'tarefas', 'retornos', 'impressoes'];
+      const allowedSources = ['bi', 'produtividade', 'metas', 'tarefas', 'retornos', 'impressoes', 'safras'];
       for (const [sourceKey, sourceData] of Object.entries(sources)) {
         if (!allowedSources.includes(sourceKey)) continue;
 
         const lastSuccessDate = sourceData.lastSuccessAt ? new Date(sourceData.lastSuccessAt) : null;
         const lastRunDate = sourceData.lastRunAt ? new Date(sourceData.lastRunAt) : null;
+
+        if (!prisma.connectorSourceStatus?.upsert) continue;
 
         await prisma.connectorSourceStatus.upsert({
           where: {

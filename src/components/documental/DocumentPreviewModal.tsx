@@ -275,6 +275,9 @@ export function DocumentPreviewModal({
   useEffect(() => {
     setMounted(true);
     setDispositivoIOS(isIOSOrIPadOS());
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
     setPrefJanelas(lerPreferenciasJanelas());
     const origOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -2206,12 +2209,35 @@ export function DocumentPreviewModal({
                       <a
                         href={pdfUrlResolvida || docAtivo.pdfDataUrl}
                         target="_blank"
-                        rel="noopener noreferrer"
+                        rel={(pdfUrlResolvida || docAtivo.pdfDataUrl || '').startsWith('blob:') ? undefined : 'noopener noreferrer'}
                         className="inline-flex items-center gap-1 rounded bg-[#0F3D6E] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#174E8B] transition shadow-2xs"
                       >
                         <ExternalLink className="h-3 w-3" />
                         <span>{dispositivoIOS ? 'Abrir PDF completo' : 'Abrir em nova aba'}</span>
                       </a>
+                      {dispositivoIOS && docAtivo.pdfBlob && typeof navigator !== 'undefined' && 'share' in navigator && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              if (!docAtivo.pdfBlob) return;
+                              const nomePdf = docAtivo.fileName.toLowerCase().endsWith('.pdf')
+                                ? docAtivo.fileName
+                                : `${docAtivo.fileName}.pdf`;
+                              const file = new File([docAtivo.pdfBlob], nomePdf, { type: 'application/pdf' });
+                              if (!navigator.canShare || navigator.canShare({ files: [file] })) {
+                                await navigator.share({ files: [file], title: nomePdf });
+                              }
+                            } catch {
+                              // Fechado pelo usuário no menu nativo do iOS
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 rounded border border-[#0F3D6E]/30 bg-[#EFF6FF] px-2.5 py-1 text-[11px] font-semibold text-[#0F3D6E] hover:bg-[#DBEAFE] transition"
+                        >
+                          <Download className="h-3 w-3 text-[#0F3D6E]" />
+                          <span>Arquivos / Compartilhar</span>
+                        </button>
+                      )}
                       <a
                         href={pdfUrlResolvida || docAtivo.pdfDataUrl}
                         download={docAtivo.fileName}

@@ -5,6 +5,19 @@ import { requireRole } from '@/lib/auth-helpers';
 import { revalidatePath } from 'next/cache';
 import { recordAuditLog } from '@/lib/audit';
 import { generateHash } from '@/lib/security/hash';
+import { maskIp } from '@/lib/security/requestIp';
+
+export interface ComunicadoAuditRow {
+  id: string;
+  colaboradorNome: string;
+  setor?: string;
+  email: string;
+  visualizou?: boolean;
+  dataCiencia: string;
+  comprovanteHash?: string;
+  ipMascarado: string;
+  scrollPercent?: number;
+}
 
 export interface ComunicadoItem {
   id: string;
@@ -20,6 +33,7 @@ export interface ComunicadoItem {
   conteudoHash?: string;
   ultimaAlteracaoPor?: string;
   dataUltimaAlteracao?: string;
+  auditorias?: ComunicadoAuditRow[];
   anexos?: Array<{
     id: string;
     nomeOriginal: string;
@@ -29,34 +43,105 @@ export interface ComunicadoItem {
   }>;
 }
 
+function formatAutorLabel(autor?: {
+  name: string | null;
+  role?: string | null;
+  departamento?: string | null;
+} | null): string {
+  if (!autor?.name) return 'RH';
+  const deptoUpper = (autor.departamento || '').trim().toUpperCase();
+  const roleUpper = (autor.role || '').trim().toUpperCase();
+  let sufixo = 'Gestão';
+  if (roleUpper === 'RH' || deptoUpper === 'RH' || deptoUpper.includes('RECURSOS HUMANOS')) {
+    sufixo = 'RH';
+  } else if (roleUpper === 'SUBSTITUTO') {
+    sufixo = 'Substituto';
+  } else if (roleUpper === 'ADMIN' || roleUpper === 'MASTER') {
+    sufixo = autor.departamento?.trim() || 'Administração';
+  } else if (autor.departamento?.trim()) {
+    sufixo = autor.departamento.trim();
+  }
+  return `${autor.name} (${sufixo})`;
+}
+
 export async function getComunicadosRH(): Promise<ComunicadoItem[]> {
   const user = await requireRole('ADMIN', 'RH', 'MASTER', 'GESTOR', 'SUBSTITUTO');
 
-  const comunicados = await prisma.fiorixComunicado.findMany({
-    where: {
-      tenantId: user.tenantId,
-      status: { notIn: ['EXCLUIDO', 'excluido'] },
-    },
-    orderBy: {
-      dataPublicacao: 'desc',
-    },
-    include: {
-      ciencias: true,
-      anexos: true,
-      autor: {
-        select: {
-          name: true,
-          email: true,
+  const [comunicados, usuariosTenant] = await Promise.all([
+    prisma.fiorixComunicado.findMany({
+      where: {
+        tenantId: user.tenantId,
+        status: { notIn: ['EXCLUIDO', 'excluido'] },
+      },
+      orderBy: {
+        dataPublicacao: 'desc',
+      },
+      include: {
+        ciencias: true,
+        anexos: true,
+        autor: {
+          select: {
+            name: true,
+            email: true,
+            role: true,
+            departamento: true,
+          },
         },
       },
-    },
-  });
+    }),
+    prisma.user.findMany({
+      where: {
+        tenantId: user.tenantId,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        departamento: true,
+        cargo: true,
+        role: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    }),
+  ]);
 
-  const totalColaboradores = await prisma.user.count({
-    where: {
-      tenantId: user.tenantId,
-    },
-  });
+  const comunicadoIds = comunicados.map((c) => c.id);
+  const logsAcesso =
+    comunicadoIds.length > 0
+      ? await prisma.fiorixAcessoLog
+          .findMany({
+            where: {
+              tenantId: user.tenantId,
+              recursoId: { in: comunicadoIds },
+              tipo: { in: ['comunicado_view', 'comunicado_ciencia'] },
+            },
+            select: {
+              recursoId: true,
+              usuarioId: true,
+              ip: true,
+              dataAcesso: true,
+            },
+            orderBy: { dataAcesso: 'desc' },
+          })
+          .catch(() => [])
+      : [];
+
+  const logsPorComunicado = new Map<string, Map<string, { ip: string | null; dataAcesso: Date }>>();
+  for (const log of logsAcesso) {
+    if (!log.recursoId || !log.usuarioId) continue;
+    let mapaUsuarios = logsPorComunicado.get(log.recursoId);
+    if (!mapaUsuarios) {
+      mapaUsuarios = new Map();
+      logsPorComunicado.set(log.recursoId, mapaUsuarios);
+    }
+    if (!mapaUsuarios.has(log.usuarioId)) {
+      mapaUsuarios.set(log.usuarioId, { ip: log.ip, dataAcesso: log.dataAcesso });
+    }
+  }
+
+  const totalColaboradores = usuariosTenant.length;
 
   return comunicados.map((c) => {
     const dataFmt = c.dataPublicacao
@@ -79,32 +164,97 @@ export async function getComunicadosRH(): Promise<ComunicadoItem[]> {
         })
       : undefined;
 
-    const cienciasCount = c.ciencias ? c.ciencias.length : 0;
-    const viewsCount = c.ciencias ? c.ciencias.filter((ci) => ci.dataVisualizacao).length : 0;
+    const isTodos = !c.destinatarios || c.destinatarios.length === 0 || c.destinatarios.includes('TODOS');
+    const alvosUpper = new Set((c.destinatarios || []).map((d) => d.trim().toUpperCase()));
+    const filtrados = isTodos
+      ? usuariosTenant
+      : usuariosTenant.filter(
+          (u) =>
+            alvosUpper.has(u.id.toUpperCase()) ||
+            (u.departamento && alvosUpper.has(u.departamento.trim().toUpperCase())) ||
+            (u.role && alvosUpper.has(u.role.trim().toUpperCase()))
+        );
+    const destinatariosUsers = filtrados.length > 0 ? filtrados : usuariosTenant;
+
+    const cienciaPorUsuario = new Map(
+      (c.ciencias || []).map((ci) => [ci.usuarioId, ci])
+    );
+    const acessosDoComunicado = logsPorComunicado.get(c.id) || new Map();
+
+    const auditorias: ComunicadoAuditRow[] = destinatariosUsers.map((u) => {
+      const ci = cienciaPorUsuario.get(u.id);
+      const logView = acessosDoComunicado.get(u.id);
+      const confirmouCiencia = Boolean(ci?.dataCiencia);
+      const visualizou = Boolean(confirmouCiencia || ci?.dataVisualizacao || logView);
+
+      const dataCienciaStr = ci?.dataCiencia
+        ? new Date(ci.dataCiencia).toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          })
+        : 'Pendente';
+
+      const ipBruto = ci?.ip || logView?.ip || '';
+      const ipMascarado = ipBruto ? maskIp(ipBruto) : '—';
+
+      return {
+        id: `${c.id}-${u.id}`,
+        colaboradorNome: u.name || u.email,
+        setor: u.departamento || u.cargo || 'Geral',
+        email: u.email,
+        visualizou,
+        dataCiencia: dataCienciaStr,
+        comprovanteHash: ci?.comprovanteHash || undefined,
+        ipMascarado,
+        scrollPercent: ci?.scrollPercent ?? (confirmouCiencia ? 100 : 0),
+      };
+    });
+
+    auditorias.sort((a, b) => {
+      const aConf = a.dataCiencia !== 'Pendente' ? 2 : a.visualizou ? 1 : 0;
+      const bConf = b.dataCiencia !== 'Pendente' ? 2 : b.visualizou ? 1 : 0;
+      if (bConf !== aConf) return bConf - aConf;
+      return a.colaboradorNome.localeCompare(b.colaboradorNome, 'pt-BR');
+    });
+
+    const cienciasCount = c.ciencias
+      ? c.ciencias.filter((ci) => Boolean(ci.dataCiencia)).length || c.ciencias.length
+      : 0;
+    const viewsCount = Math.max(
+      cienciasCount,
+      auditorias.filter((a) => Boolean(a.visualizou)).length
+    );
+    const totalDestinatarios = destinatariosUsers.length || totalColaboradores;
 
     return {
       id: c.id,
       titulo: c.titulo,
       data: dataFmt,
-      autor: c.autor?.name ? `${c.autor.name} (${user.role === 'RH' ? 'RH' : user.role === 'SUBSTITUTO' ? 'Substituto' : 'Gestão'})` : 'RH',
-      destinatarios: c.destinatarios?.includes('TODOS')
-        ? `Todos (${totalColaboradores || 63} colaboradores)`
-        : `${c.destinatarios?.join(', ') || 'Geral'}`,
-      views: viewsCount || Math.max(cienciasCount, 0),
+      autor: formatAutorLabel(c.autor),
+      destinatarios: isTodos
+        ? `Todos (${totalDestinatarios} ${totalDestinatarios === 1 ? 'colaborador' : 'colaboradores'})`
+        : `${c.destinatarios?.join(', ') || 'Geral'} (${totalDestinatarios})`,
+      views: viewsCount,
       ciencias: cienciasCount,
-      total: totalColaboradores || 63,
+      total: totalDestinatarios,
       status: (c.status as any) || 'PUBLICADO',
       conteudo: c.conteudo,
       conteudoHash: c.conteudoHash,
       ultimaAlteracaoPor: (c as any).ultimaAlteracaoPor || undefined,
       dataUltimaAlteracao: dataAltFmt,
-      anexos: c.anexos?.map((a) => ({
-        id: a.id,
-        nomeOriginal: a.nomeOriginal,
-        tamanhoBytes: a.tamanhoBytes,
-        hashSha256: a.hashSha256,
-        storagePath: a.storagePath,
-      })) || [],
+      auditorias,
+      anexos:
+        c.anexos?.map((a) => ({
+          id: a.id,
+          nomeOriginal: a.nomeOriginal,
+          tamanhoBytes: a.tamanhoBytes,
+          hashSha256: a.hashSha256,
+          storagePath: a.storagePath,
+        })) || [],
     };
   });
 }
@@ -117,11 +267,9 @@ export async function deleteComunicadoRH(id: string, motivo?: string) {
   });
 
   if (!com) {
-    // Se o comunicado não foi encontrado no banco, tenta deletar caso exista
     return { success: true };
   }
 
-  // Soft-delete persistente no PostgreSQL com colunas reais
   if (user.role === 'MASTER') {
     await prisma.$executeRawUnsafe(
       `UPDATE public.fiorix_comunicados 
@@ -236,13 +384,14 @@ export async function criarComunicadoRH(data: {
   return {
     success: true,
     id: novo.id,
-    anexos: novo.anexos?.map((a) => ({
-      id: a.id,
-      nomeOriginal: a.nomeOriginal,
-      tamanhoBytes: a.tamanhoBytes,
-      hashSha256: a.hashSha256,
-      storagePath: a.storagePath,
-    })) || [],
+    anexos:
+      novo.anexos?.map((a) => ({
+        id: a.id,
+        nomeOriginal: a.nomeOriginal,
+        tamanhoBytes: a.tamanhoBytes,
+        hashSha256: a.hashSha256,
+        storagePath: a.storagePath,
+      })) || [],
   };
 }
 

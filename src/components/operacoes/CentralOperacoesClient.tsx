@@ -24,6 +24,8 @@ import { OperationsChartsSection } from './OperationsChartsSection';
 import { DeploysVersionsFooter } from './DeploysVersionsFooter';
 import { BatchAuditSection } from './BatchAuditSection';
 import { AlertSettingsSection } from './AlertSettingsSection';
+import { ConnectorSubsystemsSection } from './ConnectorSubsystemsSection';
+import { ProceduresOverviewSection } from './ProceduresOverviewSection';
 
 interface Props {
   initialHealth: OperationsHealthSnapshot;
@@ -499,6 +501,16 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
               </div>
             </div>
 
+            {/* 2.5 Subsistemas Internos do FIORIX Connector (Acervo SMB, Worker 24/7, File Server :8765, Rust CLI, SQLite WAL, Planos SHA-256) */}
+            <ConnectorSubsystemsSection
+              subsystems={health.connector.subsystems}
+              connectorOnline={
+                health.connector.status === 'ONLINE' ||
+                health.connector.status === 'STANDBY' ||
+                health.connector.status === 'DEGRADED'
+              }
+            />
+
             {/* 3. Saúde das Integrações de Negócio (Google Avaliações & NextQS) */}
             <IntegracoesSaudeSection 
               integrations={health.externalIntegrations}
@@ -518,7 +530,11 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
         )}
 
         {activeTab === 'audit' && (
-          <div className="pt-2">
+          <div className="pt-2 space-y-6">
+            <ProceduresOverviewSection
+              modules={health.incrementalModules}
+              recentBatches={health.recentBatches}
+            />
             <BatchAuditSection />
           </div>
         )}

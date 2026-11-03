@@ -26,7 +26,7 @@ export function DeploysVersionsFooter({ deploys }: Props) {
 
           <div className="flex items-center gap-1.5 text-[#94A3B8]">
             <span className="font-sans font-semibold text-[#F1F5F9]">Connector</span>
-            <span className="text-[#818CF8] font-semibold">{deploys.connector.version ?? 'v2.4.0'}</span>
+            <span className="text-[#818CF8] font-semibold">{deploys.connector.version ?? 'v2.5.0'}</span>
             <span className="text-[#64748B]">({deploys.connector.status || 'Ativo'})</span>
           </div>
 

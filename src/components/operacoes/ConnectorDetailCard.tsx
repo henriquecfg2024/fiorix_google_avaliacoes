@@ -43,6 +43,9 @@ export function ConnectorDetailCard({ connector, onRefresh }: Props) {
   };
 
   const hasBacklog = Boolean(connector.pendingQueue && connector.pendingQueue > 0);
+  const hasQuarantine = Boolean(connector.quarantinedQueue && connector.quarantinedQueue > 0);
+  const hasFailedQueue = Boolean(connector.failedQueue && connector.failedQueue > 0);
+  const gov = connector.subsystems?.sqliteAndResilience.governance;
 
   return (
     <div className="rounded-2xl border border-[#1E293B] bg-[#111729] p-5 shadow-sm space-y-4 h-full flex flex-col justify-between">
@@ -55,7 +58,9 @@ export function ConnectorDetailCard({ connector, onRefresh }: Props) {
             </span>
             <div>
               <h3 className="font-semibold text-xs text-[#F1F5F9]">FIORIX Connector</h3>
-              <p className="text-[10px] text-[#64748B]">Serviço Windows Local</p>
+              <p className="text-[10px] text-[#64748B]">
+                {connector.pid ? `Serviço Windows · PID ${connector.pid}` : 'Serviço Windows Local'}
+              </p>
             </div>
           </div>
           <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase border font-mono ${pillClass}`}>
@@ -64,10 +69,12 @@ export function ConnectorDetailCard({ connector, onRefresh }: Props) {
         </div>
 
         {/* Telemetria em Lista Compacta */}
-        <div className="space-y-2.5 text-xs divide-y divide-[#1E293B]/40 font-mono">
+        <div className="space-y-2 text-xs divide-y divide-[#1E293B]/40 font-mono">
           <div className="flex items-center justify-between pt-1">
             <span className="text-[#64748B] font-sans">Origem</span>
-            <span className="text-[#F1F5F9] text-[11px] truncate">{connector.server || 'Servidor Cartório'}</span>
+            <span className="text-[#F1F5F9] text-[11px] truncate max-w-[180px]" title={connector.server}>
+              {connector.server || 'Servidor Cartório'}
+            </span>
           </div>
 
           <div className="flex items-center justify-between pt-2">
@@ -83,14 +90,21 @@ export function ConnectorDetailCard({ connector, onRefresh }: Props) {
           </div>
 
           <div className="flex items-center justify-between pt-2">
+            <span className="text-[#64748B] font-sans">Uptime do Serviço</span>
+            <span className="text-[#F1F5F9] text-[11px]">
+              {connector.uptimeFormatted ?? (isOnline ? 'Ativo' : '—')}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between pt-2">
             <span className="text-[#64748B] font-sans flex items-center gap-1">
               <Cpu className="h-3 w-3 text-[#64748B]" />
               Uso de CPU
             </span>
             <span className="text-[#F1F5F9] text-[11px]">
-              {connector.cpuPercent !== null && connector.cpuPercent !== undefined 
-                ? `${connector.cpuPercent}%` 
-                : 'Normal (< 5%)'}
+              {connector.cpuPercent !== null && connector.cpuPercent !== undefined
+                ? `${connector.cpuPercent.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
+                : 'Aguardando amostra'}
             </span>
           </div>
 
@@ -100,15 +114,21 @@ export function ConnectorDetailCard({ connector, onRefresh }: Props) {
               Memória RAM
             </span>
             <span className="text-cyan-400 text-[11px]">
-              {connector.ramMb ? `${connector.ramMb} MB` : '94 MB'}
+              {connector.ramMb !== null && connector.ramMb !== undefined
+                ? `${connector.ramMb} MB${connector.heapMb ? ` (Heap ${connector.heapMb} MB)` : ''}`
+                : 'Aguardando amostra'}
             </span>
           </div>
 
           <div className="flex items-center justify-between pt-2">
-            <span className="text-[#64748B] font-sans">Buffer / Fila SQLite</span>
-            <span className={`text-[11px] font-semibold ${hasBacklog ? 'text-[#F59E0B]' : 'text-[#10B981]'}`}>
-              {connector.pendingQueue !== null 
-                ? (hasBacklog ? `${connector.pendingQueue} pendentes (em envio)` : '0 pendentes • Livre') 
+            <span className="text-[#64748B] font-sans">Fila SQLite WAL</span>
+            <span className={`text-[11px] font-semibold ${
+              hasQuarantine ? 'text-rose-400' : (hasBacklog || hasFailedQueue ? 'text-[#F59E0B]' : 'text-[#10B981]')
+            }`}>
+              {hasQuarantine
+                ? `${connector.quarantinedQueue} quarentena · ${connector.pendingQueue ?? 0} pend`
+                : hasBacklog || hasFailedQueue
+                ? `${connector.pendingQueue ?? 0} pend · ${connector.failedQueue ?? 0} erros`
                 : '0 pendentes • Livre'}
             </span>
           </div>
@@ -126,16 +146,31 @@ export function ConnectorDetailCard({ connector, onRefresh }: Props) {
           </div>
 
           <div className="flex items-center justify-between pt-2">
-            <span className="text-[#64748B] font-sans">Procedures Ativas</span>
-            <span className="text-[#F1F5F9] text-[11px]">6 sincronizações</span>
+            <span className="text-[#64748B] font-sans">Motores Ativos</span>
+            <span className="text-[#F1F5F9] text-[11px]">7 SQL + Documental 24/7</span>
+          </div>
+
+          <div className="flex items-center justify-between pt-2">
+            <span className="text-[#64748B] font-sans">Reconexão Matinal</span>
+            <span className="text-emerald-400 text-[11px]">
+              {gov?.morningReconnectTime?.slice(0, 5) ?? '06:58'} · {gov?.proxyEnabled ? 'Proxy' : 'Direto'}
+            </span>
           </div>
         </div>
 
-        {/* Alerta de Backlog se houver represamento */}
-        {hasBacklog && (
-          <div className="p-2.5 rounded-xl bg-[#F59E0B]/10 border border-[#F59E0B]/20 text-[11px] text-[#F59E0B] flex items-center gap-2">
+        {/* Alerta de Backlog ou Quarentena */}
+        {(hasBacklog || hasQuarantine) && (
+          <div className={`p-2.5 rounded-xl text-[11px] flex items-center gap-2 border ${
+            hasQuarantine
+              ? 'bg-rose-500/10 border-rose-500/25 text-rose-400'
+              : 'bg-[#F59E0B]/10 border-[#F59E0B]/20 text-[#F59E0B]'
+          }`}>
             <AlertTriangle className="h-4 w-4 shrink-0" />
-            <span>Represamento temporário: {connector.pendingQueue} lote(s) aguardando upload para o SaaS.</span>
+            <span>
+              {hasQuarantine
+                ? `Atenção: ${connector.quarantinedQueue} lote(s) retido(s) em quarentena no SQLite local.`
+                : `Represamento temporário: ${connector.pendingQueue} lote(s) aguardando upload para o SaaS.`}
+            </span>
           </div>
         )}
       </div>

@@ -7,7 +7,10 @@ import {
   Workflow, 
   HardDrive, 
   GitBranch, 
-  Layers
+  FileSearch,
+  FolderOpen,
+  Terminal,
+  Cpu
 } from 'lucide-react';
 import type { ServiceHealthItem } from '@/lib/health/types';
 
@@ -24,6 +27,10 @@ export function ServiceHealthGrid({ services }: Props) {
       case 'vercel': return Triangle;
       case 'connector': return Workflow;
       case 'webri-sql': return HardDrive;
+      case 'documental-worker': return FileSearch;
+      case 'smb-acervo': return FolderOpen;
+      case 'local-file-server': return Terminal;
+      case 'rust-cli-sqlite': return Cpu;
       case 'github': return GitBranch;
       default: return Server;
     }
@@ -37,6 +44,10 @@ export function ServiceHealthGrid({ services }: Props) {
       case 'vercel': return 'text-[#94A3B8]';
       case 'connector': return 'text-cyan-400';
       case 'webri-sql': return 'text-purple-400';
+      case 'documental-worker': return 'text-sky-400';
+      case 'smb-acervo': return 'text-emerald-400';
+      case 'local-file-server': return 'text-indigo-400';
+      case 'rust-cli-sqlite': return 'text-amber-400';
       case 'github': return 'text-[#94A3B8]';
       default: return 'text-[#3B82F6]';
     }
@@ -55,8 +66,24 @@ export function ServiceHealthGrid({ services }: Props) {
     }
   };
 
+  const getSignalColor = (status: ServiceHealthItem['status']) => {
+    switch (status) {
+      case 'operational': return 'text-[#10B981]';
+      case 'degraded': return 'text-[#F59E0B]';
+      case 'offline': return 'text-[#F43F5E]';
+      default: return 'text-[#94A3B8]';
+    }
+  };
+
   const platformIds = ['fiorix-web', 'fiorix-api', 'supabase', 'vercel'];
-  const cartorioIds = ['connector', 'webri-sql'];
+  const cartorioIds = [
+    'connector',
+    'webri-sql',
+    'documental-worker',
+    'smb-acervo',
+    'local-file-server',
+    'rust-cli-sqlite',
+  ];
 
   const platformServices = platformIds.map(id => services.find(s => s.id === id)).filter(Boolean) as ServiceHealthItem[];
   const cartorioServices = cartorioIds.map(id => services.find(s => s.id === id)).filter(Boolean) as ServiceHealthItem[];
@@ -111,17 +138,18 @@ export function ServiceHealthGrid({ services }: Props) {
         </div>
       </div>
 
-      {/* Grupo 2: Servidor do Cartório & Banco Local (2 colunas) */}
+      {/* Grupo 2: Servidor do Cartório, Banco Local & Subsistemas Connector (6 cards / 3 colunas) */}
       <div>
         <div className="text-[11px] uppercase font-semibold tracking-wider text-[#64748B] mb-2.5 flex items-center gap-2">
-          <span>Servidor do Cartório & Banco Local</span>
+          <span>Servidor do Cartório & Subsistemas do Connector</span>
           <span className="text-[#1E293B] font-normal">/</span>
-          <span className="text-[10px] text-[#64748B] font-mono font-normal">Conexão & Ingestão Local</span>
+          <span className="text-[10px] text-[#64748B] font-mono font-normal">SQL WEBRI · Worker 24/7 · SMB · Porta 8765 · Rust CLI · SQLite WAL</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {cartorioServices.map((service) => {
             const Icon = getIcon(service.id);
             const iconColor = getIconColor(service.id);
+            const signalColor = getSignalColor(service.status);
 
             return (
               <div
@@ -130,8 +158,8 @@ export function ServiceHealthGrid({ services }: Props) {
                 title={service.reason ? `${service.details || ''} - ${service.reason}` : service.details || undefined}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Icon className={`h-4 w-4 ${iconColor}`} />
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Icon className={`h-4 w-4 ${iconColor} shrink-0`} />
                     <span className="font-semibold text-xs text-[#F1F5F9] truncate">{service.name}</span>
                   </div>
                   {getStatusDot(service.status)}
@@ -139,9 +167,9 @@ export function ServiceHealthGrid({ services }: Props) {
 
                 <div className="flex items-center justify-between text-[11px] text-[#64748B]">
                   <span className="truncate pr-2">{service.details || 'Serviço'}</span>
-                  <span className="font-mono text-[10px] text-[#10B981] shrink-0">
+                  <span className={`font-mono text-[10px] ${signalColor} shrink-0`}>
                     {service.lastSignalAt && service.lastSignalAt !== 'Não disponível' 
-                      ? `${service.lastSignalAt} • ${service.provenance.toUpperCase()}`
+                      ? `${service.lastSignalAt} • ${service.provenance === 'live' ? 'LIVE' : 'CALC'}`
                       : (service.status === 'operational' ? 'Ativo • LIVE' : service.status.toUpperCase())}
                   </span>
                 </div>

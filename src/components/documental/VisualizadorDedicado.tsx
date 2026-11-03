@@ -166,6 +166,9 @@ export function VisualizadorDedicado() {
 
   useEffect(() => {
     setPrefJanelas(lerPreferenciasJanelas());
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
 
     // Carrega conectores
     fetch('/api/gestao-documental', { cache: 'no-store' })
@@ -1738,11 +1741,11 @@ export function VisualizadorDedicado() {
                   <a
                     href={documentoAtivo.pdfDataUrl}
                     target="_blank"
-                    rel="noopener noreferrer"
+                    rel={documentoAtivo.pdfDataUrl?.startsWith('blob:') ? undefined : 'noopener noreferrer'}
                     className="inline-flex items-center gap-1 rounded-md bg-cyan-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-cyan-500 transition"
                   >
                     <ExternalLink className="h-3 w-3" />
-                    <span>Abrir em nova aba</span>
+                    <span>{isIOSOrIPadOS() ? 'Abrir PDF completo' : 'Abrir em nova aba'}</span>
                   </a>
                   <a
                     href={documentoAtivo.pdfDataUrl}

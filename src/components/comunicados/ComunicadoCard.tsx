@@ -201,9 +201,9 @@ export function ComunicadoCard({
         </p>
       </div>
 
-      {/* Seção Arquivo de Ciências: Informações de Prova Criptográfica quando visualizado em histórico */}
+      {/* Seção Arquivo de Ciências: Confirmação de leitura quando visualizado em histórico */}
       {isArquivoView && isCiente && (
-        <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-2">
+        <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
           <div className="flex items-center justify-between text-xs">
             <span className="text-emerald-400 font-bold flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
@@ -212,10 +212,6 @@ export function ComunicadoCard({
             <span className="text-[11px] text-white/50 font-mono">
               {dataCienciaFormatada}
             </span>
-          </div>
-          <div className="text-[10px] font-mono text-cyan-300/80 truncate bg-[#070A12]/80 p-1.5 rounded-lg border border-white/5 flex items-center justify-between">
-            <span>SHA-256: {comunicado.ciencias?.[0]?.comprovanteHash || comunicado.conteudoHash}</span>
-            <QrCode className="w-3.5 h-3.5 text-cyan-400 shrink-0 ml-2" />
           </div>
         </div>
       )}
