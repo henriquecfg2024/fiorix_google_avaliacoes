@@ -82,7 +82,10 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
           const res = recent[0].result as Record<string, unknown> | null;
           let ehValido = true;
           if (type === 'extract_petition') {
-            ehValido = !!(res?.requerente || res?.imovel || res?.contribuinte_sql || res?.matricula_transcricao || res?.titular_origem);
+            const imovelTxt = typeof res?.imovel === 'string' ? res.imovel : '';
+            ehValido = Boolean(res?.requerente)
+              && !/\[page:\d+\]|camscanner/i.test(imovelTxt)
+              && Boolean(res?.imovel || res?.contribuinte_sql || res?.matricula_transcricao || res?.titular_origem);
           } else if (type === 'read_document_text') {
             const relLower = (relativePath || '').toLowerCase();
             const isKen = relLower.endsWith('.ken') || relLower.endsWith('.tif') || relLower.endsWith('.tiff');

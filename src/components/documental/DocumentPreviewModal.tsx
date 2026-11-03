@@ -138,6 +138,7 @@ interface DocumentPreviewModalProps {
   documento: DocumentTextResult;
   relativePath?: string;
   rootId?: string;
+  connectorId?: string;
   onClose: () => void;
   modo?: 'modal' | 'janela';
   userName?: string;
@@ -147,6 +148,7 @@ export function DocumentPreviewModal({
   documento,
   relativePath,
   rootId,
+  connectorId,
   onClose,
   modo = 'modal',
   userName = 'HENRIQUE CESAR FERREIRA GAMA',
@@ -165,11 +167,16 @@ export function DocumentPreviewModal({
   })();
   const [sessaoSelecionada, setSessaoSelecionada] = useState<string>(sessaoInicial);
 
-  // Extração do número do documento (ex: "40001" de "00040001.KEN")
+  // Extração do número do documento (preserva CNJ em processos e remove zeros à esquerda em matrículas)
   const docNumeroInicial = (() => {
-    const raw = (documento.fileName || '').replace(/\.[^/.]+$/, '');
+    const raw = (documento.fileName || '').replace(/\.[^/.]+$/, '').trim();
+    const cnj = raw.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/);
+    if (cnj) return cnj[0];
     const numeros = raw.replace(/[^\d]/g, '');
-    return numeros || '1';
+    if (numeros && numeros.length <= 10) {
+      return numeros.replace(/^0+/, '') || '1';
+    }
+    return raw || numeros || '1';
   })();
   const [docNumero, setDocNumero] = useState(docNumeroInicial);
 
@@ -248,6 +255,7 @@ export function DocumentPreviewModal({
   const totalPages = pages.length || docAtivo.pageCount || 1;
 
   const [prefJanelas, setPrefJanelas] = useState<PreferenciasJanelas | null>(null);
+  const modalBlobUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -256,6 +264,10 @@ export function DocumentPreviewModal({
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = origOverflow;
+      if (modalBlobUrlRef.current) {
+        URL.revokeObjectURL(modalBlobUrlRef.current);
+        modalBlobUrlRef.current = null;
+      }
     };
   }, []);
 
@@ -307,10 +319,110 @@ export function DocumentPreviewModal({
         }
       }
     } catch {
-      // Fallback
+      // Fallback via Connector local
     }
 
-    // Se o documento não foi localizado na API (ex: Livro 2 nº 649036 inexistente)
+    // Fallback via FIORIX Connector na rede interna (essencial em produção na Vercel)
+    try {
+      let cid = connectorId || '';
+      if (!cid) {
+        const cRes = await fetch('/api/gestao-documental', { cache: 'no-store' });
+        if (cRes.ok) {
+          const cData = await cRes.json();
+          const lista: Array<{ id: string; lastSeenAt?: string | null }> = cData.connectors || [];
+          const online = lista.find(c => c.lastSeenAt && Date.now() - new Date(c.lastSeenAt).getTime() < 120000);
+          cid = online?.id || lista[0]?.id || '';
+        }
+      }
+      if (cid) {
+        const aguardarJob = async (jobBody: { id: string; status: string; result?: any }) => {
+          if (jobBody.status === 'complete' && jobBody.result) return jobBody.result;
+          const deadline = Date.now() + 25000;
+          let tent = 0;
+          while (Date.now() < deadline) {
+            await new Promise(r => setTimeout(r, tent === 0 ? 200 : tent < 5 ? 350 : 500));
+            tent++;
+            const jr = await fetch('/api/gestao-documental?id=' + encodeURIComponent(jobBody.id), { cache: 'no-store' });
+            if (!jr.ok) break;
+            const js = await jr.json();
+            if (js.status === 'complete') return js.result;
+            if (js.status === 'failed') break;
+          }
+          return null;
+        };
+
+        const sPost = await fetch('/api/gestao-documental', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ connectorId: cid, type: 'search', query: raw }),
+        });
+        if (sPost.ok) {
+          const sRes = await aguardarJob(await sPost.json());
+          const files: Array<{ name: string; relativePath: string; rootId: string }> = sRes?.files || [];
+          const sessUpper = (sessao || '').toUpperCase();
+          const escolhido = files.find(f => {
+            const rl = (f.rootId || '').toLowerCase();
+            const nl = (f.name || '').toLowerCase();
+            if (sessUpper.includes('PROCESSO')) return rl === 'processos' || nl.endsWith('.pdf');
+            if (sessUpper.includes('USUCAPIAO') || sessUpper.includes('MINUTA')) return rl === 'minutas' || nl.endsWith('.doc') || nl.endsWith('.docx');
+            return rl === 'livro2' || rl === 'imagens' || nl.endsWith('.ken') || nl.endsWith('.tif') || nl.endsWith('.tiff');
+          }) || files[0];
+
+          if (escolhido) {
+            const rPost = await fetch('/api/gestao-documental', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                connectorId: cid,
+                type: 'read_document_text',
+                rootId: escolhido.rootId,
+                relativePath: escolhido.relativePath,
+              }),
+            });
+            if (rPost.ok) {
+              const docData = await aguardarJob(await rPost.json());
+              if (docData) {
+                let pdfUrl: string | undefined = docData.pdfDataUrl;
+                if (docData.localUrl && !pdfUrl) {
+                  const binRes = await fetch(docData.localUrl, { cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' });
+                  if (binRes.ok) {
+                    const novoBlob = URL.createObjectURL(await binRes.blob());
+                    if (modalBlobUrlRef.current) URL.revokeObjectURL(modalBlobUrlRef.current);
+                    modalBlobUrlRef.current = novoBlob;
+                    pdfUrl = novoBlob;
+                  }
+                }
+                if (pdfUrl || docData.pages?.length > 0 || docData.html || docData.text) {
+                  const elapsedMs = Math.round(performance.now() - t0);
+                  const seg = Math.floor(elapsedMs / 1000);
+                  const ms = elapsedMs % 1000;
+                  setTempoProcessamento(`00:${String(seg).padStart(2, '0')}.${String(ms).padStart(3, '0')}`);
+                  setDocAtivo({
+                    ...docData,
+                    pdfDataUrl: pdfUrl,
+                    localUrl: undefined,
+                    pages: docData.pages?.length ? docData.pages : (pdfUrl ? [pdfUrl] : []),
+                    notFound: false,
+                  });
+                  setCaminhoAtivo(escolhido.relativePath);
+                  setCurrentPage(1);
+                  setDocNumero(raw);
+                  setPanPosition({ x: 0, y: 0 });
+                  setIsCarregandoDoc(false);
+                  setResultadosTermo([]);
+                  setPesquisaTermoExecutada(false);
+                  return;
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // Continua para mensagem amigável de não localizado
+    }
+
+    // Se o documento não foi localizado na API nem no Connector
     const elapsedMs = Math.round(performance.now() - t0);
     const seg = Math.floor(elapsedMs / 1000);
     const ms = elapsedMs % 1000;
@@ -352,23 +464,38 @@ export function DocumentPreviewModal({
     setPanPosition({ x: 0, y: 0 });
     setResultadosTermo([]);
     setPesquisaTermoExecutada(false);
-  }, [sessaoSelecionada]);
+  }, [sessaoSelecionada, connectorId]);
 
-  // Navegação entre documentos (ex: 40001 -> 40002 ou 40000)
+  // Navegação entre documentos numéricos (matrículas)
   const navegarDocumento = useCallback(async (delta: number) => {
-    const numAtual = parseInt(docNumero.replace(/[^\d]/g, ''), 10) || 1;
+    const apenasDigitos = docNumero.replace(/[^\d]/g, '');
+    if (docNumero.includes('-') || apenasDigitos.length > 10) return;
+    const numAtual = parseInt(apenasDigitos, 10) || 1;
     const novoNum = Math.max(1, numAtual + delta);
     setDocNumero(String(novoNum));
     await buscarDocumentoNumero(String(novoNum));
   }, [docNumero, buscarDocumentoNumero]);
 
-  // Carregamento automático na abertura
+  // Sincroniza quando o documento já vem carregado pelo Connector; só busca na API se vier vazio
   useEffect(() => {
-    const num = parseInt(docNumeroInicial, 10);
-    if (!Number.isNaN(num) && num > 0) {
-      buscarDocumentoNumero(String(num), sessaoInicial);
+    const jaPossuiConteudo = Boolean(
+      documento.pdfDataUrl ||
+      (documento.pages && documento.pages.length > 0) ||
+      documento.html ||
+      (documento.text && !documento.notFound)
+    );
+    if (jaPossuiConteudo || documento.notFound) {
+      setDocAtivo(documento);
+      setCaminhoAtivo(relativePath);
+      setDocNumero(docNumeroInicial);
+      setSessaoSelecionada(sessaoInicial);
+      setCurrentPage(1);
+      return;
     }
-  }, [docNumeroInicial, sessaoInicial, buscarDocumentoNumero]);
+    if (docNumeroInicial) {
+      buscarDocumentoNumero(docNumeroInicial, sessaoInicial);
+    }
+  }, [documento, relativePath, docNumeroInicial, sessaoInicial, buscarDocumentoNumero]);
 
   const handleMudarSessao = useCallback((novaSessao: string) => {
     setSessaoSelecionada(novaSessao);

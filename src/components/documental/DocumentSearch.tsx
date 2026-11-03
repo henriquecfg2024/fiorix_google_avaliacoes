@@ -507,9 +507,12 @@ export function DocumentSearch() {
     pdfsLocaisRef.current = [];
   }, []);
 
+  const EXT_CACHE_PREFIX = 'fiorix_ext_v2_';
+
   function isExtracaoValida(data: DadosManifestacao | null | undefined): boolean {
     if (!data) return false;
-    return !!(data.requerente || data.imovel || data.contribuinte_sql || data.matricula_transcricao || data.titular_origem);
+    if (!data.requerente || /\[page:\d+\]|camscanner/i.test(data.imovel || '')) return false;
+    return !!(data.imovel || data.contribuinte_sql || data.matricula_transcricao || data.titular_origem);
   }
 
   function getCachedExtracao(fileKey: string): DadosManifestacao | null {
@@ -519,17 +522,17 @@ export function DocumentSearch() {
       extrairCacheRef.current.delete(fileKey);
     }
     try {
-      const sess = sessionStorage.getItem('fiorix_ext_' + fileKey);
+      const sess = sessionStorage.getItem(EXT_CACHE_PREFIX + fileKey);
       if (sess) {
         const parsed = JSON.parse(sess);
         if (isExtracaoValida(parsed)) {
           extrairCacheRef.current.set(fileKey, parsed);
           return parsed;
         } else {
-          sessionStorage.removeItem('fiorix_ext_' + fileKey);
+          sessionStorage.removeItem(EXT_CACHE_PREFIX + fileKey);
         }
       }
-      const loc = localStorage.getItem('fiorix_ext_' + fileKey);
+      const loc = localStorage.getItem(EXT_CACHE_PREFIX + fileKey);
       if (loc) {
         const parsed = JSON.parse(loc);
         if (parsed.data && Date.now() - parsed.savedAt < 7 * 24 * 3600 * 1000) {
@@ -537,7 +540,7 @@ export function DocumentSearch() {
             extrairCacheRef.current.set(fileKey, parsed.data);
             return parsed.data;
           } else {
-            localStorage.removeItem('fiorix_ext_' + fileKey);
+            localStorage.removeItem(EXT_CACHE_PREFIX + fileKey);
           }
         }
       }
@@ -549,8 +552,8 @@ export function DocumentSearch() {
     if (!isExtracaoValida(data)) return;
     extrairCacheRef.current.set(fileKey, data);
     try {
-      sessionStorage.setItem('fiorix_ext_' + fileKey, JSON.stringify(data));
-      localStorage.setItem('fiorix_ext_' + fileKey, JSON.stringify({ data, savedAt: Date.now() }));
+      sessionStorage.setItem(EXT_CACHE_PREFIX + fileKey, JSON.stringify(data));
+      localStorage.setItem(EXT_CACHE_PREFIX + fileKey, JSON.stringify({ data, savedAt: Date.now() }));
     } catch {}
   }
 
@@ -707,11 +710,28 @@ export function DocumentSearch() {
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error);
+      if (body.status === 'complete' && body.result) {
+        const state: SearchState = { id: body.id, status: 'complete', expiresAt: '', result: body.result };
+        setJob(state);
+        setIsCacheHit(Boolean(body.cached));
+        searchCacheRef.current.set(cacheKey, state);
+        registrarTempoBusca({
+          termo: trimmed,
+          ms: Math.round(performance.now() - inicioBusca),
+          quando: Date.now(),
+          resultados: body.result?.files?.length ?? 0,
+          cache: Boolean(body.cached),
+        });
+        return;
+      }
       const deadline = Date.now() + 125000;
+      let tentativa = 0;
       while (!controller.signal.aborted && Date.now() < deadline) {
+        const esperaMs = tentativa === 0 ? 220 : tentativa < 5 ? 350 : 500;
+        tentativa++;
         await new Promise<void>(resolve => {
           const onAbort = () => { clearTimeout(timer); resolve(); };
-          const timer = setTimeout(() => { controller.signal.removeEventListener('abort', onAbort); resolve(); }, 1200);
+          const timer = setTimeout(() => { controller.signal.removeEventListener('abort', onAbort); resolve(); }, esperaMs);
           controller.signal.addEventListener('abort', onAbort, { once: true });
         });
         if (controller.signal.aborted) return;
@@ -848,23 +868,24 @@ export function DocumentSearch() {
     } else {
       extrairCacheRef.current.delete(fileKey);
       try {
-        sessionStorage.removeItem('fiorix_ext_' + fileKey);
-        localStorage.removeItem('fiorix_ext_' + fileKey);
+        sessionStorage.removeItem(EXT_CACHE_PREFIX + fileKey);
+        localStorage.removeItem(EXT_CACHE_PREFIX + fileKey);
       } catch {}
     }
 
-    // Configuração de intervalo de páginas para OCR
+    // Em modo 'padrao', deixa undefined para o motor Rust detectar automaticamente
+    // o início/fim da Petição Inicial (e o volume Parte 1 em processos divididos) sem OCR supérfluo.
     let pageStart: number | undefined = undefined;
     let pageEnd: number | undefined = undefined;
-    if (ocrModoPagina === 'padrao') {
-      pageStart = 1;
-      pageEnd = 15;
-    } else if (ocrModoPagina === 'personalizado') {
+    if (ocrModoPagina === 'personalizado') {
       pageStart = Math.max(1, ocrPaginaInicio);
       pageEnd = Math.max(pageStart, ocrPaginaFim);
-    } // 'todas' deixa undefined para ler o arquivo inteiro
+    } else if (ocrModoPagina === 'todas') {
+      pageStart = 1;
+      pageEnd = 40;
+    }
 
-    setTempoEstimado(12);
+    setTempoEstimado(4);
     setProcessandoAcao({ id: fileKey, tipo: 'extracao', fileName: file.name });
     setError('');
     try {
@@ -893,7 +914,7 @@ export function DocumentSearch() {
       const deadline = Date.now() + 60000;
       let tentativa = 0;
       while (Date.now() < deadline) {
-        await new Promise(r => setTimeout(r, tentativa === 0 ? 300 : 800));
+        await new Promise(r => setTimeout(r, tentativa === 0 ? 200 : tentativa < 5 ? 350 : 550));
         tentativa++;
         const res = await fetch('/api/gestao-documental?id=' + encodeURIComponent(body.id), { cache: 'no-store' });
         const state = await res.json();
@@ -958,7 +979,7 @@ export function DocumentSearch() {
       const deadline = Date.now() + 60000;
       let tentativa = 0;
       while (Date.now() < deadline) {
-        await new Promise(r => setTimeout(r, tentativa === 0 ? 300 : 800));
+        await new Promise(r => setTimeout(r, tentativa === 0 ? 200 : tentativa < 5 ? 350 : 550));
         tentativa++;
         const res = await fetch('/api/gestao-documental?id=' + encodeURIComponent(body.id), { cache: 'no-store' });
         const state = await res.json();
@@ -1040,7 +1061,7 @@ export function DocumentSearch() {
       const deadline = Date.now() + 60000;
       let tentativa = 0;
       while (Date.now() < deadline) {
-        await new Promise(r => setTimeout(r, tentativa === 0 ? 300 : 800));
+        await new Promise(r => setTimeout(r, tentativa === 0 ? 200 : tentativa < 5 ? 350 : 550));
         tentativa++;
         const res = await fetch('/api/gestao-documental?id=' + encodeURIComponent(body.id), { cache: 'no-store' });
         const state = await res.json();
@@ -1389,7 +1410,7 @@ export function DocumentSearch() {
             <SlidersHorizontal className="h-3.5 w-3.5 text-cyan-400" />
             <span>Filtros</span>
             <span className="font-normal text-white/40">
-              · OCR {ocrModoPagina === 'padrao' ? 'págs 1 a 15' : ocrModoPagina === 'personalizado' ? `págs ${ocrPaginaInicio} a ${ocrPaginaFim}` : 'todas as páginas'}
+              · OCR {ocrModoPagina === 'padrao' ? 'automático' : ocrModoPagina === 'personalizado' ? `págs ${ocrPaginaInicio} a ${ocrPaginaFim}` : 'ampliado (1 a 40)'}
             </span>
           </button>
 
@@ -1459,7 +1480,7 @@ export function DocumentSearch() {
                   onChange={() => setOcrModoPagina('padrao')}
                   className="text-cyan-500 focus:ring-0"
                 />
-                <span>Primeiras 15 páginas (Rápido)</span>
+                <span>Automático — Petição Inicial (Rápido)</span>
               </label>
 
               <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-300">
@@ -2199,6 +2220,7 @@ export function DocumentSearch() {
           documento={documentoAberto}
           relativePath={documentoAbertoFile?.relativePath}
           rootId={documentoAbertoFile?.rootId}
+          connectorId={connectorId}
           onClose={() => {
             setDocumentoAberto(null);
             setDocumentoAbertoFile(null);
