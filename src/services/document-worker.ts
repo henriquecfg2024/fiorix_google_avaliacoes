@@ -14,6 +14,7 @@ import {
   readDocumentText,
   resolveAuthorizedFile,
   searchDocuments,
+  warmDocumentIndex,
 } from './document-search.js';
 import { iniciarServidorArquivosLocal } from './document-file-server.js';
 
@@ -67,12 +68,13 @@ export function startDocumentWorker(): () => void {
   const authorizedRoots = roots;
   // PDFs grandes são servidos direto ao navegador na rede interna (não passam pelo FIORIX)
   const servidorArquivos = iniciarServidorArquivosLocal(env.FIORIX_API_URL);
+  void warmDocumentIndex(authorizedRoots).catch(() => {});
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   // Intervalos de consulta: logo após um job (usuário navegando/abrindo arquivos), ocioso e após falha de rede
-  const INTERVALO_APOS_JOB_MS = 250;
-  const INTERVALO_OCIOSO_MS = 2000;
-  const INTERVALO_ERRO_MS = 10000;
+  const INTERVALO_APOS_JOB_MS = 100;
+  const INTERVALO_OCIOSO_MS = 450;
+  const INTERVALO_ERRO_MS = 5000;
   async function tick() {
     let proximoIntervalo = INTERVALO_OCIOSO_MS;
     try {

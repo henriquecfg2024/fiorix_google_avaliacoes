@@ -333,50 +333,129 @@ export async function checkDirectMatriculaFiles(
     const block1000 = String(Math.floor(num / 1000) * 1000).padStart(8, '0');
     const block10000 = String(Math.floor(num / 10000) * 10000).padStart(8, '0');
 
-    // Pastas do cartório no acervo de imagens (LV2 = Livro 2 / Registro Geral das matrículas)
-    const candidateLivros = ['LV2', 'LV3', 'LV1', ''];
+    // Pastas do cartório no acervo de imagens (em livro2 a raiz já é LV2)
+    const candidateLivros = rootId === 'livro2' ? [''] : ['LV2', 'LV3', 'LV1', ''];
     const candidateBlocks = [block1000, block10000, ''];
-    // Matrículas em K:\IMAGENS\LV2 são estritamente arquivos .KEN
-    const candidateNames = [
-      `${pad8}.KEN`,
-      `${pad8}.ken`,
-      `${pad6}.KEN`,
-      `${rawStr}.KEN`,
-      `${pad8}.TIF`,
-      `${pad8}.tif`,
-    ];
+    const candidateNames = process.platform === 'win32'
+      ? [`${pad8}.KEN`, `${pad6}.KEN`, `${rawStr}.KEN`, `${pad8}.TIF`]
+      : [`${pad8}.KEN`, `${pad8}.ken`, `${pad6}.KEN`, `${rawStr}.KEN`, `${pad8}.TIF`, `${pad8}.tif`];
 
+    const relCandidates: string[] = [];
     for (const livro of candidateLivros) {
       for (const block of candidateBlocks) {
         for (const name of candidateNames) {
           const rel = livro
             ? (block ? path.join(livro, block, name) : path.join(livro, name))
             : (block ? path.join(block, name) : name);
-
           const lowerRel = rel.toLowerCase();
           if (seenPaths.has(lowerRel)) continue;
           seenPaths.add(lowerRel);
-
-          const fullPath = path.join(canonicalRoot, rel);
-          try {
-            const stat = await fs.stat(fullPath);
-            if (stat.isFile()) {
-              matches.push({
-                rootId,
-                relativePath: rel,
-                name: path.basename(rel),
-                size: stat.size,
-                modifiedAt: stat.mtime.toISOString(),
-                matricula: `Matrícula nº ${num}`,
-              });
-            }
-          } catch {}
+          relCandidates.push(rel);
         }
       }
+    }
+
+    const foundBatch = await Promise.all(
+      relCandidates.map(async rel => {
+        try {
+          const stat = await fs.stat(path.join(canonicalRoot, rel));
+          if (stat.isFile()) {
+            return {
+              rootId,
+              relativePath: rel,
+              name: path.basename(rel),
+              size: stat.size,
+              modifiedAt: stat.mtime.toISOString(),
+              matricula: `Matrícula nº ${num}`,
+            } as DocumentMatch;
+          }
+        } catch {}
+        return null;
+      }),
+    );
+    for (const item of foundBatch) {
+      if (item) matches.push(item);
     }
   }
 
   return matches;
+}
+
+interface IndexedDocEntry {
+  relativePath: string;
+  name: string;
+  normRel: string;
+  cleanRel: string;
+}
+
+interface RootDirectoryIndex {
+  canonical: string;
+  builtAt: number;
+  refreshing: boolean;
+  entries: IndexedDocEntry[];
+}
+
+const directoryIndexCache = new Map<string, RootDirectoryIndex>();
+const INDEX_TTL_MS = 45_000;
+const INDEX_MAX_ENTRIES = 120_000;
+
+async function buildRootDirectoryIndex(rootPath: string): Promise<RootDirectoryIndex | null> {
+  let canonical: string;
+  try {
+    canonical = await fs.realpath(rootPath);
+  } catch {
+    return null;
+  }
+  const entries: IndexedDocEntry[] = [];
+  const queue: string[] = [canonical];
+  let head = 0;
+
+  async function worker() {
+    while (head < queue.length && entries.length < INDEX_MAX_ENTRIES) {
+      const dir = queue[head++];
+      if (!dir) break;
+      try {
+        const handle = await fs.opendir(dir);
+        for await (const entry of handle) {
+          if (entries.length >= INDEX_MAX_ENTRIES) break;
+          if (entry.isSymbolicLink()) continue;
+          const full = path.join(dir, entry.name);
+          if (!isWithinRoot(canonical, full)) continue;
+          if (entry.isDirectory()) {
+            queue.push(full);
+            continue;
+          }
+          if (!entry.isFile() || !extensions.has(path.extname(entry.name).toLowerCase())) continue;
+          if (entry.name.startsWith('~$')) continue;
+          const relativePath = path.relative(canonical, full);
+          const normRel = normalize(relativePath);
+          const cleanRel = normRel.replace(/[.\-_/\s]/g, '');
+          entries.push({ relativePath, name: entry.name, normRel, cleanRel });
+        }
+      } catch {}
+    }
+  }
+
+  // Semeia o primeiro nível e depois processa subpastas em paralelo (8 workers SMB)
+  await worker();
+  if (head < queue.length) {
+    await Promise.all(Array.from({ length: 8 }, () => worker()));
+  }
+
+  const built: RootDirectoryIndex = {
+    canonical,
+    builtAt: Date.now(),
+    refreshing: false,
+    entries,
+  };
+  directoryIndexCache.set(rootPath, built);
+  return built;
+}
+
+/** Pré-aquece em memória o índice das pastas de processos e minutas para buscas sub-segundo. */
+export async function warmDocumentIndex(roots: DocumentRoot[]): Promise<void> {
+  const indexable = roots.filter(r => r.id !== 'imagens' && r.id !== 'livro2');
+  await Promise.all(indexable.map(r => buildRootDirectoryIndex(r.path).catch(() => null)));
 }
 
 // No path supplied by a browser is accepted. Only locally configured roots are traversed.
@@ -420,10 +499,11 @@ export async function searchDocuments(
     try { canonical = await fs.realpath(root.path); }
     catch { result.unavailableRoots.push(root.id); result.partial = true; continue; }
     const ehAcervoImagens = root.id === 'imagens' || root.id === 'livro2';
+    const ehPastaSemImagens = root.id === 'minutas' || root.id === 'processos';
 
-    // 1. Busca direta ultrarrápida para matrículas .KEN (resolve K:\IMAGENS\LV2 em poucos ms)
+    // 1. Busca direta ultrarrápida para matrículas .KEN (apenas em acervos que podem conter imagens)
     const criteriosResolvidosDireto = new Set<number>();
-    for (let i = 0; i < criterios.length; i++) {
+    for (let i = 0; i < criterios.length && !ehPastaSemImagens; i++) {
       try {
         const directMatches = await checkDirectMatriculaFiles(canonical, root.id, criterios[i].texto);
         for (const m of directMatches) {
@@ -451,11 +531,57 @@ export async function searchDocuments(
     });
     if (criteriosParaVarrer.length === 0) continue;
 
+    const cachedIdx = !ehAcervoImagens && budget.maxEntries >= 50000 ? directoryIndexCache.get(root.path) : undefined;
+    if (cachedIdx && cachedIdx.canonical === canonical) {
+      if (Date.now() - cachedIdx.builtAt > INDEX_TTL_MS && !cachedIdx.refreshing) {
+        cachedIdx.refreshing = true;
+        void buildRootDirectoryIndex(root.path).catch(() => {
+          cachedIdx.refreshing = false;
+        });
+      }
+      const matchedEntries: IndexedDocEntry[] = [];
+      for (const item of cachedIdx.entries) {
+        if (result.files.length + matchedEntries.length >= limit) {
+          result.partial = true;
+          break;
+        }
+        const ok = criteriosParaVarrer.some(c => c.termos.every(term => termoCasa(term, item.normRel, item.cleanRel)));
+        if (ok) matchedEntries.push(item);
+      }
+      const verified = await Promise.all(
+        matchedEntries.map(async item => {
+          try {
+            const filePath = path.join(canonical, item.relativePath);
+            const resolved = await fs.realpath(filePath);
+            if (!isWithinRoot(canonical, resolved)) return null;
+            const info = await fs.stat(filePath);
+            if (isArquivoBloqueioOffice(item.name, info.size)) return null;
+            return {
+              rootId: root.id,
+              relativePath: item.relativePath,
+              name: item.name,
+              size: info.size,
+              modifiedAt: info.mtime.toISOString(),
+            } as DocumentMatch;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      for (const v of verified) {
+        if (!v) continue;
+        const key = `${v.rootId}:${v.relativePath.toLowerCase()}`;
+        if (!result.files.some(f => `${f.rootId}:${f.relativePath.toLowerCase()}` === key)) {
+          result.files.push(v);
+        }
+      }
+      continue;
+    }
+
     const queue: string[] = [canonical];
     let queueHead = 0;
-    while (queueHead < queue.length) {
-      if (Date.now() >= deadline || visited >= budget.maxEntries || result.files.length >= limit) { result.partial = true; break; }
-      const directory = queue[queueHead++];
+    const usarParalelo = !ehAcervoImagens && budget.maxEntries >= 50000;
+    const processarDiretorio = async (directory: string) => {
       try {
         const handle = await fs.opendir(directory);
         for await (const entry of handle) {
@@ -471,12 +597,9 @@ export async function searchDocuments(
           const relativePath = path.relative(canonical, filePath);
           const normRel = normalize(relativePath);
           const cleanRel = normRel.replace(/[.\-_/\s]/g, '');
-          // Busca inteligente: cada termo do critério deve bater com o caminho (com pontuação ou dígitos limpos);
-          // basta um critério casar (busca cruzada = união dos campos)
           const matches = criteriosParaVarrer.some(c => c.termos.every(term => termoCasa(term, normRel, cleanRel)));
           if (!matches) continue;
 
-          // Validação canônica e stat apenas para arquivos que realmente correspondem aos filtros
           const resolved = await fs.realpath(filePath);
           if (!isWithinRoot(canonical, resolved)) continue;
           const info = await fs.stat(filePath);
@@ -488,6 +611,27 @@ export async function searchDocuments(
           }
         }
       } catch { result.partial = true; }
+    };
+
+    if (usarParalelo) {
+      if (queueHead < queue.length && Date.now() < deadline && visited < budget.maxEntries && result.files.length < limit) {
+        await processarDiretorio(queue[queueHead++]);
+      }
+      const workers = Array.from({ length: 8 }, async () => {
+        while (queueHead < queue.length) {
+          if (Date.now() >= deadline || visited >= budget.maxEntries || result.files.length >= limit) { result.partial = true; break; }
+          const dir = queue[queueHead++];
+          if (!dir) break;
+          await processarDiretorio(dir);
+        }
+      });
+      await Promise.all(workers);
+      void buildRootDirectoryIndex(root.path).catch(() => null);
+    } else {
+      while (queueHead < queue.length) {
+        if (Date.now() >= deadline || visited >= budget.maxEntries || result.files.length >= limit) { result.partial = true; break; }
+        await processarDiretorio(queue[queueHead++]);
+      }
     }
   }
 
@@ -574,6 +718,7 @@ export async function searchDocuments(
       const arquivosCruzados: DocumentMatch[] = [];
       for (const mat of matriculasParaCruzar) {
         for (const root of roots) {
+          if (root.id === 'minutas' || root.id === 'processos') continue;
           try {
             const canonical = await fs.realpath(root.path);
             const directMatches = await checkDirectMatriculaFiles(canonical, root.id, mat);
