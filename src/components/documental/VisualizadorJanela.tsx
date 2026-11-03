@@ -40,10 +40,18 @@ export function VisualizadorJanela({ id }: { id: string }) {
                 },
               });
               document.title = `${data.fileName} — Visualizador de Imagens FIORIX`;
+            } else {
+              // API respondeu OK mas sem páginas — acervo não acessível neste ambiente
+              setIndisponivel(true);
             }
+          } else {
+            // API retornou erro (404/500) — acervo não acessível
+            setIndisponivel(true);
           }
         })
-        .catch(() => {})
+        .catch(() => {
+          if (!cancelado) setIndisponivel(true);
+        })
         .finally(() => {
           if (!cancelado) setCarregando(false);
         });
@@ -154,9 +162,14 @@ export function VisualizadorJanela({ id }: { id: string }) {
                             pages: data.pages,
                           },
                         });
+                      } else {
+                        setIndisponivel(true);
                       }
+                    } else {
+                      setIndisponivel(true);
                     }
                   })
+                  .catch(() => setIndisponivel(true))
                   .finally(() => setCarregando(false));
               }}
               className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-500 transition shadow-md"

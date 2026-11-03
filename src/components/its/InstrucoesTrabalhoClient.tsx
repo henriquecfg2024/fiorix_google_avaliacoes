@@ -613,6 +613,7 @@ export function InstrucoesTrabalhoClient({
   const [activeTab, setActiveTab] = useState<'catalogo' | 'fiscalizacao'>(initialTab);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSetor, setFilterSetor] = useState('TODOS');
+  const [ordenacao, setOrdenacao] = useState<'setor' | 'titulo'>('setor');
   const [renomearSetorModal, setRenomearSetorModal] = useState<string | null>(null);
   const podeRenomearSetor = ['ADMIN', 'MASTER'].includes(currentUser.role);
   const [viewItModal, setViewItModal] = useState<ITItem | null>(null);
@@ -636,9 +637,9 @@ export function InstrucoesTrabalhoClient({
   }, []);
 
   // Setores únicos (catálogo = ITs publicadas)
-  const setores = ['TODOS', ...Array.from(new Set(its.map((it) => it.departamento).filter(Boolean))).sort()];
+  const setores = ['TODOS', ...Array.from(new Set(its.map((it) => it.departamento).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }))];
 
-  // ITs filtradas do catálogo ordenadas em ordem alfabética pelo título
+  // ITs filtradas do catálogo ordenadas pela coluna SETOR (e secundariamente pelo título)
   const itsFiltradas = its
     .filter((it) => {
       const termLower = searchTerm.toLowerCase();
@@ -649,7 +650,13 @@ export function InstrucoesTrabalhoClient({
       const matchSetor = filterSetor === 'TODOS' || it.departamento === filterSetor;
       return matchSearch && matchSetor;
     })
-    .sort((a, b) => a.titulo.localeCompare(b.titulo, 'pt-BR', { sensitivity: 'base' }));
+    .sort((a, b) => {
+      if (ordenacao === 'setor') {
+        const compSetor = (a.departamento || '').localeCompare(b.departamento || '', 'pt-BR', { sensitivity: 'base' });
+        if (compSetor !== 0) return compSetor;
+      }
+      return (a.titulo || '').localeCompare(b.titulo || '', 'pt-BR', { sensitivity: 'base' });
+    });
 
   // ── Pendências da Fiscalização ──────────────────────────
 
@@ -857,10 +864,37 @@ export function InstrucoesTrabalhoClient({
               )}
             </div>
 
-            {/* Contador */}
-            <p className="text-xs font-bold text-slate-400 dark:text-white/50 uppercase tracking-wider px-1">
-              {itsFiltradas.length} {itsFiltradas.length === 1 ? 'instrução de trabalho' : 'instruções de trabalho'}
-            </p>
+            {/* Contador e Ordenação */}
+            <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+              <p className="text-xs font-bold text-slate-400 dark:text-white/50 uppercase tracking-wider">
+                {itsFiltradas.length} {itsFiltradas.length === 1 ? 'instrução de trabalho' : 'instruções de trabalho'}
+              </p>
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mr-0.5">Ordenar por:</span>
+                <button
+                  type="button"
+                  onClick={() => setOrdenacao('setor')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${
+                    ordenacao === 'setor'
+                      ? 'bg-purple-600/25 text-purple-200 border border-purple-400/40'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+                  }`}
+                >
+                  Setor
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrdenacao('titulo')}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide transition-all cursor-pointer ${
+                    ordenacao === 'titulo'
+                      ? 'bg-purple-600/25 text-purple-200 border border-purple-400/40'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
+                  }`}
+                >
+                  Título
+                </button>
+              </div>
+            </div>
 
             {/* Lista — Card no Padrão FIORIX */}
             {itsFiltradas.length === 0 ? (

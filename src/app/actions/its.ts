@@ -176,7 +176,7 @@ export async function getItsPageData() {
      WHERE tenant_id = $1
        AND deleted_at IS NULL
        AND status IN ('vigente', 'ativa', 'publicada')
-     ORDER BY titulo ASC`,
+     ORDER BY departamento ASC, titulo ASC`,
     tenantId
   );
 
