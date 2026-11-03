@@ -763,7 +763,84 @@ export async function searchDocuments(
     }
   }
 
+  // Deduplica arquivos idênticos quando raízes sobrepostas (ex.: K:\IMAGENS e K:\IMAGENS\LV2) apontam ao mesmo arquivo físico
+  if (result.files.length > 1) {
+    const prioridadeRoot = (id: string) => (id === 'livro2' ? 3 : id === 'minutas' || id === 'processos' ? 2 : 1);
+    const porCaminhoCanonico = new Map<string, { idx: number; item: DocumentMatch }>();
+    await Promise.all(
+      result.files.map(async (item, idx) => {
+        let chave = `${item.rootId}:${item.relativePath.toLowerCase()}`;
+        try {
+          const canon = await resolveAuthorizedFile(roots, item.rootId, item.relativePath);
+          chave = process.platform === 'win32' ? canon.toLowerCase() : canon;
+        } catch {}
+        const existente = porCaminhoCanonico.get(chave);
+        if (!existente || prioridadeRoot(item.rootId) > prioridadeRoot(existente.item.rootId)) {
+          porCaminhoCanonico.set(chave, { idx: existente ? existente.idx : idx, item });
+        }
+      }),
+    );
+    result.files = Array.from(porCaminhoCanonico.values())
+      .sort((a, b) => a.idx - b.idx)
+      .map(v => v.item);
+  }
+
   return result;
+}
+
+// Limite seguro (2,4 MB bruto ≈ 3,2 MB em base64) abaixo do teto de 4,5 MB das rotas serverless na nuvem
+export const MAX_INLINE_PDF_BYTES = 2_516_582;
+export const MAX_DOCUMENT_CHUNK_BYTES = 2_516_582;
+const MAX_KEN_BASE64_CHARS = 3_200_000;
+
+export interface DocumentChunkPayload {
+  fileName: string;
+  totalSize: number;
+  offset: number;
+  bytesRead: number;
+  eof: boolean;
+  chunkBase64: string;
+  isChunk: true;
+}
+
+export async function readDocumentChunk(
+  filePath: string,
+  offset: number,
+  length = MAX_DOCUMENT_CHUNK_BYTES,
+): Promise<DocumentChunkPayload> {
+  const safeOffset = Math.max(0, Math.floor(Number.isFinite(offset) ? offset : 0));
+  const safeLength = Math.max(1, Math.min(MAX_DOCUMENT_CHUNK_BYTES, Math.floor(Number.isFinite(length) ? length : MAX_DOCUMENT_CHUNK_BYTES)));
+  const fileName = path.basename(filePath);
+  const handle = await fs.open(filePath, 'r');
+  try {
+    const stat = await handle.stat();
+    if (safeOffset >= stat.size) {
+      return {
+        fileName,
+        totalSize: stat.size,
+        offset: safeOffset,
+        bytesRead: 0,
+        eof: true,
+        chunkBase64: '',
+        isChunk: true,
+      };
+    }
+    const toRead = Math.min(safeLength, stat.size - safeOffset);
+    const buf = Buffer.allocUnsafe(toRead);
+    const { bytesRead } = await handle.read(buf, 0, toRead, safeOffset);
+    const slice = bytesRead === toRead ? buf : buf.subarray(0, bytesRead);
+    return {
+      fileName,
+      totalSize: stat.size,
+      offset: safeOffset,
+      bytesRead,
+      eof: safeOffset + bytesRead >= stat.size,
+      chunkBase64: slice.toString('base64'),
+      isChunk: true,
+    };
+  } finally {
+    await handle.close();
+  }
 }
 
 export interface DocumentVisualPayload {
@@ -775,9 +852,15 @@ export interface DocumentVisualPayload {
   pdfDataUrl?: string;
   pages?: string[];
   pageCount?: number;
+  loadedPageStart?: number;
+  loadedPageEnd?: number;
+  hasMorePages?: boolean;
 }
 
-export async function readDocumentText(filePath: string): Promise<DocumentVisualPayload> {
+export async function readDocumentText(
+  filePath: string,
+  options?: { pageStart?: number; pageEnd?: number },
+): Promise<DocumentVisualPayload> {
   const stat = await fs.stat(filePath);
   const ext = path.extname(filePath).toLowerCase();
   const fileName = path.basename(filePath);
@@ -787,41 +870,41 @@ export async function readDocumentText(filePath: string): Promise<DocumentVisual
     try {
       const buf = await fs.readFile(filePath);
       const ifds = UTIF.decode(buf);
+      const totalIfds = ifds.length;
+      const startIdx = options?.pageStart ? Math.max(0, Math.min(totalIfds, options.pageStart - 1)) : 0;
+      const maxEndIdx = options?.pageEnd ? Math.max(startIdx, Math.min(totalIfds, options.pageEnd)) : totalIfds;
       const pages: string[] = [];
-      for (let i = 0; i < ifds.length; i++) {
+      let totalChars = 0;
+      let lastDecodedIdx = startIdx - 1;
+
+      for (let i = startIdx; i < maxEndIdx; i++) {
         const page = ifds[i];
         UTIF.decodeImage(buf, page);
         const rgba = UTIF.toRGBA8(page);
         const pngBuf = Buffer.from(UPNG.encode([rgba.buffer], page.width, page.height, 0));
-        pages.push(`data:image/png;base64,${pngBuf.toString('base64')}`);
+        const dataUrl = `data:image/png;base64,${pngBuf.toString('base64')}`;
+        if (pages.length > 0 && totalChars + dataUrl.length > MAX_KEN_BASE64_CHARS) {
+          break;
+        }
+        pages.push(dataUrl);
+        totalChars += dataUrl.length;
+        lastDecodedIdx = i;
       }
 
-      const html = `
-        <div style="font-family: sans-serif; text-align: center;">
-          <div style="margin-bottom: 20px; padding: 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; display: inline-block;">
-            <span style="font-size: 13px; font-weight: bold; color: #0369a1;">
-              7º Registro de Imóveis • Matrícula Digitalizada (${pages.length} folha${pages.length > 1 ? 's' : ''})
-            </span>
-          </div>
-          ${pages.map((p, idx) => `
-            <div style="margin-bottom: 30px; text-align: center;">
-              <div style="font-size: 12px; font-weight: bold; color: #64748b; margin-bottom: 8px;">
-                Folha / Ficha ${idx + 1} de ${pages.length}
-              </div>
-              <img src="${p}" style="max-width: 100%; height: auto; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.12);" alt="Ficha ${idx + 1}" />
-            </div>
-          `).join('')}
-        </div>
-      `;
+      const loadedEnd = pages.length > 0 ? lastDecodedIdx + 1 : startIdx;
+      const hasMorePages = loadedEnd < totalIfds;
 
       return {
         fileName,
         extension: ext,
         size: stat.size,
         pages,
-        pageCount: pages.length,
-        html,
-        text: `[Imagem Digitalizada da Matrícula: ${fileName} - ${pages.length} folha(s) no Livro 2 (Registro Geral)]`,
+        pageCount: totalIfds,
+        loadedPageStart: pages.length > 0 ? startIdx + 1 : undefined,
+        loadedPageEnd: pages.length > 0 ? loadedEnd : undefined,
+        hasMorePages,
+        html: '',
+        text: `[Imagem Digitalizada da Matrícula: ${fileName} - ${totalIfds} folha(s) no Livro 2 (Registro Geral)]`,
       };
     } catch {
       return {
@@ -840,14 +923,13 @@ export async function readDocumentText(filePath: string): Promise<DocumentVisual
       const buf = await fs.readFile(filePath);
       const pdfBase64 = buf.toString('base64');
       const pdfDataUrl = `data:application/pdf;base64,${pdfBase64}`;
-      const html = `<iframe src="${pdfDataUrl}" width="100%" height="800px" style="border: none; border-radius: 8px;" title="${fileName}"></iframe>`;
 
       return {
         fileName,
         extension: ext,
         size: stat.size,
         pdfDataUrl,
-        html,
+        html: '',
         text: `[Documento PDF: ${fileName} • ${Math.round(stat.size / 1024)} KB]`,
       };
     } catch {

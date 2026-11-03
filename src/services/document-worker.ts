@@ -10,7 +10,10 @@ import {
   extractDocxPetition,
   isAllowedDocumentApiUrl,
   listDirectory,
+  MAX_DOCUMENT_CHUNK_BYTES,
+  MAX_INLINE_PDF_BYTES,
   parseDocumentRoots,
+  readDocumentChunk,
   readDocumentText,
   resolveAuthorizedFile,
   searchDocuments,
@@ -104,23 +107,40 @@ export function startDocumentWorker(): () => void {
             if (!job.rootId || !job.relativePath) throw new Error('Parâmetros inválidos.');
             const targetPath = await resolveAuthorizedFile(authorizedRoots, job.rootId, job.relativePath);
             result = await executeDocumentCli('analisar-assinaturas', targetPath);
+          } else if (job.type === 'read_document_chunk') {
+            if (!job.rootId || !job.relativePath) throw new Error('Parâmetros inválidos.');
+            const targetPath = await resolveAuthorizedFile(authorizedRoots, job.rootId, job.relativePath);
+            result = await readDocumentChunk(
+              targetPath,
+              job.pageStart ?? 0,
+              job.pageEnd ?? MAX_DOCUMENT_CHUNK_BYTES,
+            );
           } else if (job.type === 'read_document_text') {
             if (!job.rootId || !job.relativePath) throw new Error('Parâmetros inválidos.');
             const targetPath = await resolveAuthorizedFile(authorizedRoots, job.rootId, job.relativePath);
-            if (servidorArquivos && path.extname(targetPath).toLowerCase() === '.pdf') {
+            if (path.extname(targetPath).toLowerCase() === '.pdf') {
               const info = await fs.stat(targetPath);
-              const link = servidorArquivos.emitirTicket(targetPath, info.size);
+              const link = servidorArquivos ? servidorArquivos.emitirTicket(targetPath, info.size) : null;
+              let pdfDataUrl: string | undefined;
+              // PDFs até 2,4 MB vão também embutidos via HTTPS para abrir direto no Safari, Mac, iPad e outras estações
+              if (info.size <= MAX_INLINE_PDF_BYTES) {
+                const buf = await fs.readFile(targetPath);
+                pdfDataUrl = `data:application/pdf;base64,${buf.toString('base64')}`;
+              }
               result = {
                 fileName: path.basename(targetPath),
                 extension: '.pdf',
                 size: info.size,
                 html: '',
                 text: `[Documento PDF: ${path.basename(targetPath)} • ${Math.round(info.size / 1024)} KB]`,
-                localUrl: link.url,
-                localUrlExpiresAt: link.expiraEm,
+                ...(pdfDataUrl ? { pdfDataUrl } : {}),
+                ...(link ? { localUrl: link.url, localUrlExpiresAt: link.expiraEm } : {}),
               };
             } else {
-              result = await readDocumentText(targetPath);
+              result = await readDocumentText(targetPath, {
+                pageStart: job.pageStart ?? undefined,
+                pageEnd: job.pageEnd ?? undefined,
+              });
             }
           } else {
             result = await searchDocuments(authorizedRoots, job.query || '');

@@ -9,6 +9,7 @@ import {
   isAllowedDocumentApiUrl,
   isWithinRoot,
   parseDocumentRoots,
+  readDocumentChunk,
   readDocumentText,
   resolveAuthorizedFile,
   searchDocuments,
@@ -304,6 +305,42 @@ describe('document search', () => {
 
     const busca = await searchDocuments(roots, 'SENTENCA');
     expect(busca.files.map(f => f.name)).toEqual(['PROCESSOS COM SENTENCA.doc']);
+  });
+
+  it('deduplica matrículas .KEN quando raízes sobrepostas (imagens + livro2) apontam ao mesmo arquivo', async () => {
+    const imagensDir = await fixture();
+    const lv2Dir = path.join(imagensDir, 'LV2');
+    const blocoDir = path.join(lv2Dir, '00123000');
+    await fs.mkdir(blocoDir, { recursive: true });
+    await fs.writeFile(path.join(blocoDir, '00123456.KEN'), 'fixture-ken');
+
+    const roots = [
+      { id: 'imagens', path: imagensDir },
+      { id: 'livro2', path: lv2Dir },
+    ];
+    const busca = await searchDocuments(roots, '123456');
+    expect(busca.files).toHaveLength(1);
+    expect(busca.files[0].rootId).toBe('livro2');
+    expect(busca.files[0].name).toBe('00123456.KEN');
+  });
+
+  it('lê arquivos grandes em blocos base64 via readDocumentChunk para Safari e estações remotas', async () => {
+    const dir = await fixture();
+    const filePath = path.join(dir, 'processo.pdf');
+    const conteudo = Buffer.from('%PDF-1.7-teste-bloco-safari-chrome-fiorix-0123456789', 'utf8');
+    await fs.writeFile(filePath, conteudo);
+
+    const partes: Buffer[] = [];
+    let offset = 0;
+    for (;;) {
+      const chunk = await readDocumentChunk(filePath, offset, 16);
+      expect(chunk.isChunk).toBe(true);
+      expect(chunk.totalSize).toBe(conteudo.length);
+      partes.push(Buffer.from(chunk.chunkBase64, 'base64'));
+      offset += chunk.bytesRead;
+      if (chunk.eof) break;
+    }
+    expect(Buffer.concat(partes).equals(conteudo)).toBe(true);
   });
 });
 
