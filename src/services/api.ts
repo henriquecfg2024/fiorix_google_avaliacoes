@@ -25,6 +25,17 @@ function createApiClient(useProxy: boolean): AxiosInstance {
 
 let apiClient = createApiClient(env.PROXY_ENABLED);
 let directClient = createApiClient(false);
+let proxyFallbackCount = 0;
+let lastProxyFallbackAt: string | null = null;
+
+export function getNetworkProxyStats() {
+  return {
+    proxyEnabled: env.PROXY_ENABLED,
+    proxyHost: env.PROXY_ENABLED && env.PROXY_HOST ? `${env.PROXY_HOST}:${env.PROXY_PORT}` : null,
+    proxyFallbackCount,
+    lastProxyFallbackAt,
+  };
+}
 
 export function resetApiClient() {
   apiClient = createApiClient(env.PROXY_ENABLED);
@@ -55,6 +66,9 @@ async function postWithFallback(url: string, data: any, config?: AxiosRequestCon
       logger.warn(`PROXY_FALLBACK: Falha na conexão via proxy (${err.message}). Tentando envio direto para o FIORIX...`);
       try {
         const directRes = config ? await directClient.post(url, data, config) : await directClient.post(url, data);
+        proxyFallbackCount++;
+        lastProxyFallbackAt = new Date().toISOString();
+        healthManager.recordProxyFallback();
         logger.info(`PROXY_FALLBACK_SUCCESS: Envio direto efetuado com sucesso (HTTP ${directRes.status}).`);
         return directRes;
       } catch (directErr: any) {
@@ -126,10 +140,17 @@ export async function sendSyncBatch(payload: SyncChunkPayload): Promise<SyncChun
 
 export interface HeartbeatTelemetryPayload {
   version: string;
+  status?: 'online' | 'degraded' | 'offline';
   uptimeSeconds: number;
   ramMb: number;
+  heapMb?: number;
+  cpuPercent?: number;
+  shadowMode?: boolean;
+  schedulerEnabled?: boolean;
   queuePending?: number;
+  queueSending?: number;
   queueFailed?: number;
+  queueQuarantined?: number;
   sources?: Record<string, {
     lastRunAt: string | null;
     lastSuccessAt: string | null;
@@ -139,6 +160,7 @@ export interface HeartbeatTelemetryPayload {
     isRunning: boolean;
     lastError: string | null;
   }>;
+  details?: Record<string, unknown>;
 }
 
 export async function sendHeartbeat(telemetryOrVersion: HeartbeatTelemetryPayload | string) {
@@ -151,15 +173,22 @@ export async function sendHeartbeat(telemetryOrVersion: HeartbeatTelemetryPayloa
       connectorId: env.CONNECTOR_ID,
       version,
       timestamp: new Date().toISOString(),
-      status: 'online',
+      status: isObject && telemetryOrVersion.status ? telemetryOrVersion.status : 'online',
     };
 
     if (isObject) {
       payload.uptimeSeconds = telemetryOrVersion.uptimeSeconds;
       payload.ramMb = telemetryOrVersion.ramMb;
+      if (typeof telemetryOrVersion.heapMb === 'number') payload.heapMb = telemetryOrVersion.heapMb;
+      if (typeof telemetryOrVersion.cpuPercent === 'number') payload.cpuPercent = telemetryOrVersion.cpuPercent;
+      if (typeof telemetryOrVersion.shadowMode === 'boolean') payload.shadowMode = telemetryOrVersion.shadowMode;
+      if (typeof telemetryOrVersion.schedulerEnabled === 'boolean') payload.schedulerEnabled = telemetryOrVersion.schedulerEnabled;
       payload.queuePending = telemetryOrVersion.queuePending ?? 0;
+      if (typeof telemetryOrVersion.queueSending === 'number') payload.queueSending = telemetryOrVersion.queueSending;
       payload.queueFailed = telemetryOrVersion.queueFailed ?? 0;
+      if (typeof telemetryOrVersion.queueQuarantined === 'number') payload.queueQuarantined = telemetryOrVersion.queueQuarantined;
       payload.sources = telemetryOrVersion.sources ?? {};
+      if (telemetryOrVersion.details) payload.details = telemetryOrVersion.details;
     }
 
     await postWithFallback(statusUrl, payload, { timeout: 15000 });

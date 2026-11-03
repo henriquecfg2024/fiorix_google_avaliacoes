@@ -13,17 +13,23 @@ if %errorLevel% neq 0 (
 cd /d "B:\henrique-dev\Google-avaliacoes\fiorix-connector"
 
 echo ============================================================
-echo   Reiniciando servico FIORIXConnector...
+echo   Compilando e reiniciando servico FIORIXConnector...
 echo ============================================================
 echo.
-echo Parando o servico...
+echo [1/3] Compilando codigo atualizado (npm run build)...
+call npm run build
+if %errorLevel% neq 0 (
+    echo [AVISO] Falha ao compilar com npm run build. Prosseguindo com reinicio...
+)
+echo.
+echo [2/3] Parando o servico...
 net stop FIORIXConnector
 echo.
-echo Iniciando o servico...
+echo [3/3] Iniciando o servico...
 net start FIORIXConnector
 echo.
 echo ============================================================
-echo   Servico reiniciado com sucesso!
+echo   Servico atualizado e reiniciado com sucesso!
 echo ============================================================
 echo.
 pause

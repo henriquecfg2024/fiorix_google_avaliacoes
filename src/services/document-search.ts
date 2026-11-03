@@ -168,24 +168,46 @@ export async function listDirectory(
   };
 }
 
+const cliMetrics = {
+  petitionsExtractedTotal: 0,
+  signaturesAnalyzedTotal: 0,
+  docxExtractedTotal: 0,
+  lastDurationMs: null as number | null,
+  lastError: null as string | null,
+};
+
+export function resolveDocumentCliPath(): string {
+  const defaultBin = 'B:\\henrique-dev\\app-biblioteca\\src-tauri\\target\\debug\\fiorix-gd-cli.exe';
+  return process.env.FIORIX_GD_CLI_PATH || defaultBin;
+}
+
 export async function executeDocumentCli(
   command: 'extrair-peticao' | 'analisar-assinaturas',
   filePath: string,
   options?: { pageStart?: number; pageEnd?: number },
 ): Promise<unknown> {
-  const defaultBin = 'B:\\henrique-dev\\app-biblioteca\\src-tauri\\target\\debug\\fiorix-gd-cli.exe';
-  const cliPath = process.env.FIORIX_GD_CLI_PATH || defaultBin;
+  const cliPath = resolveDocumentCliPath();
   const args = [command, filePath];
   if (options?.pageStart) args.push('--inicio', String(options.pageStart));
   if (options?.pageEnd) args.push('--fim', String(options.pageEnd));
 
-  const { stdout } = await execFileAsync(cliPath, args, {
-    timeout: 30000,
-    maxBuffer: 10 * 1024 * 1024,
-    windowsHide: true,
-  });
-
-  return JSON.parse(stdout);
+  const inicio = Date.now();
+  try {
+    const { stdout } = await execFileAsync(cliPath, args, {
+      timeout: 30000,
+      maxBuffer: 10 * 1024 * 1024,
+      windowsHide: true,
+    });
+    cliMetrics.lastDurationMs = Date.now() - inicio;
+    cliMetrics.lastError = null;
+    if (command === 'extrair-peticao') cliMetrics.petitionsExtractedTotal++;
+    else cliMetrics.signaturesAnalyzedTotal++;
+    return JSON.parse(stdout);
+  } catch (err: any) {
+    cliMetrics.lastDurationMs = Date.now() - inicio;
+    cliMetrics.lastError = String(err?.message || err).slice(0, 200);
+    throw err;
+  }
 }
 
 // HTTPS is always required, except plain HTTP to the local loopback when explicitly
@@ -1264,6 +1286,216 @@ export async function extractDocxPetition(filePath: string, relativePath: string
     ],
   };
 
+  cliMetrics.docxExtractedTotal++;
+  cliMetrics.petitionsExtractedTotal++;
   return enrichPetitionData(rawData, relativePath);
+}
+
+export interface DocumentRootHealth {
+  id: string;
+  label: string;
+  path: string;
+  accessible: boolean;
+  latencyMs: number | null;
+  indexedFiles: number;
+  indexBuiltAt: string | null;
+}
+
+export interface DocumentSearchTelemetry {
+  roots: DocumentRootHealth[];
+  index: {
+    indexedRootsCount: number;
+    totalIndexedFiles: number;
+    refreshingCount: number;
+    indexTtlSeconds: number;
+    maxEntriesPerRoot: number;
+    lastBuiltAt: string | null;
+  };
+  cli: {
+    available: boolean;
+    binaryName: string;
+    petitionsExtractedTotal: number;
+    docxExtractedTotal: number;
+    signaturesAnalyzedTotal: number;
+    lastDurationMs: number | null;
+    lastError: string | null;
+  };
+}
+
+const ROOT_LABELS: Record<string, string> = {
+  minutas: 'Usucapião (W:)',
+  usucapiao: 'Usucapião (W:)',
+  processos: 'Processos (H:)',
+  imagens: 'Imagens (K:)',
+  livro2: 'Livro 2 (K:\\LV2)',
+};
+
+let cachedRootsHealth: { checkedAt: number; key: string; items: DocumentRootHealth[] } | null = null;
+let cachedCliAvailable: { checkedAt: number; cliPath: string; available: boolean } | null = null;
+
+export function getDocumentSearchTelemetrySync(roots: DocumentRoot[]): DocumentSearchTelemetry {
+  const agora = Date.now();
+  const rootsKey = roots.map((r) => `${r.id}:${r.path}`).join('|');
+  if (!cachedRootsHealth || cachedRootsHealth.key !== rootsKey || agora - cachedRootsHealth.checkedAt > 55_000) {
+    // Dispara atualização assíncrona em background e usa verificação rápida síncrona no primeiro pulso
+    void getDocumentSearchTelemetry(roots).catch(() => {});
+    if (!cachedRootsHealth || cachedRootsHealth.key !== rootsKey) {
+      const fsSync = createRequire(import.meta.url)('node:fs') as typeof import('node:fs');
+      const items: DocumentRootHealth[] = roots.map((r) => {
+        const start = Date.now();
+        let accessible = false;
+        let latencyMs: number | null = null;
+        try {
+          accessible = fsSync.statSync(r.path).isDirectory();
+          latencyMs = Date.now() - start;
+        } catch {
+          accessible = false;
+        }
+        const idx = directoryIndexCache.get(r.id);
+        return {
+          id: r.id,
+          label: ROOT_LABELS[r.id] || r.id,
+          path: r.path,
+          accessible,
+          latencyMs,
+          indexedFiles: idx ? idx.entries.length : 0,
+          indexBuiltAt: idx && idx.builtAt ? new Date(idx.builtAt).toISOString() : null,
+        };
+      });
+      cachedRootsHealth = { checkedAt: agora, key: rootsKey, items };
+    }
+  }
+
+  const cliPath = resolveDocumentCliPath();
+  if (!cachedCliAvailable || cachedCliAvailable.cliPath !== cliPath || agora - cachedCliAvailable.checkedAt > 55_000) {
+    const fsSync = createRequire(import.meta.url)('node:fs') as typeof import('node:fs');
+    let available = false;
+    try {
+      available = fsSync.statSync(cliPath).isFile();
+    } catch {
+      available = false;
+    }
+    cachedCliAvailable = { checkedAt: agora, cliPath, available };
+  }
+
+  let totalIndexedFiles = 0;
+  let refreshingCount = 0;
+  let latestBuiltMs = 0;
+  for (const [, idx] of directoryIndexCache) {
+    totalIndexedFiles += idx.entries.length;
+    if (idx.refreshing) refreshingCount++;
+    if (idx.builtAt > latestBuiltMs) latestBuiltMs = idx.builtAt;
+  }
+
+  return {
+    roots: cachedRootsHealth.items.map((item) => {
+      const idx = directoryIndexCache.get(item.id);
+      return {
+        ...item,
+        indexedFiles: idx ? idx.entries.length : item.indexedFiles,
+        indexBuiltAt: idx && idx.builtAt ? new Date(idx.builtAt).toISOString() : item.indexBuiltAt,
+      };
+    }),
+    index: {
+      indexedRootsCount: directoryIndexCache.size,
+      totalIndexedFiles,
+      refreshingCount,
+      indexTtlSeconds: Math.round(INDEX_TTL_MS / 1000),
+      maxEntriesPerRoot: INDEX_MAX_ENTRIES,
+      lastBuiltAt: latestBuiltMs > 0 ? new Date(latestBuiltMs).toISOString() : null,
+    },
+    cli: {
+      available: cachedCliAvailable.available,
+      binaryName: path.basename(cliPath),
+      petitionsExtractedTotal: cliMetrics.petitionsExtractedTotal,
+      docxExtractedTotal: cliMetrics.docxExtractedTotal,
+      signaturesAnalyzedTotal: cliMetrics.signaturesAnalyzedTotal,
+      lastDurationMs: cliMetrics.lastDurationMs,
+      lastError: cliMetrics.lastError,
+    },
+  };
+}
+
+export async function getDocumentSearchTelemetry(roots: DocumentRoot[]): Promise<DocumentSearchTelemetry> {
+  const agora = Date.now();
+  const rootsKey = roots.map((r) => `${r.id}:${r.path}`).join('|');
+
+  if (!cachedRootsHealth || cachedRootsHealth.key !== rootsKey || agora - cachedRootsHealth.checkedAt > 55_000) {
+    const items = await Promise.all(
+      roots.map(async (r): Promise<DocumentRootHealth> => {
+        const start = Date.now();
+        let accessible = false;
+        let latencyMs: number | null = null;
+        try {
+          const st = await fs.stat(r.path);
+          accessible = st.isDirectory();
+          latencyMs = Date.now() - start;
+        } catch {
+          accessible = false;
+          latencyMs = null;
+        }
+        const idx = directoryIndexCache.get(r.id);
+        return {
+          id: r.id,
+          label: ROOT_LABELS[r.id] || r.id,
+          path: r.path,
+          accessible,
+          latencyMs,
+          indexedFiles: idx ? idx.entries.length : 0,
+          indexBuiltAt: idx && idx.builtAt ? new Date(idx.builtAt).toISOString() : null,
+        };
+      }),
+    );
+    cachedRootsHealth = { checkedAt: agora, key: rootsKey, items };
+  }
+
+  const cliPath = resolveDocumentCliPath();
+  if (!cachedCliAvailable || cachedCliAvailable.cliPath !== cliPath || agora - cachedCliAvailable.checkedAt > 55_000) {
+    let available = false;
+    try {
+      const st = await fs.stat(cliPath);
+      available = st.isFile();
+    } catch {
+      available = false;
+    }
+    cachedCliAvailable = { checkedAt: agora, cliPath, available };
+  }
+
+  let totalIndexedFiles = 0;
+  let refreshingCount = 0;
+  let latestBuiltMs = 0;
+  for (const [, idx] of directoryIndexCache) {
+    totalIndexedFiles += idx.entries.length;
+    if (idx.refreshing) refreshingCount++;
+    if (idx.builtAt > latestBuiltMs) latestBuiltMs = idx.builtAt;
+  }
+
+  return {
+    roots: cachedRootsHealth.items.map((item) => {
+      const idx = directoryIndexCache.get(item.id);
+      return {
+        ...item,
+        indexedFiles: idx ? idx.entries.length : item.indexedFiles,
+        indexBuiltAt: idx && idx.builtAt ? new Date(idx.builtAt).toISOString() : item.indexBuiltAt,
+      };
+    }),
+    index: {
+      indexedRootsCount: directoryIndexCache.size,
+      totalIndexedFiles,
+      refreshingCount,
+      indexTtlSeconds: Math.round(INDEX_TTL_MS / 1000),
+      maxEntriesPerRoot: INDEX_MAX_ENTRIES,
+      lastBuiltAt: latestBuiltMs > 0 ? new Date(latestBuiltMs).toISOString() : null,
+    },
+    cli: {
+      available: cachedCliAvailable.available,
+      binaryName: path.basename(cliPath),
+      petitionsExtractedTotal: cliMetrics.petitionsExtractedTotal,
+      docxExtractedTotal: cliMetrics.docxExtractedTotal,
+      signaturesAnalyzedTotal: cliMetrics.signaturesAnalyzedTotal,
+      lastDurationMs: cliMetrics.lastDurationMs,
+      lastError: cliMetrics.lastError,
+    },
+  };
 }
 

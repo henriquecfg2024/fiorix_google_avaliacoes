@@ -1,3 +1,4 @@
+import os from 'node:os';
 import { v4 as uuidv4 } from 'uuid';
 import { DatabaseSync } from 'node:sqlite';
 import { env } from '../config/env.js';
@@ -23,6 +24,7 @@ import {
 } from '../db/checkpoint.js';
 import { attachRecordKey } from './recordKey.js';
 import { sendSyncBatch, sendHeartbeat, resetApiClient } from './api.js';
+import { getDocumentWorkerTelemetry } from './document-worker.js';
 import { retryChunkedBatch } from './chunkRetry.js';
 import { logger } from '../utils/logger.js';
 import { toSqlDateTime2Local } from '../utils/sqlDateTime.js';
@@ -101,7 +103,11 @@ export class Scheduler {
   private statusMap = new Map<string, SourceRuntimeStatus>();
   private catchupTimeouts: NodeJS.Timeout[] = [];
   private lastMorningReconnectDate: string | null = null;
+  private lastMorningReconnectOk: boolean | null = null;
   private lastMorningPingDate: string | null = null;
+  private startupCatchupScheduledCount = 0;
+  private lastCpuUsage = process.cpuUsage();
+  private lastCpuSampleTimeMs = Date.now();
 
   constructor(db?: DatabaseSync) {
     const dbName = process.env.NODE_ENV === 'test'
@@ -309,6 +315,7 @@ export class Scheduler {
           }
         }, staggerDelayMs);
 
+        this.startupCatchupScheduledCount++;
         this.catchupTimeouts.push(timeout);
         staggerDelayMs += 15000; // Escalonamento de 15 segundos entre fontes para evitar concorrência no SQL Server
       }
@@ -324,10 +331,28 @@ export class Scheduler {
     logger.info('CONNECTOR_STOP: Agendador parado.');
   }
 
+  private sampleCpuPercent(): number {
+    const nowMs = Date.now();
+    const elapsedMs = Math.max(1, nowMs - this.lastCpuSampleTimeMs);
+    const diff = process.cpuUsage(this.lastCpuUsage);
+    this.lastCpuUsage = process.cpuUsage();
+    this.lastCpuSampleTimeMs = nowMs;
+    const cpuCount = Math.max(1, os.cpus()?.length || 1);
+    const totalCpuMicros = diff.user + diff.system;
+    const pct = (totalCpuMicros / (elapsedMs * 1000 * cpuCount)) * 100;
+    return Math.min(100, Math.max(0, Math.round(pct * 10) / 10));
+  }
+
   public async sendTelemetryPing() {
     try {
-      const health = healthManager.getHealth(this.db, this.isGlobalActive());
+      const globalActive = this.isGlobalActive();
+      const health = healthManager.getHealth(this.db, globalActive);
+      const configs = this.getSourceConfigs();
+      const configMap = new Map(configs.map((c) => [c.name, c]));
+
       const sourcesPayload: Record<string, any> = {};
+      const sourceDetails: Record<string, any> = {};
+
       for (const [sName, sHealth] of Object.entries(health.sources)) {
         sourcesPayload[sName] = {
           lastRunAt: sHealth.lastRunAt,
@@ -338,15 +363,124 @@ export class Scheduler {
           isRunning: sHealth.isRunning,
           lastError: sHealth.lastError,
         };
+
+        const cfg = configMap.get(sName as any);
+        const metrics = health.metrics[sName as keyof typeof health.metrics];
+        const chk = health.checkpoints.bySource[sName];
+        sourceDetails[sName] = {
+          enabled: cfg?.enabled ?? false,
+          mode: cfg?.mode ?? 'incremental',
+          intervalSec: cfg?.intervalSec ?? 3600,
+          offsetSec: cfg?.offsetSec ?? 0,
+          consecutiveFailures: sHealth.consecutiveFailures,
+          isStale: sHealth.isStale,
+          durationMsAvg: metrics?.duration_ms_avg ?? 0,
+          runsTotal: metrics?.runs_total ?? 0,
+          runsSuccessTotal: metrics?.runs_success_total ?? 0,
+          runsFailedTotal: metrics?.runs_failed_total ?? 0,
+          recordsSqlTotal: metrics?.records_sql_total ?? 0,
+          recordsSentTotal: metrics?.records_sent_total ?? 0,
+          cursorValue: chk?.cursorValue ?? null,
+          secondaryCursor: chk?.secondaryCursor ?? null,
+          lastReconciliationAt: chk?.lastReconciliationAt ?? null,
+        };
       }
 
+      const mem = process.memoryUsage();
+      const cpuPercent = this.sampleCpuPercent();
+      let documental = null;
+      try { documental = getDocumentWorkerTelemetry(); } catch { documental = null; }
+      const proxyTelemetry = healthManager.getProxyTelemetry();
+      const proxyStats = {
+        proxyEnabled: env.PROXY_ENABLED,
+        proxyHost: env.PROXY_ENABLED && env.PROXY_HOST ? `${env.PROXY_HOST}:${env.PROXY_PORT}` : null,
+        ...proxyTelemetry,
+      };
+
+      const details = {
+        runtime: {
+          hostname: os.hostname(),
+          pid: process.pid,
+          nodeVersion: process.version,
+          platform: `${process.platform}/${process.arch}`,
+          environment: connectorEnv,
+          shadowMode: env.SHADOW_MODE,
+          singleInstanceLock: true,
+          heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
+          heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
+          startedAt: health.startedAt,
+        },
+        capabilities: [
+          'sql_sync_7_modules',
+          'documental_worker_24x7',
+          'https_chunk_transfer',
+          'inline_pdf_2_4mb',
+          'local_file_server_range',
+          'rust_cli_ocr_signatures',
+          'sqlite_wal_queue',
+          'chunk_sha256_retry',
+          'checkpoint_cursors',
+          'morning_reconnect_0658',
+          'startup_catchup',
+          'proxy_direct_fallback',
+        ],
+        database: {
+          connected: health.database.connected,
+          lastSuccessfulQueryAt: health.database.lastSuccessfulQueryAt,
+          databaseName: env.SQL_SERVER_DATABASE,
+          chunkSizeRecords: env.CHUNK_SIZE_RECORDS,
+          overlapMinutes: env.INCREMENTAL_OVERLAP_MINUTES,
+          reconciliationLookbackDays: env.RECONCILIATION_LOOKBACK_DAYS,
+        },
+        scheduler: {
+          enabled: globalActive,
+          isBusinessHours: isBusinessHours(new Date()),
+          activeLocksCount: this.activeLocks.size,
+          activeSources: Array.from(this.activeLocks),
+          enabledSourcesCount: configs.filter((c) => c.enabled).length,
+          totalSourcesCount: configs.length,
+          lastMorningReconnectDate: this.lastMorningReconnectDate,
+          lastMorningReconnectOk: this.lastMorningReconnectOk,
+          lastMorningPingDate: this.lastMorningPingDate,
+          startupCatchupScheduledCount: this.startupCatchupScheduledCount,
+        },
+        network: {
+          apiReachable: health.api.reachable,
+          lastSuccessfulRequestAt: health.api.lastSuccessfulRequestAt,
+          ...proxyStats,
+        },
+        sqlite: {
+          storageFile: connectorEnv === 'production' ? 'queue_production.db' : 'queue.db',
+          journalMode: 'WAL',
+          queue: health.queue,
+          chunks: health.chunks,
+          checkpoints: {
+            persistedCount: health.checkpoints.persistedCount,
+            stagedCandidates: health.checkpoints.stagedCandidates,
+          },
+        },
+        sourcesExtended: sourceDetails,
+        documental,
+      };
+
+      const mappedStatus: 'online' | 'degraded' =
+        health.connectorStatus === 'unhealthy' ? 'degraded' : 'online';
+
       await sendHeartbeat({
-        version: '0.1.0',
+        version: process.env.NODE_ENV === 'test' ? '0.1.0' : 'v2.5.0',
+        status: mappedStatus,
         uptimeSeconds: Math.floor(process.uptime()),
-        ramMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
+        ramMb: Math.round(mem.rss / 1024 / 1024),
+        heapMb: Math.round(mem.heapUsed / 1024 / 1024),
+        cpuPercent: Math.round(cpuPercent),
+        shadowMode: env.SHADOW_MODE,
+        schedulerEnabled: globalActive,
         queuePending: health.queue.pending,
+        queueSending: health.queue.sending,
         queueFailed: health.queue.failed,
+        queueQuarantined: health.queue.quarantined,
         sources: sourcesPayload,
+        details,
       });
     } catch (hbErr: any) {
       logger.warn(`HEARTBEAT_WARNING: Falha ao enviar heartbeat: ${hbErr.message}`);
@@ -367,9 +501,11 @@ export class Scheduler {
       logger.info(`[MORNING_RECONNECT] Executando reconexão matinal preventiva às 06:58:00 (${sp.dateStr})...`);
       try {
         resetApiClient();
-        await resetSqlServerPool();
+        const poolOk = await resetSqlServerPool();
+        this.lastMorningReconnectOk = poolOk;
         logger.info('[MORNING_RECONNECT] Reconexão matinal preventiva concluída com sucesso para a abertura das 07h.');
       } catch (recErr: any) {
+        this.lastMorningReconnectOk = false;
         logger.error(`[MORNING_RECONNECT] Erro na rotina de reconexão matinal: ${recErr.message}`);
       }
     }

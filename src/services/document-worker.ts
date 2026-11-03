@@ -18,8 +18,11 @@ import {
   resolveAuthorizedFile,
   searchDocuments,
   warmDocumentIndex,
+  getDocumentSearchTelemetrySync,
+  type DocumentRoot,
+  type DocumentSearchTelemetry,
 } from './document-search.js';
-import { iniciarServidorArquivosLocal } from './document-file-server.js';
+import { iniciarServidorArquivosLocal, type EstatisticasServidorArquivos, type ServidorArquivosLocal } from './document-file-server.js';
 
 interface ClaimedJob {
   id: string;
@@ -31,14 +34,107 @@ interface ClaimedJob {
   pageEnd?: number | null;
 }
 
+export interface DocumentWorkerTelemetry {
+  enabled: boolean;
+  running: boolean;
+  disabledReason: string | null;
+  pollingIntervalIdleMs: number;
+  pollingIntervalActiveMs: number;
+  lastPollAt: string | null;
+  lastJobAt: string | null;
+  lastError: string | null;
+  jobsProcessedTotal: number;
+  jobsFailedTotal: number;
+  avgJobDurationMs: number | null;
+  inlinePdfMaxBytes: number;
+  httpsChunkBytes: number;
+  jobsByType: {
+    search: number;
+    list_directory: number;
+    read_document_text: number;
+    read_document_chunk: number;
+    extract_petition: number;
+    analyze_signatures: number;
+  };
+  fileServer: EstatisticasServidorArquivos | null;
+  searchEngine: DocumentSearchTelemetry | null;
+}
+
+const workerRuntime = {
+  enabled: false,
+  running: false,
+  disabledReason: null as string | null,
+  authorizedRoots: [] as DocumentRoot[],
+  servidorArquivos: null as ServidorArquivosLocal | null,
+  lastPollAt: null as string | null,
+  lastJobAt: null as string | null,
+  lastError: null as string | null,
+  jobsProcessedTotal: 0,
+  jobsFailedTotal: 0,
+  recentDurationsMs: [] as number[],
+  jobsByType: {
+    search: 0,
+    list_directory: 0,
+    read_document_text: 0,
+    read_document_chunk: 0,
+    extract_petition: 0,
+    analyze_signatures: 0,
+  },
+};
+
+export function getDocumentWorkerTelemetry(): DocumentWorkerTelemetry {
+  const avgJobDurationMs =
+    workerRuntime.recentDurationsMs.length > 0
+      ? Math.round(
+          workerRuntime.recentDurationsMs.reduce((a, b) => a + b, 0) /
+            workerRuntime.recentDurationsMs.length,
+        )
+      : null;
+
+  let searchEngine: DocumentSearchTelemetry | null = null;
+  if (workerRuntime.enabled) {
+    try {
+      searchEngine = getDocumentSearchTelemetrySync(workerRuntime.authorizedRoots);
+    } catch {
+      searchEngine = null;
+    }
+  }
+
+  return {
+    enabled: workerRuntime.enabled,
+    running: workerRuntime.running,
+    disabledReason: workerRuntime.disabledReason,
+    pollingIntervalIdleMs: 450,
+    pollingIntervalActiveMs: 100,
+    lastPollAt: workerRuntime.lastPollAt,
+    lastJobAt: workerRuntime.lastJobAt,
+    lastError: workerRuntime.lastError,
+    jobsProcessedTotal: workerRuntime.jobsProcessedTotal,
+    jobsFailedTotal: workerRuntime.jobsFailedTotal,
+    avgJobDurationMs,
+    inlinePdfMaxBytes: MAX_INLINE_PDF_BYTES,
+    httpsChunkBytes: MAX_DOCUMENT_CHUNK_BYTES,
+    jobsByType: { ...workerRuntime.jobsByType },
+    fileServer: workerRuntime.servidorArquivos ? workerRuntime.servidorArquivos.obterEstatisticas() : null,
+    searchEngine,
+  };
+}
+
 export function startDocumentWorker(): () => void {
-  if (process.env.DOCUMENTAL_ENABLED !== 'true') return () => {};
+  workerRuntime.enabled = process.env.DOCUMENTAL_ENABLED === 'true';
+  if (!workerRuntime.enabled) {
+    workerRuntime.running = false;
+    workerRuntime.disabledReason = 'DOCUMENTAL_ENABLED != true';
+    return () => {};
+  }
   const targetUrl = process.env.DOCUMENTAL_API_URL || env.FIORIX_API_URL;
   const secureTarget = isAllowedDocumentApiUrl(targetUrl, {
     allowInsecureLocalhost: process.env.DOCUMENTAL_ALLOW_INSECURE_LOCALHOST === 'true',
     environment: connectorEnv,
   });
   if (env.SHADOW_MODE || (!secureTarget && process.env.DOCUMENTAL_ALLOW_INSECURE_LOCALHOST !== 'true')) {
+    workerRuntime.running = false;
+    workerRuntime.disabledReason = env.SHADOW_MODE ? 'Shadow Mode ativo' : 'Requer endpoint HTTPS';
     logger.warn('DOCUMENTAL: desativado em shadow mode ou sem HTTPS.');
     return () => {};
   }
@@ -65,12 +161,18 @@ export function startDocumentWorker(): () => void {
       roots = defaults.length > 0 ? defaults : parseDocumentRoots('[]');
     }
   } catch {
+    workerRuntime.running = false;
+    workerRuntime.disabledReason = 'Configuração de pastas DOCUMENTAL_ROOTS_JSON inválida';
     logger.error('DOCUMENTAL: configuração de pastas inválida; worker desativado.');
     return () => {};
   }
   const authorizedRoots = roots;
+  workerRuntime.authorizedRoots = authorizedRoots;
+  workerRuntime.running = true;
+  workerRuntime.disabledReason = null;
   // PDFs grandes são servidos direto ao navegador na rede interna (não passam pelo FIORIX)
   const servidorArquivos = iniciarServidorArquivosLocal(env.FIORIX_API_URL);
+  workerRuntime.servidorArquivos = servidorArquivos;
   void warmDocumentIndex(authorizedRoots).catch(() => {});
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -82,9 +184,12 @@ export function startDocumentWorker(): () => void {
     let proximoIntervalo = INTERVALO_OCIOSO_MS;
     try {
       const response = await postDocumentMessage({ action: 'claim' });
+      workerRuntime.lastPollAt = new Date().toISOString();
       const job = response.data.job as ClaimedJob | null;
       if (job && !stopped) {
         proximoIntervalo = INTERVALO_APOS_JOB_MS;
+        const inicioJob = Date.now();
+        const tipoJob = (job.type || 'search') as keyof typeof workerRuntime.jobsByType;
         try {
           let result: unknown;
           if (job.type === 'list_directory') {
@@ -146,13 +251,24 @@ export function startDocumentWorker(): () => void {
             result = await searchDocuments(authorizedRoots, job.query || '');
           }
           if (!stopped) await postDocumentMessage({ action: 'complete', id: job.id, result });
+          const durJob = Date.now() - inicioJob;
+          workerRuntime.jobsProcessedTotal++;
+          workerRuntime.lastJobAt = new Date().toISOString();
+          workerRuntime.lastError = null;
+          if (tipoJob in workerRuntime.jobsByType) workerRuntime.jobsByType[tipoJob]++;
+          else workerRuntime.jobsByType.search++;
+          workerRuntime.recentDurationsMs.push(durJob);
+          if (workerRuntime.recentDurationsMs.length > 50) workerRuntime.recentDurationsMs.shift();
         } catch (jobErr: any) {
+          workerRuntime.jobsFailedTotal++;
+          workerRuntime.lastError = String(jobErr?.message || jobErr).slice(0, 200);
           logger.error(`DOCUMENTAL: erro ao processar job ${job.id} (${job.type || 'search'}): ${jobErr?.message || jobErr}`);
-          if (!stopped) await postDocumentMessage({ action: 'fail', id: job.id });
+          if (!stopped) await postDocumentMessage({ action: 'fail', id: job.id, error: String(jobErr?.message || jobErr).replace(/[A-Za-z]:\\[^\s"']+/g, '[caminho-protegido]').slice(0, 200) });
         }
       }
     } catch (err: any) {
       proximoIntervalo = INTERVALO_ERRO_MS;
+      workerRuntime.lastError = String(err?.response?.data?.error || err?.message || err).slice(0, 200);
       // Never log search terms, file names or authentication headers.
       logger.warn(`DOCUMENTAL: comunicação indisponível (${err?.response?.data?.error || err?.message || err}); nova tentativa em 10 segundos.`);
     } finally {
@@ -160,6 +276,6 @@ export function startDocumentWorker(): () => void {
     }
   }
   void tick();
-  return () => { stopped = true; if (timer) clearTimeout(timer); servidorArquivos?.parar(); };
+  return () => { stopped = true; workerRuntime.running = false; if (timer) clearTimeout(timer); servidorArquivos?.parar(); workerRuntime.servidorArquivos = null; };
 }
 

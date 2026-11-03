@@ -33,9 +33,22 @@ interface Ticket {
   expiraEm: number;
 }
 
+export interface EstatisticasServidorArquivos {
+  active: boolean;
+  protocol: 'HTTP' | 'HTTPS';
+  port: number;
+  publicUrl: string;
+  activeTicketsCount: number;
+  ticketsIssuedTotal: number;
+  bytesServedTotal: number;
+  rangeRequestsTotal: number;
+  lastError: string | null;
+}
+
 export interface ServidorArquivosLocal {
   urlPublica: string;
   emitirTicket(caminhoAutorizado: string, tamanho: number): { url: string; expiraEm: string };
+  obterEstatisticas(): EstatisticasServidorArquivos;
   parar(): void;
 }
 
@@ -67,11 +80,18 @@ export function iniciarServidorArquivosLocal(fiorixApiUrl: string): ServidorArqu
   const urlPublica = (process.env.DOCUMENTAL_FILE_SERVER_PUBLIC_URL || `${usarTls ? 'https' : 'http'}://localhost:${porta}`).replace(/\/+$/, '');
   const origens = origensAutorizadas(fiorixApiUrl);
   const tickets = new Map<string, Ticket>();
+  let servidorAtivo = false;
+  let ticketsEmitidosTotal = 0;
+  let bytesServidosTotal = 0;
+  let requisicoesRangeTotal = 0;
+  let ultimoErroServidor: string | null = null;
 
-  const limpeza = setInterval(() => {
+  const limparExpirados = () => {
     const agora = Date.now();
     for (const [token, t] of tickets) if (t.expiraEm <= agora) tickets.delete(token);
-  }, 60_000);
+  };
+
+  const limpeza = setInterval(limparExpirados, 60_000);
   limpeza.unref();
 
   const tratar: http.RequestListener = (req, res) => {
@@ -133,12 +153,14 @@ export function iniciarServidorArquivosLocal(fiorixApiUrl: string): ServidorArqu
         return;
       }
       status = 206;
+      requisicoesRangeTotal++;
       res.setHeader('Content-Range', `bytes ${inicio}-${fim}/${ticket.tamanho}`);
     }
 
+    const bytesIntervalo = Math.max(0, fim - inicio + 1);
     res.writeHead(status, {
       'Content-Type': 'application/pdf',
-      'Content-Length': String(fim - inicio + 1),
+      'Content-Length': String(bytesIntervalo),
       'Accept-Ranges': 'bytes',
       'Content-Disposition': nomeContentDisposition(ticket.nomeArquivo),
     });
@@ -146,6 +168,7 @@ export function iniciarServidorArquivosLocal(fiorixApiUrl: string): ServidorArqu
       res.end();
       return;
     }
+    bytesServidosTotal += bytesIntervalo;
     const stream = fs.createReadStream(ticket.caminho, { start: inicio, end: fim });
     stream.on('error', () => { res.destroy(); });
     stream.pipe(res);
@@ -161,21 +184,41 @@ export function iniciarServidorArquivosLocal(fiorixApiUrl: string): ServidorArqu
     return null;
   }
   servidor.on('error', (err: NodeJS.ErrnoException) => {
+    servidorAtivo = false;
+    ultimoErroServidor = err.code || err.message || 'erro';
     logger.error(`DOCUMENTAL: servidor de arquivos indisponível (${err.code || 'erro'}) na porta ${porta}.`);
   });
   servidor.listen(porta, host, () => {
+    servidorAtivo = true;
+    ultimoErroServidor = null;
     logger.info(`DOCUMENTAL: servidor de arquivos da rede interna ativo em ${urlPublica} (${usarTls ? 'HTTPS' : 'HTTP'}).`);
   });
 
   return {
     urlPublica,
     emitirTicket(caminhoAutorizado, tamanho) {
+      ticketsEmitidosTotal++;
       const token = randomBytes(32).toString('base64url');
       const expiraEm = Date.now() + TTL_TICKET_MS;
       tickets.set(token, { caminho: caminhoAutorizado, nomeArquivo: path.basename(caminhoAutorizado), tamanho, expiraEm });
       return { url: `${urlPublica}/arquivo/${token}`, expiraEm: new Date(expiraEm).toISOString() };
     },
+    obterEstatisticas() {
+      limparExpirados();
+      return {
+        active: servidorAtivo,
+        protocol: usarTls ? 'HTTPS' : 'HTTP',
+        port: porta,
+        publicUrl: urlPublica,
+        activeTicketsCount: tickets.size,
+        ticketsIssuedTotal: ticketsEmitidosTotal,
+        bytesServedTotal: bytesServidosTotal,
+        rangeRequestsTotal: requisicoesRangeTotal,
+        lastError: ultimoErroServidor,
+      };
+    },
     parar() {
+      servidorAtivo = false;
       clearInterval(limpeza);
       tickets.clear();
       servidor.close();

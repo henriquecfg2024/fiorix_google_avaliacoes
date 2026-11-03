@@ -45,7 +45,26 @@ export interface ConnectorHealth {
   };
   queue: {
     pending: number;
+    sending: number;
     failed: number;
+    quarantined: number;
+    completed: number;
+  };
+  chunks: {
+    activePlans: number;
+    pending: number;
+    confirmed: number;
+    failed: number;
+  };
+  checkpoints: {
+    persistedCount: number;
+    stagedCandidates: number;
+    bySource: Record<string, {
+      cursorValue: string | null;
+      secondaryCursor: string | null;
+      lastReconciliationAt: string | null;
+      updatedAt: string | null;
+    }>;
   };
   scheduler: {
     enabled: boolean;
@@ -62,6 +81,8 @@ export class HealthManager {
   private lastApiRequestDate: Date | null = null;
   private dbConnected = true;
   private apiReachable = true;
+  private proxyFallbackCount = 0;
+  private lastProxyFallbackDate: Date | null = null;
 
   private staleThresholds: Record<SourceName, number> = {
     bi: 180, // 3 minutes
@@ -232,6 +253,18 @@ export class HealthManager {
     this.apiReachable = false;
   }
 
+  public recordProxyFallback() {
+    this.proxyFallbackCount++;
+    this.lastProxyFallbackDate = new Date();
+  }
+
+  public getProxyTelemetry() {
+    return {
+      proxyFallbackCount: this.proxyFallbackCount,
+      lastProxyFallbackAt: this.lastProxyFallbackDate ? this.lastProxyFallbackDate.toISOString() : null,
+    };
+  }
+
   public recordDbQuerySuccess() {
     this.lastDbQueryDate = new Date();
     this.dbConnected = true;
@@ -246,16 +279,70 @@ export class HealthManager {
     const uptimeSeconds = Math.floor((now - this.startedAtDate.getTime()) / 1000);
 
     let pendingQueue = 0;
+    let sendingQueue = 0;
     let failedQueue = 0;
+    let quarantinedQueue = 0;
+    let completedQueue = 0;
+    let activeChunkPlans = 0;
+    let chunksPending = 0;
+    let chunksConfirmed = 0;
+    let chunksFailed = 0;
+    let stagedCandidates = 0;
+    const checkpointsBySource: Record<string, {
+      cursorValue: string | null;
+      secondaryCursor: string | null;
+      lastReconciliationAt: string | null;
+      updatedAt: string | null;
+    }> = {};
 
     if (db) {
       try {
-        const p = db.prepare(`SELECT COUNT(*) as c FROM sync_queue WHERE status IN ('pending', 'sending')`).get() as any;
-        const f = db.prepare(`SELECT COUNT(*) as c FROM sync_queue WHERE status = 'error'`).get() as any;
-        pendingQueue = p?.c ?? 0;
-        failedQueue = f?.c ?? 0;
-      } catch (err) {
+        const qRows = db.prepare(`SELECT status, COUNT(*) as c FROM sync_queue GROUP BY status`).all() as Array<{ status: string; c: number }>;
+        for (const r of qRows) {
+          if (r.status === 'pending') pendingQueue += Number(r.c || 0);
+          else if (r.status === 'sending') sendingQueue += Number(r.c || 0);
+          else if (r.status === 'error') failedQueue += Number(r.c || 0);
+          else if (r.status === 'quarantined') quarantinedQueue += Number(r.c || 0);
+          else if (r.status === 'completed') completedQueue += Number(r.c || 0);
+        }
+        pendingQueue += sendingQueue;
+      } catch {
         // Ignored in test mocks
+      }
+
+      try {
+        const cp = db.prepare(`SELECT COUNT(*) as c FROM sync_queue_chunk_plans`).get() as any;
+        activeChunkPlans = Number(cp?.c ?? 0);
+        const cRows = db.prepare(`SELECT status, COUNT(*) as c FROM sync_queue_chunks GROUP BY status`).all() as Array<{ status: string; c: number }>;
+        for (const r of cRows) {
+          if (r.status === 'pending') chunksPending += Number(r.c || 0);
+          else if (r.status === 'success') chunksConfirmed += Number(r.c || 0);
+          else if (r.status === 'error') chunksFailed += Number(r.c || 0);
+        }
+      } catch {
+        // Table may not exist in minimal mocks
+      }
+
+      try {
+        const sc = db.prepare(`SELECT COUNT(*) as c FROM sync_checkpoint_candidates`).get() as any;
+        stagedCandidates = Number(sc?.c ?? 0);
+        const chkRows = db.prepare(`SELECT source, cursor_value, secondary_cursor, last_reconciliation_at, updated_at FROM sync_checkpoints`).all() as Array<{
+          source: string;
+          cursor_value: string | null;
+          secondary_cursor: string | null;
+          last_reconciliation_at: string | null;
+          updated_at: string | null;
+        }>;
+        for (const row of chkRows) {
+          checkpointsBySource[row.source] = {
+            cursorValue: row.cursor_value ?? null,
+            secondaryCursor: row.secondary_cursor ?? null,
+            lastReconciliationAt: row.last_reconciliation_at ?? null,
+            updatedAt: row.updated_at ?? null,
+          };
+        }
+      } catch {
+        // Ignored in minimal mocks
       }
     }
 
@@ -282,7 +369,7 @@ export class HealthManager {
     let connectorStatus: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
     if (!this.dbConnected || !this.apiReachable || anySevereFailure || failedQueue > 10) {
       connectorStatus = 'unhealthy';
-    } else if (anyStale || pendingQueue > 20 || failedQueue > 0) {
+    } else if (anyStale || pendingQueue > 20 || failedQueue > 0 || quarantinedQueue > 0) {
       connectorStatus = 'degraded';
     }
 
@@ -300,7 +387,21 @@ export class HealthManager {
       },
       queue: {
         pending: pendingQueue,
+        sending: sendingQueue,
         failed: failedQueue,
+        quarantined: quarantinedQueue,
+        completed: completedQueue,
+      },
+      chunks: {
+        activePlans: activeChunkPlans,
+        pending: chunksPending,
+        confirmed: chunksConfirmed,
+        failed: chunksFailed,
+      },
+      checkpoints: {
+        persistedCount: Object.keys(checkpointsBySource).length,
+        stagedCandidates,
+        bySource: checkpointsBySource,
       },
       scheduler: {
         enabled: schedulerEnabled,

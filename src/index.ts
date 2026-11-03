@@ -28,6 +28,9 @@ if (env.SCHEDULER_ENABLED) {
   logger.warn('SCHEDULER_ENABLED=false. O agendador automático está desativado. Processamento será manual.');
 }
 
+// Envia pulso inicial de telemetria completa logo após a partida do serviço
+void scheduler.sendTelemetryPing();
+
 async function handleGracefulShutdown(signal: string) {
   logger.info(`Recebido sinal ${signal}, iniciando desligamento gracioso...`);
   scheduler.stop();
