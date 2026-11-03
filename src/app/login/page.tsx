@@ -21,10 +21,14 @@ export default function LoginPage() {
   const totpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    const savedEmail = localStorage.getItem('fiorix_remember_email');
-    if (savedEmail) {
-      setEmail(savedEmail);
-      setRememberMe(true);
+    try {
+      const savedEmail = localStorage.getItem('fiorix_remember_email');
+      if (savedEmail) {
+        setEmail(savedEmail);
+        setRememberMe(true);
+      }
+    } catch {
+      // Safari Navegação Privada ou armazenamento restrito
     }
   }, []);
 
@@ -70,10 +74,14 @@ export default function LoginPage() {
     setIsLoading(true);
     setError('');
 
-    if (rememberMe) {
-      localStorage.setItem('fiorix_remember_email', email);
-    } else {
-      localStorage.removeItem('fiorix_remember_email');
+    try {
+      if (rememberMe) {
+        localStorage.setItem('fiorix_remember_email', email.trim());
+      } else {
+        localStorage.removeItem('fiorix_remember_email');
+      }
+    } catch {
+      // Ignora restrição de armazenamento
     }
 
     const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -147,7 +155,10 @@ export default function LoginPage() {
           }
         }
       }
-    } catch {
+    } catch (err) {
+      if (err && typeof err === 'object' && 'digest' in err && String((err as { digest?: string }).digest || '').startsWith('NEXT_REDIRECT')) {
+        throw err;
+      }
       setError('Ocorreu um erro ao tentar fazer login.');
     } finally {
       setIsLoading(false);
@@ -193,6 +204,9 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="seu.nome@7risp.com.br"
                     autoComplete="username"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     inputMode="email"
                     required
                     disabled={isLoading}

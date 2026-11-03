@@ -52,7 +52,7 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
         await tx.$executeRaw`DELETE FROM "DocumentSearchRequest"
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
             AND type = 'search' AND query = ${query}`;
-      } else if ((type === 'extract_petition' || type === 'analyze_signatures' || type === 'read_document_text') && rootId && relativePath) {
+      } else if ((type === 'extract_petition' || type === 'analyze_signatures' || (type === 'read_document_text' && pageStart === null && pageEnd === null)) && rootId && relativePath) {
         await tx.$executeRaw`DELETE FROM "DocumentSearchRequest"
           WHERE "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
             AND type = ${type} AND "rootId" = ${rootId} AND "relativePath" = ${relativePath}`;
@@ -106,15 +106,22 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
       }
     }
 
-    const active = await tx.$queryRaw<Array<{ id: string; type: string; query: string | null; rootId: string | null; relativePath: string | null }>>`
-      SELECT id, type, query, "rootId", "relativePath" FROM "DocumentSearchRequest"
+    const active = await tx.$queryRaw<Array<{ id: string; type: string; query: string | null; rootId: string | null; relativePath: string | null; pageStart: number | null; pageEnd: number | null }>>`
+      SELECT id, type, query, "rootId", "relativePath", "pageStart", "pageEnd" FROM "DocumentSearchRequest"
       WHERE "tenantId" = ${tenantId} AND "userId" = ${userId} AND status IN ('queued', 'running')
       ORDER BY "createdAt" DESC LIMIT 1
     `;
     if (active.length) {
       const a = active[0];
-      // Se for a mesma requisição exata, reaproveita o job em andamento sem erro
-      if (a.type === type && a.query === query && a.rootId === rootId && a.relativePath === relativePath) {
+      // Se for a mesma requisição exata (incluindo intervalo/offset de bloco), reaproveita o job em andamento sem erro
+      if (
+        a.type === type &&
+        a.query === query &&
+        a.rootId === rootId &&
+        a.relativePath === relativePath &&
+        a.pageStart === pageStart &&
+        a.pageEnd === pageEnd
+      ) {
         return { id: a.id, status: 'queued', cached: false };
       }
       // Se o usuário clicou em outro arquivo/pasta, substitui o anterior para não travar
@@ -135,7 +142,12 @@ export async function createSearch(tenantId: string, userId: string, connectorId
 export async function readSearch(id: string, tenantId: string, userId?: string) {
   const rows = await prisma.$queryRaw<SearchJob[]>`SELECT id, type, query, "rootId", "relativePath", "pageStart", "pageEnd", status, result, "expiresAt" FROM "DocumentSearchRequest"
     WHERE id = ${id} AND "tenantId" = ${tenantId} AND "expiresAt" > NOW()`;
-  return rows[0] || null;
+  const job = rows[0] || null;
+  // Blocos de transferência de PDF são descartados assim que entregues ao navegador para não ocupar espaço no banco
+  if (job && job.type === 'read_document_chunk' && (job.status === 'complete' || job.status === 'failed')) {
+    await prisma.$executeRaw`DELETE FROM "DocumentSearchRequest" WHERE id = ${id} AND "tenantId" = ${tenantId}`.catch(() => {});
+  }
+  return job;
 }
 
 export async function claimSearch(tenantId: string, connectorId: string) {
@@ -150,9 +162,11 @@ export async function claimSearch(tenantId: string, connectorId: string) {
 }
 
 export async function finishSearch(id: string, tenantId: string, connectorId: string, result: unknown, failed = false) {
+  const ehChunkEfemero = Boolean(result && typeof result === 'object' && (result as Record<string, unknown>).isChunk === true);
+  const expiracaoCurta = failed || ehChunkEfemero;
   return prisma.$executeRaw`UPDATE "DocumentSearchRequest" SET status = ${failed ? 'failed' : 'complete'},
     result = ${result === null ? null : JSON.stringify(result)}::jsonb,
-    "expiresAt" = CASE WHEN ${failed} THEN NOW() + INTERVAL '2 minutes' ELSE NOW() + INTERVAL '24 hours' END
+    "expiresAt" = CASE WHEN ${expiracaoCurta} THEN NOW() + INTERVAL '2 minutes' ELSE NOW() + INTERVAL '24 hours' END
     WHERE id = ${id} AND "tenantId" = ${tenantId} AND "connectorId" = ${connectorId}
       AND status = 'running' AND "expiresAt" > NOW()`;
 }

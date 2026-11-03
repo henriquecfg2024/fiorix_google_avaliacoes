@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireManifestacaoAccess, DocumentAccessError } from '@/lib/documental/access';
 import { listarManifestacoesQuery, manifestacaoInput } from '@/lib/documental/contracts';
+import { isSameOriginRequest } from '@/lib/documental/origin';
 import {
   ManifestacaoError,
   finalizarManifestacao,
@@ -51,7 +52,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    if (req.headers.get('origin') !== new URL(req.url).origin) return reply({ error: 'Origem inválida.' }, 403);
+    if (!isSameOriginRequest(req)) return reply({ error: 'Origem inválida.' }, 403);
     const user = await requireManifestacaoAccess();
     const raw = await req.text();
     if (raw.length > LIMITE_CORPO) return reply({ error: 'Formulário grande demais.' }, 413);
@@ -77,7 +78,7 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    if (req.headers.get('origin') !== new URL(req.url).origin) return reply({ error: 'Origem inválida.' }, 403);
+    if (!isSameOriginRequest(req)) return reply({ error: 'Origem inválida.' }, 403);
     const user = await requireManifestacaoAccess();
     const id = new URL(req.url).searchParams.get('id');
     if (!id || !z.string().uuid().safeParse(id).success) return reply({ error: 'Ficha inválida.' }, 400);

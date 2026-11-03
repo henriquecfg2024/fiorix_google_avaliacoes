@@ -35,7 +35,19 @@ export const readDocumentTextInput = z.object({
   type: z.literal('read_document_text'),
   rootId: z.string().regex(/^[a-z0-9_-]{1,32}$/),
   relativePath: relativePathSchema,
+  pageStart: z.number().int().min(1).max(9999).optional().nullable(),
+  pageEnd: z.number().int().min(1).max(9999).optional().nullable(),
   forceFresh: z.boolean().optional(),
+}).strict();
+
+// Transferência segura em blocos via HTTPS (para Safari, Mac, iPad e estações fora da máquina do Connector)
+export const readDocumentChunkInput = z.object({
+  connectorId: z.string().min(1).max(128),
+  type: z.literal('read_document_chunk'),
+  rootId: z.string().regex(/^[a-z0-9_-]{1,32}$/),
+  relativePath: relativePathSchema,
+  offset: z.number().int().min(0).max(209715200),
+  length: z.number().int().min(1024).max(2621440).optional(),
 }).strict();
 
 // Explorador de pastas do Visualizador: "." = raiz da pasta autorizada
@@ -51,6 +63,7 @@ export const documentJobInput = z.union([
   extractPetitionInput,
   analyzeSignaturesInput,
   readDocumentTextInput,
+  readDocumentChunkInput,
   listDirectoryInput,
 ]);
 

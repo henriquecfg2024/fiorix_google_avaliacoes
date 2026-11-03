@@ -39,6 +39,7 @@ import {
   Star,
   HardDrive,
   FileX,
+  ExternalLink,
 } from 'lucide-react';
 import { formatCartorioPath } from './DocumentSearch';
 import { JanelaSeparadaMenu } from './JanelaSeparadaMenu';
@@ -49,6 +50,13 @@ import {
   type PreferenciasJanelas,
 } from '@/lib/documental/janelasDocumento';
 import { SESSOES_OFICIAIS, type SessaoOficial } from '@/lib/documental/sessoes';
+import {
+  converterDataUrlPdfParaBlob,
+  copiarTextoSeguro,
+  imprimirJanelaQuandoImagensCarregarem,
+  isIOSOrIPadOS,
+  resolverPdfParaNavegador,
+} from '@/lib/documental/pdfTransfer';
 
 export const SESSOES_OFICIAIS_K_IMAGENS = SESSOES_OFICIAIS;
 export const SESSOES_SIPLAN = SESSOES_OFICIAIS;
@@ -123,9 +131,13 @@ export interface DocumentTextResult {
   text: string;
   size: number;
   pdfDataUrl?: string;
+  pdfBlob?: Blob;
   localUrl?: string;
   localUrlExpiresAt?: string;
   pages?: string[];
+  loadedPageStart?: number;
+  loadedPageEnd?: number;
+  hasMorePages?: boolean;
   pageTexts?: string[];
   pageCount?: number;
   downloadUrl?: string;
@@ -256,9 +268,13 @@ export function DocumentPreviewModal({
 
   const [prefJanelas, setPrefJanelas] = useState<PreferenciasJanelas | null>(null);
   const modalBlobUrlRef = useRef<string | null>(null);
+  const inlineDataBlobUrlRef = useRef<string | null>(null);
+  const [pdfUrlResolvida, setPdfUrlResolvida] = useState<string | undefined>(docAtivo.pdfDataUrl);
+  const [dispositivoIOS, setDispositivoIOS] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    setDispositivoIOS(isIOSOrIPadOS());
     setPrefJanelas(lerPreferenciasJanelas());
     const origOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -268,8 +284,31 @@ export function DocumentPreviewModal({
         URL.revokeObjectURL(modalBlobUrlRef.current);
         modalBlobUrlRef.current = null;
       }
+      if (inlineDataBlobUrlRef.current) {
+        URL.revokeObjectURL(inlineDataBlobUrlRef.current);
+        inlineDataBlobUrlRef.current = null;
+      }
     };
   }, []);
+
+  // Converte data:application/pdf;base64,... em blob: URL para compatibilidade total no Safari e Chrome
+  useEffect(() => {
+    const rawPdf = docAtivo.pdfDataUrl;
+    if (!rawPdf) {
+      setPdfUrlResolvida(undefined);
+      return;
+    }
+    if (rawPdf.startsWith('data:application/pdf')) {
+      const conv = converterDataUrlPdfParaBlob(rawPdf);
+      if (conv) {
+        if (inlineDataBlobUrlRef.current) URL.revokeObjectURL(inlineDataBlobUrlRef.current);
+        inlineDataBlobUrlRef.current = conv.url;
+        setPdfUrlResolvida(conv.url);
+        return;
+      }
+    }
+    setPdfUrlResolvida(rawPdf);
+  }, [docAtivo.pdfDataUrl]);
 
   const mudarPagina = useCallback((novaPagina: number) => {
     if (novaPagina < 1 || novaPagina > totalPages) return;
@@ -383,13 +422,21 @@ export function DocumentPreviewModal({
               const docData = await aguardarJob(await rPost.json());
               if (docData) {
                 let pdfUrl: string | undefined = docData.pdfDataUrl;
-                if (docData.localUrl && !pdfUrl) {
-                  const binRes = await fetch(docData.localUrl, { cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' });
-                  if (binRes.ok) {
-                    const novoBlob = URL.createObjectURL(await binRes.blob());
-                    if (modalBlobUrlRef.current) URL.revokeObjectURL(modalBlobUrlRef.current);
-                    modalBlobUrlRef.current = novoBlob;
-                    pdfUrl = novoBlob;
+                let pdfBlobResolvido: Blob | undefined;
+                if (docData.localUrl || (pdfUrl && pdfUrl.startsWith('data:application/pdf'))) {
+                  const resolvido = await resolverPdfParaNavegador(docData, {
+                    connectorId: cid,
+                    rootId: escolhido.rootId,
+                    relativePath: escolhido.relativePath,
+                    tamanhoEsperado: docData.size || 0,
+                  });
+                  if (resolvido) {
+                    if (resolvido.url.startsWith('blob:')) {
+                      if (modalBlobUrlRef.current) URL.revokeObjectURL(modalBlobUrlRef.current);
+                      modalBlobUrlRef.current = resolvido.url;
+                    }
+                    pdfUrl = resolvido.url;
+                    pdfBlobResolvido = resolvido.blob;
                   }
                 }
                 if (pdfUrl || docData.pages?.length > 0 || docData.html || docData.text) {
@@ -400,6 +447,7 @@ export function DocumentPreviewModal({
                   setDocAtivo({
                     ...docData,
                     pdfDataUrl: pdfUrl,
+                    pdfBlob: pdfBlobResolvido,
                     localUrl: undefined,
                     pages: docData.pages?.length ? docData.pages : (pdfUrl ? [pdfUrl] : []),
                     notFound: false,
@@ -556,11 +604,27 @@ export function DocumentPreviewModal({
   };
 
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen?.().catch(() => {});
+    const docAny = document as Document & {
+      webkitFullscreenElement?: Element | null;
+      webkitExitFullscreen?: () => Promise<void> | void;
+    };
+    const rootAny = document.documentElement as HTMLElement & {
+      webkitRequestFullscreen?: () => Promise<void> | void;
+    };
+    const ativo = Boolean(document.fullscreenElement || docAny.webkitFullscreenElement || isFullScreen);
+    if (!ativo) {
+      if (rootAny.requestFullscreen) {
+        rootAny.requestFullscreen().catch(() => {});
+      } else if (rootAny.webkitRequestFullscreen) {
+        try { rootAny.webkitRequestFullscreen(); } catch {}
+      }
       setIsFullScreen(true);
     } else {
-      document.exitFullscreen?.().catch(() => {});
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if (docAny.webkitFullscreenElement && docAny.webkitExitFullscreen) {
+        try { docAny.webkitExitFullscreen(); } catch {}
+      }
       setIsFullScreen(false);
     }
   };
@@ -757,7 +821,31 @@ export function DocumentPreviewModal({
 
   const handleMouseUp = () => setIsPanning(false);
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (isPdf || isDoc || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    setIsPanning(true);
+    panStartRef.current = {
+      x: t.clientX,
+      y: t.clientY,
+      initialX: panPosition.x,
+      initialY: panPosition.y,
+    };
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPanning || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    setPanPosition({
+      x: panStartRef.current.initialX + (t.clientX - panStartRef.current.x),
+      y: panStartRef.current.initialY + (t.clientY - panStartRef.current.y),
+    });
+  };
+
+  const handleTouchEnd = () => setIsPanning(false);
+
   const handleWheel = (e: React.WheelEvent) => {
+    if (isPdf) return;
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       const delta = e.deltaY < 0 ? 15 : -15;
@@ -810,15 +898,12 @@ export function DocumentPreviewModal({
         </html>
       `);
       printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 350);
+      imprimirJanelaQuandoImagensCarregarem(printWindow, 180);
       return;
     }
 
-    if (isPdf && docAtivo.pdfDataUrl) {
-      const win = window.open(docAtivo.pdfDataUrl, '_blank');
+    if (isPdf && (pdfUrlResolvida || docAtivo.pdfDataUrl)) {
+      const win = window.open(pdfUrlResolvida || docAtivo.pdfDataUrl, '_blank');
       win?.focus();
       return;
     }
@@ -844,9 +929,9 @@ export function DocumentPreviewModal({
         a.download = `${docAtivo.fileName.replace(/\.[^.]+$/, '')}_ficha_${currentPage}.png`;
         a.click();
       }
-    } else if (isPdf && docAtivo.pdfDataUrl) {
+    } else if (isPdf && (pdfUrlResolvida || docAtivo.pdfDataUrl)) {
       const a = document.createElement('a');
-      a.href = docAtivo.pdfDataUrl;
+      a.href = pdfUrlResolvida || docAtivo.pdfDataUrl!;
       a.download = docAtivo.fileName;
       a.click();
     }
@@ -869,9 +954,10 @@ export function DocumentPreviewModal({
   };
 
   const copiarTextoMatricula = () => {
-    navigator.clipboard?.writeText?.(docAtivo.text || `Matrícula ${docNumero} - 7º RI SP`);
-    setFeedbackCopiado('Copiado para a área de transferência!');
-    setTimeout(() => setFeedbackCopiado(''), 2500);
+    void copiarTextoSeguro(docAtivo.text || `Matrícula ${docNumero} - 7º RI SP`).then(ok => {
+      setFeedbackCopiado(ok ? 'Copiado para a área de transferência!' : 'Seleção manual disponível no texto.');
+      setTimeout(() => setFeedbackCopiado(''), 2500);
+    });
   };
 
   if (!mounted) return null;
@@ -900,8 +986,8 @@ export function DocumentPreviewModal({
       <div
         className={`flex flex-col bg-[#F0F0F0] border border-[#B0B0B0] shadow-2xl overflow-hidden relative ${
           emJanela || isFullScreen
-            ? 'fixed inset-0 w-screen h-screen rounded-none border-0'
-            : 'w-full max-w-[1520px] h-[96vh] max-h-[980px] rounded-[3px]'
+            ? 'fixed inset-0 w-screen h-[100dvh] rounded-none border-0'
+            : 'w-full max-w-[1520px] h-[96dvh] max-h-[980px] rounded-[3px]'
         }`}
       >
         {/* 1. BARRA DE TÍTULO NATIVA DO WINDOWS */}
@@ -1995,16 +2081,23 @@ export function DocumentPreviewModal({
             {/* CANVAS DO DOCUMENTO (Fundo Cinza Siplan com a Ficha Centralizada) */}
             <div
               ref={imageContainerRef}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
+              onMouseDown={isPdf ? undefined : handleMouseDown}
+              onMouseMove={isPdf ? undefined : handleMouseMove}
+              onMouseUp={isPdf ? undefined : handleMouseUp}
+              onMouseLeave={isPdf ? undefined : handleMouseUp}
+              onTouchStart={isPdf ? undefined : handleTouchStart}
+              onTouchMove={isPdf ? undefined : handleTouchMove}
+              onTouchEnd={isPdf ? undefined : handleTouchEnd}
               onWheel={handleWheel}
-              className={`flex-1 overflow-auto flex justify-center p-4 sm:p-6 bg-[#E2E2E2] relative select-none ${
-                isDoc || docAtivo.notFound ? 'items-start' : 'items-center'
+              className={`flex-1 overflow-auto flex justify-center bg-[#E2E2E2] relative ${
+                isPdf
+                  ? 'p-0 items-stretch select-auto'
+                  : isDoc || docAtivo.notFound
+                  ? 'p-4 sm:p-6 items-start select-none'
+                  : 'p-4 sm:p-6 items-center select-none'
               }`}
               style={{
-                cursor: isPanning ? 'grabbing' : zoom > 100 ? 'grab' : 'default',
+                cursor: isPdf ? 'default' : isPanning ? 'grabbing' : zoom > 100 ? 'grab' : 'default',
               }}
             >
               {/* Overlay de Régua / Grade Milimetrada */}
@@ -2100,22 +2193,41 @@ export function DocumentPreviewModal({
                     </div>
                   </div>
                 </div>
-              ) : isPdf && docAtivo.pdfDataUrl ? (
-                /* CASO 1: Visualizador Interativo de Processo PDF */
-                <div className="w-full h-full flex flex-col bg-white border border-gray-400 shadow-xl rounded overflow-hidden" style={{ minHeight: 'calc(100vh - 120px)' }}>
-                  <object
-                    data={docAtivo.pdfDataUrl}
-                    type="application/pdf"
+              ) : isPdf && (pdfUrlResolvida || docAtivo.pdfDataUrl) ? (
+                /* CASO 1: Visualizador Interativo de Processo PDF (Safari, Chrome, Edge, Firefox, iPad/Mac/PC) */
+                <div className="w-full h-full flex flex-col bg-white overflow-hidden">
+                  <div className="flex flex-wrap items-center justify-between gap-2 bg-[#F8FAFC] border-b border-gray-300 px-3 py-1.5 text-[11px] text-gray-700 shrink-0">
+                    <span className="truncate font-medium text-gray-800">
+                      {dispositivoIOS
+                        ? 'No iPad/iPhone (Safari), toque em "Abrir PDF completo" para rolar todas as páginas.'
+                        : `PDF Oficial • ${docAtivo.fileName}`}
+                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <a
+                        href={pdfUrlResolvida || docAtivo.pdfDataUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded bg-[#0F3D6E] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#174E8B] transition shadow-2xs"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        <span>{dispositivoIOS ? 'Abrir PDF completo' : 'Abrir em nova aba'}</span>
+                      </a>
+                      <a
+                        href={pdfUrlResolvida || docAtivo.pdfDataUrl}
+                        download={docAtivo.fileName}
+                        className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-800 hover:bg-gray-100 transition"
+                      >
+                        <Download className="h-3 w-3 text-[#0F3D6E]" />
+                        <span>Baixar PDF</span>
+                      </a>
+                    </div>
+                  </div>
+                  <iframe
+                    src={pdfUrlResolvida || docAtivo.pdfDataUrl}
                     className="w-full flex-1 border-0 bg-white"
-                    style={{ height: '100%', minHeight: 'calc(100vh - 120px)' }}
-                  >
-                    <iframe
-                      src={docAtivo.pdfDataUrl}
-                      className="w-full flex-1 border-0 bg-white"
-                      style={{ height: '100%', minHeight: 'calc(100vh - 120px)' }}
-                      title={docAtivo.fileName}
-                    />
-                  </object>
+                    style={{ height: '100%', minHeight: '420px' }}
+                    title={docAtivo.fileName}
+                  />
                 </div>
               ) : isKenOrTif && pages.length > 0 ? (
                 /* CASO 2: Matrícula Digitalizada (.KEN / TIFF / Imagens) */

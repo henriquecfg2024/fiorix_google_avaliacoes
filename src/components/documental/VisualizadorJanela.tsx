@@ -68,11 +68,25 @@ export function VisualizadorJanela({ id }: { id: string }) {
 
     const canal = new BroadcastChannel(CANAL_VISUALIZADOR);
     let recebido = false;
+    let blobUrlLocalJanela: string | null = null;
     canal.onmessage = (event: MessageEvent<MensagemVisualizador>) => {
       const msg = event.data;
       if (msg?.tipo === 'documento' && msg.id === id) {
         recebido = true;
-        setItem(msg.payload);
+        let payloadFinal = msg.payload;
+        // Safari/WebKit exige que o ObjectURL do PDF seja criado no contexto da própria janela aberta
+        if (payloadFinal.documento.pdfBlob instanceof Blob) {
+          if (blobUrlLocalJanela) URL.revokeObjectURL(blobUrlLocalJanela);
+          blobUrlLocalJanela = URL.createObjectURL(payloadFinal.documento.pdfBlob);
+          payloadFinal = {
+            ...payloadFinal,
+            documento: {
+              ...payloadFinal.documento,
+              pdfDataUrl: blobUrlLocalJanela,
+            },
+          };
+        }
+        setItem(payloadFinal);
         setCarregando(false);
         setIndisponivel(false);
         document.title = `${msg.payload.documento.fileName} — Visualizador de Imagens FIORIX`;
@@ -95,6 +109,7 @@ export function VisualizadorJanela({ id }: { id: string }) {
       tentativas.forEach(clearTimeout);
       clearTimeout(limite);
       canal.close();
+      if (blobUrlLocalJanela) URL.revokeObjectURL(blobUrlLocalJanela);
     };
   }, [id]);
 

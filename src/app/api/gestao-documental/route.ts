@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { requireDocumentAccess, DocumentAccessError } from '@/lib/documental/access';
 import { documentJobInput } from '@/lib/documental/contracts';
+import { isSameOriginRequest } from '@/lib/documental/origin';
 import { createJob, readSearch } from '@/lib/documental/store';
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +32,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     // Browser never receives a Connector credential.
-    if (req.headers.get('origin') !== new URL(req.url).origin) return reply({ error: 'Origem inválida.' }, 403);
+    if (!isSameOriginRequest(req)) return reply({ error: 'Origem inválida.' }, 403);
     const user = await requireDocumentAccess();
     const raw = await req.text();
     if (raw.length > 4096) return reply({ error: 'Requisição inválida.' }, 400);
@@ -54,13 +55,22 @@ export async function POST(req: Request) {
         rootId: jobData.rootId,
         relativePath: jobData.relativePath,
       });
+    } else if (jobData.type === 'read_document_chunk') {
+      jobResult = await createJob(user.tenantId, user.id, connector.id, {
+        type: 'read_document_chunk',
+        rootId: jobData.rootId,
+        relativePath: jobData.relativePath,
+        pageStart: jobData.offset,
+        pageEnd: jobData.length ?? 2516582,
+        forceFresh: true,
+      });
     } else if (jobData.type === 'extract_petition' || jobData.type === 'analyze_signatures' || jobData.type === 'read_document_text') {
       jobResult = await createJob(user.tenantId, user.id, connector.id, {
         type: jobData.type,
         rootId: jobData.rootId,
         relativePath: jobData.relativePath,
-        pageStart: jobData.type === 'extract_petition' ? jobData.pageStart : undefined,
-        pageEnd: jobData.type === 'extract_petition' ? jobData.pageEnd : undefined,
+        pageStart: jobData.type === 'extract_petition' || jobData.type === 'read_document_text' ? jobData.pageStart : undefined,
+        pageEnd: jobData.type === 'extract_petition' || jobData.type === 'read_document_text' ? jobData.pageEnd : undefined,
         forceFresh: jobData.forceFresh,
       });
     } else {

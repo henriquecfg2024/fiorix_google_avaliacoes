@@ -91,7 +91,17 @@ export function iniciarPonteJanelas(): void {
     const msg = event.data;
     if (!msg || msg.tipo !== 'pedir') return;
     const payload = registro.get(msg.id);
-    if (payload) canal?.postMessage({ tipo: 'documento', id: msg.id, payload } satisfies MensagemVisualizador);
+    if (!payload) return;
+    try {
+      canal?.postMessage({ tipo: 'documento', id: msg.id, payload } satisfies MensagemVisualizador);
+    } catch {
+      // Fallback caso algum navegador não clone o Blob diretamente no BroadcastChannel
+      const semBlob: DocumentoJanela = {
+        ...payload,
+        documento: { ...payload.documento, pdfBlob: undefined },
+      };
+      canal?.postMessage({ tipo: 'documento', id: msg.id, payload: semBlob } satisfies MensagemVisualizador);
+    }
   };
 }
 
@@ -213,10 +223,12 @@ export function abrirDocumentoEmJanela(item: DocumentoJanela, monitor?: MonitorD
   } else if (pref.lembrarUltimoMonitor && pref.ultimoMonitor) {
     ({ left, top, width, height } = pref.ultimoMonitor);
   } else {
-    width = Math.min(1100, Math.round(window.screen.availWidth * 0.6));
-    height = Math.round(window.screen.availHeight * 0.9);
-    left = Math.round(window.screenX + window.outerWidth - width / 2);
-    top = Math.round(window.screenY + 20);
+    const availW = window.screen?.availWidth || window.innerWidth || 1280;
+    const availH = window.screen?.availHeight || window.innerHeight || 800;
+    width = Math.max(640, Math.min(1100, Math.round(availW * 0.65)));
+    height = Math.max(520, Math.round(availH * 0.9));
+    left = Math.max(0, Math.round((window.screenX || 0) + Math.max(40, ((window.outerWidth || availW) - width) / 2)));
+    top = Math.max(0, Math.round((window.screenY || 0) + 20));
   }
 
   const recursos = `popup=yes,left=${left},top=${top},width=${width},height=${height}`;

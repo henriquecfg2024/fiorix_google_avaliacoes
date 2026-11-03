@@ -31,6 +31,7 @@ import { ConfidenceReview, OrigemCampoUI } from './ConfidenceReview';
 import { ValidacaoAutenticidadeView } from './ValidacaoAutenticidadeView';
 import { formatCartorioPath, getRootInfo } from './DocumentSearch';
 import { extrairConfrontacoes, ConfrontacoesExtraidas } from '@/lib/confrontacoes';
+import { copiarTextoSeguro } from '@/lib/documental/pdfTransfer';
 
 export interface DadosManifestacao {
   id_ficha: string;
@@ -944,13 +945,14 @@ export function FichaOficialView({
   const minuta = useMemo(() => montarMinuta(dados, saudacaoJuiz), [dados, saudacaoJuiz]);
 
   const copiarManifestacao = () => {
-    navigator.clipboard.writeText(minutaParaTexto(minuta)).then(
-      () => {
+    void copiarTextoSeguro(minutaParaTexto(minuta)).then(ok => {
+      if (ok) {
         setCopiado(true);
         setTimeout(() => setCopiado(false), 2500);
-      },
-      () => mostrarAviso('Não foi possível copiar para a área de transferência neste navegador.')
-    );
+      } else {
+        mostrarAviso('Não foi possível copiar para a área de transferência neste navegador.');
+      }
+    });
   };
 
   // ─── Finalização: arquiva o texto da Etapa 2 no banco do FIORIX ──────────
@@ -1030,10 +1032,16 @@ export function FichaOficialView({
     if (!impressao) return;
     const finalizar = () => setImpressao(null);
     window.addEventListener('afterprint', finalizar);
-    const t = setTimeout(() => window.print(), 80);
+    const mql = typeof window.matchMedia === 'function' ? window.matchMedia('print') : null;
+    const aoMudarMidia = (ev: MediaQueryListEvent) => {
+      if (!ev.matches) finalizar();
+    };
+    mql?.addEventListener?.('change', aoMudarMidia);
+    const t = setTimeout(() => window.print(), 100);
     return () => {
       clearTimeout(t);
       window.removeEventListener('afterprint', finalizar);
+      mql?.removeEventListener?.('change', aoMudarMidia);
     };
   }, [impressao]);
 
@@ -1711,7 +1719,7 @@ export function FichaOficialView({
                                       <button
                                         type="button"
                                         onClick={() => {
-                                          navigator.clipboard.writeText(caminho);
+                                          void copiarTextoSeguro(caminho);
                                           setCaminhoCopiadoLivro2(file.relativePath);
                                           setTimeout(() => setCaminhoCopiadoLivro2(null), 2500);
                                         }}

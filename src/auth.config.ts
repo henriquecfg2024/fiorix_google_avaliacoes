@@ -1,6 +1,7 @@
 import type { NextAuthConfig } from 'next-auth';
 
 export const authConfig = {
+  trustHost: true,
   pages: {
     signIn: '/login',
   },
@@ -9,6 +10,7 @@ export const authConfig = {
       const isLoggedIn = !!auth?.user;
       const isOnDashboard = nextUrl.pathname.startsWith('/dashboard') ||
         nextUrl.pathname.startsWith('/gestao-documental') ||
+        nextUrl.pathname.startsWith('/visualizador-documental') ||
         nextUrl.pathname.startsWith('/avaliacoes') ||
         nextUrl.pathname.startsWith('/estatisticas') ||
         nextUrl.pathname.startsWith('/relatorios') ||
@@ -30,7 +32,7 @@ export const authConfig = {
         if (!isLoggedIn) return false;
         const role = auth.user.role || 'USER';
 
-        if (nextUrl.pathname.startsWith('/gestao-documental') && !['ADMIN', 'MASTER', 'SUBSTITUTO'].includes(role)) {
+        if ((nextUrl.pathname.startsWith('/gestao-documental') || nextUrl.pathname.startsWith('/visualizador-documental')) && !['ADMIN', 'MASTER', 'SUBSTITUTO'].includes(role)) {
           return Response.redirect(new URL('/dashboard', nextUrl));
         }
 
@@ -80,6 +82,7 @@ export const authConfig = {
         if (role === 'SUBSTITUTO') {
           if (
             nextUrl.pathname.startsWith('/gestao-documental') ||
+            nextUrl.pathname.startsWith('/visualizador-documental') ||
             nextUrl.pathname.startsWith('/pessoas') ||
             nextUrl.pathname.startsWith('/sistema/pessoas') ||
             nextUrl.pathname === '/minha-conta' ||

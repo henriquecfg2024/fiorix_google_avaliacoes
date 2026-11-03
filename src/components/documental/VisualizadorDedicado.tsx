@@ -48,6 +48,12 @@ import {
   desfazerMemorizacaoMonitor,
   type PreferenciasJanelas,
 } from '@/lib/documental/janelasDocumento';
+import {
+  imprimirJanelaQuandoImagensCarregarem,
+  isIOSOrIPadOS,
+  LinkLocalExpiradoError,
+  resolverPdfParaNavegador,
+} from '@/lib/documental/pdfTransfer';
 
 interface MatchItem {
   name: string;
@@ -110,7 +116,7 @@ function formatarTamanho(bytes?: number): string {
   return `${(bytes / (1024 * 1024)).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} MB`;
 }
 
-class LinkPdfExpiradoError extends Error {}
+
 
 export function VisualizadorDedicado() {
   // Conectores e Servidor
@@ -209,6 +215,19 @@ export function VisualizadorDedicado() {
 
   const handleMouseUp = () => {
     setIsPanning(false);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0];
+    setIsPanning(true);
+    panStartRef.current = { x: t.clientX, y: t.clientY, initialX: panPosition.x, initialY: panPosition.y };
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPanning || e.touches.length !== 1) return;
+    const t = e.touches[0];
+    setPanPosition({ x: panStartRef.current.initialX + (t.clientX - panStartRef.current.x), y: panStartRef.current.initialY + (t.clientY - panStartRef.current.y) });
   };
 
   const mudarPagina = (novaPagina: number) => {
@@ -312,7 +331,20 @@ export function VisualizadorDedicado() {
         'Falha na busca pelo Connector local.',
         130000,
       );
-      const todos = resultado.files || [];
+      const brutos = resultado.files || [];
+      const mapaCanon = new Map<string, MatchItem>();
+      for (const item of brutos) {
+        const raiz = getRaiz(item.rootId);
+        const relNorm = normalizarCaminho(item.relativePath);
+        const chave = raiz?.id === 'imagens' && relNorm.startsWith('lv2/')
+          ? `livro2:${relNorm.slice(4)}`
+          : `${raiz?.id || item.rootId}:${relNorm}`;
+        const atual = mapaCanon.get(chave);
+        if (!atual || item.rootId === 'livro2') {
+          mapaCanon.set(chave, item);
+        }
+      }
+      const todos = Array.from(mapaCanon.values());
       const noEscopo = todos.filter(estaNoEscopo);
       setResultadosBusca({ termo, files: noEscopo, ocultados: todos.length - noEscopo.length, parcial: !!resultado.partial });
     } catch (err: any) {
@@ -322,23 +354,17 @@ export function VisualizadorDedicado() {
     }
   }
 
-  /** PDFs grandes chegam como link temporário do servidor de arquivos do Connector (rede interna). */
-  async function baixarPdfDoConnector(resultado: DocumentTextResult): Promise<DocumentTextResult> {
-    if (!resultado.localUrl || resultado.pdfDataUrl) return resultado;
-    let resp: Response;
-    try {
-      resp = await fetch(resultado.localUrl, { cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' });
-    } catch {
-      throw new Error(
-        'Não foi possível baixar o PDF do FIORIX Connector na rede interna. Verifique se o Connector está em execução ' +
-        'e se a porta do servidor de arquivos está liberada nesta estação.',
-      );
-    }
-    if (resp.status === 404) throw new LinkPdfExpiradoError();
-    if (!resp.ok) throw new Error(`O Connector recusou o download do PDF (HTTP ${resp.status}).`);
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
-    return { ...resultado, pdfDataUrl: url, localUrl: undefined };
+  /** Resolve PDF via link rápido local ou transferência HTTPS em blocos (compatível com Safari, Mac, iPad e qualquer PC). */
+  async function baixarPdfDoConnector(resultado: DocumentTextResult, file: MatchItem): Promise<DocumentTextResult> {
+    if (!resultado.localUrl && !resultado.pdfDataUrl?.startsWith('data:application/pdf')) return resultado;
+    const resolvido = await resolverPdfParaNavegador(resultado, {
+      connectorId,
+      rootId: file.rootId,
+      relativePath: file.relativePath,
+      tamanhoEsperado: resultado.size || file.size || 0,
+    });
+    if (!resolvido) return resultado;
+    return { ...resultado, pdfDataUrl: resolvido.url, pdfBlob: resolvido.blob, localUrl: undefined };
   }
 
   // Abre e lê o arquivo pelo conector do cartório
@@ -388,7 +414,7 @@ export function VisualizadorDedicado() {
         'Falha ao renderizar documento no Connector.',
       );
       if (pedido !== pedidoDocRef.current) return;
-      const pronto = await baixarPdfDoConnector(bruto);
+      const pronto = await baixarPdfDoConnector(bruto, file);
       if (pedido !== pedidoDocRef.current) return;
       if (pdfBlobUrlRef.current && pdfBlobUrlRef.current !== pronto.pdfDataUrl) {
         URL.revokeObjectURL(pdfBlobUrlRef.current);
@@ -400,11 +426,11 @@ export function VisualizadorDedicado() {
     } catch (err: any) {
       if (pedido !== pedidoDocRef.current) return;
       // Link do servidor de arquivos expirou: pede um novo ao Connector uma única vez
-      if (err instanceof LinkPdfExpiradoError && !forceFresh) {
+      if (err instanceof LinkLocalExpiradoError && !forceFresh) {
         await abrirDocumento(file, true);
         return;
       }
-      setErrorMessage(err instanceof LinkPdfExpiradoError ? 'O link do PDF expirou. Tente novamente.' : (err?.message || 'Erro ao carregar arquivo.'));
+      setErrorMessage(err instanceof LinkLocalExpiradoError ? 'O link do PDF expirou. Tente novamente.' : (err?.message || 'Erro ao carregar arquivo.'));
     } finally {
       if (pedido === pedidoDocRef.current) {
         setIsLoadingDoc(false);
@@ -529,8 +555,7 @@ export function VisualizadorDedicado() {
         </html>
       `);
       printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => printWindow.print(), 300);
+      imprimirJanelaQuandoImagensCarregarem(printWindow, 180);
       return;
     }
 
@@ -1647,6 +1672,9 @@ export function VisualizadorDedicado() {
                   onMouseMove={handleMouseMove}
                   onMouseUp={handleMouseUp}
                   onMouseLeave={handleMouseUp}
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleMouseUp}
                   className="flex-1 overflow-auto flex items-center justify-center p-4 bg-slate-950 select-none relative"
                   style={{
                     cursor: isPanning ? 'grabbing' : zoom > 100 ? 'grab' : 'default',
@@ -1698,11 +1726,38 @@ export function VisualizadorDedicado() {
               )}
             </div>
           ) : isPdf && documentoAtivo?.pdfDataUrl ? (
-            /* CASO 2: VISUALIZADOR PDF INTERATIVO */
+            /* CASO 2: VISUALIZADOR PDF INTERATIVO (Safari, Chrome, Edge, Firefox) */
             <div className="w-full h-full flex flex-col bg-slate-900">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-slate-900 px-3 py-1.5 text-[11px] text-slate-300 shrink-0">
+                <span className="truncate">
+                  {isIOSOrIPadOS()
+                    ? 'No iPad/iPhone (Safari), toque em "Abrir PDF completo" para navegar por todas as páginas.'
+                    : `Documento PDF • ${documentoAtivo.fileName}`}
+                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={documentoAtivo.pdfDataUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md bg-cyan-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-cyan-500 transition"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    <span>Abrir em nova aba</span>
+                  </a>
+                  <a
+                    href={documentoAtivo.pdfDataUrl}
+                    download={documentoAtivo.fileName}
+                    className="inline-flex items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10 transition"
+                  >
+                    <Download className="h-3 w-3" />
+                    <span>Baixar PDF</span>
+                  </a>
+                </div>
+              </div>
               <iframe
                 src={documentoAtivo.pdfDataUrl}
                 className="w-full flex-1 border-0 bg-white"
+                style={{ minHeight: '420px' }}
                 title={documentoAtivo.fileName}
               />
             </div>

@@ -53,6 +53,11 @@ import {
   tipoDoDocumento,
   type MonitorDisponivel,
 } from '@/lib/documental/janelasDocumento';
+import {
+  copiarTextoSeguro,
+  LinkLocalExpiradoError,
+  resolverPdfParaNavegador,
+} from '@/lib/documental/pdfTransfer';
 
 interface Connector { id: string; name: string; lastSeenAt: string | null }
 export function isConnectorOnline(c: Connector): boolean {
@@ -195,11 +200,32 @@ function fmtQuandoBusca(ts: number): string {
 /** Quantos PDFs baixados do Connector (até ~200 MB cada) ficam em memória para reabrir na hora */
 const MAX_PDFS_LOCAIS_EM_MEMORIA = 4;
 
-/** Link temporário do Connector expirou (15 min) ou o Connector foi reiniciado */
-class LinkLocalExpiradoError extends Error {
-  constructor() {
-    super('O link temporário do documento expirou. Abra o documento novamente.');
-  }
+/** Deduplica resultados quando raízes sobrepostas (ex.: Imagens K: e Livro 2 K:) apontam ao mesmo arquivo físico */
+function normalizarEstadoBusca(state: SearchState | null): SearchState | null {
+  if (!state?.result?.files || state.result.files.length <= 1) return state;
+  const prioridade = (id: string) => {
+    const n = (id || '').toLowerCase();
+    return n === 'livro2' ? 3 : n === 'minutas' || n === 'processos' ? 2 : 1;
+  };
+  const mapa = new Map<string, { idx: number; item: Match }>();
+  state.result.files.forEach((f, idx) => {
+    const chave = formatCartorioPath(f.rootId, f.relativePath).replace(/\//g, '\\').toLowerCase();
+    const atual = mapa.get(chave);
+    if (!atual || prioridade(f.rootId) > prioridade(atual.item.rootId)) {
+      mapa.set(chave, { idx: atual ? atual.idx : idx, item: f });
+    }
+  });
+  const filesUnicos = Array.from(mapa.values())
+    .sort((a, b) => a.idx - b.idx)
+    .map(v => v.item);
+  if (filesUnicos.length === state.result.files.length) return state;
+  return {
+    ...state,
+    result: {
+      ...state.result,
+      files: filesUnicos,
+    },
+  };
 }
 
 function fmtMB(bytes: number): string {
@@ -593,23 +619,26 @@ export function DocumentSearch() {
     const isKen = lower.endsWith('.ken') || lower.endsWith('.tif') || lower.endsWith('.tiff');
     const isPdf = lower.endsWith('.pdf');
 
-    const isValid = (data: DocumentTextResult | null | undefined): boolean => {
+    const isValid = (data: DocumentTextResult | null | undefined, fromDiskStorage = false): boolean => {
       if (!data) return false;
       if (isKen && (!data.pages || data.pages.length === 0)) return false;
-      if (isPdf && !data.pdfDataUrl) return false;
+      if (isPdf) {
+        if (!data.pdfDataUrl) return false;
+        if (fromDiskStorage && data.pdfDataUrl.startsWith('blob:')) return false;
+      }
       return true;
     };
 
     if (leituraCacheRef.current.has(fileKey)) {
       const cached = leituraCacheRef.current.get(fileKey)!;
-      if (isValid(cached)) return cached;
+      if (isValid(cached, false)) return cached;
       leituraCacheRef.current.delete(fileKey);
     }
     try {
       const sess = sessionStorage.getItem('fiorix_doc_' + fileKey);
       if (sess) {
         const parsed = JSON.parse(sess);
-        if (isValid(parsed)) {
+        if (isValid(parsed, true)) {
           leituraCacheRef.current.set(fileKey, parsed);
           return parsed;
         } else {
@@ -619,7 +648,7 @@ export function DocumentSearch() {
       const loc = localStorage.getItem('fiorix_doc_' + fileKey);
       if (loc) {
         const parsed = JSON.parse(loc);
-        if (parsed.data && Date.now() - parsed.savedAt < 7 * 24 * 3600 * 1000 && isValid(parsed.data)) {
+        if (parsed.data && Date.now() - parsed.savedAt < 7 * 24 * 3600 * 1000 && isValid(parsed.data, true)) {
           leituraCacheRef.current.set(fileKey, parsed.data);
           return parsed.data;
         } else {
@@ -711,7 +740,7 @@ export function DocumentSearch() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.error);
       if (body.status === 'complete' && body.result) {
-        const state: SearchState = { id: body.id, status: 'complete', expiresAt: '', result: body.result };
+        const state = normalizarEstadoBusca({ id: body.id, status: 'complete', expiresAt: '', result: body.result })!;
         setJob(state);
         setIsCacheHit(Boolean(body.cached));
         searchCacheRef.current.set(cacheKey, state);
@@ -736,8 +765,9 @@ export function DocumentSearch() {
         });
         if (controller.signal.aborted) return;
         const result = await fetch('/api/gestao-documental?id=' + encodeURIComponent(body.id), { cache: 'no-store', signal: controller.signal });
-        const state = await result.json();
-        if (!result.ok) throw new Error(state.error);
+        const rawState = await result.json();
+        if (!result.ok) throw new Error(rawState.error);
+        const state = normalizarEstadoBusca(rawState)!;
         setJob(state);
         if (state.status === 'failed') throw new Error('Não foi possível pesquisar. Verifique o acesso do Connector às pastas.');
         if (state.status === 'complete') {
@@ -1014,7 +1044,7 @@ export function DocumentSearch() {
       }
       const item = { documento: resultado, relativePath: file.relativePath, rootId: file.rootId };
       if (abrirDocumentoEmJanela(item, monitor)) return;
-      setError('O navegador bloqueou a janela separada. Permita pop-ups para este site para abrir os documentos em outro monitor.');
+      // No Safari/Firefox pop-ups após chamadas assíncronas são bloqueados; abre no modal sobreposto sem erro intrusivo
     }
     setDocumentoAberto(resultado);
     setDocumentoAbertoFile(file);
@@ -1089,70 +1119,95 @@ export function DocumentSearch() {
     }
   }
 
-  async function abrirResultadoLeitura(fileKey: string, result: DocumentTextResult, file: Match) {
-    if (result.localUrl && !result.pdfDataUrl) {
-      const blobUrl = await baixarPdfLocal(result.localUrl, result.size || 0);
-      const pronto: DocumentTextResult = { ...result, pdfDataUrl: blobUrl, localUrl: undefined };
-      pdfsLocaisRef.current.push({ fileKey, url: blobUrl });
-      while (pdfsLocaisRef.current.length > MAX_PDFS_LOCAIS_EM_MEMORIA) {
-        const antigo = pdfsLocaisRef.current.shift()!;
-        if (leituraCacheRef.current.get(antigo.fileKey)?.pdfDataUrl === antigo.url) {
-          leituraCacheRef.current.delete(antigo.fileKey);
+  async function carregarPaginasKenRestantes(inicial: DocumentTextResult, file: Match): Promise<DocumentTextResult> {
+    if (!inicial.hasMorePages || !inicial.pageCount || !inicial.pages) return inicial;
+    let todasPaginas = [...inicial.pages];
+    let proxInicio = (inicial.loadedPageEnd ?? todasPaginas.length) + 1;
+    let seguranca = 0;
+    while (proxInicio <= inicial.pageCount && seguranca < 15) {
+      seguranca++;
+      const res = await fetch('/api/gestao-documental', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          connectorId,
+          type: 'read_document_text',
+          rootId: file.rootId,
+          relativePath: file.relativePath,
+          pageStart: proxInicio,
+        }),
+      });
+      if (!res.ok) break;
+      const body = await res.json();
+      let lote: DocumentTextResult | null = body.status === 'complete' ? body.result : null;
+      if (!lote && body.id) {
+        const deadline = Date.now() + 30000;
+        let tent = 0;
+        while (Date.now() < deadline) {
+          await new Promise(r => setTimeout(r, tent === 0 ? 180 : 350));
+          tent++;
+          const pr = await fetch('/api/gestao-documental?id=' + encodeURIComponent(body.id), { cache: 'no-store' });
+          if (!pr.ok) break;
+          const st = await pr.json();
+          if (st.status === 'complete' && st.result) { lote = st.result; break; }
+          if (st.status === 'failed') break;
         }
-        URL.revokeObjectURL(antigo.url);
       }
-      // Só em memória: blob: não sobrevive a recarregar a página e o PDF não deve ir para o storage
-      leituraCacheRef.current.set(fileKey, pronto);
-      void exibirDocumento(pronto, file);
-      return;
+      if (!lote?.pages?.length) break;
+      todasPaginas = todasPaginas.concat(lote.pages);
+      if (!lote.hasMorePages) break;
+      proxInicio = (lote.loadedPageEnd ?? todasPaginas.length) + 1;
     }
-    setCachedLeitura(fileKey, result);
-    void exibirDocumento(result, file);
+    return { ...inicial, pages: todasPaginas, pageCount: todasPaginas.length, hasMorePages: false };
   }
 
-  /** Baixa o PDF direto do servidor de arquivos do Connector (rede interna) com progresso. */
-  async function baixarPdfLocal(url: string, tamanhoEsperado: number): Promise<string> {
-    setDownloadPdf({ recebido: 0, total: tamanhoEsperado });
-    let response: Response;
-    try {
-      response = await fetch(url, { cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' });
-    } catch {
-      throw new Error(
-        'Não foi possível baixar o PDF do FIORIX Connector na rede interna. Verifique se o Connector está em execução, ' +
-        'se a porta do servidor de arquivos está liberada no firewall e se o certificado HTTPS do Connector é confiável nesta estação.'
-      );
-    }
-    if (response.status === 404) throw new LinkLocalExpiradoError();
-    if (!response.ok) throw new Error(`O Connector recusou o download do PDF (HTTP ${response.status}).`);
-
-    const total = Number(response.headers.get('Content-Length')) || tamanhoEsperado;
-    const reader = response.body?.getReader();
-    if (!reader) return URL.createObjectURL(await response.blob());
-    const partes: Uint8Array[] = [];
-    let recebido = 0;
-    let ultimaAtualizacao = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      partes.push(value);
-      recebido += value.length;
-      const agora = performance.now();
-      if (agora - ultimaAtualizacao > 150) {
-        ultimaAtualizacao = agora;
-        setDownloadPdf({ recebido, total });
+  async function abrirResultadoLeitura(fileKey: string, result: DocumentTextResult, file: Match) {
+    const extLower = (result.extension || file.name || '').toLowerCase();
+    const ehPdf = extLower.endsWith('.pdf') || Boolean(result.localUrl) || Boolean(result.pdfDataUrl);
+    if (ehPdf && (result.localUrl || result.pdfDataUrl)) {
+      const resolvido = await resolverPdfParaNavegador(result, {
+        connectorId,
+        rootId: file.rootId,
+        relativePath: file.relativePath,
+        tamanhoEsperado: result.size || file.size || 0,
+        onProgress: (recebido, total) => setDownloadPdf({ recebido, total }),
+      });
+      if (resolvido) {
+        const pronto: DocumentTextResult = {
+          ...result,
+          pdfDataUrl: resolvido.url,
+          pdfBlob: resolvido.blob,
+          localUrl: undefined,
+        };
+        if (resolvido.url.startsWith('blob:')) {
+          pdfsLocaisRef.current.push({ fileKey, url: resolvido.url });
+          while (pdfsLocaisRef.current.length > MAX_PDFS_LOCAIS_EM_MEMORIA) {
+            const antigo = pdfsLocaisRef.current.shift()!;
+            if (leituraCacheRef.current.get(antigo.fileKey)?.pdfDataUrl === antigo.url) {
+              leituraCacheRef.current.delete(antigo.fileKey);
+            }
+            URL.revokeObjectURL(antigo.url);
+          }
+        }
+        // Só em memória: blob: não sobrevive a recarregar a página e o PDF não deve ir para o storage
+        leituraCacheRef.current.set(fileKey, pronto);
+        void exibirDocumento(pronto, file);
+        return;
       }
     }
-    setDownloadPdf({ recebido, total: Math.max(total, recebido) });
-    return URL.createObjectURL(new Blob(partes as BlobPart[], { type: 'application/pdf' }));
+
+    const completo = result.hasMorePages ? await carregarPaginasKenRestantes(result, file) : result;
+    setCachedLeitura(fileKey, completo);
+    void exibirDocumento(completo, file);
   }
-
-
 
   function copiarCaminho(file: Match) {
     const fullPath = formatCartorioPath(file.rootId, file.relativePath);
-    navigator.clipboard.writeText(fullPath).then(() => {
-      setCaminhoCopiado(file.relativePath);
-      setTimeout(() => setCaminhoCopiado(null), 2500);
+    void copiarTextoSeguro(fullPath).then(ok => {
+      if (ok) {
+        setCaminhoCopiado(file.relativePath);
+        setTimeout(() => setCaminhoCopiado(null), 2500);
+      }
     });
   }
 
