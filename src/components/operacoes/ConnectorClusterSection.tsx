@@ -257,6 +257,24 @@ export function ConnectorClusterSection({
     }
   }
 
+  async function handleDeleteNode(node: ConnectorClusterNodeSummary) {
+    if (node.operationalState === 'ACTIVE') return;
+    const ok = window.confirm(
+      `Deseja remover o servidor "${node.name}" (${node.hostname || node.connectorId}) da lista do cartório?`,
+    );
+    if (!ok) return;
+
+    try {
+      await postConnectorAction(
+        { action: 'delete_node', connectorId: node.connectorId },
+        `delete:${node.connectorId}`,
+      );
+      toast.success(`Servidor "${node.name}" removido com sucesso.`);
+    } catch (err: any) {
+      toast.error('Falha ao remover servidor', { description: err.message });
+    }
+  }
+
   function openCreateEnrollModal() {
     const hasPrimaryAlready = nodes.some((n) => n.role === 'PRIMARY' && n.name.toUpperCase().includes('SRVFILES'));
     setEnrollName(hasPrimaryAlready ? 'Servidor Reserva — Secundário' : 'SRVFILES — Principal');
@@ -739,6 +757,18 @@ export function ConnectorClusterSection({
                       <Eye className="h-3.5 w-3.5" />
                       <span>{isSelected ? 'Inspecionando' : 'Inspecionar'}</span>
                     </button>
+
+                    {!isActive && (
+                      <button
+                        type="button"
+                        disabled={busyAction !== null}
+                        onClick={() => handleDeleteNode(node)}
+                        className="inline-flex items-center justify-center p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 transition-all cursor-pointer disabled:opacity-50"
+                        title="Remover este servidor reserva/inativo do painel"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

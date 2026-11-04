@@ -24,6 +24,7 @@ function buildBatchLauncher(origin: string, token: string): string {
   const psUrl = `${origin}/api/v1/connector/install.ps1`;
   const bootstrapCmd = [
     '[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;',
+    '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;',
     "$pUrl = ''; $pUser = ''; $pPass = ''; $script = $null;",
     `try { $script = Invoke-RestMethod -Uri '${psUrl}' -UseBasicParsing -TimeoutSec 15 }`,
     'catch {',
@@ -90,16 +91,21 @@ function Install-FiorixConnector {
     [string]$ProxyUrl = "",
     [string]$ProxyUser = "",
     [string]$ProxyPassword = "",
-    [switch]$SkipSqlTest
+    [switch]$SkipSqlTest,
+    [switch]$ForceOverwriteService
   )
 
   $ErrorActionPreference = 'Stop'
   $ProgressPreference = 'SilentlyContinue'
   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+  [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+  $CleanOrigin = $ApiBaseUrl.Trim().TrimEnd('/')
+  $MachineHostname = $env:COMPUTERNAME
 
   Write-Host ""
   Write-Host "======================================================================" -ForegroundColor Cyan
-  Write-Host "  FIORIX CONNECTOR SaaS - Provisionamento Portatil Multi-Tenant" -ForegroundColor Cyan
+  Write-Host "  FIORIX CONNECTOR SaaS - Servidor Atual: $MachineHostname" -ForegroundColor Cyan
   Write-Host "======================================================================" -ForegroundColor Cyan
   Write-Host ""
 
@@ -110,8 +116,19 @@ function Install-FiorixConnector {
     return
   }
 
-  $CleanOrigin = $ApiBaseUrl.Trim().TrimEnd('/')
-  $MachineHostname = $env:COMPUTERNAME
+  # 2. Trava de seguranca ANTES de consumir o token caso ja exista FIORIXConnector nesta maquina
+  $PreCheckSvc = Get-Service -Name "FIORIXConnector" -ErrorAction SilentlyContinue
+  if ($null -ne $PreCheckSvc -and -not $ForceOverwriteService) {
+    Write-Host "[ATENCAO] Esta maquina ($MachineHostname) JA POSSUI o servico FIORIXConnector instalado!" -ForegroundColor Yellow
+    Write-Host "Se voce baixou o instalador para rodar em OUTRO servidor (ex: SRVFILES)," -ForegroundColor Yellow
+    Write-Host "digite N abaixo e copie o arquivo .BAT para a Area de Trabalho Remota do outro servidor." -ForegroundColor Yellow
+    $ConfirmOverwrite = Read-Host "Deseja realmente SUBSTITUIR o Connector desta maquina ($MachineHostname)? [s/N]"
+    if ($ConfirmOverwrite -notmatch '^[Ss]') {
+      Write-Host "Instalacao cancelada com seguranca (seu token de pareamento NAO foi consumido e continua valido)." -ForegroundColor Green
+      return
+    }
+  }
+
   $OsCaption = [Environment]::OSVersion.VersionString
   try {
     $CimOs = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
@@ -121,7 +138,7 @@ function Install-FiorixConnector {
   } catch {
   }
 
-  # 2. Configuracao opcional de Proxy HTTP Corporativo (com suporte a usuario e senha)
+  # 3. Configuracao opcional de Proxy HTTP Corporativo (com suporte a usuario e senha)
   $EffectiveProxyUri = ""
   $ParsedProxyHost = ""
   $ParsedProxyPort = "3128"
@@ -174,19 +191,21 @@ function Install-FiorixConnector {
     }
   }
 
-  # 3. Pareamento criptografico de uso unico com o FIORIX SaaS (carrega pre-configuracao do painel!)
+  # 4. Pareamento criptografico de uso unico com o FIORIX SaaS (UTF-8 puro + preserva URL LAN do painel)
   Write-Host "Realizando pareamento seguro com $CleanOrigin..." -ForegroundColor Cyan
   $DefaultLanFromHost = "http://$($MachineHostname.ToLower()):8765"
-  $EnrollLanCandidate = if ([string]::IsNullOrWhiteSpace($LanUrl)) { $DefaultLanFromHost } else { $LanUrl.Trim().TrimEnd('/') }
 
-  $EnrollBody = @{
+  $EnrollPayload = @{
     token = $Token.Trim()
     hostname = $MachineHostname
     osVersion = [string]$OsCaption
     installedPath = $InstallDir
-    lanUrl = $EnrollLanCandidate
     version = "v2.6.0"
-  } | ConvertTo-Json -Compress
+  }
+  if (-not [string]::IsNullOrWhiteSpace($LanUrl)) {
+    $EnrollPayload["lanUrl"] = $LanUrl.Trim().TrimEnd('/')
+  }
+  $EnrollBody = $EnrollPayload | ConvertTo-Json -Compress
 
   $EnrollParams = @{
     Uri = "$CleanOrigin/api/v1/connector/enroll"
@@ -197,7 +216,27 @@ function Install-FiorixConnector {
   }
   Add-WebProxyArgs $EnrollParams
 
-  $EnrollResp = Invoke-RestMethod @EnrollParams
+  $EnrollResp = $null
+  try {
+    $RawEnrollHttp = Invoke-WebRequest @EnrollParams
+    $Utf8Json = [System.Text.Encoding]::UTF8.GetString($RawEnrollHttp.RawContentStream.ToArray())
+    $EnrollResp = $Utf8Json | ConvertFrom-Json
+  } catch {
+    $StatusCode = 0
+    if ($null -ne $_.Exception.Response) {
+      $StatusCode = [int]$_.Exception.Response.StatusCode
+    }
+    if ($StatusCode -eq 401) {
+      Write-Host ""
+      Write-Host "[TOKEN JA UTILIZADO OU EXPIRADO (HTTP 401)]" -ForegroundColor Red
+      Write-Host "Este arquivo .BAT / token de pareamento e de uso unico e ja foi consumido ou expirou (15 min)." -ForegroundColor Yellow
+      Write-Host "Acesse $CleanOrigin/sistema/operacoes -> '+ Adicionar Servidor Connector' e gere um novo instalador." -ForegroundColor Cyan
+      Write-Host ""
+      return
+    }
+    throw
+  }
+
   if (-not $EnrollResp.ok -or -not $EnrollResp.connectorId -or -not $EnrollResp.connectorSecret) {
     throw "Resposta inesperada no pareamento com FIORIX SaaS."
   }
@@ -218,7 +257,7 @@ function Install-FiorixConnector {
     $LanUrl = if ([string]::IsNullOrWhiteSpace($InputLan)) { $CloudLan } else { $InputLan.Trim().TrimEnd('/') }
   }
 
-  # 4. Coleta local segura das credenciais SQL Server (NUNCA enviadas para a nuvem!)
+  # 5. Coleta local segura das credenciais SQL Server (NUNCA enviadas para a nuvem!)
   Write-Host ""
   Write-Host "--- Credenciais Locais do SQL Server (Gravadas exclusivamente neste servidor) ---" -ForegroundColor Yellow
 
@@ -292,7 +331,7 @@ function Install-FiorixConnector {
     }
   }
 
-  # 5. Preparacao dos diretorios locais isolados
+  # 6. Preparacao dos diretorios locais isolados
   Write-Host ""
   Write-Host "Preparando estrutura em '$InstallDir'..." -ForegroundColor Cyan
   $Dirs = @($InstallDir, "$InstallDir\\runtime", "$InstallDir\\dist", "$InstallDir\\tools", "$InstallDir\\bin", "$InstallDir\\logs", "$InstallDir\\data")
@@ -309,7 +348,7 @@ function Install-FiorixConnector {
     Start-Sleep -Seconds 2
   }
 
-  # 6. Runtime Node.js v22 LTS Portatil (zero exigencia de Node/NPM/Git global no servidor)
+  # 7. Runtime Node.js v22 LTS Portatil (extracao rapida via .NET ZipFile sem barra lenta)
   $NodeExe = "$InstallDir\\runtime\\node.exe"
   if (-not (Test-Path $NodeExe)) {
     $NodeVersion = "v22.14.0"
@@ -322,8 +361,10 @@ function Install-FiorixConnector {
     Add-WebProxyArgs $IwrParams
     Invoke-WebRequest @IwrParams
 
+    Write-Host "Extraindo runtime Node.js portatil..." -ForegroundColor Gray
     if (Test-Path $TempExtract) { Remove-Item -Path $TempExtract -Recurse -Force }
-    Expand-Archive -Path $TempZip -DestinationPath $TempExtract -Force
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($TempZip, $TempExtract)
     Copy-Item -Path "$TempExtract\\node-$NodeVersion-win-x64\\node.exe" -Destination $NodeExe -Force
     Remove-Item -Path $TempZip -Force -ErrorAction SilentlyContinue
     Remove-Item -Path $TempExtract -Recurse -Force -ErrorAction SilentlyContinue
@@ -332,7 +373,7 @@ function Install-FiorixConnector {
     Write-Host "[OK] Runtime portatil Node.js ja presente em $NodeExe" -ForegroundColor Green
   }
 
-  # 7. Download autenticado dos artefatos compilados + verificacao SHA-256
+  # 8. Download autenticado dos artefatos compilados + verificacao SHA-256
   $AuthHeaders = @{
     "Authorization" = "Bearer $ConnectorSecret"
     "X-Connector-Id" = $ConnectorId
@@ -371,7 +412,7 @@ function Install-FiorixConnector {
   }
   Write-Host "[OK] Binarios oficiais $($Manifest.version) verificados com SHA-256!" -ForegroundColor Green
 
-  # 8. Gravacao de package.json ESM minimo e .env.production blindado por ACL Windows
+  # 9. Gravacao de package.json ESM minimo e .env.production blindado por ACL Windows
   $PkgJson = '{"name":"fiorix-connector-runtime","private":true,"type":"module"}'
   Set-Content -Path "$InstallDir\\package.json" -Value $PkgJson -Encoding UTF8 -Force
 
@@ -464,7 +505,9 @@ function Install-FiorixConnector {
   }
 
   $EnvFile = "$InstallDir\\.env.production"
+  $BaseEnvFile = "$InstallDir\\.env"
   $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+  [System.IO.File]::WriteAllLines($BaseEnvFile, @('FIORIX_CONNECTOR_ENV="production"'), $Utf8NoBom)
   [System.IO.File]::WriteAllLines($EnvFile, $EnvLines, $Utf8NoBom)
   $PlainSqlPassword = $null
   $PlainProxyPassword = $null
@@ -473,7 +516,7 @@ function Install-FiorixConnector {
   & icacls $EnvFile /inheritance:r /grant:r "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" | Out-Null
   Write-Host "[OK] Arquivo .env.production protegido com ACL restrita (SYSTEM + Administradores)." -ForegroundColor Green
 
-  # 9. Regra de Firewall Windows para streaming rapido de PDFs via LAN (TCP 8765 apenas Domain/Private)
+  # 10. Regra de Firewall Windows para streaming rapido de PDFs via LAN (TCP 8765 apenas Domain/Private)
   try {
     $FwName = "FIORIX Connector PDF LAN (8765)"
     $ExistingFw = Get-NetFirewallRule -DisplayName $FwName -ErrorAction SilentlyContinue
@@ -485,8 +528,9 @@ function Install-FiorixConnector {
     Write-Host "[AVISO] Nao foi possivel registrar regra automatica de firewall (porta 8765): $($_.Exception.Message)" -ForegroundColor Yellow
   }
 
-  # 10. Registro e inicializacao do Servico Windows (FIORIXConnector) via NSSM
+  # 11. Registro e inicializacao do Servico Windows (FIORIXConnector) via NSSM
   $NssmExe = "$InstallDir\\tools\\nssm.exe"
+  $SafeDisplayName = "FIORIX Connector SaaS ($MachineHostname)"
   $SvcCheck = Get-Service -Name "FIORIXConnector" -ErrorAction SilentlyContinue
   if ($null -eq $SvcCheck) {
     & $NssmExe install FIORIXConnector $NodeExe "dist/index.js" | Out-Null
@@ -496,7 +540,7 @@ function Install-FiorixConnector {
   }
 
   & $NssmExe set FIORIXConnector AppDirectory $InstallDir | Out-Null
-  & $NssmExe set FIORIXConnector DisplayName "FIORIX Connector SaaS ($($EnrollResp.connectorName))" | Out-Null
+  & $NssmExe set FIORIXConnector DisplayName $SafeDisplayName | Out-Null
   & $NssmExe set FIORIXConnector Description "Agente de Sincronizacao SQL e Gestao Documental 24/7 FIORIX SaaS" | Out-Null
   & $NssmExe set FIORIXConnector Start SERVICE_AUTO_START | Out-Null
   & $NssmExe set FIORIXConnector AppEnvironmentExtra "FIORIX_CONNECTOR_ENV=production" | Out-Null

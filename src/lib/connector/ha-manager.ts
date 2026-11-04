@@ -1709,3 +1709,59 @@ export async function evaluateConnectorSyncPermission(
 
   return { allowed: true, operationalState: state };
 }
+
+export async function deleteConnectorNode(
+  tenantId: string,
+  connectorId: string,
+  actor?: AuthenticatedUser | null,
+): Promise<{ deletedConnectorId: string }> {
+  await ensureConnectorHaSchema();
+
+  const existing = await prisma.$queryRawUnsafe<
+    Array<{ id: string; name: string; operational_state: string | null }>
+  >(
+    `SELECT c."id", c."name", h.operational_state
+     FROM "Connector" c
+     LEFT JOIN public.fiorix_connector_ha_nodes h ON h.connector_id = c."id"
+     WHERE c."tenantId" = $1 AND c."id" = $2
+     LIMIT 1`,
+    tenantId,
+    connectorId,
+  );
+
+  if (existing.length === 0) {
+    throw new Error('Servidor Connector não encontrado para este cartório.');
+  }
+
+  if (existing[0].operational_state === 'ACTIVE') {
+    throw new Error(
+      'Não é permitido excluir o servidor Principal ATIVO. Promova outro servidor ou pause-o primeiro.',
+    );
+  }
+
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM public.fiorix_connector_ha_nodes WHERE tenant_id = $1 AND connector_id = $2`,
+    tenantId,
+    connectorId,
+  );
+
+  try {
+    await prisma.connector.delete({ where: { id: connectorId } });
+  } catch {
+    await prisma.connector.update({
+      where: { id: connectorId },
+      data: { enabled: false, credentialIdentifier: `revoked_${connectorId}`, status: 'offline' },
+    });
+  }
+
+  await recordAuditLog({
+    modulo: 'OPERACOES_CONNECTOR',
+    acao: 'EXCLUSAO',
+    registroId: connectorId,
+    registroDescricao: `Servidor Connector removido: ${existing[0].name}`,
+    detalhes: { connectorId, connectorName: existing[0].name },
+    userOverride: actor ?? null,
+  });
+
+  return { deletedConnectorId: connectorId };
+}

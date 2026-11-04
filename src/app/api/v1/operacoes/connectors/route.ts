@@ -15,6 +15,7 @@ import {
   createEnrollmentToken,
   triggerConnectorUpdate,
   startRollingUpdate,
+  deleteConnectorNode,
 } from '@/lib/connector/ha-manager';
 
 export const dynamic = 'force-dynamic';
@@ -78,6 +79,10 @@ const actionSchema = z.discriminatedUnion('action', [
   }),
   z.object({
     action: z.literal('rolling_update'),
+  }),
+  z.object({
+    action: z.literal('delete_node'),
+    connectorId: z.string().trim().min(1).max(128),
   }),
 ]);
 
@@ -221,6 +226,12 @@ export async function POST(req: NextRequest) {
 
     if (data.action === 'rolling_update') {
       const result = await startRollingUpdate(user.tenantId, user);
+      invalidateOperationsHealthCache(user.tenantId);
+      return NextResponse.json({ ok: true, ...result });
+    }
+
+    if (data.action === 'delete_node') {
+      const result = await deleteConnectorNode(user.tenantId, data.connectorId, user);
       invalidateOperationsHealthCache(user.tenantId);
       return NextResponse.json({ ok: true, ...result });
     }
