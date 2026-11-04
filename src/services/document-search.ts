@@ -181,16 +181,21 @@ const cliMetrics = {
 };
 
 export function resolveDocumentCliPath(): string {
+  const configured = process.env.DOCUMENTAL_CLI_PATH || process.env.FIORIX_GD_CLI_PATH;
+  if (configured && fsSync.existsSync(configured)) return configured;
   if (process.env.FIORIX_GD_CLI_PATH) return process.env.FIORIX_GD_CLI_PATH;
+  if (process.env.DOCUMENTAL_CLI_PATH) return process.env.DOCUMENTAL_CLI_PATH;
   const localBundledBin = path.join(process.cwd(), 'bin', 'fiorix-gd-cli.exe');
   if (fsSync.existsSync(localBundledBin)) return localBundledBin;
+  const adjacentRuntimeBin = path.resolve(path.dirname(process.execPath), '..', 'bin', 'fiorix-gd-cli.exe');
+  if (fsSync.existsSync(adjacentRuntimeBin)) return adjacentRuntimeBin;
   return 'B:\\henrique-dev\\app-biblioteca\\src-tauri\\target\\debug\\fiorix-gd-cli.exe';
 }
 
 export async function executeDocumentCli(
   command: 'extrair-peticao' | 'analisar-assinaturas',
   filePath: string,
-  options?: { pageStart?: number; pageEnd?: number },
+  options?: { pageStart?: number; pageEnd?: number; timeoutMs?: number },
 ): Promise<unknown> {
   const cliPath = resolveDocumentCliPath();
   const args = [command, filePath];
@@ -200,8 +205,8 @@ export async function executeDocumentCli(
   const inicio = Date.now();
   try {
     const { stdout } = await execFileAsync(cliPath, args, {
-      timeout: 30000,
-      maxBuffer: 10 * 1024 * 1024,
+      timeout: options?.timeoutMs ?? 90000,
+      maxBuffer: 15 * 1024 * 1024,
       windowsHide: true,
     });
     cliMetrics.lastDurationMs = Date.now() - inicio;
@@ -1142,6 +1147,43 @@ export function extrairConfrontacoes(texto: string): ConfrontacoesExtraidas {
 
 export function enrichPetitionData(data: Record<string, any>, relativePath?: string): Record<string, any> {
   const result = { ...data };
+
+  // Limpa ruídos comuns capturados pelo OCR em ofícios de resposta do próprio 7º RI
+  if (typeof result.requerente === 'string' && result.requerente) {
+    result.requerente = result.requerente
+      .replace(/\s+(?:USUCAPI[ÃA]O|MERIT[ÍI]SSIM[OA]|MM\.?\s*JUIZ[A]?|EXCELENT[ÍI]SSIM[OA]|DOUTOR[A]?\s+JUIZ[A]?).*$/i, '')
+      .trim();
+  }
+  const ehTimbreSetimoRi = (val: unknown) =>
+    typeof val === 'string' &&
+    (/rua\s+augusta[,\s]+(?:n[ºo°.]?\s*)?356/i.test(val) || /3218-0527|01304-000/i.test(val));
+  if (ehTimbreSetimoRi(result.imovel)) {
+    result.imovel = '';
+  }
+  if (
+    ehTimbreSetimoRi(result.rua_olhar_confrontacao) ||
+    (typeof result.rua_olhar_confrontacao === 'string' &&
+      /^rua\s+augusta$/i.test(result.rua_olhar_confrontacao.trim()) &&
+      !result.imovel)
+  ) {
+    result.rua_olhar_confrontacao = '';
+  }
+
+  if ((!result.numero_processo || !String(result.numero_processo).trim()) && relativePath) {
+    const cnjMatch = relativePath.match(/(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})/);
+    if (cnjMatch) result.numero_processo = cnjMatch[1];
+  }
+
+  if (!result.vara || !String(result.vara).trim()) {
+    const origensTxt = Array.isArray(result.origem_campos)
+      ? result.origem_campos.map((o: any) => o?.trecho || '').join(' ')
+      : '';
+    const varaMatch = origensTxt.match(/(\d{1,2}\s*[ªaº°]?\s*Vara(?:\s+(?:C[íi]vel|de\s+Registros\s+P[úu]blicos|da\s+Fazenda\s+P[úu]blica))?(?:\s+(?:da\s+Comarca\s+)?de\s+[A-ZÀ-Úa-zà-ú\s]{3,25})?)/i);
+    if (varaMatch) {
+      result.vara = varaMatch[1].replace(/\s+/g, ' ').trim();
+    }
+  }
+
   const rawText = [
     result.imovel,
     result.rua_olhar_confrontacao,
@@ -1322,6 +1364,76 @@ export async function extractDocxPetition(filePath: string, relativePath: string
   cliMetrics.docxExtractedTotal++;
   cliMetrics.petitionsExtractedTotal++;
   return enrichPetitionData(rawData, relativePath);
+}
+
+export async function extractPdfPetitionResilient(
+  filePath: string,
+  relativePath: string,
+  options?: { pageStart?: number; pageEnd?: number },
+): Promise<Record<string, any>> {
+  try {
+    const cliResult = (await executeDocumentCli('extrair-peticao', filePath, {
+      pageStart: options?.pageStart,
+      pageEnd: options?.pageEnd,
+      timeoutMs: 90000,
+    })) as Record<string, any>;
+    return enrichPetitionData(cliResult, relativePath);
+  } catch (firstErr) {
+    // Se o PDF for grande e não havia recorte de páginas explícito, tenta apenas as 18 páginas iniciais
+    if (!options?.pageStart && !options?.pageEnd) {
+      try {
+        const retryResult = (await executeDocumentCli('extrair-peticao', filePath, {
+          pageStart: 1,
+          pageEnd: 18,
+          timeoutMs: 60000,
+        })) as Record<string, any>;
+        return enrichPetitionData(retryResult, relativePath);
+      } catch {
+        // segue para fallback em JS puro abaixo
+      }
+    }
+
+    // Fallback resiliente em JS puro: nunca bloqueia a abertura do formulário de Manifestação
+    const cnjMatch = relativePath.match(/(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})/);
+    const numProcesso = cnjMatch ? cnjMatch[1] : '';
+    const matDetectada = extrairNumeroMatricula(relativePath) || '';
+    const fallbackData: Record<string, any> = {
+      id_ficha: `FICHA-${Date.now()}`,
+      buscas_feitas_em: new Date().toLocaleDateString('pt-BR'),
+      tipo_processo: 'USUCAPIÃO',
+      numero_processo: numProcesso,
+      vara: '',
+      data_chegada: '',
+      requerente: '',
+      imovel: '',
+      rua_olhar_confrontacao: '',
+      contribuinte_sql: '',
+      fls_inicial: '',
+      fls_laudo: '',
+      matricula_transcricao: matDetectada,
+      cartorio_origem: '',
+      fls_certidao_origem: '',
+      titular_origem: '',
+      resultado_buscas: 'NEGATIVAS',
+      subdistrito: '',
+      data_competencia_subdistrito: '23 de dezembro de 1.938',
+      confrontante_lado_direito: '',
+      confrontante_lado_esquerdo: '',
+      confrontante_fundos: '',
+      transcricoes_anexas: 'a conferir na certidão',
+      matriculas_anexas: matDetectada,
+      cartorio_encaminhamento: '',
+      anotacoes_ficha_oficial: '',
+      escrevente_pasta: 'CFALANGA',
+      pagina_inicial_detectada: 1,
+      pagina_final_detectada: 1,
+      total_paginas_pdf: 1,
+      origem_campos: [],
+      extracao_parcial_aviso: String((firstErr as any)?.message || 'Extração parcial automática'),
+    };
+    cliMetrics.petitionsExtractedTotal++;
+    return enrichPetitionData(fallbackData, relativePath);
+  }
 }
 
 export interface DocumentRootHealth {

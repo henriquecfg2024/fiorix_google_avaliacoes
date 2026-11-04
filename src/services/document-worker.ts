@@ -6,9 +6,9 @@ import { logger } from '../utils/logger.js';
 import { postDocumentMessage } from './api.js';
 import { runtimeDirective } from './runtime-directive.js';
 import {
-  enrichPetitionData,
   executeDocumentCli,
   extractDocxPetition,
+  extractPdfPetitionResilient,
   isAllowedDocumentApiUrl,
   listDirectory,
   MAX_DOCUMENT_CHUNK_BYTES,
@@ -253,11 +253,10 @@ export function startDocumentWorker(): () => void {
             if (ext === '.docx' || ext === '.doc') {
               result = await extractDocxPetition(targetPath, job.relativePath);
             } else {
-              const cliResult = await executeDocumentCli('extrair-peticao', targetPath, {
+              result = await extractPdfPetitionResilient(targetPath, job.relativePath, {
                 pageStart: job.pageStart ?? undefined,
                 pageEnd: job.pageEnd ?? undefined,
-              }) as Record<string, any>;
-              result = enrichPetitionData(cliResult, job.relativePath);
+              });
             }
           } else if (job.type === 'analyze_signatures') {
             if (!job.rootId || !job.relativePath) throw new Error('Parâmetros inválidos.');
