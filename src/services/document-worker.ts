@@ -4,6 +4,7 @@ import { promises as fs } from 'node:fs';
 import { env, connectorEnv } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 import { postDocumentMessage } from './api.js';
+import { runtimeDirective } from './runtime-directive.js';
 import {
   enrichPetitionData,
   executeDocumentCli,
@@ -92,7 +93,7 @@ export function getDocumentWorkerTelemetry(): DocumentWorkerTelemetry {
       : null;
 
   let searchEngine: DocumentSearchTelemetry | null = null;
-  if (workerRuntime.enabled) {
+  if (workerRuntime.enabled && workerRuntime.authorizedRoots.length > 0) {
     try {
       searchEngine = getDocumentSearchTelemetrySync(workerRuntime.authorizedRoots);
     } catch {
@@ -120,6 +121,34 @@ export function getDocumentWorkerTelemetry(): DocumentWorkerTelemetry {
   };
 }
 
+function resolveConfiguredDocumentRoots(): DocumentRoot[] {
+  const remoteRoots = runtimeDirective.getRemoteConfig().documentRoots;
+  if (Array.isArray(remoteRoots) && remoteRoots.length > 0) {
+    return parseDocumentRoots(JSON.stringify(remoteRoots.map((r) => ({ id: r.id, path: r.path }))));
+  }
+
+  const rawRoots = process.env.DOCUMENTAL_ROOTS_JSON?.trim();
+  if (rawRoots && rawRoots !== '[]') {
+    return parseDocumentRoots(rawRoots);
+  }
+
+  // Configuração padrão das pastas oficiais quando presentes localmente
+  const defaults: DocumentRoot[] = [];
+  if (fsSync.existsSync('W:\\USUCAPIAO')) {
+    defaults.push({ id: 'minutas', path: 'W:\\USUCAPIAO' });
+  }
+  if (fsSync.existsSync('H:\\PROCESSOS - ENVIADOS POR E-MAIL')) {
+    defaults.push({ id: 'processos', path: 'H:\\PROCESSOS - ENVIADOS POR E-MAIL' });
+  }
+  if (fsSync.existsSync('K:\\IMAGENS')) {
+    defaults.push({ id: 'imagens', path: 'K:\\IMAGENS' });
+  }
+  if (fsSync.existsSync('K:\\IMAGENS\\LV2')) {
+    defaults.push({ id: 'livro2', path: 'K:\\IMAGENS\\LV2' });
+  }
+  return defaults;
+}
+
 export function startDocumentWorker(): () => void {
   workerRuntime.enabled = process.env.DOCUMENTAL_ENABLED === 'true';
   if (!workerRuntime.enabled) {
@@ -138,51 +167,73 @@ export function startDocumentWorker(): () => void {
     logger.warn('DOCUMENTAL: desativado em shadow mode ou sem HTTPS.');
     return () => {};
   }
-  let roots;
+  let initialRoots: DocumentRoot[] = [];
   try {
-    const rawRoots = process.env.DOCUMENTAL_ROOTS_JSON?.trim();
-    if (rawRoots && rawRoots !== '[]') {
-      roots = parseDocumentRoots(rawRoots);
-    } else {
-      // Configuração padrão das 3 pastas oficiais do 7º RI
-      const defaults = [];
-      if (fsSync.existsSync('W:\\USUCAPIAO')) {
-        defaults.push({ id: 'minutas', path: 'W:\\USUCAPIAO' });
-      }
-      if (fsSync.existsSync('H:\\PROCESSOS - ENVIADOS POR E-MAIL')) {
-        defaults.push({ id: 'processos', path: 'H:\\PROCESSOS - ENVIADOS POR E-MAIL' });
-      }
-      if (fsSync.existsSync('K:\\IMAGENS')) {
-        defaults.push({ id: 'imagens', path: 'K:\\IMAGENS' });
-      }
-      if (fsSync.existsSync('K:\\IMAGENS\\LV2')) {
-        defaults.push({ id: 'livro2', path: 'K:\\IMAGENS\\LV2' });
-      }
-      roots = defaults.length > 0 ? defaults : parseDocumentRoots('[]');
-    }
+    initialRoots = resolveConfiguredDocumentRoots();
   } catch {
     workerRuntime.running = false;
     workerRuntime.disabledReason = 'Configuração de pastas DOCUMENTAL_ROOTS_JSON inválida';
-    logger.error('DOCUMENTAL: configuração de pastas inválida; worker desativado.');
-    return () => {};
+    logger.error('DOCUMENTAL: configuração de pastas inválida; aguardando configuração remota.');
   }
-  const authorizedRoots = roots;
-  workerRuntime.authorizedRoots = authorizedRoots;
-  workerRuntime.running = true;
-  workerRuntime.disabledReason = null;
+
+  workerRuntime.authorizedRoots = initialRoots;
+  workerRuntime.running = runtimeDirective.shouldRunDocumentWorker() && initialRoots.length > 0;
+  workerRuntime.disabledReason = !runtimeDirective.shouldRunDocumentWorker()
+    ? (runtimeDirective.isPaused() ? 'Pausado manualmente (modo manutenção)' : 'Em Hot-Standby (aguardando promoção)')
+    : (initialRoots.length === 0 ? 'Aguardando mapeamento de pastas no painel' : null);
+
   // PDFs grandes são servidos direto ao navegador na rede interna (não passam pelo FIORIX)
   const servidorArquivos = iniciarServidorArquivosLocal(env.FIORIX_API_URL);
   workerRuntime.servidorArquivos = servidorArquivos;
-  void warmDocumentIndex(authorizedRoots).catch(() => {});
+  if (initialRoots.length > 0) {
+    void warmDocumentIndex(initialRoots).catch(() => {});
+  }
+
+  const unsubscribeConfig = runtimeDirective.onConfigChanged((remoteCfg) => {
+    try {
+      const nextRoots = resolveConfiguredDocumentRoots();
+      workerRuntime.authorizedRoots = nextRoots;
+      if (nextRoots.length > 0) {
+        void warmDocumentIndex(nextRoots).catch(() => {});
+      }
+      if (servidorArquivos) {
+        servidorArquivos.atualizarUrlPublica(remoteCfg.lanUrl);
+      }
+    } catch (cfgErr: any) {
+      logger.warn(`DOCUMENTAL: falha ao aplicar configuração remota (${cfgErr?.message || cfgErr}).`);
+    }
+  });
+
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  // Intervalos de consulta: logo após um job (usuário navegando/abrindo arquivos), ocioso e após falha de rede
+  // Intervalos de consulta: logo após um job (usuário navegando/abrindo arquivos), ocioso, standby e após falha de rede
   const INTERVALO_APOS_JOB_MS = 100;
   const INTERVALO_OCIOSO_MS = 450;
+  const INTERVALO_STANDBY_MS = 1500;
   const INTERVALO_ERRO_MS = 5000;
   async function tick() {
     let proximoIntervalo = INTERVALO_OCIOSO_MS;
     try {
+      if (!runtimeDirective.shouldRunDocumentWorker()) {
+        workerRuntime.running = false;
+        workerRuntime.disabledReason = runtimeDirective.isPaused()
+          ? 'Pausado manualmente (modo manutenção)'
+          : 'Em Hot-Standby (aguardando promoção)';
+        proximoIntervalo = INTERVALO_STANDBY_MS;
+        return;
+      }
+
+      const activeRoots = workerRuntime.authorizedRoots;
+      if (activeRoots.length === 0) {
+        workerRuntime.running = false;
+        workerRuntime.disabledReason = 'Aguardando mapeamento de pastas no painel';
+        proximoIntervalo = INTERVALO_STANDBY_MS;
+        return;
+      }
+
+      workerRuntime.running = true;
+      workerRuntime.disabledReason = null;
+
       const response = await postDocumentMessage({ action: 'claim' });
       workerRuntime.lastPollAt = new Date().toISOString();
       const job = response.data.job as ClaimedJob | null;
@@ -194,10 +245,10 @@ export function startDocumentWorker(): () => void {
           let result: unknown;
           if (job.type === 'list_directory') {
             if (!job.rootId || !job.relativePath) throw new Error('Parâmetros inválidos.');
-            result = await listDirectory(authorizedRoots, job.rootId, job.relativePath);
+            result = await listDirectory(activeRoots, job.rootId, job.relativePath);
           } else if (job.type === 'extract_petition') {
             if (!job.rootId || !job.relativePath) throw new Error('Parâmetros inválidos.');
-            const targetPath = await resolveAuthorizedFile(authorizedRoots, job.rootId, job.relativePath);
+            const targetPath = await resolveAuthorizedFile(activeRoots, job.rootId, job.relativePath);
             const ext = path.extname(targetPath).toLowerCase();
             if (ext === '.docx' || ext === '.doc') {
               result = await extractDocxPetition(targetPath, job.relativePath);
@@ -210,11 +261,11 @@ export function startDocumentWorker(): () => void {
             }
           } else if (job.type === 'analyze_signatures') {
             if (!job.rootId || !job.relativePath) throw new Error('Parâmetros inválidos.');
-            const targetPath = await resolveAuthorizedFile(authorizedRoots, job.rootId, job.relativePath);
+            const targetPath = await resolveAuthorizedFile(activeRoots, job.rootId, job.relativePath);
             result = await executeDocumentCli('analisar-assinaturas', targetPath);
           } else if (job.type === 'read_document_chunk') {
             if (!job.rootId || !job.relativePath) throw new Error('Parâmetros inválidos.');
-            const targetPath = await resolveAuthorizedFile(authorizedRoots, job.rootId, job.relativePath);
+            const targetPath = await resolveAuthorizedFile(activeRoots, job.rootId, job.relativePath);
             result = await readDocumentChunk(
               targetPath,
               job.pageStart ?? 0,
@@ -222,7 +273,7 @@ export function startDocumentWorker(): () => void {
             );
           } else if (job.type === 'read_document_text') {
             if (!job.rootId || !job.relativePath) throw new Error('Parâmetros inválidos.');
-            const targetPath = await resolveAuthorizedFile(authorizedRoots, job.rootId, job.relativePath);
+            const targetPath = await resolveAuthorizedFile(activeRoots, job.rootId, job.relativePath);
             if (path.extname(targetPath).toLowerCase() === '.pdf') {
               const info = await fs.stat(targetPath);
               const link = servidorArquivos ? servidorArquivos.emitirTicket(targetPath, info.size) : null;
@@ -248,7 +299,7 @@ export function startDocumentWorker(): () => void {
               });
             }
           } else {
-            result = await searchDocuments(authorizedRoots, job.query || '');
+            result = await searchDocuments(activeRoots, job.query || '');
           }
           if (!stopped) await postDocumentMessage({ action: 'complete', id: job.id, result });
           const durJob = Date.now() - inicioJob;
@@ -276,6 +327,12 @@ export function startDocumentWorker(): () => void {
     }
   }
   void tick();
-  return () => { stopped = true; workerRuntime.running = false; if (timer) clearTimeout(timer); servidorArquivos?.parar(); workerRuntime.servidorArquivos = null; };
+  return () => {
+    stopped = true;
+    workerRuntime.running = false;
+    unsubscribeConfig();
+    if (timer) clearTimeout(timer);
+    servidorArquivos?.parar();
+    workerRuntime.servidorArquivos = null;
+  };
 }
-

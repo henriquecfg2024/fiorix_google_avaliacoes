@@ -30,6 +30,9 @@ import { logger } from '../utils/logger.js';
 import { toSqlDateTime2Local } from '../utils/sqlDateTime.js';
 import { healthManager } from './health.js';
 import { isBusinessHours, getSaoPauloDateTime } from '../utils/businessHours.js';
+import { AGENT_VERSION } from '../config/version.js';
+import { runtimeDirective } from './runtime-directive.js';
+import { selfUpdater } from './self-updater.js';
 
 
 
@@ -97,6 +100,7 @@ export class Scheduler {
   private isRunning = false;
   private intervalId?: NodeJS.Timeout;
   private queueIntervalId?: NodeJS.Timeout;
+  private directiveLoopId?: NodeJS.Timeout;
   private isProcessingQueue = false;
   private db: DatabaseSync;
   private activeLocks = new Set<string>();
@@ -131,6 +135,10 @@ export class Scheduler {
   }
 
   private isSourceActive(sourceName: string): boolean {
+    const remoteEnabled = runtimeDirective.getRemoteConfig().enabledModules?.[sourceName as SourceScheduleConfig['name']];
+    if (typeof remoteEnabled === 'boolean') {
+      return remoteEnabled;
+    }
     const isGlobal = this.isGlobalActive();
     const envKey = `${sourceName.toUpperCase()}_AUTO_SYNC_ENABLED`;
     if (process.env[envKey] !== undefined) {
@@ -149,16 +157,17 @@ export class Scheduler {
 
   private getSourceConfigs(): SourceScheduleConfig[] {
     const isShortCycle = (sec: number) => sec <= 60;
+    const remoteIntervals = runtimeDirective.getRemoteConfig().syncIntervals;
 
-    const biInterval = process.env.BI_SYNC_INTERVAL_SECONDS ? Number(process.env.BI_SYNC_INTERVAL_SECONDS) : env.BI_SYNC_INTERVAL_SECONDS;
-    const prodInterval = process.env.PRODUTIVIDADE_SYNC_INTERVAL_SECONDS ? Number(process.env.PRODUTIVIDADE_SYNC_INTERVAL_SECONDS) : env.PRODUTIVIDADE_SYNC_INTERVAL_SECONDS;
-    const tarefasInterval = process.env.TAREFAS_SYNC_INTERVAL_SECONDS ? Number(process.env.TAREFAS_SYNC_INTERVAL_SECONDS) : env.TAREFAS_SYNC_INTERVAL_SECONDS;
-    const metasInterval = process.env.METAS_SYNC_INTERVAL_SECONDS
+    const biInterval = remoteIntervals?.bi ?? (process.env.BI_SYNC_INTERVAL_SECONDS ? Number(process.env.BI_SYNC_INTERVAL_SECONDS) : env.BI_SYNC_INTERVAL_SECONDS);
+    const prodInterval = remoteIntervals?.produtividade ?? (process.env.PRODUTIVIDADE_SYNC_INTERVAL_SECONDS ? Number(process.env.PRODUTIVIDADE_SYNC_INTERVAL_SECONDS) : env.PRODUTIVIDADE_SYNC_INTERVAL_SECONDS);
+    const tarefasInterval = remoteIntervals?.tarefas ?? (process.env.TAREFAS_SYNC_INTERVAL_SECONDS ? Number(process.env.TAREFAS_SYNC_INTERVAL_SECONDS) : env.TAREFAS_SYNC_INTERVAL_SECONDS);
+    const metasInterval = remoteIntervals?.metas ?? (process.env.METAS_SYNC_INTERVAL_SECONDS
       ? Number(process.env.METAS_SYNC_INTERVAL_SECONDS)
-      : (env.METAS_SYNC_INTERVAL_SECONDS || (env.METAS_RECONCILIATION_INTERVAL_MINUTES * 60));
-    const retornosInterval = process.env.RETORNOS_SYNC_INTERVAL_SECONDS
+      : (env.METAS_SYNC_INTERVAL_SECONDS || (env.METAS_RECONCILIATION_INTERVAL_MINUTES * 60)));
+    const retornosInterval = remoteIntervals?.retornos ?? (process.env.RETORNOS_SYNC_INTERVAL_SECONDS
       ? Number(process.env.RETORNOS_SYNC_INTERVAL_SECONDS)
-      : (env.RETORNOS_SYNC_INTERVAL_SECONDS || 3600);
+      : (env.RETORNOS_SYNC_INTERVAL_SECONDS || 3600));
 
     return [
       {
@@ -282,6 +291,7 @@ export class Scheduler {
   }
 
   public checkStartupCatchUp() {
+    if (!runtimeDirective.shouldRunSqlSync()) return;
     const now = new Date();
     if (!isBusinessHours(now)) return;
 
@@ -307,7 +317,7 @@ export class Scheduler {
         logger.info(`STARTUP_CATCHUP_SCHEDULED: Fonte ${config.name} está em atraso (${Math.round(elapsedSeconds / 60)} min sem sincronização). Execução de recuperação agendada para daqui a ${staggerDelayMs / 1000}s.`);
 
         const timeout = setTimeout(() => {
-          if (!this.activeLocks.has(config.name) && this.isRunning && isBusinessHours(new Date())) {
+          if (!this.activeLocks.has(config.name) && this.isRunning && runtimeDirective.shouldRunSqlSync() && isBusinessHours(new Date())) {
             logger.info(`STARTUP_CATCHUP_RUN: Iniciando extração de recuperação para fonte ${config.name}...`);
             this.runExtraction(config, new Date()).catch((err) => {
               logger.error(`STARTUP_CATCHUP_ERROR: Erro na recuperação da fonte ${config.name}: ${err.message}`);
@@ -322,9 +332,22 @@ export class Scheduler {
     }
   }
 
+  public startAlwaysOnDirectiveLoop(intervalMs = 20000) {
+    if (this.directiveLoopId) return;
+    this.directiveLoopId = setInterval(() => {
+      const sec = new Date().getSeconds();
+      // Evita disparo duplicado caso o agendador já vá enviar no segundo 50
+      if (this.isRunning && sec >= 47 && sec <= 53) return;
+      this.sendTelemetryPing().catch(() => {});
+    }, intervalMs);
+    this.directiveLoopId.unref?.();
+  }
+
   public stop() {
     if (this.intervalId) clearInterval(this.intervalId);
     if (this.queueIntervalId) clearInterval(this.queueIntervalId);
+    if (this.directiveLoopId) clearInterval(this.directiveLoopId);
+    this.directiveLoopId = undefined;
     for (const t of this.catchupTimeouts) clearTimeout(t);
     this.catchupTimeouts = [];
     this.isRunning = false;
@@ -400,6 +423,8 @@ export class Scheduler {
       const details = {
         runtime: {
           hostname: os.hostname(),
+          osVersion: `${os.type()} ${os.release()}`,
+          installedPath: process.cwd(),
           pid: process.pid,
           nodeVersion: process.version,
           platform: `${process.platform}/${process.arch}`,
@@ -409,6 +434,8 @@ export class Scheduler {
           heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
           heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
           startedAt: health.startedAt,
+          ha: runtimeDirective.getTelemetrySummary(),
+          selfUpdate: selfUpdater.getStatusSnapshot(),
         },
         capabilities: [
           'sql_sync_7_modules',
@@ -423,17 +450,22 @@ export class Scheduler {
           'morning_reconnect_0658',
           'startup_catchup',
           'proxy_direct_fallback',
+          'hot_standby_ha',
+          'remote_config_v1',
+          'cloud_self_update_sha256',
         ],
         database: {
           connected: health.database.connected,
           lastSuccessfulQueryAt: health.database.lastSuccessfulQueryAt,
-          databaseName: env.SQL_SERVER_DATABASE,
+          databaseName: runtimeDirective.getRemoteConfig().sqlDatabase || env.SQL_SERVER_DATABASE,
           chunkSizeRecords: env.CHUNK_SIZE_RECORDS,
           overlapMinutes: env.INCREMENTAL_OVERLAP_MINUTES,
           reconciliationLookbackDays: env.RECONCILIATION_LOOKBACK_DAYS,
         },
         scheduler: {
-          enabled: globalActive,
+          enabled: globalActive && runtimeDirective.shouldRunSqlSync(),
+          configuredEnabled: globalActive,
+          operationalState: runtimeDirective.getOperationalState(),
           isBusinessHours: isBusinessHours(new Date()),
           activeLocksCount: this.activeLocks.size,
           activeSources: Array.from(this.activeLocks),
@@ -457,6 +489,7 @@ export class Scheduler {
           checkpoints: {
             persistedCount: health.checkpoints.persistedCount,
             stagedCandidates: health.checkpoints.stagedCandidates,
+            bySource: health.checkpoints.bySource,
           },
         },
         sourcesExtended: sourceDetails,
@@ -466,15 +499,16 @@ export class Scheduler {
       const mappedStatus: 'online' | 'degraded' =
         health.connectorStatus === 'unhealthy' ? 'degraded' : 'online';
 
-      await sendHeartbeat({
-        version: process.env.NODE_ENV === 'test' ? '0.1.0' : 'v2.5.0',
+      const prevState = runtimeDirective.getOperationalState();
+      const hbResult = await sendHeartbeat({
+        version: process.env.NODE_ENV === 'test' ? '0.1.0' : AGENT_VERSION,
         status: mappedStatus,
         uptimeSeconds: Math.floor(process.uptime()),
         ramMb: Math.round(mem.rss / 1024 / 1024),
         heapMb: Math.round(mem.heapUsed / 1024 / 1024),
         cpuPercent: Math.round(cpuPercent),
         shadowMode: env.SHADOW_MODE,
-        schedulerEnabled: globalActive,
+        schedulerEnabled: globalActive && runtimeDirective.shouldRunSqlSync(),
         queuePending: health.queue.pending,
         queueSending: health.queue.sending,
         queueFailed: health.queue.failed,
@@ -482,6 +516,13 @@ export class Scheduler {
         sources: sourcesPayload,
         details,
       });
+
+      if (hbResult?.directive) {
+        runtimeDirective.applyDirective(hbResult.directive, this.db);
+        if (prevState !== 'ACTIVE' && runtimeDirective.getOperationalState() === 'ACTIVE' && this.isRunning) {
+          this.checkStartupCatchUp();
+        }
+      }
     } catch (hbErr: any) {
       logger.warn(`HEARTBEAT_WARNING: Falha ao enviar heartbeat: ${hbErr.message}`);
     }
@@ -522,6 +563,11 @@ export class Scheduler {
     // 3. Heartbeat periódico no segundo 50 de cada minuto para não colidir com extrações
     if (seconds === 50) {
       await this.sendTelemetryPing();
+    }
+
+    // Respeita estado operacional de Alta Disponibilidade (ACTIVE / STANDBY / PAUSED)
+    if (!runtimeDirective.shouldRunSqlSync()) {
+      return;
     }
 
     // Validação de horário de expediente (Segunda a Sábado, das 07h às 19h)
@@ -825,7 +871,7 @@ export class Scheduler {
 
 
   public async processQueue() {
-    if (this.isProcessingQueue) return;
+    if (this.isProcessingQueue || runtimeDirective.isPaused()) return;
     this.isProcessingQueue = true;
 
     try {

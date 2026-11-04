@@ -1,15 +1,19 @@
 import { execFile } from 'node:child_process';
-import { promises as fs } from 'node:fs';
+import fsSync, { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import zlib from 'node:zlib';
-import { createRequire } from 'node:module';
 import mammoth from 'mammoth';
+// @ts-ignore
+import * as UTIFImport from 'utif';
+// @ts-ignore
+import * as UPNGImport from 'upng-js';
+// @ts-ignore
+import WordExtractorImport from 'word-extractor';
 
-const require = createRequire(import.meta.url);
-const UTIF = require('utif');
-const UPNG = require('upng-js');
-const WordExtractor = require('word-extractor');
+const UTIF: any = (UTIFImport as any).default ?? UTIFImport;
+const UPNG: any = (UPNGImport as any).default ?? UPNGImport;
+const WordExtractor: any = (WordExtractorImport as any).default ?? WordExtractorImport;
 
 const execFileAsync = promisify(execFile);
 
@@ -177,8 +181,10 @@ const cliMetrics = {
 };
 
 export function resolveDocumentCliPath(): string {
-  const defaultBin = 'B:\\henrique-dev\\app-biblioteca\\src-tauri\\target\\debug\\fiorix-gd-cli.exe';
-  return process.env.FIORIX_GD_CLI_PATH || defaultBin;
+  if (process.env.FIORIX_GD_CLI_PATH) return process.env.FIORIX_GD_CLI_PATH;
+  const localBundledBin = path.join(process.cwd(), 'bin', 'fiorix-gd-cli.exe');
+  if (fsSync.existsSync(localBundledBin)) return localBundledBin;
+  return 'B:\\henrique-dev\\app-biblioteca\\src-tauri\\target\\debug\\fiorix-gd-cli.exe';
 }
 
 export async function executeDocumentCli(
@@ -1340,7 +1346,6 @@ export function getDocumentSearchTelemetrySync(roots: DocumentRoot[]): DocumentS
     // Dispara atualização assíncrona em background e usa verificação rápida síncrona no primeiro pulso
     void getDocumentSearchTelemetry(roots).catch(() => {});
     if (!cachedRootsHealth || cachedRootsHealth.key !== rootsKey) {
-      const fsSync = createRequire(import.meta.url)('node:fs') as typeof import('node:fs');
       const items: DocumentRootHealth[] = roots.map((r) => {
         const start = Date.now();
         let accessible = false;
@@ -1368,7 +1373,6 @@ export function getDocumentSearchTelemetrySync(roots: DocumentRoot[]): DocumentS
 
   const cliPath = resolveDocumentCliPath();
   if (!cachedCliAvailable || cachedCliAvailable.cliPath !== cliPath || agora - cachedCliAvailable.checkedAt > 55_000) {
-    const fsSync = createRequire(import.meta.url)('node:fs') as typeof import('node:fs');
     let available = false;
     try {
       available = fsSync.statSync(cliPath).isFile();

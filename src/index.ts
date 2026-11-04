@@ -3,6 +3,9 @@ import { Scheduler } from './services/scheduler.js';
 import { queueManager } from './db/queue.js';
 import { logger } from './utils/logger.js';
 import { env, connectorEnv } from './config/env.js';
+import { AGENT_VERSION } from './config/version.js';
+import { runtimeDirective } from './services/runtime-directive.js';
+import { selfUpdater } from './services/self-updater.js';
 import { SingleInstanceLock } from './utils/instanceLock.js';
 
 const instanceLock = new SingleInstanceLock();
@@ -13,11 +16,20 @@ if (!instanceLock.acquire()) {
 
 // Log de inicialização limpo e seguro sem expor credenciais
 logger.info(`=======================================================`);
-logger.info(`[FIORIX Connector] Environment: ${connectorEnv.toUpperCase()} | (Shadow Mode: ${env.SHADOW_MODE})`);
+logger.info(`[FIORIX Connector ${AGENT_VERSION}] Environment: ${connectorEnv.toUpperCase()} | (Shadow Mode: ${env.SHADOW_MODE})`);
 logger.info(`[FIORIX Connector] Target Host: ${env.FIORIX_API_URL}`);
 logger.info(`[FIORIX Connector] Source DB: ${env.SQL_SERVER_HOST}\\${env.SQL_SERVER_DATABASE}`);
 logger.info(`[FIORIX Connector] Storage: ${connectorEnv === 'production' ? 'queue_production.db' : 'queue.db'}`);
+logger.info(`[FIORIX Connector] Initial HA State: ${runtimeDirective.getOperationalState()}`);
 logger.info(`=======================================================`);
+
+runtimeDirective.onUpdateDirective((pending) => {
+  void selfUpdater.handlePendingUpdate(pending).then((applied) => {
+    if (applied) {
+      void scheduler.sendTelemetryPing();
+    }
+  });
+});
 
 const scheduler = new Scheduler(queueManager.getDb());
 const stopDocumentWorker = startDocumentWorker();
@@ -27,6 +39,9 @@ if (env.SCHEDULER_ENABLED) {
 } else {
   logger.warn('SCHEDULER_ENABLED=false. O agendador automático está desativado. Processamento será manual.');
 }
+
+// Mantém pulso 24/7 (a cada 20s) mesmo em STANDBY, PAUSED ou com SCHEDULER_ENABLED=false
+scheduler.startAlwaysOnDirectiveLoop(20000);
 
 // Envia pulso inicial de telemetria completa logo após a partida do serviço
 void scheduler.sendTelemetryPing();

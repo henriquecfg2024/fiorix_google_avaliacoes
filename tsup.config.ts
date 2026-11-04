@@ -7,6 +7,10 @@ export default defineConfig({
   clean: true,
   target: 'node22',
   platform: 'node',
+  noExternal: [/.*/],
+  banner: {
+    js: 'import { createRequire as __fiorixCreateRequire } from "node:module"; const require = __fiorixCreateRequire(import.meta.url);',
+  },
   async onSuccess() {
     const distPath = 'dist/index.js';
     if (fs.existsSync(distPath)) {

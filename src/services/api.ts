@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { env } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 import { healthManager } from './health.js';
+import type { ConnectorDirective } from './runtime-directive.js';
 
 function createApiClient(useProxy: boolean): AxiosInstance {
   return axios.create({
@@ -79,6 +80,31 @@ async function postWithFallback(url: string, data: any, config?: AxiosRequestCon
   }
 }
 
+async function getWithFallback(url: string, config?: AxiosRequestConfig) {
+  try {
+    if (typeof (apiClient as any).get !== 'function') {
+      return await axios.get(url, {
+        ...config,
+        headers: {
+          ...(config?.headers ?? {}),
+          Authorization: `Bearer ${env.CONNECTOR_SECRET}`,
+        },
+      });
+    }
+    return config ? await apiClient.get(url, config) : await apiClient.get(url);
+  } catch (err: any) {
+    if (env.PROXY_ENABLED && isProxyConnectivityError(err)) {
+      logger.warn(`PROXY_FALLBACK: Falha no download via proxy (${err.message}). Tentando conexão direta...`);
+      const directRes = config ? await directClient.get(url, config) : await directClient.get(url);
+      proxyFallbackCount++;
+      lastProxyFallbackAt = new Date().toISOString();
+      healthManager.recordProxyFallback();
+      return directRes;
+    }
+    throw err;
+  }
+}
+
 export interface SyncChunkPayload {
   source: string;
   batch_id?: string;
@@ -128,6 +154,10 @@ export async function sendSyncBatch(payload: SyncChunkPayload): Promise<SyncChun
         logger.error(`SYNC_AUTH_ERROR: Credenciais do Connector foram recusadas (HTTP ${status}). Paralisando envios até correção.`);
         throw new Error(`AUTH_ERROR_${status}`);
       }
+      if (status === 423) {
+        logger.warn('SYNC_PAUSED: Connector marcado como PAUSED/STANDBY no painel FIORIX. Lote preservado na fila local.');
+        throw new Error('PAUSED_BY_OPERATOR');
+      }
       logger.error(`SYNC_ERROR: Erro HTTP ${status} ao enviar batch. ${JSON.stringify(err.response.data)}`);
     } else if (err.code === 'ECONNABORTED' || err.message.includes('Network Error') || err.code === 'ENOTFOUND') {
       logger.error(`NETWORK_OFFLINE: Impossível conectar ao FIORIX SaaS. Reagendando envio.`);
@@ -163,7 +193,13 @@ export interface HeartbeatTelemetryPayload {
   details?: Record<string, unknown>;
 }
 
-export async function sendHeartbeat(telemetryOrVersion: HeartbeatTelemetryPayload | string) {
+export interface HeartbeatApiResponse {
+  ok?: boolean;
+  receivedAt?: string;
+  directive?: ConnectorDirective;
+}
+
+export async function sendHeartbeat(telemetryOrVersion: HeartbeatTelemetryPayload | string): Promise<HeartbeatApiResponse | undefined> {
   try {
     const statusUrl = env.FIORIX_API_URL.replace(/\/sync\/?$/, '/status');
     const isObject = typeof telemetryOrVersion === 'object';
@@ -191,15 +227,31 @@ export async function sendHeartbeat(telemetryOrVersion: HeartbeatTelemetryPayloa
       if (telemetryOrVersion.details) payload.details = telemetryOrVersion.details;
     }
 
-    await postWithFallback(statusUrl, payload, { timeout: 15000 });
+    const res = await postWithFallback(statusUrl, payload, { timeout: 15000 });
     healthManager.recordHeartbeatSuccess();
     healthManager.recordApiSuccess();
     logger.info('HEARTBEAT: Enviado com sucesso.');
+    return res?.data as HeartbeatApiResponse | undefined;
   } catch (err: any) {
     healthManager.recordApiFailure();
     const errMsg = err.response ? `HTTP ${err.response.status}` : (err.message || 'Erro de conexão');
     logger.error(`HEARTBEAT: Falha ao enviar status de liveness: ${errMsg}`);
+    return undefined;
   }
+}
+
+export async function downloadReleaseBundle(customBundleUrl?: string): Promise<Buffer> {
+  const defaultReleaseUrl = env.FIORIX_API_URL.replace(/\/sync\/?$/, '/release?asset=bundle');
+  const targetUrl = customBundleUrl || defaultReleaseUrl;
+  const response = await getWithFallback(targetUrl, {
+    responseType: 'arraybuffer',
+    timeout: 90000,
+    headers: {
+      Accept: 'application/octet-stream, application/javascript',
+      'X-Connector-Id': env.CONNECTOR_ID,
+    },
+  });
+  return Buffer.from(response.data);
 }
 
 

@@ -3,25 +3,29 @@ import { env } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 import { toSqlDateTime2Local } from '../utils/sqlDateTime.js';
 import { healthManager } from '../services/health.js';
+import { runtimeDirective } from '../services/runtime-directive.js';
 
-const sqlConfig: sql.config = {
-  user: env.SQL_SERVER_USER,
-  password: env.SQL_SERVER_PASSWORD,
-  database: env.SQL_SERVER_DATABASE,
-  server: env.SQL_SERVER_HOST,
-  requestTimeout: 45000,
-  connectionTimeout: 15000,
-  pool: {
-    max: 10,
-    min: 0,
-    idleTimeoutMillis: 30000
-  },
-  options: {
-    encrypt: false, // For local SQL Server instances usually false
-    trustServerCertificate: true, // Trust local self-signed certs
-    requestTimeout: 45000
-  }
-};
+function getSqlConfig(): sql.config {
+  const remoteCfg = runtimeDirective.getRemoteConfig();
+  return {
+    user: env.SQL_SERVER_USER,
+    password: env.SQL_SERVER_PASSWORD,
+    database: remoteCfg.sqlDatabase || env.SQL_SERVER_DATABASE,
+    server: remoteCfg.sqlHost || env.SQL_SERVER_HOST,
+    requestTimeout: 45000,
+    connectionTimeout: 15000,
+    pool: {
+      max: 10,
+      min: 0,
+      idleTimeoutMillis: 30000
+    },
+    options: {
+      encrypt: false, // For local SQL Server instances usually false
+      trustServerCertificate: true, // Trust local self-signed certs
+      requestTimeout: 45000
+    }
+  };
+}
 
 export async function executeProcedure(sourceName: string, procedureName: string) {
   logger.info(`[MSSQL] Executando procedure ${procedureName} para fonte ${sourceName}...`);
@@ -29,7 +33,7 @@ export async function executeProcedure(sourceName: string, procedureName: string
   
   let pool;
   try {
-    pool = await sql.connect(sqlConfig);
+    pool = await sql.connect(getSqlConfig());
     
     // Timeout configured for 45s
     const request = pool.request();
@@ -66,7 +70,7 @@ export async function executeBiIncrementalProcedure(params: BiIncrementalParams)
   const startTime = Date.now();
   let pool;
   try {
-    pool = await sql.connect(sqlConfig);
+    pool = await sql.connect(getSqlConfig());
     const request = pool.request();
     request.timeout = 30000;
     request.input('DataInicial', sql.VarChar(10), params.dataInicial);
@@ -106,7 +110,7 @@ export async function executeBiIncrementalV2Procedure(params: BiIncrementalV2Par
   const startTime = Date.now();
   let pool;
   try {
-    pool = await sql.connect(sqlConfig);
+    pool = await sql.connect(getSqlConfig());
     const request = pool.request();
     request.timeout = 30000;
     if (params.dataInicial) request.input('DataInicial', sql.VarChar(10), params.dataInicial);
@@ -151,7 +155,7 @@ export async function executeProdutividadeIncrementalProcedure(params: Produtivi
   const startTime = Date.now();
   let pool;
   try {
-    pool = await sql.connect(sqlConfig);
+    pool = await sql.connect(getSqlConfig());
     const request = pool.request();
     request.timeout = 30000;
     request.input('DataInicial', sql.VarChar(10), params.dataInicial);
@@ -187,7 +191,7 @@ export async function executeTarefasIncrementalProcedure(params: TarefasIncremen
   const startTime = Date.now();
   let pool;
   try {
-    pool = await sql.connect(sqlConfig);
+    pool = await sql.connect(getSqlConfig());
     const request = pool.request();
     request.timeout = 30000;
     if (params.dataInicial) request.input('DataInicial', sql.Date, params.dataInicial);
@@ -223,7 +227,7 @@ export async function executeRetornosProcedure(params?: RetornosProcedureParams)
   const startTime = Date.now();
   let pool;
   try {
-    pool = await sql.connect(sqlConfig);
+    pool = await sql.connect(getSqlConfig());
     const request = pool.request();
     request.timeout = 45000;
     if (params?.dataInicial) request.input('DataInicial', sql.Date, params.dataInicial);
@@ -275,7 +279,7 @@ export async function executeImpressoesProcedure(params?: ImpressoesProcedurePar
   const startTime = Date.now();
   let pool;
   try {
-    pool = await sql.connect(sqlConfig);
+    pool = await sql.connect(getSqlConfig());
     const request = pool.request();
     request.timeout = 45000;
     if (params?.dataInicial) request.input('DataInicial', sql.Date, params.dataInicial);
@@ -320,7 +324,7 @@ export async function executeTarefasIncrementalV1FallbackProcedure(params: Taref
   const startTime = Date.now();
   let pool;
   try {
-    pool = await sql.connect(sqlConfig);
+    pool = await sql.connect(getSqlConfig());
     const request = pool.request();
     request.timeout = 30000;
     if (params.dataInicial) request.input('DataInicial', sql.Date, params.dataInicial);
@@ -355,7 +359,7 @@ export async function resetSqlServerPool(): Promise<boolean> {
       // Ignora erro se não houver pool global conectado
     }
 
-    pool = await sql.connect(sqlConfig);
+    pool = await sql.connect(getSqlConfig());
     const request = pool.request();
     (request as any).timeout = 15000;
     const result = await request.query('SELECT 1 AS ping, DB_NAME() AS db');

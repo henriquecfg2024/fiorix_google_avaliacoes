@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { logger } from '../utils/logger.js';
+import { runtimeDirective } from './runtime-directive.js';
 
 /**
  * Servidor de arquivos da rede interna (somente leitura).
@@ -47,6 +48,7 @@ export interface EstatisticasServidorArquivos {
 
 export interface ServidorArquivosLocal {
   urlPublica: string;
+  atualizarUrlPublica(novaUrl: string | null | undefined): void;
   emitirTicket(caminhoAutorizado: string, tamanho: number): { url: string; expiraEm: string };
   obterEstatisticas(): EstatisticasServidorArquivos;
   parar(): void;
@@ -68,7 +70,8 @@ function nomeContentDisposition(nome: string): string {
 }
 
 export function iniciarServidorArquivosLocal(fiorixApiUrl: string): ServidorArquivosLocal | null {
-  const porta = Number(process.env.DOCUMENTAL_FILE_SERVER_PORT || 8765);
+  const remoteCfg = runtimeDirective.getRemoteConfig();
+  const porta = Number(remoteCfg.fileServerPort || process.env.DOCUMENTAL_FILE_SERVER_PORT || 8765);
   if (!Number.isInteger(porta) || porta <= 0 || porta > 65535) {
     logger.error('DOCUMENTAL: porta do servidor de arquivos inválida; visualização de PDFs grandes desativada.');
     return null;
@@ -77,7 +80,11 @@ export function iniciarServidorArquivosLocal(fiorixApiUrl: string): ServidorArqu
   const certPath = process.env.DOCUMENTAL_FILE_SERVER_TLS_CERT;
   const keyPath = process.env.DOCUMENTAL_FILE_SERVER_TLS_KEY;
   const usarTls = !!(certPath && keyPath);
-  const urlPublica = (process.env.DOCUMENTAL_FILE_SERVER_PUBLIC_URL || `${usarTls ? 'https' : 'http'}://localhost:${porta}`).replace(/\/+$/, '');
+  const resolverUrlBase = (customLanUrl?: string | null) => {
+    const candidata = customLanUrl?.trim() || process.env.DOCUMENTAL_FILE_SERVER_PUBLIC_URL?.trim();
+    return (candidata || `${usarTls ? 'https' : 'http'}://localhost:${porta}`).replace(/\/+$/, '');
+  };
+  let urlPublica = resolverUrlBase(remoteCfg.lanUrl);
   const origens = origensAutorizadas(fiorixApiUrl);
   const tickets = new Map<string, Ticket>();
   let servidorAtivo = false;
@@ -194,8 +201,17 @@ export function iniciarServidorArquivosLocal(fiorixApiUrl: string): ServidorArqu
     logger.info(`DOCUMENTAL: servidor de arquivos da rede interna ativo em ${urlPublica} (${usarTls ? 'HTTPS' : 'HTTP'}).`);
   });
 
-  return {
-    urlPublica,
+  const instancia: ServidorArquivosLocal = {
+    get urlPublica() {
+      return urlPublica;
+    },
+    atualizarUrlPublica(novaUrl) {
+      const resolvida = resolverUrlBase(novaUrl);
+      if (resolvida !== urlPublica) {
+        urlPublica = resolvida;
+        logger.info(`DOCUMENTAL: URL pública de transferência local atualizada para ${urlPublica}.`);
+      }
+    },
     emitirTicket(caminhoAutorizado, tamanho) {
       ticketsEmitidosTotal++;
       const token = randomBytes(32).toString('base64url');
@@ -224,4 +240,5 @@ export function iniciarServidorArquivosLocal(fiorixApiUrl: string): ServidorArqu
       servidor.close();
     },
   };
+  return instancia;
 }
