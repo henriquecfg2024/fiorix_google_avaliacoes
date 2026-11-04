@@ -261,20 +261,31 @@ class SelfUpdaterService {
         previousVersion: AGENT_VERSION,
       });
 
-      fs.writeFileSync(helperScriptPath, psScript, 'utf8');
+      // UTF-8 com BOM garante que o Windows PowerShell 5.1 interprete acentos sem erro de codificação
+      fs.writeFileSync(helperScriptPath, '\uFEFF' + psScript, 'utf8');
       this.persistState('APPLYING', directive.version, `Reiniciando serviço Windows (${serviceName}) para ativar ${directive.version}...`);
       logger.info(`[SELF_UPDATE] Pacote ${directive.version} validado (SHA-256 OK). Acionando script de troca atômica com rollback...`);
 
+      // IMPORTANTE (Windows + NSSM + libuv):
+      // 1) Em Node.js no Windows, combinar detached:true com windowsHide:true falha em CreateProcessW.
+      // 2) Quando o NSSM para o serviço (Stop-Service), ele encerra a árvore de processos filha do node.exe.
+      // Por isso disparamos o script via Win32_Process.Create (WMI / WmiPrvSE.exe), totalmente fora da árvore do NSSM!
+      const psExe = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+      const wmiCmdLine = `"${psExe}" -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "${helperScriptPath}"`;
+      const wmiBootstrap = `Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = '${wmiCmdLine.replace(/'/g, "''")}' } | Out-Null`;
+
       const child = spawn(
-        'powershell.exe',
-        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', helperScriptPath],
+        psExe,
+        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', wmiBootstrap],
         {
           cwd: rootDir,
-          detached: true,
           windowsHide: true,
           stdio: 'ignore',
         },
       );
+      child.on('error', (spawnErr) => {
+        logger.error(`[SELF_UPDATE] Erro ao iniciar processo auxiliar de atualização: ${spawnErr.message}`);
+      });
       child.unref();
       return true;
     } catch (err: any) {
