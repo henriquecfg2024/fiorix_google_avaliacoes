@@ -9,7 +9,14 @@ export default defineConfig({
   platform: 'node',
   noExternal: [/.*/],
   banner: {
-    js: 'import { createRequire as __fiorixCreateRequire } from "node:module"; const require = __fiorixCreateRequire(import.meta.url);',
+    js: [
+      'import { createRequire as __fiorixCreateRequire } from "node:module";',
+      'import { fileURLToPath as __fiorixFileURLToPath } from "node:url";',
+      'import { dirname as __fiorixDirname } from "node:path";',
+      'const require = __fiorixCreateRequire(import.meta.url);',
+      'const __filename = __fiorixFileURLToPath(import.meta.url);',
+      'const __dirname = __fiorixDirname(__filename);',
+    ].join(' '),
   },
   async onSuccess() {
     const distPath = 'dist/index.js';
