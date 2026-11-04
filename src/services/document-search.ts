@@ -318,6 +318,13 @@ export async function checkDirectMatriculaFiles(
 ): Promise<DocumentMatch[]> {
   const matches: DocumentMatch[] = [];
   const numbersToTry = new Set<number>();
+  const ehTranscricao = /transcri[çc][ãa]o/i.test(query);
+  const ehMatriculaExplicita = /matr[ií]cula/i.test(query);
+
+  // Transcrição pertence ao Livro 3 (LV3), nunca ao Livro 2 (LV2 / Matrículas)
+  if (ehTranscricao && rootId === 'livro2') {
+    return [];
+  }
 
   // Números de processo (CNJ: NNNNNNN-DD.AAAA.J.TR.OOOO, inclusive parciais) não são matrícula.
   // Sem isso o ano de "1162956-97.2024" virava a matrícula 2.024 (00002024.KEN).
@@ -361,8 +368,15 @@ export async function checkDirectMatriculaFiles(
     const block1000 = String(Math.floor(num / 1000) * 1000).padStart(8, '0');
     const block10000 = String(Math.floor(num / 10000) * 10000).padStart(8, '0');
 
-    // Pastas do cartório no acervo de imagens (em livro2 a raiz já é LV2)
-    const candidateLivros = rootId === 'livro2' ? [''] : ['LV2', 'LV3', 'LV1', ''];
+    // Pastas do cartório no acervo de imagens (em livro2 a raiz já é LV2; Transcrição fica em LV3)
+    const candidateLivros =
+      rootId === 'livro2'
+        ? ['']
+        : ehTranscricao
+        ? ['LV3', '']
+        : ehMatriculaExplicita
+        ? ['LV2', '']
+        : ['LV2', 'LV3', 'LV1', ''];
     const candidateBlocks = [block1000, block10000, ''];
     const candidateNames = process.platform === 'win32'
       ? [`${pad8}.KEN`, `${pad6}.KEN`, `${rawStr}.KEN`, `${pad8}.TIF`]
@@ -388,13 +402,14 @@ export async function checkDirectMatriculaFiles(
         try {
           const stat = await fs.stat(path.join(canonicalRoot, rel));
           if (stat.isFile()) {
+            const rotulo = ehTranscricao || /^lv3[\\/]/i.test(rel) ? 'Transcrição' : 'Matrícula';
             return {
               rootId,
               relativePath: rel,
               name: path.basename(rel),
               size: stat.size,
               modifiedAt: stat.mtime.toISOString(),
-              matricula: `Matrícula nº ${num}`,
+              matricula: `${rotulo} nº ${num}`,
             } as DocumentMatch;
           }
         } catch {}
@@ -736,17 +751,26 @@ export async function searchDocuments(
     });
 
     if (matriculasParaCruzar.size > 0 && temDocumentosProcesso) {
-      const numerosEsperados = new Set<string>();
+      const numerosMatriculaLivro2 = new Set<number>();
+      const numerosTranscricaoLivro3 = new Set<number>();
       for (const m of matriculasParaCruzar) {
-        const d = m.replace(/[^\d]/g, '');
-        if (d) numerosEsperados.add(d);
+        const d = parseInt(m.replace(/[^\d]/g, ''), 10);
+        if (!isNaN(d) && d > 0) {
+          if (/transcri[çc][ãa]o/i.test(m)) {
+            numerosTranscricaoLivro3.add(d);
+          } else {
+            numerosMatriculaLivro2.add(d);
+          }
+        }
       }
 
-      // 1. Buscar arquivos .KEN no acervo para cada matrícula detectada
+      // 1. Buscar arquivos .KEN no acervo correspondente (Matrícula -> Livro 2, Transcrição -> Livro 3)
       const arquivosCruzados: DocumentMatch[] = [];
       for (const mat of matriculasParaCruzar) {
+        const ehTranscricao = /transcri[çc][ãa]o/i.test(mat);
         for (const root of roots) {
           if (root.id === 'minutas' || root.id === 'processos') continue;
+          if (ehTranscricao && root.id === 'livro2') continue;
           try {
             const canonical = await fs.realpath(root.path);
             const directMatches = await checkDirectMatriculaFiles(canonical, root.id, mat);
@@ -760,9 +784,9 @@ export async function searchDocuments(
         }
       }
 
-      // 2. Se temos documentos do processo e encontramos a matrícula dele (ex: 123.456),
+      // 2. Se temos documentos do processo e encontramos a matrícula/transcrição dele,
       // remover falsos positivos de arquivos de imagem (.KEN) que vieram apenas por colisão
-      // de substring com o termo do processo (ex: "00000001.KEN" não pertence ao processo 00001 cuja matrícula é 123.456)
+      // de substring ou livro divergente (ex.: não trazer LV2 quando os autos citam apenas Transcrição LV3)
       result.files = result.files.filter(f => {
         const ext = path.extname(f.name).toLowerCase();
         const isImg = ext === '.ken' || ext === '.tif' || ext === '.tiff';
@@ -771,10 +795,13 @@ export async function searchDocuments(
         if (chavesExplicitas.has(`${f.rootId}:${f.relativePath.toLowerCase()}`)) return true;
 
         const fNum = parseInt(f.name.replace(/[^\d]/g, ''), 10);
-        return Array.from(numerosEsperados).some(numStr => {
-          const num = parseInt(numStr, 10);
-          return !isNaN(fNum) && !isNaN(num) && fNum === num;
-        });
+        if (isNaN(fNum)) return false;
+
+        const ehDoLivro2 = f.rootId === 'livro2' || /(?:^|[\\/])lv2[\\/]/i.test(f.relativePath);
+        const ehDoLivro3 = /(?:^|[\\/])lv3[\\/]/i.test(f.relativePath);
+        if (ehDoLivro2) return numerosMatriculaLivro2.has(fNum);
+        if (ehDoLivro3) return numerosTranscricaoLivro3.has(fNum);
+        return numerosMatriculaLivro2.has(fNum) || numerosTranscricaoLivro3.has(fNum);
       });
 
       // 3. Adicionar os arquivos .KEN encontrados pela busca cruzada
