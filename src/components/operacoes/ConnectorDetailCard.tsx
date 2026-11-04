@@ -15,14 +15,30 @@ export function ConnectorDetailCard({ connector, onRefresh }: Props) {
   const isOnline = connector.status === 'ONLINE';
   const isStandby = connector.status === 'STANDBY';
   const isAmbiguous = connector.status === 'AMBIGUOUS';
+  const isPausedOp = connector.operationalState === 'PAUSED';
+  const isHotStandbyOp = connector.operationalState === 'STANDBY' && connector.heartbeatAgoSeconds !== null && connector.heartbeatAgoSeconds <= 120;
 
-  const pillClass = isOnline
+  const pillClass = isPausedOp
+    ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+    : isHotStandbyOp
+    ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
+    : isOnline
     ? 'bg-[rgba(16,185,129,0.1)] text-[#10B981] border-[rgba(16,185,129,0.2)]'
-    : (isStandby
-        ? 'bg-[#818CF8]/10 text-[#818CF8] border-[#818CF8]/20'
-        : 'bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20');
+    : isStandby
+    ? 'bg-[#818CF8]/10 text-[#818CF8] border-[#818CF8]/20'
+    : 'bg-[#F59E0B]/10 text-[#F59E0B] border-[#F59E0B]/20';
 
-  const statusLabel = isOnline ? 'ONLINE' : (isStandby ? 'STANDBY' : (isAmbiguous ? 'VERIFICANDO' : 'DEGRADADO'));
+  const statusLabel = isPausedOp
+    ? 'PAUSADO'
+    : isHotStandbyOp
+    ? 'HOT-STANDBY'
+    : isOnline
+    ? 'ONLINE'
+    : isStandby
+    ? 'STANDBY'
+    : isAmbiguous
+    ? 'VERIFICANDO'
+    : 'DEGRADADO';
 
   const handleTestConnection = async () => {
     setTesting(true);
@@ -57,7 +73,9 @@ export function ConnectorDetailCard({ connector, onRefresh }: Props) {
               <Workflow className="h-4 w-4" />
             </span>
             <div>
-              <h3 className="font-semibold text-xs text-[#F1F5F9]">FIORIX Connector</h3>
+              <h3 className="font-semibold text-xs text-[#F1F5F9]">
+                {connector.connectorName ? connector.connectorName : 'FIORIX Connector'}
+              </h3>
               <p className="text-[10px] text-[#64748B]">
                 {connector.pid ? `Serviço Windows · PID ${connector.pid}` : 'Serviço Windows Local'}
               </p>

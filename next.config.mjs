@@ -2,6 +2,11 @@
 const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['mssql', 'tedious', 'iconv-lite'],
+    outputFileTracingIncludes: {
+      '/api/v1/connector/release': ['./src/lib/connector/release-artifact/**/*'],
+      '/api/v1/operacoes/health': ['./src/lib/connector/release-artifact/manifest.json'],
+      '/api/v1/operacoes/connectors': ['./src/lib/connector/release-artifact/manifest.json'],
+    },
     serverActions: {
       bodySizeLimit: '10mb',
     },
@@ -22,7 +27,7 @@ const nextConfig = {
     // Servidor de arquivos do FIORIX Connector (rede interna) — inclui HTTP/HTTPS local quando disponível
     const documentalFileOrigins = (
       process.env.DOCUMENTAL_FILE_SERVER_CSP_ORIGINS ||
-      'http://localhost:8765 http://127.0.0.1:8765 https://localhost:8765 https://127.0.0.1:8765'
+      'http://localhost:8765 http://127.0.0.1:8765 https://localhost:8765 https://127.0.0.1:8765 http://*:8765 https://*:8765'
     )
       .split(/[\s,]+/)
       .filter(Boolean)

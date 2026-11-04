@@ -1,17 +1,24 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/prisma';
 import { requireDocumentAccess, DocumentAccessError } from '@/lib/documental/access';
 import { documentJobInput } from '@/lib/documental/contracts';
 import { isSameOriginRequest } from '@/lib/documental/origin';
 import { createJob, readSearch } from '@/lib/documental/store';
+import {
+  listTenantConnectorNodes,
+  resolveEffectiveDocumentConnector,
+} from '@/lib/connector/ha-manager';
 
 export const dynamic = 'force-dynamic';
-const reply = (value: unknown, status = 200) => NextResponse.json(value, { status, headers: { 'Cache-Control': 'private, no-store' } });
+
+const reply = (value: unknown, status = 200) =>
+  NextResponse.json(value, { status, headers: { 'Cache-Control': 'private, no-store' } });
+
 function errorResponse(error: unknown) {
   if (error instanceof DocumentAccessError) return reply({ error: error.message }, error.status);
   return reply({ error: 'Serviço documental indisponível. Verifique a configuração em homologação.' }, 503);
 }
+
 export async function GET(req: Request) {
   try {
     const user = await requireDocumentAccess();
@@ -21,14 +28,24 @@ export async function GET(req: Request) {
       const job = await readSearch(id, user.tenantId, user.id);
       return job ? reply(job) : reply({ error: 'Pesquisa expirada ou não encontrada.' }, 404);
     }
-    const connectors = await prisma.connector.findMany({
-      where: { tenantId: user.tenantId, enabled: true },
-      select: { id: true, name: true, lastSeenAt: true },
-      orderBy: { name: 'asc' },
-    });
+
+    const haNodes = await listTenantConnectorNodes(user.tenantId);
+    const connectors = haNodes.map((n) => ({
+      id: n.connectorId,
+      name: n.name,
+      lastSeenAt: n.lastSeenAt,
+      role: n.role,
+      operationalState: n.operationalState,
+      lanUrl: n.lanUrl,
+      isPrimaryActive: n.operationalState === 'ACTIVE',
+    }));
+
     return reply({ connectors });
-  } catch (error) { return errorResponse(error); }
+  } catch (error) {
+    return errorResponse(error);
+  }
 }
+
 export async function POST(req: Request) {
   try {
     // Browser never receives a Connector credential.
@@ -37,26 +54,33 @@ export async function POST(req: Request) {
     const raw = await req.text();
     if (raw.length > 4096) return reply({ error: 'Requisição inválida.' }, 400);
     let body: unknown;
-    try { body = JSON.parse(raw); } catch { return reply({ error: 'Requisição inválida.' }, 400); }
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      return reply({ error: 'Requisição inválida.' }, 400);
+    }
     const parsed = documentJobInput.safeParse(body);
     if (!parsed.success) return reply({ error: 'Parâmetros de requisição inválidos.' }, 400);
     const jobData = parsed.data;
-    const connector = await prisma.connector.findFirst({
-      where: { id: jobData.connectorId, tenantId: user.tenantId, enabled: true },
-      select: { id: true, lastSeenAt: true },
-    });
-    if (!connector?.lastSeenAt || Date.now() - connector.lastSeenAt.getTime() > 120000) return reply({ error: 'Connector sem sinal recente.' }, 409);
-    
+
+    // Roteia automaticamente para o Connector ATIVO e online do cartório
+    const effective = await resolveEffectiveDocumentConnector(user.tenantId, jobData.connectorId);
+    if (!effective) {
+      return reply({ error: 'Nenhum servidor Connector ATIVO com sinal recente disponível.' }, 409);
+    }
+
+    const targetConnectorId = effective.connectorId;
+
     let jobResult: any = null;
     if (jobData.type === 'list_directory') {
       // Sem cache no servidor: a listagem precisa refletir o disco no momento da navegação
-      jobResult = await createJob(user.tenantId, user.id, connector.id, {
+      jobResult = await createJob(user.tenantId, user.id, targetConnectorId, {
         type: 'list_directory',
         rootId: jobData.rootId,
         relativePath: jobData.relativePath,
       });
     } else if (jobData.type === 'read_document_chunk') {
-      jobResult = await createJob(user.tenantId, user.id, connector.id, {
+      jobResult = await createJob(user.tenantId, user.id, targetConnectorId, {
         type: 'read_document_chunk',
         rootId: jobData.rootId,
         relativePath: jobData.relativePath,
@@ -64,17 +88,27 @@ export async function POST(req: Request) {
         pageEnd: jobData.length ?? 2097152,
         forceFresh: true,
       });
-    } else if (jobData.type === 'extract_petition' || jobData.type === 'analyze_signatures' || jobData.type === 'read_document_text') {
-      jobResult = await createJob(user.tenantId, user.id, connector.id, {
+    } else if (
+      jobData.type === 'extract_petition' ||
+      jobData.type === 'analyze_signatures' ||
+      jobData.type === 'read_document_text'
+    ) {
+      jobResult = await createJob(user.tenantId, user.id, targetConnectorId, {
         type: jobData.type,
         rootId: jobData.rootId,
         relativePath: jobData.relativePath,
-        pageStart: jobData.type === 'extract_petition' || jobData.type === 'read_document_text' ? jobData.pageStart : undefined,
-        pageEnd: jobData.type === 'extract_petition' || jobData.type === 'read_document_text' ? jobData.pageEnd : undefined,
+        pageStart:
+          jobData.type === 'extract_petition' || jobData.type === 'read_document_text'
+            ? jobData.pageStart
+            : undefined,
+        pageEnd:
+          jobData.type === 'extract_petition' || jobData.type === 'read_document_text'
+            ? jobData.pageEnd
+            : undefined,
         forceFresh: jobData.forceFresh,
       });
     } else {
-      jobResult = await createJob(user.tenantId, user.id, connector.id, {
+      jobResult = await createJob(user.tenantId, user.id, targetConnectorId, {
         type: 'search',
         query: jobData.query,
         forceFresh: jobData.forceFresh,
@@ -83,18 +117,24 @@ export async function POST(req: Request) {
     if (!jobResult) return reply({ error: 'Aguarde a operação anterior terminar ou expirar.' }, 429);
 
     if (typeof jobResult === 'string') {
-      return reply({ id: jobResult }, 202);
+      return reply({ id: jobResult, connectorId: targetConnectorId }, 202);
     }
 
     if (jobResult.status === 'complete') {
-      return reply({
-        id: jobResult.id,
-        status: 'complete',
-        result: jobResult.result,
-        cached: true,
-      }, 200);
+      return reply(
+        {
+          id: jobResult.id,
+          status: 'complete',
+          result: jobResult.result,
+          cached: true,
+          connectorId: targetConnectorId,
+        },
+        200,
+      );
     }
 
-    return reply({ id: jobResult.id, status: 'queued' }, 202);
-  } catch (error) { return errorResponse(error); }
+    return reply({ id: jobResult.id, status: 'queued', connectorId: targetConnectorId }, 202);
+  } catch (error) {
+    return errorResponse(error);
+  }
 }

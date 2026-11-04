@@ -180,12 +180,63 @@ export interface ConnectorTelemetry {
   lastError: string | null;
   lastSyncAgoSeconds: number | null;
   activeConnectorsCount: number;
+  operationalState?: 'ACTIVE' | 'STANDBY' | 'PAUSED';
+  role?: 'PRIMARY' | 'SECONDARY';
+  connectorName?: string;
   provenance: {
     telemetry: Provenance;
     heartbeat: Provenance;
   };
   subsystems?: ConnectorSubsystemsSnapshot;
   note?: string;
+}
+
+export interface ConnectorClusterNodeSummary {
+  connectorId: string;
+  name: string;
+  role: 'PRIMARY' | 'SECONDARY';
+  operationalState: 'ACTIVE' | 'STANDBY' | 'PAUSED';
+  priority: number;
+  version: string | null;
+  targetVersion: string | null;
+  updateStatus: string;
+  updateMessage: string | null;
+  lastUpdateAt: string | null;
+  hostname: string | null;
+  osVersion: string | null;
+  lanUrl: string | null;
+  installedPath: string | null;
+  configVersion: number;
+  remoteConfig: {
+    role?: 'PRIMARY' | 'SECONDARY';
+    priority?: number;
+    lanUrl?: string | null;
+    fileServerPort?: number;
+    sqlHost?: string | null;
+    sqlDatabase?: string | null;
+    documentRoots?: Array<{ id: string; path: string; label?: string }>;
+    notes?: string | null;
+  };
+  isOnline: boolean;
+  heartbeatAgoSeconds: number | null;
+  lastSeenAt: string | null;
+  telemetry: ConnectorTelemetry;
+}
+
+export interface ConnectorClusterInfo {
+  nodes: ConnectorClusterNodeSummary[];
+  failoverMode: 'MANUAL' | 'AUTO';
+  autoFailoverTimeoutSec: number;
+  latestReleaseVersion: string | null;
+  latestReleasePublishedAt: string | null;
+  rollingUpdate: {
+    active: boolean;
+    targetVersion: string;
+    phase: 'UPDATING_STANDBY' | 'UPDATING_FORMER_ACTIVE' | 'COMPLETED';
+    originalPrimaryId: string | null;
+    startedAt: string;
+    message?: string;
+  } | null;
 }
 
 export interface BatchHistoryItem {
@@ -249,6 +300,7 @@ export interface OperationsHealthSnapshot {
   services: ServiceHealthItem[];
   incrementalModules: IncrementalModuleStatus[];
   connector: ConnectorTelemetry;
+  connectorCluster?: ConnectorClusterInfo;
   externalIntegrations: ExternalIntegrationHealth[];
   metrics: {
     availabilityPercent: number | null;

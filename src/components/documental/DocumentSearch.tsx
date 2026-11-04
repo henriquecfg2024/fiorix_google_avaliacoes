@@ -59,11 +59,27 @@ import {
   resolverPdfParaNavegador,
 } from '@/lib/documental/pdfTransfer';
 
-interface Connector { id: string; name: string; lastSeenAt: string | null }
+interface Connector {
+  id: string;
+  name: string;
+  lastSeenAt: string | null;
+  role?: 'PRIMARY' | 'SECONDARY';
+  operationalState?: 'ACTIVE' | 'STANDBY' | 'PAUSED';
+  lanUrl?: string | null;
+  isPrimaryActive?: boolean;
+}
 export function isConnectorOnline(c: Connector): boolean {
   if (!c.lastSeenAt) return false;
   const ts = new Date(c.lastSeenAt).getTime();
   return !Number.isNaN(ts) && Date.now() - ts < 120000;
+}
+function connectorPriorityScore(c: Connector): number {
+  const online = isConnectorOnline(c);
+  if (c.operationalState === 'ACTIVE' && online) return 4;
+  if (c.operationalState === 'ACTIVE') return 3;
+  if (c.operationalState !== 'PAUSED' && online) return 2;
+  if (online) return 1;
+  return 0;
 }
 interface Match {
   rootId: string;
@@ -677,15 +693,13 @@ export function DocumentSearch() {
           const body = await response.json();
           if (!response.ok) throw new Error(body.error);
           const raw: Connector[] = body.connectors || [];
-          const ordenados = [...raw].sort((a, b) => {
-            const aOn = isConnectorOnline(a) ? 1 : 0;
-            const bOn = isConnectorOnline(b) ? 1 : 0;
-            return bOn - aOn;
-          });
+          const ordenados = [...raw].sort((a, b) => connectorPriorityScore(b) - connectorPriorityScore(a));
           setConnectors(ordenados);
           setConnectorId(prev => {
-            if (prev && ordenados.some(c => c.id === prev && isConnectorOnline(c))) return prev;
-            const online = ordenados.find(isConnectorOnline);
+            const activeOnline = ordenados.find(c => c.operationalState === 'ACTIVE' && isConnectorOnline(c));
+            if (activeOnline) return activeOnline.id;
+            if (prev && ordenados.some(c => c.id === prev && isConnectorOnline(c) && c.operationalState !== 'PAUSED')) return prev;
+            const online = ordenados.find(c => isConnectorOnline(c) && c.operationalState !== 'PAUSED');
             return online?.id || ordenados[0]?.id || '';
           });
         })

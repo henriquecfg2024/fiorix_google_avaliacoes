@@ -4,6 +4,7 @@ import { authenticateConnector } from '@/lib/connectorAuth';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { unpackLiveRecords } from '@/lib/connector/unpack-live';
+import { evaluateConnectorSyncPermission } from '@/lib/connector/ha-manager';
 
 // Rate limiting em memória para evitar pressão adicional no banco.
 // Cada connector_id é limitado a MAX_REQUESTS_PER_WINDOW por janela temporal.
@@ -103,6 +104,18 @@ export async function POST(req: Request) {
     }
 
     const tenantId = authenticatedTenantId;
+
+    const syncGate = await evaluateConnectorSyncPermission(tenantId, connector_id);
+    if (!syncGate.allowed) {
+      console.info(`SYNC_PAUSED_GATE: Tenant ${tenantId}, Connector ${connector_id} blocked (${syncGate.operationalState})`);
+      return NextResponse.json(
+        {
+          error: syncGate.reason || 'Connector paused by operator',
+          operationalState: syncGate.operationalState,
+        },
+        { status: 423 },
+      );
+    }
 
     console.info(`SYNC_RECEIVED: Tenant ${tenantId}, Connector ${connector_id}, Source ${source}, Batch ${batch_id}`);
 

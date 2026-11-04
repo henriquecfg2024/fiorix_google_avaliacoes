@@ -67,11 +67,24 @@ interface ConnectorItem {
   id: string;
   name: string;
   lastSeenAt: string | null;
+  role?: 'PRIMARY' | 'SECONDARY';
+  operationalState?: 'ACTIVE' | 'STANDBY' | 'PAUSED';
+  lanUrl?: string | null;
+  isPrimaryActive?: boolean;
 }
 
 function isConnectorOnline(c: ConnectorItem): boolean {
   if (!c.lastSeenAt) return false;
   return Date.now() - new Date(c.lastSeenAt).getTime() < 120000;
+}
+
+function connectorItemScore(c: ConnectorItem): number {
+  const online = isConnectorOnline(c);
+  if (c.operationalState === 'ACTIVE' && online) return 4;
+  if (c.operationalState === 'ACTIVE') return 3;
+  if (c.operationalState !== 'PAUSED' && online) return 2;
+  if (online) return 1;
+  return 0;
 }
 
 // Pastas oficiais do 7º RI liberadas no Connector (o caminho real é configurado no servidor do cartório)
@@ -170,23 +183,28 @@ export function VisualizadorDedicado() {
       setSidebarOpen(false);
     }
 
-    // Carrega conectores
-    fetch('/api/gestao-documental', { cache: 'no-store' })
-      .then(async res => {
-        if (!res.ok) return;
-        const data = await res.json();
-        const lista: ConnectorItem[] = data.connectors || [];
-        const ordenados = [...lista].sort((a, b) => {
-          const aOn = isConnectorOnline(a) ? 1 : 0;
-          const bOn = isConnectorOnline(b) ? 1 : 0;
-          return bOn - aOn;
-        });
-        setConnectors(ordenados);
-        const online = ordenados.find(isConnectorOnline);
-        if (online) setConnectorId(online.id);
-        else if (ordenados[0]) setConnectorId(ordenados[0].id);
-      })
-      .catch(() => {});
+    // Carrega conectores e acompanha chaveamento automático do servidor ATIVO
+    const carregarConectores = () => {
+      fetch('/api/gestao-documental', { cache: 'no-store' })
+        .then(async res => {
+          if (!res.ok) return;
+          const data = await res.json();
+          const lista: ConnectorItem[] = data.connectors || [];
+          const ordenados = [...lista].sort((a, b) => connectorItemScore(b) - connectorItemScore(a));
+          setConnectors(ordenados);
+          setConnectorId(prev => {
+            const activeOnline = ordenados.find(c => c.operationalState === 'ACTIVE' && isConnectorOnline(c));
+            if (activeOnline) return activeOnline.id;
+            if (prev && ordenados.some(c => c.id === prev && isConnectorOnline(c) && c.operationalState !== 'PAUSED')) return prev;
+            const online = ordenados.find(c => isConnectorOnline(c) && c.operationalState !== 'PAUSED');
+            return online?.id || ordenados[0]?.id || '';
+          });
+        })
+        .catch(() => {});
+    };
+    carregarConectores();
+    const intervaloConn = window.setInterval(carregarConectores, 30000);
+    return () => window.clearInterval(intervaloConn);
   }, []);
 
   // PDFs baixados do Connector viram blob: em memória; libera o anterior ao trocar de documento/sair

@@ -1,0 +1,20 @@
+{
+  "version": "v2.6.0",
+  "publishedAt": "2026-11-04T13:27:31.317Z",
+  "bundle": {
+    "fileName": "index.js",
+    "sha256": "182a8370c2186fd25d99f5a45d67cbd4765eb63429ff39c7228beeebab39bbf4",
+    "sizeBytes": 5596083,
+    "gzipBytes": 1093751
+  },
+  "nssm": {
+    "sha256": "eee9c44c29c2be011f1f1e43bb8c3fca888cb81053022ec5a0060035de16d848",
+    "sizeBytes": 368640,
+    "gzipBytes": 146171
+  },
+  "rustCli": {
+    "sha256": "9be0e95651217ee7efc8d8eb483aae126624cb0381050fcc50829d091b3d9edd",
+    "sizeBytes": 5280256,
+    "gzipBytes": 2097664
+  }
+}

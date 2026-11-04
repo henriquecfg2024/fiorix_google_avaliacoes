@@ -2,6 +2,12 @@ import { prisma } from '@/lib/prisma';
 import { getLatestConnectorTelemetry } from '@/lib/alerts/alert-storage';
 import { dispatchAlert } from '@/lib/alerts/alert-dispatcher';
 import {
+  listTenantConnectorNodes,
+  getTenantConnectorSettings,
+  getLatestReleaseManifest,
+  type ConnectorHaNodeRecord,
+} from '@/lib/connector/ha-manager';
+import {
   bufferHealthSample,
   getHealthMeasurement,
   getRecentHealthFailures,
@@ -19,6 +25,8 @@ import type {
   ConnectorSmbRootTelemetry,
   ConnectorSubsystemsSnapshot,
   ConnectorTelemetry,
+  ConnectorClusterNodeSummary,
+  ConnectorClusterInfo,
   BatchHistoryItem,
   OperationsHealthSnapshot,
   ExternalIntegrationHealth,
@@ -39,6 +47,8 @@ export type {
   ConnectorSmbRootTelemetry,
   ConnectorSubsystemsSnapshot,
   ConnectorTelemetry,
+  ConnectorClusterNodeSummary,
+  ConnectorClusterInfo,
   BatchHistoryItem,
   OperationsHealthSnapshot,
   ExternalIntegrationHealth,
@@ -125,6 +135,16 @@ function pruneCache() {
   if (snapshotCache.size > MAX_CACHE_ENTRIES) {
     const oldestKey = snapshotCache.keys().next().value;
     if (oldestKey) snapshotCache.delete(oldestKey);
+  }
+}
+
+export function invalidateOperationsHealthCache(tenantId?: string): void {
+  if (tenantId) {
+    snapshotCache.delete(tenantId);
+    inFlightRequests.delete(tenantId);
+  } else {
+    snapshotCache.clear();
+    inFlightRequests.clear();
   }
 }
 export function getSaoPauloDateDetails(d: Date) {
@@ -524,10 +544,42 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     bufferHealthSample(amostraAtual);
   }
 
-  const isAmbiguous = activeConnectors.length > 1;
-  const targetConnector = activeConnectors.length === 1 ? activeConnectors[0] : null;
+  // ─────────────────────────────────────────────────────────────────────────────
+  // RESOLUÇÃO MULTI-NÓ HA (ACTIVE / STANDBY / PAUSED) SEM AMBIGUIDADE
+  // ─────────────────────────────────────────────────────────────────────────────
+  let haNodes: ConnectorHaNodeRecord[] = [];
+  let haSettings = {
+    tenantId,
+    failoverMode: 'MANUAL' as 'MANUAL' | 'AUTO',
+    autoFailoverTimeoutSec: 180,
+    rollingUpdateState: null as any,
+  };
+  if (dbRespondeu) {
+    haNodes = await listTenantConnectorNodes(tenantId).catch(() => []);
+    haSettings = await getTenantConnectorSettings(tenantId).catch(() => haSettings);
+  }
+  const releaseManifest = getLatestReleaseManifest();
+
+  const activeHaNodes = haNodes.filter((n) => n.operationalState === 'ACTIVE');
+  const isAmbiguous = haNodes.length > 0 ? activeHaNodes.length > 1 : activeConnectors.length > 1;
+  const primaryHaNode = activeHaNodes[0] ?? haNodes[0] ?? null;
+
+  const targetConnector = primaryHaNode
+    ? activeConnectors.find((c) => c.id === primaryHaNode.connectorId) ?? {
+        id: primaryHaNode.connectorId,
+        name: primaryHaNode.name,
+        status: primaryHaNode.status,
+        version: primaryHaNode.version,
+        enabled: primaryHaNode.enabled,
+        lastSeenAt: primaryHaNode.lastSeenAt,
+        createdAt: primaryHaNode.createdAt,
+      }
+    : activeConnectors.length === 1
+    ? activeConnectors[0]
+    : null;
 
   const { isBusinessHours: isOfficeOpen } = checkBusinessHoursState(now);
+  const isAllPausedByOperator = Boolean(primaryHaNode && primaryHaNode.operationalState === 'PAUSED');
 
   // Avaliação de Heartbeat
   let connectorStatus: ConnectorTelemetry['status'] = 'UNKNOWN';
@@ -540,7 +592,9 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     if (targetConnector.lastSeenAt) {
       heartbeatAgoSeconds = Math.max(0, Math.floor((now.getTime() - new Date(targetConnector.lastSeenAt).getTime()) / 1000));
       isConnectorOnline = heartbeatAgoSeconds <= 120;
-      if (isConnectorOnline) {
+      if (isAllPausedByOperator) {
+        connectorStatus = 'STANDBY';
+      } else if (isConnectorOnline) {
         connectorStatus = 'ONLINE';
       } else if (!isOfficeOpen) {
         connectorStatus = 'STANDBY';
@@ -548,7 +602,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
         connectorStatus = 'OFFLINE';
       }
     } else {
-      connectorStatus = !isOfficeOpen ? 'STANDBY' : 'OFFLINE';
+      connectorStatus = !isOfficeOpen || isAllPausedByOperator ? 'STANDBY' : 'OFFLINE';
       heartbeatAgoSeconds = null;
     }
   } else {
@@ -640,7 +694,8 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
   const [sourceStatuses, latestTelemetry, documentalDbStats, ...missingBatchesResults] = await Promise.all([
     targetConnector
       ? prisma.connectorSourceStatus.findMany({
-          where: { tenantId, connectorId: targetConnector.id },
+          where: { tenantId },
+          orderBy: { lastSuccessAt: 'desc' },
           select: {
             source: true,
             lastSuccessAt: true,
@@ -655,7 +710,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     queryDocumentalStats(),
     ...missingSources.map((cfg) =>
       prisma.connectorSyncBatch.findFirst({
-        where: { tenantId, connectorId: targetConnector!.id, source: cfg.key },
+        where: { tenantId, source: cfg.key },
         orderBy: { receivedAt: 'desc' },
         select: {
           source: true,
@@ -678,7 +733,10 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
 
   const statusEntriesMap = new Map<string, { lastSuccessAt: Date | null; recordsLastSync: number | null; lastError: string | null }>();
   for (const s of sourceStatuses) {
-    statusEntriesMap.set(s.source.toLowerCase(), s);
+    const k = s.source.toLowerCase();
+    if (!statusEntriesMap.has(k)) {
+      statusEntriesMap.set(k, s);
+    }
   }
 
   const rawDetails = (latestTelemetry?.details && typeof latestTelemetry.details === 'object')
@@ -1249,16 +1307,354 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     lastError: subsystems.documental.lastError ?? subsystems.transferAndCli.rustCli.lastError ?? null,
     lastSyncAgoSeconds: null,
     activeConnectorsCount: activeConnectors.length,
+    operationalState: primaryHaNode?.operationalState ?? 'ACTIVE',
+    role: primaryHaNode?.role ?? 'PRIMARY',
+    connectorName: targetConnector?.name ?? undefined,
     provenance: {
       telemetry: latestTelemetry ? 'live' : 'unavailable',
       heartbeat: 'live',
     },
     subsystems,
-    note: isAmbiguous 
-      ? 'Atenção: Existem múltiplos conectores ativos configurados para este tenant. Contate o suporte técnico.' 
-      : (connectorStatus === 'STANDBY'
-          ? 'Fora do horário de expediente SQL (07h às 19h - Seg a Sáb). O Worker de Gestão Documental permanece pronto 24/7 quando o servidor local está ligado.'
-          : (activeConnectors.length === 0 ? 'Nenhum conector ativo registrado para este tenant.' : undefined)),
+    note: isAmbiguous
+      ? 'Atenção: Existem múltiplos conectores ativos configurados para este tenant. Contate o suporte técnico.'
+      : isAllPausedByOperator
+      ? 'Servidor pausado manualmente (Modo Manutenção / Parada Operacional).'
+      : connectorStatus === 'STANDBY'
+      ? 'Fora do horário de expediente SQL (07h às 19h - Seg a Sáb). O Worker de Gestão Documental permanece pronto 24/7 quando o servidor local está ligado.'
+      : activeConnectors.length === 0
+      ? 'Nenhum conector ativo registrado para este tenant.'
+      : undefined,
+  };
+
+  // Síntese completa do Cluster Multi-Nó HA (ACTIVE / STANDBY / PAUSED)
+  const clusterNodes: ConnectorClusterNodeSummary[] = [];
+  for (const node of haNodes) {
+    const nodeHbAgo = node.lastSeenAt
+      ? Math.max(0, Math.floor((now.getTime() - new Date(node.lastSeenAt).getTime()) / 1000))
+      : null;
+    const nodeIsOnline = nodeHbAgo !== null && nodeHbAgo <= 120;
+
+    let nodeTelemetry: ConnectorTelemetry;
+    if (targetConnector && node.connectorId === targetConnector.id) {
+      nodeTelemetry = connectorTelemetry;
+    } else {
+      const extraTel = await getLatestConnectorTelemetry(tenantId, node.connectorId).catch(() => null);
+      const extraDetails =
+        extraTel?.details && typeof extraTel.details === 'object'
+          ? (extraTel.details as Record<string, any>)
+          : null;
+      const extraDoc = extraDetails?.documental && typeof extraDetails.documental === 'object' ? extraDetails.documental : null;
+      const extraSqlite = extraDetails?.sqlite && typeof extraDetails.sqlite === 'object' ? extraDetails.sqlite : null;
+      const extraRuntime = extraDetails?.runtime && typeof extraDetails.runtime === 'object' ? extraDetails.runtime : null;
+      const extraDb = extraDetails?.database && typeof extraDetails.database === 'object' ? extraDetails.database : null;
+      const extraSched = extraDetails?.scheduler && typeof extraDetails.scheduler === 'object' ? extraDetails.scheduler : null;
+      const extraNet = extraDetails?.network && typeof extraDetails.network === 'object' ? extraDetails.network : null;
+
+      const extraRootsRaw: any[] = Array.isArray(extraDoc?.searchEngine?.roots) ? extraDoc.searchEngine.roots : [];
+      const extraSmbRoots: ConnectorSmbRootTelemetry[] =
+        extraRootsRaw.length > 0
+          ? extraRootsRaw.map((r: any) => {
+              const fallbackMeta = defaultSmbCatalog.find((d) => d.id === String(r.id || '').toLowerCase());
+              return {
+                id: String(r.id || fallbackMeta?.id || 'root'),
+                label: fallbackMeta?.label || String(r.id || 'Compartilhamento SMB'),
+                uncOrDrivePath: String(r.path || fallbackMeta?.uncOrDrivePath || ''),
+                exists: typeof r.exists === 'boolean' ? r.exists : null,
+                accessible: typeof r.accessible === 'boolean' ? r.accessible : null,
+                latencyMs: typeof r.latencyMs === 'number' ? r.latencyMs : null,
+                indexedFilesCount: typeof r.indexedFilesCount === 'number' ? r.indexedFilesCount : null,
+                error: typeof r.error === 'string' ? r.error : null,
+                provenance: 'live',
+              };
+            })
+          : defaultSmbCatalog.map((d) => ({
+              id: d.id,
+              label: d.label,
+              uncOrDrivePath: d.uncOrDrivePath,
+              exists: null,
+              accessible: null,
+              latencyMs: null,
+              indexedFilesCount: null,
+              error: null,
+              provenance: 'calculated',
+            }));
+
+      const extraUptimeSec =
+        extraTel?.uptimeSeconds ?? (typeof extraRuntime?.uptimeSeconds === 'number' ? extraRuntime.uptimeSeconds : null);
+      let extraUptimeFmt: string | null = null;
+      if (extraUptimeSec) {
+        const d = Math.floor(extraUptimeSec / 86400);
+        const h = Math.floor((extraUptimeSec % 86400) / 3600);
+        const m = Math.floor((extraUptimeSec % 3600) / 60);
+        extraUptimeFmt = d > 0 ? `${d}d ${h}h ${m}m` : h > 0 ? `${h}h ${m}m` : `${m}m`;
+      }
+
+      const extraPending = Number(extraSqlite?.queue?.pending ?? extraTel?.queuePending ?? 0);
+      const extraSending = Number(extraSqlite?.queue?.sending ?? extraDetails?.queueSending ?? 0);
+      const extraFailed = Number(extraSqlite?.queue?.failed ?? extraTel?.queueFailed ?? 0);
+      const extraQuarantined = Number(extraSqlite?.queue?.quarantined ?? extraDetails?.queueQuarantined ?? 0);
+      const extraCursors =
+        extraSqlite?.checkpoints?.bySource && typeof extraSqlite.checkpoints.bySource === 'object'
+          ? (extraSqlite.checkpoints.bySource as Record<string, { cursorValue: string; updatedAt: string | null }>)
+          : {};
+
+      const extraSubsystems: ConnectorSubsystemsSnapshot = {
+        provenance: extraDoc || extraSqlite ? 'live' : 'calculated',
+        documental: {
+          workerEnabled: extraDoc ? Boolean(extraDoc.enabled) : node.operationalState === 'ACTIVE',
+          workerRunning: extraDoc ? Boolean(extraDoc.running) : nodeIsOnline && node.operationalState === 'ACTIVE',
+          disabledReason:
+            typeof extraDoc?.disabledReason === 'string'
+              ? extraDoc.disabledReason
+              : node.operationalState === 'STANDBY'
+              ? 'Hot-Standby (pronto para assumir)'
+              : node.operationalState === 'PAUSED'
+              ? 'Pausado pelo operador'
+              : null,
+          pollIntervalLabel:
+            node.operationalState === 'ACTIVE' ? '100 ms ativo · 450 ms repouso' : 'Standby passivo (20s)',
+          lastPollAt: extraDoc?.lastPollAt
+            ? new Date(extraDoc.lastPollAt).toLocaleTimeString('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                timeZone: 'America/Sao_Paulo',
+              })
+            : null,
+          lastJobAt: extraDoc?.lastJobAt
+            ? new Date(extraDoc.lastJobAt).toLocaleTimeString('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                timeZone: 'America/Sao_Paulo',
+              })
+            : null,
+          lastError: typeof extraDoc?.lastError === 'string' ? extraDoc.lastError : null,
+          activeQueueCount: 0,
+          jobs24hTotal: Number(extraDoc?.jobsProcessedTotal ?? 0) + Number(extraDoc?.jobsFailedTotal ?? 0),
+          jobs24hCompleted: Number(extraDoc?.jobsProcessedTotal ?? 0),
+          jobs24hFailed: Number(extraDoc?.jobsFailedTotal ?? 0),
+          avgJobDurationMs: typeof extraDoc?.avgJobDurationMs === 'number' ? extraDoc.avgJobDurationMs : null,
+          jobsByType: {
+            search: Number(extraDoc?.jobsByType?.search ?? 0),
+            list_directory: Number(extraDoc?.jobsByType?.list_directory ?? 0),
+            read_document_text: Number(extraDoc?.jobsByType?.read_document_text ?? 0),
+            read_document_chunk: Number(extraDoc?.jobsByType?.read_document_chunk ?? 0),
+            extract_petition: Number(extraDoc?.jobsByType?.extract_petition ?? 0),
+            analyze_signatures: Number(extraDoc?.jobsByType?.analyze_signatures ?? 0),
+          },
+          manifestacoes: subsystems.documental.manifestacoes,
+        },
+        smbRoots: extraSmbRoots,
+        indexCache: {
+          indexedRootsCount: Number(extraDoc?.searchEngine?.indexCache?.indexedRootsCount ?? 0),
+          totalIndexedFiles: Number(extraDoc?.searchEngine?.indexCache?.totalIndexedFiles ?? 0),
+          refreshingRootsCount: Number(extraDoc?.searchEngine?.indexCache?.refreshingRootsCount ?? 0),
+          ttlMs: Number(extraDoc?.searchEngine?.indexCache?.ttlMs ?? 45000),
+          lastBuiltAt: extraDoc?.searchEngine?.indexCache?.lastBuiltAt
+            ? new Date(extraDoc.searchEngine.indexCache.lastBuiltAt).toLocaleTimeString('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                timeZone: 'America/Sao_Paulo',
+              })
+            : null,
+          provenance: extraDoc?.searchEngine?.indexCache ? 'live' : 'calculated',
+        },
+        transferAndCli: {
+          fileServer: {
+            active:
+              typeof extraDoc?.fileServer?.active === 'boolean'
+                ? extraDoc.fileServer.active
+                : nodeIsOnline
+                ? true
+                : null,
+            protocol:
+              extraDoc?.fileServer?.protocol === 'HTTPS'
+                ? 'HTTPS'
+                : extraDoc?.fileServer?.protocol === 'HTTP'
+                ? 'HTTP'
+                : nodeIsOnline
+                ? 'HTTP'
+                : 'N/A',
+            port: typeof extraDoc?.fileServer?.port === 'number' ? extraDoc.fileServer.port : 8765,
+            publicUrl:
+              typeof extraDoc?.fileServer?.publicUrl === 'string'
+                ? extraDoc.fileServer.publicUrl
+                : node.lanUrl,
+            activeTicketsCount: Number(extraDoc?.fileServer?.activeTicketsCount ?? 0),
+            ticketsIssuedTotal: Number(extraDoc?.fileServer?.ticketsIssuedTotal ?? 0),
+            bytesServedTotal: Number(extraDoc?.fileServer?.bytesServedTotal ?? 0),
+            rangeRequestsTotal: Number(extraDoc?.fileServer?.rangeRequestsTotal ?? 0),
+            httpsChunks24h: Number(extraDoc?.jobsByType?.read_document_chunk ?? 0),
+            lastError: typeof extraDoc?.fileServer?.lastError === 'string' ? extraDoc.fileServer.lastError : null,
+          },
+          rustCli: {
+            available:
+              typeof extraDoc?.searchEngine?.rustCli?.available === 'boolean'
+                ? extraDoc.searchEngine.rustCli.available
+                : null,
+            binaryName: 'fiorix-gd-cli.exe',
+            petitionsExtractedTotal: Number(extraDoc?.searchEngine?.rustCli?.petitionsExtractedTotal ?? 0),
+            docxExtractedTotal: Number(extraDoc?.searchEngine?.rustCli?.docxExtractedTotal ?? 0),
+            signaturesAnalyzedTotal: Number(extraDoc?.searchEngine?.rustCli?.signaturesAnalyzedTotal ?? 0),
+            lastDurationMs:
+              typeof extraDoc?.searchEngine?.rustCli?.lastDurationMs === 'number'
+                ? extraDoc.searchEngine.rustCli.lastDurationMs
+                : null,
+            lastError:
+              typeof extraDoc?.searchEngine?.rustCli?.lastError === 'string'
+                ? extraDoc.searchEngine.rustCli.lastError
+                : null,
+          },
+        },
+        sqliteAndResilience: {
+          queue: {
+            pending: extraPending,
+            sending: extraSending,
+            failed: extraFailed,
+            quarantined: extraQuarantined,
+            completed: Number(extraSqlite?.queue?.completed ?? 0),
+          },
+          chunks: {
+            activePlans: Number(extraSqlite?.chunks?.activePlans ?? 0),
+            pendingChunks: Number(extraSqlite?.chunks?.pending ?? 0),
+            confirmedChunks: Number(extraSqlite?.chunks?.confirmed ?? 0),
+            failedChunks: Number(extraSqlite?.chunks?.failed ?? 0),
+            chunkSizeLimit: 500,
+          },
+          checkpoints: {
+            persistedCount: Number(extraSqlite?.checkpoints?.persistedCount ?? Object.keys(extraCursors).length),
+            stagedCandidates: Number(extraSqlite?.checkpoints?.stagedCandidates ?? 0),
+            cursorsBySource: extraCursors,
+          },
+          governance: {
+            singleInstanceLock: extraRuntime?.singleInstanceLock !== false,
+            shadowMode: Boolean(extraDetails?.shadowMode ?? false),
+            schedulerEnabled: extraDetails?.schedulerEnabled !== false,
+            autoSyncEnabled: extraSched?.autoSyncEnabled !== false,
+            activeLocks: Array.isArray(extraSched?.activeLocks) ? extraSched.activeLocks : [],
+            morningReconnectTime: '06:58:00',
+            lastMorningReconnectAt:
+              typeof extraSched?.lastMorningReconnectDate === 'string'
+                ? extraSched.lastMorningReconnectDate
+                : null,
+            lastMorningReconnectOk:
+              typeof extraSched?.lastMorningReconnectOk === 'boolean'
+                ? extraSched.lastMorningReconnectOk
+                : null,
+            morningPingTime: '07:00:00',
+            lastMorningPingDate:
+              typeof extraSched?.lastMorningPingDate === 'string' ? extraSched.lastMorningPingDate : null,
+            startupCatchupCount: Number(extraSched?.startupCatchupScheduledCount ?? 0),
+            proxyEnabled: Boolean(extraNet?.proxyEnabled ?? false),
+            proxyFallbackCount: Number(extraNet?.proxyFallbackCount ?? 0),
+            lastProxyFallbackAt:
+              typeof extraNet?.lastProxyFallbackAt === 'string' ? extraNet.lastProxyFallbackAt : null,
+            sqlConnected:
+              typeof extraDb?.connected === 'boolean' ? extraDb.connected : nodeIsOnline ? true : null,
+            sqlLatencyMs: typeof extraDb?.latencyMs === 'number' ? extraDb.latencyMs : null,
+          },
+        },
+      };
+
+      const extraHost =
+        node.hostname || (typeof extraRuntime?.hostname === 'string' ? extraRuntime.hostname : null);
+
+      nodeTelemetry = {
+        status: !nodeIsOnline
+          ? 'OFFLINE'
+          : node.operationalState === 'ACTIVE'
+          ? extraQuarantined > 0
+            ? 'DEGRADED'
+            : 'ONLINE'
+          : 'STANDBY',
+        environment: 'Produção',
+        server: extraHost ? `${extraHost} (Windows Service)` : `${node.name} (Windows Service)`,
+        windowsService: nodeIsOnline
+          ? node.operationalState === 'PAUSED'
+            ? 'Pausado / Manutenção'
+            : node.operationalState === 'STANDBY'
+            ? 'Em execução (Hot-Standby)'
+            : 'Em execução'
+          : 'Sem sinal recente',
+        uptimeFormatted: extraUptimeFmt,
+        heartbeatAgoSeconds: nodeHbAgo,
+        cpuPercent:
+          extraTel?.cpuPercent ?? (typeof extraRuntime?.cpuPercent === 'number' ? extraRuntime.cpuPercent : null),
+        ramMb: extraTel?.ramMb ?? (typeof extraRuntime?.rssMb === 'number' ? extraRuntime.rssMb : null),
+        heapMb:
+          typeof extraDetails?.heapMb === 'number'
+            ? extraDetails.heapMb
+            : typeof extraRuntime?.heapUsedMb === 'number'
+            ? extraRuntime.heapUsedMb
+            : null,
+        threads: null,
+        handles: null,
+        pendingQueue: extraPending,
+        sendingQueue: extraSending,
+        failedQueue: extraFailed,
+        quarantinedQueue: extraQuarantined,
+        pid: typeof extraRuntime?.pid === 'number' ? extraRuntime.pid : null,
+        hostname: extraHost,
+        nodeVersion: typeof extraRuntime?.nodeVersion === 'string' ? extraRuntime.nodeVersion : null,
+        capabilities: Array.isArray(extraDetails?.capabilities)
+          ? extraDetails.capabilities
+          : connectorCapabilities,
+        lastError: extraSubsystems.documental.lastError ?? extraSubsystems.transferAndCli.rustCli.lastError ?? null,
+        lastSyncAgoSeconds: null,
+        activeConnectorsCount: activeConnectors.length,
+        operationalState: node.operationalState,
+        role: node.role,
+        connectorName: node.name,
+        provenance: {
+          telemetry: extraTel ? 'live' : 'unavailable',
+          heartbeat: 'live',
+        },
+        subsystems: extraSubsystems,
+        note:
+          node.operationalState === 'STANDBY'
+            ? 'Servidor em Hot-Standby pronto para assumir sincronização SQL e Gestão Documental em 1 clique.'
+            : node.operationalState === 'PAUSED'
+            ? 'Servidor pausado manualmente para manutenção ou parada operacional.'
+            : undefined,
+      };
+    }
+
+    clusterNodes.push({
+      connectorId: node.connectorId,
+      name: node.name,
+      role: node.role,
+      operationalState: node.operationalState,
+      priority: node.priority,
+      version: node.version,
+      targetVersion: node.targetVersion,
+      updateStatus: node.updateStatus,
+      updateMessage: node.updateMessage,
+      lastUpdateAt: node.lastUpdateAt ? node.lastUpdateAt.toISOString() : null,
+      hostname: node.hostname ?? nodeTelemetry.hostname ?? null,
+      osVersion: node.osVersion,
+      lanUrl:
+        node.lanUrl ??
+        nodeTelemetry.subsystems?.transferAndCli.fileServer.publicUrl ??
+        null,
+      installedPath: node.installedPath,
+      configVersion: node.configVersion,
+      remoteConfig: node.remoteConfig,
+      isOnline: nodeIsOnline,
+      heartbeatAgoSeconds: nodeHbAgo,
+      lastSeenAt: node.lastSeenAt ? node.lastSeenAt.toISOString() : null,
+      telemetry: nodeTelemetry,
+    });
+  }
+
+  const connectorCluster: ConnectorClusterInfo = {
+    nodes: clusterNodes,
+    failoverMode: haSettings.failoverMode,
+    autoFailoverTimeoutSec: haSettings.autoFailoverTimeoutSec,
+    latestReleaseVersion: releaseManifest?.version ?? null,
+    latestReleasePublishedAt: releaseManifest?.publishedAt ?? null,
+    rollingUpdate: haSettings.rollingUpdateState ?? null,
   };
 
   // E2. Consulta de Lotes Recentes para Métricas Reais e Incidentes Ativos
@@ -1401,6 +1797,7 @@ async function computeOperationsHealth(tenantId: string): Promise<OperationsHeal
     services,
     incrementalModules,
     connector: connectorTelemetry,
+    connectorCluster,
     externalIntegrations,
     metrics: {
       availabilityPercent: finalAvailability,

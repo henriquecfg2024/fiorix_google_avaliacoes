@@ -170,11 +170,10 @@ export function ProceduresOverviewSection({ modules, recentBatches }: Props) {
               key={tab.id}
               type="button"
               onClick={() => setActiveCategory(tab.id as any)}
-              className={`px-3 py-1 rounded-lg transition-all shrink-0 ${
-                activeCategory === tab.id
-                  ? 'bg-[#3B82F6]/15 text-[#3B82F6] border border-[#3B82F6]/20 font-semibold'
-                  : 'text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#151A2C]'
-              }`}
+              className={`px-3 py-1 rounded-lg transition-all shrink-0 ${activeCategory === tab.id
+                ? 'bg-[#3B82F6]/15 text-[#3B82F6] border border-[#3B82F6]/20 font-semibold'
+                : 'text-[#64748B] hover:text-[#F1F5F9] hover:bg-[#151A2C]'
+                }`}
             >
               {tab.label}
             </button>

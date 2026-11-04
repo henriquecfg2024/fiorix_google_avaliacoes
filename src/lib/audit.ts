@@ -10,7 +10,8 @@ export type AuditModulo =
   | 'FERIAS'
   | 'HOLERITES'
   | 'BI_IMPORTACOES'
-  | 'PERMISSOES_MENU';
+  | 'PERMISSOES_MENU'
+  | 'OPERACOES_CONNECTOR';
 
 export type AuditAcao =
   | 'INCLUSAO'
@@ -23,7 +24,14 @@ export type AuditAcao =
   | 'APROVACAO'
   | 'PUBLICACAO'
   | 'REJEICAO'
-  | 'CORRECAO_SOLICITADA';
+  | 'CORRECAO_SOLICITADA'
+  | 'PROMOCAO_ATIVO'
+  | 'PAUSA_MANUTENCAO'
+  | 'REATIVACAO'
+  | 'CONFIG_REMOTA'
+  | 'TOKEN_PAREAMENTO'
+  | 'ATUALIZACAO_REMOTA'
+  | 'FAILOVER_AUTOMATICO';
 
 export interface AuditLogParams {
   modulo: AuditModulo;

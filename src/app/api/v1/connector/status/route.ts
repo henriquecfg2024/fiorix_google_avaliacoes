@@ -6,6 +6,10 @@ import { z } from 'zod';
 import { recordConnectorTelemetry } from '@/lib/alerts/alert-storage';
 import { dispatchAlert } from '@/lib/alerts/alert-dispatcher';
 import { recordHealthSample } from '@/lib/health/health-samples';
+import {
+  processHeartbeatHaAndBuildDirective,
+  type ConnectorDirectivePayload,
+} from '@/lib/connector/ha-manager';
 
 const sourceStateSchema = z.object({
   lastRunAt: z.string().nullable().optional(),
@@ -106,7 +110,12 @@ export async function POST(req: Request) {
     const resolvedConnectorId = authResult.connector.id;
 
     const mergedDetails: Record<string, unknown> | null =
-      details || heapMb !== undefined || shadowMode !== undefined || schedulerEnabled !== undefined || queueSending !== undefined || queueQuarantined !== undefined
+      details ||
+      heapMb !== undefined ||
+      shadowMode !== undefined ||
+      schedulerEnabled !== undefined ||
+      queueSending !== undefined ||
+      queueQuarantined !== undefined
         ? {
             ...(details ?? {}),
             ...(heapMb !== undefined ? { heapMb } : {}),
@@ -136,18 +145,20 @@ export async function POST(req: Request) {
       dispatchAlert({
         tenantId,
         eventType: 'sync_failed',
-        title: queueQuarantined && queueQuarantined > 0
-          ? 'Lotes em quarentena na fila local do Connector'
-          : 'Fila local de sincronizações com falha',
-        message: queueQuarantined && queueQuarantined > 0
-          ? `O conector local possui ${queueQuarantined} lote(s) em quarentena e ${queueFailed ?? 0} pacote(s) com erro na fila SQLite.`
-          : `O conector local no cartório possui ${queueFailed} pacotes com erro acumulados na fila local.`,
+        title:
+          queueQuarantined && queueQuarantined > 0
+            ? 'Lotes em quarentena na fila local do Connector'
+            : 'Fila local de sincronizações com falha',
+        message:
+          queueQuarantined && queueQuarantined > 0
+            ? `O conector local possui ${queueQuarantined} lote(s) em quarentena e ${queueFailed ?? 0} pacote(s) com erro na fila SQLite.`
+            : `O conector local no cartório possui ${queueFailed} pacotes com erro acumulados na fila local.`,
         severity: queueQuarantined && queueQuarantined > 0 ? 'CRITICAL' : 'WARNING',
         metadata: {
           'Fila em Quarentena': queueQuarantined ?? 0,
           'Fila com Erros': queueFailed ?? 0,
           'Fila Pendente': queuePending ?? 0,
-          'Uptime': uptimeSeconds ? `${Math.round(uptimeSeconds / 60)} min` : 'Desconhecido',
+          Uptime: uptimeSeconds ? `${Math.round(uptimeSeconds / 60)} min` : 'Desconhecido',
         },
       }).catch(() => {});
     }
@@ -195,43 +206,63 @@ export async function POST(req: Request) {
 
         if (!prisma.connectorSourceStatus?.upsert) continue;
 
-        await prisma.connectorSourceStatus.upsert({
-          where: {
-            tenantId_connectorId_source: {
+        await prisma.connectorSourceStatus
+          .upsert({
+            where: {
+              tenantId_connectorId_source: {
+                tenantId,
+                connectorId: resolvedConnectorId,
+                source: sourceKey,
+              },
+            },
+            update: {
+              lastSyncAt: lastRunDate || receivedAt,
+              lastSuccessAt: lastSuccessDate || undefined,
+              recordsLastSync: sourceData.lastSqlRecords ?? 0,
+              status: sourceData.lastError ? 'error' : 'healthy',
+              lastError: sourceData.lastError ? sourceData.lastError.substring(0, 255) : null,
+            },
+            create: {
               tenantId,
               connectorId: resolvedConnectorId,
               source: sourceKey,
+              lastSyncAt: lastRunDate || receivedAt,
+              lastSuccessAt: lastSuccessDate,
+              recordsLastSync: sourceData.lastSqlRecords ?? 0,
+              status: sourceData.lastError ? 'error' : 'healthy',
+              lastError: sourceData.lastError ? sourceData.lastError.substring(0, 255) : null,
             },
-          },
-          update: {
-            lastSyncAt: lastRunDate || receivedAt,
-            lastSuccessAt: lastSuccessDate || undefined,
-            recordsLastSync: sourceData.lastSqlRecords ?? 0,
-            status: sourceData.lastError ? 'error' : 'healthy',
-            lastError: sourceData.lastError ? sourceData.lastError.substring(0, 255) : null,
-          },
-          create: {
-            tenantId,
-            connectorId: resolvedConnectorId,
-            source: sourceKey,
-            lastSyncAt: lastRunDate || receivedAt,
-            lastSuccessAt: lastSuccessDate,
-            recordsLastSync: sourceData.lastSqlRecords ?? 0,
-            status: sourceData.lastError ? 'error' : 'healthy',
-            lastError: sourceData.lastError ? sourceData.lastError.substring(0, 255) : null,
-          },
-        }).catch((upsertErr) => {
-          console.warn(`[Connector Status] Falha no upsert da fonte ${sourceKey}:`, upsertErr?.message);
-        });
+          })
+          .catch((upsertErr) => {
+            console.warn(`[Connector Status] Falha no upsert da fonte ${sourceKey}:`, upsertErr?.message);
+          });
       }
     }
 
-    return jsonResponse(requestId, {
-      ok: true,
-      receivedAt: receivedAt.toISOString(),
-      connectorId: resolvedConnectorId,
-      tenantId,
-    }, 200);
+    // Processa Alta Disponibilidade (ACTIVE/STANDBY/PAUSED), cursores em nuvem e Auto-Updater
+    let directive: ConnectorDirectivePayload | undefined;
+    try {
+      directive = await processHeartbeatHaAndBuildDirective({
+        tenantId,
+        connectorId: resolvedConnectorId,
+        reportedVersion: version ?? authResult.connector.version ?? null,
+        details: mergedDetails,
+      });
+    } catch (haErr: any) {
+      console.warn('[Connector Status] Falha transitória ao calcular diretiva HA:', haErr?.message);
+    }
+
+    return jsonResponse(
+      requestId,
+      {
+        ok: true,
+        receivedAt: receivedAt.toISOString(),
+        connectorId: resolvedConnectorId,
+        tenantId,
+        ...(directive ? { directive } : {}),
+      },
+      200,
+    );
   } catch {
     // Do not log the error object: Prisma/PostgreSQL messages may contain SQL,
     // endpoints, or internal infrastructure details.

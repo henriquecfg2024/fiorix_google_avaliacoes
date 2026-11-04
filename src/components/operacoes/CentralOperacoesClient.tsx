@@ -26,6 +26,7 @@ import { BatchAuditSection } from './BatchAuditSection';
 import { AlertSettingsSection } from './AlertSettingsSection';
 import { ConnectorSubsystemsSection } from './ConnectorSubsystemsSection';
 import { ProceduresOverviewSection } from './ProceduresOverviewSection';
+import { ConnectorClusterSection } from './ConnectorClusterSection';
 
 interface Props {
   initialHealth: OperationsHealthSnapshot;
@@ -91,6 +92,28 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
   const [isPending, startTransition] = useTransition();
   const [secondsAgo, setSecondsAgo] = useState<number>(0);
   const [showFailures, setShowFailures] = useState(false);
+  const [selectedConnectorId, setSelectedConnectorId] = useState<string | null>(() => {
+    const nodes = initialHealth.connectorCluster?.nodes ?? [];
+    const active = nodes.find((n) => n.operationalState === 'ACTIVE') ?? nodes[0];
+    return active?.connectorId ?? null;
+  });
+
+  useEffect(() => {
+    const nodes = health.connectorCluster?.nodes ?? [];
+    if (nodes.length === 0) return;
+    if (!selectedConnectorId || !nodes.some((n) => n.connectorId === selectedConnectorId)) {
+      const active = nodes.find((n) => n.operationalState === 'ACTIVE') ?? nodes[0];
+      if (active) setSelectedConnectorId(active.connectorId);
+    }
+  }, [health.connectorCluster?.nodes, selectedConnectorId]);
+
+  const clusterNodes = health.connectorCluster?.nodes ?? [];
+  const inspectedNode =
+    clusterNodes.find((n) => n.connectorId === selectedConnectorId) ??
+    clusterNodes.find((n) => n.operationalState === 'ACTIVE') ??
+    clusterNodes[0] ??
+    null;
+  const effectiveConnectorTelemetry = inspectedNode?.telemetry ?? health.connector;
 
   // Ticker de segundos desde a última checagem real
   useEffect(() => {
@@ -485,7 +508,15 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
             {/* 1. Top Services (Plataforma SaaS Cloud & Servidor do Cartório) */}
             <ServiceHealthGrid services={health.services} />
 
-            {/* 2. Middle: 70% Sincronização Incremental (com Procedures) | 30% Connector Local */}
+            {/* 1.5 Redundância Multi-Servidor, Seletor Manual, Provisionamento Portátil & Auto-Update SaaS */}
+            <ConnectorClusterSection
+              cluster={health.connectorCluster}
+              selectedConnectorId={inspectedNode?.connectorId ?? selectedConnectorId}
+              onSelectConnector={(id) => setSelectedConnectorId(id)}
+              onClusterMutated={() => refreshHealth(true, false)}
+            />
+
+            {/* 2. Middle: 70% Sincronização Incremental (com Procedures) | 30% Connector Inspecionado */}
             <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-stretch">
               <div className="lg:col-span-7">
                 <IncrementalSyncTable 
@@ -495,19 +526,54 @@ export function CentralOperacoesClient({ initialHealth, userName }: Props) {
               </div>
               <div className="lg:col-span-3">
                 <ConnectorDetailCard 
-                  connector={health.connector} 
+                  connector={effectiveConnectorTelemetry} 
                   onRefresh={() => refreshHealth(true, true)}
                 />
               </div>
             </div>
 
+            {/* Seletor rápido de telemetria profunda quando houver múltiplos Connectors */}
+            {clusterNodes.length > 1 && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-[#0B1020]/80 px-4 py-2.5 text-xs">
+                <span className="text-slate-400">
+                  Inspecionando subsistemas locais do servidor:
+                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {clusterNodes.map((n) => {
+                    const active = (inspectedNode?.connectorId ?? selectedConnectorId) === n.connectorId;
+                    return (
+                      <button
+                        key={n.connectorId}
+                        type="button"
+                        onClick={() => setSelectedConnectorId(n.connectorId)}
+                        className={`px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer border ${
+                          active
+                            ? 'bg-cyan-500/20 text-cyan-200 border-cyan-500/40'
+                            : 'bg-white/5 text-slate-400 hover:text-white border-white/10'
+                        }`}
+                      >
+                        {n.name} ·{' '}
+                        <span className="font-mono text-[10px]">
+                          {n.operationalState === 'ACTIVE'
+                            ? 'ATIVO'
+                            : n.operationalState === 'PAUSED'
+                            ? 'PAUSADO'
+                            : 'STANDBY'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* 2.5 Subsistemas Internos do FIORIX Connector (Acervo SMB, Worker 24/7, File Server :8765, Rust CLI, SQLite WAL, Planos SHA-256) */}
             <ConnectorSubsystemsSection
-              subsystems={health.connector.subsystems}
+              subsystems={effectiveConnectorTelemetry.subsystems}
               connectorOnline={
-                health.connector.status === 'ONLINE' ||
-                health.connector.status === 'STANDBY' ||
-                health.connector.status === 'DEGRADED'
+                effectiveConnectorTelemetry.status === 'ONLINE' ||
+                effectiveConnectorTelemetry.status === 'STANDBY' ||
+                effectiveConnectorTelemetry.status === 'DEGRADED'
               }
             />
 
