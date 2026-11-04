@@ -21,3 +21,5 @@ fiorix-connector-*.lock
 
 # Código-fonte extraído do NSSM (apenas referência local)
 tools/nssm/extracted/
+
+remote-config.cache.json
