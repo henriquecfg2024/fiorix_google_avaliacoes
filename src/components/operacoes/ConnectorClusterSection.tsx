@@ -51,6 +51,13 @@ const DEFAULT_CARTORIO_ROOTS: EditableRoot[] = [
   { id: 'livro2', label: 'Livro 2 — Transcrições', path: 'K:\\IMAGENS\\LV2' },
 ];
 
+const UNC_SRVFILES_ROOTS: EditableRoot[] = [
+  { id: 'minutas', label: 'Minutas & Usucapião', path: '\\\\srvfiles\\DEPTOS\\USUCAPIAO' },
+  { id: 'processos', label: 'Processos E-mail', path: '\\\\srvfiles\\VOL1\\PROCESSOS - ENVIADOS POR E-MAIL' },
+  { id: 'imagens', label: 'Imagens & Matrículas', path: '\\\\srvfiles\\IMAGENS\\IMAGENS' },
+  { id: 'livro2', label: 'Livro 2 — Transcrições', path: '\\\\srvfiles\\IMAGENS\\IMAGENS\\LV2' },
+];
+
 export function ConnectorClusterSection({
   cluster,
   selectedConnectorId,
@@ -255,9 +262,9 @@ export function ConnectorClusterSection({
     setEnrollName(hasPrimaryAlready ? 'Servidor Reserva — Secundário' : 'SRVFILES — Principal');
     setEnrollRole(hasPrimaryAlready ? 'SECONDARY' : 'PRIMARY');
     setEnrollLanUrl(hasPrimaryAlready ? '' : 'http://srvfiles:8765');
-    setEnrollSqlHost('localhost');
+    setEnrollSqlHost('srvsql');
     setEnrollSqlDb('WEBRI');
-    setEnrollRoots([]);
+    setEnrollRoots(UNC_SRVFILES_ROOTS.map((r) => ({ ...r })));
     setGeneratedEnroll(null);
     setCopiedPs1(false);
     setShowEnrollModal(true);
@@ -846,10 +853,18 @@ export function ConnectorClusterSection({
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setEnrollRoots(DEFAULT_CARTORIO_ROOTS.map((r) => ({ ...r })))}
+                        onClick={() => setEnrollRoots(UNC_SRVFILES_ROOTS.map((r) => ({ ...r })))}
                         className="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium cursor-pointer"
                       >
-                        Carregar padrão W: / H: / K:
+                        Padrão UNC (\\srvfiles)
+                      </button>
+                      <span className="text-slate-600">·</span>
+                      <button
+                        type="button"
+                        onClick={() => setEnrollRoots(DEFAULT_CARTORIO_ROOTS.map((r) => ({ ...r })))}
+                        className="text-[11px] text-slate-400 hover:text-slate-200 font-medium cursor-pointer"
+                      >
+                        W: / H: / K:
                       </button>
                       <span className="text-slate-600">·</span>
                       <button
@@ -1111,10 +1126,18 @@ export function ConnectorClusterSection({
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setCfgRoots(DEFAULT_CARTORIO_ROOTS.map((r) => ({ ...r })))}
+                      onClick={() => setCfgRoots(UNC_SRVFILES_ROOTS.map((r) => ({ ...r })))}
                       className="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium cursor-pointer"
                     >
-                      Preencher W: / H: / K:
+                      Padrão UNC (\\srvfiles)
+                    </button>
+                    <span className="text-slate-600">·</span>
+                    <button
+                      type="button"
+                      onClick={() => setCfgRoots(DEFAULT_CARTORIO_ROOTS.map((r) => ({ ...r })))}
+                      className="text-[11px] text-slate-400 hover:text-slate-200 font-medium cursor-pointer"
+                    >
+                      W: / H: / K:
                     </button>
                     <span className="text-slate-600">·</span>
                     <button

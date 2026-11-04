@@ -22,6 +22,30 @@ function resolveOrigin(req: NextRequest): string {
 function buildBatchLauncher(origin: string, token: string): string {
   const safeToken = token.replace(/[^a-zA-Z0-9_-]/g, '');
   const psUrl = `${origin}/api/v1/connector/install.ps1`;
+  const bootstrapCmd = [
+    '[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;',
+    "$pUrl = ''; $pUser = ''; $pPass = ''; $script = $null;",
+    `try { $script = Invoke-RestMethod -Uri '${psUrl}' -UseBasicParsing -TimeoutSec 15 }`,
+    'catch {',
+    "  Write-Host '[REDE] Acesso direto bloqueado ou exige Proxy HTTP corporativo.' -ForegroundColor Yellow;",
+    "  $rawProxy = (Read-Host 'Servidor Proxy HTTP (ex: 10.0.0.1:3128)').Trim();",
+    '  if (-not [string]::IsNullOrWhiteSpace($rawProxy)) {',
+    "    $pUrl = if ($rawProxy -match '^https?://') { $rawProxy } else { 'http://' + $rawProxy };",
+    "    $pUser = (Read-Host 'Usuario do Proxy (ENTER se sem autenticacao)').Trim();",
+    '    $irmArgs = @{ Uri = ' + `'${psUrl}'` + '; UseBasicParsing = $true; Proxy = $pUrl };',
+    '    if (-not [string]::IsNullOrWhiteSpace($pUser)) {',
+    "      $sec = Read-Host 'Senha do Proxy' -AsSecureString;",
+    '      $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec);',
+    '      try { $pPass = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) };',
+    '      $irmArgs["ProxyCredential"] = New-Object System.Management.Automation.PSCredential($pUser, $sec);',
+    '    }',
+    '    $script = Invoke-RestMethod @irmArgs;',
+    '  } else { throw }',
+    '}',
+    'Invoke-Expression $script;',
+    `Install-FiorixConnector -Token '${safeToken}' -ApiBaseUrl '${origin}' -ProxyUrl $pUrl -ProxyUser $pUser -ProxyPassword $pPass`,
+  ].join(' ');
+
   const lines = [
     '@echo off',
     'chcp 65001 >nul',
@@ -35,7 +59,7 @@ function buildBatchLauncher(origin: string, token: string): string {
     'echo ============================================================================',
     'echo   FIORIX CONNECTOR SaaS - INSTALADOR PORTATIL WINDOWS SERVER',
     'echo ============================================================================',
-    `powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $script = Invoke-RestMethod -Uri '${psUrl}' -UseBasicParsing; Invoke-Expression $script; Install-FiorixConnector -Token '${safeToken}' -ApiBaseUrl '${origin}'"`,
+    `powershell -NoProfile -ExecutionPolicy Bypass -Command "${bootstrapCmd.replace(/"/g, '\\"')}"`,
     'echo.',
     'pause',
   ];
@@ -64,6 +88,8 @@ function Install-FiorixConnector {
     [string]$SqlPassword = "",
     [string]$LanUrl = "",
     [string]$ProxyUrl = "",
+    [string]$ProxyUser = "",
+    [string]$ProxyPassword = "",
     [switch]$SkipSqlTest
   )
 
@@ -95,40 +121,127 @@ function Install-FiorixConnector {
   } catch {
   }
 
-  if ([string]::IsNullOrWhiteSpace($LanUrl)) {
-    $DefaultLan = "http://$($MachineHostname.ToLower()):8765"
-    $InputLan = Read-Host "URL deste servidor na rede local LAN para PDFs rapidos [Padrao: $DefaultLan]"
-    $LanUrl = if ([string]::IsNullOrWhiteSpace($InputLan)) { $DefaultLan } else { $InputLan.Trim().TrimEnd('/') }
-  }
+  # 2. Configuracao opcional de Proxy HTTP Corporativo (com suporte a usuario e senha)
+  $EffectiveProxyUri = ""
+  $ParsedProxyHost = ""
+  $ParsedProxyPort = "3128"
+  $PlainProxyPassword = $ProxyPassword
+  $ProxyCredentialObj = $null
 
   if ([string]::IsNullOrWhiteSpace($ProxyUrl)) {
-    $InputProxy = Read-Host "Servidor Proxy HTTP da rede (Pressione ENTER caso nao utilize proxy)"
+    $InputProxy = (Read-Host "Servidor Proxy HTTP da rede (ex: 10.0.0.1:3128 ou ENTER se acesso direto)").Trim()
     if (-not [string]::IsNullOrWhiteSpace($InputProxy)) {
-      $ProxyUrl = $InputProxy.Trim()
+      $ProxyUrl = $InputProxy
     }
   }
 
-  # 2. Coleta local segura das credenciais SQL Server (NUNCA enviadas para a nuvem!)
+  if (-not [string]::IsNullOrWhiteSpace($ProxyUrl)) {
+    $EffectiveProxyUri = if ($ProxyUrl -match '^https?://') { $ProxyUrl.Trim() } else { "http://$($ProxyUrl.Trim())" }
+    $ProxyParsed = [System.Uri]$EffectiveProxyUri
+    $ParsedProxyHost = $ProxyParsed.Host
+    $ParsedProxyPort = if ($ProxyParsed.Port -gt 0) { [string]$ProxyParsed.Port } else { "3128" }
+
+    if ([string]::IsNullOrWhiteSpace($ProxyUser)) {
+      $InputProxyUser = (Read-Host "Usuario do Proxy HTTP (ENTER se sem autenticacao)").Trim()
+      if (-not [string]::IsNullOrWhiteSpace($InputProxyUser)) {
+        $ProxyUser = $InputProxyUser
+      }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($ProxyUser)) {
+      if ([string]::IsNullOrWhiteSpace($PlainProxyPassword)) {
+        $SecProxy = Read-Host "Senha do Proxy HTTP" -AsSecureString
+        $BstrP = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecProxy)
+        try {
+          $PlainProxyPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($BstrP)
+        } finally {
+          [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BstrP)
+        }
+        $ProxyCredentialObj = New-Object System.Management.Automation.PSCredential($ProxyUser, $SecProxy)
+      } else {
+        $SecFromPlain = ConvertTo-SecureString -String $PlainProxyPassword -AsPlainText -Force
+        $ProxyCredentialObj = New-Object System.Management.Automation.PSCredential($ProxyUser, $SecFromPlain)
+      }
+    }
+  }
+
+  function Add-WebProxyArgs([hashtable]$Params) {
+    if (-not [string]::IsNullOrWhiteSpace($EffectiveProxyUri)) {
+      $Params["Proxy"] = $EffectiveProxyUri
+      if ($null -ne $ProxyCredentialObj) {
+        $Params["ProxyCredential"] = $ProxyCredentialObj
+      }
+    }
+  }
+
+  # 3. Pareamento criptografico de uso unico com o FIORIX SaaS (carrega pre-configuracao do painel!)
+  Write-Host "Realizando pareamento seguro com $CleanOrigin..." -ForegroundColor Cyan
+  $DefaultLanFromHost = "http://$($MachineHostname.ToLower()):8765"
+  $EnrollLanCandidate = if ([string]::IsNullOrWhiteSpace($LanUrl)) { $DefaultLanFromHost } else { $LanUrl.Trim().TrimEnd('/') }
+
+  $EnrollBody = @{
+    token = $Token.Trim()
+    hostname = $MachineHostname
+    osVersion = [string]$OsCaption
+    installedPath = $InstallDir
+    lanUrl = $EnrollLanCandidate
+    version = "v2.6.0"
+  } | ConvertTo-Json -Compress
+
+  $EnrollParams = @{
+    Uri = "$CleanOrigin/api/v1/connector/enroll"
+    Method = "POST"
+    ContentType = "application/json; charset=utf-8"
+    Body = [System.Text.Encoding]::UTF8.GetBytes($EnrollBody)
+    UseBasicParsing = $true
+  }
+  Add-WebProxyArgs $EnrollParams
+
+  $EnrollResp = Invoke-RestMethod @EnrollParams
+  if (-not $EnrollResp.ok -or -not $EnrollResp.connectorId -or -not $EnrollResp.connectorSecret) {
+    throw "Resposta inesperada no pareamento com FIORIX SaaS."
+  }
+
+  $ConnectorId = [string]$EnrollResp.connectorId
+  $ConnectorSecret = [string]$EnrollResp.connectorSecret
+  $OperationalState = [string]$EnrollResp.operationalState
+  $ConnectorRole = [string]$EnrollResp.role
+  $TenantName = [string]$EnrollResp.tenantName
+  $ReleaseBaseUrl = [string]$EnrollResp.releaseUrl
+  $CloudRemoteCfg = $EnrollResp.remoteConfig
+
+  Write-Host "[OK] Servidor autenticado no cartorio '$TenantName' como $($EnrollResp.connectorName) ($ConnectorRole / $OperationalState)" -ForegroundColor Green
+
+  if ([string]::IsNullOrWhiteSpace($LanUrl)) {
+    $CloudLan = if ($null -ne $CloudRemoteCfg -and $CloudRemoteCfg.lanUrl) { [string]$CloudRemoteCfg.lanUrl } else { $DefaultLanFromHost }
+    $InputLan = Read-Host "URL deste servidor na rede local LAN para PDFs rapidos [Padrao: $CloudLan]"
+    $LanUrl = if ([string]::IsNullOrWhiteSpace($InputLan)) { $CloudLan } else { $InputLan.Trim().TrimEnd('/') }
+  }
+
+  # 4. Coleta local segura das credenciais SQL Server (NUNCA enviadas para a nuvem!)
   Write-Host ""
   Write-Host "--- Credenciais Locais do SQL Server (Gravadas exclusivamente neste servidor) ---" -ForegroundColor Yellow
 
   if ([string]::IsNullOrWhiteSpace($SqlHost)) {
-    $InputHost = Read-Host "Host / Instancia do SQL Server [Padrao: localhost]"
-    $SqlHost = if ([string]::IsNullOrWhiteSpace($InputHost)) { "localhost" } else { $InputHost.Trim() }
+    $CloudSqlHost = if ($null -ne $CloudRemoteCfg -and $CloudRemoteCfg.sqlHost) { [string]$CloudRemoteCfg.sqlHost } else { "srvsql" }
+    $InputHost = Read-Host "Host / Instancia do SQL Server [Padrao: $CloudSqlHost]"
+    $SqlHost = if ([string]::IsNullOrWhiteSpace($InputHost)) { $CloudSqlHost } else { $InputHost.Trim() }
   }
 
   if ([string]::IsNullOrWhiteSpace($SqlDatabase)) {
-    $InputDb = Read-Host "Nome do Banco SQL Server [Padrao: WEBRI]"
-    $SqlDatabase = if ([string]::IsNullOrWhiteSpace($InputDb)) { "WEBRI" } else { $InputDb.Trim() }
+    $CloudSqlDb = if ($null -ne $CloudRemoteCfg -and $CloudRemoteCfg.sqlDatabase) { [string]$CloudRemoteCfg.sqlDatabase } else { "WEBRI" }
+    $InputDb = Read-Host "Nome do Banco SQL Server [Padrao: $CloudSqlDb]"
+    $SqlDatabase = if ([string]::IsNullOrWhiteSpace($InputDb)) { $CloudSqlDb } else { $InputDb.Trim() }
   }
 
-  while ([string]::IsNullOrWhiteSpace($SqlUser)) {
-    $SqlUser = (Read-Host "Usuario SQL Server (somente leitura recomendado)").Trim()
+  if ([string]::IsNullOrWhiteSpace($SqlUser)) {
+    $InputUser = Read-Host "Usuario SQL Server [Padrao: fiorix_connector]"
+    $SqlUser = if ([string]::IsNullOrWhiteSpace($InputUser)) { "fiorix_connector" } else { $InputUser.Trim() }
   }
 
   $PlainSqlPassword = $SqlPassword
   while ([string]::IsNullOrWhiteSpace($PlainSqlPassword)) {
-    $SecPass = Read-Host "Senha do Usuario SQL Server" -AsSecureString
+    $SecPass = Read-Host "Senha do Usuario SQL Server ($SqlUser)" -AsSecureString
     $Bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecPass)
     try {
       $PlainSqlPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($Bstr)
@@ -179,7 +292,7 @@ function Install-FiorixConnector {
     }
   }
 
-  # 3. Preparacao dos diretorios locais isolados
+  # 5. Preparacao dos diretorios locais isolados
   Write-Host ""
   Write-Host "Preparando estrutura em '$InstallDir'..." -ForegroundColor Cyan
   $Dirs = @($InstallDir, "$InstallDir\\runtime", "$InstallDir\\dist", "$InstallDir\\tools", "$InstallDir\\bin", "$InstallDir\\logs", "$InstallDir\\data")
@@ -189,7 +302,6 @@ function Install-FiorixConnector {
     }
   }
 
-  # Se ja existir servico anterior em execucao neste servidor, para antes de atualizar binarios
   $ExistingSvc = Get-Service -Name "FIORIXConnector" -ErrorAction SilentlyContinue
   if ($null -ne $ExistingSvc -and $ExistingSvc.Status -ne 'Stopped') {
     Write-Host "Parando servico FIORIXConnector existente para atualizacao limpa..." -ForegroundColor Gray
@@ -197,7 +309,7 @@ function Install-FiorixConnector {
     Start-Sleep -Seconds 2
   }
 
-  # 4. Runtime Node.js v22 LTS Portatil (zero exigencia de Node/NPM/Git global no servidor)
+  # 6. Runtime Node.js v22 LTS Portatil (zero exigencia de Node/NPM/Git global no servidor)
   $NodeExe = "$InstallDir\\runtime\\node.exe"
   if (-not (Test-Path $NodeExe)) {
     $NodeVersion = "v22.14.0"
@@ -207,7 +319,7 @@ function Install-FiorixConnector {
 
     Write-Host "Baixando runtime portatil oficial Node.js LTS ($NodeVersion)..." -ForegroundColor Cyan
     $IwrParams = @{ Uri = $NodeZipUrl; OutFile = $TempZip; UseBasicParsing = $true }
-    if (-not [string]::IsNullOrWhiteSpace($ProxyUrl)) { $IwrParams["Proxy"] = $ProxyUrl }
+    Add-WebProxyArgs $IwrParams
     Invoke-WebRequest @IwrParams
 
     if (Test-Path $TempExtract) { Remove-Item -Path $TempExtract -Recurse -Force }
@@ -220,48 +332,14 @@ function Install-FiorixConnector {
     Write-Host "[OK] Runtime portatil Node.js ja presente em $NodeExe" -ForegroundColor Green
   }
 
-  # 5. Pareamento criptografico de uso unico com o FIORIX SaaS
-  Write-Host "Realizando pareamento seguro com $CleanOrigin..." -ForegroundColor Cyan
-  $EnrollBody = @{
-    token = $Token.Trim()
-    hostname = $MachineHostname
-    osVersion = [string]$OsCaption
-    installedPath = $InstallDir
-    lanUrl = $LanUrl
-    version = "v2.6.0"
-  } | ConvertTo-Json -Compress
-
-  $EnrollParams = @{
-    Uri = "$CleanOrigin/api/v1/connector/enroll"
-    Method = "POST"
-    ContentType = "application/json; charset=utf-8"
-    Body = [System.Text.Encoding]::UTF8.GetBytes($EnrollBody)
-    UseBasicParsing = $true
-  }
-  if (-not [string]::IsNullOrWhiteSpace($ProxyUrl)) { $EnrollParams["Proxy"] = $ProxyUrl }
-
-  $EnrollResp = Invoke-RestMethod @EnrollParams
-  if (-not $EnrollResp.ok -or -not $EnrollResp.connectorId -or -not $EnrollResp.connectorSecret) {
-    throw "Resposta inesperada no pareamento com FIORIX SaaS."
-  }
-
-  $ConnectorId = [string]$EnrollResp.connectorId
-  $ConnectorSecret = [string]$EnrollResp.connectorSecret
-  $OperationalState = [string]$EnrollResp.operationalState
-  $ConnectorRole = [string]$EnrollResp.role
-  $TenantName = [string]$EnrollResp.tenantName
-  $ReleaseBaseUrl = [string]$EnrollResp.releaseUrl
-
-  Write-Host "[OK] Servidor autenticado no cartorio '$TenantName' como $($EnrollResp.connectorName) ($ConnectorRole / $OperationalState)" -ForegroundColor Green
-
-  # 6. Download autenticado dos artefatos compilados + verificacao SHA-256
+  # 7. Download autenticado dos artefatos compilados + verificacao SHA-256
   $AuthHeaders = @{
     "Authorization" = "Bearer $ConnectorSecret"
     "X-Connector-Id" = $ConnectorId
   }
 
   $ManifestParams = @{ Uri = "$($ReleaseBaseUrl)?asset=manifest"; Headers = $AuthHeaders; UseBasicParsing = $true }
-  if (-not [string]::IsNullOrWhiteSpace($ProxyUrl)) { $ManifestParams["Proxy"] = $ProxyUrl }
+  Add-WebProxyArgs $ManifestParams
   $Manifest = Invoke-RestMethod @ManifestParams
 
   function Download-VerifiedAsset([string]$AssetName, [string]$OutPath, [string]$ExpectedHash) {
@@ -272,7 +350,7 @@ function Install-FiorixConnector {
       OutFile = $OutPath
       UseBasicParsing = $true
     }
-    if (-not [string]::IsNullOrWhiteSpace($ProxyUrl)) { $DlParams["Proxy"] = $ProxyUrl }
+    Add-WebProxyArgs $DlParams
     Invoke-WebRequest @DlParams
 
     if (-not [string]::IsNullOrWhiteSpace($ExpectedHash)) {
@@ -293,7 +371,7 @@ function Install-FiorixConnector {
   }
   Write-Host "[OK] Binarios oficiais $($Manifest.version) verificados com SHA-256!" -ForegroundColor Green
 
-  # 7. Gravacao de package.json ESM minimo e .env.production blindado por ACL Windows
+  # 8. Gravacao de package.json ESM minimo e .env.production blindado por ACL Windows
   $PkgJson = '{"name":"fiorix-connector-runtime","private":true,"type":"module"}'
   Set-Content -Path "$InstallDir\\package.json" -Value $PkgJson -Encoding UTF8 -Force
 
@@ -302,13 +380,27 @@ function Install-FiorixConnector {
     return ($v.Replace('\\', '\\\\').Replace('"', '\\"'))
   }
 
-  $ProxyEnabledVal = if ([string]::IsNullOrWhiteSpace($ProxyUrl)) { "false" } else { "true" }
-  $ProxyHostUrl = if ([string]::IsNullOrWhiteSpace($ProxyUrl)) { "http://127.0.0.1:3128" } else { $ProxyUrl }
-
+  $ProxyEnabledVal = if ([string]::IsNullOrWhiteSpace($ParsedProxyHost)) { "false" } else { "true" }
   $CliFullPath = Join-Path $InstallDir "bin\\fiorix-gd-cli.exe"
+
+  $RootsJsonLine = ""
+  if ($null -ne $CloudRemoteCfg -and $null -ne $CloudRemoteCfg.documentRoots -and @($CloudRemoteCfg.documentRoots).Count -gt 0) {
+    $CleanRootsArr = @()
+    foreach ($r in @($CloudRemoteCfg.documentRoots)) {
+      if ($r.id -and $r.path) {
+        $CleanRootsArr += @{ id = [string]$r.id; path = [string]$r.path }
+      }
+    }
+    if ($CleanRootsArr.Count -gt 0) {
+      $SerializedRoots = ConvertTo-Json -InputObject $CleanRootsArr -Compress
+      if (-not $SerializedRoots.StartsWith("[")) { $SerializedRoots = "[$SerializedRoots]" }
+      $RootsJsonLine = "DOCUMENTAL_ROOTS_JSON='$SerializedRoots'"
+    }
+  }
 
   $EnvLines = @(
     "# FIORIX Connector SaaS - Gerado automaticamente em $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')",
+    "FIORIX_CONNECTOR_ENV=""production""",
     "SQL_SERVER_HOST=""$(Escape-EnvVal $SqlHost)""",
     "SQL_SERVER_PORT=""1433""",
     "SQL_SERVER_DATABASE=""$(Escape-EnvVal $SqlDatabase)""",
@@ -322,35 +414,66 @@ function Install-FiorixConnector {
     "CONNECTOR_SECRET=""$(Escape-EnvVal $ConnectorSecret)""",
     "CONNECTOR_INITIAL_STATE=""$(Escape-EnvVal $OperationalState)""",
     "WINDOWS_SERVICE_NAME=""FIORIXConnector""",
-    "DOCUMENTAL_ENABLED=""true""",
-    "DOCUMENTAL_FILE_SERVER_PORT=""8765""",
-    "DOCUMENTAL_FILE_SERVER_PUBLIC_URL=""$(Escape-EnvVal $LanUrl)""",
-    "DOCUMENTAL_CLI_PATH=""$(Escape-EnvVal $CliFullPath)""",
-    "CONNECTOR_PROXY_ENABLED=""$ProxyEnabledVal""",
-    "CONNECTOR_PROXY_URL=""$(Escape-EnvVal $ProxyHostUrl)""",
+    "PROXY_ENABLED=""$ProxyEnabledVal""",
+    "PROXY_HOST=""$(Escape-EnvVal $ParsedProxyHost)""",
+    "PROXY_PORT=""$ParsedProxyPort""",
+    "PROXY_USERNAME=""$(Escape-EnvVal $ProxyUser)""",
+    "PROXY_PASSWORD=""$(Escape-EnvVal $PlainProxyPassword)""",
+    "NO_PROXY=""localhost,127.0.0.1,srvsql,10.0.0.25,.7ri.local""",
+    "SYNC_INTERVAL_SECONDS=""3600""",
+    "BI_SYNC_INTERVAL_SECONDS=""3600""",
+    "PRODUTIVIDADE_SYNC_INTERVAL_SECONDS=""3600""",
+    "TAREFAS_SYNC_INTERVAL_SECONDS=""3600""",
+    "METAS_SYNC_INTERVAL_SECONDS=""3600""",
+    "METAS_RECONCILIATION_INTERVAL_MINUTES=""1440""",
+    "RETORNOS_SYNC_INTERVAL_SECONDS=""3600""",
+    "IMPRESSOES_SYNC_INTERVAL_SECONDS=""3600""",
+    "ANDAMENTOS_SYNC_INTERVAL_SECONDS=""3600""",
+    "BI_OFFSET_SECONDS=""0""",
+    "METAS_OFFSET_SECONDS=""900""",
+    "RETORNOS_OFFSET_SECONDS=""1200""",
+    "IMPRESSOES_OFFSET_SECONDS=""1500""",
+    "PRODUTIVIDADE_OFFSET_SECONDS=""1800""",
+    "ANDAMENTOS_OFFSET_SECONDS=""2100""",
+    "TAREFAS_OFFSET_SECONDS=""2700""",
+    "SHADOW_MODE=""false""",
     "SCHEDULER_ENABLED=""true""",
-    "AUTO_SYNC_ENABLED=""true""",
+    "AUTO_SYNC_ENABLED=""false""",
     "BI_AUTO_SYNC_ENABLED=""true""",
     "PRODUTIVIDADE_AUTO_SYNC_ENABLED=""true""",
     "TAREFAS_AUTO_SYNC_ENABLED=""true""",
     "METAS_AUTO_SYNC_ENABLED=""true""",
+    "METAS_SYNC_MODE=""incremental""",
+    "METAS_RECONCILIATION_ENABLED=""true""",
     "RETORNOS_AUTO_SYNC_ENABLED=""true""",
     "IMPRESSOES_AUTO_SYNC_ENABLED=""true""",
-    "SAFRAS_AUTO_SYNC_ENABLED=""true""",
-    "SHADOW_MODE=""false""",
+    "ANDAMENTOS_AUTO_SYNC_ENABLED=""true""",
+    "BUSINESS_HOURS_ONLY=""true""",
+    "BUSINESS_HOURS_START=""07:00""",
+    "BUSINESS_HOURS_END=""19:00""",
+    "BUSINESS_HOURS_DAYS=""1,2,3,4,5,6""",
+    "DOCUMENTAL_ENABLED=""true""",
+    "DOCUMENTAL_ALLOW_INSECURE_LOCALHOST=""true""",
+    "DOCUMENTAL_FILE_SERVER_PORT=""8765""",
+    "DOCUMENTAL_FILE_SERVER_PUBLIC_URL=""$(Escape-EnvVal $LanUrl)""",
+    "DOCUMENTAL_CLI_PATH=""$(Escape-EnvVal $CliFullPath)""",
     "LOG_LEVEL=""info"""
   )
+  if (-not [string]::IsNullOrWhiteSpace($RootsJsonLine)) {
+    $EnvLines += $RootsJsonLine
+  }
 
   $EnvFile = "$InstallDir\\.env.production"
   $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
   [System.IO.File]::WriteAllLines($EnvFile, $EnvLines, $Utf8NoBom)
   $PlainSqlPassword = $null
+  $PlainProxyPassword = $null
 
   # Restringe leitura do .env.production exclusivamente a SYSTEM (*S-1-5-18) e Administradores (*S-1-5-32-544)
   & icacls $EnvFile /inheritance:r /grant:r "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" | Out-Null
   Write-Host "[OK] Arquivo .env.production protegido com ACL restrita (SYSTEM + Administradores)." -ForegroundColor Green
 
-  # 8. Regra de Firewall Windows para streaming rapido de PDFs via LAN (TCP 8765 apenas Domain/Private)
+  # 9. Regra de Firewall Windows para streaming rapido de PDFs via LAN (TCP 8765 apenas Domain/Private)
   try {
     $FwName = "FIORIX Connector PDF LAN (8765)"
     $ExistingFw = Get-NetFirewallRule -DisplayName $FwName -ErrorAction SilentlyContinue
@@ -362,7 +485,7 @@ function Install-FiorixConnector {
     Write-Host "[AVISO] Nao foi possivel registrar regra automatica de firewall (porta 8765): $($_.Exception.Message)" -ForegroundColor Yellow
   }
 
-  # 9. Registro e inicializacao do Servico Windows (FIORIXConnector) via NSSM
+  # 10. Registro e inicializacao do Servico Windows (FIORIXConnector) via NSSM
   $NssmExe = "$InstallDir\\tools\\nssm.exe"
   $SvcCheck = Get-Service -Name "FIORIXConnector" -ErrorAction SilentlyContinue
   if ($null -eq $SvcCheck) {
@@ -412,7 +535,7 @@ export async function GET(req: NextRequest) {
   if (format === 'bat') {
     if (!token.startsWith('fx_enroll_')) {
       return NextResponse.json(
-        { error: 'Informe um token de pareamento válido para gerar o instalador .bat.' },
+        { error: 'Informe um token de pareamento valido para gerar o instalador .bat.' },
         { status: 400 },
       );
     }
