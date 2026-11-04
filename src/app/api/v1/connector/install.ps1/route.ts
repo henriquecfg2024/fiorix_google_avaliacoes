@@ -200,7 +200,7 @@ function Install-FiorixConnector {
     hostname = $MachineHostname
     osVersion = [string]$OsCaption
     installedPath = $InstallDir
-    version = "v2.6.0"
+    version = "v2.6.2"
   }
   if (-not [string]::IsNullOrWhiteSpace($LanUrl)) {
     $EnrollPayload["lanUrl"] = $LanUrl.Trim().TrimEnd('/')
@@ -498,6 +498,7 @@ function Install-FiorixConnector {
     "DOCUMENTAL_FILE_SERVER_PORT=""8765""",
     "DOCUMENTAL_FILE_SERVER_PUBLIC_URL=""$(Escape-EnvVal $LanUrl)""",
     "DOCUMENTAL_CLI_PATH=""$(Escape-EnvVal $CliFullPath)""",
+    "FIORIX_GD_CLI_PATH=""$(Escape-EnvVal $CliFullPath)""",
     "LOG_LEVEL=""info"""
   )
   if (-not [string]::IsNullOrWhiteSpace($RootsJsonLine)) {

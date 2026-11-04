@@ -40,6 +40,7 @@ import {
   HardDrive,
   FileX,
   ExternalLink,
+  Loader2,
 } from 'lucide-react';
 import { formatCartorioPath } from './DocumentSearch';
 import { JanelaSeparadaMenu } from './JanelaSeparadaMenu';
@@ -51,6 +52,7 @@ import {
 } from '@/lib/documental/janelasDocumento';
 import { SESSOES_OFICIAIS, type SessaoOficial } from '@/lib/documental/sessoes';
 import {
+  baixarArquivoOriginalViaHttps,
   converterDataUrlPdfParaBlob,
   copiarTextoSeguro,
   imprimirJanelaQuandoImagensCarregarem,
@@ -195,6 +197,9 @@ export function DocumentPreviewModal({
   // Documento e caminho oficiais ativos
   const [docAtivo, setDocAtivo] = useState<DocumentTextResult>(documento);
   const [caminhoAtivo, setCaminhoAtivo] = useState<string | undefined>(relativePath);
+  const [rootIdAtivo, setRootIdAtivo] = useState<string | undefined>(rootId);
+  const [baixandoOriginal, setBaixandoOriginal] = useState(false);
+  const [erroDownload, setErroDownload] = useState('');
 
   // Estados de exibição Siplan Image
   const [currentPage, setCurrentPage] = useState(1);
@@ -456,6 +461,8 @@ export function DocumentPreviewModal({
                     notFound: false,
                   });
                   setCaminhoAtivo(escolhido.relativePath);
+                  setRootIdAtivo(escolhido.rootId);
+                  setErroDownload('');
                   setCurrentPage(1);
                   setDocNumero(raw);
                   setPanPosition({ x: 0, y: 0 });
@@ -937,6 +944,32 @@ export function DocumentPreviewModal({
       a.href = pdfUrlResolvida || docAtivo.pdfDataUrl!;
       a.download = docAtivo.fileName;
       a.click();
+    } else {
+      const inferirRoot = () => {
+        if (rootIdAtivo) return rootIdAtivo;
+        const s = (sessaoSelecionada || '').toUpperCase();
+        if (s.includes('USUCAPIAO') || s.includes('MINUTA')) return 'minutas';
+        if (s.includes('PROCESSO')) return 'processos';
+        if (s.includes('LV2') || s.includes('LIVRO2')) return 'livro2';
+        return 'imagens';
+      };
+      const rel = (caminhoAtivo || docAtivo.fileName || '').trim();
+      if (!rel || baixandoOriginal) return;
+      setBaixandoOriginal(true);
+      setErroDownload('');
+      void baixarArquivoOriginalViaHttps({
+        connectorId,
+        rootId: inferirRoot(),
+        relativePath: rel,
+        fileName: docAtivo.fileName,
+        tamanhoEsperado: docAtivo.size,
+      })
+        .catch((err: unknown) => {
+          setErroDownload(err instanceof Error ? err.message : 'Não foi possível baixar o arquivo original.');
+        })
+        .finally(() => {
+          setBaixandoOriginal(false);
+        });
     }
   };
 
@@ -2327,16 +2360,29 @@ export function DocumentPreviewModal({
                     <p className="font-mono text-[11px] text-gray-600 mt-0.5 break-all">
                       {docAtivo.fileName}
                     </p>
-                    <div className="mt-3 flex items-center justify-center gap-3">
-                      <a
-                        href={`/api/documental/ken?stream=1&path=${encodeURIComponent(caminhoAtivo || docAtivo.fileName)}&sessao=${encodeURIComponent(sessaoSelecionada)}`}
-                        download={docAtivo.fileName}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#0F3D6E] hover:bg-[#174E8B] text-white rounded text-xs font-sans font-semibold shadow transition cursor-pointer"
-                        title="Baixar arquivo Word original (.DOC)"
+                    <div className="mt-3 flex flex-col items-center justify-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={baixandoOriginal}
+                        onClick={() => handleDownload()}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#0F3D6E] hover:bg-[#174E8B] disabled:opacity-60 text-white rounded text-xs font-sans font-semibold shadow transition cursor-pointer"
+                        title={`Baixar arquivo Word original (${(docAtivo.extension || '.DOC').toUpperCase()})`}
                       >
-                        <Download className="h-3.5 w-3.5" />
-                        <span>Baixar Arquivo Original (.DOC)</span>
-                      </a>
+                        {baixandoOriginal ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            <span>Baixando arquivo...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-3.5 w-3.5" />
+                            <span>Baixar Arquivo Original ({(docAtivo.extension || '.DOC').toUpperCase()})</span>
+                          </>
+                        )}
+                      </button>
+                      {erroDownload && (
+                        <span className="font-sans text-[11px] font-medium text-red-700">{erroDownload}</span>
+                      )}
                     </div>
                   </div>
                   <div

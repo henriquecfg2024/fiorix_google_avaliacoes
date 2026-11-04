@@ -234,18 +234,33 @@ async function tentarBaixarDiretoRedeLocal(
   return { blob: pdfBlob, url: URL.createObjectURL(pdfBlob) };
 }
 
+export function mimePorExtensao(nomeOuExt: string): string {
+  const lower = (nomeOuExt || '').trim().toLowerCase();
+  if (lower.endsWith('.pdf')) return 'application/pdf';
+  if (lower.endsWith('.doc')) return 'application/msword';
+  if (lower.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  if (lower.endsWith('.rtf')) return 'application/rtf';
+  if (lower.endsWith('.txt')) return 'text/plain;charset=utf-8';
+  if (lower.endsWith('.tif') || lower.endsWith('.tiff') || lower.endsWith('.ken')) return 'image/tiff';
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  return 'application/octet-stream';
+}
+
 /**
  * Fallback universal via HTTPS (funciona em Safari, Mac, iPad, iPhone, Android e qualquer PC fora do servidor do Connector):
- * transfere o PDF em blocos seguros de 2,4 MB pelo canal autenticado do Connector.
+ * transfere o PDF ou arquivo original (.DOC, .DOCX, etc.) em blocos seguros de 2,0 MB pelo canal autenticado do Connector.
  */
 export async function baixarPdfEmBlocosViaHttps(opcoes: {
   connectorId: string;
   rootId: string;
   relativePath: string;
+  mimeType?: string;
   tamanhoEsperado?: number;
   onProgress?: (recebido: number, total: number) => void;
 }): Promise<{ blob: Blob; url: string }> {
   const { connectorId, rootId, relativePath, onProgress } = opcoes;
+  const mimeType = opcoes.mimeType || 'application/pdf';
   let total = opcoes.tamanhoEsperado || 0;
   let offset = 0;
   const partes: Uint8Array[] = [];
@@ -275,7 +290,7 @@ export async function baixarPdfEmBlocosViaHttps(opcoes: {
         });
         const postBody = await postRes.json();
         if (!postRes.ok) {
-          throw new Error(postBody.error || 'Falha ao solicitar bloco do PDF ao Connector.');
+          throw new Error(postBody.error || 'Falha ao solicitar bloco do arquivo ao Connector.');
         }
 
         if (postBody.status === 'complete' && postBody.result) {
@@ -307,22 +322,22 @@ export async function baixarPdfEmBlocosViaHttps(opcoes: {
               conectorDesatualizado = true;
               throw new Error(
                 'O serviço FIORIX Connector no servidor Windows precisa ser reiniciado uma vez ' +
-                  '(execute reiniciar-servico-connector.bat como Administrador) para liberar a transferência de PDFs grandes no iPhone/Safari.',
+                  '(execute reiniciar-servico-connector.bat como Administrador) para liberar a transferência de arquivos via HTTPS.',
               );
             }
             throw new Error(
               detalheErro
-                ? `O Connector não conseguiu ler o arquivo PDF solicitado (${detalheErro}).`
-                : 'O Connector não conseguiu ler o arquivo PDF solicitado.',
+                ? `O Connector não conseguiu ler o arquivo solicitado (${detalheErro}).`
+                : 'O Connector não conseguiu ler o arquivo solicitado.',
             );
           }
         }
 
         if (chunkData) break;
         if (conectorDesatualizado) break;
-        ultimoErroBloco = new Error('Tempo limite excedido durante a transferência de um bloco do PDF.');
+        ultimoErroBloco = new Error('Tempo limite excedido durante a transferência de um bloco do arquivo.');
       } catch (err) {
-        ultimoErroBloco = err instanceof Error ? err : new Error('Falha ao transferir bloco do PDF.');
+        ultimoErroBloco = err instanceof Error ? err : new Error('Falha ao transferir bloco do arquivo.');
         if (ultimoErroBloco.message.includes('reiniciar-servico-connector.bat')) {
           throw ultimoErroBloco;
         }
@@ -330,13 +345,13 @@ export async function baixarPdfEmBlocosViaHttps(opcoes: {
     }
 
     if (!chunkData) {
-      throw ultimoErroBloco || new Error('Tempo limite excedido durante a transferência do PDF.');
+      throw ultimoErroBloco || new Error('Tempo limite excedido durante a transferência do arquivo.');
     }
 
     if (typeof chunkData.chunkBase64 !== 'string') {
       throw new Error(
         'O serviço FIORIX Connector no servidor Windows precisa ser reiniciado uma vez (reiniciar-servico-connector.bat) ' +
-          'para habilitar a abertura de PDFs grandes em qualquer navegador/estação via HTTPS.',
+          'para habilitar a transferência de arquivos em qualquer navegador/estação via HTTPS.',
       );
     }
 
@@ -356,8 +371,60 @@ export async function baixarPdfEmBlocosViaHttps(opcoes: {
     }
   }
 
-  const blob = new Blob(partes as BlobPart[], { type: 'application/pdf' });
+  const blob = new Blob(partes as BlobPart[], { type: mimeType });
   return { blob, url: URL.createObjectURL(blob) };
+}
+
+/**
+ * Baixa qualquer arquivo original do acervo (.DOC, .DOCX, .RTF, .TXT, .KEN, .PDF)
+ * diretamente pelo canal autenticado HTTPS do Connector ativo do cartório,
+ * funcionando em qualquer estação, navegador ou dispositivo (sem depender de disco local na Vercel).
+ */
+export async function baixarArquivoOriginalViaHttps(opcoes: {
+  connectorId?: string;
+  rootId: string;
+  relativePath: string;
+  fileName: string;
+  tamanhoEsperado?: number;
+  onProgress?: (recebido: number, total: number) => void;
+}): Promise<void> {
+  let cid = (opcoes.connectorId || '').trim();
+  if (!cid) {
+    const cRes = await fetch('/api/gestao-documental', { cache: 'no-store' });
+    if (cRes.ok) {
+      const cData = await cRes.json();
+      const lista: Array<{ id: string; operationalState?: string; lastSeenAt?: string | null }> = cData.connectors || [];
+      const ativoOnline = lista.find(
+        c => c.operationalState === 'ACTIVE' && c.lastSeenAt && Date.now() - new Date(c.lastSeenAt).getTime() < 120000,
+      );
+      const qualquerOnline = lista.find(
+        c => c.operationalState !== 'PAUSED' && c.lastSeenAt && Date.now() - new Date(c.lastSeenAt).getTime() < 120000,
+      );
+      cid = ativoOnline?.id || qualquerOnline?.id || lista[0]?.id || '';
+    }
+  }
+
+  if (!cid) {
+    throw new Error('Nenhum servidor Connector online disponível para baixar o arquivo original.');
+  }
+
+  const { url } = await baixarPdfEmBlocosViaHttps({
+    connectorId: cid,
+    rootId: opcoes.rootId,
+    relativePath: opcoes.relativePath,
+    mimeType: mimePorExtensao(opcoes.fileName),
+    tamanhoEsperado: opcoes.tamanhoEsperado,
+    onProgress: opcoes.onProgress,
+  });
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = opcoes.fileName;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 /**

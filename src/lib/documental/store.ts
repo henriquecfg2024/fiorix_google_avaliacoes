@@ -83,8 +83,10 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
           let ehValido = true;
           if (type === 'extract_petition') {
             const imovelTxt = typeof res?.imovel === 'string' ? res.imovel : '';
-            ehValido = Boolean(res?.requerente)
-              && !/\[page:\d+\]|camscanner/i.test(imovelTxt)
+            const reqTxt = typeof res?.requerente === 'string' ? res.requerente : '';
+            ehValido = Boolean(reqTxt)
+              && !/usucapi[ãa]o|merit[íi]ssim/i.test(reqTxt)
+              && !/\[page:\d+\]|camscanner|rua\s+augusta[,\s]+(?:n[ºo°.]?\s*)?356|3218-0527/i.test(imovelTxt)
               && Boolean(res?.imovel || res?.contribuinte_sql || res?.matricula_transcricao || res?.titular_origem);
           } else if (type === 'read_document_text') {
             const relLower = (relativePath || '').toLowerCase();
@@ -106,30 +108,34 @@ export async function createJob(tenantId: string, userId: string, connectorId: s
       }
     }
 
-    const active = await tx.$queryRaw<Array<{ id: string; type: string; query: string | null; rootId: string | null; relativePath: string | null; pageStart: number | null; pageEnd: number | null }>>`
-      SELECT id, type, query, "rootId", "relativePath", "pageStart", "pageEnd" FROM "DocumentSearchRequest"
-      WHERE "tenantId" = ${tenantId} AND "userId" = ${userId} AND status IN ('queued', 'running')
-      ORDER BY "createdAt" DESC LIMIT 1
-    `;
-    if (active.length) {
-      const a = active[0];
-      // Se for a mesma requisição exata (incluindo intervalo/offset de bloco), reaproveita o job em andamento sem erro
-      if (
-        a.type === type &&
-        a.query === query &&
-        a.rootId === rootId &&
-        a.relativePath === relativePath &&
-        a.pageStart === pageStart &&
-        a.pageEnd === pageEnd
-      ) {
-        return { id: a.id, status: 'queued', cached: false };
+    // Nunca cancela extrações de petição ou análises de assinatura em execução quando chega
+    // leitura de bloco (chunk), listagem de diretório ou outro tipo de job do mesmo usuário.
+    if (type !== 'read_document_chunk') {
+      const active = await tx.$queryRaw<Array<{ id: string; type: string; status: string; query: string | null; rootId: string | null; relativePath: string | null; pageStart: number | null; pageEnd: number | null }>>`
+        SELECT id, type, status, query, "rootId", "relativePath", "pageStart", "pageEnd" FROM "DocumentSearchRequest"
+        WHERE "tenantId" = ${tenantId} AND "userId" = ${userId} AND type = ${type} AND status IN ('queued', 'running')
+        ORDER BY "createdAt" DESC LIMIT 1
+      `;
+      if (active.length) {
+        const a = active[0];
+        if (
+          a.type === type &&
+          a.query === query &&
+          a.rootId === rootId &&
+          a.relativePath === relativePath &&
+          a.pageStart === pageStart &&
+          a.pageEnd === pageEnd
+        ) {
+          return { id: a.id, status: 'queued', cached: false };
+        }
+        if (a.status === 'queued' || type === 'search' || type === 'list_directory') {
+          await tx.$executeRaw`DELETE FROM "DocumentSearchRequest" WHERE id = ${a.id}`;
+        }
       }
-      // Se o usuário clicou em outro arquivo/pasta, substitui o anterior para não travar
-      await tx.$executeRaw`DELETE FROM "DocumentSearchRequest" WHERE id = ${a.id}`;
     }
     const id = randomUUID();
     await tx.$executeRaw`INSERT INTO "DocumentSearchRequest" (id, "tenantId", "userId", "connectorId", type, query, "rootId", "relativePath", "pageStart", "pageEnd", "expiresAt")
-      VALUES (${id}, ${tenantId}, ${userId}, ${connectorId}, ${type}, ${query}, ${rootId}, ${relativePath}, ${pageStart}, ${pageEnd}, NOW() + INTERVAL '2 minutes')`;
+      VALUES (${id}, ${tenantId}, ${userId}, ${connectorId}, ${type}, ${query}, ${rootId}, ${relativePath}, ${pageStart}, ${pageEnd}, NOW() + INTERVAL '3 minutes')`;
     return { id, status: 'queued', cached: false };
   });
 }

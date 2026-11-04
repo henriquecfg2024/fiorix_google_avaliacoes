@@ -39,6 +39,7 @@ import {
   Folder,
   ArrowUp,
   X,
+  Loader2,
 } from 'lucide-react';
 import { getFichaRotulo, DocumentTextResult } from './DocumentPreviewModal';
 import { JanelaSeparadaMenu } from './JanelaSeparadaMenu';
@@ -49,6 +50,7 @@ import {
   type PreferenciasJanelas,
 } from '@/lib/documental/janelasDocumento';
 import {
+  baixarArquivoOriginalViaHttps,
   imprimirJanelaQuandoImagensCarregarem,
   isIOSOrIPadOS,
   LinkLocalExpiradoError,
@@ -611,6 +613,8 @@ export function VisualizadorDedicado() {
     setTimeout(() => printWindow.print(), 300);
   };
 
+  const [baixandoOriginal, setBaixandoOriginal] = useState(false);
+
   const handleDownload = () => {
     if (!documentoAtivo) return;
     if (isKenOrTif && pages[currentPage - 1]) {
@@ -623,6 +627,22 @@ export function VisualizadorDedicado() {
       a.href = documentoAtivo.pdfDataUrl;
       a.download = documentoAtivo.fileName;
       a.click();
+    } else if (arquivoAtivo && !baixandoOriginal) {
+      setBaixandoOriginal(true);
+      setErrorMessage('');
+      void baixarArquivoOriginalViaHttps({
+        connectorId,
+        rootId: arquivoAtivo.rootId,
+        relativePath: arquivoAtivo.relativePath,
+        fileName: documentoAtivo.fileName,
+        tamanhoEsperado: documentoAtivo.size || arquivoAtivo.size,
+      })
+        .catch((err: unknown) => {
+          setErrorMessage(err instanceof Error ? err.message : 'Não foi possível baixar o arquivo original.');
+        })
+        .finally(() => {
+          setBaixandoOriginal(false);
+        });
     }
   };
 
@@ -1812,6 +1832,28 @@ export function VisualizadorDedicado() {
                   <p className="font-sans text-[11px] text-slate-500 break-all">
                     Visualização Local de Minuta • {documentoAtivo.fileName}
                   </p>
+                  {arquivoAtivo && (
+                    <div className="mt-3 flex items-center justify-center">
+                      <button
+                        type="button"
+                        disabled={baixandoOriginal}
+                        onClick={() => handleDownload()}
+                        className="inline-flex items-center gap-1.5 rounded bg-[#0F3D6E] px-3 py-1.5 font-sans text-xs font-semibold text-white shadow transition hover:bg-[#174E8B] disabled:opacity-60 cursor-pointer"
+                      >
+                        {baixandoOriginal ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            <span>Baixando arquivo...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-3.5 w-3.5" />
+                            <span>Baixar Arquivo Original ({(documentoAtivo.extension || '.DOC').toUpperCase()})</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div
                   className="font-serif text-[14px] sm:text-[16px] leading-relaxed text-slate-900 space-y-4 prose-p:text-justify prose-p:indent-6 sm:prose-p:indent-8 prose-headings:font-sans prose-headings:text-slate-900"

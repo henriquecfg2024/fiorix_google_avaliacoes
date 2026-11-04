@@ -1290,10 +1290,10 @@ export function FichaOficialView({
             </div>
 
             {/* ETAPAS DE TRABALHO */}
-            <div role="tablist" aria-label="Etapas do formulário" className="flex flex-wrap items-center gap-1.5 rounded-xl border border-[#334155]/40 bg-[#1E293B]/60 p-1">
+            <div role="tablist" aria-label="Etapas do formulário" className="flex max-w-full flex-wrap items-center gap-1.5 rounded-xl border border-[#334155]/40 bg-[#1E293B]/60 p-1">
               {([
-                { id: 'formulario', rotulo: '1. Formulário de Conferência do Oficial' },
-                { id: 'manifestacao', rotulo: '2. Revisão e Manifestação Oficial' },
+                { id: 'formulario', rotulo: '1. Formulário de Conferência do Oficial', curto: '1. Formulário Oficial' },
+                { id: 'manifestacao', rotulo: '2. Revisão e Manifestação Oficial', curto: '2. Manifestação Oficial' },
               ] as const).map(aba => {
                 const ativa = abaAtiva === aba.id;
                 return (
@@ -1305,13 +1305,14 @@ export function FichaOficialView({
                     aria-selected={ativa}
                     aria-controls="etapa-ativa"
                     onClick={() => setAbaAtiva(aba.id)}
-                    className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C9B896] ${
+                    className={`flex max-w-full items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-bold transition cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C9B896] ${
                       ativa
                         ? 'border-b-2 border-[#C9B896] bg-[#F5F2ED] text-[#1E293B] shadow-xs'
                         : 'text-[#CBD5E1] hover:bg-[#334155]/50 hover:text-white'
                     }`}
                   >
-                    {aba.rotulo}
+                    <span className="hidden sm:inline whitespace-nowrap">{aba.rotulo}</span>
+                    <span className="sm:hidden truncate">{aba.curto}</span>
                   </button>
                 );
               })}
@@ -1440,9 +1441,10 @@ export function FichaOficialView({
                         <span>Salvar na Fila</span>
                       </button>
                     )}
-                    <button type="button" onClick={imprimirFormularioOficial} className={`${botaoEscuro} gap-2 px-4`}>
-                      <Printer className="h-4 w-4 text-[#B8A082]" aria-hidden="true" />
-                      <span>🖨️ Imprimir Formulário para Conferência do Oficial</span>
+                    <button type="button" onClick={imprimirFormularioOficial} className={`${botaoEscuro} gap-2 px-3 sm:px-4`}>
+                      <Printer className="h-4 w-4 shrink-0 text-[#B8A082]" aria-hidden="true" />
+                      <span className="hidden sm:inline">🖨️ Imprimir Formulário para Conferência do Oficial</span>
+                      <span className="sm:hidden">🖨️ Imprimir Formulário</span>
                     </button>
                     <button type="button" onClick={() => setAbaAtiva('manifestacao')} className={botaoEscuro}>
                       <span>Avançar para Etapa 2 ➔</span>

@@ -367,8 +367,40 @@ export function DocumentSearch() {
     });
   }
 
+  function normalizarDadosExtraidos(raw: DadosManifestacao, arquivo: Match | null): DadosManifestacao {
+    const limpo: DadosManifestacao = { ...criarDadosManifestacaoPadrao(), ...raw };
+    if (limpo.requerente) {
+      limpo.requerente = limpo.requerente
+        .replace(/\s+(?:USUCAPI[ÃA]O|MERIT[ÍI]SSIM[OA]|MM\.?\s*JUIZ[A]?|EXCELENT[ÍI]SSIM[OA]|DOUTOR[A]?\s+JUIZ[A]?).*$/i, '')
+        .trim();
+    }
+    const ehTimbreSetimoRi = (v?: string) =>
+      Boolean(v && (/rua\s+augusta[,\s]+(?:n[ºo°.]?\s*)?356/i.test(v) || /3218-0527|01304-000/i.test(v)));
+    if (ehTimbreSetimoRi(limpo.imovel)) limpo.imovel = '';
+    if (
+      ehTimbreSetimoRi(limpo.rua_olhar_confrontacao) ||
+      (/^rua\s+augusta$/i.test((limpo.rua_olhar_confrontacao || '').trim()) && !limpo.imovel)
+    ) {
+      limpo.rua_olhar_confrontacao = '';
+    }
+    const refCaminho = `${arquivo?.relativePath || ''} ${arquivo?.name || ''}`;
+    if (!limpo.numero_processo?.trim()) {
+      const cnj = refCaminho.match(/(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})/);
+      if (cnj) limpo.numero_processo = cnj[1];
+    }
+    if (!limpo.vara?.trim() && Array.isArray(limpo.origem_campos)) {
+      const origensTxt = limpo.origem_campos.map(o => o?.trecho || '').join(' ');
+      const varaMatch = origensTxt.match(/(\d{1,2}\s*[ªaº°]?\s*Vara(?:\s+(?:C[íi]vel|de\s+Registros\s+P[úu]blicos|da\s+Fazenda\s+P[úu]blica))?(?:\s+(?:da\s+Comarca\s+)?de\s+[A-ZÀ-Úa-zà-ú\s]{3,25})?)/i);
+      if (varaMatch) limpo.vara = varaMatch[1].replace(/\s+/g, ' ').trim();
+    }
+    if (!limpo.matricula_transcricao?.trim() && arquivo?.matricula) {
+      limpo.matricula_transcricao = arquivo.matricula;
+    }
+    return limpo;
+  }
+
   function abrirFicha(dados: DadosManifestacao, arquivo: Match | null, versaoAnteriorId: string | null = null) {
-    setFichaAberta(dados);
+    setFichaAberta(normalizarDadosExtraidos(dados, arquivo));
     setFichaAbertaFile(arquivo);
     setFichaVersaoAnteriorId(versaoAnteriorId);
     setFichaSessao(s => s + 1);
@@ -944,10 +976,15 @@ export function DocumentSearch() {
       pageEnd = 40;
     }
 
-    setTempoEstimado(4);
+    setTempoEstimado(file.size > 5 * 1024 * 1024 ? 14 : 4);
     setProcessandoAcao({ id: fileKey, tipo: 'extracao', fileName: file.name });
     setError('');
-    try {
+
+    const requisitarExtracao = async (
+      pStart: number | undefined,
+      pEnd: number | undefined,
+      fresh: boolean,
+    ): Promise<DadosManifestacao> => {
       const response = await fetch('/api/gestao-documental', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -956,38 +993,72 @@ export function DocumentSearch() {
           type: 'extract_petition',
           rootId: file.rootId,
           relativePath: file.relativePath,
-          pageStart,
-          pageEnd,
-          forceFresh,
+          pageStart: pStart,
+          pageEnd: pEnd,
+          forceFresh: fresh,
         }),
       });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error);
+      if (!response.ok) throw new Error(body.error || 'Falha ao iniciar extração.');
 
       if (body.status === 'complete' && body.result) {
-        setCachedExtracao(fileKey, body.result);
-        abrirFicha(body.result, file);
-        return;
+        return body.result as DadosManifestacao;
       }
 
-      const deadline = Date.now() + 60000;
+      const deadline = Date.now() + 95000;
       let tentativa = 0;
       while (Date.now() < deadline) {
-        await new Promise(r => setTimeout(r, tentativa === 0 ? 200 : tentativa < 5 ? 350 : 550));
+        await new Promise(r => setTimeout(r, tentativa === 0 ? 200 : tentativa < 5 ? 350 : 600));
         tentativa++;
         const res = await fetch('/api/gestao-documental?id=' + encodeURIComponent(body.id), { cache: 'no-store' });
         const state = await res.json();
-        if (!res.ok) throw new Error(state.error);
+        if (!res.ok) throw new Error(state.error || 'Falha ao consultar extração.');
         if (state.status === 'complete' && state.result) {
-          setCachedExtracao(fileKey, state.result);
-          abrirFicha(state.result, file);
-          return;
+          return state.result as DadosManifestacao;
         }
         if (state.status === 'failed') {
-          throw new Error(state.error || 'Falha na extração no servidor local. Verifique se o arquivo é um documento legível (PDF, DOC ou DOCX).');
+          const serverErr =
+            state.result && typeof state.result === 'object' && 'error' in state.result
+              ? String((state.result as { error?: unknown }).error || '')
+              : '';
+          throw new Error(
+            serverErr ||
+              state.error ||
+              'Falha na extração no servidor local. Verifique se o arquivo é um documento legível (PDF, DOC ou DOCX).',
+          );
         }
       }
       throw new Error('Tempo limite excedido na extração da petição.');
+    };
+
+    try {
+      let extraido: DadosManifestacao | null = null;
+      try {
+        extraido = await requisitarExtracao(pageStart, pageEnd, forceFresh);
+      } catch (firstErr) {
+        const isPdf = file.name.toLowerCase().endsWith('.pdf');
+        if (isPdf && pageStart === undefined && pageEnd === undefined) {
+          try {
+            extraido = await requisitarExtracao(1, 18, true);
+          } catch {
+            // Se o PDF for digitalizado sem OCR legível ou exceder o tempo, abre o formulário pré-preenchido
+            extraido = null;
+          }
+        } else if (!isPdf) {
+          throw firstErr;
+        }
+      }
+
+      if (extraido) {
+        const normalizado = normalizarDadosExtraidos(extraido, file);
+        setCachedExtracao(fileKey, normalizado);
+        abrirFicha(normalizado, file);
+        return;
+      }
+
+      // Fallback seguro para PDFs digitalizados/pesados: abre o formulário pré-preenchido com nº CNJ e pasta
+      const fallback = normalizarDadosExtraidos(criarDadosManifestacaoPadrao(), file);
+      abrirFicha(fallback, file);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao extrair dados da petição.');
     } finally {
