@@ -172,7 +172,7 @@ export function AssinaturasModal({
       }`}>
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between border-b border-slate-800 bg-slate-950 px-4 sm:px-6 py-3.5 sm:py-4 gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <div
               className={`flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl border shrink-0 ${
                 isValida
@@ -182,13 +182,13 @@ export function AssinaturasModal({
             >
               {isValida ? <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6" /> : <ShieldAlert className="h-5 w-5 sm:h-6 sm:w-6" />}
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs sm:text-sm text-slate-400 truncate max-w-sm">
+                <span className="font-mono text-xs sm:text-sm text-slate-400 break-all sm:truncate sm:max-w-sm">
                   {nomeArquivo}
                 </span>
               </div>
-              <h3 className="text-base sm:text-lg xl:text-xl font-semibold text-slate-100">
+              <h3 className="text-sm sm:text-lg xl:text-xl font-semibold text-slate-100 leading-snug">
                 Auditoria de Assinaturas Eletrônicas e Criptografia (PAdES)
               </h3>
             </div>
@@ -323,21 +323,21 @@ export function AssinaturasModal({
         </div>
 
         {/* Footer com Botão Voltar */}
-        <div className="flex items-center justify-between border-t border-slate-800 bg-slate-950 px-4 sm:px-6 py-3 shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 bg-slate-950 px-4 sm:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/90 hover:bg-slate-700 px-4 py-2 text-xs sm:text-sm font-bold text-slate-200 hover:text-white transition shadow active:scale-95"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/90 hover:bg-slate-700 px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold text-slate-200 hover:text-white transition shadow active:scale-95"
           >
             <ArrowLeft className="h-4 w-4 text-cyan-400" />
-            <span>Voltar para tela anterior</span>
+            <span>Voltar</span>
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={imprimirRelatorio}
               title="Imprimir relatório de auditoria (A4)"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-200 hover:text-white transition shadow"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 px-3 sm:px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-200 hover:text-white transition shadow"
             >
               <Printer className="h-4 w-4 text-cyan-400" />
               <span>Imprimir</span>
@@ -346,10 +346,10 @@ export function AssinaturasModal({
               <button
                 type="button"
                 onClick={copiarNota}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 sm:px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-200 hover:bg-slate-700 transition"
               >
                 <Copy className="h-4 w-4" />
-                <span>Copiar Nota de Exigência</span>
+                <span>Copiar Nota</span>
               </button>
             )}
           </div>

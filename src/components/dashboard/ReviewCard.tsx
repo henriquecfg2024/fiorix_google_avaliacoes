@@ -32,7 +32,7 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
 
   if (!reviews || reviews.length === 0) {
     return (
-      <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl">
+      <div className="flex h-full flex-col rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl">
         <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-4">
           <h3 className="text-base font-bold text-white">Últimas Avaliações</h3>
         </div>
@@ -48,7 +48,7 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
   };
 
   return (
-    <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl transition-all">
+    <div className="flex h-full flex-col rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl transition-all">
       <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-4">
         <h3 className="text-base font-bold text-white">Últimas Avaliações</h3>
         <Link href="/avaliacoes" className="text-xs font-semibold text-amber-300 transition-colors hover:text-amber-200 hover:underline">
@@ -56,7 +56,7 @@ export function ReviewCard({ reviews }: ReviewCardProps) {
         </Link>
       </div>
 
-      <div className="space-y-3">
+      <div className="flex flex-1 flex-col justify-between gap-3">
         {reviews.map((rev) => {
           const cleanedText = cleanReviewComment(rev.comment) || 'Sem comentário';
           const isLong = cleanedText.length > 100;

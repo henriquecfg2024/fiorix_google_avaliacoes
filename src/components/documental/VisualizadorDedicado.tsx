@@ -873,26 +873,26 @@ export function VisualizadorDedicado() {
   const exibindoExplorador = exploradorAberto || !temDocumento;
 
   return (
-    <div className={`flex flex-col bg-[#070A12] text-white overflow-hidden ${isFullScreen ? 'fixed inset-0 z-50' : 'h-[calc(100vh-80px)] rounded-2xl border border-white/10 shadow-2xl'}`}>
+    <div className={`flex flex-col bg-[#070A12] text-white overflow-hidden ${isFullScreen ? 'fixed inset-0 z-50 pt-[env(safe-area-inset-top)] sm:pt-0' : 'h-[calc(100dvh-76px)] sm:h-[calc(100vh-80px)] rounded-xl sm:rounded-2xl border border-white/10 shadow-2xl'}`}>
       {/* 1. BARRA SUPERIOR SIPLAN & CONTROLES */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#0B1020] px-4 py-2.5 shrink-0">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 border-b border-white/10 bg-[#0B1020] px-3 sm:px-4 py-2 sm:py-2.5 shrink-0">
         {/* Identificação do Documento Aberto */}
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-700/60 bg-slate-800/80 text-cyan-400 shadow-sm">
-            <Building2 className="h-5 w-5" />
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+          <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg border border-slate-700/60 bg-slate-800/80 text-cyan-400 shadow-sm">
+            <Building2 className="h-4 w-4 sm:h-5 sm:w-5" />
           </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h2 className="truncate text-sm sm:text-base font-bold text-slate-100 font-mono tracking-tight" title={documentoAtivo?.fileName || 'Nenhum documento aberto'}>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="truncate text-xs sm:text-base font-bold text-slate-100 font-mono tracking-tight" title={documentoAtivo?.fileName || 'Nenhum documento aberto'}>
                 {documentoAtivo ? documentoAtivo.fileName : 'Visualizador de Documentos'}
               </h2>
               {documentoAtivo && (
-                <span className="rounded border border-cyan-500/40 bg-cyan-950/60 px-2 py-0.5 font-mono text-[10px] font-black text-cyan-300 uppercase shrink-0">
+                <span className="rounded border border-cyan-500/40 bg-cyan-950/60 px-1.5 sm:px-2 py-0.5 font-mono text-[10px] font-black text-cyan-300 uppercase shrink-0">
                   {ext.replace('.', '') || 'KEN'}
                 </span>
               )}
             </div>
-            <p className="truncate text-xs font-mono text-slate-400 mt-0.5">
+            <p className="truncate text-[11px] sm:text-xs font-mono text-slate-400 mt-0.5">
               {arquivoAtivo
                 ? `${arquivoAtivo.rootId.toUpperCase()}:\\${arquivoAtivo.relativePath}`
                 : 'Selecione uma pasta ou pesquise uma matrícula / processo'}
@@ -902,12 +902,12 @@ export function VisualizadorDedicado() {
         </div>
 
         {/* Ações da Barra Superior */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
           {/* Seletor do Conector */}
           <select
             value={connectorId}
             onChange={e => setConnectorId(e.target.value)}
-            className="h-8 max-w-[190px] rounded-lg border border-white/15 bg-[#080D1A] px-2 text-[11px] text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+            className="h-8 min-w-0 flex-1 sm:flex-initial sm:max-w-[190px] rounded-lg border border-white/15 bg-[#080D1A] px-2 text-base sm:text-[11px] text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
             title="Conector ativo"
           >
             {connectors.map(c => {
@@ -931,22 +931,24 @@ export function VisualizadorDedicado() {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/60 hover:bg-cyan-900/60 px-2.5 py-1.5 text-xs font-semibold text-cyan-300 transition shadow-sm"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/60 hover:bg-cyan-900/60 px-2.5 text-xs font-semibold text-cyan-300 transition shadow-sm"
             title="Abrir arquivo do computador ou da rede local"
           >
             <Upload className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Abrir Arquivo</span>
           </button>
 
-          {/* Outro Monitor (Janela Separada) */}
+          {/* Outro Monitor (Janela Separada — apenas desktop >= sm) */}
           {documentoAtivo && (
-            <JanelaSeparadaMenu
-              item={{
-                documento: documentoAtivo,
-                relativePath: arquivoAtivo?.relativePath,
-                rootId: arquivoAtivo?.rootId,
-              }}
-            />
+            <div className="hidden sm:block">
+              <JanelaSeparadaMenu
+                item={{
+                  documento: documentoAtivo,
+                  relativePath: arquivoAtivo?.relativePath,
+                  rootId: arquivoAtivo?.rootId,
+                }}
+              />
+            </div>
           )}
 
           {/* Nova Guia */}
@@ -1233,10 +1235,19 @@ export function VisualizadorDedicado() {
       </div>
 
       {/* 3. CORPO CENTRAL: PAINEL LATERAL + CANVAS SIPLAN */}
-      <div className="flex-1 flex overflow-hidden bg-slate-950/80">
+      <div className="flex-1 flex overflow-hidden bg-slate-950/80 relative">
+        {/* Backdrop mobile quando o painel lateral está aberto */}
+        {sidebarOpen && !exibindoExplorador && (
+          <div
+            className="fixed inset-0 z-20 bg-black/55 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+
         {/* PAINEL LATERAL COM 3 ABAS: Miniaturas | Arquivos | Metadados */}
         {sidebarOpen && !exibindoExplorador && (
-          <div className="w-72 sm:w-80 border-r border-white/10 bg-[#0B1020]/95 flex flex-col shrink-0">
+          <div className="absolute inset-y-0 left-0 z-30 w-[86vw] max-w-[320px] shadow-2xl md:static md:z-auto md:w-80 md:max-w-none md:shadow-none border-r border-white/10 bg-[#0B1020] md:bg-[#0B1020]/95 flex flex-col shrink-0">
             {/* Abas do Painel */}
             <div className="p-2.5 border-b border-white/10 bg-[#080D1A]">
               <div className="grid grid-cols-3 gap-1 bg-slate-950 p-0.5 rounded-lg border border-slate-800 text-[11px] font-semibold">
@@ -1749,56 +1760,61 @@ export function VisualizadorDedicado() {
           ) : isPdf && documentoAtivo?.pdfDataUrl ? (
             /* CASO 2: VISUALIZADOR PDF INTERATIVO (Safari, Chrome, Edge, Firefox) */
             <div className="w-full h-full flex flex-col bg-slate-900">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-slate-900 px-3 py-1.5 text-[11px] text-slate-300 shrink-0">
-                <span className="truncate">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-slate-900 px-3 py-2 sm:py-1.5 text-[11px] text-slate-300 shrink-0">
+                <span className="w-full sm:w-auto sm:flex-1 min-w-0 leading-snug whitespace-normal sm:truncate">
                   {isIOSOrIPadOS()
                     ? 'No iPad/iPhone (Safari), toque em "Abrir PDF completo" para navegar por todas as páginas.'
                     : `Documento PDF • ${documentoAtivo.fileName}`}
                 </span>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
                   <a
                     href={documentoAtivo.pdfDataUrl}
                     target="_blank"
                     rel={documentoAtivo.pdfDataUrl?.startsWith('blob:') ? undefined : 'noopener noreferrer'}
-                    className="inline-flex items-center gap-1 rounded-md bg-cyan-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-cyan-500 transition"
+                    className="inline-flex items-center gap-1 rounded-md bg-cyan-600 px-2.5 py-1.5 sm:py-1 text-[11px] font-semibold text-white hover:bg-cyan-500 transition"
                   >
-                    <ExternalLink className="h-3 w-3" />
+                    <ExternalLink className="h-3 w-3 shrink-0" />
                     <span>{isIOSOrIPadOS() ? 'Abrir PDF completo' : 'Abrir em nova aba'}</span>
                   </a>
                   <a
                     href={documentoAtivo.pdfDataUrl}
                     download={documentoAtivo.fileName}
-                    className="inline-flex items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10 transition"
+                    className="inline-flex items-center gap-1 rounded-md border border-white/15 bg-white/5 px-2.5 py-1.5 sm:py-1 text-[11px] font-semibold text-slate-200 hover:bg-white/10 transition"
                   >
-                    <Download className="h-3 w-3" />
+                    <Download className="h-3 w-3 shrink-0" />
                     <span>Baixar PDF</span>
                   </a>
                 </div>
               </div>
-              <iframe
-                src={documentoAtivo.pdfDataUrl}
-                className="w-full flex-1 border-0 bg-white"
-                style={{ minHeight: '420px' }}
-                title={documentoAtivo.fileName}
-              />
+              <div
+                className="flex-1 w-full overflow-auto bg-white"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
+                <iframe
+                  src={documentoAtivo.pdfDataUrl}
+                  className="w-full h-full border-0 bg-white"
+                  style={{ height: '100%', minHeight: '360px' }}
+                  title={documentoAtivo.fileName}
+                />
+              </div>
             </div>
           ) : isDoc && documentoAtivo ? (
             /* CASO 3: MINUTA WORD (.DOCX / .DOC) EM FOLHA OFICIAL */
-            <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-slate-950">
-              <div className="mx-auto max-w-3xl rounded-xl border border-slate-300 bg-white text-slate-900 shadow-xl p-8 sm:p-12 min-h-full">
+            <div className="flex-1 overflow-y-auto p-2.5 sm:p-8 bg-slate-950">
+              <div className="mx-auto max-w-3xl rounded-xl border border-slate-300 bg-white text-slate-900 shadow-xl p-4 sm:p-12 min-h-full">
                 <div className="text-center border-b border-slate-300 pb-4 mb-6">
                   <div className="flex items-center justify-center gap-2 text-slate-700 mb-1">
-                    <Building2 className="h-4 w-4 text-slate-600" />
-                    <h4 className="font-serif font-bold text-sm tracking-wider uppercase text-slate-800">
+                    <Building2 className="h-4 w-4 text-slate-600 shrink-0" />
+                    <h4 className="font-serif font-bold text-xs sm:text-sm tracking-wider uppercase text-slate-800">
                       7º Oficial de Registro de Imóveis de São Paulo
                     </h4>
                   </div>
-                  <p className="font-sans text-[11px] text-slate-500">
+                  <p className="font-sans text-[11px] text-slate-500 break-all">
                     Visualização Local de Minuta • {documentoAtivo.fileName}
                   </p>
                 </div>
                 <div
-                  className="font-serif text-[15px] sm:text-[16px] leading-relaxed text-slate-900 space-y-4 prose-p:text-justify prose-p:indent-8 prose-headings:font-sans prose-headings:text-slate-900"
+                  className="font-serif text-[14px] sm:text-[16px] leading-relaxed text-slate-900 space-y-4 prose-p:text-justify prose-p:indent-6 sm:prose-p:indent-8 prose-headings:font-sans prose-headings:text-slate-900"
                   dangerouslySetInnerHTML={{
                     __html: documentoAtivo.html || `<p>${documentoAtivo.text.replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`,
                   }}
@@ -1813,8 +1829,11 @@ export function VisualizadorDedicado() {
       </div>
 
       {/* 4. RODAPÉ TÉCNICO */}
-      <div className="flex items-center justify-between border-t border-white/10 bg-[#0B1020] px-4 py-2 text-xs text-slate-400 shrink-0">
-        <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-slate-400">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 bg-[#0B1020] px-3 sm:px-4 py-1.5 sm:py-2 pb-[max(0.375rem,env(safe-area-inset-bottom))] sm:pb-2 text-xs text-slate-400 shrink-0">
+        <div className="flex items-center gap-2 font-mono text-[11px] text-slate-400 sm:hidden">
+          <span className="text-slate-300 font-bold">Acervo Digital • 7º RI SP</span>
+        </div>
+        <div className="hidden sm:flex flex-wrap items-center gap-2 font-mono text-[11px] text-slate-400">
           <span className="text-cyan-300 font-semibold">Tamanho: 7,05 × 9,38 (Pol) / 1064 × 1417 (Pixels)</span>
           <span className="text-slate-600">|</span>
           <span>DPI Resolução: 151 Horizontal / 151 Vertical</span>
@@ -1825,7 +1844,7 @@ export function VisualizadorDedicado() {
         <div className="flex items-center gap-3">
           {isKenOrTif && pages.length > 0 && (
             <span className="font-mono text-[11px] text-cyan-300 font-semibold bg-slate-800/80 px-2 py-0.5 rounded border border-cyan-500/30">
-              Ficha {getFichaRotulo(currentPage - 1).codigo} ({currentPage} de {totalPages})
+              Ficha {getFichaRotulo(currentPage - 1).codigo} ({currentPage}/{totalPages})
             </span>
           )}
           <span className="font-mono text-[11px] hidden sm:inline text-slate-400">

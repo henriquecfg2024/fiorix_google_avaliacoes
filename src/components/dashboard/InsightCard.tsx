@@ -18,7 +18,7 @@ export function InsightCard({ insights }: InsightCardProps) {
   // Demo fallback
   if (!insights) {
     return (
-      <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl transition-all">
+      <div className="flex h-full flex-col justify-between rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl transition-all">
         <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-4">
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-cyan-400" />
@@ -39,38 +39,40 @@ export function InsightCard({ insights }: InsightCardProps) {
   const hasInsights = insights.topComplaint || insights.topColab || insights.worstDay || insights.taxaResposta > 0;
 
   return (
-    <div className="rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl transition-all">
-      <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-4">
-        <div className="flex items-center gap-2">
-          <Bot className="h-5 w-5 text-cyan-400" />
-          <h3 className="text-base font-bold text-white">Insights da IA</h3>
-        </div>
-        <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-0.5 text-xs font-semibold text-cyan-300">
-          Inteligência Ativa
-        </span>
-      </div>
-
-      {!hasInsights && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-white/20 bg-[#080D1A] p-3.5">
-          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-          <p className="text-sm text-slate-400">
-            Ainda não há dados suficientes para gerar insights. Continue coletando avaliações.
-          </p>
-        </div>
-      )}
-
-      {insights.topComplaint && (
-        <div className="mb-3 space-y-1.5 rounded-xl border border-amber-500/30 bg-[#080D1A] p-3.5 backdrop-blur-sm">
-          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-300">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
-            <span>Alerta de Reclamações</span>
+    <div className="flex h-full flex-col justify-between rounded-[24px] border border-white/20 bg-[#0B1020]/90 p-6 shadow-sm backdrop-blur-xl transition-all">
+      <div>
+        <div className="mb-4 flex items-center justify-between border-b border-white/8 pb-4">
+          <div className="flex items-center gap-2">
+            <Bot className="h-5 w-5 text-cyan-400" />
+            <h3 className="text-base font-bold text-white">Insights da IA</h3>
           </div>
-          <p className="text-sm text-slate-200">
-            A palavra <strong className="font-extrabold text-amber-300">&quot;{insights.topComplaint.keyword}&quot;</strong> aparece em{' '}
-            <strong className="font-extrabold text-rose-400">{insights.topComplaint.count} de {insights.topComplaint.total}</strong> avaliações negativas (≤2★).
-          </p>
+          <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-0.5 text-xs font-semibold text-cyan-300">
+            Inteligência Ativa
+          </span>
         </div>
-      )}
+
+        {!hasInsights && (
+          <div className="flex items-start gap-2.5 rounded-xl border border-white/20 bg-[#080D1A] p-3.5">
+            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+            <p className="text-sm text-slate-400">
+              Ainda não há dados suficientes para gerar insights. Continue coletando avaliações.
+            </p>
+          </div>
+        )}
+
+        {insights.topComplaint && (
+          <div className="mb-3 space-y-1.5 rounded-xl border border-amber-500/30 bg-[#080D1A] p-3.5 backdrop-blur-sm">
+            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-300">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+              <span>Alerta de Reclamações</span>
+            </div>
+            <p className="text-sm text-slate-200">
+              A palavra <strong className="font-extrabold text-amber-300">&quot;{insights.topComplaint.keyword}&quot;</strong> aparece em{' '}
+              <strong className="font-extrabold text-rose-400">{insights.topComplaint.count} de {insights.topComplaint.total}</strong> avaliações negativas (≤2★).
+            </p>
+          </div>
+        )}
+      </div>
 
       <div className="space-y-2.5">
         {insights.topColab && (

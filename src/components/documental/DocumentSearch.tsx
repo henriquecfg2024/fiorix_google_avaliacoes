@@ -416,11 +416,21 @@ export function DocumentSearch() {
 
   // Menu suspenso de ações dos três pontinhos por linha
   const [menuAbertoKey, setMenuAbertoKey] = useState<string | null>(null);
-  // Posição fixa na viewport: o menu é renderizado em portal para não ser cortado pelo overflow da tabela
-  const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; right: number; maxHeight: number } | null>(null);
+  // Posição fixa na viewport (desktop) ou bottom-sheet responsivo (mobile < 768px)
+  const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; right: number; maxHeight: number; mobile?: boolean } | null>(null);
 
   function alternarMenuAcoes(fileKey: string, botao: HTMLElement) {
     if (menuAbertoKey === fileKey) { setMenuAbertoKey(null); return; }
+    const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 768;
+    if (isMobileViewport) {
+      setMenuPos({
+        right: 8,
+        maxHeight: Math.max(240, Math.floor(window.innerHeight * 0.78)),
+        mobile: true,
+      });
+      setMenuAbertoKey(fileKey);
+      return;
+    }
     const r = botao.getBoundingClientRect();
     const espacoAbaixo = window.innerHeight - r.bottom;
     const espacoAcima = r.top;
@@ -429,6 +439,7 @@ export function DocumentSearch() {
       ...(abrirParaCima ? { bottom: window.innerHeight - r.top + 6 } : { top: r.bottom + 6 }),
       right: Math.max(8, window.innerWidth - r.right),
       maxHeight: Math.max(160, (abrirParaCima ? espacoAcima : espacoAbaixo) - 14),
+      mobile: false,
     });
     setMenuAbertoKey(fileKey);
   }
@@ -442,13 +453,17 @@ export function DocumentSearch() {
     const esc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setMenuAbertoKey(null);
     };
-    // Menu fixo não acompanha a rolagem da página/tabela: fecha (exceto rolagem dentro do próprio menu)
+    // Menu fixo no desktop não acompanha a rolagem da página/tabela (no mobile é bottom-sheet fixo e ignora bounce do Safari)
     const fecharAoRolar = (e: Event) => {
+      if (typeof window !== 'undefined' && window.innerWidth < 768) return;
       const target = e.target;
       if (target instanceof Element && target.closest('[data-menu-acoes]')) return;
       setMenuAbertoKey(null);
     };
-    const fecharAoRedimensionar = () => setMenuAbertoKey(null);
+    const fecharAoRedimensionar = () => {
+      if (typeof window !== 'undefined' && window.innerWidth < 768) return;
+      setMenuAbertoKey(null);
+    };
     window.addEventListener('mousedown', fechar);
     window.addEventListener('keydown', esc);
     window.addEventListener('scroll', fecharAoRolar, true);
@@ -1277,7 +1292,7 @@ export function DocumentSearch() {
             disabled={busy || !!processandoAcao}
             title="Servidor do cartório"
             aria-label="Servidor do cartório"
-            className="h-9 max-w-[210px] rounded-lg border border-white/15 bg-[#080D1A] px-2.5 text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
+            className="h-9 min-w-0 flex-1 sm:flex-none sm:max-w-[210px] rounded-lg border border-white/15 bg-[#080D1A] px-2.5 text-base sm:text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20"
           >
             {connectors.length === 0 ? (
               <option value="" disabled className="bg-[#0B1020] text-slate-400">
@@ -1295,10 +1310,10 @@ export function DocumentSearch() {
             )}
           </select>
 
-          {/* Formulário: Busca Simples (na mesma linha) */}
+          {/* Formulário: Busca Simples (na mesma linha no desktop; linha inteira no mobile) */}
           {searchMode === 'simples' ? (
-            <form onSubmit={handleSearchSimples} className="flex min-w-[260px] flex-1 items-center gap-2">
-              <div className="relative flex-1">
+            <form onSubmit={handleSearchSimples} className="order-3 sm:order-none flex w-full sm:w-auto sm:min-w-[260px] sm:flex-1 items-center gap-2">
+              <div className="relative min-w-0 flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
                 <input
                   id="campo-pesquisa-simples"
@@ -1306,11 +1321,11 @@ export function DocumentSearch() {
                   onChange={event => setQuery(event.target.value)}
                   minLength={2}
                   maxLength={120}
-                  placeholder="Processo, matrícula ou nome de arquivo (ex.: 1035968, Basilio, 123.456)"
+                  placeholder="Processo, matrícula ou nome de arquivo..."
                   aria-label="Pesquisar processo, matrícula ou nome de arquivo"
                   required
                   disabled={busy || !!processandoAcao}
-                  className="block h-9 w-full rounded-lg border border-white/15 bg-[#080D1A] pl-9 pr-3 text-sm text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/35"
+                  className="block h-10 sm:h-9 w-full rounded-lg border border-white/15 bg-[#080D1A] pl-9 pr-3 text-base sm:text-sm text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/35"
                 />
               </div>
               {historicoBuscas.length > 0 && (
@@ -1319,7 +1334,7 @@ export function DocumentSearch() {
                   onClick={voltarTelaAnterior}
                   title={`Voltar para tela anterior: ${historicoBuscas[historicoBuscas.length - 1].query}`}
                   aria-label="Voltar para tela anterior"
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-700/80 bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white transition active:scale-95"
+                  className="inline-flex h-10 w-10 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg border border-slate-700/80 bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white transition active:scale-95"
                 >
                   <ArrowLeft className="h-4 w-4 text-slate-300" />
                 </button>
@@ -1327,7 +1342,7 @@ export function DocumentSearch() {
               <button
                 type="submit"
                 disabled={busy || !connectorId || !!processandoAcao}
-                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-blue-500/40 bg-blue-600 hover:bg-blue-500 px-4 text-xs font-semibold text-white shadow-sm disabled:opacity-50 transition active:scale-95"
+                className="inline-flex h-10 sm:h-9 shrink-0 items-center gap-1.5 rounded-lg border border-blue-500/40 bg-blue-600 hover:bg-blue-500 px-3.5 sm:px-4 text-xs font-semibold text-white shadow-sm disabled:opacity-50 transition active:scale-95"
               >
                 {busy ? (
                   <>
@@ -1343,7 +1358,7 @@ export function DocumentSearch() {
               </button>
             </form>
           ) : (
-            <p className="min-w-0 flex-1 truncate text-[11px] text-white/45" title="Cruza os termos especificados em nome de arquivo e diretórios para localizar expedientes conexos.">
+            <p className="order-3 sm:order-none w-full sm:w-auto min-w-0 sm:flex-1 text-[11px] leading-snug sm:truncate text-white/45" title="Cruza os termos especificados em nome de arquivo e diretórios para localizar expedientes conexos.">
               <Layers className="mr-1 inline h-3 w-3 text-amber-300" />
               Busca cruzada: cruza os termos em nomes de arquivo e diretórios.
             </p>
@@ -1357,7 +1372,7 @@ export function DocumentSearch() {
               aria-selected={searchMode === 'simples'}
               onClick={() => setSearchMode('simples')}
               title="Busca simples"
-              className={`inline-flex h-full items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium transition ${
+              className={`inline-flex h-full items-center gap-1 rounded-md px-2 sm:px-2.5 text-[11px] font-medium transition ${
                 searchMode === 'simples'
                   ? 'bg-slate-800 text-slate-100 border border-slate-600/70 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
@@ -1372,7 +1387,7 @@ export function DocumentSearch() {
               aria-selected={searchMode === 'cruzada'}
               onClick={() => setSearchMode('cruzada')}
               title="Busca cruzada (multicritérios)"
-              className={`inline-flex h-full items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium transition ${
+              className={`inline-flex h-full items-center gap-1 rounded-md px-2 sm:px-2.5 text-[11px] font-medium transition ${
                 searchMode === 'cruzada'
                   ? 'bg-amber-950/70 text-amber-200 border border-amber-600/50 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
@@ -1385,7 +1400,7 @@ export function DocumentSearch() {
 
           {/* Aviso de privacidade (antes um banner) */}
           <span
-            className="inline-flex h-9 w-6 shrink-0 items-center justify-center text-slate-500 hover:text-slate-400 transition"
+            className="hidden sm:inline-flex h-9 w-6 shrink-0 items-center justify-center text-slate-500 hover:text-slate-400 transition"
             title="Busca pontual e análise local via motor Rust/CLI e Mammoth integrado. Nenhum arquivo original deixa a rede interna do cartório."
             aria-label="Processamento local: nenhum arquivo original deixa a rede interna do cartório"
             role="img"
@@ -1404,7 +1419,7 @@ export function DocumentSearch() {
               aria-label="Processo Judicial / CNJ"
               title="Processo Judicial / CNJ (ex.: 1035968-12 ou 0000001)"
               disabled={busy || !!processandoAcao}
-              className="h-9 min-w-[150px] flex-1 rounded-lg border border-white/15 bg-[#080D1A] px-3 text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/35"
+              className="h-10 sm:h-9 w-full sm:w-auto sm:min-w-[150px] sm:flex-1 rounded-lg border border-white/15 bg-[#080D1A] px-3 text-base sm:text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/35"
             />
             <input
               value={cruzadaMatricula}
@@ -1413,7 +1428,7 @@ export function DocumentSearch() {
               aria-label="Matrícula ou Transcrição"
               title="Matrícula ou Transcrição (ex.: 123.456 ou 45.890)"
               disabled={busy || !!processandoAcao}
-              className="h-9 min-w-[150px] flex-1 rounded-lg border border-white/15 bg-[#080D1A] px-3 text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/35"
+              className="h-10 sm:h-9 w-full sm:w-auto sm:min-w-[150px] sm:flex-1 rounded-lg border border-white/15 bg-[#080D1A] px-3 text-base sm:text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/35"
             />
             <input
               value={cruzadaContribuinte}
@@ -1422,7 +1437,7 @@ export function DocumentSearch() {
               aria-label="Contribuinte (SQL / IPTU)"
               title="Contribuinte (SQL / IPTU) (ex.: 012.345.6789-1)"
               disabled={busy || !!processandoAcao}
-              className="h-9 min-w-[150px] flex-1 rounded-lg border border-white/15 bg-[#080D1A] px-3 text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/35"
+              className="h-10 sm:h-9 w-full sm:w-auto sm:min-w-[150px] sm:flex-1 rounded-lg border border-white/15 bg-[#080D1A] px-3 text-base sm:text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/35"
             />
             <input
               value={cruzadaRequerente}
@@ -1431,16 +1446,16 @@ export function DocumentSearch() {
               aria-label="Requerente ou Parte"
               title="Requerente ou Parte (ex.: Basilio, Ficticia)"
               disabled={busy || !!processandoAcao}
-              className="h-9 min-w-[150px] flex-1 rounded-lg border border-white/15 bg-[#080D1A] px-3 text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/35"
+              className="h-10 sm:h-9 w-full sm:w-auto sm:min-w-[150px] sm:flex-1 rounded-lg border border-white/15 bg-[#080D1A] px-3 text-base sm:text-xs text-white focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-white/35"
             />
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex w-full sm:w-auto shrink-0 items-center justify-end gap-2">
               {historicoBuscas.length > 0 && (
                 <button
                   type="button"
                   onClick={voltarTelaAnterior}
                   title={`Voltar para tela anterior: ${historicoBuscas[historicoBuscas.length - 1].query}`}
                   aria-label="Voltar para tela anterior"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700/80 bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white transition active:scale-95"
+                  className="inline-flex h-10 w-10 sm:h-9 sm:w-9 items-center justify-center rounded-lg border border-slate-700/80 bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white transition active:scale-95"
                 >
                   <ArrowLeft className="h-4 w-4 text-slate-300" />
                 </button>
@@ -1448,7 +1463,7 @@ export function DocumentSearch() {
               <button
                 type="submit"
                 disabled={busy || !connectorId || !!processandoAcao}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-700 hover:bg-emerald-600 px-4 text-xs font-semibold text-white shadow-sm disabled:opacity-50 transition active:scale-95"
+                className="inline-flex h-10 sm:h-9 flex-1 sm:flex-initial justify-center items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-700 hover:bg-emerald-600 px-4 text-xs font-semibold text-white shadow-sm disabled:opacity-50 transition active:scale-95"
               >
                 {busy ? (
                   <>
@@ -1856,20 +1871,28 @@ export function DocumentSearch() {
               </div>
             </div>
 
-            {/* Destaque da Matrícula Vinculada aos Autos (Padrão FIORIX) */}
+            {/* Destaque da Matrícula Vinculada aos Autos (somente Matrículas reais do Livro 2, nunca Transcrições) */}
             {(() => {
-              const matriculaProcesso =
-                job.result.matriculaDetectada ||
-                job.result.files.find(f => f.matricula)?.matricula ||
-                job.result.files
-                  .map(f => getCachedExtracao(`${f.rootId}:${f.relativePath}`)?.matricula_transcricao)
-                  .find(Boolean);
+              const ehMatriculaLivro2 = (valor?: string | null): valor is string =>
+                Boolean(valor && !/transcri[çc][ãa]o/i.test(valor));
+              const ehImagemAcervo = (nomeArquivo: string) => /\.(?:ken|tiff?)$/i.test(nomeArquivo);
+              const arquivosProcesso = job.result.files.filter(f => !ehImagemAcervo(f.name));
 
-              const arquivoOrigemMatricula =
-                job.result.files.find(f => f.matricula)?.name ||
-                job.result.files.find(f => getCachedExtracao(`${f.rootId}:${f.relativePath}`)?.matricula_transcricao)?.name;
+              const arquivoComMatriculaReal =
+                arquivosProcesso.find(f => ehMatriculaLivro2(f.matricula)) ||
+                arquivosProcesso.find(f => ehMatriculaLivro2(getCachedExtracao(`${f.rootId}:${f.relativePath}`)?.matricula_transcricao));
 
-              if (!matriculaProcesso) return null;
+              const matriculaProcesso = ehMatriculaLivro2(job.result.matriculaDetectada)
+                ? job.result.matriculaDetectada
+                : arquivoComMatriculaReal
+                ? (ehMatriculaLivro2(arquivoComMatriculaReal.matricula)
+                    ? arquivoComMatriculaReal.matricula
+                    : getCachedExtracao(`${arquivoComMatriculaReal.rootId}:${arquivoComMatriculaReal.relativePath}`)?.matricula_transcricao)
+                : null;
+
+              const arquivoOrigemMatricula = arquivoComMatriculaReal?.name;
+
+              if (!matriculaProcesso || !ehMatriculaLivro2(matriculaProcesso)) return null;
 
               // Se a consulta atual já for a própria matrícula ou os arquivos encontrados já forem imagens do Livro 2 (.KEN / .TIF),
               // não exibir o card repetido para localizar no Livro 2 (evita excesso e redundância)
@@ -1889,18 +1912,20 @@ export function DocumentSearch() {
               const arquivoKenLocalizado = job.result.files.find(f => {
                 const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
                 if (ext !== '.ken' && ext !== '.tif' && ext !== '.tiff') return false;
+                const ehDoLivro2 = f.rootId === 'livro2' || /(?:^|[\\/])lv2[\\/]/i.test(f.relativePath);
+                if (!ehDoLivro2) return false;
                 const fNum = f.name.replace(/[^\d]/g, '');
                 const mNum = matriculaProcesso.replace(/[^\d]/g, '');
-                return fNum.endsWith(mNum) || mNum.endsWith(fNum);
+                return Boolean(fNum && mNum && parseInt(fNum, 10) === parseInt(mNum, 10));
               });
 
               return (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#0B1020]/90 px-4 py-3 shadow-sm backdrop-blur-xl">
-                  <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex min-w-0 flex-1 items-start sm:items-center gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400">
                       <FileText className="h-4 w-4" />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-baseline gap-x-2">
                         <h3 className="text-sm sm:text-base font-semibold text-white tracking-tight">
                           {matriculaProcesso}
@@ -1908,7 +1933,7 @@ export function DocumentSearch() {
                         <span className="text-[11px] text-white/40">Livro 2</span>
                       </div>
                       {arquivoOrigemMatricula && (
-                        <p className="truncate text-[11px] text-white/45" title={arquivoOrigemMatricula}>
+                        <p className="break-words line-clamp-2 sm:truncate text-[11px] leading-snug text-white/50 mt-0.5" title={arquivoOrigemMatricula}>
                           Identificada em {arquivoOrigemMatricula}
                         </p>
                       )}
@@ -1920,7 +1945,7 @@ export function DocumentSearch() {
                       type="button"
                       onClick={() => visualizarDocumento(arquivoKenLocalizado)}
                       title={`Visualizar imagem digitalizada da matrícula ${matriculaProcesso} (${arquivoKenLocalizado.name})`}
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/20 transition active:scale-95"
+                      className="inline-flex w-full sm:w-auto justify-center shrink-0 items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 sm:py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/20 transition active:scale-95"
                     >
                       <Eye className="h-3.5 w-3.5 text-emerald-400" />
                       <span>Ver matrícula</span>
@@ -1930,7 +1955,7 @@ export function DocumentSearch() {
                       type="button"
                       onClick={() => buscarMatriculaNoLivro2(matriculaProcesso)}
                       title="Buscar imagem digitalizada da matrícula em K:\IMAGENS\LV2"
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/20 transition active:scale-95"
+                      className="inline-flex w-full sm:w-auto justify-center shrink-0 items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 sm:py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/20 transition active:scale-95"
                     >
                       <Search className="h-3.5 w-3.5 text-cyan-400" />
                       <span>Localizar no Livro 2</span>
@@ -1949,325 +1974,504 @@ export function DocumentSearch() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-[24px] border border-white/20 bg-[#0B1020]/90 text-white shadow-sm backdrop-blur-xl">
-                <table className="w-full text-left text-xs sm:text-sm border-collapse table-fixed">
-                  <thead className="bg-[#080D1A] text-white/70 font-semibold border-b border-white/10 text-[11px] sm:text-xs">
-                    <tr>
-                      <th className="p-3.5 sm:p-4 min-w-[320px]">Arquivo / Caminho</th>
-                      <th className="p-3.5 sm:p-4 w-36 whitespace-nowrap">Pasta</th>
-                      <th className="p-3.5 sm:p-4 w-24 whitespace-nowrap">Tamanho</th>
-                      <th className="p-3.5 sm:p-4 w-28 whitespace-nowrap">Modificado</th>
-                      <th className="sticky right-0 bg-[#080D1A] p-3 w-20 min-w-[80px] max-w-[80px] text-right whitespace-nowrap z-20 border-l border-white/10 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.6)]">
-                        Ações
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {job.result.files.map(file => {
-                      const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
-                      const isPdf = ext === '.pdf';
-                      const isDocx = ext === '.docx' || ext === '.doc' || ext === '.rtf' || ext === '.txt';
-                      const isKenOrTif = ext === '.ken' || ext === '.tif' || ext === '.tiff';
-                      // Petição em PDF (CLI Rust) ou Word (mammoth/word-extractor no Connector)
-                      const podeFormulario = isPdf || ext === '.docx' || ext === '.doc';
-                      const fileKey = `${file.rootId}:${file.relativePath}`;
-                      const emProcessamento = processandoAcao?.id === fileKey;
-                      const jaExtraido = !!getCachedExtracao(fileKey);
-                      const jaAuditado = !!getCachedAssinatura(fileKey);
-                      const jaLido = !!getCachedLeitura(fileKey);
-                      const pathFoiCopiado = caminhoCopiado === file.relativePath;
+              <>
+                {/* LISTA MOBILE RESPONSIVA (< md: iPhone / celulares, sem cortar nome, caminho, tamanho ou data) */}
+                <div className="md:hidden divide-y divide-white/10 rounded-2xl border border-white/15 bg-[#0B1020]/90 text-white shadow-sm backdrop-blur-xl overflow-hidden">
+                  {job.result.files.map(file => {
+                    const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+                    const isPdf = ext === '.pdf';
+                    const isDocx = ext === '.docx' || ext === '.doc' || ext === '.rtf' || ext === '.txt';
+                    const isKenOrTif = ext === '.ken' || ext === '.tif' || ext === '.tiff';
+                    const podeFormulario = isPdf || ext === '.docx' || ext === '.doc';
+                    const fileKey = `${file.rootId}:${file.relativePath}`;
+                    const emProcessamento = processandoAcao?.id === fileKey;
+                    const jaExtraido = !!getCachedExtracao(fileKey);
+                    const jaLido = !!getCachedLeitura(fileKey);
+                    const rootInfo = getRootInfo(file.rootId);
+                    const tamanhoFormatado =
+                      file.size >= 1024 * 1024
+                        ? `${(file.size / (1024 * 1024)).toFixed(1).replace('.', ',')} MB`
+                        : `${Math.max(1, Math.ceil(file.size / 1024))} KB`;
+                    const fileMatricula = !isKenOrTif
+                      ? file.matricula ||
+                        getCachedExtracao(fileKey)?.matricula_transcricao ||
+                        file.name.match(/(?:matr[ií]cula|transcri[çc][ãa]o)\s*(?:n[ºo°]?)?\s*([0-9.\-]+)/i)?.[0]
+                      : null;
 
-                      return (
-                        <tr key={fileKey} className="group hover:bg-white/[0.04] transition">
-                          <td className="p-3.5 sm:p-4 font-medium text-white overflow-hidden">
-                            <div className="flex items-start gap-2.5 min-w-0">
-                              <FileText
-                                className={`h-4 w-4 sm:h-5 sm:w-5 shrink-0 mt-0.5 ${
-                                  isPdf ? 'text-rose-400' : isDocx ? 'text-sky-400' : isKenOrTif ? 'text-amber-400' : 'text-slate-400'
-                                }`}
-                              />
-                              <div className="min-w-0 flex-1">
-                                <button
-                                  type="button"
-                                  onClick={() => visualizarDocumento(file)}
-                                  className="truncate max-w-full block font-semibold text-white hover:text-cyan-300 transition text-left group/fn"
-                                  title={`Visualizar ${file.name} para conferência visual direta`}
-                                >
-                                  <span className="hover:underline">{file.name}</span>
-                                  <Eye className="inline ml-1.5 h-3 w-3 text-white/40 group-hover/fn:text-cyan-400 opacity-60 group-hover/fn:opacity-100 shrink-0 transition" />
-                                </button>
-                                <span
-                                  className="truncate max-w-full block font-mono text-[11px] text-white/50 mt-0.5"
-                                  title={formatCartorioPath(file.rootId, file.relativePath)}
-                                >
-                                  {formatCartorioPath(file.rootId, file.relativePath)}
-                                </span>
+                    return (
+                      <div key={fileKey} className="p-3.5 space-y-2.5">
+                        {/* Nome completo do arquivo + Caminho completo */}
+                        <div className="flex items-start gap-2.5 min-w-0">
+                          <FileText
+                            className={`h-4 w-4 shrink-0 mt-0.5 ${
+                              isPdf ? 'text-rose-400' : isDocx ? 'text-sky-400' : isKenOrTif ? 'text-amber-400' : 'text-slate-400'
+                            }`}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <button
+                              type="button"
+                              onClick={() => visualizarDocumento(file)}
+                              className="block w-full text-left text-[13px] leading-snug font-semibold text-white hover:text-cyan-300 break-words transition"
+                            >
+                              {file.name}
+                            </button>
+                            <p className="mt-1 font-mono text-[11px] leading-relaxed text-white/50 break-all">
+                              {formatCartorioPath(file.rootId, file.relativePath)}
+                            </p>
+                          </div>
+                        </div>
 
-                                {(() => {
-                                  // Arquivos de imagem de matrícula (.KEN / .TIF) já são o documento final do Livro 2
-                                  if (isKenOrTif) return null;
-
-                                  const fileMatricula =
-                                    file.matricula ||
-                                    getCachedExtracao(fileKey)?.matricula_transcricao ||
-                                    (file.name.match(/(?:matr[ií]cula|transcri[çc][ãa]o)\s*(?:n[ºo°]?)?\s*([0-9.\-]+)/i)?.[0]);
-
-                                  if (!fileMatricula) return null;
-
-                                  return (
-                                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                                      <span
-                                        className="inline-flex items-center gap-1 rounded-md bg-cyan-950/80 border border-cyan-500/40 px-2 py-0.5 text-[11px] font-semibold text-cyan-200 shadow-sm"
-                                        title={`Matrícula identificada neste documento: ${fileMatricula}`}
-                                      >
-                                        <FileText className="h-3 w-3 text-cyan-400 shrink-0" />
-                                        <span>{fileMatricula}</span>
-                                      </span>
-                                    </div>
-                                  );
-                                })()}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-3.5 sm:p-4 whitespace-nowrap">
-                            {(() => {
-                              const rootInfo = getRootInfo(file.rootId);
-                              return (
-                                <span
-                                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold border transition shadow-sm ${rootInfo.badgeClass}`}
-                                  title={`${rootInfo.fullName} • ${rootInfo.pathDisplay}`}
-                                >
-                                  <span className={`h-1.5 w-1.5 rounded-full ${rootInfo.dotClass}`} />
-                                  <span>{rootInfo.label}</span>
-                                </span>
-                              );
-                            })()}
-                          </td>
-                          <td className="p-3.5 sm:p-4 text-white/70 text-xs sm:text-sm whitespace-nowrap">
-                            {Math.ceil(file.size / 1024)} KB
-                          </td>
-                          <td className="p-3.5 sm:p-4 text-white/70 text-xs sm:text-sm whitespace-nowrap">
+                        {/* Linha de metadados completos (Pasta, Tamanho, Data e Matrícula identificada) */}
+                        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                          <span
+                            className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-semibold border shadow-xs ${rootInfo.badgeClass}`}
+                          >
+                            <span className={`h-1.5 w-1.5 rounded-full ${rootInfo.dotClass}`} />
+                            <span>{rootInfo.label}</span>
+                          </span>
+                          <span className="font-mono text-white/70">{tamanhoFormatado}</span>
+                          <span className="text-white/30">•</span>
+                          <span className="font-mono text-white/70">
                             {new Date(file.modifiedAt).toLocaleDateString('pt-BR')}
-                          </td>
+                          </span>
+                          {fileMatricula && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-cyan-950/80 border border-cyan-500/40 px-2 py-0.5 text-[10.5px] font-semibold text-cyan-200">
+                              <FileText className="h-3 w-3 text-cyan-400 shrink-0" />
+                              <span>{fileMatricula}</span>
+                            </span>
+                          )}
+                        </div>
 
-                          {/* Coluna de Ações: Botão Direto de Visualizar + Três Pontinhos */}
-                          <td className="sticky right-0 bg-[#0B1020] group-hover:bg-[#0E1528] p-3 text-right whitespace-nowrap z-10 border-l border-white/10 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.6)] w-20 min-w-[80px] max-w-[80px]">
-                            <div className="flex items-center justify-end gap-1.5" data-menu-acoes>
-                              {/* Botão de Visualização Rápida */}
-                              <button
-                                type="button"
-                                disabled={!!processandoAcao}
-                                onClick={() => visualizarDocumento(file)}
-                                title={
-                                  emProcessamento && processandoAcao?.tipo === 'leitura'
-                                    ? `Carregando documento… ${formatTempoMMSS(tempoDecorrido)}`
-                                    : `Visualizar ${file.name}`
-                                }
-                                aria-label={`Visualizar ${file.name}`}
-                                className={`h-8 w-8 inline-flex items-center justify-center rounded-lg border transition disabled:opacity-50 ${
-                                  jaLido
-                                    ? 'border-cyan-500/50 bg-cyan-950/70 text-cyan-300 hover:bg-cyan-900/80 shadow-sm'
-                                    : 'border-slate-700/80 bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
-                                }`}
-                              >
-                                {emProcessamento && processandoAcao?.tipo === 'leitura' ? (
-                                  <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
-                                ) : (
-                                  <Eye className="h-4 w-4" />
-                                )}
-                              </button>
+                        {/* Barra de Ações Mobile com alvos de toque confortáveis */}
+                        <div className="flex items-center gap-2 pt-0.5" data-menu-acoes>
+                          <button
+                            type="button"
+                            disabled={!!processandoAcao}
+                            onClick={() => visualizarDocumento(file)}
+                            className={`h-9 flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition active:scale-[0.98] disabled:opacity-50 ${
+                              jaLido
+                                ? 'border-cyan-500/50 bg-cyan-950/70 text-cyan-200'
+                                : 'border-slate-700 bg-slate-800/90 text-slate-100 hover:bg-slate-700'
+                            }`}
+                          >
+                            {emProcessamento && processandoAcao?.tipo === 'leitura' ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 animate-spin text-cyan-400" />
+                                <span className="font-mono">{formatTempoMMSS(tempoDecorrido)}</span>
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="h-3.5 w-3.5 text-cyan-400" />
+                                <span>Visualizar</span>
+                              </>
+                            )}
+                          </button>
 
-                              {/* Botão de Três Pontinhos */}
-                              <div className="relative inline-block text-left">
+                          {podeFormulario && (
+                            <button
+                              type="button"
+                              disabled={!!processandoAcao}
+                              onClick={() => extrairPeticao(file)}
+                              className="h-9 inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 text-xs font-semibold text-amber-200 hover:bg-amber-500/20 transition active:scale-[0.98] disabled:opacity-50"
+                            >
+                              <Zap className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                              <span>{jaExtraido ? 'Abrir Form.' : 'Formulário'}</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={e => alternarMenuAcoes(fileKey, e.currentTarget)}
+                            aria-label="Mais opções"
+                            aria-expanded={menuAbertoKey === fileKey}
+                            className={`h-9 w-9 shrink-0 inline-flex items-center justify-center rounded-lg border transition active:scale-95 ${
+                              menuAbertoKey === fileKey
+                                ? 'border-cyan-500 bg-cyan-950 text-cyan-200 shadow'
+                                : 'border-slate-700 bg-slate-800/90 text-slate-300'
+                            }`}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* TABELA DESKTOP (>= md: preservada integralmente para as estações do cartório) */}
+                <div className="hidden md:block overflow-x-auto rounded-[24px] border border-white/20 bg-[#0B1020]/90 text-white shadow-sm backdrop-blur-xl">
+                  <table className="w-full text-left text-xs sm:text-sm border-collapse table-fixed">
+                    <thead className="bg-[#080D1A] text-white/70 font-semibold border-b border-white/10 text-[11px] sm:text-xs">
+                      <tr>
+                        <th className="p-3.5 sm:p-4 min-w-[320px]">Arquivo / Caminho</th>
+                        <th className="p-3.5 sm:p-4 w-36 whitespace-nowrap">Pasta</th>
+                        <th className="p-3.5 sm:p-4 w-24 whitespace-nowrap">Tamanho</th>
+                        <th className="p-3.5 sm:p-4 w-28 whitespace-nowrap">Modificado</th>
+                        <th className="sticky right-0 bg-[#080D1A] p-3 w-20 min-w-[80px] max-w-[80px] text-right whitespace-nowrap z-20 border-l border-white/10 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.6)]">
+                          Ações
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {job.result.files.map(file => {
+                        const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+                        const isPdf = ext === '.pdf';
+                        const isDocx = ext === '.docx' || ext === '.doc' || ext === '.rtf' || ext === '.txt';
+                        const isKenOrTif = ext === '.ken' || ext === '.tif' || ext === '.tiff';
+                        const fileKey = `${file.rootId}:${file.relativePath}`;
+                        const emProcessamento = processandoAcao?.id === fileKey;
+                        const jaLido = !!getCachedLeitura(fileKey);
+
+                        return (
+                          <tr key={fileKey} className="group hover:bg-white/[0.04] transition">
+                            <td className="p-3.5 sm:p-4 font-medium text-white overflow-hidden">
+                              <div className="flex items-start gap-2.5 min-w-0">
+                                <FileText
+                                  className={`h-4 w-4 sm:h-5 sm:w-5 shrink-0 mt-0.5 ${
+                                    isPdf ? 'text-rose-400' : isDocx ? 'text-sky-400' : isKenOrTif ? 'text-amber-400' : 'text-slate-400'
+                                  }`}
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => visualizarDocumento(file)}
+                                    className="truncate max-w-full block font-semibold text-white hover:text-cyan-300 transition text-left group/fn"
+                                    title={`Visualizar ${file.name} para conferência visual direta`}
+                                  >
+                                    <span className="hover:underline">{file.name}</span>
+                                    <Eye className="inline ml-1.5 h-3 w-3 text-white/40 group-hover/fn:text-cyan-400 opacity-60 group-hover/fn:opacity-100 shrink-0 transition" />
+                                  </button>
+                                  <span
+                                    className="truncate max-w-full block font-mono text-[11px] text-white/50 mt-0.5"
+                                    title={formatCartorioPath(file.rootId, file.relativePath)}
+                                  >
+                                    {formatCartorioPath(file.rootId, file.relativePath)}
+                                  </span>
+
+                                  {(() => {
+                                    // Arquivos de imagem de matrícula (.KEN / .TIF) já são o documento final do Livro 2
+                                    if (isKenOrTif) return null;
+
+                                    const fileMatricula =
+                                      file.matricula ||
+                                      getCachedExtracao(fileKey)?.matricula_transcricao ||
+                                      (file.name.match(/(?:matr[ií]cula|transcri[çc][ãa]o)\s*(?:n[ºo°]?)?\s*([0-9.\-]+)/i)?.[0]);
+
+                                    if (!fileMatricula) return null;
+
+                                    return (
+                                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                                        <span
+                                          className="inline-flex items-center gap-1 rounded-md bg-cyan-950/80 border border-cyan-500/40 px-2 py-0.5 text-[11px] font-semibold text-cyan-200 shadow-sm"
+                                          title={`${/transcri[çc][ãa]o/i.test(fileMatricula) ? 'Transcrição' : 'Matrícula'} identificada neste documento: ${fileMatricula}`}
+                                        >
+                                          <FileText className="h-3 w-3 text-cyan-400 shrink-0" />
+                                          <span>{fileMatricula}</span>
+                                        </span>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-3.5 sm:p-4 whitespace-nowrap">
+                              {(() => {
+                                const rootInfo = getRootInfo(file.rootId);
+                                return (
+                                  <span
+                                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold border transition shadow-sm ${rootInfo.badgeClass}`}
+                                    title={`${rootInfo.fullName} • ${rootInfo.pathDisplay}`}
+                                  >
+                                    <span className={`h-1.5 w-1.5 rounded-full ${rootInfo.dotClass}`} />
+                                    <span>{rootInfo.label}</span>
+                                  </span>
+                                );
+                              })()}
+                            </td>
+                            <td className="p-3.5 sm:p-4 text-white/70 text-xs sm:text-sm whitespace-nowrap">
+                              {Math.ceil(file.size / 1024)} KB
+                            </td>
+                            <td className="p-3.5 sm:p-4 text-white/70 text-xs sm:text-sm whitespace-nowrap">
+                              {new Date(file.modifiedAt).toLocaleDateString('pt-BR')}
+                            </td>
+
+                            {/* Coluna de Ações: Botão Direto de Visualizar + Três Pontinhos */}
+                            <td className="sticky right-0 bg-[#0B1020] group-hover:bg-[#0E1528] p-3 text-right whitespace-nowrap z-10 border-l border-white/10 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.6)] w-20 min-w-[80px] max-w-[80px]">
+                              <div className="flex items-center justify-end gap-1.5" data-menu-acoes>
+                                {/* Botão de Visualização Rápida */}
                                 <button
                                   type="button"
-                                  onClick={e => alternarMenuAcoes(fileKey, e.currentTarget)}
-                                  title="Outras ações para este arquivo"
-                                  aria-label="Mais opções"
-                                  aria-expanded={menuAbertoKey === fileKey}
-                                  className={`h-8 w-8 inline-flex items-center justify-center rounded-lg border transition ${
-                                    menuAbertoKey === fileKey
-                                      ? 'border-cyan-500 bg-cyan-950 text-cyan-200 shadow'
-                                      : 'border-slate-700/80 bg-slate-800/80 text-slate-400 hover:bg-slate-700 hover:text-slate-100'
+                                  disabled={!!processandoAcao}
+                                  onClick={() => visualizarDocumento(file)}
+                                  title={
+                                    emProcessamento && processandoAcao?.tipo === 'leitura'
+                                      ? `Carregando documento… ${formatTempoMMSS(tempoDecorrido)}`
+                                      : `Visualizar ${file.name}`
+                                  }
+                                  aria-label={`Visualizar ${file.name}`}
+                                  className={`h-8 w-8 inline-flex items-center justify-center rounded-lg border transition disabled:opacity-50 ${
+                                    jaLido
+                                      ? 'border-cyan-500/50 bg-cyan-950/70 text-cyan-300 hover:bg-cyan-900/80 shadow-sm'
+                                      : 'border-slate-700/80 bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
                                   }`}
                                 >
-                                  <MoreVertical className="h-4 w-4" />
+                                  {emProcessamento && processandoAcao?.tipo === 'leitura' ? (
+                                    <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
+                                  ) : (
+                                    <Eye className="h-4 w-4" />
+                                  )}
                                 </button>
 
-                                {menuAbertoKey === fileKey && menuPos && createPortal(
-                                  <div
-                                    role="menu"
-                                    data-menu-acoes
-                                    style={{ position: 'fixed', top: menuPos.top, bottom: menuPos.bottom, right: menuPos.right, maxHeight: menuPos.maxHeight }}
-                                    className="z-[300] w-72 overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-1.5 text-xs text-slate-200 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+                                {/* Botão de Três Pontinhos */}
+                                <div className="relative inline-block text-left">
+                                  <button
+                                    type="button"
+                                    onClick={e => alternarMenuAcoes(fileKey, e.currentTarget)}
+                                    title="Outras ações para este arquivo"
+                                    aria-label="Mais opções"
+                                    aria-expanded={menuAbertoKey === fileKey}
+                                    className={`h-8 w-8 inline-flex items-center justify-center rounded-lg border transition ${
+                                      menuAbertoKey === fileKey
+                                        ? 'border-cyan-500 bg-cyan-950 text-cyan-200 shadow'
+                                        : 'border-slate-700/80 bg-slate-800/80 text-slate-400 hover:bg-slate-700 hover:text-slate-100'
+                                    }`}
                                   >
-                                    <div className="px-2.5 py-1 border-b border-slate-800 mb-1 text-left">
-                                      <p className="font-mono text-[10px] text-slate-400 truncate max-w-[250px]" title={file.name}>
-                                        {file.name}
-                                      </p>
-                                    </div>
-
-                                    {/* Formulário de Manifestação em destaque no topo */}
-                                    {podeFormulario && (
-                                      <>
-                                        <button
-                                          type="button"
-                                          role="menuitem"
-                                          onClick={() => {
-                                            setMenuAbertoKey(null);
-                                            extrairPeticao(file);
-                                          }}
-                                          className="flex w-full items-center gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-left transition hover:bg-amber-500/20 hover:text-white"
-                                        >
-                                          <Zap className="h-4 w-4 text-amber-400 shrink-0 fill-amber-400/20" />
-                                          <div className="flex-1">
-                                            <span className="font-semibold text-amber-100">
-                                              {jaExtraido ? 'Abrir Formulário de Manifestação' : 'Preencher Formulário de Manifestação'}
-                                            </span>
-                                            <span className="block text-[10px] text-amber-200/60 font-normal">
-                                              {jaExtraido ? 'Já preenchido • abre o formulário salvo' : 'Extrai os dados da petição e abre o formulário'}
-                                            </span>
-                                          </div>
-                                        </button>
-                                        {jaExtraido && (
-                                          <button
-                                            type="button"
-                                            role="menuitem"
-                                            onClick={() => {
-                                              setMenuAbertoKey(null);
-                                              extrairPeticao(file, true);
-                                            }}
-                                            className="mt-0.5 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition hover:bg-slate-800 hover:text-white"
-                                          >
-                                            <RotateCw className="h-4 w-4 text-amber-400/70 shrink-0" />
-                                            <div className="flex-1">
-                                              <span>Reprocessar formulário</span>
-                                              <span className="block text-[10px] text-slate-500 font-normal">Descarta o preenchimento salvo e relê o arquivo</span>
-                                            </div>
-                                          </button>
-                                        )}
-                                        <div className="my-1 border-t border-slate-800" />
-                                      </>
-                                    )}
-
-                                    {/* 1. Visualizar */}
-                                    <button
-                                      type="button"
-                                      role="menuitem"
-                                      onClick={() => {
-                                        setMenuAbertoKey(null);
-                                        visualizarDocumento(file);
-                                      }}
-                                      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition hover:bg-slate-800 hover:text-white"
-                                    >
-                                      <Eye className="h-4 w-4 text-cyan-400 shrink-0" />
-                                      <div className="flex-1">
-                                        <span className="font-medium">Visualizar documento</span>
-                                        {jaLido && <span className="block text-[10px] text-emerald-400 font-normal">Pronto em cache</span>}
-                                      </div>
-                                    </button>
-
-                                    {/* 2. Recarregar do Disco */}
-                                    <button
-                                      type="button"
-                                      role="menuitem"
-                                      onClick={() => {
-                                        setMenuAbertoKey(null);
-                                        visualizarDocumento(file, true);
-                                      }}
-                                      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition hover:bg-slate-800 hover:text-white"
-                                    >
-                                      <RotateCw className="h-4 w-4 text-slate-400 shrink-0" />
-                                      <div className="flex-1">
-                                        <span>Recarregar do disco</span>
-                                        <span className="block text-[10px] text-slate-500 font-normal">Descartar cache e reler do servidor</span>
-                                      </div>
-                                    </button>
-
-                                    {/* 3. Abrir em outro monitor / janela separada */}
-                                    <button
-                                      type="button"
-                                      role="menuitem"
-                                      onClick={async () => {
-                                        setMenuAbertoKey(null);
-                                        const cached = getCachedLeitura(fileKey);
-                                        if (cached) {
-                                          abrirDocumentoEmJanela({ documento: cached, relativePath: file.relativePath, rootId: file.rootId });
-                                        } else {
-                                          await visualizarDocumento(file);
-                                        }
-                                      }}
-                                      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition hover:bg-slate-800 hover:text-white"
-                                    >
-                                      <MonitorUp className="h-4 w-4 text-cyan-300 shrink-0" />
-                                      <div className="flex-1">
-                                        <span>Abrir em outro monitor</span>
-                                        <span className="block text-[10px] text-slate-500 font-normal">Janela própria para conferência lado a lado</span>
-                                      </div>
-                                    </button>
-
-                                    {/* Ações Específicas para Processos / PDFs */}
-                                    {isPdf && (
-                                      <>
-                                        <div className="my-1 border-t border-slate-800" />
-
-                                        {/* Auditar Assinaturas Eletrônicas PAdES */}
-                                        <button
-                                          type="button"
-                                          role="menuitem"
-                                          onClick={() => {
-                                            setMenuAbertoKey(null);
-                                            analisarAssinaturas(file, jaAuditado);
-                                          }}
-                                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition hover:bg-slate-800 hover:text-white"
-                                        >
-                                          <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
-                                          <div className="flex-1">
-                                            <span className="font-medium">{jaAuditado ? 'Re-auditar Assinaturas' : 'Auditar Assinaturas (PAdES)'}</span>
-                                            <span className="block text-[10px] text-slate-500 font-normal">
-                                              {jaAuditado ? 'Auditoria em cache • clique para reprocessar' : 'PAdES / ICP-Brasil / ITI'}
-                                            </span>
-                                          </div>
-                                        </button>
-                                      </>
-                                    )}
-
-                                    <div className="my-1 border-t border-slate-800" />
-
-                                    {/* Copiar Caminho */}
-                                    <button
-                                      type="button"
-                                      role="menuitem"
-                                      onClick={() => {
-                                        copiarCaminho(file);
-                                        setTimeout(() => setMenuAbertoKey(null), 800);
-                                      }}
-                                      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition hover:bg-slate-800 hover:text-white"
-                                    >
-                                      {pathFoiCopiado ? (
-                                        <>
-                                          <Check className="h-4 w-4 text-emerald-400 shrink-0" />
-                                          <span className="font-semibold text-emerald-300">Caminho copiado!</span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Copy className="h-4 w-4 text-slate-400 shrink-0" />
-                                          <span>Copiar caminho no cartório</span>
-                                        </>
-                                      )}
-                                    </button>
-                                  </div>,
-                                  document.body,
-                                )}
+                                    <MoreVertical className="h-4 w-4" />
+                                  </button>
+                                </div>
                               </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* PORTAL UNIFICADO DO MENU DE AÇÕES (Popover fixo no Desktop | Bottom-Sheet no Mobile/iPhone) */}
+                {(() => {
+                  if (!menuAbertoKey || !menuPos) return null;
+                  const file = job.result.files.find(f => `${f.rootId}:${f.relativePath}` === menuAbertoKey);
+                  if (!file) return null;
+                  const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+                  const isPdf = ext === '.pdf';
+                  const podeFormulario = isPdf || ext === '.docx' || ext === '.doc';
+                  const fileKey = `${file.rootId}:${file.relativePath}`;
+                  const jaExtraido = !!getCachedExtracao(fileKey);
+                  const jaAuditado = !!getCachedAssinatura(fileKey);
+                  const jaLido = !!getCachedLeitura(fileKey);
+                  const pathFoiCopiado = caminhoCopiado === file.relativePath;
+
+                  const conteudoMenu = (
+                    <>
+                      <div className="flex items-start justify-between gap-2 px-2.5 py-1.5 border-b border-slate-800 mb-1.5 text-left">
+                        <p
+                          className={`font-mono text-[11px] sm:text-[10px] text-slate-300 sm:text-slate-400 ${
+                            menuPos.mobile ? 'break-words leading-snug flex-1' : 'truncate max-w-[250px]'
+                          }`}
+                          title={file.name}
+                        >
+                          {file.name}
+                        </p>
+                        {menuPos.mobile && (
+                          <button
+                            type="button"
+                            onClick={() => setMenuAbertoKey(null)}
+                            aria-label="Fechar menu"
+                            className="shrink-0 rounded-md px-2 py-0.5 text-xs font-bold text-slate-400 hover:bg-slate-800 hover:text-white"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Formulário de Manifestação em destaque no topo */}
+                      {podeFormulario && (
+                        <>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setMenuAbertoKey(null);
+                              extrairPeticao(file);
+                            }}
+                            className="flex w-full items-center gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2.5 sm:py-2 text-left transition hover:bg-amber-500/20 hover:text-white"
+                          >
+                            <Zap className="h-4 w-4 text-amber-400 shrink-0 fill-amber-400/20" />
+                            <div className="flex-1">
+                              <span className="font-semibold text-amber-100">
+                                {jaExtraido ? 'Abrir Formulário de Manifestação' : 'Preencher Formulário de Manifestação'}
+                              </span>
+                              <span className="block text-[10px] text-amber-200/60 font-normal">
+                                {jaExtraido ? 'Já preenchido • abre o formulário salvo' : 'Extrai os dados da petição e abre o formulário'}
+                              </span>
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          </button>
+                          {jaExtraido && (
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                setMenuAbertoKey(null);
+                                extrairPeticao(file, true);
+                              }}
+                              className="mt-0.5 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 sm:py-1.5 text-left transition hover:bg-slate-800 hover:text-white"
+                            >
+                              <RotateCw className="h-4 w-4 text-amber-400/70 shrink-0" />
+                              <div className="flex-1">
+                                <span>Reprocessar formulário</span>
+                                <span className="block text-[10px] text-slate-500 font-normal">Descarta o preenchimento salvo e relê o arquivo</span>
+                              </div>
+                            </button>
+                          )}
+                          <div className="my-1 border-t border-slate-800" />
+                        </>
+                      )}
+
+                      {/* 1. Visualizar */}
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setMenuAbertoKey(null);
+                          visualizarDocumento(file);
+                        }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 sm:py-1.5 text-left transition hover:bg-slate-800 hover:text-white"
+                      >
+                        <Eye className="h-4 w-4 text-cyan-400 shrink-0" />
+                        <div className="flex-1">
+                          <span className="font-medium">Visualizar documento</span>
+                          {jaLido && <span className="block text-[10px] text-emerald-400 font-normal">Pronto em cache</span>}
+                        </div>
+                      </button>
+
+                      {/* 2. Recarregar do Disco */}
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setMenuAbertoKey(null);
+                          visualizarDocumento(file, true);
+                        }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 sm:py-1.5 text-left transition hover:bg-slate-800 hover:text-white"
+                      >
+                        <RotateCw className="h-4 w-4 text-slate-400 shrink-0" />
+                        <div className="flex-1">
+                          <span>Recarregar do disco</span>
+                          <span className="block text-[10px] text-slate-500 font-normal">Descartar cache e reler do servidor</span>
+                        </div>
+                      </button>
+
+                      {/* 3. Abrir em outro monitor / janela separada (apenas telas >= sm) */}
+                      {!menuPos.mobile && (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={async () => {
+                            setMenuAbertoKey(null);
+                            const cached = getCachedLeitura(fileKey);
+                            if (cached) {
+                              abrirDocumentoEmJanela({ documento: cached, relativePath: file.relativePath, rootId: file.rootId });
+                            } else {
+                              await visualizarDocumento(file);
+                            }
+                          }}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition hover:bg-slate-800 hover:text-white"
+                        >
+                          <MonitorUp className="h-4 w-4 text-cyan-300 shrink-0" />
+                          <div className="flex-1">
+                            <span>Abrir em outro monitor</span>
+                            <span className="block text-[10px] text-slate-500 font-normal">Janela própria para conferência lado a lado</span>
+                          </div>
+                        </button>
+                      )}
+
+                      {/* Ações Específicas para Processos / PDFs */}
+                      {isPdf && (
+                        <>
+                          <div className="my-1 border-t border-slate-800" />
+
+                          {/* Auditar Assinaturas Eletrônicas PAdES */}
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setMenuAbertoKey(null);
+                              analisarAssinaturas(file, jaAuditado);
+                            }}
+                            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 sm:py-1.5 text-left transition hover:bg-slate-800 hover:text-white"
+                          >
+                            <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
+                            <div className="flex-1">
+                              <span className="font-medium">{jaAuditado ? 'Re-auditar Assinaturas' : 'Auditar Assinaturas (PAdES)'}</span>
+                              <span className="block text-[10px] text-slate-500 font-normal">
+                                {jaAuditado ? 'Auditoria em cache • clique para reprocessar' : 'PAdES / ICP-Brasil / ITI'}
+                              </span>
+                            </div>
+                          </button>
+                        </>
+                      )}
+
+                      <div className="my-1 border-t border-slate-800" />
+
+                      {/* Copiar Caminho */}
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          copiarCaminho(file);
+                          setTimeout(() => setMenuAbertoKey(null), 800);
+                        }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 sm:py-1.5 text-left transition hover:bg-slate-800 hover:text-white"
+                      >
+                        {pathFoiCopiado ? (
+                          <>
+                            <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+                            <span className="font-semibold text-emerald-300">Caminho copiado!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-4 w-4 text-slate-400 shrink-0" />
+                            <span>Copiar caminho no cartório</span>
+                          </>
+                        )}
+                      </button>
+                    </>
+                  );
+
+                  if (menuPos.mobile) {
+                    return createPortal(
+                      <div
+                        className="fixed inset-0 z-[300] flex items-end justify-center bg-black/70 backdrop-blur-xs p-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+                        onClick={() => setMenuAbertoKey(null)}
+                      >
+                        <div
+                          role="menu"
+                          data-menu-acoes
+                          onClick={e => e.stopPropagation()}
+                          style={{ maxHeight: menuPos.maxHeight }}
+                          className="w-full max-w-md overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-2 text-xs text-slate-200 shadow-2xl animate-in slide-in-from-bottom-4 duration-150"
+                        >
+                          {conteudoMenu}
+                        </div>
+                      </div>,
+                      document.body,
+                    );
+                  }
+
+                  return createPortal(
+                    <div
+                      role="menu"
+                      data-menu-acoes
+                      style={{ position: 'fixed', top: menuPos.top, bottom: menuPos.bottom, right: menuPos.right, maxHeight: menuPos.maxHeight }}
+                      className="z-[300] w-72 overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-1.5 text-xs text-slate-200 shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+                    >
+                      {conteudoMenu}
+                    </div>,
+                    document.body,
+                  );
+                })()}
+              </>
             )}
           </div>
         )}

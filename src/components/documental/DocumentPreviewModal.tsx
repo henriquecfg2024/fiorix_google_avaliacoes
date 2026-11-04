@@ -982,38 +982,40 @@ export function DocumentPreviewModal({
       className={
         emJanela
           ? 'fixed inset-0 z-[120] flex flex-col bg-[#F0F0F0] select-none font-sans text-gray-900'
-          : 'fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-1 sm:p-2 md:p-3 backdrop-blur-xs select-none font-sans text-gray-900'
+          : 'fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-0 sm:p-2 md:p-3 backdrop-blur-xs select-none font-sans text-gray-900'
       }
     >
       {/* Janela Oficial Siplan Image */}
       <div
-        className={`flex flex-col bg-[#F0F0F0] border border-[#B0B0B0] shadow-2xl overflow-hidden relative ${
+        className={`flex flex-col bg-[#F0F0F0] shadow-2xl overflow-hidden relative ${
           emJanela || isFullScreen
-            ? 'fixed inset-0 w-screen h-[100dvh] rounded-none border-0'
-            : 'w-full max-w-[1520px] h-[96dvh] max-h-[980px] rounded-[3px]'
+            ? 'fixed inset-0 w-screen h-[100dvh] rounded-none border-0 pt-[env(safe-area-inset-top)] sm:pt-0'
+            : 'w-screen h-[100dvh] rounded-none border-0 pt-[env(safe-area-inset-top)] sm:pt-0 sm:w-full sm:max-w-[1520px] sm:h-[96dvh] sm:max-h-[980px] sm:rounded-[3px] sm:border sm:border-[#B0B0B0]'
         }`}
       >
         {/* 1. BARRA DE TÍTULO NATIVA DO WINDOWS */}
-        <div className="flex h-7 items-center justify-between bg-[#EAEAEA] border-b border-[#D8D8D8] px-2 text-xs select-none shrink-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <SiplanLogo className="h-3.5 w-3.5" />
-            <span className="text-[12px] font-normal text-gray-800 tracking-tight">Visualizador de Imagens</span>
+        <div className="flex h-8 sm:h-7 items-center justify-between bg-[#EAEAEA] border-b border-[#D8D8D8] pl-2 pr-0 sm:px-2 text-xs select-none shrink-0">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <SiplanLogo className="h-3.5 w-3.5 shrink-0" />
+            <span className="text-[12px] font-normal text-gray-800 tracking-tight shrink-0 sm:hidden">Visualizador</span>
+            <span className="text-[12px] font-normal text-gray-800 tracking-tight shrink-0 hidden sm:inline">Visualizador de Imagens</span>
             {docAtivo.fileName && (
-              <span className="text-[11px] text-gray-500 font-mono hidden sm:inline">
+              <span className="truncate text-[11px] text-gray-600 sm:text-gray-500 font-mono min-w-0">
                 — {docAtivo.fileName}
               </span>
             )}
             {isCarregandoDoc && (
-              <span className="text-[10px] text-amber-700 font-semibold flex items-center gap-1 ml-2">
-                <RefreshCw className="h-3 w-3 animate-spin text-amber-700" /> Carregando...
+              <span className="text-[10px] text-amber-700 font-semibold flex items-center gap-1 ml-1 shrink-0">
+                <RefreshCw className="h-3 w-3 animate-spin text-amber-700" />
+                <span className="hidden sm:inline">Carregando...</span>
               </span>
             )}
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center shrink-0">
             <button
               type="button"
               onClick={() => setIsFullScreen(false)}
-              className="inline-flex h-7 w-10 items-center justify-center text-gray-600 hover:bg-[#DCDCDC] transition"
+              className="hidden sm:inline-flex h-7 w-10 items-center justify-center text-gray-600 hover:bg-[#DCDCDC] transition"
               title="Minimizar"
             >
               <Minus className="h-3 w-3" />
@@ -1021,7 +1023,7 @@ export function DocumentPreviewModal({
             <button
               type="button"
               onClick={toggleFullscreen}
-              className="inline-flex h-7 w-10 items-center justify-center text-gray-600 hover:bg-[#DCDCDC] transition"
+              className="hidden sm:inline-flex h-7 w-10 items-center justify-center text-gray-600 hover:bg-[#DCDCDC] transition"
               title={isFullScreen ? 'Restaurar' : 'Maximizar'}
             >
               <Square className="h-2.5 w-2.5" />
@@ -1029,154 +1031,159 @@ export function DocumentPreviewModal({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-7 w-10 items-center justify-center text-gray-600 hover:bg-[#E81123] hover:text-white transition"
+              className="inline-flex h-8 w-10 sm:h-7 sm:w-10 items-center justify-center text-gray-700 sm:text-gray-600 hover:bg-[#E81123] hover:text-white transition"
               title="Fechar (Esc)"
+              aria-label="Fechar visualizador"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
             </button>
           </div>
         </div>
 
         {/* 2. BARRA DE AÇÕES SUPERIOR */}
-        <div className="flex h-9 items-center justify-between bg-[#F4F4F4] border-b border-[#D0D0D0] px-2 text-xs select-none shrink-0 relative">
+        <div className="flex flex-wrap md:flex-nowrap min-h-9 h-auto py-1 md:h-9 md:py-0 gap-x-1.5 gap-y-1.5 items-center justify-between bg-[#F4F4F4] border-b border-[#D0D0D0] px-2 text-xs select-none shrink-0 relative">
           {/* Grupo de Ações à Esquerda */}
-          <div className="flex items-center gap-1">
-            {/* Voltar chevron (Voltar para a tela anterior) */}
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-[#E0E0E0] text-gray-700 cursor-pointer"
-              title="Voltar para a tela anterior"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-
-            {/* Seta para esquerda (Documento Anterior) */}
-            <button
-              type="button"
-              onClick={() => navegarDocumento(-1)}
-              disabled={parseInt(docNumero, 10) <= 1}
-              className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#0F3D6E] text-white hover:bg-[#174E8B] transition disabled:opacity-30 shadow-2xs cursor-pointer"
-              title="Documento anterior (ex: matrícula anterior - Ctrl + ←)"
-            >
-              <ArrowLeft className="h-3 w-3 stroke-[2.5]" />
-            </button>
-
-            {/* Seta para direita (Próximo Documento) */}
-            <button
-              type="button"
-              onClick={() => navegarDocumento(1)}
-              className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#0F3D6E] text-white hover:bg-[#174E8B] transition shadow-2xs cursor-pointer"
-              title="Próximo documento (ex: próxima matrícula - Ctrl + →)"
-            >
-              <ArrowRight className="h-3 w-3 stroke-[2.5]" />
-            </button>
-
-            <div className="mx-1 h-5 w-[1px] bg-[#D4D4D4]" />
-
-            {/* Ícones de Ação em Bordô */}
-            {/* 1. Lápis / Anotações */}
-            <button
-              type="button"
-              onClick={() => setModalAnotacoes(v => !v)}
-              className={`inline-flex h-6 w-6 items-center justify-center rounded transition ${
-                modalAnotacoes ? 'bg-[#0F3D6E] text-white' : 'text-[#0F3D6E] hover:bg-[#EAEAEA]'
-              }`}
-              title="Anotações e Observações da Matrícula"
-            >
-              <Edit3 className="h-3.5 w-3.5" />
-            </button>
-
-            {/* 2. Olho / Modo Visualização */}
-            <button
-              type="button"
-              onClick={() => setModoNegativo(n => !n)}
-              className={`inline-flex h-6 w-6 items-center justify-center rounded transition ${
-                modoNegativo ? 'bg-[#0F3D6E] text-white' : 'text-[#0F3D6E] hover:bg-[#EAEAEA]'
-              }`}
-              title="Modo visualização (Inverter Cores / Negativo)"
-            >
-              <Eye className="h-3.5 w-3.5" />
-            </button>
-
-            {/* 3. Impressora */}
-            <button
-              type="button"
-              onClick={() => handlePrint(imprimirTodasCheck)}
-              className="inline-flex h-6 w-6 items-center justify-center rounded text-[#0F3D6E] hover:bg-[#EAEAEA]"
-              title="Imprimir documento oficial"
-            >
-              <Printer className="h-3.5 w-3.5" />
-            </button>
-
-            {/* 4. Sliders / Ajustes de Imagem */}
-            <button
-              type="button"
-              onClick={() => setModalAjustes(v => !v)}
-              className={`inline-flex h-6 w-6 items-center justify-center rounded transition ${
-                modalAjustes ? 'bg-[#0F3D6E] text-white' : 'text-[#0F3D6E] hover:bg-[#EAEAEA]'
-              }`}
-              title="Ajustes de imagem (Brilho, Contraste, Nitidez)"
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-            </button>
-
-            {/* 5. Download */}
-            <button
-              type="button"
-              onClick={() => handleDownload(false)}
-              className="inline-flex h-6 w-6 items-center justify-center rounded text-[#0F3D6E] hover:bg-[#EAEAEA]"
-              title="Baixar ficha atual (PNG de alta resolução)"
-            >
-              <Download className="h-3.5 w-3.5" />
-            </button>
-
-            {/* 6. Scan / Tela Cheia */}
-            <button
-              type="button"
-              onClick={toggleFullscreen}
-              className={`inline-flex h-6 w-6 items-center justify-center rounded transition ${
-                isFullScreen ? 'bg-[#0F3D6E] text-white' : 'text-[#0F3D6E] hover:bg-[#EAEAEA]'
-              }`}
-              title="Alternar tela cheia (F11)"
-            >
-              <Scan className="h-3.5 w-3.5" />
-            </button>
-
-            {/* 8. Camadas / Alternar barra lateral */}
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(s => !s)}
-              className={`inline-flex h-6 w-6 items-center justify-center rounded transition ${
-                sidebarOpen ? 'bg-[#EAEAEA] text-[#0F3D6E]' : 'text-[#0F3D6E] hover:bg-[#EAEAEA]'
-              }`}
-              title={sidebarOpen ? 'Ocultar painel lateral' : 'Exibir painel lateral'}
-            >
-              <Layers className="h-3.5 w-3.5" />
-            </button>
-
-            {/* 9. Fixar Monitor */}
-            {emJanela && (
+          <div className="flex w-full md:w-auto items-center justify-between md:justify-start gap-1">
+            <div className="flex items-center gap-1">
+              {/* Voltar chevron (Voltar para a tela anterior) */}
               <button
                 type="button"
-                onClick={alternarMonitorPadrao}
-                className={`inline-flex h-6 px-1.5 items-center justify-center rounded text-[10px] font-semibold transition ${
-                  prefJanelas?.lembrarUltimoMonitor && prefJanelas.ultimoMonitor
-                    ? 'bg-[#0F3D6E] text-white'
-                    : 'text-[#0F3D6E] hover:bg-[#EAEAEA]'
-                }`}
-                title={prefJanelas?.lembrarUltimoMonitor && prefJanelas.ultimoMonitor ? 'Monitor memorizado' : 'Memorizar este monitor'}
+                onClick={onClose}
+                className="inline-flex h-7 w-7 md:h-6 md:w-6 items-center justify-center rounded hover:bg-[#E0E0E0] text-gray-700 cursor-pointer"
+                title="Voltar para a tela anterior"
               >
-                <span>{prefJanelas?.lembrarUltimoMonitor && prefJanelas.ultimoMonitor ? '★ Fixo' : '☆ Fixar'}</span>
+                <ChevronLeft className="h-4 w-4" />
               </button>
-            )}
 
-            <div className="mx-1 h-5 w-[1px] bg-[#D4D4D4]" />
+              {/* Seta para esquerda (Documento Anterior) */}
+              <button
+                type="button"
+                onClick={() => navegarDocumento(-1)}
+                disabled={parseInt(docNumero, 10) <= 1}
+                className="inline-flex h-6 w-6 md:h-5 md:w-5 items-center justify-center rounded-full bg-[#0F3D6E] text-white hover:bg-[#174E8B] transition disabled:opacity-30 shadow-2xs cursor-pointer"
+                title="Documento anterior (ex: matrícula anterior - Ctrl + ←)"
+              >
+                <ArrowLeft className="h-3 w-3 stroke-[2.5]" />
+              </button>
+
+              {/* Seta para direita (Próximo Documento) */}
+              <button
+                type="button"
+                onClick={() => navegarDocumento(1)}
+                className="inline-flex h-6 w-6 md:h-5 md:w-5 items-center justify-center rounded-full bg-[#0F3D6E] text-white hover:bg-[#174E8B] transition shadow-2xs cursor-pointer"
+                title="Próximo documento (ex: próxima matrícula - Ctrl + →)"
+              >
+                <ArrowRight className="h-3 w-3 stroke-[2.5]" />
+              </button>
+            </div>
+
+            <div className="mx-0.5 md:mx-1 h-5 w-[1px] bg-[#D4D4D4]" />
+
+            <div className="flex items-center gap-1">
+              {/* Ícones de Ação */}
+              {/* 1. Lápis / Anotações */}
+              <button
+                type="button"
+                onClick={() => setModalAnotacoes(v => !v)}
+                className={`inline-flex h-7 w-7 md:h-6 md:w-6 items-center justify-center rounded transition ${
+                  modalAnotacoes ? 'bg-[#0F3D6E] text-white' : 'text-[#0F3D6E] hover:bg-[#EAEAEA]'
+                }`}
+                title="Anotações e Observações da Matrícula"
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+              </button>
+
+              {/* 2. Olho / Modo Visualização */}
+              <button
+                type="button"
+                onClick={() => setModoNegativo(n => !n)}
+                className={`inline-flex h-7 w-7 md:h-6 md:w-6 items-center justify-center rounded transition ${
+                  modoNegativo ? 'bg-[#0F3D6E] text-white' : 'text-[#0F3D6E] hover:bg-[#EAEAEA]'
+                }`}
+                title="Modo visualização (Inverter Cores / Negativo)"
+              >
+                <Eye className="h-3.5 w-3.5" />
+              </button>
+
+              {/* 3. Impressora */}
+              <button
+                type="button"
+                onClick={() => handlePrint(imprimirTodasCheck)}
+                className="inline-flex h-7 w-7 md:h-6 md:w-6 items-center justify-center rounded text-[#0F3D6E] hover:bg-[#EAEAEA]"
+                title="Imprimir documento oficial"
+              >
+                <Printer className="h-3.5 w-3.5" />
+              </button>
+
+              {/* 4. Sliders / Ajustes de Imagem */}
+              <button
+                type="button"
+                onClick={() => setModalAjustes(v => !v)}
+                className={`inline-flex h-7 w-7 md:h-6 md:w-6 items-center justify-center rounded transition ${
+                  modalAjustes ? 'bg-[#0F3D6E] text-white' : 'text-[#0F3D6E] hover:bg-[#EAEAEA]'
+                }`}
+                title="Ajustes de imagem (Brilho, Contraste, Nitidez)"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+              </button>
+
+              {/* 5. Download */}
+              <button
+                type="button"
+                onClick={() => handleDownload(false)}
+                className="inline-flex h-7 w-7 md:h-6 md:w-6 items-center justify-center rounded text-[#0F3D6E] hover:bg-[#EAEAEA]"
+                title="Baixar ficha atual (PNG de alta resolução)"
+              >
+                <Download className="h-3.5 w-3.5" />
+              </button>
+
+              {/* 6. Scan / Tela Cheia (desktop >= sm; no mobile já abre em tela cheia) */}
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                className={`hidden sm:inline-flex h-7 w-7 md:h-6 md:w-6 items-center justify-center rounded transition ${
+                  isFullScreen ? 'bg-[#0F3D6E] text-white' : 'text-[#0F3D6E] hover:bg-[#EAEAEA]'
+                }`}
+                title="Alternar tela cheia (F11)"
+              >
+                <Scan className="h-3.5 w-3.5" />
+              </button>
+
+              {/* 8. Camadas / Alternar barra lateral */}
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(s => !s)}
+                className={`inline-flex h-7 w-7 md:h-6 md:w-6 items-center justify-center rounded transition ${
+                  sidebarOpen ? 'bg-[#0F3D6E] md:bg-[#EAEAEA] text-white md:text-[#0F3D6E]' : 'text-[#0F3D6E] hover:bg-[#EAEAEA]'
+                }`}
+                title={sidebarOpen ? 'Ocultar painel lateral' : 'Exibir painel lateral'}
+              >
+                <Layers className="h-3.5 w-3.5" />
+              </button>
+
+              {/* 9. Fixar Monitor */}
+              {emJanela && (
+                <button
+                  type="button"
+                  onClick={alternarMonitorPadrao}
+                  className={`hidden sm:inline-flex h-6 px-1.5 items-center justify-center rounded text-[10px] font-semibold transition ${
+                    prefJanelas?.lembrarUltimoMonitor && prefJanelas.ultimoMonitor
+                      ? 'bg-[#0F3D6E] text-white'
+                      : 'text-[#0F3D6E] hover:bg-[#EAEAEA]'
+                  }`}
+                  title={prefJanelas?.lembrarUltimoMonitor && prefJanelas.ultimoMonitor ? 'Monitor memorizado' : 'Memorizar este monitor'}
+                >
+                  <span>{prefJanelas?.lembrarUltimoMonitor && prefJanelas.ultimoMonitor ? '★ Fixo' : '☆ Fixar'}</span>
+                </button>
+              )}
+            </div>
+
+            <div className="hidden md:block mx-1 h-5 w-[1px] bg-[#D4D4D4]" />
           </div>
 
           {/* Grupo à Direita: Pesquisa superior + Configurações + Usuário */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center">
+          <div className="flex w-full md:w-auto items-center gap-1.5 md:gap-2">
+            <div className="flex flex-1 md:flex-initial items-center min-w-0">
               <input
                 type="text"
                 value={termoTopSearch}
@@ -1184,15 +1191,15 @@ export function DocumentPreviewModal({
                 onKeyDown={e => e.key === 'Enter' && executarTopSearch()}
                 placeholder="Pesquisar documentos..."
                 style={{ backgroundColor: '#FFFFFF', color: '#111827' }}
-                className="h-6 w-44 sm:w-56 border border-[#C0C0C0] bg-white px-2 text-[11px] font-semibold text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-[#0F3D6E] rounded-none"
+                className="h-7 md:h-6 flex-1 min-w-0 md:w-56 border border-[#C0C0C0] bg-white px-2 text-[16px] md:text-[11px] font-semibold text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-[#0F3D6E] rounded-none"
               />
               <button
                 type="button"
                 onClick={executarTopSearch}
-                className="inline-flex h-6 w-6 items-center justify-center bg-[#0F3D6E] text-white hover:bg-[#174E8B] transition rounded-none shadow-2xs cursor-pointer"
+                className="inline-flex h-7 w-7 md:h-6 md:w-6 shrink-0 items-center justify-center bg-[#0F3D6E] text-white hover:bg-[#174E8B] transition rounded-none shadow-2xs cursor-pointer"
                 title="Pesquisar documento pelo número"
               >
-                <Search className="h-3 w-3" />
+                <Search className="h-3.5 w-3.5 md:h-3 md:w-3" />
               </button>
             </div>
 
@@ -1200,7 +1207,7 @@ export function DocumentPreviewModal({
             <button
               type="button"
               onClick={() => setModalConfig(v => !v)}
-              className={`inline-flex h-6 w-6 items-center justify-center rounded transition ${
+              className={`inline-flex h-7 w-7 md:h-6 md:w-6 shrink-0 items-center justify-center rounded transition ${
                 modalConfig ? 'bg-[#0F3D6E] text-white' : 'text-[#0F3D6E] hover:bg-[#EAEAEA]'
               }`}
               title="Configurações e Atalhos"
@@ -1209,7 +1216,7 @@ export function DocumentPreviewModal({
             </button>
 
             {/* Usuário Logado */}
-            <div className="flex items-center gap-1.5 text-gray-800">
+            <div className="hidden sm:flex items-center gap-1.5 text-gray-800 shrink-0">
               <User className="h-3.5 w-3.5 text-gray-600" />
               <span className="text-[11px] font-medium tracking-tight uppercase whitespace-nowrap hidden md:inline">
                 {userName}
@@ -1220,7 +1227,7 @@ export function DocumentPreviewModal({
 
         {/* POPOVER DE AJUSTES DE IMAGEM */}
         {modalAjustes && (
-          <div className="absolute top-16 left-28 z-[130] w-64 rounded bg-white p-3 shadow-xl border border-gray-300 text-xs text-gray-800 space-y-3">
+          <div className="absolute top-24 md:top-16 left-2 right-2 md:left-28 md:right-auto z-[130] w-auto md:w-64 max-w-[calc(100vw-1rem)] rounded bg-white p-3 shadow-xl border border-gray-300 text-xs text-gray-800 space-y-3">
             <div className="flex items-center justify-between border-b pb-1 font-bold text-[#0F3D6E]">
               <span className="flex items-center gap-1">
                 <SlidersHorizontal className="h-3.5 w-3.5" /> Ajustes de Imagem
@@ -1298,7 +1305,7 @@ export function DocumentPreviewModal({
 
         {/* POPOVER DE ANOTAÇÕES */}
         {modalAnotacoes && (
-          <div className="absolute top-16 left-12 z-[130] w-80 rounded bg-white p-3 shadow-xl border border-gray-300 text-xs text-gray-800 space-y-2">
+          <div className="absolute top-24 md:top-16 left-2 right-2 md:left-12 md:right-auto z-[130] w-auto md:w-80 max-w-[calc(100vw-1rem)] rounded bg-white p-3 shadow-xl border border-gray-300 text-xs text-gray-800 space-y-2">
             <div className="flex items-center justify-between border-b pb-1 font-bold text-[#0F3D6E]">
               <span className="flex items-center gap-1">
                 <Edit3 className="h-3.5 w-3.5" /> Anotações da Matrícula {docNumero}
@@ -1319,7 +1326,7 @@ export function DocumentPreviewModal({
               onChange={e => setAnotacoesTexto(e.target.value)}
               placeholder="Digite aqui notas de conferência, confrontantes ou observações..."
               rows={4}
-              className="w-full border border-gray-300 p-2 text-xs font-sans rounded focus:outline-none focus:border-[#0F3D6E]"
+              className="w-full border border-gray-300 p-2 text-[16px] md:text-xs font-sans rounded focus:outline-none focus:border-[#0F3D6E]"
             />
             <div className="flex justify-between items-center pt-1">
               <button
@@ -1345,7 +1352,7 @@ export function DocumentPreviewModal({
 
         {/* POPOVER DE CONFIGURAÇÕES E ATALHOS */}
         {modalConfig && (
-          <div className="absolute top-16 right-4 z-[130] w-72 rounded bg-white p-3.5 shadow-xl border border-gray-300 text-xs text-gray-800 space-y-3">
+          <div className="absolute top-24 md:top-16 left-2 right-2 sm:left-auto sm:right-4 z-[130] w-auto sm:w-72 max-w-[calc(100vw-1rem)] rounded bg-white p-3.5 shadow-xl border border-gray-300 text-xs text-gray-800 space-y-3">
             <div className="flex items-center justify-between border-b pb-1.5 font-bold text-[#0F3D6E]">
               <span className="flex items-center gap-1">
                 <Settings className="h-3.5 w-3.5" /> Atalhos e Configurações
@@ -1399,10 +1406,19 @@ export function DocumentPreviewModal({
         )}
 
         {/* 3. ÁREA DE TRABALHO: PAINEL LATERAL ESQUERDO + CANVAS CENTRAL */}
-        <div className="flex flex-1 overflow-hidden bg-[#EAEAEA]">
-          {/* PAINEL LATERAL ESQUERDO (Exibição condicional com sidebarOpen) */}
+        <div className="flex flex-1 overflow-hidden bg-[#EAEAEA] relative">
+          {/* Backdrop mobile quando o painel lateral está aberto */}
           {sidebarOpen && (
-            <div className="w-[275px] shrink-0 border-r border-[#D0D0D0] bg-[#EAEAEA] flex flex-col p-1.5 space-y-1.5 overflow-hidden select-none">
+            <div
+              className="fixed inset-0 z-30 bg-black/45 md:hidden"
+              onClick={() => setSidebarOpen(false)}
+              aria-hidden="true"
+            />
+          )}
+
+          {/* PAINEL LATERAL ESQUERDO (Drawer sobreposto no mobile < md; coluna fixa no desktop >= md) */}
+          {sidebarOpen && (
+            <div className="absolute inset-y-0 left-0 z-40 w-[86vw] max-w-[300px] shadow-2xl md:static md:z-auto md:w-[275px] md:max-w-none md:shadow-none shrink-0 border-r border-[#D0D0D0] bg-[#EAEAEA] flex flex-col p-1.5 space-y-1.5 overflow-hidden select-none">
               {/* CARD: VOLTAR PARA TELA ANTERIOR */}
               <button
                 type="button"
@@ -1541,12 +1557,12 @@ export function DocumentPreviewModal({
                       }
                     }}
                     placeholder="Ex: 1, 40001 ou termo (NUA...)"
-                    className="flex-1 h-6 border border-[#C0C0C0] bg-white px-2 text-xs font-mono font-bold text-gray-900 focus:outline-none focus:border-[#0F3D6E] placeholder:text-gray-400 placeholder:font-normal"
+                    className="flex-1 min-w-0 h-7 md:h-6 border border-[#C0C0C0] bg-white px-2 text-[16px] md:text-xs font-mono font-bold text-gray-900 focus:outline-none focus:border-[#0F3D6E] placeholder:text-gray-400 placeholder:font-normal"
                   />
                   <button
                     type="button"
                     onClick={() => handlePesquisarDocumentoOuTermo(docNumero)}
-                    className="h-6 px-2.5 bg-[#0F3D6E] hover:bg-[#174E8B] text-white transition shadow-2xs cursor-pointer flex items-center justify-center shrink-0"
+                    className="h-7 md:h-6 px-2.5 bg-[#0F3D6E] hover:bg-[#174E8B] text-white transition shadow-2xs cursor-pointer flex items-center justify-center shrink-0"
                     title="Buscar número de documento ou localizar termo"
                   >
                     <Search className="h-3 w-3" />
@@ -1636,7 +1652,7 @@ export function DocumentPreviewModal({
                     </div>
                   ) : (
                     <div
-                      className={`flex-1 overflow-y-auto p-1.5 bg-[#EAEAEA] flex flex-row sm:flex-col gap-1.5 ${
+                      className={`flex-1 overflow-y-auto p-1.5 bg-[#EAEAEA] flex flex-col gap-1.5 ${
                       tamanhoMiniaturas === 'pequeno'
                         ? 'gap-1'
                         : tamanhoMiniaturas === 'grande'
@@ -1649,7 +1665,10 @@ export function DocumentPreviewModal({
                       return (
                         <div
                           key={idx}
-                          onClick={() => mudarPagina(idx + 1)}
+                          onClick={() => {
+                            mudarPagina(idx + 1);
+                            if (typeof window !== 'undefined' && window.innerWidth < 768) setSidebarOpen(false);
+                          }}
                           className={`group relative cursor-pointer p-0.5 transition ${
                             isSelected
                               ? 'border-2 border-[#0F3D6E] bg-white shadow-md'
@@ -1720,7 +1739,7 @@ export function DocumentPreviewModal({
                             }
                           }}
                           placeholder="Ex: hipoteca, souvenir, NUA..."
-                          className="w-full h-7 border border-[#C0C0C0] bg-white text-gray-900 font-bold px-2 pr-6 text-xs rounded focus:outline-none focus:border-[#0F3D6E] placeholder:text-gray-400"
+                          className="w-full h-8 md:h-7 border border-[#C0C0C0] bg-white text-gray-900 font-bold px-2 pr-6 text-[16px] md:text-xs rounded focus:outline-none focus:border-[#0F3D6E] placeholder:text-gray-400"
                         />
                         {termoPesquisaDoc && (
                           <button
@@ -1769,7 +1788,10 @@ export function DocumentPreviewModal({
                             <button
                               key={idx}
                               type="button"
-                              onClick={() => mudarPagina(res.ficha)}
+                              onClick={() => {
+                                mudarPagina(res.ficha);
+                                if (typeof window !== 'undefined' && window.innerWidth < 768) setSidebarOpen(false);
+                              }}
                               className={`w-full text-left p-2 rounded border transition text-xs cursor-pointer ${
                                 currentPage === res.ficha
                                   ? 'border-2 border-[#0F3D6E] bg-[#EFF6FF] text-gray-900 shadow-sm'
@@ -1836,15 +1858,15 @@ export function DocumentPreviewModal({
           {/* PAINEL PRINCIPAL DE VISUALIZAÇÃO */}
           <div className="flex flex-1 flex-col overflow-hidden bg-[#E2E2E2] relative">
             {/* TOOLBAR SUPERIOR DO CANVAS */}
-            <div className="flex h-7 items-center justify-between bg-[#F0F0F0] border-b border-[#D0D0D0] px-2 text-xs select-none shrink-0 relative">
+            <div className="flex flex-wrap sm:flex-nowrap min-h-7 h-auto py-1 sm:h-7 sm:py-0 gap-x-1 gap-y-1 items-center justify-between bg-[#F0F0F0] border-b border-[#D0D0D0] px-2 text-xs select-none shrink-0 relative">
               {/* Controles de Navegação de Ficha */}
-              <div className="flex items-center gap-1">
+              <div className="flex flex-wrap items-center gap-0.5 sm:gap-1">
                 {/* 1. Primeira Ficha («) */}
                 <button
                   type="button"
                   onClick={() => mudarPagina(1)}
                   disabled={currentPage <= 1}
-                  className="inline-flex h-5 w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] disabled:opacity-30 rounded cursor-pointer transition"
+                  className="inline-flex h-6 w-6 sm:h-5 sm:w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] disabled:opacity-30 rounded cursor-pointer transition"
                   title="Primeira ficha («)"
                 >
                   <ChevronsLeft className="h-3.5 w-3.5" />
@@ -1855,7 +1877,7 @@ export function DocumentPreviewModal({
                   type="button"
                   onClick={() => mudarPagina(currentPage - 1)}
                   disabled={currentPage <= 1}
-                  className="inline-flex h-5 w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] disabled:opacity-30 rounded cursor-pointer transition"
+                  className="inline-flex h-6 w-6 sm:h-5 sm:w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] disabled:opacity-30 rounded cursor-pointer transition"
                   title="Ficha anterior (‹)"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
@@ -1865,7 +1887,7 @@ export function DocumentPreviewModal({
                 <button
                   type="button"
                   onClick={() => setMenuFichasAberto(v => !v)}
-                  className="flex h-5 items-center justify-center border border-[#C0C0C0] bg-white px-2 font-mono text-[11px] font-bold text-gray-800 hover:border-[#0F3D6E] cursor-pointer"
+                  className="flex h-6 sm:h-5 items-center justify-center border border-[#C0C0C0] bg-white px-2 font-mono text-[11px] font-bold text-gray-800 hover:border-[#0F3D6E] cursor-pointer"
                   title="Clique para escolher a ficha"
                 >
                   {currentPage}/{totalPages}
@@ -1873,7 +1895,7 @@ export function DocumentPreviewModal({
 
                 {/* Menu dropdown de fichas */}
                 {menuFichasAberto && (
-                  <div className="absolute top-7 left-12 z-[140] w-36 rounded bg-white py-1 shadow-lg border border-gray-300 max-h-48 overflow-y-auto font-mono text-[11px]">
+                  <div className="absolute top-8 sm:top-7 left-2 sm:left-12 z-[140] w-40 sm:w-36 rounded bg-white py-1 shadow-lg border border-gray-300 max-h-48 overflow-y-auto font-mono text-[11px]">
                     {Array.from({ length: totalPages }).map((_, i) => (
                       <button
                         key={i}
@@ -1882,7 +1904,7 @@ export function DocumentPreviewModal({
                           mudarPagina(i + 1);
                           setMenuFichasAberto(false);
                         }}
-                        className={`w-full text-left px-3 py-1 transition ${
+                        className={`w-full text-left px-3 py-1.5 sm:py-1 transition ${
                           currentPage === i + 1 ? 'font-bold bg-[#0F3D6E] text-white' : 'text-gray-700 hover:bg-gray-100'
                         }`}
                       >
@@ -1897,7 +1919,7 @@ export function DocumentPreviewModal({
                   type="button"
                   onClick={() => mudarPagina(currentPage + 1)}
                   disabled={currentPage >= totalPages}
-                  className="inline-flex h-5 w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] disabled:opacity-30 rounded cursor-pointer transition"
+                  className="inline-flex h-6 w-6 sm:h-5 sm:w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] disabled:opacity-30 rounded cursor-pointer transition"
                   title="Próxima ficha (›)"
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
@@ -1908,7 +1930,7 @@ export function DocumentPreviewModal({
                   type="button"
                   onClick={() => mudarPagina(totalPages)}
                   disabled={currentPage >= totalPages}
-                  className="inline-flex h-5 w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] disabled:opacity-30 rounded cursor-pointer transition"
+                  className="inline-flex h-6 w-6 sm:h-5 sm:w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] disabled:opacity-30 rounded cursor-pointer transition"
                   title="Última ficha (»)"
                 >
                   <ChevronsRight className="h-3.5 w-3.5" />
@@ -1917,6 +1939,7 @@ export function DocumentPreviewModal({
                 {/* 6. Caixa de input em branco para pular direto para a ficha */}
                 <input
                   type="text"
+                  inputMode="numeric"
                   value={inputPagina}
                   onChange={e => setInputPagina(e.target.value)}
                   onKeyDown={e => {
@@ -1925,17 +1948,17 @@ export function DocumentPreviewModal({
                     }
                   }}
                   placeholder={String(currentPage)}
-                  className="h-5 w-8 border border-[#C0C0C0] bg-white px-1 text-center font-mono text-[11px] font-bold text-gray-800 focus:outline-none focus:border-[#0F3D6E]"
+                  className="hidden sm:inline-block h-5 w-8 border border-[#C0C0C0] bg-white px-1 text-center font-mono text-[11px] font-bold text-gray-800 focus:outline-none focus:border-[#0F3D6E]"
                   title="Digite o número da ficha e pressione Enter"
                 />
 
-                <div className="mx-1 h-4 w-[1px] bg-gray-300" />
+                <div className="mx-0.5 sm:mx-1 h-4 w-[1px] bg-gray-300" />
 
                 {/* 7. Girar 90° à esquerda (↺) */}
                 <button
                   type="button"
                   onClick={() => setRotation(r => (r - 90 + 360) % 360)}
-                  className="inline-flex h-5 w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] rounded cursor-pointer transition"
+                  className="inline-flex h-6 w-6 sm:h-5 sm:w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] rounded cursor-pointer transition"
                   title="Girar 90° à esquerda (↺)"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
@@ -1945,19 +1968,19 @@ export function DocumentPreviewModal({
                 <button
                   type="button"
                   onClick={() => setRotation(r => (r + 90) % 360)}
-                  className="inline-flex h-5 w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] rounded cursor-pointer transition"
+                  className="inline-flex h-6 w-6 sm:h-5 sm:w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] rounded cursor-pointer transition"
                   title="Girar 90° à direita (↻)"
                 >
                   <RotateCw className="h-3.5 w-3.5" />
                 </button>
 
-                <div className="mx-1 h-4 w-[1px] bg-gray-300" />
+                <div className="mx-0.5 sm:mx-1 h-4 w-[1px] bg-gray-300" />
 
                 {/* 9. Zoom Out (-) */}
                 <button
                   type="button"
                   onClick={() => ajustarZoom(-25)}
-                  className="inline-flex h-5 w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] rounded cursor-pointer transition"
+                  className="inline-flex h-6 w-6 sm:h-5 sm:w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] rounded cursor-pointer transition"
                   title="Diminuir zoom (-)"
                 >
                   <ZoomOut className="h-3.5 w-3.5" />
@@ -1968,19 +1991,20 @@ export function DocumentPreviewModal({
                   <button
                     type="button"
                     onClick={() => setMenuZoomAberto(v => !v)}
-                    className="flex h-5 items-center justify-center border border-[#C0C0C0] bg-white px-1.5 font-sans text-[11px] font-bold text-gray-800 hover:border-[#0F3D6E] cursor-pointer"
+                    className="flex h-6 sm:h-5 items-center justify-center border border-[#C0C0C0] bg-white px-1.5 font-sans text-[11px] font-bold text-gray-800 hover:border-[#0F3D6E] cursor-pointer"
                     title="Clique para escolher o nível de zoom"
                   >
-                    {zoom.toFixed(2).replace('.', ',')}%
+                    <span className="sm:hidden">{Math.round(zoom)}%</span>
+                    <span className="hidden sm:inline">{zoom.toFixed(2).replace('.', ',')}%</span>
                   </button>
                   {menuZoomAberto && (
-                    <div className="absolute top-6 left-0 z-[140] w-32 rounded bg-white py-1 shadow-lg border border-gray-300 font-sans text-[11px]">
+                    <div className="absolute top-7 sm:top-6 right-0 sm:left-0 sm:right-auto z-[140] w-36 sm:w-32 rounded bg-white py-1 shadow-lg border border-gray-300 font-sans text-[11px]">
                       {[50, 75, 100, 150, 200, 250, 300, 400].map(z => (
                         <button
                           key={z}
                           type="button"
                           onClick={() => definirZoomExato(z)}
-                          className="w-full text-left px-2.5 py-1 text-gray-700 hover:bg-gray-100"
+                          className="w-full text-left px-2.5 py-1.5 sm:py-1 text-gray-700 hover:bg-gray-100"
                         >
                           {z}%
                         </button>
@@ -1989,14 +2013,14 @@ export function DocumentPreviewModal({
                       <button
                         type="button"
                         onClick={ajustarPagina}
-                        className="w-full text-left px-2.5 py-1 text-gray-700 hover:bg-gray-100"
+                        className="w-full text-left px-2.5 py-1.5 sm:py-1 text-gray-700 hover:bg-gray-100"
                       >
                         Ajustar à Página
                       </button>
                       <button
                         type="button"
                         onClick={ajustarLargura}
-                        className="w-full text-left px-2.5 py-1 text-gray-700 hover:bg-gray-100"
+                        className="w-full text-left px-2.5 py-1.5 sm:py-1 text-gray-700 hover:bg-gray-100"
                       >
                         Ajustar à Largura
                       </button>
@@ -2008,7 +2032,7 @@ export function DocumentPreviewModal({
                 <button
                   type="button"
                   onClick={() => ajustarZoom(25)}
-                  className="inline-flex h-5 w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] rounded cursor-pointer transition"
+                  className="inline-flex h-6 w-6 sm:h-5 sm:w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] rounded cursor-pointer transition"
                   title="Aumentar zoom (+)"
                 >
                   <ZoomIn className="h-3.5 w-3.5" />
@@ -2016,12 +2040,12 @@ export function DocumentPreviewModal({
               </div>
 
               {/* Ferramentas Siplan à Direita */}
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5 sm:gap-1">
                 {/* 12. Ajustar à Página Inteira [ ] */}
                 <button
                   type="button"
                   onClick={ajustarPagina}
-                  className="inline-flex h-5 w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] rounded cursor-pointer transition"
+                  className="inline-flex h-6 w-6 sm:h-5 sm:w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] rounded cursor-pointer transition"
                   title="Ajustar à página inteira"
                 >
                   <Maximize className="h-3.5 w-3.5" />
@@ -2031,25 +2055,27 @@ export function DocumentPreviewModal({
                 <button
                   type="button"
                   onClick={ajustarLargura}
-                  className="inline-flex h-5 w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] rounded cursor-pointer transition"
+                  className="inline-flex h-6 w-6 sm:h-5 sm:w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] rounded cursor-pointer transition"
                   title="Ajustar à largura"
                 >
                   <span className="font-bold text-[12px] leading-none">[+]</span>
                 </button>
 
-                {/* 14. Destacar Janela / Outro Monitor */}
+                {/* 14. Destacar Janela / Outro Monitor (apenas desktop >= sm) */}
                 {!emJanela && (
-                  <JanelaSeparadaMenu
-                    item={{ documento: docAtivo, relativePath: caminhoAtivo, rootId }}
-                    onAberto={onClose}
-                  />
+                  <div className="hidden sm:block">
+                    <JanelaSeparadaMenu
+                      item={{ documento: docAtivo, relativePath: caminhoAtivo, rootId }}
+                      onAberto={onClose}
+                    />
+                  </div>
                 )}
 
                 {/* 15. Óculos (Inverter / Modo Negativo) */}
                 <button
                   type="button"
                   onClick={() => setModoNegativo(n => !n)}
-                  className={`inline-flex h-5 w-5 items-center justify-center rounded transition cursor-pointer ${
+                  className={`inline-flex h-6 w-6 sm:h-5 sm:w-5 items-center justify-center rounded transition cursor-pointer ${
                     modoNegativo ? 'bg-[#0F3D6E] text-white' : 'text-[#0F3D6E] hover:bg-[#E0E0E0]'
                   }`}
                   title="Inverter cores (Negativo)"
@@ -2061,7 +2087,7 @@ export function DocumentPreviewModal({
                 <button
                   type="button"
                   onClick={() => setMostrarRegua(r => !r)}
-                  className={`inline-flex h-5 w-5 items-center justify-center rounded transition cursor-pointer ${
+                  className={`inline-flex h-6 w-6 sm:h-5 sm:w-5 items-center justify-center rounded transition cursor-pointer ${
                     mostrarRegua ? 'bg-[#0F3D6E] text-white' : 'text-[#0F3D6E] hover:bg-[#E0E0E0]'
                   }`}
                   title="Régua de medição e alinhamento milimetrado"
@@ -2073,7 +2099,7 @@ export function DocumentPreviewModal({
                 <button
                   type="button"
                   onClick={resetarZoom100}
-                  className="inline-flex h-5 w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] rounded cursor-pointer transition"
+                  className="inline-flex h-6 w-6 sm:h-5 sm:w-5 items-center justify-center text-[#0F3D6E] hover:bg-[#E0E0E0] rounded cursor-pointer transition"
                   title="Zoom 100% (=)"
                 >
                   <Equal className="h-3.5 w-3.5" />
@@ -2096,8 +2122,8 @@ export function DocumentPreviewModal({
                 isPdf
                   ? 'p-0 items-stretch select-auto'
                   : isDoc || docAtivo.notFound
-                  ? 'p-4 sm:p-6 items-start select-none'
-                  : 'p-4 sm:p-6 items-center select-none'
+                  ? 'p-2.5 sm:p-6 items-start select-none'
+                  : 'p-2 sm:p-6 items-center select-none'
               }`}
               style={{
                 cursor: isPdf ? 'default' : isPanning ? 'grabbing' : zoom > 100 ? 'grab' : 'default',
@@ -2121,7 +2147,7 @@ export function DocumentPreviewModal({
 
               {/* CASO 0: Mensagem Padrão de Documento Não Localizado */}
               {docAtivo.notFound ? (
-                <div className="w-full max-w-2xl bg-white border border-[#D0D0D0] shadow-xl p-8 sm:p-12 my-6 text-gray-900 rounded select-text">
+                <div className="w-full max-w-2xl bg-white border border-[#D0D0D0] shadow-xl p-4 sm:p-12 my-2 sm:my-6 text-gray-900 rounded select-text">
                   <div className="flex items-center gap-3 border-b border-[#0F3D6E]/20 pb-4 mb-6">
                     <div className="h-11 w-11 rounded-full bg-[#0F3D6E]/10 flex items-center justify-center shrink-0">
                       <FileX className="h-6 w-6 text-[#0F3D6E]" />
@@ -2199,20 +2225,20 @@ export function DocumentPreviewModal({
               ) : isPdf && (pdfUrlResolvida || docAtivo.pdfDataUrl) ? (
                 /* CASO 1: Visualizador Interativo de Processo PDF (Safari, Chrome, Edge, Firefox, iPad/Mac/PC) */
                 <div className="w-full h-full flex flex-col bg-white overflow-hidden">
-                  <div className="flex flex-wrap items-center justify-between gap-2 bg-[#F8FAFC] border-b border-gray-300 px-3 py-1.5 text-[11px] text-gray-700 shrink-0">
-                    <span className="truncate font-medium text-gray-800">
+                  <div className="flex flex-wrap items-center justify-between gap-2 bg-[#F8FAFC] border-b border-gray-300 px-2.5 sm:px-3 py-2 sm:py-1.5 text-[11px] text-gray-700 shrink-0">
+                    <span className="w-full sm:w-auto sm:flex-1 min-w-0 leading-snug whitespace-normal sm:truncate font-medium text-gray-800">
                       {dispositivoIOS
                         ? 'No iPad/iPhone (Safari), toque em "Abrir PDF completo" para rolar todas as páginas.'
                         : `PDF Oficial • ${docAtivo.fileName}`}
                     </span>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
                       <a
                         href={pdfUrlResolvida || docAtivo.pdfDataUrl}
                         target="_blank"
                         rel={(pdfUrlResolvida || docAtivo.pdfDataUrl || '').startsWith('blob:') ? undefined : 'noopener noreferrer'}
-                        className="inline-flex items-center gap-1 rounded bg-[#0F3D6E] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#174E8B] transition shadow-2xs"
+                        className="inline-flex items-center gap-1 rounded bg-[#0F3D6E] px-2.5 py-1.5 sm:py-1 text-[11px] font-semibold text-white hover:bg-[#174E8B] transition shadow-2xs"
                       >
-                        <ExternalLink className="h-3 w-3" />
+                        <ExternalLink className="h-3 w-3 shrink-0" />
                         <span>{dispositivoIOS ? 'Abrir PDF completo' : 'Abrir em nova aba'}</span>
                       </a>
                       {dispositivoIOS && docAtivo.pdfBlob && typeof navigator !== 'undefined' && 'share' in navigator && (
@@ -2232,28 +2258,33 @@ export function DocumentPreviewModal({
                               // Fechado pelo usuário no menu nativo do iOS
                             }
                           }}
-                          className="inline-flex items-center gap-1 rounded border border-[#0F3D6E]/30 bg-[#EFF6FF] px-2.5 py-1 text-[11px] font-semibold text-[#0F3D6E] hover:bg-[#DBEAFE] transition"
+                          className="inline-flex items-center gap-1 rounded border border-[#0F3D6E]/30 bg-[#EFF6FF] px-2.5 py-1.5 sm:py-1 text-[11px] font-semibold text-[#0F3D6E] hover:bg-[#DBEAFE] transition"
                         >
-                          <Download className="h-3 w-3 text-[#0F3D6E]" />
-                          <span>Arquivos / Compartilhar</span>
+                          <Download className="h-3 w-3 text-[#0F3D6E] shrink-0" />
+                          <span>Compartilhar</span>
                         </button>
                       )}
                       <a
                         href={pdfUrlResolvida || docAtivo.pdfDataUrl}
                         download={docAtivo.fileName}
-                        className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-800 hover:bg-gray-100 transition"
+                        className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2.5 py-1.5 sm:py-1 text-[11px] font-semibold text-gray-800 hover:bg-gray-100 transition"
                       >
-                        <Download className="h-3 w-3 text-[#0F3D6E]" />
+                        <Download className="h-3 w-3 text-[#0F3D6E] shrink-0" />
                         <span>Baixar PDF</span>
                       </a>
                     </div>
                   </div>
-                  <iframe
-                    src={pdfUrlResolvida || docAtivo.pdfDataUrl}
-                    className="w-full flex-1 border-0 bg-white"
-                    style={{ height: '100%', minHeight: '420px' }}
-                    title={docAtivo.fileName}
-                  />
+                  <div
+                    className="flex-1 w-full overflow-auto bg-white"
+                    style={{ WebkitOverflowScrolling: 'touch' }}
+                  >
+                    <iframe
+                      src={pdfUrlResolvida || docAtivo.pdfDataUrl}
+                      className="w-full h-full border-0 bg-white"
+                      style={{ height: '100%', minHeight: '360px' }}
+                      title={docAtivo.fileName}
+                    />
+                  </div>
                 </div>
               ) : isKenOrTif && pages.length > 0 ? (
                 /* CASO 2: Matrícula Digitalizada (.KEN / TIFF / Imagens) */
@@ -2285,7 +2316,7 @@ export function DocumentPreviewModal({
                 </div>
               ) : isDoc ? (
                 /* CASO 3: Minuta Word (.DOCX / .DOC) em Folha A4 */
-                <div className="w-full max-w-4xl bg-white border border-gray-400 shadow-2xl p-8 sm:p-14 my-0 text-gray-950 font-serif text-[15px] leading-relaxed select-text">
+                <div className="w-full max-w-4xl bg-white border border-gray-400 shadow-2xl p-4 sm:p-14 my-0 text-gray-950 font-serif text-[14px] sm:text-[15px] leading-relaxed select-text">
                   <div className="text-center border-b-2 border-[#0F3D6E] pb-4 mb-6">
                     <h3 className="font-bold text-base tracking-wider uppercase text-[#0F3D6E]">
                       7º Oficial de Registro de Imóveis da Comarca da Capital
@@ -2328,11 +2359,22 @@ export function DocumentPreviewModal({
             </div>
 
             {/* 4. BARRA DE STATUS INFERIOR */}
-            <div className="flex h-6 items-center justify-between bg-[#F0F0F0] border-t border-[#D0D0D0] px-2 text-[11px] text-gray-700 select-none shrink-0">
+            <div className="flex min-h-6 h-auto py-1 sm:py-0 pb-[max(0.25rem,env(safe-area-inset-bottom))] sm:pb-0 items-center justify-between bg-[#F0F0F0] border-t border-[#D0D0D0] px-2 text-[11px] text-gray-700 select-none shrink-0">
               {/* Esquerda: Logo Siplan + Especificações Técnicas Reais */}
-              <div className="flex items-center gap-2 font-sans truncate mr-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 font-sans min-w-0 truncate mr-2">
                 <SiplanLogo className="h-3 w-3 shrink-0" />
-                <span className="text-gray-800 truncate">
+                {/* Resumo conciso para telas estreitas (< sm) sem cortar palavras */}
+                <span className="text-gray-800 truncate sm:hidden">
+                  {docAtivo.notFound
+                    ? `Nº ${docAtivo.searchedTerm || docNumero} não localizado`
+                    : isPdf
+                    ? `PDF · ${(docAtivo.size / (1024 * 1024)).toFixed(2).replace('.', ',')} MB`
+                    : isDoc
+                    ? `${docAtivo.extension.toUpperCase()} · ${(docAtivo.size / 1024).toFixed(1).replace('.', ',')} KB`
+                    : `${ext ? ext.toUpperCase() : '.KEN'} · Ficha ${currentPage}/${totalPages} · ${(docAtivo.size / 1024).toFixed(0)} KB`}
+                </span>
+                {/* Especificação completa no Desktop (>= sm) */}
+                <span className="text-gray-800 truncate hidden sm:inline">
                   {docAtivo.notFound ? (
                     `Documento nº ${docAtivo.searchedTerm || docNumero} NÃO LOCALIZADO | Acervo: ${caminhoAtivo || 'K:\\IMAGENS\\' + sessaoSelecionada} | Fichas: 0 de 0`
                   ) : isPdf ? (
@@ -2348,12 +2390,12 @@ export function DocumentPreviewModal({
               </div>
 
               {/* Direita: Tempo Real de Resposta e Indicador Dinâmico */}
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="font-mono text-[11px] text-gray-700 font-semibold" title="Tempo real de processamento e busca na rede">
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <span className="font-mono text-[10.5px] sm:text-[11px] text-gray-700 font-semibold" title="Tempo real de processamento e busca na rede">
                   {tempoProcessamento}
                 </span>
                 <div
-                  className="h-2.5 w-16 bg-[#E0E0E0] border border-[#CCCCCC] overflow-hidden"
+                  className="h-2.5 w-10 sm:w-16 bg-[#E0E0E0] border border-[#CCCCCC] overflow-hidden"
                   title={isCarregandoDoc ? 'Carregando acervo...' : `Concluído em ${tempoProcessamento}`}
                 >
                   <div

@@ -11,6 +11,7 @@ import { KpiRow } from '@/components/dashboard/KpiRow';
 import { ReviewCard } from '@/components/dashboard/ReviewCard';
 import { TrendChart } from '@/components/dashboard/TrendChart';
 import { ColaboradoresChart } from '@/components/dashboard/ColaboradoresChart';
+import { RatingDistributionCard, type StarBucket } from '@/components/dashboard/RatingDistributionCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -304,6 +305,12 @@ export default async function Dashboard({
 
   const reputationHealth = computeReputationHealth(activeReviews);
 
+  const starDistribution: StarBucket[] = ([5, 4, 3, 2, 1] as const).map((stars) => {
+    const count = activeReviews.filter((r) => Math.round(r.rating) === stars).length;
+    const pct = totalActive > 0 ? Math.round((count / totalActive) * 100) : 0;
+    return { stars, count, pct };
+  });
+
   return (
     <div className="min-h-screen bg-[#070A12] text-white selection:bg-cyan-500/30 relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
@@ -368,10 +375,9 @@ export default async function Dashboard({
         respondidasEsteMes={isDemo ? 8 : respondidasEsteMes}
       />
 
-      {/* MAIN CONTENT GRID: 2 COLUMNS ON DESKTOP */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT COLUMN (7 COLS): CHARTS */}
-        <div className="lg:col-span-7 space-y-6">
+      {/* MAIN CONTENT ROW 1: CHARTS (7 COLS) + LATEST REVIEWS (5 COLS) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        <div className="lg:col-span-7 flex flex-col justify-between gap-6">
           <TrendChart data={isDemo ? undefined : trendData} />
           <ColaboradoresChart
             monthData={monthColaboradores}
@@ -380,9 +386,23 @@ export default async function Dashboard({
           />
         </div>
 
-        {/* RIGHT COLUMN (5 COLS): REVIEWS & INSIGHTS */}
-        <div className="lg:col-span-5 space-y-6">
+        <div className="lg:col-span-5">
           <ReviewCard reviews={latestReviews} />
+        </div>
+      </div>
+
+      {/* MAIN CONTENT ROW 2: RATING DISTRIBUTION (7 COLS) + AI INSIGHTS (5 COLS) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        <div className="lg:col-span-7">
+          <RatingDistributionCard
+            distribution={isDemo ? undefined : starDistribution}
+            totalActive={totalActive}
+            notaMedia={notaMedia}
+            isDemo={isDemo}
+          />
+        </div>
+
+        <div className="lg:col-span-5">
           <InsightCard insights={isDemo ? undefined : insights} />
         </div>
       </div>
