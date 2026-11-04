@@ -112,10 +112,10 @@ describe('FIORIX Multi-Tenant SaaS Connector HA, Provisioning & Release', () => 
     ).toBe(false);
   });
 
-  it('valida integridade SHA-256 real dos artefatos compilados de release v2.6.0', () => {
+  it('valida integridade SHA-256 real dos artefatos compilados de release do Connector', () => {
     const manifest = getLatestReleaseManifest();
     expect(manifest).not.toBeNull();
-    expect(manifest!.version).toBe('v2.6.0');
+    expect(manifest!.version).toMatch(/^v\d+\.\d+\.\d+$/);
 
     const dir = getReleaseArtifactDir();
     const bundleRaw = zlib.gunzipSync(fs.readFileSync(path.join(dir, 'index.js.gz')));
@@ -154,7 +154,7 @@ describe('FIORIX Multi-Tenant SaaS Connector HA, Provisioning & Release', () => 
 
     const manifest = getLatestReleaseManifest()!;
     expect(authRes.headers.get('x-checksum-sha256')).toBe(manifest.bundle.sha256);
-    expect(authRes.headers.get('x-release-version')).toBe('v2.6.0');
+    expect(authRes.headers.get('x-release-version')).toBe(manifest.version);
 
     const downloadedBytes = Buffer.from(await authRes.arrayBuffer());
     const downloadedHash = crypto.createHash('sha256').update(downloadedBytes).digest('hex');
