@@ -28,6 +28,7 @@ import {
   X,
   Clock,
   Activity,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import { FiorixSkeleton } from "@/components/fiorix/FiorixSkeleton";
@@ -2207,7 +2208,7 @@ export default function ProdutividadePage() {
         {/* ───────────────────────────────────────────────────────────── */}
         {/* CARDS PRINCIPAIS CLICÁVEIS (DINÂMICOS CONFORME A ABA ATIVA)   */}
         {/* ───────────────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="relative z-30 grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* CARD 1: TODOS OS CANAIS */}
           <div
             role="button"
@@ -2301,15 +2302,18 @@ export default function ProdutividadePage() {
                 handleSelecionarCanal("digital");
               }
             }}
-            className={`group relative flex flex-col justify-between rounded-[24px] border p-6 transition-all duration-300 cursor-pointer backdrop-blur-xl outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
+            className={`group relative hover:z-40 focus-visible:z-40 flex flex-col justify-between rounded-[24px] border p-6 transition-all duration-300 cursor-pointer backdrop-blur-xl outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
               filtroCanal === "digital"
                 ? "border-emerald-400/90 bg-[#0B1020] shadow-[0_0_28px_rgba(52,211,153,0.25)] ring-2 ring-emerald-400/60 scale-[1.01]"
                 : "border-white/10 bg-[#0B1020]/80 hover:border-white/30 hover:bg-[#0B1020] hover:scale-[1.008]"
             }`}
           >
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-300">
-                {heroCardsAba.digital.titulo}
+              <span className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <span>{heroCardsAba.digital.titulo}</span>
+                {activeTab === "servicos" && (
+                  <Info className="w-3.5 h-3.5 text-emerald-400/70 group-hover:text-emerald-300 transition-colors" />
+                )}
               </span>
               <div className="flex items-center gap-2">
                 {filtroHorario && (
@@ -2341,22 +2345,40 @@ export default function ProdutividadePage() {
                 )}
               </div>
               <p className="text-xs text-slate-300">{heroCardsAba.digital.subtitulo}</p>
-              {activeTab === "servicos" &&
-                "tiposLista" in heroCardsAba.digital &&
-                Array.isArray(heroCardsAba.digital.tiposLista) &&
-                heroCardsAba.digital.tiposLista.length > 0 && (
-                  <div className="mt-2.5 pt-2.5 border-t border-emerald-500/15 space-y-1">
-                    <span className="block text-[10px] font-mono uppercase tracking-wider text-emerald-300/90 font-semibold">
-                      {heroCardsAba.digital.tiposLista.length} tipos de serviço ONR:
-                    </span>
-                    <p className="text-[11px] leading-relaxed text-slate-400">
-                      {heroCardsAba.digital.tiposLista
-                        .map((t) => `${t.nome} (${t.qtd.toLocaleString("pt-BR")})`)
-                        .join(" · ")}
-                    </p>
-                  </div>
-                )}
             </div>
+
+            {activeTab === "servicos" &&
+              "tiposLista" in heroCardsAba.digital &&
+              Array.isArray(heroCardsAba.digital.tiposLista) &&
+              heroCardsAba.digital.tiposLista.length > 0 && (
+                <div
+                  role="tooltip"
+                  className="pointer-events-none invisible opacity-0 translate-y-1.5 group-hover:visible group-hover:opacity-100 group-hover:translate-y-0 group-focus-visible:visible group-focus-visible:opacity-100 group-focus-visible:translate-y-0 transition-all duration-200 absolute left-0 right-0 top-full mt-2.5 z-50 rounded-2xl border border-emerald-400/40 bg-[#080D1C]/98 backdrop-blur-2xl p-4 shadow-[0_24px_60px_rgba(0,0,0,0.85)]"
+                >
+                  <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-emerald-500/20">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-300">
+                      {heroCardsAba.digital.tiposLista.length} Tipos de Serviço · Digital ONR
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">Movimentações</span>
+                  </div>
+                  <ul className="space-y-1">
+                    {heroCardsAba.digital.tiposLista.map((t, idx) => (
+                      <li
+                        key={t.nome}
+                        className="flex items-center justify-between gap-3 text-[11px] py-0.5 border-b border-white/[0.04] last:border-0"
+                      >
+                        <span className="text-slate-200 truncate">
+                          <span className="text-emerald-400/80 font-mono mr-1.5">{idx + 1}.</span>
+                          {t.nome}
+                        </span>
+                        <span className="font-mono font-bold text-emerald-300 shrink-0">
+                          {t.qtd.toLocaleString("pt-BR")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
             <div className="w-full bg-white/5 rounded-full h-1.5 mb-4 overflow-hidden">
               <div
@@ -2397,15 +2419,18 @@ export default function ProdutividadePage() {
                 handleSelecionarCanal("presencial");
               }
             }}
-            className={`group relative flex flex-col justify-between rounded-[24px] border p-6 transition-all duration-300 cursor-pointer backdrop-blur-xl outline-none focus-visible:ring-2 focus-visible:ring-sky-400 ${
+            className={`group relative hover:z-40 focus-visible:z-40 flex flex-col justify-between rounded-[24px] border p-6 transition-all duration-300 cursor-pointer backdrop-blur-xl outline-none focus-visible:ring-2 focus-visible:ring-sky-400 ${
               filtroCanal === "presencial"
                 ? "border-sky-400/90 bg-[#0B1020] shadow-[0_0_28px_rgba(56,189,248,0.25)] ring-2 ring-sky-400/60 scale-[1.01]"
                 : "border-white/10 bg-[#0B1020]/80 hover:border-white/30 hover:bg-[#0B1020] hover:scale-[1.008]"
             }`}
           >
             <div className="flex items-center justify-between mb-4">
-              <span className="text-xs font-black uppercase tracking-wider text-slate-300">
-                {heroCardsAba.presencial.titulo}
+              <span className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <span>{heroCardsAba.presencial.titulo}</span>
+                {activeTab === "servicos" && (
+                  <Info className="w-3.5 h-3.5 text-sky-400/70 group-hover:text-sky-300 transition-colors" />
+                )}
               </span>
               <div className="flex items-center gap-2">
                 {filtroHorario && (
@@ -2437,22 +2462,40 @@ export default function ProdutividadePage() {
                 )}
               </div>
               <p className="text-xs text-slate-300">{heroCardsAba.presencial.subtitulo}</p>
-              {activeTab === "servicos" &&
-                "tiposLista" in heroCardsAba.presencial &&
-                Array.isArray(heroCardsAba.presencial.tiposLista) &&
-                heroCardsAba.presencial.tiposLista.length > 0 && (
-                  <div className="mt-2.5 pt-2.5 border-t border-sky-500/15 space-y-1">
-                    <span className="block text-[10px] font-mono uppercase tracking-wider text-sky-300/90 font-semibold">
-                      {heroCardsAba.presencial.tiposLista.length} tipos de serviço presenciais:
-                    </span>
-                    <p className="text-[11px] leading-relaxed text-slate-400">
-                      {heroCardsAba.presencial.tiposLista
-                        .map((t) => `${t.nome} (${t.qtd.toLocaleString("pt-BR")})`)
-                        .join(" · ")}
-                    </p>
-                  </div>
-                )}
             </div>
+
+            {activeTab === "servicos" &&
+              "tiposLista" in heroCardsAba.presencial &&
+              Array.isArray(heroCardsAba.presencial.tiposLista) &&
+              heroCardsAba.presencial.tiposLista.length > 0 && (
+                <div
+                  role="tooltip"
+                  className="pointer-events-none invisible opacity-0 translate-y-1.5 group-hover:visible group-hover:opacity-100 group-hover:translate-y-0 group-focus-visible:visible group-focus-visible:opacity-100 group-focus-visible:translate-y-0 transition-all duration-200 absolute left-0 right-0 top-full mt-2.5 z-50 rounded-2xl border border-sky-400/40 bg-[#080D1C]/98 backdrop-blur-2xl p-4 shadow-[0_24px_60px_rgba(0,0,0,0.85)]"
+                >
+                  <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-sky-500/20">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-sky-300">
+                      {heroCardsAba.presencial.tiposLista.length} Tipos de Serviço · Presencial
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">Movimentações</span>
+                  </div>
+                  <ul className="space-y-1">
+                    {heroCardsAba.presencial.tiposLista.map((t, idx) => (
+                      <li
+                        key={t.nome}
+                        className="flex items-center justify-between gap-3 text-[11px] py-0.5 border-b border-white/[0.04] last:border-0"
+                      >
+                        <span className="text-slate-200 truncate">
+                          <span className="text-sky-400/80 font-mono mr-1.5">{idx + 1}.</span>
+                          {t.nome}
+                        </span>
+                        <span className="font-mono font-bold text-sky-300 shrink-0">
+                          {t.qtd.toLocaleString("pt-BR")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
             <div className="w-full bg-white/5 rounded-full h-1.5 mb-4 overflow-hidden">
               <div
