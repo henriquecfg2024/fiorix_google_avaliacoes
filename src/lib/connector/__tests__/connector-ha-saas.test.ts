@@ -208,17 +208,35 @@ describe('FIORIX Multi-Tenant SaaS Connector HA, Provisioning & Release', () => 
     expect(actRes.status).toBe(200);
     expect(actRes.headers.get('content-disposition')).toContain('Ativar-FIORIX-v2.6.2.bat');
     const actBat = await actRes.text();
-    const encMatch = actBat.match(/-EncodedCommand\s+([A-Za-z0-9+/=]+)/);
-    expect(encMatch).not.toBeNull();
-    const decodedPs = Buffer.from(encMatch![1], 'base64').toString('utf16le');
-    expect(decodedPs).toContain('Update-ConnectorFolder');
+    const marker = '###FIORIX_PS1###';
+    const markerIdx = actBat.indexOf(marker);
+    expect(markerIdx).toBeGreaterThan(0);
+
+    // Garante que nenhuma linha do cabecalho .BAT ultrapasse o limite de 8191 chars do cmd.exe
+    const batHeaderLines = actBat.slice(0, markerIdx).split(/\r?\n/);
+    for (const line of batHeaderLines) {
+      expect(line.length).toBeLessThan(1000);
+    }
+
+    const extractedPs = actBat.slice(markerIdx + marker.length);
+    expect(extractedPs).toContain('Update-ConnectorFolder');
 
     if (process.platform === 'win32') {
       const tmpActPs1 = path.join(
         process.env.TEMP || process.cwd(),
         `fiorix-act-ast-${Date.now()}.ps1`,
       );
-      fs.writeFileSync(tmpActPs1, decodedPs, 'utf8');
+      const tmpDryBat = path.join(
+        process.env.TEMP || process.cwd(),
+        `fiorix-act-dry-${Date.now()} (1).bat`,
+      );
+      fs.writeFileSync(tmpActPs1, extractedPs, 'utf8');
+      // Testa execucao real via cmd.exe com espaco e parenteses no nome do arquivo
+      const dryBatContent = actBat
+        .replace('net session >nul 2>&1', 'ver >nul')
+        .replace('pause', 'rem nop')
+        .slice(0, actBat.indexOf(marker) + marker.length) + '\r\nWrite-Output "CMD_PS1_OK"\r\n';
+      fs.writeFileSync(tmpDryBat, dryBatContent, 'utf8');
       try {
         const parseOut = execFileSync(
           'powershell.exe',
@@ -231,8 +249,12 @@ describe('FIORIX Multi-Tenant SaaS Connector HA, Provisioning & Release', () => 
           { encoding: 'utf8' },
         );
         expect(parseOut.trim()).toBe('AST_OK');
+
+        const cmdOut = execFileSync('cmd.exe', ['/c', tmpDryBat], { encoding: 'utf8' });
+        expect(cmdOut).toContain('CMD_PS1_OK');
       } finally {
-        fs.unlinkSync(tmpActPs1);
+        if (fs.existsSync(tmpActPs1)) fs.unlinkSync(tmpActPs1);
+        if (fs.existsSync(tmpDryBat)) fs.unlinkSync(tmpDryBat);
       }
     }
   });

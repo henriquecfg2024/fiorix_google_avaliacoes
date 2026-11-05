@@ -588,18 +588,31 @@ function Update-ConnectorFolder([string]$Folder, [string]$Label, [string]$Remote
   $EnvProd = Join-Path $Folder '.env.production'
 
   # Se nao houver index.js.new em espera, baixa e valida SHA-256 direto do SaaS usando as credenciais locais do servidor
-  if (-not (Test-Path $Staged) -and (Test-Path $EnvProd)) {
-    $cid = ''; $csec = ''
+  $already262 = $false
+  if ((Test-Path $Active) -and -not (Test-Path $Staged)) {
+    try {
+      $activeSample = [IO.File]::ReadAllText($Active, [Text.Encoding]::UTF8)
+      if ($activeSample.Contains('2.6.2')) { $already262 = $true }
+    } catch {}
+  }
+
+  if (-not (Test-Path $Staged) -and -not $already262 -and (Test-Path $EnvProd)) {
+    $cid = ''; $csec = ''; $pUrl = ''
     foreach ($ln in (Get-Content $EnvProd)) {
       if ($ln -match '^CONNECTOR_ID=(.+)$') { $cid = $Matches[1].Trim('"', "'", ' ') }
       if ($ln -match '^CONNECTOR_SECRET=(.+)$') { $csec = $Matches[1].Trim('"', "'", ' ') }
+      if (-not $pUrl -and $ln -match '^HTTPS?_PROXY=(.+)$') { $pUrl = $Matches[1].Trim('"', "'", ' ') }
     }
     if ($cid -and $csec) {
       try {
         $hdr = @{ 'Authorization' = "Bearer $csec"; 'X-Connector-Id' = $cid }
-        $mf = Invoke-RestMethod -Uri '${origin}/api/v1/connector/release?asset=manifest' -Headers $hdr -UseBasicParsing -TimeoutSec 20
+        $irmParams = @{ Uri = '${origin}/api/v1/connector/release?asset=manifest'; Headers = $hdr; UseBasicParsing = $true; TimeoutSec = 25 }
+        if ($pUrl) { $irmParams['Proxy'] = $pUrl }
+        $mf = Invoke-RestMethod @irmParams
         $tmpDl = Join-Path $env:TEMP ("fiorix-bundle-" + [guid]::NewGuid().ToString('N') + ".js")
-        Invoke-WebRequest -Uri '${origin}/api/v1/connector/release?asset=bundle' -Headers $hdr -OutFile $tmpDl -UseBasicParsing -TimeoutSec 45
+        $iwrParams = @{ Uri = '${origin}/api/v1/connector/release?asset=bundle'; Headers = $hdr; OutFile = $tmpDl; UseBasicParsing = $true; TimeoutSec = 60 }
+        if ($pUrl) { $iwrParams['Proxy'] = $pUrl }
+        Invoke-WebRequest @iwrParams
         $hash = (Get-FileHash -Path $tmpDl -Algorithm SHA256).Hash.ToLower()
         if ($hash -eq ([string]$mf.bundle.sha256).ToLower()) {
           Copy-Item -Path $tmpDl -Destination $Staged -Force
@@ -614,7 +627,11 @@ function Update-ConnectorFolder([string]$Folder, [string]$Label, [string]$Remote
 
   if ([string]::IsNullOrWhiteSpace($RemoteHost)) {
     Stop-Service -Name 'FIORIXConnector' -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 3
+    for ($w = 0; $w -lt 15; $w++) {
+      $svcCheck = Get-Service -Name 'FIORIXConnector' -ErrorAction SilentlyContinue
+      if (-not $svcCheck -or $svcCheck.Status -eq 'Stopped') { break }
+      Start-Sleep -Seconds 1
+    }
   } else {
     & sc.exe "\\\\$RemoteHost" stop FIORIXConnector | Out-Null
     Start-Sleep -Seconds 5
@@ -678,23 +695,28 @@ Write-Host "  A partir da v2.6.2, as proximas atualizacoes reiniciam 100% sozinh
 Write-Host "======================================================================" -ForegroundColor Green
 `;
 
-  const encoded = Buffer.from(psScript, 'utf16le').toString('base64');
+  const normalizedPs = psScript.trim().replace(/\r?\n/g, '\r\n');
   return [
     '@echo off',
     'chcp 65001 >nul',
     'title Ativar FIORIX Connector v2.6.2 (Transicao Unica)',
+    'set "SELF_BAT=%~f0"',
     'net session >nul 2>&1',
     'if %errorLevel% neq 0 (',
     '  echo Solicitando permissao de Administrador para reiniciar o servico FIORIXConnector...',
-    '  powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath \'%~f0\' -Verb RunAs"',
+    '  powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath $env:SELF_BAT -Verb RunAs"',
     '  exit /b',
     ')',
     'echo ============================================================================',
     'echo   FIORIX CONNECTOR - ATIVADOR UNICO DE TRANSICAO (v2.6.0 -^> v2.6.2)',
     'echo ============================================================================',
-    `powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${encoded}`,
+    'powershell -NoProfile -ExecutionPolicy Bypass -Command "$raw = [IO.File]::ReadAllText($env:SELF_BAT, [Text.Encoding]::UTF8); $m = \'###FIORIX_\' + \'PS1###\'; $i = $raw.IndexOf($m); if ($i -lt 0) { throw \'Payload PS1 ausente\' }; $tmp = Join-Path $env:TEMP (\'fiorix-act-\' + [guid]::NewGuid().ToString(\'N\') + \'.ps1\'); [IO.File]::WriteAllText($tmp, $raw.Substring($i + $m.Length), [Text.Encoding]::UTF8); try { . $tmp } finally { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }"',
     'echo.',
     'pause',
+    'exit /b',
+    '###FIORIX_PS1###',
+    normalizedPs,
+    '',
   ].join('\r\n');
 }
 
